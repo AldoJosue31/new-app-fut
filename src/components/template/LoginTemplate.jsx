@@ -5,6 +5,7 @@ import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints"
 import { useAuthStore } from "../../store/AuthStore";
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../supabase/supabase.config';
 
 export function LoginTemplate() {
         const navigate = useNavigate();
@@ -18,26 +19,40 @@ export function LoginTemplate() {
         if (emailRef.current) emailRef.current.focus();
     }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const email = emailRef.current?.value?.trim();
-    const password = passRef.current?.value;
-    if (!email || !password) return alert('Ingresa correo y contraseña');
-    try {
-      await loginWithEmail(email, password);
-      // redirige inmediatamente al dashboard (reemplaza historial)
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  const email = emailRef.current?.value?.trim();
+  const password = passRef.current?.value;
+  if (!email || !password) return alert('Ingresa correo y contraseña');
+  try {
+    await loginWithEmail(email, password);
+    // Espera a que la sesión exista (pequeña comprobación fiable)
+    // Esto evita navegar antes de que el listener se sincronice.
+    const sessionRes = await supabase.auth.getSession();
+    if (sessionRes?.data?.session) {
       navigate('/dashboard', { replace: true });
-    } catch (err) {
-      alert(err.message || 'Error al iniciar sesión');
+    } else {
+      // Si no hay sesión inmediata, espera un momento corto y reintenta una vez
+      await new Promise(r => setTimeout(r, 400));
+      const s2 = await supabase.auth.getSession();
+      if (s2?.data?.session) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        // deja que el listener haga su trabajo; opcionalmente mostrar mensaje
+        console.warn('Login iniciado, esperando listener para redirigir.');
+      }
     }
-  };
+  } catch (err) {
+    alert(err.message || 'Error al iniciar sesión');
+  }
+};
 
     return (
         <Container>
             <BackgroundLayer />
             <Card>
                 <ContentLogo>
-                    <img src="/shopping-store.png" alt="Logo" />
+                    <img src="/icon-football.webp" alt="Logo" />
                     <div className="logoText">
                         <span className="line1">Futbol</span>
                         <span className="line2">App</span>
