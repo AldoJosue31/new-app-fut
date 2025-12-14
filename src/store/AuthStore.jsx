@@ -117,57 +117,7 @@ export const useAuthStore = create((set, get) => {
   };
 
   // Inicialización: obtiene session inicial y subscribe
-  (async function init() {
-    try {
-      // 1) obtener sesión actual una vez al inicio
-      const { data } = await supabase.auth.getSession();
-      const sessionUser = data?.session?.user ?? null;
-      set({ user: sessionUser });
 
-      if (sessionUser?.id) {
-        // fetch profile si ya existe sesión
-        await fetchProfile(sessionUser.id);
-      } else {
-        set({ isLoading: false });
-      }
-    } catch (err) {
-      console.error('AuthStore init error', err);
-      set({ isLoading: false });
-    }
-
-    // 2) listener para cambios de sesión
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const u = session?.user ?? null;
-      set({ user: u });
-
-      if (u?.id) {
-        // fetch/profile update
-        await fetchProfile(u.id);
-
-        // opcional: si el profile no existía puedes crear uno mínimo
-        // (pero si ejecutaste el SQL con trigger o hiciste upsert en signup, no hace falta)
-        // ejemplo:
-        // await supabase.from('profiles').upsert({ id: u.id, email: u.email });
-      } else {
-        set({ profile: null });
-      }
-
-      // en cualquier cambio de sesión, ya no estamos en "isLoading" inicial
-      set({ isLoading: false });
-    });
-
-    // guarda unsubscribe para evitar fugas si el módulo se recarga (HMR)
-    // aunque aquí no guardamos la referencia, supabase mantiene internamente.
-    // Si quieres exponer unsubscribe, podríamos guardarla en el store.
-    // Ejemplo simple: on window unload unsub
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
-        try {
-          listener?.subscription?.unsubscribe?.();
-        } catch (e) {}
-      });
-    }
-  })();
 
   return actions;
 });
