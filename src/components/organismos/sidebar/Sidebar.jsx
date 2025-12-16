@@ -1,15 +1,45 @@
 import styled from "styled-components";
-import {
-  LinksArray,
-  SecondarylinksArray,
-  ToggleTema,
-} from "../../../index";
+import { ToggleTema } from "../../../index";
 import { v } from "../../../styles/variables";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { useAuthStore } from "../../../store/AuthStore"; // 1. Importamos el store
 
+// ... (Mantenemos tus arrays de links igual) ...
+const LinksArray = [
+  {
+    label: "Partidos",
+    icon: "mdi:soccer-field",
+    to: "/partidos",
+  },
+  {
+    label: "Equipos",
+    icon: "fluent:people-team-24-filled",
+    to: "/equipos",
+  },
+  {
+    label: "Torneos",
+    icon: "ph:trophy-fill",
+    to: "/torneos",
+  },
+  {
+    label: "Mi Liga",
+    icon: "material-symbols:leaderboard",
+    to: "/liga",
+  },
+];
+
+const SecondarylinksArray = [
+  {
+    label: "Configuración",
+    icon: "material-symbols:settings-outline",
+    to: "/configuracion",
+  },
+];
 
 export function Sidebar({ state, setState }) {
+  // 2. Extraemos la función para cerrar sesión
+  const { cerrarSesion } = useAuthStore();
 
   return (
     <Main $isopen={state.toString()}>
@@ -18,11 +48,14 @@ export function Sidebar({ state, setState }) {
       </span>
       <Container $isopen={state.toString()} className={state ? "active" : ""}>
         <div className="Logocontent">
+          <NavLink to="/" className="logo-link">
           <div className="imgcontent">
-            <img src={v.logo} />
+            <img src={v.logo} alt="Logo" />
           </div>
-          <h2>Modelorama</h2>
+          <h2>Liga <br /> Manager</h2>
+          </NavLink>
         </div>
+
         {LinksArray.map(({ icon, label, to }) => (
           <div
             className={state ? "LinkContainer active" : "LinkContainer"}
@@ -41,7 +74,9 @@ export function Sidebar({ state, setState }) {
             </NavLink>
           </div>
         ))}
+        
         <Divider />
+
         {SecondarylinksArray.map(({ icon, label, to, color }) => (
           <div
             className={state ? "LinkContainer active" : "LinkContainer"}
@@ -60,26 +95,42 @@ export function Sidebar({ state, setState }) {
             </NavLink>
           </div>
         ))}
-        <div className={state ? "LinkContainer active" : "LinkContainer"}>
-          <div className="Links">
-            <section className={state ? "content open" : "content"}>
-              <Icon
-                color="#CE82FF"
-                className="Linkicon"
-                icon="heroicons:ellipsis-horizontal-circle-solid"
-              />
-              <span className={state ? "label_ver" : "label_oculto"}>MÁS</span>
-            </section>
-          </div>
-
-
-        </div>
 
         <ToggleTema />
+        
+        <Divider />
+
+        {/* --- 3. BOTÓN CERRAR SESIÓN (ROJO) --- */}
+        <div className={state ? "LinkContainer active" : "LinkContainer"}>
+          <div 
+            className="Links" 
+            onClick={cerrarSesion} 
+            style={{ cursor: "pointer" }} // Para que se sienta como botón
+          >
+            <section className={state ? "content open" : "content"}>
+              {/* Usamos v.rojo para el color del icono */}
+              <Icon 
+                className="Linkicon" 
+                icon="material-symbols:logout-rounded" 
+                color={v.rojo} 
+                style={{ fontSize: '28px' }}
+              />
+              <span 
+                className={state ? "label_ver" : "label_oculto"}
+                style={{ color: v.rojo, fontWeight: '600' }} // Texto también rojo
+              >
+                Cerrar Sesión
+              </span>
+            </section>
+          </div>
+        </div>
+
       </Container>
     </Main>
   );
 }
+
+// ... (Los estilos se mantienen exactamente igual que en tu archivo original) ...
 const Container = styled.div`
   background: ${({ theme }) => theme.bgtotal};
   color: ${(props) => props.theme.text};
@@ -105,11 +156,23 @@ const Container = styled.div`
   &.active {
     width: 260px;
   }
-  .Logocontent {
+.Logocontent {
     display: flex;
     justify-content: center;
     align-items: center;
     padding-bottom: 60px;
+
+    /* --- NUEVO ESTILO PARA EL LINK DEL LOGO --- */
+    .logo-link {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-decoration: none; /* Quitar subrayado */
+      color: inherit; /* Heredar el color de texto del tema */
+      width: 100%; /* Para facilitar el click */
+    }
+    /* ------------------------------------------ */
+
     .imgcontent {
       display: flex;
       justify-content: center;
@@ -118,16 +181,20 @@ const Container = styled.div`
       cursor: pointer;
       transition: 0.3s ease;
       transform: ${({ $isopen }) =>
-    $isopen === "true" ? `scale(0.7)` : `scale(1.5)`}
+        $isopen === "true" ? `scale(0.7)` : `scale(1.5)`}
         rotate(${({ theme }) => theme.logorotate});
+      
       img {
         width: 100%;
         animation: flotar 1.7s ease-in-out infinite alternate;
       }
     }
+
     h2 {
       color: #f88533;
       display: ${({ $isopen }) => ($isopen === "true" ? `block` : `none`)};
+      margin-left: 10px;
+      transition: 0.3s; /* Suavizar la aparición */
     }
   }
   .LinkContainer {
@@ -149,6 +216,7 @@ const Container = styled.div`
     color: ${(props) => props.theme.text};
     height: 60px;
     position: relative;
+    cursor: pointer;
     .content {
       display: flex;
       justify-content: center;
@@ -157,10 +225,6 @@ const Container = styled.div`
       .Linkicon {
         display: flex;
         font-size: 33px;
-
-        svg {
-          font-size: 25px;
-        }
       }
 
       .label_ver {
@@ -192,6 +256,7 @@ const Container = styled.div`
     }
   }
 `;
+
 const Main = styled.div`
   .Sidebarbutton {
     position: fixed;
@@ -210,10 +275,11 @@ const Main = styled.div`
     transition: all 0.2s;
     z-index: 3;
     transform: ${({ $isopen }) =>
-    $isopen === "true" ? `translateX(173px) rotate(3.142rad)` : `initial`};
+      $isopen === "true" ? `translateX(173px) rotate(3.142rad)` : `initial`};
     color: ${(props) => props.theme.text};
   }
 `;
+
 const Divider = styled.div`
   height: 1px;
   width: 100%;

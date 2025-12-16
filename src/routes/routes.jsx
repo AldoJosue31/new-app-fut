@@ -1,6 +1,14 @@
-// src/routes/routes.jsx  (o la ruta correcta de tu archivo)
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Home, Login } from "../index";
+// Asegúrate de que las nuevas páginas se importen desde el index
+import { 
+  Home, 
+  Login, 
+  Partidos, 
+  Equipos, 
+  Torneos, 
+  Liga, 
+  Configuracion 
+} from "../index";
 import { UserAuth } from "../context/AuthContent";
 
 function ProtectedRoute({ children }) {
@@ -26,27 +34,18 @@ export function MyRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
 
-      {/* Ruta canónica del dashboard */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
+      {/* --- RUTAS PROTEGIDAS DEL DASHBOARD --- */}
+      
+      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+      
+      {/* Nuevas Rutas */}
+      <Route path="/partidos" element={<ProtectedRoute><Partidos /></ProtectedRoute>} />
+      <Route path="/equipos" element={<ProtectedRoute><Equipos /></ProtectedRoute>} />
+      <Route path="/torneos" element={<ProtectedRoute><Torneos /></ProtectedRoute>} />
+      <Route path="/liga" element={<ProtectedRoute><Liga /></ProtectedRoute>} />
+      <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
 
-      {/* Mantén "/" también por compatibilidad */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Catch-all: redirige cualquier ruta desconocida a "/" */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
