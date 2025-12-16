@@ -2,27 +2,24 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabase.config';
 
-/**
- * Zustand store que maneja autenticación + profile (tabla profiles).
- * Se inicializa al importar el módulo (fetch session + subscribe).
- */
 export const useAuthStore = create((set, get) => {
-  // helpers internos
+  
+  // Helpers internos
   const fetchProfile = async (id) => {
     if (!id) {
       set({ profile: null });
       return null;
     }
-    set({ isLoading: true });
+    // Nota: No activamos isLoading global aquí para no parpadear la UI si se llama en segundo plano
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', id)
         .single();
+      
       if (error) {
-        // si no existe, devolver null (no mostrar error al usuario)
-        console.warn('fetchProfile warning', error.message || error);
+        console.warn('Perfil no encontrado (AuthStore):', error.message);
         set({ profile: null });
         return null;
       }
@@ -32,29 +29,26 @@ export const useAuthStore = create((set, get) => {
       console.error('fetchProfile error', err);
       set({ profile: null });
       return null;
-    } finally {
-      set({ isLoading: false });
     }
   };
 
-  // acciones públicas disponibles en el store
   const actions = {
-    // registro con email/contraseña (upsertea profile si user existe)
+    // --- Registro con Email ---
     signupWithEmail: async (email, password, extra = {}) => {
       set({ authLoadingAction: true });
       try {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        // supabase puede no devolver session hasta confirmar, pero si viene user lo usamos
+        
         const user = data?.user ?? data;
         if (user?.id) {
+          // Crear perfil inmediatamente
           await supabase.from('profiles').upsert({
             id: user.id,
             email,
             full_name: extra.full_name ?? null,
             created_at: new Date().toISOString(),
           });
-          // actualizar profile local
           await fetchProfile(user.id);
         }
         set({ authLoadingAction: false });
@@ -65,14 +59,13 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    // login con email/password
+    // --- Login con Email ---
     loginWithEmail: async (email, password) => {
       set({ authLoadingAction: true });
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         set({ authLoadingAction: false });
         if (error) throw error;
-        // session llegará por listener; aún así podemos retornar data
         return data;
       } catch (err) {
         set({ authLoadingAction: false });
@@ -80,23 +73,31 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    // login con Google (OAuth)
+    // --- Login con Google (MODIFICADO) ---
     loginGoogle: async () => {
       set({ authLoadingAction: true });
       try {
-        const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
-        if (error) {
-          set({ authLoadingAction: false });
-          throw error;
-        }
-        // la sesión y profile se resolverán desde el listener onAuthStateChange
+        const { error } = await supabase.auth.signInWithOAuth({ 
+          provider: 'google',
+          options: {
+            // Asegura que vuelva a tu app (ajusta la ruta si es necesario)
+            redirectTo: `${window.location.origin}/dashboard`,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+          },
+        });
+        
+        if (error) throw error;
+        // No seteamos false aquí inmediatamente porque la redirección recarga la página
       } catch (err) {
         set({ authLoadingAction: false });
         throw err;
       }
     },
 
-    // sign out
+    // --- Cerrar Sesión ---
     cerrarSesion: async () => {
       try {
         await supabase.auth.signOut();
@@ -106,18 +107,14 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    // fetchProfile expuesto por conveniencia
     fetchProfile,
 
-    // estado y getters (valores iniciales)
+    // Estado inicial
     user: null,
     profile: null,
     isLoading: true,
     authLoadingAction: false,
   };
-
-  // Inicialización: obtiene session inicial y subscribe
-
 
   return actions;
 });

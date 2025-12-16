@@ -6,76 +6,80 @@ const AuthContext = createContext();
 export function AuthContextProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  // Iniciamos cargando
   const [isLoading, setIsLoading] = useState(true);
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
 
-  // Función auxiliar para traer el perfil
-  async function fetchProfile(id) {
-    if (!id) {
-      setProfile(null);
-      return;
-    }
+  // --- VALIDACIÓN EN SEGUNDO PLANO (NO BLOQUEANTE) ---
+  const validateProfile = async (sessionUser) => {
+    if (!sessionUser) return;
+
     try {
       const { data, error } = await supabase
-        .from('profiles') // Asegúrate que esta tabla exista en tu DB
+        .from('profiles')
         .select('*')
-        .eq('id', id)
+        .eq('id', sessionUser.id)
         .single();
 
-      if (error) throw error;
-      setProfile(data);
+      if (error || !data) {
+        console.warn("Usuario sin perfil detectado. Cerrando sesión...");
+        // 1. Marcar error para el login
+        localStorage.setItem('login_error', 'unregistered_google_account');
+        // 2. Expulsar (esto disparará el evento SIGNED_OUT)
+        await supabase.auth.signOut();
+      } else {
+        // Todo correcto
+        setProfile(data);
+      }
     } catch (err) {
-      console.error('Error fetching profile:', err);
-      setProfile(null);
+      console.error("Error validando perfil:", err);
     }
-  }
+  };
 
   useEffect(() => {
     let mounted = true;
 
-    async function initializeAuth() {
+    // --- 1. INICIALIZACIÓN RÁPIDA ---
+    async function init() {
       try {
-        // 1. Obtenemos la sesión actual
         const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted) {
           if (session?.user) {
             setUser(session.user);
-            await fetchProfile(session.user.id);
-          } else {
-            setUser(null);
-            setProfile(null);
+            // Lanzamos la validación SIN esperar (await) para no bloquear la UI
+            validateProfile(session.user);
           }
         }
       } catch (error) {
-        console.error("Error en Auth Init:", error);
+        console.error("Init Error:", error);
       } finally {
-        // 2. PASE LO QUE PASE, dejamos de cargar aquí
-        if (mounted) {
-          setIsLoading(false);
-        }
+        // CRÍTICO: Quitamos la pantalla de carga SIEMPRE al terminar de leer la sesión local.
+        // Esto garantiza que la app nunca se quede "trabada".
+        if (mounted) setIsLoading(false);
       }
     }
 
-    initializeAuth();
+    init();
 
-    // 3. Escuchamos cambios (Login, Logout, etc.)
+    // --- 2. ESCUCHADOR DE EVENTOS ---
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event:", event); // Útil para depurar
       if (!mounted) return;
 
-      if (session?.user) {
-        setUser(session.user);
-        // Opcional: recargar perfil si cambia la sesión
-        // await fetchProfile(session.user.id); 
-      } else {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setUser(session?.user ?? null);
+        // Validamos cada vez que se detecta entrada
+        if (session?.user) {
+            validateProfile(session.user);
+        }
+        // Aseguramos que no haya carga
+        setIsLoading(false);
+      } 
+      else if (event === 'SIGNED_OUT') {
+        // Limpieza total
         setUser(null);
         setProfile(null);
+        setIsLoading(false);
       }
-      
-      // Asegurarnos de que isLoading sea false si el evento llega después
-      setIsLoading(false);
     });
 
     return () => {
@@ -84,10 +88,7 @@ export function AuthContextProvider({ children }) {
     };
   }, []);
 
-  // ... (Tus funciones signInWithEmail, signInWithGoogle, signOut quedan igual) ...
-  // Solo asegúrate de incluirlas en el value del provider
-  
-  /* Actions (copiadas de tu código para mantener funcionalidad) */
+  // --- Funciones Públicas ---
   async function signInWithEmail(email, password) {
     setAuthLoadingAction(true);
     try {
@@ -100,8 +101,6 @@ export function AuthContextProvider({ children }) {
       throw err;
     }
   }
-  
-  // ... resto de tus funciones ...
 
   const value = {
     user,
@@ -109,7 +108,6 @@ export function AuthContextProvider({ children }) {
     isLoading,
     authLoadingAction,
     signInWithEmail,
-    // ... exporta el resto ...
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

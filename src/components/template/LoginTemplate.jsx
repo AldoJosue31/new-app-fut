@@ -2,57 +2,44 @@ import React, { useEffect, useRef } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { Btnsave, InputText2, Title, Footer } from '../../index';
 import { v } from "../../styles/variables";
-import { Device } from "../../styles/breakpoints"
+import { Device } from "../../styles/breakpoints";
 import { useAuthStore } from "../../store/AuthStore";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase/supabase.config';
 
 export function LoginTemplate() {
-        const navigate = useNavigate();
-        const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
-        const emailRef = useRef(null);
-        const passRef = useRef(null);
-
+    const navigate = useNavigate();
+    // Traemos loginGoogle y el estado de carga del Store
+    const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
+    const emailRef = useRef(null);
+    const passRef = useRef(null);
 
     useEffect(() => {
-        // enfocar primer input al montar (mejora UX)
         if (emailRef.current) emailRef.current.focus();
     }, []);
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  const email = emailRef.current?.value?.trim();
-  const password = passRef.current?.value;
-  if (!email || !password) return alert('Ingresa correo y contraseña');
-  try {
-    await loginWithEmail(email, password);
-    // Espera a que la sesión exista (pequeña comprobación fiable)
-    // Esto evita navegar antes de que el listener se sincronice.
-    const sessionRes = await supabase.auth.getSession();
-    if (sessionRes?.data?.session) {
-      navigate('/dashboard', { replace: true });
-    } else {
-      // Si no hay sesión inmediata, espera un momento corto y reintenta una vez
-      await new Promise(r => setTimeout(r, 400));
-      const s2 = await supabase.auth.getSession();
-      if (s2?.data?.session) {
-        navigate('/dashboard', { replace: true });
-      } else {
-        // deja que el listener haga su trabajo; opcionalmente mostrar mensaje
-        console.warn('Login iniciado, esperando listener para redirigir.');
-      }
-    }
-  } catch (err) {
-    alert(err.message || 'Error al iniciar sesión');
-  }
-};
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const email = emailRef.current?.value?.trim();
+        const password = passRef.current?.value;
+        if (!email || !password) return alert('Ingresa correo y contraseña');
+        
+        try {
+            await loginWithEmail(email, password);
+            // La redirección la maneja el AuthContext/App.jsx al detectar el usuario
+            // pero podemos forzar la navegación si el contexto tarda un poco
+            navigate('/dashboard', { replace: true });
+        } catch (err) {
+            alert(err.message || 'Error al iniciar sesión');
+        }
+    };
 
     return (
         <Container>
             <BackgroundLayer />
             <Card>
                 <ContentLogo>
-                    <img src="/icon-football.webp" alt="Logo" />
+                    <img src="/icon-football.png" alt="Logo" />
                     <div className="logoText">
                         <span className="line1">Futbol</span>
                         <span className="line2">App</span>
@@ -76,18 +63,18 @@ const handleSubmit = async (e) => {
 
                     <InputWrapper>
                         <InputText2>
-    <input ref={passRef} className="form__field" placeholder="Contraseña" type="password" />
-
+                            <input ref={passRef} className="form__field" placeholder="Contraseña" type="password" />
                         </InputText2>
                     </InputWrapper>
 
                     <div className="actions">
                         <Btnsave
                             tipo="primary"
-                            titulo="Ingresar"
+                            titulo={authLoadingAction ? "Cargando..." : "Ingresar"}
                             bgcolor="#1CB0F6"
                             color="255, 255, 255"
                             width="100%"
+                            disabled={authLoadingAction}
                         />
                     </div>
                 </Form>
@@ -97,10 +84,12 @@ const handleSubmit = async (e) => {
                 </Divider>
 
                 <GoogleWrap>
+                    {/* Botón conectado a la función loginGoogle del store */}
                     <Btnsave
                         funcion={loginGoogle}
                         titulo="Continuar con Google"
                         icono={<v.iconogoogle />}
+                        disabled={authLoadingAction}
                     />
                 </GoogleWrap>
 
