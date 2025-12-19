@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../supabase/supabase.config';
+import { useAuthStore } from '../store/AuthStore'; // 1. Importar el Store
 
 const AuthContext = createContext();
 
@@ -22,13 +23,15 @@ export function AuthContextProvider({ children }) {
 
       if (error || !data) {
         console.warn("Usuario sin perfil detectado. Cerrando sesión...");
-        // 1. Marcar error para el login
         localStorage.setItem('login_error', 'unregistered_google_account');
-        // 2. Expulsar (esto disparará el evento SIGNED_OUT)
         await supabase.auth.signOut();
+        
+        // Limpiar store si falla
+        useAuthStore.setState({ user: null, profile: null }); 
       } else {
-        // Todo correcto
+        // Todo correcto: Actualizamos Contexto Y Store
         setProfile(data);
+        useAuthStore.setState({ profile: data }); // <--- Sincronizar Perfil en Store
       }
     } catch (err) {
       console.error("Error validando perfil:", err);
@@ -46,15 +49,16 @@ export function AuthContextProvider({ children }) {
         if (mounted) {
           if (session?.user) {
             setUser(session.user);
-            // Lanzamos la validación SIN esperar (await) para no bloquear la UI
+            // Sincronizar usuario inmediatamente
+            useAuthStore.setState({ user: session.user }); // <--- Sincronizar Usuario en Store
+            
+            // Lanzamos la validación SIN esperar
             validateProfile(session.user);
           }
         }
       } catch (error) {
         console.error("Init Error:", error);
       } finally {
-        // CRÍTICO: Quitamos la pantalla de carga SIEMPRE al terminar de leer la sesión local.
-        // Esto garantiza que la app nunca se quede "trabada".
         if (mounted) setIsLoading(false);
       }
     }
@@ -66,19 +70,24 @@ export function AuthContextProvider({ children }) {
       if (!mounted) return;
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setUser(session?.user ?? null);
-        // Validamos cada vez que se detecta entrada
-        if (session?.user) {
-            validateProfile(session.user);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        
+        // Sincronizar Store
+        useAuthStore.setState({ user: currentUser }); // <--- Sincronizar
+        
+        if (currentUser) {
+            validateProfile(currentUser);
         }
-        // Aseguramos que no haya carga
         setIsLoading(false);
       } 
       else if (event === 'SIGNED_OUT') {
-        // Limpieza total
         setUser(null);
         setProfile(null);
         setIsLoading(false);
+        
+        // Limpiar Store al salir
+        useAuthStore.setState({ user: null, profile: null }); // <--- Limpiar Store
       }
     });
 
