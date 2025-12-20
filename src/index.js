@@ -3,6 +3,7 @@ export * from './components/atomos/Icono';
 export * from './components/atomos/Linea';
 export * from './components/atomos/Title';
 export * from './components/moleculas/Btnsave';
+export * from './components/moleculas/BtnNormal';
 export * from './components/organismos/Footer';
 export * from './components/organismos/ToggleTema';
 export * from './components/organismos/formularios/InputText2';

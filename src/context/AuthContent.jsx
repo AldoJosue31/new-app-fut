@@ -11,30 +11,43 @@ export function AuthContextProvider({ children }) {
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
 
   // --- VALIDACIÓN EN SEGUNDO PLANO (NO BLOQUEANTE) ---
-  const validateProfile = async (sessionUser) => {
+const validateProfile = async (sessionUser) => {
     if (!sessionUser) return;
 
     try {
+      // 1. Buscamos si existe el perfil en tu tabla
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', sessionUser.id)
         .single();
 
+      // 2. Si hay error o NO hay data, es un intruso (o cuenta no vinculada)
       if (error || !data) {
-        console.warn("Usuario sin perfil detectado. Cerrando sesión...");
-        localStorage.setItem('login_error', 'unregistered_google_account');
+        console.warn("Acceso denegado: Cuenta de Google no vinculada.");
+
+        // --- IMPORTANTE: CERRAR SESIÓN INMEDIATAMENTE ---
         await supabase.auth.signOut();
         
-        // Limpiar store si falla
-        useAuthStore.setState({ user: null, profile: null }); 
-      } else {
-        // Todo correcto: Actualizamos Contexto Y Store
-        setProfile(data);
-        useAuthStore.setState({ profile: data }); // <--- Sincronizar Perfil en Store
+        // Limpiamos el estado local para que la UI reaccione rápido
+        setUser(null);
+        setProfile(null);
+
+        // --- MENSAJE DE ERROR ---
+        alert("ACCESO DENEGADO: Esta cuenta de Google no está vinculada a ningún usuario registrado. Pide al administrador que cree tu cuenta primero.");
+        
+        // El ProtectedRoute se encargará de devolverlo al Login al detectar user = null
+        return;
       }
+
+      // 3. Si el perfil SÍ existe, permitimos el acceso
+      setProfile(data);
+      useAuthStore.setState({ profile: data }); 
+      
     } catch (err) {
       console.error("Error validando perfil:", err);
+      // Por seguridad, si falla algo grave, también cerramos sesión
+      await supabase.auth.signOut();
     }
   };
 
