@@ -3,7 +3,8 @@ import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { 
   Btnsave, 
-  InputText2, 
+  InputText2,
+  BtnNormal, 
   Title 
 } from "../../index";
 import { useAuthStore } from "../../store/AuthStore";
@@ -16,9 +17,21 @@ export function ConfiguracionTemplate() {
   const [nombre, setNombre] = useState("");
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingLink, setLoadingLink] = useState(false);
+  const [loadingUnlink, setLoadingUnlink] = useState(false);
 
-  // Detectar si Google ya está vinculado en las identidades de Supabase
-  const isGoogleLinked = user?.identities?.some((identity) => identity.provider === 'google');
+  // --- LÓGICA GOOGLE ACTUALIZADA ---
+  // 1. Buscamos la identidad completa de Google
+  const googleIdentity = user?.identities?.find(
+    (identity) => identity.provider === 'google'
+  );
+  
+  // 2. Determinamos si está vinculado
+  const isGoogleLinked = !!googleIdentity;
+
+  // 3. Extraemos datos específicos de la cuenta de Google (si existe)
+  // Nota: Supabase suele guardar esto en identity_data
+  const googleEmail = googleIdentity?.identity_data?.email;
+  const googleAvatar = googleIdentity?.identity_data?.avatar_url || googleIdentity?.identity_data?.picture;
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -27,7 +40,7 @@ export function ConfiguracionTemplate() {
     }
   }, [profile]);
 
-  // --- 1. ACTUALIZAR INFORMACIÓN BÁSICA ---
+  // --- ACTUALIZAR PERFIL ---
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setLoadingUpdate(true);
@@ -39,7 +52,6 @@ export function ConfiguracionTemplate() {
 
       if (error) throw error;
       
-      // Recargar perfil en el store para reflejar cambios
       await fetchProfile(user.id);
       alert("Perfil actualizado correctamente");
     } catch (err) {
@@ -49,32 +61,47 @@ export function ConfiguracionTemplate() {
     }
   };
 
-  // --- 2. VINCULAR CUENTA DE GOOGLE ---
-const handleLinkGoogle = async () => {
+  // --- VINCULAR GOOGLE ---
+  const handleLinkGoogle = async () => {
     setLoadingLink(true);
     try {
-      // CORRECCIÓN: Usamos linkIdentity en lugar de signInWithOAuth
-      const { data, error } = await supabase.auth.linkIdentity({
+      const { error } = await supabase.auth.linkIdentity({
         provider: 'google',
         options: {
-          // Es importante que la URL coincida con la configurada en Supabase -> Auth -> URL Configuration
           redirectTo: `${window.location.origin}/configuracion`, 
         }
       });
-      
       if (error) throw error;
-      
-      // linkIdentity iniciará el flujo OAuth y redirigirá al usuario.
-      // No necesitamos hacer nada más aquí, al volver la sesión tendrá la identidad agregada.
-
     } catch (err) {
       alert("Error al vincular Google: " + err.message);
       setLoadingLink(false);
     }
   };
 
-  // Función auxiliar para traducir el rol a texto amigable
-const getRoleLabel = (role) => {
+  // --- DESVINCULAR GOOGLE ---
+  const handleUnlinkGoogle = async () => {
+    if (!confirm("¿Estás seguro de querer desvincular tu cuenta de Google?")) return;
+
+    setLoadingUnlink(true);
+    try {
+      if (!googleIdentity) throw new Error("No se encontró la identidad de Google.");
+
+      const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
+      if (error) throw error;
+
+      // Refrescamos usuario
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      useAuthStore.setState({ user: updatedUser });
+
+      alert("Cuenta de Google desvinculada correctamente.");
+    } catch (err) {
+      alert("Error al desvincular: " + err.message);
+    } finally {
+      setLoadingUnlink(false);
+    }
+  };
+
+  const getRoleLabel = (role) => {
     switch(role) {
         case 'admin': return 'Administrador de la App';
         case 'manager': return 'Gestor de la Liga';
@@ -90,7 +117,6 @@ const getRoleLabel = (role) => {
       </HeaderSection>
 
       <ContentGrid>
-        {/* --- TARJETA ÚNICA: INFORMACIÓN Y VINCULACIÓN --- */}
         <Card>
           <CardHeader>
             <div className="icon-box"><v.iconoUser /></div>
@@ -98,27 +124,16 @@ const getRoleLabel = (role) => {
           </CardHeader>
           
           <form onSubmit={handleUpdateProfile}>
-            {/* Campo ID (Solo lectura) */}
             <Label>ID de Usuario</Label>
             <InputText2>
-              <input 
-                className="form__field disabled" 
-                value={user?.id || ""} 
-                disabled 
-                type="text" 
-              />
+              <input className="form__field disabled" value={user?.id || ""} disabled type="text" />
             </InputText2>
 
-            {/* Campo ROL (Solo lectura desde tabla profiles) */}
             <Label>Rol en la Liga</Label>
-<RoleBadge $role={profile?.role || 'default'}>
-               {!profile 
-                  ? "Cargando..." 
-                  : getRoleLabel(profile.role) 
-               }
+            <RoleBadge $role={profile?.role || 'default'}>
+               {!profile ? "Cargando..." : getRoleLabel(profile.role)}
             </RoleBadge>
 
-            {/* Campo NOMBRE (Editable) */}
             <Label>Nombre Completo</Label>
             <InputText2>
               <input 
@@ -130,15 +145,9 @@ const getRoleLabel = (role) => {
               />
             </InputText2>
 
-            {/* Campo EMAIL (Solo lectura) */}
-            <Label>Correo Electrónico</Label>
+            <Label>Correo Electrónico (Principal)</Label>
             <InputText2>
-              <input 
-                className="form__field disabled" 
-                value={user?.email || ""} 
-                disabled 
-                type="text" 
-              />
+              <input className="form__field disabled" value={user?.email || ""} disabled type="text" />
             </InputText2>
 
             <div className="actions">
@@ -154,14 +163,18 @@ const getRoleLabel = (role) => {
 
           <Divider />
 
-          {/* --- SECCIÓN VINCULAR CUENTA --- */}
-          <LinkedAccounts>
+          {/* --- SECCIÓN CUENTAS VINCULADAS --- */}
+<LinkedAccounts>
             <h4>Cuentas Vinculadas</h4>
             <div className="account-item">
               <div className="left">
-                <span className="google-icon"><v.iconogoogle /></span>
+                {isGoogleLinked && googleAvatar ? (
+                  <img src={googleAvatar} alt="Avatar Google" className="google-avatar" />
+                ) : (
+                  <span className="google-icon"><v.iconogoogle /></span>
+                )}
                 <div className="info">
-                  <span>Google</span>
+                  <span>{isGoogleLinked && googleEmail ? googleEmail : "Google"}</span>
                   <small>
                     {isGoogleLinked 
                       ? "Cuenta vinculada correctamente" 
@@ -172,14 +185,25 @@ const getRoleLabel = (role) => {
 
               <div className="right">
                 {isGoogleLinked ? (
-                  <StatusBadge $active={true}>Conectado</StatusBadge>
+                  <ActionsGroup>
+                    <StatusBadge $active={true}>Conectado</StatusBadge>
+                    {/* El botón de Desvincular (ROJO) lo dejamos como Btnsave porque es una acción crítica/destructiva */}
+                    <Btnsave 
+                      funcion={handleUnlinkGoogle}
+                      titulo={loadingUnlink ? "..." : "Desvincular"}
+                      bgcolor={v.rojo}
+                      color="#fff" // Texto blanco forzado para el botón rojo
+                      width="auto"
+                      disabled={loadingUnlink}
+                    />
+                  </ActionsGroup>
                 ) : (
-                  <Btnsave 
+                  /* AQUÍ EL CAMBIO: Usamos BtnNormal en lugar de Btnsave.
+                     Ya no pasamos bgcolor ni color, el componente lo decide por el tema.
+                  */
+                  <BtnNormal 
                     funcion={handleLinkGoogle}
                     titulo={loadingLink ? "Redirigiendo..." : "Vincular"}
-                    bgcolor="#fff"
-                    color="#333"
-                    icono={null} // Sin icono extra
                     disabled={loadingLink}
                   />
                 )}
@@ -194,6 +218,7 @@ const getRoleLabel = (role) => {
 }
 
 /* --- STYLED COMPONENTS --- */
+// ... (Tus estilos Container, HeaderSection, ContentGrid, Card, CardHeader, Label, RoleBadge, Divider se mantienen igual) ...
 const Container = styled.div`
   min-height: 100vh;
   padding: 20px;
@@ -201,21 +226,18 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   gap: 20px;
-  align-items: center; // Centrado para una sola columna
+  align-items: center;
 `;
-
 const HeaderSection = styled.div`
   margin-bottom: 10px;
   width: 100%;
   max-width: 600px;
 `;
-
 const ContentGrid = styled.div`
   display: flex;
   justify-content: center;
   width: 100%;
 `;
-
 const Card = styled.div`
   background-color: ${({ theme }) => theme.bgcards || "#fff"};
   padding: 30px;
@@ -223,21 +245,18 @@ const Card = styled.div`
   box-shadow: ${({ theme }) => theme.boxshadowGray || "0 4px 12px rgba(0,0,0,0.1)"};
   color: ${({ theme }) => theme.text};
   width: 100%;
-  max-width: 600px; // Limitamos el ancho para que se vea elegante
-
+  max-width: 600px;
   .actions {
     display: flex;
     justify-content: flex-end;
     margin-top: 20px;
   }
 `;
-
 const CardHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
-
   .icon-box {
     width: 45px;
     height: 45px;
@@ -249,14 +268,12 @@ const CardHeader = styled.div`
     color: #fff;
     font-size: 22px;
   }
-
   h3 {
     margin: 0;
     font-size: 20px;
     font-weight: 700;
   }
 `;
-
 const Label = styled.label`
   display: block;
   margin-bottom: 6px;
@@ -266,7 +283,6 @@ const Label = styled.label`
   opacity: 0.9;
   padding-left: 4px;
 `;
-
 const RoleBadge = styled.div`
   display: inline-block;
   padding: 8px 12px;
@@ -274,25 +290,23 @@ const RoleBadge = styled.div`
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 10px;
-  /* Colores según el rol */
   background: ${({ $role, theme }) => 
-    $role === 'admin' ? '#ff4757' :      // Rojo para Admin
-    $role === 'manager' ? '#2ed573' :    // Verde para Gestor
-    $role === 'user' ? '#1e90ff' :       // Azul para Jugador
-    theme.bg4};                          // Gris para "Sin rol"
-  
+    $role === 'admin' ? '#ff4757' :      
+    $role === 'manager' ? '#2ed573' :    
+    $role === 'user' ? '#1e90ff' :       
+    theme.bg4};                          
   color: ${({ $role }) => 
     ($role === 'admin' || $role === 'manager' || $role === 'user') 
     ? '#fff' 
     : 'inherit'};
 `;
-
 const Divider = styled.div`
   height: 1px;
   background: ${({ theme }) => theme.bg4 || "#e1e1e1"};
   margin: 30px 0;
 `;
 
+// --- ESTILOS ACTUALIZADOS PARA LINKEDACCOUNTS ---
 const LinkedAccounts = styled.div`
   h4 {
     margin: 0 0 20px 0;
@@ -314,20 +328,47 @@ const LinkedAccounts = styled.div`
     align-items: center;
     gap: 12px;
   }
+  
+  /* Icono por defecto */
   .google-icon {
     font-size: 28px;
     display: flex;
   }
+
+  /* Nueva clase para la imagen de perfil de Google */
+  .google-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid ${({ theme }) => theme.bg4};
+  }
+
   .info {
     display: flex;
     flex-direction: column;
-    span { font-weight: 600; font-size: 15px; }
+    span { 
+        font-weight: 600; 
+        font-size: 15px; 
+        
+        /* Limitar largo del correo en móviles si es necesario */
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     small { opacity: 0.6; font-size: 13px; }
   }
   .right {
     display: flex;
     align-items: center;
   }
+`;
+
+const ActionsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
 `;
 
 const StatusBadge = styled.span`
@@ -338,4 +379,5 @@ const StatusBadge = styled.span`
   background: rgba(46, 213, 115, 0.1);
   border-radius: 20px;
   border: 1px solid rgba(46, 213, 115, 0.2);
+  white-space: nowrap;
 `;
