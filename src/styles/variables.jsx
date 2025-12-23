@@ -6,6 +6,7 @@ import { RiVipCrownFill } from "react-icons/ri";
 import { BiUserCircle } from "react-icons/bi";
 import { RiSettings3Line } from "react-icons/ri";
 import { MdExitToApp } from "react-icons/md";
+import { MdMenu } from "react-icons/md";
 import { FcPicture } from "react-icons/fc";
 import { CgMathPlus } from "react-icons/cg";
 import { TbBrandSupabase } from "react-icons/tb";
@@ -63,6 +64,7 @@ export const v = {
     icononombre: MdDriveFileRenameOutline,
     iconoemail: MdAlternateEmail,
     iconopass: RiLockPasswordLine,
+    iconomenu: MdMenu,
     sidebarWidth: `300px`,
     sidebarWidthInitial: `10vw`,
     smSpacing: `8px`,

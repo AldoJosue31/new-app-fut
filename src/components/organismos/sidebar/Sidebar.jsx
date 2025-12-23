@@ -3,9 +3,10 @@ import { ToggleTema } from "../../../index";
 import { v } from "../../../styles/variables";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { useAuthStore } from "../../../store/AuthStore"; // 1. Importamos el store
+import { useAuthStore } from "../../../store/AuthStore";
+import { Device } from "../../../styles/breakpoints"; // Importamos los breakpoints
 
-// ... (Mantenemos tus arrays de links igual) ...
+// ... (Tus arrays de links se mantienen igual) ...
 const LinksArray = [
   {
     label: "Partidos",
@@ -38,21 +39,32 @@ const SecondarylinksArray = [
 ];
 
 export function Sidebar({ state, setState }) {
-  // 2. Extraemos la función para cerrar sesión
   const { cerrarSesion } = useAuthStore();
 
   return (
-    <Main $isopen={state.toString()}>
+    <Main>
+      {/* Overlay para cerrar el menú en móvil al dar click fuera */}
+      <Overlay 
+        $isOpen={state} 
+        onClick={() => setState(false)} 
+      />
+
+      {/* Botón flotante del toggle */}
       <span className="Sidebarbutton" onClick={() => setState(!state)}>
         {<v.iconoflechaderecha />}
       </span>
-      <Container $isopen={state.toString()} className={state ? "active" : ""}>
+
+      <Container $isOpen={state} className={state ? "active" : ""}>
         <div className="Logocontent">
-          <NavLink to="/" className="logo-link">
-          <div className="imgcontent">
-            <img src={v.logo} alt="Logo" />
-          </div>
-          <h2>Liga <br /> Manager</h2>
+          <NavLink 
+            to="/" 
+            className="logo-link"
+            onClick={() => setState(false)} // Cerrar al ir al home en móvil
+          >
+            <div className="imgcontent">
+              <img src={v.logo} alt="Logo" />
+            </div>
+            <h2>Liga <br /> Manager</h2>
           </NavLink>
         </div>
 
@@ -64,6 +76,7 @@ export function Sidebar({ state, setState }) {
             <NavLink
               to={to}
               className={({ isActive }) => `Links${isActive ? ` active` : ``}`}
+              onClick={() => setState(false)} // Cerrar menú al navegar en móvil
             >
               <section className={state ? "content open" : "content"}>
                 <Icon className="Linkicon" icon={icon} />
@@ -85,6 +98,7 @@ export function Sidebar({ state, setState }) {
             <NavLink
               to={to}
               className={({ isActive }) => `Links${isActive ? ` active` : ``}`}
+              onClick={() => setState(false)}
             >
               <section className={state ? "content open" : "content"}>
                 <Icon color={color} className="Linkicon" icon={icon} />
@@ -100,15 +114,13 @@ export function Sidebar({ state, setState }) {
         
         <Divider />
 
-        {/* --- 3. BOTÓN CERRAR SESIÓN (ROJO) --- */}
         <div className={state ? "LinkContainer active" : "LinkContainer"}>
           <div 
             className="Links" 
-            onClick={cerrarSesion} 
-            style={{ cursor: "pointer" }} // Para que se sienta como botón
+            onClick={() => { cerrarSesion(); setState(false); }} 
+            style={{ cursor: "pointer" }}
           >
             <section className={state ? "content open" : "content"}>
-              {/* Usamos v.rojo para el color del icono */}
               <Icon 
                 className="Linkicon" 
                 icon="material-symbols:logout-rounded" 
@@ -117,7 +129,7 @@ export function Sidebar({ state, setState }) {
               />
               <span 
                 className={state ? "label_ver" : "label_oculto"}
-                style={{ color: v.rojo, fontWeight: '600' }} // Texto también rojo
+                style={{ color: v.rojo, fontWeight: '600' }}
               >
                 Cerrar Sesión
               </span>
@@ -130,16 +142,68 @@ export function Sidebar({ state, setState }) {
   );
 }
 
-// ... (Los estilos se mantienen exactamente igual que en tu archivo original) ...
+// --- STYLED COMPONENTS ---
+
+/* Main envuelve todo. El botón flotante se posiciona relativo a esto 
+   o fixed según el diseño original, aquí lo adaptamos.
+*/
+const Main = styled.div`
+  .Sidebarbutton {
+    /* --- CAMBIO: Oculto por defecto en móvil --- */
+    display: none; 
+    
+    /* ... resto de propiedades (position, width, height...) déjalas igual ... */
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    /* ... */
+    z-index: 50;
+  }
+
+  /* --- CAMBIO: Mostrar SOLO en Tablet/Escritorio --- */
+  @media ${Device.tablet} {
+    .Sidebarbutton {
+        display: flex; /* ¡Aquí sí lo mostramos! */
+        left: 68px;
+    }
+  }
+`;
+
+/* Fondo oscuro para móvil */
+const Overlay = styled.div`
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 49; /* Debajo del sidebar (50) pero encima del contenido */
+    opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
+    visibility: ${({ $isOpen }) => ($isOpen ? "visible" : "hidden")};
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(2px);
+
+    @media ${Device.tablet} {
+        display: none; /* No mostrar overlay en desktop */
+    }
+`;
+
 const Container = styled.div`
   background: ${({ theme }) => theme.bgtotal};
   color: ${(props) => props.theme.text};
   position: fixed;
-  padding-top: 20px;
-  z-index: 2;
+  top: 0;
+  left: 0;
+  z-index: 50; /* Muy alto para tapar todo en móvil */
   height: 100%;
-  width: 88px;
-  transition: 0.1s ease-in-out;
+  
+  /* --- LÓGICA MÓVIL (Por defecto) --- */
+  width: 260px; /* En móvil siempre es ancho completo del sidebar */
+  transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(-100%)")};
+  transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+  box-shadow: ${({ $isOpen, theme }) => $isOpen ? theme.boxshadowGray : 'none'};
+
+  /* Scroll interno */
   overflow-y: auto;
   overflow-x: hidden;
   border-right: 2px solid ${({ theme }) => theme.color2};
@@ -153,25 +217,37 @@ const Container = styled.div`
     border-radius: 10px;
   }
 
-  &.active {
-    width: 260px;
+  /* --- LÓGICA DESKTOP --- */
+  @media ${Device.tablet} {
+    /* Restauramos comportamiento original */
+    transform: none; /* Siempre visible */
+    position: fixed; /* O sticky según layout original */
+    box-shadow: none;
+    width: 88px; /* Cerrado */
+
+    &.active {
+      width: 260px; /* Abierto */
+    }
+    
+    /* El botón se controla desde fuera o con el margen, 
+       pero aquí definimos el ancho del contenedor */
   }
-.Logocontent {
+
+  .Logocontent {
     display: flex;
     justify-content: center;
     align-items: center;
     padding-bottom: 60px;
+    padding-top: 20px;
 
-    /* --- NUEVO ESTILO PARA EL LINK DEL LOGO --- */
     .logo-link {
       display: flex;
       justify-content: center;
       align-items: center;
-      text-decoration: none; /* Quitar subrayado */
-      color: inherit; /* Heredar el color de texto del tema */
-      width: 100%; /* Para facilitar el click */
+      text-decoration: none;
+      color: inherit;
+      width: 100%;
     }
-    /* ------------------------------------------ */
 
     .imgcontent {
       display: flex;
@@ -180,9 +256,13 @@ const Container = styled.div`
       width: 30px;
       cursor: pointer;
       transition: 0.3s ease;
-      transform: ${({ $isopen }) =>
-        $isopen === "true" ? `scale(0.7)` : `scale(1.5)`}
-        rotate(${({ theme }) => theme.logorotate});
+      
+      /* Animación logo */
+      transform: ${({ $isOpen, theme }) =>
+        $isOpen ? `scale(0.7)` : `scale(1.5) rotate(${theme.logorotate})`};
+      
+      /* En móvil el logo no rota al estar cerrado (porque no se ve), 
+         pero al abrir ($isOpen=true) se ve normal. */
       
       img {
         width: 100%;
@@ -192,15 +272,17 @@ const Container = styled.div`
 
     h2 {
       color: #f88533;
-      display: ${({ $isopen }) => ($isopen === "true" ? `block` : `none`)};
+      display: ${({ $isOpen }) => ($isOpen ? `block` : `none`)};
       margin-left: 10px;
-      transition: 0.3s; /* Suavizar la aparición */
+      font-size: 20px;
+      transition: 0.3s;
     }
   }
+
   .LinkContainer {
     margin: 9px 0;
-    margin-right:10px;
-    margin-left:8px;
+    margin-right: 10px;
+    margin-left: 8px;
     transition: all 0.3s ease-in-out;
     position: relative;
     text-transform: uppercase;
@@ -217,11 +299,13 @@ const Container = styled.div`
     height: 60px;
     position: relative;
     cursor: pointer;
+
     .content {
       display: flex;
       justify-content: center;
       width: 100%;
       align-items: center;
+      
       .Linkicon {
         display: flex;
         font-size: 33px;
@@ -237,6 +321,8 @@ const Container = styled.div`
         display: none;
       }
 
+      /* En móvil, si está abierto, mostramos labels. 
+         En desktop depende de la clase .active del padre */
       &.open {
         justify-content: start;
         gap: 20px;
@@ -254,29 +340,6 @@ const Container = styled.div`
       color: ${(props) => props.theme.color1};
       font-weight: 600;
     }
-  }
-`;
-
-const Main = styled.div`
-  .Sidebarbutton {
-    position: fixed;
-    top: 70px;
-    left: 68px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: ${(props) => props.theme.bgtgderecha};
-    box-shadow: 0 0 4px ${(props) => props.theme.bg3},
-      0 0 7px ${(props) => props.theme.bg};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    z-index: 3;
-    transform: ${({ $isopen }) =>
-      $isopen === "true" ? `translateX(173px) rotate(3.142rad)` : `initial`};
-    color: ${(props) => props.theme.text};
   }
 `;
 

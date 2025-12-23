@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
+import { Device } from "../../styles/breakpoints";
 import { 
   Btnsave, 
   InputText2,
@@ -227,6 +228,13 @@ const Container = styled.div`
   flex-direction: column;
   gap: 20px;
   align-items: center;
+
+  /* --- CAMBIO --- */
+  padding-top: 80px; 
+
+  @media ${Device.tablet} {
+    padding-top: 20px;
+  }
 `;
 const HeaderSection = styled.div`
   margin-bottom: 10px;

@@ -11,6 +11,7 @@ import {
   Login,
 } from "./index";
 import { Device } from "./styles/breakpoints";
+import { v } from "./styles/variables";
 import { useThemeStore } from "./store/ThemeStore";
 import { useLocation } from "react-router-dom";
 
@@ -56,7 +57,9 @@ function AppContent() {
           <section className="contentSidebar">
             <Sidebar state={sidebarOpen} setState={setSidebarOpen} />
           </section>
-          <section className="contentMenuambur">menu ambur</section>
+          <section className="contentMenuambur" onClick={() => setSidebarOpen(!sidebarOpen)}>
+  <v.iconomenu />
+</section>
           <section className="contentRouters">
             <MyRoutes />
           </section>
@@ -191,13 +194,40 @@ const Container = styled.main`
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
   
-  .contentSidebar{
-    display: none;
+.contentSidebar{
+    /* display: none;  <-- ELIMINA O COMENTA ESTA LÍNEA */
+    display: block;    /* <-- AÑADE ESTO (o initial) */
     background-color: ${({ theme }) => theme.bgtgderecha};
-  }
+    
+    /* Opcional: Asegúrate de que no ocupe espacio físico en el grid móvil */
+    position: absolute; 
+    z-index: 50;
+}
+
+@media ${Device.tablet} {
+    /* ... */
+    .contentSidebar{
+      display: initial; 
+      position: relative; /* Restaurar flujo normal en tablet/pc */
+    }
+}
   
-  .contentMenuambur{
+.contentMenuambur {
     position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1; /* Para que quede sobre el contenido */
+    
+    /* Estilos del botón */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px; /* Tamaño del ícono */
+    cursor: pointer;
+    background-color: ${({ theme }) => theme.bgtotal}; /* Fondo para que no se mezcle */
+    border-radius: 8px;
+    padding: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
   }
   
   .contentRouters{

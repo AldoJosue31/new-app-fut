@@ -26,7 +26,7 @@ export function HomeTemplate(){
         <Container>
             <span>HomeTemplate</span>
             <button onClick={cerrarSesion}>Cerrar</button>
-            <span>{user?.id}</span>
+            <span> Bienvenido {user?.id}</span>
             {user?.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="Avatar" />}
         </Container>
     )
