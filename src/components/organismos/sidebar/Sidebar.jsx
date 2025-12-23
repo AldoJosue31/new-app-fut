@@ -5,6 +5,7 @@ import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "../../../store/AuthStore";
 import { Device } from "../../../styles/breakpoints"; // Importamos los breakpoints
+import { DivisionSelector } from "../../moleculas/DivisionSelector";
 
 // ... (Tus arrays de links se mantienen igual) ...
 const LinksArray = [
@@ -42,7 +43,7 @@ export function Sidebar({ state, setState }) {
   const { cerrarSesion } = useAuthStore();
 
   return (
-    <Main>
+    <Main $isOpen={state}>
       {/* Overlay para cerrar el menú en móvil al dar click fuera */}
       <Overlay 
         $isOpen={state} 
@@ -136,6 +137,7 @@ export function Sidebar({ state, setState }) {
             </section>
           </div>
         </div>
+        <DivisionSelector isOpen={state} />
 
       </Container>
     </Main>
@@ -149,22 +151,36 @@ export function Sidebar({ state, setState }) {
 */
 const Main = styled.div`
   .Sidebarbutton {
-    /* --- CAMBIO: Oculto por defecto en móvil --- */
-    display: none; 
+    display: none; /* Oculto en móvil */
     
-    /* ... resto de propiedades (position, width, height...) déjalas igual ... */
     position: fixed;
     top: 70px;
     left: 20px;
-    /* ... */
-    z-index: 50;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: ${(props) => props.theme.bgtgderecha};
+    box-shadow: 0 0 4px ${(props) => props.theme.bg3},
+      0 0 7px ${(props) => props.theme.bg};
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    
+    /* --- CORRECCIÓN AQUÍ --- */
+    /* Debe ser mayor que el z-index del Container (que es 50) */
+    z-index: 51; 
+    /* ----------------------- */
+    
+    color: ${(props) => props.theme.text};
   }
 
-  /* --- CAMBIO: Mostrar SOLO en Tablet/Escritorio --- */
   @media ${Device.tablet} {
     .Sidebarbutton {
-        display: flex; /* ¡Aquí sí lo mostramos! */
+        display: flex;
         left: 68px;
+        transform: ${({ $isOpen }) =>
+            $isOpen ? `translateX(173px) rotate(180deg)` : `initial`};
     }
   }
 `;

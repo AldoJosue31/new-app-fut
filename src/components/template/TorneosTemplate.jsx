@@ -1,29 +1,29 @@
 import React from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
-import { Device } from "../../styles/breakpoints";
 import { InputText2 } from "../organismos/formularios/InputText2";
 import { Btnsave } from "../moleculas/Btnsave";
 import { Title } from "../atomos/Title";
+// Importamos los nuevos componentes
+import { ContentContainer } from "../atomos/ContentContainer";
+import { Card } from "../moleculas/Card";
+import { CardHeader } from "../moleculas/CardHeader";
 
 export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
   return (
-    <Container>
+    <ContentContainer>
       <HeaderSection>
         <Title>Torneos</Title>
       </HeaderSection>
 
       <ContentGrid>
-        <Card>
-          <CardHeader>
-            <div className="icon-box">
-              <v.iconocorona />
-            </div>
-            <h3>Crear Nuevo Torneo</h3>
-          </CardHeader>
+        <Card maxWidth="600px">
+          <CardHeader 
+            Icono={v.iconocorona}
+            titulo="Crear Nuevo Torneo"
+          />
 
           <form onSubmit={onSubmit}>
-            {/* Usamos un grid interno para los inputs si hay espacio */}
             <div className="form-content">
               <section>
                 <Label>Nombre de la División</Label>
@@ -73,7 +73,7 @@ export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
             <div className="actions">
               <Btnsave 
                 titulo={loading ? "Procesando..." : "Iniciar Torneo"} 
-                bgcolor={v.colorPrincipal} // Verde consistente
+                bgcolor={v.colorPrincipal}
                 icono={<v.iconoguardar />}
                 disabled={loading}
               />
@@ -81,30 +81,11 @@ export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
           </form>
         </Card>
       </ContentGrid>
-    </Container>
+    </ContentContainer>
   );
 }
 
-// --- ESTILOS REPLICADOS DE CONFIGURACION ---
-const Container = styled.div`
-  min-height: 100vh;
-  padding: 20px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  align-items: center;
-  background-color: ${({ theme }) => theme.bgtotal};
-
-  /* --- CAMBIO: Espacio extra en móvil para que el botón no tape el título --- */
-  padding-top: 80px; 
-
-  /* Regresamos al padding normal en PC/Tablet */
-  @media ${Device.tablet} {
-    padding-top: 20px;
-  }
-`;
-
+// Estilos locales específicos de esta vista
 const HeaderSection = styled.div`
   margin-bottom: 10px;
   width: 100%;
@@ -117,54 +98,6 @@ const ContentGrid = styled.div`
   width: 100%;
 `;
 
-const Card = styled.div`
-  background-color: ${({ theme }) => theme.bgcards};
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: ${({ theme }) => theme.boxshadowGray};
-  color: ${({ theme }) => theme.text};
-  width: 100%;
-  max-width: 600px; // Mismo ancho que config
-
-  .form-content {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 30px;
-  }
-`;
-
-const CardHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 30px;
-  
-  .icon-box {
-    width: 45px;
-    height: 45px;
-    border-radius: 12px;
-    background: ${({ theme }) => theme.primary || v.colorPrincipal};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 22px;
-  }
-  
-  h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: ${({ theme }) => theme.text};
-  }
-`;
-
 const Label = styled.label`
   display: block;
   margin-bottom: 8px;
@@ -172,4 +105,10 @@ const Label = styled.label`
   font-weight: 600;
   color: ${({ theme }) => theme.text};
   opacity: 0.9;
+`;
+
+const FormContent = styled.div`
+   display: flex;
+   flex-direction: column;
+   gap: 15px;
 `;
