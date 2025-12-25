@@ -4,7 +4,7 @@ import { v } from "../../styles/variables";
 import { Title } from "../atomos/Title";
 import { Device } from "../../styles/breakpoints"; 
 
-export function LigaTemplate({ standings, division, season }) {
+export function LigaTemplate({ standings, division, season, loading }) {
   return (
     <Container>
       <HeaderSection>
@@ -19,64 +19,73 @@ export function LigaTemplate({ standings, division, season }) {
             </div>
             <div className="header-info">
               <h3>Tabla General</h3>
-              {division && season && (
-                <span className="subtitle">{division} - {season}</span>
-              )}
+              <span className="subtitle">
+                {division ? `${division.name} - ${season}` : "Selecciona una división"}
+              </span>
             </div>
           </CardHeader>
 
-          <TableWrapper>
-            <ResponsiveTable>
-              <thead>
-                <tr>
-                  <th className="sticky-col first-col">Pos</th>
-                  <th className="sticky-col second-col left-align">Equipo</th>
-                  <th>PTS</th>
-                  <th>PJ</th>
-                  <th>PG</th>
-                  <th>PE</th>
-                  <th>PP</th>
-                  <th>GF</th>
-                  <th>GC</th>
-                  <th>DG</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((team, index) => (
-                  <tr key={team.team_id}>
-                    <td className="sticky-col first-col rank">{index + 1}</td>
-                    <td className="sticky-col second-col left-align team-cell">
-                      <span className="name">{team.team_name}</span>
-                    </td>
-                    <td className="points">{team.pts}</td>
-                    <td>{team.pj}</td>
-                    <td>{team.pg}</td>
-                    <td>{team.pe}</td>
-                    <td>{team.pp}</td>
-                    <td>{team.gf}</td>
-                    <td>{team.gc}</td>
-                    <td className={team.dg > 0 ? "positive" : (team.dg < 0 ? "negative" : "")}>
-                      {team.dg}
-                    </td>
-                  </tr>
-                ))}
-                {standings.length === 0 && (
+          {loading ? (
+             <LoadingState>Cargando datos...</LoadingState>
+          ) : (
+            <TableWrapper>
+              <ResponsiveTable>
+                <thead>
                   <tr>
-                    <td colSpan="10" className="empty-state">
-                      No hay registros disponibles.
-                    </td>
+                    <th className="sticky-col first-col">Pos</th>
+                    <th className="sticky-col second-col left-align">Equipo</th>
+                    <th>PTS</th>
+                    <th>PJ</th>
+                    <th>PG</th>
+                    <th>PE</th>
+                    <th>PP</th>
+                    <th>GF</th>
+                    <th>GC</th>
+                    <th>DG</th>
                   </tr>
-                )}
-              </tbody>
-            </ResponsiveTable>
-          </TableWrapper>
+                </thead>
+                <tbody>
+                  {standings.map((team, index) => (
+                    <tr key={team.team_id}>
+                      <td className="sticky-col first-col rank">{index + 1}</td>
+                      <td className="sticky-col second-col left-align team-cell">
+                        {/* Renderizamos el logo si existe, o uno por defecto */}
+                        <TeamLogo 
+                          src={team.logo_url || v.iconofotovacia || "https://via.placeholder.com/30"} 
+                          alt="logo" 
+                        />
+                        <span className="name">{team.team_name}</span>
+                      </td>
+                      <td className="points">{team.pts}</td>
+                      <td>{team.pj}</td>
+                      <td>{team.pg}</td>
+                      <td>{team.pe}</td>
+                      <td>{team.pp}</td>
+                      <td>{team.gf}</td>
+                      <td>{team.gc}</td>
+                      <td className={team.dg > 0 ? "positive" : (team.dg < 0 ? "negative" : "")}>
+                        {team.dg}
+                      </td>
+                    </tr>
+                  ))}
+                  {standings.length === 0 && (
+                    <tr>
+                      <td colSpan="10" className="empty-state">
+                        No hay registros disponibles para esta división.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </ResponsiveTable>
+            </TableWrapper>
+          )}
         </Card>
       </ContentGrid>
     </Container>
   );
 }
 
-// --- ESTILOS ACTUALIZADOS ---
+// --- ESTILOS COMPLETOS ---
 
 const Container = styled.div`
   min-height: 100vh;
@@ -114,7 +123,6 @@ const Card = styled.div`
   color: ${({ theme }) => theme.text};
   width: 100%;
   max-width: 1000px;
-  /* Importante para contener el overflow */
   overflow: hidden; 
 `;
 
@@ -144,12 +152,29 @@ const CardHeader = styled.div`
   }
 `;
 
+const LoadingState = styled.div`
+  padding: 40px;
+  text-align: center;
+  font-weight: 500;
+  color: ${({theme}) => theme.text};
+  opacity: 0.7;
+`;
+
+const TeamLogo = styled.img`
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 1px solid ${({ theme }) => theme.bgtotal};
+`;
+
 const TableWrapper = styled.div`
   width: 100%;
-  overflow-x: auto; /* Permite el scroll horizontal */
-  padding-bottom: 10px; /* Espacio para el scrollbar */
+  overflow-x: auto;
+  padding-bottom: 10px;
 
-  /* Estilizado del Scrollbar */
   &::-webkit-scrollbar {
     height: 8px;
   }
@@ -165,10 +190,10 @@ const TableWrapper = styled.div`
 
 const ResponsiveTable = styled.table`
   width: 100%;
-  border-collapse: separate; /* Necesario para position: sticky */
+  border-collapse: separate;
   border-spacing: 0;
   color: ${({ theme }) => theme.text};
-  min-width: 600px; /* Asegura que la tabla tenga ancho suficiente para scrollear */
+  min-width: 600px;
 
   thead th {
     position: sticky;
@@ -181,7 +206,7 @@ const ResponsiveTable = styled.table`
     letter-spacing: 1px;
     color: ${({ theme }) => theme.text};
     opacity: 0.8;
-    background-color: ${({ theme }) => theme.bgcards}; /* Fondo sólido header */
+    background-color: ${({ theme }) => theme.bgcards};
     border-bottom: 2px solid ${({ theme }) => theme.bgtotal};
   }
 
@@ -190,24 +215,19 @@ const ResponsiveTable = styled.table`
     text-align: center;
     border-bottom: 1px solid ${({ theme }) => theme.bgtotal};
     font-size: 0.95rem;
-    background-color: ${({ theme }) => theme.bgcards}; /* Fondo sólido celdas */
+    background-color: ${({ theme }) => theme.bgcards};
   }
 
-  /* --- COLUMNAS FIJAS (STICKY) --- */
-  
-  /* Clase base para columnas fijas */
   .sticky-col {
     position: sticky;
-    z-index: 5; /* Encima de las celdas normales (z-index: auto) */
+    z-index: 5;
     background-color: ${({ theme }) => theme.bgcards}; 
   }
 
-  /* Headers fijos deben tener mayor z-index que celdas fijas */
   thead .sticky-col {
     z-index: 15;
   }
 
-  /* Primera Columna (POS) */
   .first-col {
     left: 0;
     width: 50px;
@@ -215,19 +235,16 @@ const ResponsiveTable = styled.table`
     border-right: 1px solid ${({ theme }) => theme.bgtotal};
   }
 
-  /* Segunda Columna (EQUIPO) */
   .second-col {
-    left: 50px; /* Se posiciona justo después de la primera */
+    left: 50px;
     min-width: 150px;
-    /* Sombra para el efecto de profundidad al scrollear (Estilo 365Scores) */
-    box-shadow: 4px 0 8px -4px rgba(0,0,0,0.2); 
+    box-shadow: 4px 0 8px -4px rgba(0,0,0,0.1); 
     border-right: 1px solid ${({ theme }) => theme.bgtotal};
   }
 
-  /* Ajustes de texto */
   .left-align { text-align: left; }
   .rank { font-weight: bold; opacity: 0.5; }
-  .team-cell { font-weight: 700; color: ${({ theme }) => theme.text}; }
+  .team-cell { font-weight: 700; color: ${({ theme }) => theme.text}; display: flex; align-items: center; }
   .points { font-weight: 800; color: ${({ theme }) => theme.primary || "#1cb0f6"}; font-size: 1.1rem; }
   
   .positive { color: #22c55e; font-weight: 600; } 
@@ -237,17 +254,7 @@ const ResponsiveTable = styled.table`
 
   tbody tr:last-child td { border-bottom: none; }
   
-  /* Efecto Hover: hay que aplicarlo a las celdas sticky también */
   tbody tr:hover td {
-    background-color: ${({ theme }) => theme.bgtotal}40; /* Translucido */
-  }
-  
-  /* Corrección hover para sticky: deben simular el hover o mantenerse sólidos */
-  tbody tr:hover .sticky-col {
-     /* Opción A: Mantener color tarjeta (limpio) */
-     /* background-color: ${({ theme }) => theme.bgcards}; */
-     
-     /* Opción B: Intentar igualar el hover (más complejo con sticky) */
-     filter: brightness(0.97); 
+    background-color: ${({ theme }) => theme.bgtotal}40;
   }
 `;

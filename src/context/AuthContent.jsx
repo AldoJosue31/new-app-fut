@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../supabase/supabase.config';
-import { useAuthStore } from '../store/AuthStore'; // 1. Importar el Store
+import { useAuthStore } from '../store/AuthStore';
 
 const AuthContext = createContext();
 
@@ -10,8 +10,8 @@ export function AuthContextProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
 
-  // --- VALIDACIÓN EN SEGUNDO PLANO (NO BLOQUEANTE) ---
-const validateProfile = async (sessionUser) => {
+  // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
+  const validateProfile = async (sessionUser) => {
     if (!sessionUser) return;
 
     try {
@@ -36,11 +36,26 @@ const validateProfile = async (sessionUser) => {
         // --- MENSAJE DE ERROR ---
         alert("ACCESO DENEGADO: Esta cuenta de Google no está vinculada a ningún usuario registrado. Pide al administrador que cree tu cuenta primero.");
         
-        // El ProtectedRoute se encargará de devolverlo al Login al detectar user = null
         return;
       }
 
-      // 3. Si el perfil SÍ existe, permitimos el acceso
+      // 3. VALIDACIÓN DE ROL (ROLE GUARD) ⚠️
+      // Solo permitimos 'manager' y 'admin'
+      const authorizedRoles = ['manager', 'admin'];
+      if (!authorizedRoles.includes(data.role)) {
+        console.warn(`Acceso denegado: El usuario ${data.id} tiene rol '${data.role}'`);
+        
+        // Cerramos sesión inmediatamente
+        await supabase.auth.signOut();
+        
+        setUser(null);
+        setProfile(null);
+        
+        alert("ACCESO DENEGADO: Tu cuenta existe, pero no tienes permisos de Administrador/Manager para entrar aquí.");
+        return;
+      }
+
+      // 4. Si pasó los filtros, permitimos el acceso
       setProfile(data);
       useAuthStore.setState({ profile: data }); 
       
@@ -63,7 +78,7 @@ const validateProfile = async (sessionUser) => {
           if (session?.user) {
             setUser(session.user);
             // Sincronizar usuario inmediatamente
-            useAuthStore.setState({ user: session.user }); // <--- Sincronizar Usuario en Store
+            useAuthStore.setState({ user: session.user });
             
             // Lanzamos la validación SIN esperar
             validateProfile(session.user);
@@ -87,10 +102,10 @@ const validateProfile = async (sessionUser) => {
         setUser(currentUser);
         
         // Sincronizar Store
-        useAuthStore.setState({ user: currentUser }); // <--- Sincronizar
+        useAuthStore.setState({ user: currentUser });
         
         if (currentUser) {
-            validateProfile(currentUser);
+          validateProfile(currentUser);
         }
         setIsLoading(false);
       } 
@@ -100,7 +115,7 @@ const validateProfile = async (sessionUser) => {
         setIsLoading(false);
         
         // Limpiar Store al salir
-        useAuthStore.setState({ user: null, profile: null }); // <--- Limpiar Store
+        useAuthStore.setState({ user: null, profile: null });
       }
     });
 

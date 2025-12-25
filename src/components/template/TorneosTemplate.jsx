@@ -4,12 +4,11 @@ import { v } from "../../styles/variables";
 import { InputText2 } from "../organismos/formularios/InputText2";
 import { Btnsave } from "../moleculas/Btnsave";
 import { Title } from "../atomos/Title";
-// Importamos los nuevos componentes
 import { ContentContainer } from "../atomos/ContentContainer";
 import { Card } from "../moleculas/Card";
 import { CardHeader } from "../moleculas/CardHeader";
 
-export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
+export function TorneosTemplate({ form, onChange, onSubmit, loading, divisionName }) {
   return (
     <ContentContainer>
       <HeaderSection>
@@ -21,21 +20,20 @@ export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
           <CardHeader 
             Icono={v.iconocorona}
             titulo="Crear Nuevo Torneo"
+            subtitulo={`Para la división: ${divisionName || "Selecciona una..."}`}
           />
 
           <form onSubmit={onSubmit}>
             <div className="form-content">
+              {/* Campo División (Bloqueado o Informativo) */}
               <section>
-                <Label>Nombre de la División</Label>
+                <Label>División Seleccionada</Label>
                 <InputText2>
                   <input
-                    className="form__field"
+                    className="form__field disabled" // Estilo deshabilitado
                     type="text"
-                    placeholder="Ej: Primera División"
-                    name="division"
-                    value={form.division}
-                    onChange={onChange}
-                    required
+                    value={divisionName || "Selecciona en el Sidebar"}
+                    disabled
                   />
                 </InputText2>
               </section>
@@ -75,7 +73,7 @@ export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
                 titulo={loading ? "Procesando..." : "Iniciar Torneo"} 
                 bgcolor={v.colorPrincipal}
                 icono={<v.iconoguardar />}
-                disabled={loading}
+                disabled={loading || !divisionName}
               />
             </div>
           </form>
@@ -85,19 +83,17 @@ export function TorneosTemplate({ form, onChange, onSubmit, loading }) {
   );
 }
 
-// Estilos locales específicos de esta vista
+// ... (Mantén tus estilos styled-components al final igual que antes)
 const HeaderSection = styled.div`
   margin-bottom: 10px;
   width: 100%;
   max-width: 600px;
 `;
-
 const ContentGrid = styled.div`
   display: flex;
   justify-content: center;
   width: 100%;
 `;
-
 const Label = styled.label`
   display: block;
   margin-bottom: 8px;
@@ -105,10 +101,4 @@ const Label = styled.label`
   font-weight: 600;
   color: ${({ theme }) => theme.text};
   opacity: 0.9;
-`;
-
-const FormContent = styled.div`
-   display: flex;
-   flex-direction: column;
-   gap: 15px;
 `;

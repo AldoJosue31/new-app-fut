@@ -98,10 +98,15 @@ export const useAuthStore = create((set, get) => {
     },
 
     // --- Cerrar Sesión ---
-    cerrarSesion: async () => {
+cerrarSesion: async () => {
       try {
         await supabase.auth.signOut();
         set({ user: null, profile: null });
+        
+        // LIMPIEZA DE DATOS VIEJOS
+        useDivisionStore.getState().resetStore(); // <--- AGREGA ESTO
+        localStorage.removeItem('division-storage'); // Opcional: forzar borrado del storage
+        
       } catch (err) {
         console.error('Error al cerrar sesión', err);
       }
