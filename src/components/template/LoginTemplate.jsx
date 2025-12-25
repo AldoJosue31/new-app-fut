@@ -39,9 +39,9 @@ export function LoginTemplate() {
             <BackgroundLayer />
             <Card>
                 <ContentLogo>
-                    <img src="/icon-football.png" alt="Logo" />
+                    <img src="/logo_app.png" alt="Logo" />
                     <div className="logoText">
-                        <span className="line1">Futbol</span>
+                        <span className="line1">Bracket</span>
                         <span className="line2">App</span>
                     </div>
                 </ContentLogo>

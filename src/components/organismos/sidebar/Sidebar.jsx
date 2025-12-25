@@ -65,7 +65,7 @@ export function Sidebar({ state, setState }) {
             <div className="imgcontent">
               <img src={v.logo} alt="Logo" />
             </div>
-            <h2>Liga <br /> Manager</h2>
+            <h2>Bracket <br /> App</h2>
           </NavLink>
         </div>
 
@@ -287,7 +287,7 @@ const Container = styled.div`
     }
 
     h2 {
-      color: #f88533;
+      color: #fff;
       display: ${({ $isOpen }) => ($isOpen ? `block` : `none`)};
       margin-left: 10px;
       font-size: 20px;
