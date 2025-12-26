@@ -173,7 +173,12 @@ export function EquiposTemplate({
       </Card>
 
       {/* --- MODAL --- */}
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title={teamToEdit ? "Editar Equipo" : "Registrar Equipo"}>
+      <Modal 
+        isOpen={isOpen} 
+        onClose={() => setIsOpen(false)} 
+        title={teamToEdit ? "Editar Equipo" : "Registrar Equipo"}
+        closeOnOverlayClick={false} // <--- NUEVA PROPIEDAD AGREGADA
+      >
         <Form onSubmit={handleSubmit}>
             
             <div className="logo-section">

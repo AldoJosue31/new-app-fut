@@ -1,14 +1,14 @@
 import React from "react";
 import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
-import { v } from "../../styles/variables";
 import { AiOutlineClose } from "react-icons/ai";
 
-export const Modal = ({ isOpen, onClose, title, children }) => {
+// Agregamos la prop closeOnOverlayClick (default: true)
+export const Modal = ({ isOpen, onClose, title, children, closeOnOverlayClick = true }) => {
   if (!isOpen) return null;
 
   return createPortal(
-    <Overlay onClick={onClose}>
+    <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
       <ModalContainer onClick={(e) => e.stopPropagation()}>
         <Header>
           <h3>{title}</h3>

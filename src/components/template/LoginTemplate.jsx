@@ -5,11 +5,9 @@ import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
 import { useAuthStore } from "../../store/AuthStore";
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabase/supabase.config';
 
 export function LoginTemplate() {
     const navigate = useNavigate();
-    // Traemos loginGoogle y el estado de carga del Store
     const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
     const emailRef = useRef(null);
     const passRef = useRef(null);
@@ -26,8 +24,6 @@ export function LoginTemplate() {
         
         try {
             await loginWithEmail(email, password);
-            // La redirección la maneja el AuthContext/App.jsx al detectar el usuario
-            // pero podemos forzar la navegación si el contexto tarda un poco
             navigate('/dashboard', { replace: true });
         } catch (err) {
             alert(err.message || 'Error al iniciar sesión');
@@ -84,7 +80,6 @@ export function LoginTemplate() {
                 </Divider>
 
                 <GoogleWrap>
-                    {/* Botón conectado a la función loginGoogle del store */}
                     <Btnsave
                         funcion={loginGoogle}
                         titulo="Continuar con Google"
@@ -103,7 +98,6 @@ export default LoginTemplate;
 
 /* ---------------------- Styled components ---------------------- */
 
-/* Animaciones */
 const fadeUp = keyframes`
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -120,7 +114,6 @@ const scaleIn = keyframes`
   to { opacity: 1; transform: scale(1); }
 `;
 
-/* Respecto a usuarios con preferencia de menos movimiento */
 const reducedMotion = css`
   @media (prefers-reduced-motion: reduce) {
     animation: none !important;
@@ -139,17 +132,16 @@ const Container = styled.div`
   overflow: hidden;
 `;
 
-/* Capa de fondo con degradado y viñeta */
 const BackgroundLayer = styled.div`
   position: absolute;
   inset: 0;
-  background: radial-gradient(800px 400px at 10% 10%, rgba(28,176,246,0.06), transparent 5%),
-              linear-gradient(135deg, rgba(28,176,246,0.06), rgba(88,86,214,0.02));
+  /* Mantenemos el fondo sutil, pero ajustamos para que funcione en ambos modos si es necesario */
+  background: radial-gradient(800px 400px at 10% 10%, ${({theme})=>theme.primary}10, transparent 5%),
+              linear-gradient(135deg, ${({theme})=>theme.primary}10, ${({theme})=>theme.bgtotal});
   z-index: 0;
   pointer-events: none;
 `;
 
-/* Card principal centrado */
 const Card = styled.div`
   position: relative;
   z-index: 1;
@@ -163,8 +155,11 @@ const Card = styled.div`
   align-items: stretch;
   gap: 8px;
   backdrop-filter: blur(8px);
-  background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.64));
-  box-shadow: 0 10px 30px rgba(10, 10, 25, 0.12);
+  
+  /* CORRECCIÓN: Usar variables del tema para el fondo */
+  background: ${({ theme }) => theme.bgcards};
+  box-shadow: ${({ theme }) => theme.boxshadowGray || '0 10px 30px rgba(0,0,0,0.1)'};
+  
   transform-origin: center;
   animation: ${fadeUp} 420ms ease-out, ${scaleIn} 380ms ease-out;
   ${reducedMotion}
@@ -174,7 +169,6 @@ const Card = styled.div`
   }
 `;
 
-/* Logo y texto */
 const ContentLogo = styled.section`
   display:flex;
   flex-direction: column;
@@ -217,7 +211,6 @@ const ContentLogo = styled.section`
   }
 `;
 
-/* Form wrapper */
 const Form = styled.form`
   display:flex;
   flex-direction: column;
@@ -225,45 +218,46 @@ const Form = styled.form`
   margin-top: 6px;
 `;
 
-/* Input wrapper para estilo de focus/underline */
 const InputWrapper = styled.div`
   .form__field {
     width: 100%;
     padding: 12px 14px;
     border-radius: 10px;
-    border: 1px solid rgba(20,20,30,0.06);
-    background: rgba(255,255,255,0.6);
+    
+    /* CORRECCIÓN: Colores dinámicos para el input */
+    border: 1px solid ${({ theme }) => theme.bg4};
+    background: ${({ theme }) => theme.bgtotal};
+    color: ${({ theme }) => theme.text};
+    
     box-shadow: 0 1px 0 rgba(16,20,40,0.02) inset;
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     font-size: 14px;
     outline: none;
-    color: ${({ theme }) => theme.text};
     -webkit-appearance: none;
     appearance: none;
   }
 
-  /* Placeholder más tenue */
   .form__field::placeholder {
-    color: rgba(30,30,40,0.45);
+    color: ${({ theme }) => theme.text};
+    opacity: 0.5;
   }
 
-  /* Focus */
   .form__field:focus {
     transform: translateY(-2px);
-    border-color: rgba(28,176,246,0.9);
+    border-color: ${({ theme }) => theme.primary || '#1CB0F6'};
     box-shadow: 0 6px 18px rgba(28,176,246,0.12);
   }
 
   ${reducedMotion}
 `;
 
-/* Divider "o" */
 const Divider = styled.div`
   display:flex;
   align-items:center;
   gap: 12px;
   margin: 8px 0;
-  color: rgba(20,20,30,0.55);
+  color: ${({ theme }) => theme.text};
+  opacity: 0.6;
   font-size: 13px;
   width: 100%;
 
@@ -271,29 +265,29 @@ const Divider = styled.div`
     content: "";
     height: 1px;
     flex: 1;
-    background: linear-gradient(90deg, rgba(20,20,30,0.08), rgba(20,20,30,0.02));
+    /* CORRECCIÓN: Color de línea dinámico */
+    background: ${({ theme }) => theme.bg4};
     border-radius: 2px;
-    transform-origin: center;
   }
 
   span {
     padding: 6px 8px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.6);
+    /* CORRECCIÓN: Fondo y texto dinámico para el separador 'o' */
+    background: ${({ theme }) => theme.bgtotal};
     box-shadow: 0 1px 0 rgba(16,20,40,0.02);
     font-weight: 600;
-    color: rgba(20,20,30,0.6);
+    color: ${({ theme }) => theme.text};
     font-size: 12px;
   }
 `;
 
-/* Google wrap: añade micro-interacción al hijo Btnsave */
 const GoogleWrap = styled.div`
   display:flex;
   justify-content: center;
   margin-top: 6px;
 
-  button, /* si Btnsave renderiza button */
+  button, 
   .btn {
     width: 100%;
     max-width: 100%;
