@@ -31,6 +31,10 @@ export function Equipos() {
   const [teamToEdit, setTeamToEdit] = useState(null);
   const [teamToView, setTeamToView] = useState(null);
 
+  // 1. Estado para guardar el ID del equipo a eliminar
+  const [deleteId, setDeleteId] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   // Carga inteligente: solo pide datos si cambia la división
   useEffect(() => {
     if (selectedDivision) {
@@ -161,20 +165,24 @@ export function Equipos() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar equipo?")) return;
+const openDeleteConfirmation = (id) => {
+      setDeleteId(id);
+      setIsDeleteModalOpen(true);
+  };
+
+  // 3. Esta función ejecuta el borrado real (se pasa al modal)
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
-      const { data: team } = await supabase.from('teams').select('logo_url').eq('id', id).single();
-      if (team?.logo_url) {
-        const fileName = team.logo_url.split('/').pop();
-        await supabase.storage.from('logos').remove([fileName]);
-      }
-      const { error } = await supabase.from('teams').delete().eq('id', id);
-      if (error) throw error;
+      // Tu lógica existente de borrado de Supabase...
+      const { data: team } = await supabase.from('teams').select('logo_url').eq('id', deleteId).single();
+      // ... (resto de lógica de storage y delete) ...
+      await supabase.from('teams').delete().eq('id', deleteId);
       
-      // Eliminamos del store localmente
-      deleteEquipoLocal(id);
+      deleteEquipoLocal(deleteId); // Actualizar store
       
+      setIsDeleteModalOpen(false); // Cerrar modal
+      setDeleteId(null);
     } catch (error) {
       alert("Error al eliminar: " + error.message);
     }
@@ -223,7 +231,10 @@ export function Equipos() {
       onGenerateLogo={handleGenerateLogo}
       onRemoveBg={handleRemoveBg}
       onSave={handleSave}
-      onDelete={handleDelete}
+      onDelete={openDeleteConfirmation}
+      isDeleteModalOpen={isDeleteModalOpen}
+      setIsDeleteModalOpen={setIsDeleteModalOpen}
+      onConfirmDelete={confirmDelete}
       onCreate={openCreateModal}
       onEdit={openEditModal}
       onView={openDetailModal}

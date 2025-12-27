@@ -1,10 +1,11 @@
 import React from "react";
 import styled, { keyframes, css } from "styled-components";
-import { ContentContainer, Title, Btnsave, InputText2, v, Card, CardHeader } from "../../index";
+import { ContentContainer, Title, Btnsave, InputText2, v, Card, CardHeader, BtnNormal  } from "../../index";
 import { Modal } from "../organismos/Modal";
 import { RiPencilLine, RiDeleteBinLine, RiMagicLine, RiEraserLine, RiShieldUserLine, RiSmartphoneLine } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { Device } from "../../styles/breakpoints";
+import { PlayerManager } from "../organismos/formularios/PlayerManager";
 
 export function EquiposTemplate({ 
   equipos, 
@@ -35,8 +36,20 @@ export function EquiposTemplate({
   onDelete,
   onCreate,
   onEdit,
-  onView
+  onView,
+
+  isDeleteModalOpen,
+  setIsDeleteModalOpen,
+  onConfirmDelete
+  
 }) {
+  // Estado para las pestañas
+  const [activeTab, setActiveTab] = React.useState("info");
+
+  // Resetear tab cuando se abre el modal
+  React.useEffect(() => {
+    if (isFormOpen) setActiveTab("info");
+  }, [isFormOpen]);
 
   return (
     <ContentContainer>
@@ -85,7 +98,9 @@ export function EquiposTemplate({
                                     <button className="btn-edit" onClick={(e) => { e.stopPropagation(); onEdit(team); }} title="Editar"><RiPencilLine /></button>
                                     <button className="btn-delete" onClick={(e) => { e.stopPropagation(); onDelete(team.id); }} title="Eliminar"><RiDeleteBinLine /></button>
                                 </ActionButtons>
-                                <div className="status-badge" $active={team.status === 'Activo'}>{team.status}</div>
+                                <StatusBadge $active={team.status === 'Activo'}>
+                                    {team.status}
+                                </StatusBadge>
                                 <LogoImg src={team.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={team.name} />
                             </div>
                             <div className="card-body">
@@ -105,10 +120,24 @@ export function EquiposTemplate({
       <Modal 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
-        title={teamToEdit ? "Editar Equipo" : "Registrar Equipo"}
+        title={teamToEdit ? `Gestionar: ${teamToEdit.name}` : "Registrar Equipo"}
         closeOnOverlayClick={false}
       >
-        <Form onSubmit={onSave}>
+        {/* --- BARRA DE PESTAÑAS (SUBMENÚ) --- */}
+        {teamToEdit && (
+          <TabsContainer>
+            <TabButton $active={activeTab === "info"} onClick={() => setActiveTab("info")}>
+              Datos del Equipo
+            </TabButton>
+            <TabButton $active={activeTab === "players"} onClick={() => setActiveTab("players")}>
+              Jugadores (Plantilla)
+            </TabButton>
+          </TabsContainer>
+        )}
+
+        {/* --- CONTENIDO PESTAÑA 1: INFO DEL EQUIPO --- */}
+        {activeTab === "info" && (
+          <Form onSubmit={onSave}>
             <div className="logo-section">
                 <div className="preview-container">
                     <label htmlFor="file-upload" className="preview-uploader" title="Click para subir logo">
@@ -183,7 +212,7 @@ export function EquiposTemplate({
             
             <div className="actions">
                 <Btnsave 
-                    titulo={isUploading ? "Guardando..." : "Guardar Datos"} 
+                    titulo={isUploading ? "Guardando..." : "Guardar Equipo"} 
                     bgcolor={v.colorPrincipal}
                     icono={<v.iconoguardar />}
                     disabled={isUploading}
@@ -191,6 +220,19 @@ export function EquiposTemplate({
                 />
             </div>
         </Form>
+        )}
+
+        {/* --- CONTENIDO PESTAÑA 2: JUGADORES --- */}
+        {activeTab === "players" && teamToEdit && (
+          <PlayerManager teamId={teamToEdit.id} />
+        )}
+
+        {/* Si se está creando un equipo nuevo, mostrar aviso */}
+        {!teamToEdit && (
+          <div style={{marginTop: 10, fontSize: '0.8rem', opacity: 0.7, textAlign: 'center'}}>
+            Guarda el equipo primero para poder agregar jugadores.
+          </div>
+        )}
       </Modal>
 
       {/* --- MODAL DETALLES --- */}
@@ -216,7 +258,7 @@ export function EquiposTemplate({
                     <div className="info-item">
                         <div className="icon-box"><RiShieldUserLine /></div>
                         <div>
-                            <span className="label">Delegado / DT</span>
+                            <span className="label">Delegado</span>
                             <p className="value">{teamToView.delegate_name || "No registrado"}</p>
                         </div>
                     </div>
@@ -242,6 +284,31 @@ export function EquiposTemplate({
                 </div>
             </DetailContainer>
         )}
+      </Modal>
+
+      {/* --- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN --- */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirmar Eliminación"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <span style={{ color: "var(--text)", opacity: 0.9 }}>
+                ¿Realmente deseas eliminar este equipo? Esta acción no se puede deshacer y borrará estadísticas asociadas.
+            </span>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <BtnNormal 
+                    titulo="Cancelar" 
+                    funcion={() => setIsDeleteModalOpen(false)} 
+                />
+                <Btnsave 
+                    titulo="Eliminar" 
+                    bgcolor={v.rojo}
+                    icono={<v.iconocerrar />}
+                    funcion={onConfirmDelete} 
+                />
+            </div>
+        </div>
       </Modal>
 
     </ContentContainer>
@@ -273,14 +340,13 @@ const Grid = styled.div`
 
 // --- SKELETON COMPONENTS ---
 const SkeletonCard = styled.div`
-    width: 250px; height: 260px; /* Altura aprox de la card real */
+    width: 250px; height: 260px;
     flex-shrink: 0;
     background-color: ${({theme})=> theme.bgtotal};
     border: 1px solid ${({theme})=> theme.bg4};
     border-radius: 16px; overflow: hidden;
     display: flex; flex-direction: column;
     
-    /* El efecto shimmer aplicado a elementos internos */
     .sk-header {
         height: 110px; width: 100%;
         background: ${({theme}) => theme.bg4}; 
@@ -324,7 +390,6 @@ const TeamCard = styled.div`
     display: flex; flex-direction: column;
     cursor: pointer;
     
-    /* ANIMACIÓN DE ENTRADA */
     animation: ${fadeIn} 0.5s ease-out forwards;
 
     &:hover {
@@ -334,11 +399,6 @@ const TeamCard = styled.div`
     
     .card-top {
         height: 110px; position: relative; display: flex; justify-content: center; align-items: flex-end;
-    }
-    .status-badge {
-        position: absolute; top: 10px; right: 10px;
-        background: ${({$active}) => $active ? '#2ecc71' : '#e74c3c'};
-        color: white; font-size: 10px; padding: 4px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase;
     }
     .card-body {
         padding: 35px 15px 20px; text-align: center; flex: 1;
@@ -384,9 +444,20 @@ const Form = styled.form`
     .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; .full-width { grid-column: span 2; } }
     .actions { margin-top: 10px; }
 `;
-const ColorInputContainer = styled.div` display: flex; align-items: center; gap: 10px; background: ${({theme}) => theme.bgtotal}; padding: 8px; border-radius: 12px; border: 1px solid ${({theme}) => theme.bg4}; input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; } `;
-const SelectStyled = styled.select` width: 100%; padding: 12px; border-radius: 15px; border: 2px solid ${({ theme }) => theme.color2}; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; font-family: inherit; outline: none; `;
-const EmptyState = styled.div` grid-column: 1 / -1; text-align: center; padding: 50px; background: ${({theme})=> theme.bgtotal}; border-radius: 16px; border: 2px dashed ${({theme})=> theme.bg4}; p { margin-bottom: 20px; color: ${({theme})=> theme.text}; } `;
+
+const ColorInputContainer = styled.div`
+  display: flex; align-items: center; gap: 10px; background: ${({theme}) => theme.bgtotal}; padding: 8px; border-radius: 12px; border: 1px solid ${({theme}) => theme.bg4};
+  input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }
+`;
+
+const SelectStyled = styled.select`
+  width: 100%; padding: 12px; border-radius: 15px; border: 2px solid ${({ theme }) => theme.color2}; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; font-family: inherit; outline: none;
+`;
+
+const EmptyState = styled.div`
+  grid-column: 1 / -1; text-align: center; padding: 50px; background: ${({theme})=> theme.bgtotal}; border-radius: 16px; border: 2px dashed ${({theme})=> theme.bg4};
+  p { margin-bottom: 20px; color: ${({theme})=> theme.text}; }
+`;
 
 const DetailContainer = styled.div`
     display: flex;
@@ -481,4 +552,44 @@ const StatusPill = styled.span`
     font-size: 0.9rem; font-weight: 700;
     background: ${({$active}) => $active ? 'rgba(46, 213, 115, 0.15)' : 'rgba(231, 76, 60, 0.15)'};
     color: ${({$active}) => $active ? '#2ecc71' : '#e74c3c'};
+`;
+
+const StatusBadge = styled.div`
+    position: absolute; 
+    top: 10px; 
+    right: 10px;
+    background: ${({$active}) => $active ? '#2ecc71' : '#e74c3c'};
+    color: white; 
+    font-size: 10px; 
+    padding: 4px 8px; 
+    border-radius: 10px; 
+    font-weight: 700; 
+    text-transform: uppercase;
+    z-index: 2;
+`;
+
+// --- ESTILOS PARA LAS PESTAÑAS ---
+const TabsContainer = styled.div`
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid ${({theme}) => theme.bg4};
+  padding-bottom: 10px;
+`;
+
+const TabButton = styled.button`
+  background: ${({$active, theme}) => $active ? theme.bg4 : 'transparent'};
+  color: ${({$active, theme}) => $active ? theme.text : theme.text + '80'};
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  border: 1px solid ${({$active, theme}) => $active ? theme.color2 : 'transparent'};
+  
+  &:hover {
+    background: ${({theme}) => theme.bgtotal};
+  }
 `;

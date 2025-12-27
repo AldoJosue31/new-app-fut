@@ -56,7 +56,7 @@ const ModalContainer = styled.div`
 
 const Header = styled.div`
   padding: 20px 25px;
-  border-bottom: 1px solid ${({ theme }) => theme.bgtotal};
+  border-bottom: 1px solid ${({ theme }) => theme.colorSubtitle};
   display: flex;
   justify-content: space-between;
   align-items: center;
