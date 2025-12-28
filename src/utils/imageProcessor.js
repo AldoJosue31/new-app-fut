@@ -11,9 +11,9 @@ export const removeBackground = (imageFile) => {
     reader.onload = (event) => {
       const img = new Image();
       img.src = event.target.result;
+      img.crossOrigin = "Anonymous";
 
       img.onload = () => {
-        // Crear canvas
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
@@ -24,87 +24,100 @@ export const removeBackground = (imageFile) => {
           return;
         }
 
-        // Dibujar imagen original
         ctx.drawImage(img, 0, 0);
-
-        // Obtener data de píxeles
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         const width = canvas.width;
         const height = canvas.height;
 
-        // --- ALGORITMO FLOOD FILL (Inundación) ---
-        
-        // 1. Obtener el color de fondo de la esquina superior izquierda (0,0)
-        const startPos = 0;
-        const bgR = data[startPos];
-        const bgG = data[startPos + 1];
-        const bgB = data[startPos + 2];
-        const bgA = data[startPos + 3];
+        // --- 1. DETECCIÓN INTELIGENTE DEL COLOR DE FONDO ---
+        // Muestreamos las 4 esquinas para determinar el color dominante del fondo
+        const corners = [0, (width - 1) * 4, (height - 1) * width * 4, (width * height - 1) * 4];
+        const colorCounts = {};
+        let dominantColor = { r: data[0], g: data[1], b: data[2], count: 0 };
 
-        // Tolerancia: Qué tan parecido debe ser el color para borrarse (0-255)
-        // 30-50 es un buen rango para cubrir compresiones JPG leves
-        const tolerance = 50; 
+        corners.forEach(pos => {
+            const key = `${data[pos]},${data[pos+1]},${data[pos+2]}`;
+            colorCounts[key] = (colorCounts[key] || 0) + 1;
+            if (colorCounts[key] > dominantColor.count) {
+                dominantColor = { r: data[pos], g: data[pos+1], b: data[pos+2], count: colorCounts[key] };
+            }
+        });
 
-        // Función para comparar colores
+        const bgR = dominantColor.r;
+        const bgG = dominantColor.g;
+        const bgB = dominantColor.b;
+
+        // Tolerancia dinámica (ajustable)
+        const tolerance = 60; 
+
+        // --- 2. ALGORITMO DE INUNDACIÓN (Flood Fill) MEJORADO ---
+        // Stack inicial con todos los píxeles del borde que coincidan con el fondo
+        const stack = [];
+        const visited = new Uint8Array(width * height); // 0: no visitado, 1: visitado
+
+        // Función auxiliar para verificar coincidencia de color
         const matchColor = (pos) => {
-          const r = data[pos];
-          const g = data[pos + 1];
-          const b = data[pos + 2];
-          const a = data[pos + 3];
-          
-          // Si ya es transparente, no coincide (ya lo procesamos o era transparente)
-          if (a === 0) return false;
-
-          // Distancia de color simple
-          return (
-            Math.abs(r - bgR) <= tolerance &&
-            Math.abs(g - bgG) <= tolerance &&
-            Math.abs(b - bgB) <= tolerance
-          );
+          const r = data[pos], g = data[pos + 1], b = data[pos + 2], a = data[pos + 3];
+          return a !== 0 && 
+                 Math.abs(r - bgR) <= tolerance &&
+                 Math.abs(g - bgG) <= tolerance &&
+                 Math.abs(b - bgB) <= tolerance;
         };
 
-        // Pila para el algoritmo (Stack) - Empezamos desde las 4 esquinas para asegurar
-        // Formato: [x, y]
-        const stack = [
-            [0, 0], 
-            [width - 1, 0], 
-            [0, height - 1], 
-            [width - 1, height - 1]
-        ];
+        // Escanear bordes para encontrar puntos de inicio
+        for (let x = 0; x < width; x++) {
+            [0, height - 1].forEach(y => {
+                const pos = (y * width + x) * 4;
+                if (matchColor(pos)) stack.push([x, y]);
+            });
+        }
+        for (let y = 0; y < height; y++) {
+            [0, width - 1].forEach(x => {
+                const pos = (y * width + x) * 4;
+                if (matchColor(pos)) stack.push([x, y]);
+            });
+        }
 
-        // Matriz de visitados para no repetir
-        const visited = new Uint8Array(width * height);
-
-        const getPos = (x, y) => (y * width + x) * 4;
-
+        // Ejecutar Flood Fill
         while (stack.length > 0) {
           const [x, y] = stack.pop();
-          const pos = getPos(x, y);
+          const offset = y * width + x;
+          const pos = offset * 4;
 
-          // Si está fuera de límites, ya visitado o no coincide con el color de fondo -> saltar
-          if (x < 0 || x >= width || y < 0 || y >= height || visited[y * width + x]) continue;
-          
-          visited[y * width + x] = 1; // Marcar como visitado
+          if (x < 0 || x >= width || y < 0 || y >= height || visited[offset]) continue;
+          visited[offset] = 1;
 
           if (matchColor(pos)) {
-            // BORRAR PÍXEL (Hacer transparente)
-            data[pos + 3] = 0;
+            data[pos + 3] = 0; // Hacer transparente
 
-            // Agregar vecinos a la pila (Arriba, Abajo, Izquierda, Derecha)
-            stack.push([x + 1, y]);
-            stack.push([x - 1, y]);
-            stack.push([x, y + 1]);
-            stack.push([x, y - 1]);
+            // Agregar vecinos (4 direcciones)
+            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
           }
         }
 
-        // --- FIN ALGORITMO ---
+        // --- 3. SUAVIZADO DE BORDES (Anti-aliasing simple) ---
+        // Iteramos para encontrar píxeles opacos vecinos de transparentes y reducir su opacidad
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const pos = (y * width + x) * 4;
+                if (data[pos + 3] > 0) { // Si es visible
+                    // Contar vecinos transparentes
+                    let transparentNeighbors = 0;
+                    if (data[((y-1)*width+x)*4 + 3] === 0) transparentNeighbors++;
+                    if (data[((y+1)*width+x)*4 + 3] === 0) transparentNeighbors++;
+                    if (data[(y*width+(x-1))*4 + 3] === 0) transparentNeighbors++;
+                    if (data[(y*width+(x+1))*4 + 3] === 0) transparentNeighbors++;
 
-        // Poner la imagen modificada de nuevo
+                    if (transparentNeighbors > 0) {
+                        data[pos + 3] = 255 - (transparentNeighbors * 60); // Difuminar borde
+                    }
+                }
+            }
+        }
+
         ctx.putImageData(imageData, 0, 0);
 
-        // Convertir a archivo PNG
         canvas.toBlob((blob) => {
           if (blob) {
             const newFile = new File(
@@ -121,7 +134,6 @@ export const removeBackground = (imageFile) => {
           }
         }, 'image/png');
       };
-
       img.onerror = (err) => reject(err);
     };
   });

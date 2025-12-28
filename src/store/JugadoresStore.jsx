@@ -31,16 +31,33 @@ export const useJugadoresStore = create((set, get) => ({
     set((state) => ({ jugadores: [...state.jugadores, data[0]] }));
   },
 
-  // Editar jugador (Con limpieza de Storage)
+  // Editar jugador (CORREGIDO: Limpieza inteligente)
   updateJugador: async (id, updates) => {
     const currentState = get().jugadores;
     const playerToUpdate = currentState.find((p) => p.id === id);
 
-    // Lógica para borrar foto antigua si se subió una nueva
+    // 1. Manejo de borrado de foto antigua
     if (playerToUpdate && updates.photo_url && playerToUpdate.photo_url) {
-      // Si la URL nueva es diferente a la vieja, borramos la vieja
-      if (updates.photo_url !== playerToUpdate.photo_url) {
+        
+      // Extraemos solo la RUTA del archivo (ignorando ?t=timestamp)
+      const oldPath = getPathFromUrl(playerToUpdate.photo_url);
+      const newPath = getPathFromUrl(updates.photo_url);
+
+      // --- CORRECCIÓN CLAVE ---
+      // SOLO borramos si las rutas son DIFERENTES (ej. cambio de 'image_123.png' a 'player_10_crop.png')
+      // Si son iguales (mismo archivo sobrescrito), NO borramos nada.
+      if (oldPath && newPath && oldPath !== newPath) {
+        console.log("Borrando foto antigua (ruta diferente):", oldPath);
         await deleteFileFromStorage(playerToUpdate.photo_url);
+        
+        // Si usas original_photo_url y cambia la ruta base, también deberías borrar el original viejo
+        if (playerToUpdate.original_photo_url) {
+             const oldOrigPath = getPathFromUrl(playerToUpdate.original_photo_url);
+             const newOrigPath = getPathFromUrl(updates.original_photo_url);
+             if (oldOrigPath !== newOrigPath) {
+                 await deleteFileFromStorage(playerToUpdate.original_photo_url);
+             }
+        }
       }
     }
 
@@ -62,9 +79,13 @@ export const useJugadoresStore = create((set, get) => ({
     const currentState = get().jugadores;
     const playerToDelete = currentState.find((p) => p.id === id);
 
-    // 1. Si el jugador tiene foto, la borramos del bucket primero
+    // 1. Si el jugador tiene foto, la borramos del bucket
     if (playerToDelete?.photo_url) {
       await deleteFileFromStorage(playerToDelete.photo_url);
+    }
+    // Borrar también la original si existe
+    if (playerToDelete?.original_photo_url) {
+      await deleteFileFromStorage(playerToDelete.original_photo_url);
     }
 
     // 2. Borramos el registro de la base de datos
@@ -77,27 +98,33 @@ export const useJugadoresStore = create((set, get) => ({
   }
 }));
 
-// --- FUNCIÓN AUXILIAR PARA BORRAR DEL BUCKET ---
-// Extrae la ruta relativa del archivo desde la URL completa de Supabase
+// --- UTILS ---
+
+// Extrae la ruta limpia del archivo (sin dominio ni query params)
+const getPathFromUrl = (fullUrl) => {
+    if (!fullUrl || !fullUrl.includes('supabase.co')) return null;
+    try {
+        const bucketName = 'logos'; 
+        // Dividimos por el nombre del bucket para obtener la ruta relativa
+        const parts = fullUrl.split(`/${bucketName}/`);
+        if (parts.length < 2) return null;
+        
+        // Quitamos query params (ej: ?t=12345) para comparar solo el archivo
+        return parts[1].split('?')[0];
+    } catch (e) {
+        return null;
+    }
+};
+
 const deleteFileFromStorage = async (fullUrl) => {
   try {
-    // Verificamos que sea una URL de Supabase para no intentar borrar imágenes externas (ej. placehold.co)
-    if (!fullUrl.includes('supabase.co')) return;
-
-    // Supongamos que tu URL es: 
-    // https://xyz.supabase.co/storage/v1/object/public/logos/players/123.jpg
-    // Necesitamos extraer: "players/123.jpg"
-    
-    // Ajusta 'logos' al nombre real de tu bucket si es diferente
-    const bucketName = 'logos'; 
-    const path = fullUrl.split(`/${bucketName}/`)[1];
-
+    const path = getPathFromUrl(fullUrl);
     if (path) {
-      const { error } = await supabase.storage.from(bucketName).remove([path]);
-      if (error) console.error("Error borrando imagen antigua del storage:", error);
-      else console.log("Imagen antigua eliminada correctamente:", path);
+      const { error } = await supabase.storage.from('logos').remove([path]);
+      if (error) console.error("Error borrando imagen antigua:", error);
+      else console.log("Imagen eliminada correctamente:", path);
     }
   } catch (err) {
-    console.error("Error procesando eliminación de archivo:", err);
+    console.error("Error en deleteFileFromStorage:", err);
   }
 };

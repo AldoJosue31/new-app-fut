@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../styles/variables";
-import { InputText2, Btnsave, BtnNormal } from "../../../index";
+import { InputText2, Btnsave, BtnNormal, PhotoUploader, InputNumber } from "../../../index";
 import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { supabase } from "../../../supabase/supabase.config";
 import { RiEditLine, RiDeleteBinLine, RiUserAddLine, RiArrowLeftLine } from "react-icons/ri";
 
 export function PlayerManager({ teamId }) {
   const { jugadores, fetchJugadores, addJugador, updateJugador, deleteJugador, isLoading } = useJugadoresStore();
-  const [view, setView] = useState("list"); // 'list' | 'form'
+  const [view, setView] = useState("list"); 
   const [editingPlayer, setEditingPlayer] = useState(null);
+  
+  // Estados para la imagen
   const [photoFile, setPhotoFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [croppedFile, setCroppedFile] = useState(null);
+  const [originalFile, setOriginalFile] = useState(null);
   
   // Estado del formulario
   const initialForm = {
@@ -19,20 +23,35 @@ export function PlayerManager({ teamId }) {
     birth_date: "", curp_dni: "", photo_url: ""
   };
   const [form, setForm] = useState(initialForm);
+  const [dorsalError, setDorsalError] = useState("");
+  const [shakeError, setShakeError] = useState(false);
+
+  useEffect(() => {
+    if (!form.dorsal || !jugadores.length) {
+      setDorsalError("");
+      return;
+    }
+    const duplicado = jugadores.find(p => 
+      p.dorsal == form.dorsal && 
+      (editingPlayer ? p.id !== editingPlayer.id : true)
+    );
+    if (duplicado) {
+      setDorsalError(`⚠️ Ocupado por ${duplicado.first_name} ${duplicado.last_name}`);
+    } else {
+      setDorsalError("");
+    }
+  }, [form.dorsal, jugadores, editingPlayer]);
 
   useEffect(() => {
     if (teamId) fetchJugadores(teamId);
   }, [teamId]);
 
-  // Manejadores
   const handleInputChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setPhotoFile(file);
-      setPreview(URL.createObjectURL(file));
-    }
+  const handleImageSelect = (cropFile, originalFile, previewUrl) => {
+    setCroppedFile(cropFile);
+    setOriginalFile(originalFile);
+    setPreview(previewUrl);
   };
 
   const handleEdit = (player) => {
@@ -46,24 +65,41 @@ export function PlayerManager({ teamId }) {
     setEditingPlayer(null);
     setForm(initialForm);
     setPreview(null);
+    setPhotoFile(null);
     setView("form");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (dorsalError) {
+      setShakeError(true);
+      setTimeout(() => setShakeError(false), 500);
+      return;
+    }
     try {
       let finalPhotoUrl = form.photo_url;
+      
+      if (croppedFile) {
+        const fileId = editingPlayer ? editingPlayer.id : Date.now(); 
+        const pathCrop = `players/${fileId}_crop.png`;
+        const pathOriginal = `players/${fileId}_original.png`;
 
-      // Subir foto si existe nueva
-      if (photoFile) {
-        const fileName = `players/${Date.now()}_${photoFile.name}`;
-        const { error: upError } = await supabase.storage.from('logos').upload(fileName, photoFile);
-        if (upError) throw upError;
-        const { data: urlData } = supabase.storage.from('logos').getPublicUrl(fileName);
-        finalPhotoUrl = urlData.publicUrl;
+        const { error: errCrop } = await supabase.storage.from('logos').upload(pathCrop, croppedFile, { upsert: true });
+        if (errCrop) throw errCrop;
+
+        if (originalFile) {
+            await supabase.storage.from('logos').upload(pathOriginal, originalFile, { upsert: true });
+        }
+
+        const { data: publicData } = supabase.storage.from('logos').getPublicUrl(pathCrop);
+        finalPhotoUrl = `${publicData.publicUrl}?t=${Date.now()}`;
       }
 
-      const payload = { ...form, team_id: teamId, photo_url: finalPhotoUrl };
+      const payload = { 
+          ...form, 
+          team_id: teamId, 
+          photo_url: finalPhotoUrl
+      };
 
       if (editingPlayer) {
         await updateJugador(editingPlayer.id, payload);
@@ -76,22 +112,23 @@ export function PlayerManager({ teamId }) {
     }
   };
 
+  const getOriginalUrlFromPreview = (url) => {
+      if (!url) return null;
+      if (url.includes("_crop")) return url.replace("_crop", "_original");
+      return url; 
+  };
+
   // --- VISTA LISTA ---
   if (view === "list") {
     return (
       <Container>
         <div className="header-actions">
           <h3>Plantilla ({isLoading ? "..." : jugadores.length})</h3>
-          <BtnNormal 
-            titulo="Agregar Jugador" 
-            icono={<RiUserAddLine />} 
-            funcion={handleNew} 
-          />
+          <BtnNormal titulo="Agregar Jugador" icono={<RiUserAddLine />} funcion={handleNew} />
         </div>
         
         <ListContainer>
           {isLoading ? (
-            /* --- RENDERIZADO DE SKELETONS --- */
             Array.from({ length: 5 }).map((_, index) => (
               <SkeletonRow key={index}>
                 <div className="sk-info">
@@ -104,7 +141,6 @@ export function PlayerManager({ teamId }) {
               </SkeletonRow>
             ))
           ) : (
-            /* --- LISTA REAL --- */
             jugadores.map((p) => (
               <PlayerRow key={p.id}>
                 <div className="info">
@@ -139,12 +175,19 @@ export function PlayerManager({ teamId }) {
       </div>
 
       <Form onSubmit={handleSubmit}>
-        <div className="photo-upload">
-           <label>
-              <img src={preview || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="Preview" />
-              <input type="file" hidden accept="image/*" onChange={handleFileChange} />
-              <span>Cambiar Foto</span>
-           </label>
+        
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "25px" }}>
+            <PhotoUploader 
+                previewUrl={preview} 
+                originalUrl={editingPlayer?.original_photo_url || getOriginalUrlFromPreview(preview)}
+                onImageSelect={handleImageSelect}
+                onClear={() => {
+                    setCroppedFile(null); setOriginalFile(null); setPreview(null);
+                    setForm(prev => ({ ...prev, photo_url: "" }));
+                }}
+                shape="circle"
+                width="130px" height="130px"
+            />
         </div>
 
         <div className="grid-2">
@@ -157,9 +200,10 @@ export function PlayerManager({ teamId }) {
         </div>
 
         <div className="grid-3">
-           <InputText2>
-              <input className="form__field" type="number" name="dorsal" placeholder="Num." required value={form.dorsal} onChange={handleInputChange}/>
-           </InputText2>
+           <div style={{ position: 'relative' }}> 
+               {dorsalError && <ErrorBadge $shake={shakeError}>{dorsalError}</ErrorBadge>}
+               <InputNumber name="dorsal" value={form.dorsal} onChange={handleInputChange} min={0} max={999}/>
+           </div>
            <div className="select-wrap">
               <select name="position" value={form.position} onChange={handleInputChange} className="custom-select">
                   <option>Portero</option>
@@ -168,6 +212,7 @@ export function PlayerManager({ teamId }) {
                   <option>Delantero</option>
               </select>
            </div>
+           {/* FECHA NO OBLIGATORIA (Sin 'required') */}
            <InputText2>
               <input className="form__field" type="date" name="birth_date" value={form.birth_date} onChange={handleInputChange}/>
            </InputText2>
@@ -267,14 +312,53 @@ const SkeletonRow = styled.div`
 
 const Form = styled.form`
   display: flex; flex-direction: column; gap: 12px;
-  .photo-upload { display: flex; justify-content: center; margin-bottom: 10px;
-    label { cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; 
-       img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px dashed ${v.colorPrincipal}; }
-       span { font-size: 0.8rem; color: ${v.colorPrincipal}; font-weight: 600; }
-    }
-  }
+  
+  /* Se eliminó .photo-upload ya que ahora usamos el componente externo */
+
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .grid-3 { display: grid; grid-template-columns: 0.6fr 1.2fr 1.2fr; gap: 10px; }
   
   .custom-select { width: 100%; padding: 12px; border-radius: 15px; background: ${({theme})=>theme.bgtotal}; color: ${({theme})=>theme.text}; border: 2px solid ${({theme})=>theme.color2}; outline: none; height: 100%; }
+`;
+
+// 1. Definimos la animación de vibración
+const shakeAnimation = keyframes`
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+  100% { transform: translateX(0); }
+`;
+
+// 2. Actualizamos el componente
+const ErrorBadge = styled.span`
+  position: absolute;
+  top: -25px; /* Ajusta según necesites */
+  left: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: #ff4b4b; /* Rojo alerta */
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  pointer-events: none;
+
+  /* Lógica de animación: Si $shake es true, vibra. Si no, solo aparece suavemente. */
+  ${({ $shake }) => $shake 
+      ? css`animation: ${shakeAnimation} 0.4s ease-in-out;` 
+      : css`animation: fadeIn 0.3s ease-out;`
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 10px;
+    border-width: 4px 4px 0;
+    border-style: solid;
+    border-color: #ff4b4b transparent transparent transparent;
+  }
 `;

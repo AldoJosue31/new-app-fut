@@ -1,11 +1,18 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
-import { ContentContainer, Title, Btnsave, InputText2, v, Card, CardHeader, BtnNormal  } from "../../index";
+import { ContentContainer, Title, Btnsave, InputText2, v, Card, CardHeader, BtnNormal, PhotoUploader } from "../../index";
 import { Modal } from "../organismos/Modal";
-import { RiPencilLine, RiDeleteBinLine, RiMagicLine, RiEraserLine, RiShieldUserLine, RiSmartphoneLine } from "react-icons/ri";
+import { 
+  RiPencilLine, RiDeleteBinLine, RiMagicLine, RiEraserLine, 
+  RiShieldUserLine, RiSmartphoneLine, RiExchangeDollarLine, 
+  RiUserFollowLine, RiCloseLine , 
+} from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { Device } from "../../styles/breakpoints";
 import { PlayerManager } from "../organismos/formularios/PlayerManager";
+// Importaciones necesarias para la lógica extra
+import { useDivisionStore } from "../../store/DivisionStore";
+import { supabase } from "../../supabase/supabase.config";
 
 export function EquiposTemplate({ 
   equipos, 
@@ -44,12 +51,65 @@ export function EquiposTemplate({
   
 }) {
   // Estado para las pestañas
-  const [activeTab, setActiveTab] = React.useState("info");
+  const [activeTab, setActiveTab] = useState("info");
 
-  // Resetear tab cuando se abre el modal
-  React.useEffect(() => {
+  // --- ESTADOS Y LÓGICA EXTRA (Transferencia y Lista Jugadores) ---
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [teamToTransfer, setTeamToTransfer] = useState(null);
+  const [targetDivisionId, setTargetDivisionId] = useState("");
+  const { divisiones } = useDivisionStore();
+
+  const [showPlayerList, setShowPlayerList] = useState(false);
+  const [detailPlayers, setDetailPlayers] = useState([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+
+  // Resetear estados al abrir/cerrar modales
+  useEffect(() => {
     if (isFormOpen) setActiveTab("info");
   }, [isFormOpen]);
+
+  useEffect(() => {
+    if (!isDetailOpen) setShowPlayerList(false);
+  }, [isDetailOpen]);
+
+  // --- HANDLERS EXTRA ---
+  const handleOpenTransfer = (e, team) => {
+    e.stopPropagation();
+    setTeamToTransfer(team);
+    setTargetDivisionId("");
+    setIsTransferModalOpen(true);
+  };
+
+  const handleTransferSubmit = async () => {
+    if(!targetDivisionId) return alert("Selecciona una división destino");
+    try {
+        const { error } = await supabase.from('teams')
+          .update({ division_id: targetDivisionId })
+          .eq('id', teamToTransfer.id);
+        
+        if(error) throw error;
+        
+        alert("Equipo transferido correctamente");
+        setIsTransferModalOpen(false);
+        window.location.reload(); 
+    } catch (error) {
+        alert("Error transfiriendo: " + error.message);
+    }
+  };
+
+  const handleShowPlayers = async () => {
+    if (!teamToView) return;
+    setShowPlayerList(true);
+    setLoadingPlayers(true);
+    try {
+        const { data } = await supabase.from('players').select('*').eq('team_id', teamToView.id);
+        setDetailPlayers(data || []);
+    } catch (error) {
+        console.error(error);
+    } finally {
+        setLoadingPlayers(false);
+    }
+  };
 
   return (
     <ContentContainer>
@@ -96,6 +156,8 @@ export function EquiposTemplate({
                             <div className="card-top" style={{ background: `linear-gradient(135deg, ${team.color}cc, ${team.color})` }}>
                                 <ActionButtons>
                                     <button className="btn-edit" onClick={(e) => { e.stopPropagation(); onEdit(team); }} title="Editar"><RiPencilLine /></button>
+                                    {/* BOTÓN TRANSFERIR AGREGADO */}
+                                    <button className="btn-transfer" onClick={(e) => handleOpenTransfer(e, team)} title="Transferir"><RiExchangeDollarLine /></button>
                                     <button className="btn-delete" onClick={(e) => { e.stopPropagation(); onDelete(team.id); }} title="Eliminar"><RiDeleteBinLine /></button>
                                 </ActionButtons>
                                 <StatusBadge $active={team.status === 'Activo'}>
@@ -138,25 +200,19 @@ export function EquiposTemplate({
         {/* --- CONTENIDO PESTAÑA 1: INFO DEL EQUIPO --- */}
         {activeTab === "info" && (
           <Form onSubmit={onSave}>
-            <div className="logo-section">
+            {/* LOGO SECTION CON FONDO DINÁMICO */}
+            <div className="logo-section" style={{ background: form.color ? `${form.color}33` : undefined, borderColor: form.color }}>
                 <div className="preview-container">
-                    <label htmlFor="file-upload" className="preview-uploader" title="Click para subir logo">
-                        <div className="preview-box">
-                            {preview ? (
-                                <img src={preview} alt="Vista previa" />
-                            ) : (
-                                <div className="upload-placeholder">
-                                    <v.iconofotovacia className="icon"/>
-                                    <span>Subir</span>
-                                </div>
-                            )}
-                        </div>
-                    </label>
-                    {preview && (
-                        <button type="button" className="btn-remove-img" onClick={onClearImage}>
-                            <v.iconocerrar />
-                        </button>
-                    )}
+                    <PhotoUploader 
+                        previewUrl={preview}
+                        onImageSelect={(file, url) => {
+                            onFileChange({ target: { files: [file] } }); 
+                        }}
+                        onClear={onClearImage}
+                        shape="circle"
+                        width="120px"
+                        height="120px"
+                    />
                 </div>
                 <input id="file-upload" type="file" accept="image/*" onChange={onFileChange} style={{display:'none'}}/>
 
@@ -227,7 +283,6 @@ export function EquiposTemplate({
           <PlayerManager teamId={teamToEdit.id} />
         )}
 
-        {/* Si se está creando un equipo nuevo, mostrar aviso */}
         {!teamToEdit && (
           <div style={{marginTop: 10, fontSize: '0.8rem', opacity: 0.7, textAlign: 'center'}}>
             Guarda el equipo primero para poder agregar jugadores.
@@ -235,7 +290,7 @@ export function EquiposTemplate({
         )}
       </Modal>
 
-      {/* --- MODAL DETALLES --- */}
+      {/* --- MODAL DETALLES (FICHA TÉCNICA) --- */}
       <Modal
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
@@ -244,46 +299,95 @@ export function EquiposTemplate({
       >
         {teamToView && (
             <DetailContainer $color={teamToView.color}>
-                <div className="banner">
-                   <div className="division-badge">{division?.name || "Liga"}</div>
-                </div>
-
-                <div className="logo-wrapper">
-                    <img src={teamToView.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={teamToView.name} />
-                </div>
-
-                <h2 className="team-title">{teamToView.name}</h2>
-
-                <div className="info-body">
-                    <div className="info-item">
-                        <div className="icon-box"><RiShieldUserLine /></div>
-                        <div>
-                            <span className="label">Delegado</span>
-                            <p className="value">{teamToView.delegate_name || "No registrado"}</p>
+                {showPlayerList ? (
+                     /* --- VISTA LISTA DE JUGADORES (INTERNA) --- */
+                     <div className="players-internal-view">
+                        <button className="back-link" onClick={() => setShowPlayerList(false)}>
+                            <RiCloseLine /> Volver a Ficha
+                        </button>
+                        <h3 className="section-title">Plantilla Registrada</h3>
+                        <div className="players-grid-simple">
+                             {loadingPlayers ? <p style={{textAlign:'center', width:'100%'}}>Cargando...</p> : detailPlayers.map(p => (
+                                 <div className="player-chip-simple" key={p.id}>
+                                     <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="p" />
+                                     <div>
+                                        <span className="dorsal">#{p.dorsal}</span>
+                                        <span className="name">{p.first_name}</span>
+                                     </div>
+                                 </div>
+                             ))}
+                             {detailPlayers.length === 0 && !loadingPlayers && <p>No hay jugadores.</p>}
                         </div>
-                    </div>
-
-                    <div className="info-item">
-                        <div className="icon-box"><RiSmartphoneLine /></div>
-                        <div>
-                            <span className="label">Contacto</span>
-                            <p className="value">{teamToView.contact_phone || "No disponible"}</p>
+                     </div>
+                ) : (
+                    /* --- VISTA NORMAL DE FICHA --- */
+                    <>
+                        <div className="banner">
+                            <div className="division-badge">{division?.name || "Liga"}</div>
                         </div>
-                    </div>
 
-                    <div className="info-item">
-                        <div className="icon-box"><v.iconoemijivacio /></div>
-                        <div>
-                            <span className="label">Estado Actual</span>
-                            <StatusPill $active={teamToView.status === 'Activo'}>
-                                {teamToView.status}
-                            </StatusPill>
+                        <div className="logo-wrapper">
+                            <img src={teamToView.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={teamToView.name} />
                         </div>
-                    </div>
-                    <div style={{marginBottom:'10px'}}></div>
-                </div>
+
+                        <h2 className="team-title">{teamToView.name}</h2>
+
+                        <div className="info-body">
+                            <div className="info-item">
+                                <div className="icon-box"><RiShieldUserLine /></div>
+                                <div>
+                                    <span className="label">Delegado</span>
+                                    <p className="value">{teamToView.delegate_name || "No registrado"}</p>
+                                </div>
+                            </div>
+
+                            {/* FILA CLICKEABLE PARA JUGADORES */}
+                            <div className="info-item clickable" onClick={handleShowPlayers}>
+                                <div className="icon-box"><RiUserFollowLine /></div>
+                                <div style={{flex:1}}>
+                                    <span className="label">Plantilla</span>
+                                    <p className="value">Ver Jugadores</p>
+                                </div>
+                                <span style={{opacity:0.5}}>➔</span>
+                            </div>
+
+                            <div className="info-item">
+                                <div className="icon-box"><RiSmartphoneLine /></div>
+                                <div>
+                                    <span className="label">Contacto</span>
+                                    <p className="value">{teamToView.contact_phone || "No disponible"}</p>
+                                </div>
+                            </div>
+
+                            <div className="info-item">
+                                <div className="icon-box"><v.iconoemijivacio /></div>
+                                <div>
+                                    <span className="label">Estado Actual</span>
+                                    <StatusPill $active={teamToView.status === 'Activo'}>
+                                        {teamToView.status}
+                                    </StatusPill>
+                                </div>
+                            </div>
+                            <div style={{marginBottom:'10px'}}></div>
+                        </div>
+                    </>
+                )}
             </DetailContainer>
         )}
+      </Modal>
+
+      {/* --- MODAL TRANSFERENCIA --- */}
+      <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transferir de División" width="400px">
+         <div style={{display:'flex', flexDirection:'column', gap:'15px', padding:'10px'}}>
+             <p>Selecciona la nueva división para <b>{teamToTransfer?.name}</b>:</p>
+             <SelectStyled value={targetDivisionId} onChange={(e)=>setTargetDivisionId(e.target.value)}>
+                 <option value="">-- Seleccionar --</option>
+                 {divisiones.filter(d => d.id !== division?.id).map(d => (
+                     <option key={d.id} value={d.id}>{d.name}</option>
+                 ))}
+             </SelectStyled>
+             <Btnsave titulo="Confirmar Transferencia" bgcolor={v.colorPrincipal} funcion={handleTransferSubmit} width="100%" />
+         </div>
       </Modal>
 
       {/* --- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN --- */}
@@ -425,17 +529,19 @@ const ActionButtons = styled.div`
     }
     .btn-edit { background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(4px); &:hover { background: ${({theme}) => theme.primary || v.colorPrincipal}; } }
     .btn-delete { background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(4px); &:hover { background: #ff4757; } }
+    .btn-transfer { background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(4px); &:hover { background: #f39c12; } }
 `;
 
 const Form = styled.form`
     display: flex; flex-direction: column; gap: 20px;
     .label { font-weight: 600; font-size: 13px; margin-bottom: 5px; display: block; opacity: 0.8; }
     .logo-section {
-        display: flex; gap: 20px; align-items: flex-start; padding: 10px; background: ${({theme}) => theme.bgtotal}; border-radius: 12px; border: 1px dashed ${({theme}) => theme.bg4};
+        display: flex; gap: 20px; align-items: flex-start; padding: 10px; 
+        background: ${({theme}) => theme.bgtotal}; /* Default fallback */
+        border-radius: 12px; border: 1px dashed ${({theme}) => theme.bg4};
+        transition: background 0.3s; /* Animación para el cambio de color */
+
         .preview-container { position: relative; width: fit-content; }
-        .btn-remove-img { position: absolute; top: -5px; right: -5px; width: 24px; height: 24px; border-radius: 50%; background: #ff4757; color: white; border: 2px solid ${({theme}) => theme.bgtotal}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; z-index: 10; &:hover { transform: scale(1.1); } }
-        .preview-uploader { cursor: pointer; transition: transform 0.2s; &:hover { transform: scale(1.05); } display: block; }
-        .preview-box { width: 100px; height: 100px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid ${({theme}) => theme.bg4}; img { width: 100%; height: 100%; object-fit: contain; } .upload-placeholder { display: flex; flex-direction: column; align-items: center; color: ${({theme}) => theme.text}; opacity: 0.6; .icon { font-size: 30px; margin-bottom: 5px; } span { font-size: 10px; font-weight: 700; text-transform: uppercase; } } }
         .actions-column { display: flex; flex-direction: column; gap: 10px; justify-content: center; height: 100px; }
         .btn-magic, .btn-eraser { border: none; padding: 8px 12px; border-radius: 8px; color: white; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         .btn-magic { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); }
@@ -531,6 +637,17 @@ const DetailContainer = styled.div`
         display: flex; align-items: center; gap: 15px;
         border: 1px solid ${({theme}) => theme.bg4};
         
+        /* ESTILO PARA ITEMS CLICKEABLES */
+        &.clickable {
+            cursor: pointer;
+            transition: 0.2s;
+            &:hover {
+                border-color: ${v.colorPrincipal};
+                background: ${({theme}) => theme.bgcards};
+                transform: translateX(5px);
+            }
+        }
+        
         .icon-box {
             width: 40px; height: 40px;
             background: ${({theme}) => theme.bgcards};
@@ -542,6 +659,25 @@ const DetailContainer = styled.div`
 
         .label { font-size: 0.8rem; color: ${({theme}) => theme.text}; opacity: 0.6; display: block; }
         .value { margin: 0; font-size: 1rem; font-weight: 600; color: ${({theme}) => theme.text}; }
+    }
+
+    /* ESTILOS INTERNOS PARA LA LISTA DE JUGADORES EN DETALLE */
+    .players-internal-view { width: 100%; animation: fadeIn 0.3s ease; }
+    .back-link { 
+        background: none; border: none; color: ${v.colorPrincipal}; cursor: pointer; 
+        display: flex; align-items: center; gap: 5px; margin-bottom: 15px; font-weight: 600;
+        &:hover { text-decoration: underline; }
+    }
+    .section-title { font-size: 1.1rem; margin-bottom: 15px; color: ${({theme})=>theme.text}; border-bottom: 1px solid ${({theme})=>theme.bg4}; padding-bottom: 5px; }
+    .players-grid-simple {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto;
+    }
+    .player-chip-simple {
+        background: ${({theme})=>theme.bgtotal}; border: 1px solid ${({theme})=>theme.bg4}; padding: 8px; border-radius: 8px;
+        display: flex; align-items: center; gap: 8px;
+        img { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; background: #eee; }
+        .dorsal { font-weight: 900; color: ${v.colorPrincipal}; display: block; font-size: 0.9rem; }
+        .name { font-size: 0.8rem; display: block; line-height: 1.1; }
     }
 `;
 
@@ -568,7 +704,6 @@ const StatusBadge = styled.div`
     z-index: 2;
 `;
 
-// --- ESTILOS PARA LAS PESTAÑAS ---
 const TabsContainer = styled.div`
   display: flex;
   gap: 10px;

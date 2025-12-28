@@ -64,11 +64,17 @@ export function Equipos() {
     });
   };
 
-  const handleFileChange = async (e) => {
-    const selectedFile = e.target.files[0];
+const handleFileChange = async (eOrFile) => {
+    // Detectar si es un evento o un archivo directo
+    let selectedFile = eOrFile.target ? eOrFile.target.files[0] : eOrFile;
+    
+    // Si viene del PhotoUploader, el archivo ya es un Blob/File válido
+    // Sin embargo, PhotoUploader ya devuelve la URL de preview, pero aquí recalculamos el color.
+    
     if (selectedFile) {
       setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
+      setPreview(URL.createObjectURL(selectedFile)); // Actualizamos preview padre
+      
       try {
         const dominantColor = await getDominantColor(selectedFile);
         setForm(prev => ({ ...prev, color: dominantColor }));
@@ -76,7 +82,7 @@ export function Equipos() {
         console.error("No se pudo extraer color", error);
       }
     }
-  };
+};
 
   const handleClearImage = (e) => {
     e.preventDefault(); e.stopPropagation();

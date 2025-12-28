@@ -3,13 +3,12 @@ import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
 import { AiOutlineClose } from "react-icons/ai";
 
-// Agregamos la prop closeOnOverlayClick (default: true)
-export const Modal = ({ isOpen, onClose, title, children, closeOnOverlayClick = true }) => {
+export const Modal = ({ isOpen, onClose, title, children, closeOnOverlayClick = true, width = "500px" }) => {
   if (!isOpen) return null;
 
   return createPortal(
     <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
-      <ModalContainer onClick={(e) => e.stopPropagation()}>
+      <ModalContainer $width={width} onClick={(e) => e.stopPropagation()}>
         <Header>
           <h3>{title}</h3>
           <button className="close-btn" onClick={onClose}>
@@ -44,7 +43,7 @@ const Overlay = styled.div`
 const ModalContainer = styled.div`
   background-color: ${({ theme }) => theme.bgcards};
   width: 100%;
-  max-width: 500px;
+  max-width: ${({ $width }) => $width}; /* Usamos la prop width */
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.2);
   animation: ${slideIn} 0.3s ease-out;
@@ -52,11 +51,12 @@ const ModalContainer = styled.div`
   flex-direction: column;
   overflow: hidden;
   color: ${({ theme }) => theme.text};
+  transition: max-width 0.3s ease; /* Animación suave si cambia el ancho */
 `;
 
 const Header = styled.div`
   padding: 20px 25px;
-  border-bottom: 1px solid ${({ theme }) => theme.colorSubtitle};
+  border-bottom: 1px solid ${({ theme }) => theme.bg4}; /* Usamos var theme */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -72,6 +72,11 @@ const Header = styled.div`
 
 const Body = styled.div`
   padding: 25px;
-  max-height: 80vh;
+  max-height: 85vh; /* Un poco más alto para aprovechar espacio */
   overflow-y: auto;
+  
+  /* Scrollbar personalizado */
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: ${({theme})=>theme.bg4}; border-radius: 4px; }
 `;

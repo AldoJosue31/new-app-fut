@@ -8,21 +8,26 @@ export function Torneos() {
   const [loading, setLoading] = useState(false);
   const { selectedDivision } = useDivisionStore();
   
-  // Estados nuevos para la vista
+  // Data
   const [activeTournament, setActiveTournament] = useState(null);
-  const [equipos, setEquipos] = useState([]);
+  const [allTeams, setAllTeams] = useState([]);
+  const [participatingIds, setParticipatingIds] = useState([]);
 
+  // Formulario con nuevos campos y fecha por defecto
   const [form, setForm] = useState({
     season: "",
-    startDate: "",
-    vueltas: "1",       // Default: Solo Ida
+    startDate: new Date().toISOString().split('T')[0], // Fecha actual por defecto
+    vueltas: "1",       
     ascensos: "",
     descensos: "",
     zonaLiguilla: false,
-    clasificados: "8"
+    clasificados: "8",
+    // Nuevas Reglas
+    minPlayers: 7,
+    maxPlayers: 20,
+    maxTeams: 12
   });
 
-  // Cargar datos cuando cambia la división
   useEffect(() => {
     if (selectedDivision) {
       fetchData();
@@ -31,29 +36,55 @@ export function Torneos() {
 
   const fetchData = async () => {
     try {
-      // 1. Buscar si hay torneo activo en esta división
+      // 1. Buscar torneo activo
       const { data: torneo } = await supabase
         .from('tournaments')
         .select('*')
         .eq('division_id', selectedDivision.id)
-        .eq('status', 'En Curso') // O el estado que uses para activo
-        .maybeSingle(); // maybeSingle no lanza error si no hay datos
+        .eq('status', 'En Curso')
+        .maybeSingle();
       
       setActiveTournament(torneo);
 
-      // 2. Buscar equipos aptos (Activos)
+      // 2. Buscar equipos Y contar sus jugadores
       const { data: teams } = await supabase
         .from('teams')
-        .select('*')
+        .select('*, players(id)')
         .eq('division_id', selectedDivision.id)
-        .eq('status', 'Activo')
         .order('name');
         
-      setEquipos(teams || []);
+      if (teams) {
+        const processedTeams = teams.map(t => ({
+            ...t,
+            playerCount: t.players?.length || 0
+        }));
+        
+        setAllTeams(processedTeams);
+
+        // Selección inicial basada en el mínimo de jugadores configurado por defecto
+        const defaultParticipating = processedTeams
+            .filter(t => t.status === 'Activo' && t.playerCount >= form.minPlayers)
+            .map(t => t.id);
+            
+        setParticipatingIds(defaultParticipating);
+      }
 
     } catch (error) {
       console.error("Error fetching data:", error);
     }
+  };
+
+  // --- GESTIÓN DE LISTAS ---
+  const moveTeamToParticipating = (teamId) => {
+    // Validamos si ya llegamos al máximo de equipos permitidos
+    if (participatingIds.length >= form.maxTeams) {
+        return alert(`No puedes agregar más equipos. El límite configurado es de ${form.maxTeams}.`);
+    }
+    setParticipatingIds(prev => [...prev, teamId]);
+  };
+
+  const moveTeamToExcluded = (teamId) => {
+    setParticipatingIds(prev => prev.filter(id => id !== teamId));
   };
 
   const handleChange = (e) => {
@@ -63,29 +94,42 @@ export function Torneos() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    const equiposParticipantes = allTeams.filter(t => participatingIds.includes(t.id));
+
     if (!selectedDivision) return alert("Selecciona una división");
     if (activeTournament) return alert("Ya hay un torneo en curso");
-    if (equipos.length < 2) return alert("Necesitas al menos 2 equipos activos");
+    if (equiposParticipantes.length < 2) return alert("Necesitas al menos 2 equipos participantes.");
+    
+    // Validación extra de máximo de equipos
+    if (equiposParticipantes.length > form.maxTeams) {
+        return alert(`Has seleccionado ${equiposParticipantes.length} equipos, pero el máximo configurado es ${form.maxTeams}.`);
+    }
+
+    if (form.zonaLiguilla) {
+        const numClasificados = parseInt(form.clasificados);
+        const numEquipos = equiposParticipantes.length;
+        if (numClasificados > numEquipos) {
+            return alert(`Error: Clasifican ${numClasificados} a liguilla pero solo hay ${numEquipos} equipos.`);
+        }
+    }
 
     setLoading(true);
     try {
-      // 1. Generar Fixture (Lógica de Ida/Vuelta)
       const dobleVuelta = form.vueltas === "2";
-      const fixture = generarFixture(equipos, dobleVuelta);
+      const fixture = generarFixture(equiposParticipantes, dobleVuelta);
 
-      // 2. Guardar en BD
       await iniciarTorneoService({
         divisionId: selectedDivision.id,
         divisionName: selectedDivision.name,
         season: form.season,
         startDate: form.startDate,
         totalJornadas: fixture.length,
-        // Aquí podrías pasar config extra a tu servicio si actualizaste la BD
-        // config: { ascensos: form.ascensos, liguilla: form.zonaLiguilla ... }
+        // Aquí podrías guardar también minPlayers, maxPlayers, etc. en tu BD si tienes las columnas
       });
 
       alert("¡Torneo iniciado correctamente!");
-      fetchData(); // Recargar para mostrar el bloqueo
+      fetchData(); 
       
     } catch (error) {
       console.error(error);
@@ -102,8 +146,14 @@ export function Torneos() {
       onSubmit={handleSubmit}
       loading={loading}
       divisionName={selectedDivision?.name}
-      equipos={equipos}                  // Pasamos la lista de equipos
-      activeTournament={activeTournament} // Pasamos el estado del torneo
+      activeTournament={activeTournament}
+      
+      allTeams={allTeams}
+      participatingIds={participatingIds}
+      onInclude={moveTeamToParticipating}
+      onExclude={moveTeamToExcluded}
+      // Pasamos las reglas dinámicas al template
+      minPlayers={form.minPlayers} 
     />
   );
 }
