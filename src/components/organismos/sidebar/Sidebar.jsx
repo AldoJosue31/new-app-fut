@@ -6,6 +6,9 @@ import { Icon } from "@iconify/react";
 import { useAuthStore } from "../../../store/AuthStore";
 import { Device } from "../../../styles/breakpoints"; // Importamos los breakpoints
 import { DivisionSelector } from "../../moleculas/DivisionSelector";
+import React, { useState } from "react";
+import { Modal } from "../../organismos/Modal";
+import { Btnsave, BtnNormal } from "../../../index";
 
 // ... (Tus arrays de links se mantienen igual) ...
 const LinksArray = [
@@ -41,6 +44,13 @@ const SecondarylinksArray = [
 
 export function Sidebar({ state, setState }) {
   const { cerrarSesion } = useAuthStore();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const handleLogout = () => {
+      cerrarSesion();
+      setShowLogoutModal(false);
+      setState(false); // Cerrar sidebar si es móvil
+  };
 
   return (
     <Main $isOpen={state}>
@@ -116,9 +126,9 @@ export function Sidebar({ state, setState }) {
         <Divider />
 
         <div className={state ? "LinkContainer active" : "LinkContainer"}>
-          <div 
+        <div 
             className="Links" 
-            onClick={() => { cerrarSesion(); setState(false); }} 
+            onClick={() => setShowLogoutModal(true)} 
             style={{ cursor: "pointer" }}
           >
             <section className={state ? "content open" : "content"}>
@@ -140,6 +150,29 @@ export function Sidebar({ state, setState }) {
         <DivisionSelector isOpen={state} />
 
       </Container>
+      <Modal 
+        isOpen={showLogoutModal} 
+        onClose={() => setShowLogoutModal(false)} 
+        title="¿Cerrar Sesión?"
+        closeOnOverlayClick={false}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <span style={{opacity: 0.8}}>
+                ¿Estás seguro de que deseas salir de la aplicación?
+            </span>
+            <div style={{ display: "flex", justifyContent: "end", gap: "10px" }}>
+                <BtnNormal 
+                    titulo="Cancelar" 
+                    funcion={() => setShowLogoutModal(false)} 
+                />
+                <Btnsave 
+                    titulo="Sí, salir" 
+                    bgcolor={v.rojo} 
+                    funcion={handleLogout} 
+                />
+            </div>
+        </div>
+      </Modal>
     </Main>
   );
 }

@@ -1,58 +1,139 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TorneosTemplate } from "../components/template/TorneosTemplate";
 import { generarFixture, iniciarTorneoService } from "../services/torneos";
 import { supabase } from "../supabase/supabase.config";
-import { useDivisionStore } from "../store/DivisionStore"; // 1. Importar Store
+import { useDivisionStore } from "../store/DivisionStore";
 
 export function Torneos() {
   const [loading, setLoading] = useState(false);
-  const { selectedDivision } = useDivisionStore(); // 2. Usar la división seleccionada
+  const { selectedDivision } = useDivisionStore();
   
+  // Data
+  const [activeTournament, setActiveTournament] = useState(null);
+  const [allTeams, setAllTeams] = useState([]);
+  const [participatingIds, setParticipatingIds] = useState([]);
+
+  // Formulario con nuevos campos y fecha por defecto
   const [form, setForm] = useState({
-    season: "Apertura 2025",
-    startDate: "",
+    season: "",
+    startDate: new Date().toISOString().split('T')[0], // Fecha actual por defecto
+    vueltas: "1",       
+    ascensos: "",
+    descensos: "",
+    zonaLiguilla: false,
+    clasificados: "8",
+    // Nuevas Reglas
+    minPlayers: 7,
+    maxPlayers: 20,
+    maxTeams: 12
   });
 
+  useEffect(() => {
+    if (selectedDivision) {
+      fetchData();
+    }
+  }, [selectedDivision]);
+
+  const fetchData = async () => {
+    try {
+      // 1. Buscar torneo activo
+      const { data: torneo } = await supabase
+        .from('tournaments')
+        .select('*')
+        .eq('division_id', selectedDivision.id)
+        .eq('status', 'En Curso')
+        .maybeSingle();
+      
+      setActiveTournament(torneo);
+
+      // 2. Buscar equipos Y contar sus jugadores
+      const { data: teams } = await supabase
+        .from('teams')
+        .select('*, players(id)')
+        .eq('division_id', selectedDivision.id)
+        .order('name');
+        
+      if (teams) {
+        const processedTeams = teams.map(t => ({
+            ...t,
+            playerCount: t.players?.length || 0
+        }));
+        
+        setAllTeams(processedTeams);
+
+        // Selección inicial basada en el mínimo de jugadores configurado por defecto
+        const defaultParticipating = processedTeams
+            .filter(t => t.status === 'Activo' && t.playerCount >= form.minPlayers)
+            .map(t => t.id);
+            
+        setParticipatingIds(defaultParticipating);
+      }
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  // --- GESTIÓN DE LISTAS ---
+  const moveTeamToParticipating = (teamId) => {
+    // Validamos si ya llegamos al máximo de equipos permitidos
+    if (participatingIds.length >= form.maxTeams) {
+        return alert(`No puedes agregar más equipos. El límite configurado es de ${form.maxTeams}.`);
+    }
+    setParticipatingIds(prev => [...prev, teamId]);
+  };
+
+  const moveTeamToExcluded = (teamId) => {
+    setParticipatingIds(prev => prev.filter(id => id !== teamId));
+  };
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm({ ...form, [e.target.name]: value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validación de seguridad
-    if (!selectedDivision) return alert("Por favor selecciona una división en el menú lateral.");
+    const equiposParticipantes = allTeams.filter(t => participatingIds.includes(t.id));
+
+    if (!selectedDivision) return alert("Selecciona una división");
+    if (activeTournament) return alert("Ya hay un torneo en curso");
+    if (equiposParticipantes.length < 2) return alert("Necesitas al menos 2 equipos participantes.");
+    
+    // Validación extra de máximo de equipos
+    if (equiposParticipantes.length > form.maxTeams) {
+        return alert(`Has seleccionado ${equiposParticipantes.length} equipos, pero el máximo configurado es ${form.maxTeams}.`);
+    }
+
+    if (form.zonaLiguilla) {
+        const numClasificados = parseInt(form.clasificados);
+        const numEquipos = equiposParticipantes.length;
+        if (numClasificados > numEquipos) {
+            return alert(`Error: Clasifican ${numClasificados} a liguilla pero solo hay ${numEquipos} equipos.`);
+        }
+    }
 
     setLoading(true);
     try {
-      // 3. CORRECCIÓN: Filtramos por 'division_id' usando el ID del store
-      const { data: equipos } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('division_id', selectedDivision.id) // <--- CAMBIO CLAVE
-        .eq('status', 'Activo');
+      const dobleVuelta = form.vueltas === "2";
+      const fixture = generarFixture(equiposParticipantes, dobleVuelta);
 
-      if (!equipos || equipos.length < 2) {
-        return alert(`Necesitas al menos 2 equipos activos en ${selectedDivision.name} para crear un torneo.`);
-      }
-
-      // 4. Generar Fixture
-      const fixture = generarFixture(equipos);
-
-      // 5. Guardar usando datos reales
       await iniciarTorneoService({
-        divisionId: selectedDivision.id, // Enviamos ID
-        divisionName: selectedDivision.name, // Enviamos Nombre (para la función SQL)
+        divisionId: selectedDivision.id,
+        divisionName: selectedDivision.name,
         season: form.season,
         startDate: form.startDate,
         totalJornadas: fixture.length,
+        // Aquí podrías guardar también minPlayers, maxPlayers, etc. en tu BD si tienes las columnas
       });
 
       alert("¡Torneo iniciado correctamente!");
+      fetchData(); 
       
     } catch (error) {
       console.error(error);
-      alert("Error al iniciar el torneo: " + error.message);
+      alert("Error: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -64,8 +145,15 @@ export function Torneos() {
       onChange={handleChange}
       onSubmit={handleSubmit}
       loading={loading}
-      // Pasamos el nombre para mostrarlo en el Template (solo lectura)
-      divisionName={selectedDivision?.name} 
+      divisionName={selectedDivision?.name}
+      activeTournament={activeTournament}
+      
+      allTeams={allTeams}
+      participatingIds={participatingIds}
+      onInclude={moveTeamToParticipating}
+      onExclude={moveTeamToExcluded}
+      // Pasamos las reglas dinámicas al template
+      minPlayers={form.minPlayers} 
     />
   );
 }
