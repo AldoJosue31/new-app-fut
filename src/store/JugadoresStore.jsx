@@ -31,7 +31,7 @@ export const useJugadoresStore = create((set, get) => ({
     set((state) => ({ jugadores: [...state.jugadores, data[0]] }));
   },
 
-  // Editar jugador (CORREGIDO: Limpieza inteligente)
+  // Editar jugador
   updateJugador: async (id, updates) => {
     const currentState = get().jugadores;
     const playerToUpdate = currentState.find((p) => p.id === id);
@@ -39,24 +39,24 @@ export const useJugadoresStore = create((set, get) => ({
     // 1. Manejo de borrado de foto antigua
     if (playerToUpdate && updates.photo_url && playerToUpdate.photo_url) {
         
-      // Extraemos solo la RUTA del archivo (ignorando ?t=timestamp)
       const oldPath = getPathFromUrl(playerToUpdate.photo_url);
       const newPath = getPathFromUrl(updates.photo_url);
 
-      // --- CORRECCIÓN CLAVE ---
-      // SOLO borramos si las rutas son DIFERENTES (ej. cambio de 'image_123.png' a 'player_10_crop.png')
-      // Si son iguales (mismo archivo sobrescrito), NO borramos nada.
       if (oldPath && newPath && oldPath !== newPath) {
         console.log("Borrando foto antigua (ruta diferente):", oldPath);
         await deleteFileFromStorage(playerToUpdate.photo_url);
         
-        // Si usas original_photo_url y cambia la ruta base, también deberías borrar el original viejo
+        // Si cambia la foto, intentamos borrar también la original antigua
         if (playerToUpdate.original_photo_url) {
              const oldOrigPath = getPathFromUrl(playerToUpdate.original_photo_url);
              const newOrigPath = getPathFromUrl(updates.original_photo_url);
              if (oldOrigPath !== newOrigPath) {
                  await deleteFileFromStorage(playerToUpdate.original_photo_url);
              }
+        } else if (playerToUpdate.photo_url.includes('_crop')) {
+             // Intento de borrado por inferencia si no existe el campo original_photo_url
+             const deducedOriginal = playerToUpdate.photo_url.replace('_crop', '_original');
+             await deleteFileFromStorage(deducedOriginal);
         }
       }
     }
@@ -74,42 +74,46 @@ export const useJugadoresStore = create((set, get) => ({
     }));
   },
 
-  // Eliminar jugador (Con limpieza de Storage)
+  // Eliminar jugador (MEJORADO)
   deleteJugador: async (id) => {
     const currentState = get().jugadores;
     const playerToDelete = currentState.find((p) => p.id === id);
 
-    // 1. Si el jugador tiene foto, la borramos del bucket
-    if (playerToDelete?.photo_url) {
-      await deleteFileFromStorage(playerToDelete.photo_url);
-    }
-    // Borrar también la original si existe
-    if (playerToDelete?.original_photo_url) {
-      await deleteFileFromStorage(playerToDelete.original_photo_url);
-    }
+    if (playerToDelete) {
+        // 1. Borrar foto principal (crop)
+        if (playerToDelete.photo_url) {
+          await deleteFileFromStorage(playerToDelete.photo_url);
+          
+          // 2. Borrar original:
+          // Opción A: Si tenemos el campo explícito
+          if (playerToDelete.original_photo_url) {
+            await deleteFileFromStorage(playerToDelete.original_photo_url);
+          } 
+          // Opción B: Si no, inferimos la ruta reemplazando _crop por _original
+          else if (playerToDelete.photo_url.includes('_crop')) {
+            const deducedOriginal = playerToDelete.photo_url.replace('_crop', '_original');
+            await deleteFileFromStorage(deducedOriginal);
+          }
+        }
 
-    // 2. Borramos el registro de la base de datos
-    const { error } = await supabase.from('players').delete().eq('id', id);
-    if (error) throw error;
+        // 3. Borramos el registro de la base de datos
+        const { error } = await supabase.from('players').delete().eq('id', id);
+        if (error) throw error;
 
-    set((state) => ({
-      jugadores: state.jugadores.filter((p) => p.id !== id)
-    }));
+        set((state) => ({
+          jugadores: state.jugadores.filter((p) => p.id !== id)
+        }));
+    }
   }
 }));
 
 // --- UTILS ---
-
-// Extrae la ruta limpia del archivo (sin dominio ni query params)
 const getPathFromUrl = (fullUrl) => {
     if (!fullUrl || !fullUrl.includes('supabase.co')) return null;
     try {
         const bucketName = 'logos'; 
-        // Dividimos por el nombre del bucket para obtener la ruta relativa
         const parts = fullUrl.split(`/${bucketName}/`);
         if (parts.length < 2) return null;
-        
-        // Quitamos query params (ej: ?t=12345) para comparar solo el archivo
         return parts[1].split('?')[0];
     } catch (e) {
         return null;
@@ -121,7 +125,7 @@ const deleteFileFromStorage = async (fullUrl) => {
     const path = getPathFromUrl(fullUrl);
     if (path) {
       const { error } = await supabase.storage.from('logos').remove([path]);
-      if (error) console.error("Error borrando imagen antigua:", error);
+      if (error) console.error("Error borrando imagen:", error);
       else console.log("Imagen eliminada correctamente:", path);
     }
   } catch (err) {

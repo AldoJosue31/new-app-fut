@@ -1,7 +1,7 @@
 // src/store/AuthStore.jsx
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabase.config';
-
+import { useDivisionStore } from "../store/DivisionStore";
 export const useAuthStore = create((set, get) => {
   
   // Helpers internos

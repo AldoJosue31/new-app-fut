@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../styles/variables";
-import { InputNumber, BtnNormal, Btnsave, InputText2 } from "../../index";
+import { InputNumber, BtnNormal, Btnsave, InputText2, TabsNavigation } from "../../index";
 import { Title } from "../atomos/Title";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { Card } from "../moleculas/Card";
@@ -29,7 +29,10 @@ export function TorneosTemplate({
   onExclude,
   minPlayers // Ahora viene del form
 }) {
-  
+  const tabList = [
+    { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
+    { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> }
+  ];
   const [activeTab, setActiveTab] = useState("definir");
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
@@ -54,14 +57,13 @@ export function TorneosTemplate({
         <Title>Gestión de Torneos</Title>
       </HeaderSection>
 
-      <TabsContainer>
-        <TabButton $active={activeTab === "definir"} onClick={() => setActiveTab("definir")}>
-          <v.iconocorona /> Definir Torneo
-        </TabButton>
-        <TabButton $active={activeTab === "jornadas"} onClick={() => setActiveTab("jornadas")}>
-          <RiCalendarEventLine /> Jornadas
-        </TabButton>
-      </TabsContainer>
+    <div style={{width: '100%', maxWidth: '1000px'}}>
+         <TabsNavigation 
+            tabs={tabList} 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+         />
+      </div>
 
       <ContentGrid>
         
