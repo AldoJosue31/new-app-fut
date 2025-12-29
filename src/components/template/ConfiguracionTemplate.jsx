@@ -8,7 +8,8 @@ import {
   Title,
   ContentContainer,
   Card,
-  CardHeader
+  CardHeader,
+  Badge
 } from "../../index";
 import { useAuthStore } from "../../store/AuthStore";
 import { supabase } from "../../supabase/supabase.config";
@@ -18,6 +19,7 @@ export function ConfiguracionTemplate() {
   
   // Estados para Mi Perfil
   const [nombre, setNombre] = useState("");
+  const [leagueName, setLeagueName] = useState(null);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingLink, setLoadingLink] = useState(false);
   const [loadingUnlink, setLoadingUnlink] = useState(false);
@@ -37,6 +39,28 @@ export function ConfiguracionTemplate() {
       setNombre(profile.full_name);
     }
   }, [profile]);
+
+  // 3. Efecto para obtener el nombre de la liga
+  useEffect(() => {
+    const fetchLeagueName = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('leagues')
+          .select('name')
+          .eq('owner_id', user.id)
+          .single();
+        
+        if (data && !error) {
+          setLeagueName(data.name);
+        }
+      } catch (err) {
+        console.error("Error al obtener la liga:", err);
+      }
+    };
+
+    fetchLeagueName();
+  }, [user]);
 
   // --- ACTUALIZAR PERFIL ---
   const handleUpdateProfile = async (e) => {
@@ -122,8 +146,11 @@ export function ConfiguracionTemplate() {
 
   return (
     <ContentContainer>
-      <HeaderSection>
-        <Title>Configuración</Title>
+<HeaderSection>
+        {/* 4. Renderizamos el Título junto con el Badge */}
+        <div className="title-area">
+            <Title>Configuración</Title>
+        </div>
       </HeaderSection>
 
       <Card maxWidth="600px">
@@ -131,6 +158,11 @@ export function ConfiguracionTemplate() {
             Icono={v.iconoUser}
             titulo="Mi Información"
         />
+          {leagueName && (
+                <Badge color={v.colorPrincipal}>
+                    Liga: {leagueName}
+                </Badge>
+            )}
         
         <form onSubmit={handleUpdateProfile}>
           <Label>ID de Usuario</Label>
@@ -142,6 +174,7 @@ export function ConfiguracionTemplate() {
           <RoleBadge $role={profile?.role || 'default'}>
               {!profile ? "Cargando..." : getRoleLabel(profile.role)}
           </RoleBadge>
+                    
 
           <Label>Nombre Completo</Label>
           <InputText2>
