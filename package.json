@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
+    "@mediapipe/selfie_segmentation": "^0.1.1675465747",
     "@supabase/supabase-js": "^2.87.1",
     "@tailwindcss/vite": "^4.1.17",
     "react": "^19.2.0",

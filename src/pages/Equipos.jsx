@@ -4,7 +4,7 @@ import { useDivisionStore } from "../store/DivisionStore";
 import { useEquiposStore } from "../store/EquiposStore"; // Importamos el nuevo store
 import { supabase } from "../supabase/supabase.config";
 import { generateTeamLogo } from "../utils/logoGenerator";
-import { removeBackground } from "../utils/imageProcessor";
+import { removeBackground, compressImage } from "../utils/imageProcessor";
 
 export function Equipos() {
   const { selectedDivision } = useDivisionStore();
@@ -128,10 +128,14 @@ const handleFileChange = async (eOrFile) => {
         await supabase.storage.from('logos').remove([oldName]);
       }
 
-      if (file) {
-        const fileExt = file.name.split('.').pop();
+if (file) {
+        // --- AQUÍ APLICAMOS LA COMPRESIÓN ---
+        // 600px de ancho máximo y 0.8 de calidad es suficiente para logos
+        const compressedFile = await compressImage(file, 600, 0.8);
+        
+        const fileExt = compressedFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${fileExt}`;
-        const { error: upError } = await supabase.storage.from('logos').upload(fileName, file);
+        const { error: upError } = await supabase.storage.from('logos').upload(fileName, compressedFile);
         if (upError) throw upError;
         const { data: urlData } = supabase.storage.from('logos').getPublicUrl(fileName);
         logoUrl = urlData.publicUrl;
