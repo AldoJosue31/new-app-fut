@@ -6,35 +6,55 @@ import { useDivisionStore } from "../store/DivisionStore";
 
 export function Torneos() {
   const [loading, setLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const { selectedDivision } = useDivisionStore();
   
-  // Data
   const [activeTournament, setActiveTournament] = useState(null);
   const [allTeams, setAllTeams] = useState([]);
   const [participatingIds, setParticipatingIds] = useState([]);
 
-  // Formulario con nuevos campos y fecha por defecto
-  const [form, setForm] = useState({
-    season: "",
-    startDate: new Date().toISOString().split('T')[0], // Fecha actual por defecto
-    vueltas: "1",       
-    ascensos: "",
-    descensos: "",
-    zonaLiguilla: false,
-    clasificados: "8",
-    // Nuevas Reglas
-    minPlayers: 7,
-    maxPlayers: 20,
-    maxTeams: 12
+  // --- CAMBIO: INICIALIZACIÓN DEL ESTADO DESDE LOCALSTORAGE ---
+  const [form, setForm] = useState(() => {
+    // Intentamos leer lo guardado
+    const savedRules = localStorage.getItem("torneo_reglas_draft");
+    
+    if (savedRules) {
+      return JSON.parse(savedRules);
+    }
+    
+    // Si no hay nada guardado, usamos los valores por defecto
+    return {
+      season: "",
+      startDate: new Date().toISOString().split('T')[0],
+      vueltas: "1",       
+      ascensos: "",
+      descensos: "",
+      zonaLiguilla: false,
+      clasificados: "8",
+      minPlayers: 7,
+      maxPlayers: 20,
+      maxTeams: 12,
+      tieBreakType: "normal",
+      winPoints: 3,
+      drawPoints: 1,
+      lossPoints: 0,
+      playoffTieBreak: "position",
+    };
   });
 
   useEffect(() => {
     if (selectedDivision) {
       fetchData();
+    } else {
+        // Si no hay división seleccionada, dejamos de cargar para no bloquear la UI eternamente
+        setIsLoadingData(false);
     }
   }, [selectedDivision]);
 
   const fetchData = async () => {
+    // Reiniciamos a true si cambia la división para mostrar skeletons de nuevo
+    setIsLoadingData(true); 
+
     try {
       // 1. Buscar torneo activo
       const { data: torneo } = await supabase
@@ -61,7 +81,7 @@ export function Torneos() {
         
         setAllTeams(processedTeams);
 
-        // Selección inicial basada en el mínimo de jugadores configurado por defecto
+        // Selección inicial
         const defaultParticipating = processedTeams
             .filter(t => t.status === 'Activo' && t.playerCount >= form.minPlayers)
             .map(t => t.id);
@@ -71,12 +91,15 @@ export function Torneos() {
 
     } catch (error) {
       console.error("Error fetching data:", error);
+    } finally {
+      // === CAMBIO 2: APAGAR EL LOADING AL TERMINAR ===
+      // Esto asegura que los skeletons desaparezcan ya sea con éxito o error
+      setIsLoadingData(false);
     }
   };
 
   // --- GESTIÓN DE LISTAS ---
   const moveTeamToParticipating = (teamId) => {
-    // Validamos si ya llegamos al máximo de equipos permitidos
     if (participatingIds.length >= form.maxTeams) {
         return alert(`No puedes agregar más equipos. El límite configurado es de ${form.maxTeams}.`);
     }
@@ -94,14 +117,12 @@ export function Torneos() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const equiposParticipantes = allTeams.filter(t => participatingIds.includes(t.id));
 
     if (!selectedDivision) return alert("Selecciona una división");
     if (activeTournament) return alert("Ya hay un torneo en curso");
     if (equiposParticipantes.length < 2) return alert("Necesitas al menos 2 equipos participantes.");
     
-    // Validación extra de máximo de equipos
     if (equiposParticipantes.length > form.maxTeams) {
         return alert(`Has seleccionado ${equiposParticipantes.length} equipos, pero el máximo configurado es ${form.maxTeams}.`);
     }
@@ -125,10 +146,10 @@ export function Torneos() {
         season: form.season,
         startDate: form.startDate,
         totalJornadas: fixture.length,
-        // Aquí podrías guardar también minPlayers, maxPlayers, etc. en tu BD si tienes las columnas
       });
 
       alert("¡Torneo iniciado correctamente!");
+      localStorage.removeItem("torneo_reglas_draft");
       fetchData(); 
       
     } catch (error) {
@@ -144,7 +165,11 @@ export function Torneos() {
       form={form}
       onChange={handleChange}
       onSubmit={handleSubmit}
-      loading={loading}
+      loading={loading} // Loading del botón guardar
+      
+      // === CAMBIO 3: PASAR EL ESTADO DE CARGA ===
+      isLoadingData={isLoadingData} 
+
       divisionName={selectedDivision?.name}
       activeTournament={activeTournament}
       
@@ -152,7 +177,6 @@ export function Torneos() {
       participatingIds={participatingIds}
       onInclude={moveTeamToParticipating}
       onExclude={moveTeamToExcluded}
-      // Pasamos las reglas dinámicas al template
       minPlayers={form.minPlayers} 
     />
   );
