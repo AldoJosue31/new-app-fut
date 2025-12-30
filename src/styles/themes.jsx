@@ -43,7 +43,7 @@ export const Light = {
 export const Dark = {
     colortitlecard: "#8C9298",
     colorsubtitlecard: "#F0F0F0",
-    bgcards: "#171717",
+    bgcards: "#10191dff",
     rgbafondoanimado: "rgba(198, 198, 198, 0.2)",
     bgtgderecha: "#21252B",
     body: "#202020",
@@ -65,7 +65,7 @@ export const Dark = {
     bg: "#272727",
     bgAlpha: "rgba(0,0,0,.3)",
     bg2: "rgb(30,30,30)",
-    bg3: "#2C2C2E",
+    bg3: "#162329ff",
     primary: "rgb(52, 131, 235)",
     bg4: "#4E4E50",
     bg5: "#84d8ff",
