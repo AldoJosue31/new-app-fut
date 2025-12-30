@@ -1,26 +1,29 @@
 import React, { useState } from "react";
 import styled from "styled-components";
-import { Device } from "../../styles/breakpoints";
 import { v } from "../../styles/variables";
 import { Title, TabsNavigation, ContentContainer } from "../../index";
-import { RiCalendarEventLine } from "react-icons/ri";
-
-// Importación de Tabs
+import { RiCalendarEventLine, RiBarChartGroupedLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
+import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
-  // === CAMBIO 1: Recibir la prop de carga de datos ===
-  // Le llamo 'isLoadingData' para no confundirla con 'loading' (que suele ser para guardar)
-  isLoadingData 
+  isLoadingData,
+  standings,
+  // 1. RECIBIMOS LAS PROPS NUEVAS AQUÍ
+  reglas,
+  setReglas
 }) {
   const tabList = [
     { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
-    { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> }
+    { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
+    { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> }
   ];
+
   const [activeTab, setActiveTab] = useState("definir");
+  const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
 
   return (
     <ContentContainer>
@@ -37,15 +40,29 @@ export function TorneosTemplate({
                 divisionName={divisionName} activeTournament={activeTournament}
                 allTeams={allTeams} participatingIds={participatingIds}
                 onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
-                
-                // === CAMBIO 2: Conectar el cable ===
-                // Pasamos el valor recibido al componente hijo
                 isLoading={isLoadingData}
+                
+                // 2. PASAMOS LAS PROPS AL HIJO AQUÍ
+                reglas={reglas}
+                setReglas={setReglas}
             />
         )}
 
-        {activeTab === "jornadas" && (
-           <TorneoJornadasTab />
+{activeTab === "jornadas" && (
+           <TorneoJornadasTab 
+              activeTournament={activeTournament} 
+              // CAMBIO IMPORTANTE: Pasamos la lista filtrada, no 'allTeams'
+              participatingTeams={participatingTeamsObj} 
+           />
+        )}
+
+        {activeTab === "standings" && (
+           <TorneosStandingsTab
+              standings={standings} 
+              division={{ name: divisionName }} 
+              season={activeTournament?.season || "Torneo Actual"}
+              loading={isLoadingData}
+           />
         )}
       </ContentGrid>
     </ContentContainer>

@@ -6,6 +6,7 @@ export * from './components/atomos/Badge';
 export * from './components/atomos/Skeleton';
 export * from './components/atomos/ContentContainer';
 export * from './components/atomos/ContainerScroll';
+export * from './components/atomos/Toast';
 export * from './components/moleculas/Btnsave';
 export * from './components/moleculas/BtnNormal';
 export * from './components/moleculas/Card';

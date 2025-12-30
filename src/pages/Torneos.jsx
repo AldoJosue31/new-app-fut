@@ -1,44 +1,47 @@
 import React, { useState, useEffect } from "react";
 import { TorneosTemplate } from "../components/template/TorneosTemplate";
-import { generarFixture, iniciarTorneoService } from "../services/torneos";
+import { iniciarTorneoService } from "../services/torneos"; 
+import { getTablaPosicionesService } from "../services/estadisticas";
 import { supabase } from "../supabase/supabase.config";
 import { useDivisionStore } from "../store/DivisionStore";
+// 1. IMPORTAMOS EL TOAST
+import { Toast } from "../index";
 
 export function Torneos() {
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { selectedDivision } = useDivisionStore();
   
+  // Estados de datos
   const [activeTournament, setActiveTournament] = useState(null);
   const [allTeams, setAllTeams] = useState([]);
-  const [participatingIds, setParticipatingIds] = useState([]);
+  const [participatingIds, setParticipatingIds] = useState([]); 
+  const [standings, setStandings] = useState([]);
 
-  // --- CAMBIO: INICIALIZACIÓN DEL ESTADO DESDE LOCALSTORAGE ---
+  // Estado para las Reglas de Juego
+  const [reglas, setReglas] = useState({
+    minutosPorTiempo: "45",
+    cambios: "Ilimitados",
+    observaciones: ""
+  });
+
+  // 2. ESTADO PARA CONTROLAR EL TOAST
+  const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
+
+  // Helper para mostrar notificaciones
+  const showToast = (message, type = 'error') => {
+      setToastConfig({ show: true, message, type });
+  };
+
+  // Estado del Formulario Principal
   const [form, setForm] = useState(() => {
-    // Intentamos leer lo guardado
     const savedRules = localStorage.getItem("torneo_reglas_draft");
-    
-    if (savedRules) {
-      return JSON.parse(savedRules);
-    }
-    
-    // Si no hay nada guardado, usamos los valores por defecto
-    return {
+    return savedRules ? JSON.parse(savedRules) : {
       season: "",
       startDate: new Date().toISOString().split('T')[0],
       vueltas: "1",       
-      ascensos: "",
-      descensos: "",
-      zonaLiguilla: false,
-      clasificados: "8",
       minPlayers: 7,
-      maxPlayers: 20,
-      maxTeams: 12,
-      tieBreakType: "normal",
-      winPoints: 3,
-      drawPoints: 1,
-      lossPoints: 0,
-      playoffTieBreak: "position",
+      format: "Liga", 
     };
   });
 
@@ -46,13 +49,11 @@ export function Torneos() {
     if (selectedDivision) {
       fetchData();
     } else {
-        // Si no hay división seleccionada, dejamos de cargar para no bloquear la UI eternamente
-        setIsLoadingData(false);
+      setIsLoadingData(false);
     }
   }, [selectedDivision]);
 
   const fetchData = async () => {
-    // Reiniciamos a true si cambia la división para mostrar skeletons de nuevo
     setIsLoadingData(true); 
 
     try {
@@ -61,12 +62,46 @@ export function Torneos() {
         .from('tournaments')
         .select('*')
         .eq('division_id', selectedDivision.id)
-        .eq('status', 'En Curso')
+        .in('status', ['Activo', 'En Curso']) 
         .maybeSingle();
       
       setActiveTournament(torneo);
 
-      // 2. Buscar equipos Y contar sus jugadores
+      if (torneo) {
+        setForm(prev => ({
+          ...prev,
+          season: torneo.season,
+          startDate: torneo.start_date,
+          vueltas: torneo.config?.vueltas || "1",
+          format: torneo.config?.format || "Liga"
+        }));
+        
+        if (torneo.config) {
+          // RECUPERAR REGLAS
+          setReglas({
+            minutosPorTiempo: torneo.config.minutosPorTiempo || "45",
+            cambios: torneo.config.cambios || "Ilimitados",
+            observaciones: torneo.config.observaciones || ""
+          });
+
+          // --- FIX: RECUPERAR EQUIPOS PARTICIPANTES GUARDADOS ---
+          if (torneo.config.participatingIds && Array.isArray(torneo.config.participatingIds)) {
+             setParticipatingIds(torneo.config.participatingIds);
+          }
+        }
+
+        try {
+            const dataStats = await getTablaPosicionesService(selectedDivision.id, torneo.season);
+            setStandings(dataStats || []);
+        } catch (err) {
+            console.error("Error cargando posiciones:", err);
+            setStandings([]);
+        }
+      } else {
+        setStandings([]);
+      }
+
+      // 2. Buscar equipos
       const { data: teams } = await supabase
         .from('teams')
         .select('*, players(id)')
@@ -78,106 +113,127 @@ export function Torneos() {
             ...t,
             playerCount: t.players?.length || 0
         }));
-        
         setAllTeams(processedTeams);
-
-        // Selección inicial
-        const defaultParticipating = processedTeams
-            .filter(t => t.status === 'Activo' && t.playerCount >= form.minPlayers)
-            .map(t => t.id);
-            
-        setParticipatingIds(defaultParticipating);
+        
+        // Solo establecer defaults si NO hay torneo activo y NO hemos recuperado IDs
+        if (!torneo) { 
+            const defaultParticipating = processedTeams
+                .filter(t => t.status === 'Activo' && t.playerCount >= form.minPlayers)
+                .map(t => t.id);
+            setParticipatingIds(defaultParticipating);
+        }
       }
 
     } catch (error) {
       console.error("Error fetching data:", error);
+      showToast("Error al cargar datos iniciales", "error");
     } finally {
-      // === CAMBIO 2: APAGAR EL LOADING AL TERMINAR ===
-      // Esto asegura que los skeletons desaparezcan ya sea con éxito o error
       setIsLoadingData(false);
     }
   };
 
-  // --- GESTIÓN DE LISTAS ---
-  const moveTeamToParticipating = (teamId) => {
-    if (participatingIds.length >= form.maxTeams) {
-        return alert(`No puedes agregar más equipos. El límite configurado es de ${form.maxTeams}.`);
-    }
-    setParticipatingIds(prev => [...prev, teamId]);
-  };
+  // --- Handlers de UI ---
 
+  const moveTeamToParticipating = (teamId) => {
+    if(!activeTournament) setParticipatingIds(prev => [...prev, teamId]);
+  };
+  
   const moveTeamToExcluded = (teamId) => {
-    setParticipatingIds(prev => prev.filter(id => id !== teamId));
+    if(!activeTournament) setParticipatingIds(prev => prev.filter(id => id !== teamId));
   };
 
   const handleChange = (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+    setForm({ 
+      ...form, 
+      [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value 
+    });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const equiposParticipantes = allTeams.filter(t => participatingIds.includes(t.id));
+  // --- LÓGICA PRINCIPAL: INICIAR TORNEO ---
+  const handleSubmit = async () => {
+    if (activeTournament) return; 
 
-    if (!selectedDivision) return alert("Selecciona una división");
-    if (activeTournament) return alert("Ya hay un torneo en curso");
-    if (equiposParticipantes.length < 2) return alert("Necesitas al menos 2 equipos participantes.");
-    
-    if (equiposParticipantes.length > form.maxTeams) {
-        return alert(`Has seleccionado ${equiposParticipantes.length} equipos, pero el máximo configurado es ${form.maxTeams}.`);
-    }
-
-    if (form.zonaLiguilla) {
-        const numClasificados = parseInt(form.clasificados);
-        const numEquipos = equiposParticipantes.length;
-        if (numClasificados > numEquipos) {
-            return alert(`Error: Clasifican ${numClasificados} a liguilla pero solo hay ${numEquipos} equipos.`);
-        }
+    // 1. Validaciones
+    if (!selectedDivision || !form.season || !form.startDate) {
+      showToast("Por favor completa División, Temporada y Fecha de Inicio", "warning");
+      return;
     }
 
     setLoading(true);
     try {
-      const dobleVuelta = form.vueltas === "2";
-      const fixture = generarFixture(equiposParticipantes, dobleVuelta);
+      const numEquipos = participatingIds.length;
+      
+      if (numEquipos < 2) {
+        throw new Error("Necesitas al menos 2 equipos para iniciar un torneo.");
+      }
+
+      const jornadasPorVuelta = numEquipos % 2 === 0 ? numEquipos - 1 : numEquipos;
+      const totalJornadasCalc = form.vueltas === "2" ? jornadasPorVuelta * 2 : jornadasPorVuelta;
+
+      const jornadasArray = Array.from({ length: totalJornadasCalc }, (_, i) => ({
+        name: `Jornada ${i + 1}`
+      }));
+
+      // --- FIX: GUARDAR LOS IDS DE PARTICIPANTES EN LA CONFIG ---
+      const configData = {
+        format: form.format,
+        vueltas: form.vueltas,
+        tieBreakType: form.tieBreakType,
+        participatingIds: participatingIds, // <--- GUARDAMOS LOS IDS AQUÍ
+        ...reglas 
+      };
 
       await iniciarTorneoService({
-        divisionId: selectedDivision.id,
         divisionName: selectedDivision.name,
         season: form.season,
         startDate: form.startDate,
-        totalJornadas: fixture.length,
+        config: configData,
+        jornadas: jornadasArray
       });
 
-      alert("¡Torneo iniciado correctamente!");
-      localStorage.removeItem("torneo_reglas_draft");
-      fetchData(); 
-      
+      showToast("¡Torneo iniciado correctamente!", "success");
+
+      await fetchData(); 
+
     } catch (error) {
       console.error(error);
-      alert("Error: " + error.message);
+      showToast("Error al iniciar torneo: " + (error.message || error.details), "error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <TorneosTemplate
-      form={form}
-      onChange={handleChange}
-      onSubmit={handleSubmit}
-      loading={loading} // Loading del botón guardar
-      
-      // === CAMBIO 3: PASAR EL ESTADO DE CARGA ===
-      isLoadingData={isLoadingData} 
+    <>
+      {/* 3. RENDERIZAMOS EL TOAST */}
+      <Toast 
+          show={toastConfig.show} 
+          message={toastConfig.message} 
+          type={toastConfig.type} 
+          onClose={() => setToastConfig({ ...toastConfig, show: false })}
+      />
 
-      divisionName={selectedDivision?.name}
-      activeTournament={activeTournament}
-      
-      allTeams={allTeams}
-      participatingIds={participatingIds}
-      onInclude={moveTeamToParticipating}
-      onExclude={moveTeamToExcluded}
-      minPlayers={form.minPlayers} 
-    />
+      <TorneosTemplate
+        loading={loading}
+        isLoadingData={isLoadingData}
+        divisionName={selectedDivision?.name}
+        activeTournament={activeTournament}
+        
+        form={form}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+        
+        reglas={reglas}
+        setReglas={setReglas}
+
+        allTeams={allTeams}
+        participatingIds={participatingIds}
+        onInclude={moveTeamToParticipating}
+        onExclude={moveTeamToExcluded}
+        minPlayers={form.minPlayers} 
+        
+        standings={standings}
+      />
+    </>
   );
 }

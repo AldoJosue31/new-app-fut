@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { v } from "../../../../styles/variables";
 import { Card, CardHeader } from "../../../../index";
 
-export function LigaStandingsTab({ standings, division, season, loading }) {
+export function TorneosStandingsTab({ standings, division, season, loading }) {
   return (
     <Card>
       <CardHeader

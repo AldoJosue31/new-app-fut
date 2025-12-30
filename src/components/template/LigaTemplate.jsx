@@ -5,22 +5,20 @@ import { Title, TabsNavigation } from "../../index";
 import { RiShieldUserLine, RiBarChartGroupedLine, RiSettings4Line, RiBuilding2Line } from "react-icons/ri";
 import { GiWhistle } from "react-icons/gi";
 
-// Importación de Tabs
-import { LigaStandingsTab } from "../organismos/tabs/liga/LigaStandingsTab";
+
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
 import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
 
 export function LigaTemplate({ 
-  standings, division, season, loading, 
+   division, season, loading, 
   leagueData, referees = [], allDivisions = [],
   onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
   onAddReferee, onEditReferee, onDeleteReferee
 }) {
-  const [activeTab, setActiveTab] = useState("standings");
+  const [activeTab, setActiveTab] = useState("general");
 
   const tabList = [
-    { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> },
     { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
     { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
@@ -35,9 +33,6 @@ export function LigaTemplate({
       </div>
 
       <ContentGrid>
-        {activeTab === "standings" && (
-            <LigaStandingsTab standings={standings} division={division} season={season} loading={loading} />
-        )}
         {activeTab === "general" && (
             <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />
         )}
