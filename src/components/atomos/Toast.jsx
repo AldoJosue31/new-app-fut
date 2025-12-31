@@ -1,11 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { v } from '../../styles/variables';
 import { RiErrorWarningLine, RiCheckboxCircleLine, RiCloseLine } from "react-icons/ri";
 
 export function Toast({ show, message, type = 'error', onClose, duration = 3000 }) {
-    
+    // 1. Agregamos un estado para saber si el Toast ha sido activado alguna vez
+    const [hasBeenShown, setHasBeenShown] = useState(false);
+
     useEffect(() => {
+        // Si show se vuelve true, marcamos que ya ha sido mostrado
+        if (show) {
+            setHasBeenShown(true);
+        }
+
         if (show && duration) {
             const timer = setTimeout(() => {
                 onClose();
@@ -15,7 +22,8 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000 
     }, [show, duration, onClose]);
 
     return (
-        <ToastContainer $show={show} $type={type}>
+        // 2. Pasamos la nueva prop $hasBeenShown al componente estilizado
+        <ToastContainer $show={show} $type={type} $hasBeenShown={hasBeenShown}>
             <div className="icon-box">
                 {type === 'error' ? <RiErrorWarningLine /> : <RiCheckboxCircleLine />}
             </div>
@@ -57,11 +65,23 @@ const ToastContainer = styled.div`
     border-left: 5px solid ${({ $type }) => $type === 'error' ? v.colorError : v.colorExito};
     backdrop-filter: blur(10px);
     
-    /* Animaciones de entrada y salida basadas en la prop show */
-    animation: ${({ $show }) => $show ? css`${slideIn} 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards` : css`${fadeOut} 0.4s forwards`};
+    /* 3. Lógica de animación corregida */
+    animation: ${({ $show, $hasBeenShown }) => {
+        // Si está activo, entra
+        if ($show) return css`${slideIn} 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`;
+        
+        // Si NO está activo, PERO ya fue mostrado antes, sale (fadeOut)
+        if (!$show && $hasBeenShown) return css`${fadeOut} 0.4s forwards`;
+        
+        // Estado inicial (carga de página): Sin animación
+        return 'none';
+    }};
+
     /* Importante para que no estorbe cuando no se muestra pero la animación de salida termina */
     pointer-events: ${({ $show }) => $show ? 'all' : 'none'};
-    opacity: ${({ $show }) => $show ? '1' : '0'};
+    
+    /* Ajustamos la opacidad base: si no se ha mostrado nunca, debe ser 0 */
+    opacity: ${({ $show, $hasBeenShown }) => ($show || $hasBeenShown) ? '1' : '0'};
 
     .icon-box {
         font-size: 24px;

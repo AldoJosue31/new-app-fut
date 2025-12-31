@@ -6,6 +6,7 @@ import { RiCalendarEventLine, RiBarChartGroupedLine } from "react-icons/ri";
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
+import { TabContent } from "../moleculas/TabsNavigation";
 
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
@@ -35,6 +36,7 @@ export function TorneosTemplate({
 
       <ContentGrid>
         {activeTab === "definir" && (
+          <TabContent>
             <TorneoDefinicionTab 
                 form={form} onChange={onChange} onSubmit={onSubmit} loading={loading}
                 divisionName={divisionName} activeTournament={activeTournament}
@@ -46,23 +48,28 @@ export function TorneosTemplate({
                 reglas={reglas}
                 setReglas={setReglas}
             />
+            </TabContent>
         )}
 
 {activeTab === "jornadas" && (
+  <TabContent>
            <TorneoJornadasTab 
               activeTournament={activeTournament} 
               // CAMBIO IMPORTANTE: Pasamos la lista filtrada, no 'allTeams'
               participatingTeams={participatingTeamsObj} 
            />
+           </TabContent>
         )}
 
         {activeTab === "standings" && (
+          <TabContent>
            <TorneosStandingsTab
               standings={standings} 
               division={{ name: divisionName }} 
               season={activeTournament?.season || "Torneo Actual"}
               loading={isLoadingData}
            />
+           </TabContent>
         )}
       </ContentGrid>
     </ContentContainer>

@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { EquiposTemplate } from "../components/template/EquiposTemplate";
 import { useDivisionStore } from "../store/DivisionStore";
-import { useEquiposStore } from "../store/EquiposStore"; // Importamos el nuevo store
+import { useEquiposStore } from "../store/EquiposStore"; 
 import { supabase } from "../supabase/supabase.config";
 import { generateTeamLogo } from "../utils/logoGenerator";
 import { removeBackground, compressImage } from "../utils/imageProcessor";
 
 export function Equipos() {
   const { selectedDivision } = useDivisionStore();
-  
-  // Usamos el store global en lugar de estado local para datos
   const { equipos, loading, fetchEquipos, addEquipoLocal, updateEquipoLocal, deleteEquipoLocal } = useEquiposStore();
   
   const [uploading, setUploading] = useState(false);
@@ -31,16 +29,30 @@ export function Equipos() {
   const [teamToEdit, setTeamToEdit] = useState(null);
   const [teamToView, setTeamToView] = useState(null);
 
-  // 1. Estado para guardar el ID del equipo a eliminar
   const [deleteId, setDeleteId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // Carga inteligente: solo pide datos si cambia la división
   useEffect(() => {
     if (selectedDivision) {
         fetchEquipos(selectedDivision.id);
     }
   }, [selectedDivision, fetchEquipos]);
+
+  // --- HELPER PARA EXTRAER RUTA DE SUPABASE ---
+  const getPathFromUrl = (fullUrl) => {
+    if (!fullUrl || !fullUrl.includes('supabase.co')) return null;
+    try {
+        // Asumiendo que tus archivos están en el bucket 'logos'
+        const bucketName = 'logos'; 
+        const parts = fullUrl.split(`/${bucketName}/`);
+        if (parts.length < 2) return null;
+        // Retorna la parte después del bucket (ej: "nombre_archivo.png") y quita query params
+        return parts[1].split('?')[0];
+    } catch (e) {
+        console.error("Error extrayendo path:", e);
+        return null;
+    }
+  };
 
   // --- LÓGICA DE IMÁGENES Y FORMULARIO ---
   const handleFormChange = (e) => {
@@ -64,17 +76,11 @@ export function Equipos() {
     });
   };
 
-const handleFileChange = async (eOrFile) => {
-    // Detectar si es un evento o un archivo directo
+  const handleFileChange = async (eOrFile) => {
     let selectedFile = eOrFile.target ? eOrFile.target.files[0] : eOrFile;
-    
-    // Si viene del PhotoUploader, el archivo ya es un Blob/File válido
-    // Sin embargo, PhotoUploader ya devuelve la URL de preview, pero aquí recalculamos el color.
-    
     if (selectedFile) {
       setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile)); // Actualizamos preview padre
-      
+      setPreview(URL.createObjectURL(selectedFile));
       try {
         const dominantColor = await getDominantColor(selectedFile);
         setForm(prev => ({ ...prev, color: dominantColor }));
@@ -82,7 +88,7 @@ const handleFileChange = async (eOrFile) => {
         console.error("No se pudo extraer color", error);
       }
     }
-};
+  };
 
   const handleClearImage = (e) => {
     e.preventDefault(); e.stopPropagation();
@@ -92,7 +98,7 @@ const handleFileChange = async (eOrFile) => {
   };
 
   const handleGenerateLogo = async () => {
-    if (!form.name) return alert("Escribe el nombre del equipo primero");
+    if (!form.name) return alert("Escribe el nombre del equipo primero"); // Este alert es local y rápido, no afecta el flujo final
     try {
       const { file: genFile, preview: genPreview } = await generateTeamLogo(form.name, form.color);
       setFile(genFile);
@@ -109,34 +115,40 @@ const handleFileChange = async (eOrFile) => {
       setFile(cleanFile);
       setPreview(cleanPreview);
     } catch (error) {
-      alert("Error procesando imagen");
+      console.error("Error procesando imagen", error);
     }
   };
 
-  // --- CRUD ACTIONS (Optimizadas con Store) ---
+  // --- CRUD ACTIONS ---
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!selectedDivision) return alert("Selecciona una división");
+    if (!selectedDivision) throw new Error("Selecciona una división primero");
+
     setUploading(true);
 
     try {
       let logoUrl = form.logo_url;
       
+      // 1. Si estamos editando Y hay un archivo nuevo Y el equipo ya tenía logo: BORRAR EL ANTERIOR
       if (teamToEdit && file && teamToEdit.logo_url) {
-        const oldName = teamToEdit.logo_url.split('/').pop();
-        await supabase.storage.from('logos').remove([oldName]);
+        const oldPath = getPathFromUrl(teamToEdit.logo_url);
+        if (oldPath) {
+            console.log("Eliminando logo anterior:", oldPath);
+            const { error: removeError } = await supabase.storage.from('logos').remove([oldPath]);
+            if (removeError) console.warn("No se pudo eliminar el logo anterior:", removeError);
+        }
       }
 
-if (file) {
-        // --- AQUÍ APLICAMOS LA COMPRESIÓN ---
-        // 600px de ancho máximo y 0.8 de calidad es suficiente para logos
+      // 2. Subir el nuevo archivo si existe
+      if (file) {
         const compressedFile = await compressImage(file, 600, 0.8);
-        
         const fileExt = compressedFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.floor(Math.random()*1000)}.${fileExt}`;
+        
         const { error: upError } = await supabase.storage.from('logos').upload(fileName, compressedFile);
         if (upError) throw upError;
+        
         const { data: urlData } = supabase.storage.from('logos').getPublicUrl(fileName);
         logoUrl = urlData.publicUrl;
       }
@@ -152,49 +164,59 @@ if (file) {
       };
 
       if (teamToEdit) {
-        // UPDATE
         const { data, error } = await supabase.from('teams').update(teamData).eq('id', teamToEdit.id).select();
         if (error) throw error;
-        // Actualizamos store localmente (sin re-fetch)
         updateEquipoLocal(data[0]);
-        alert("Equipo actualizado");
       } else {
-        // CREATE
         const { data, error } = await supabase.from('teams').insert(teamData).select();
         if (error) throw error;
-        // Agregamos al store localmente (sin re-fetch)
         addEquipoLocal(data[0]);
-        alert("Equipo registrado");
       }
 
       setIsFormOpen(false);
     } catch (error) {
-      alert("Error: " + error.message);
+      throw error; // El Toast capturará esto
     } finally {
       setUploading(false);
     }
   };
 
-const openDeleteConfirmation = (id) => {
+  const openDeleteConfirmation = (id) => {
       setDeleteId(id);
       setIsDeleteModalOpen(true);
   };
 
-  // 3. Esta función ejecuta el borrado real (se pasa al modal)
   const confirmDelete = async () => {
     if (!deleteId) return;
     try {
-      // Tu lógica existente de borrado de Supabase...
-      const { data: team } = await supabase.from('teams').select('logo_url').eq('id', deleteId).single();
-      // ... (resto de lógica de storage y delete) ...
-      await supabase.from('teams').delete().eq('id', deleteId);
+      // 1. Obtener datos del equipo antes de borrar para saber su logo
+      const { data: team, error: fetchError } = await supabase
+        .from('teams')
+        .select('logo_url')
+        .eq('id', deleteId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+
+      // 2. Si tiene logo, borrarlo del Storage
+      if (team?.logo_url) {
+         const path = getPathFromUrl(team.logo_url);
+         if (path) {
+             console.log("Eliminando imagen asociada:", path);
+             await supabase.storage.from('logos').remove([path]);
+         }
+      }
+
+      // 3. Borrar el registro de la base de datos
+      const { error: deleteError } = await supabase.from('teams').delete().eq('id', deleteId);
+      if (deleteError) throw deleteError;
       
-      deleteEquipoLocal(deleteId); // Actualizar store
+      deleteEquipoLocal(deleteId); 
       
-      setIsDeleteModalOpen(false); // Cerrar modal
+      setIsDeleteModalOpen(false); 
       setDeleteId(null);
     } catch (error) {
-      alert("Error al eliminar: " + error.message);
+      throw error; // El Toast capturará esto
     }
   };
 
@@ -224,7 +246,7 @@ const openDeleteConfirmation = (id) => {
     <EquiposTemplate 
       equipos={equipos}
       division={selectedDivision}
-      loading={loading} // Viene del store
+      loading={loading}
       isUploading={uploading}
       form={form}
       preview={preview}

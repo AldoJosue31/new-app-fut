@@ -2,33 +2,31 @@ import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../styles/variables";
 import { InputText2, Btnsave, PhotoUploader, InputNumber, Skeleton, ContainerScroll } from "../../../index";
-// 👇 Importamos el Modal desde la ruta correcta (subimos un nivel desde 'formularios')
 import { Modal } from "../Modal"; 
 import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { supabase } from "../../../supabase/supabase.config";
 import { 
     RiEditLine, RiDeleteBinLine, RiUserAddLine, 
-    RiArrowLeftLine, RiErrorWarningLine , RiCheckboxCircleLine
+    RiArrowLeftLine, RiErrorWarningLine 
+    // RiCheckboxCircleLine eliminado ya que no usamos el modal de éxito viejo
 } from "react-icons/ri";
 import { compressImage } from "../../../utils/imageProcessor";
 
-export function PlayerManager({ teamId }) {
+// 1. Recibimos showToast como prop
+export function PlayerManager({ teamId, showToast }) {
   const { jugadores, fetchJugadores, addJugador, updateJugador, deleteJugador, isLoading } = useJugadoresStore();
   const [view, setView] = useState("list"); 
   const [editingPlayer, setEditingPlayer] = useState(null);
-  const [isSuccess, setIsSuccess] = useState(false);
+  // const [isSuccess, setIsSuccess] = useState(false); // Estado eliminado
   
-  // --- ESTADOS PARA EL MODAL DE ELIMINAR ---
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [playerToDelete, setPlayerToDelete] = useState(null);
 
-  // Estados para la imagen
   const [photoFile, setPhotoFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [croppedFile, setCroppedFile] = useState(null);
   const [originalFile, setOriginalFile] = useState(null);
   
-  // Estado del formulario
   const initialForm = {
     first_name: "", last_name: "", dorsal: "", position: "Delantero",
     birth_date: "", curp_dni: "", photo_url: ""
@@ -80,7 +78,6 @@ export function PlayerManager({ teamId }) {
     setView("form");
   };
 
-  // --- LÓGICA DE ELIMINACIÓN SEGURA ---
   const openDeleteModal = (player) => {
       setPlayerToDelete(player);
       setIsDeleteModalOpen(true);
@@ -88,13 +85,19 @@ export function PlayerManager({ teamId }) {
 
   const confirmDelete = async () => {
       if(playerToDelete) {
-          await deleteJugador(playerToDelete.id);
-          setIsDeleteModalOpen(false);
-          setPlayerToDelete(null);
+          try {
+             await deleteJugador(playerToDelete.id);
+             setIsDeleteModalOpen(false);
+             setPlayerToDelete(null);
+             // 2. Usar showToast en éxito de eliminación
+             if(showToast) showToast("Jugador eliminado correctamente", "success");
+          } catch (error) {
+             if(showToast) showToast("Error al eliminar jugador", "error");
+          }
       }
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (dorsalError) {
       setShakeError(true);
@@ -109,13 +112,10 @@ const handleSubmit = async (e) => {
         const pathCrop = `players/${fileId}_crop.png`;
         const pathOriginal = `players/${fileId}_original.png`;
 
-// 1. Subir Crop (ya viene pequeño del PhotoUploader, pero puedes comprimirlo más si quieres)
         const { error: errCrop } = await supabase.storage.from('logos').upload(pathCrop, croppedFile, { upsert: true });
         if (errCrop) throw errCrop;
 
-        // 2. Subir Original COMPRIMIDA
         if (originalFile) {
-            // Comprimimos la original a 1000px max y 0.8 calidad para ahorrar espacio
             const compressedOriginal = await compressImage(originalFile, 1000, 0.8);
             await supabase.storage.from('logos').upload(pathOriginal, compressedOriginal, { upsert: true });
         }
@@ -124,26 +124,29 @@ const handleSubmit = async (e) => {
         finalPhotoUrl = `${publicData.publicUrl}?t=${Date.now()}`;
       }
 
-      // --- CORRECCIÓN AQUÍ ---
-      // Si la fecha es string vacío "", enviamos null. Si tiene valor, lo dejamos igual.
       const birthDateToSend = form.birth_date === "" ? null : form.birth_date;
 
       const payload = { 
           ...form, 
-          birth_date: birthDateToSend, // <--- Asignamos el valor corregido
+          birth_date: birthDateToSend,
           team_id: teamId, 
           photo_url: finalPhotoUrl
       };
-      // -----------------------
 
       if (editingPlayer) {
         await updateJugador(editingPlayer.id, payload);
+        // 3. Toast edición
+        if(showToast) showToast("Jugador actualizado correctamente", "success");
       } else {
         await addJugador(payload);
+        // 4. Toast creación
+        if(showToast) showToast("Jugador creado correctamente", "success");
       }
-setView("list");
+      setView("list");
+      
     } catch (err) {
-      alert("Error: " + err.message);
+      // 5. Toast error
+      if(showToast) showToast("Error: " + err.message, "error");
     }
   };
 
@@ -153,15 +156,11 @@ setView("list");
       return url; 
   };
 
-  // --- VISTA LISTA ---
   if (view === "list") {
     return (
       <Container>
-        {/* ENCABEZADO MEJORADO: Espacio y botón proporcional */}
         <div className="header-actions">
           <h3>Plantilla ({isLoading ? "..." : jugadores.length})</h3>
-          
-          {/* Botón más compacto que no choca con los tabs */}
           <BtnSmall onClick={handleNew}>
              <RiUserAddLine /> 
              <span>Agregar</span>
@@ -169,16 +168,16 @@ setView("list");
         </div>
         <ContainerScroll $maxHeight="400px">
         <ListContainer>
-{isLoading ? (
-  Array.from({ length: 5 }).map((_, i) => (
-    <div key={i} style={{ padding: 10, display: 'flex', gap: 15, alignItems: 'center' }}>
-       <Skeleton type="circle" width="40px" height="40px" /> {/* Avatar */}
-       <div style={{flex: 1, display:'flex', flexDirection:'column', gap: 5}}>
-          <Skeleton width="60%" height="14px" />  {/* Nombre */}
-          <Skeleton width="40%" height="10px" />  {/* Posición */}
-       </div>
-    </div>
-  ))
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} style={{ padding: 10, display: 'flex', gap: 15, alignItems: 'center' }}>
+               <Skeleton type="circle" width="40px" height="40px" />
+               <div style={{flex: 1, display:'flex', flexDirection:'column', gap: 5}}>
+                  <Skeleton width="60%" height="14px" />
+                  <Skeleton width="40%" height="10px" />
+               </div>
+            </div>
+          ))
           ) : (
             jugadores.map((p) => (
               <PlayerRow key={p.id}>
@@ -191,7 +190,6 @@ setView("list");
                 </div>
                 <div className="actions">
                   <button className="btn-icon edit" onClick={() => handleEdit(p)}><RiEditLine /></button>
-                  {/* Ahora abre el modal en lugar de borrar directo */}
                   <button className="btn-icon delete" onClick={() => openDeleteModal(p)}><RiDeleteBinLine /></button>
                 </div>
               </PlayerRow>
@@ -201,13 +199,12 @@ setView("list");
           {jugadores.length === 0 && !isLoading && <p className="empty">No hay jugadores registrados.</p>}
         </ListContainer></ContainerScroll>
 
-        {/* --- MINI MODAL DE CONFIRMACIÓN --- */}
         <Modal 
             isOpen={isDeleteModalOpen} 
             onClose={() => setIsDeleteModalOpen(false)} 
             title="Eliminar Jugador"
             width="400px"
-            closeOnOverlayClick={false} // 🔒 No cierra al hacer clic fuera
+            closeOnOverlayClick={false}
         >
             <DeleteContent>
                 <div className="warning-icon"><RiErrorWarningLine /></div>
@@ -221,24 +218,11 @@ setView("list");
                 </div>
             </DeleteContent>
         </Modal>
-        <Modal 
-         isOpen={isSuccess} 
-         onClose={() => {}} // Bloqueamos el cierre manual para forzar la espera
-         width="300px"
-         hideCloseBtn={true} // Si tu modal soporta ocultar la X, si no, no importa
-      >
-         <SuccessContent>
-            <RiCheckboxCircleLine size={60} color="#46b450" /> {/* Color verde éxito */}
-            <h3>¡Guardado!</h3>
-            <p>Redirigiendo a la lista...</p>
-         </SuccessContent>
-      </Modal>
-
+        {/* Modal de isSuccess eliminado */}
       </Container>
     );
   }
 
-  // --- VISTA FORMULARIO ---
   return (
     <Container>
       <div className="header-actions">
