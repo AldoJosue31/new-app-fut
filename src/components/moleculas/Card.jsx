@@ -1,8 +1,13 @@
 import styled from "styled-components";
 
-export const Card = ({ children, width = "100%", maxWidth = "600px", className }) => {
+export const Card = ({ children, width = "100%", maxWidth = "600px", className, ...props }) => {
   return (
-    <CardStyled $width={width} $maxWidth={maxWidth} className={className}>
+<CardStyled 
+      $width={width} 
+      $maxWidth={maxWidth} 
+      className={className} 
+      {...props} // <--- ESTO ES LO QUE FALTABA: Pasa el onClick y otros eventos al div
+    >
       {children}
     </CardStyled>
   );

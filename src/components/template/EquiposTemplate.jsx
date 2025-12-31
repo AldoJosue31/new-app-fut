@@ -16,16 +16,18 @@ import {
   ContainerScroll
 } from "../../index";
 import { Modal } from "../organismos/Modal";
+import { Toast } from "../atomos/Toast"; // <--- 1. Importar Toast
 import { 
   RiPencilLine, RiDeleteBinLine, RiMagicLine, RiEraserLine, 
   RiShieldUserLine, RiSmartphoneLine, RiExchangeDollarLine, 
-  RiUserFollowLine, RiArrowLeftLine // <--- Icono flecha agregado
+  RiUserFollowLine, RiArrowLeftLine
 } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { Device } from "../../styles/breakpoints";
 import { PlayerManager } from "../organismos/formularios/PlayerManager";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { supabase } from "../../supabase/supabase.config";
+import { TabContent } from "../moleculas/TabsNavigation";
 
 export function EquiposTemplate({ 
   equipos, 
@@ -56,7 +58,7 @@ export function EquiposTemplate({
   onConfirmDelete,
 }) {
     const modalTabs = [
-    { id: "info", label: "Datos del Equipo", icon: null }, // Puedes agregar iconos si quieres
+    { id: "info", label: "Datos del Equipo", icon: null },
     { id: "players", label: "Jugadores (Plantilla)", icon: <RiUserFollowLine /> }
   ];
   const [activeTab, setActiveTab] = useState("info");
@@ -68,6 +70,39 @@ export function EquiposTemplate({
   const [showPlayerList, setShowPlayerList] = useState(false);
   const [detailPlayers, setDetailPlayers] = useState([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
+
+  // --- 2. Estado del Toast ---
+  const [toastConfig, setToastConfig] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToastConfig({ show: true, message, type });
+  };
+
+  const handleCloseToast = () => {
+    setToastConfig((prev) => ({ ...prev, show: false }));
+  };
+
+  // --- 3. Wrappers para interceptar acciones y mostrar Toast ---
+  const handleSaveWrapper = async (e) => {
+    // Asumimos que onSave maneja el e.preventDefault() o lo hacemos aquí si es necesario
+    try {
+        await onSave(e); 
+        // Si no lanza error, mostramos éxito
+        showToast(teamToEdit ? "Equipo actualizado correctamente" : "Equipo creado correctamente", "success");
+    } catch (error) {
+        console.error(error);
+        showToast("Error al guardar el equipo", "error");
+    }
+  };
+
+  const handleDeleteWrapper = async () => {
+    try {
+        await onConfirmDelete();
+        showToast("Equipo eliminado correctamente", "success");
+    } catch (error) {
+        showToast("Error al eliminar el equipo", "error");
+    }
+  };
 
   useEffect(() => {
     if (isFormOpen) setActiveTab("info");
@@ -92,11 +127,11 @@ export function EquiposTemplate({
           .eq('id', teamToTransfer.id);
         
         if(error) throw error;
-        alert("Equipo transferido correctamente");
+        showToast("Equipo transferido correctamente", "success"); // Toast aquí también
         setIsTransferModalOpen(false);
-        window.location.reload(); 
+        setTimeout(() => window.location.reload(), 1000); // Dar tiempo a ver el toast
     } catch (error) {
-        alert("Error transfiriendo: " + error.message);
+        showToast("Error transfiriendo: " + error.message, "error");
     }
   };
 
@@ -137,21 +172,21 @@ export function EquiposTemplate({
         </div>
 
         <Grid>
-{loading ? (
-    Array.from({ length: 8 }).map((_, index) => (
-        <TeamCardSkeleton key={index}>
-            <div className="header-sk">
-                <Skeleton width="100%" height="100%" radius="0" />
-                <div className="logo-sk">
-                    <Skeleton type="circle" width="85px" height="85px" />
-                </div>
-            </div>
-            <div className="body-sk">
-                <Skeleton width="70%" height="20px" />
-                <Skeleton width="50%" height="14px" />
-            </div>
-        </TeamCardSkeleton>
-    ))
+        {loading ? (
+            Array.from({ length: 8 }).map((_, index) => (
+                <TeamCardSkeleton key={index}>
+                    <div className="header-sk">
+                        <Skeleton width="100%" height="100%" radius="0" />
+                        <div className="logo-sk">
+                            <Skeleton type="circle" width="85px" height="85px" />
+                        </div>
+                    </div>
+                    <div className="body-sk">
+                        <Skeleton width="70%" height="20px" />
+                        <Skeleton width="50%" height="14px" />
+                    </div>
+                </TeamCardSkeleton>
+            ))
             ) : (
                 <>
                     {equipos.map((team) => (
@@ -162,7 +197,7 @@ export function EquiposTemplate({
                                     <button className="btn-transfer" onClick={(e) => handleOpenTransfer(e, team)} title="Transferir"><RiExchangeDollarLine /></button>
                                     <button className="btn-delete" onClick={(e) => { e.stopPropagation(); onDelete(team.id); }} title="Eliminar"><RiDeleteBinLine /></button>
                                 </ActionButtons>
-                                                                <StatusBadge $active={team.status === 'Activo'}>
+                                <StatusBadge $active={team.status === 'Activo'}>
                                     {team.status}
                                 </StatusBadge>
                                 <LogoImg src={team.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={team.name} />
@@ -196,7 +231,9 @@ export function EquiposTemplate({
         )}
 
         {activeTab === "info" && (
-          <Form onSubmit={onSave}>
+            <TabContent>
+          // 4. Usar handleSaveWrapper en lugar de onSave directo
+          <Form onSubmit={handleSaveWrapper}>
             <div className="logo-section" style={{ background: form.color ? `${form.color}33` : undefined, borderColor: form.color }}>
                 <div className="preview-container">
                     <PhotoUploader 
@@ -248,9 +285,11 @@ export function EquiposTemplate({
                 <Btnsave titulo={isUploading ? "Guardando..." : "Guardar Equipo"} bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} disabled={isUploading} width="100%"/>
             </div>
         </Form>
+        </TabContent>
         )}
 
-        {activeTab === "players" && teamToEdit && <PlayerManager teamId={teamToEdit.id} />}
+        {/* 5. Pasar showToast a PlayerManager */}
+        {activeTab === "players" && teamToEdit && <TabContent><PlayerManager teamId={teamToEdit.id} showToast={showToast} /></TabContent>}
         {!teamToEdit && <div style={{marginTop: 10, opacity: 0.7, textAlign: 'center'}}>Guarda el equipo primero para poder agregar jugadores.</div>}
       </Modal>
 
@@ -265,7 +304,6 @@ export function EquiposTemplate({
         {teamToView && (
             <DetailContainer $color={teamToView.color}>
                 {showPlayerList ? (
-                     /* --- VISTA LISTA DE JUGADORES (MEJORADA) --- */
                      <div className="players-internal-view">
                         <button className="back-link-styled" onClick={() => setShowPlayerList(false)}>
                             <RiArrowLeftLine /> 
@@ -273,19 +311,17 @@ export function EquiposTemplate({
                         </button>
                         <ContainerScroll $maxHeight="500px">
                         <div className="players-grid-simple">
-{/* 👇 INICIO DEL BLOQUE MODIFICADO 👇 */}
-{loadingPlayers ? (
-    Array.from({length: 8}).map((_, i) => (
-        <PlayerSkeletonWrapper key={i}>
-             <Skeleton type="circle" width="60px" height="60px" />
-             <div className="info-sk">
-                <Skeleton width="70%" height="14px" />
-                <Skeleton width="40%" height="10px" />
-             </div>
-        </PlayerSkeletonWrapper>
-    ))
+                        {loadingPlayers ? (
+                            Array.from({length: 8}).map((_, i) => (
+                                <PlayerSkeletonWrapper key={i}>
+                                    <Skeleton type="circle" width="60px" height="60px" />
+                                    <div className="info-sk">
+                                        <Skeleton width="70%" height="14px" />
+                                        <Skeleton width="40%" height="10px" />
+                                    </div>
+                                </PlayerSkeletonWrapper>
+                            ))
                              ) : (
-                                /* RENDERIZADO NORMAL DE JUGADORES */
                                 detailPlayers.map(p => (
                                  <div className="player-chip-simple" key={p.id}>
                                      <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="p" />
@@ -297,23 +333,19 @@ export function EquiposTemplate({
                                  </div>
                                 ))
                              )}
-                             {/* 👆 FIN DEL BLOQUE MODIFICADO 👆 */}{detailPlayers.length === 0 && !loadingPlayers && <p className="empty-msg">No hay jugadores registrados en este equipo.</p>}
+                             {detailPlayers.length === 0 && !loadingPlayers && <p className="empty-msg">No hay jugadores registrados en este equipo.</p>}
                         </div>
                         </ContainerScroll>
                      </div>
                 ) : (
-                    /* --- VISTA NORMAL DE FICHA --- */
                     <div className="ficha-view">
                         <div className="banner">
                             <div className="division-badge">{division?.name || "Liga"}</div>
                         </div>
-
                         <div className="logo-wrapper">
                             <img src={teamToView.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={teamToView.name} />
                         </div>
-
                         <h2 className="team-title">{teamToView.name}</h2>
-
                         <div className="info-body">
                             <div className="info-item">
                                 <div className="icon-box"><RiShieldUserLine /></div>
@@ -322,8 +354,6 @@ export function EquiposTemplate({
                                     <p className="value">{teamToView.delegate_name || "No registrado"}</p>
                                 </div>
                             </div>
-
-                            {/* FILA CLICKEABLE PARA JUGADORES (ARREGLADO EL HOVER) */}
                             <div className="info-item clickable" onClick={handleShowPlayers}>
                                 <div className="icon-box"><RiUserFollowLine /></div>
                                 <div style={{flex:1}}>
@@ -332,7 +362,6 @@ export function EquiposTemplate({
                                 </div>
                                 <span className="arrow-icon">➔</span>
                             </div>
-
                             <div className="info-item">
                                 <div className="icon-box"><RiSmartphoneLine /></div>
                                 <div>
@@ -340,7 +369,6 @@ export function EquiposTemplate({
                                     <p className="value">{teamToView.contact_phone || "No disponible"}</p>
                                 </div>
                             </div>
-
                             <div className="info-item">
                                 <div className="icon-box"><v.iconoemijivacio /></div>
                                 <div>
@@ -372,14 +400,22 @@ export function EquiposTemplate({
       </Modal>
 
       {/* --- MODAL CONFIRMACION DELETE --- */}
-<ConfirmModal 
-  isOpen={isDeleteModalOpen}
-  onClose={() => setIsDeleteModalOpen(false)}
-  onConfirm={onConfirmDelete}
-  title="Eliminar Equipo"
-  message="¿Realmente deseas eliminar este equipo?"
-  subMessage="Esta acción borrará estadísticas y es irreversible."
-/>
+      <ConfirmModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteWrapper} // 6. Usar el wrapper aquí
+        title="Eliminar Equipo"
+        message="¿Realmente deseas eliminar este equipo?"
+        subMessage="Esta acción borrará estadísticas y es irreversible."
+      />
+
+      {/* 7. Renderizar el componente Toast */}
+      <Toast
+        show={toastConfig.show}
+        message={toastConfig.message}
+        type={toastConfig.type}
+        onClose={handleCloseToast}
+      />
 
     </ContentContainer>
   );

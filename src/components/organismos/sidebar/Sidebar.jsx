@@ -1,28 +1,34 @@
+import React, { useState } from "react";
 import styled from "styled-components";
-import { ToggleTema } from "../../../index";
-import { v } from "../../../styles/variables";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "../../../store/AuthStore";
+import { v } from "../../../styles/variables";
 import { Device } from "../../../styles/breakpoints";
+import { ToggleTema } from "../../../index";
 import { DivisionSelector } from "../../moleculas/DivisionSelector";
-import React, { useState } from "react";
-// Importamos solo el ConfirmModal
 import { ConfirmModal } from "../ConfirmModal";
 
-const LinksArray = [
+// 1. Menús para Usuarios/Managers (Tu menú original)
+const ManagerLinksArray = [
   { label: "Partidos", icon: "mdi:soccer-field", to: "/partidos" },
   { label: "Equipos", icon: "fluent:people-team-24-filled", to: "/equipos" },
   { label: "Torneos", icon: "ph:trophy-fill", to: "/torneos" },
   { label: "Mi Liga", icon: "material-symbols:leaderboard", to: "/liga" },
 ];
 
-const SecondarylinksArray = [
+const ManagerSecondaryLinks = [
   { label: "Configuración", icon: "material-symbols:settings-outline", to: "/configuracion" },
 ];
 
+// 2. Menú EXCLUSIVO para Admins
+const AdminLinksArray = [
+  { label: "Gestión Managers", icon: "eos-icons:admin-outlined", to: "/admin/managers" },
+  // Aquí puedes agregar futuras rutas de admin (ej: "Pagos", "Logs", etc.)
+];
+
 export function Sidebar({ state, setState }) {
-  const { cerrarSesion } = useAuthStore();
+  const { cerrarSesion, profile } = useAuthStore(); // Obtenemos el perfil para checar el rol
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
@@ -30,6 +36,9 @@ export function Sidebar({ state, setState }) {
       setShowLogoutModal(false);
       setState(false);
   };
+
+  // Helper para saber si es admin
+  const isAdmin = profile?.role === 'admin';
 
   return (
     <Main $isOpen={state}>
@@ -46,33 +55,67 @@ export function Sidebar({ state, setState }) {
           </NavLink>
         </div>
 
-        {LinksArray.map(({ icon, label, to }) => (
-          <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
-            <NavLink to={to} className={({ isActive }) => `Links${isActive ? ` active` : ``}`} onClick={() => setState(false)}>
-              <section className={state ? "content open" : "content"}>
-                <Icon className="Linkicon" icon={icon} />
-                <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
-              </section>
-            </NavLink>
-          </div>
-        ))}
-        
+        {/* --- RENDERIZADO CONDICIONAL DE MENÚS --- */}
+        {isAdmin ? (
+          /* ================= MENU ADMIN ================= */
+          <>
+            <MenuLabel>Administración</MenuLabel>
+            {AdminLinksArray.map(({ icon, label, to }) => (
+              <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
+                <NavLink 
+                  to={to} 
+                  className={({ isActive }) => `Links${isActive ? ` active` : ``}`} 
+                  onClick={() => setState(false)}
+                >
+                  <section className={state ? "content open" : "content"}>
+                    <Icon className="Linkicon" icon={icon} />
+                    <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
+                  </section>
+                </NavLink>
+              </div>
+            ))}
+          </>
+        ) : (
+          /* ================= MENU MANAGER / USER ================= */
+          <>
+            {ManagerLinksArray.map(({ icon, label, to }) => (
+              <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
+                <NavLink 
+                  to={to} 
+                  className={({ isActive }) => `Links${isActive ? ` active` : ``}`} 
+                  onClick={() => setState(false)}
+                >
+                  <section className={state ? "content open" : "content"}>
+                    <Icon className="Linkicon" icon={icon} />
+                    <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
+                  </section>
+                </NavLink>
+              </div>
+            ))}
+            
+            <Divider />
+
+            {ManagerSecondaryLinks.map(({ icon, label, to, color }) => (
+              <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
+                <NavLink 
+                  to={to} 
+                  className={({ isActive }) => `Links${isActive ? ` active` : ``}`} 
+                  onClick={() => setState(false)}
+                >
+                  <section className={state ? "content open" : "content"}>
+                    <Icon color={color} className="Linkicon" icon={icon} />
+                    <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
+                  </section>
+                </NavLink>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Opciones Comunes (Tema y Cerrar Sesión) */}
         <Divider />
-
-        {SecondarylinksArray.map(({ icon, label, to, color }) => (
-          <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
-            <NavLink to={to} className={({ isActive }) => `Links${isActive ? ` active` : ``}`} onClick={() => setState(false)}>
-              <section className={state ? "content open" : "content"}>
-                <Icon color={color} className="Linkicon" icon={icon} />
-                <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
-              </section>
-            </NavLink>
-          </div>
-        ))}
-
         <ToggleTema />
-        <Divider />
-
+        
         <div className={state ? "LinkContainer active" : "LinkContainer"}>
           <div className="Links" onClick={() => setShowLogoutModal(true)} style={{ cursor: "pointer" }}>
             <section className={state ? "content open" : "content"}>
@@ -83,10 +126,12 @@ export function Sidebar({ state, setState }) {
             </section>
           </div>
         </div>
-        <DivisionSelector isOpen={state} />
+
+        {/* El selector de división solo lo ven los Managers, el Admin no juega */}
+        {!isAdmin && <DivisionSelector isOpen={state} />}
+        
       </Container>
 
-      {/* ✅ Modal modularizado */}
       <ConfirmModal 
         isOpen={showLogoutModal} 
         onClose={() => setShowLogoutModal(false)} 
@@ -101,7 +146,7 @@ export function Sidebar({ state, setState }) {
   );
 }
 
-// ... Tus styled-components existentes (Main, Overlay, Container, Divider) se mantienen igual ...
+// --- STYLED COMPONENTS ---
 const Main = styled.div`
   .Sidebarbutton {
     display: none;
@@ -161,4 +206,13 @@ const Container = styled.div`
 `;
 const Divider = styled.div`
   height: 1px; width: 100%; background: ${(props) => props.theme.bg4}; margin: ${() => v.lgSpacing} 0;
+`;
+// Etiqueta opcional para separar visualmente
+const MenuLabel = styled.span`
+  display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; 
+  color: ${({ theme }) => theme.text}; opacity: 0.5; margin: 10px 0 5px 20px;
+  /* Ocultar si el sidebar está cerrado en escritorio */
+  @media ${Device.tablet} {
+     display: ${({ $isOpen }) => $isOpen ? 'block' : 'none'};
+  }
 `;
