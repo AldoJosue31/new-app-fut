@@ -8,7 +8,8 @@ import {
   Equipos, 
   Torneos, 
   Liga, 
-  Configuracion 
+  Configuracion,
+  RegisterManager
 } from "../index";
 import { UserAuth } from "../context/AuthContent";
 
@@ -60,6 +61,7 @@ export function MyRoutes() {
       <Route path="/torneos" element={<ProtectedRoute><Torneos /></ProtectedRoute>} />
       <Route path="/liga" element={<ProtectedRoute><Liga /></ProtectedRoute>} />
       <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
+      <Route path="/invitation/:token" element={<RegisterManager />} />
 
       {/* --- RUTA DE ADMIN (Recuperada) --- */}
       {/* Solo accesible si el rol es 'admin' */}
