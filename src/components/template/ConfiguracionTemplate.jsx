@@ -279,7 +279,7 @@ const RoleBadge = styled.div`
   margin-bottom: 10px;
   background: ${({ $role, theme }) => 
     $role === 'admin' ? '#ff4757' :      
-    $role === 'manager' ? '#2ed573' :    
+    $role === 'manager' ? '#00913cff' :    
     $role === 'user' ? '#1e90ff' :       
     theme.bg4};                          
   color: ${({ $role }) => 

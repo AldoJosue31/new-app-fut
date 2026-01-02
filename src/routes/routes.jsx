@@ -12,6 +12,7 @@ import {
   RegisterManager
 } from "../index";
 import { UserAuth } from "../context/AuthContent";
+import { ROLES } from "../utils/constants";
 
 // --- 1. RECUPERAMOS EL LAZY LOADING DEL ADMIN ---
 // Esto evita que el código de administración pese en la carga inicial de la app
@@ -68,7 +69,7 @@ export function MyRoutes() {
       <Route 
         path="/admin/managers" 
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
             <Suspense fallback={<div>Cargando Panel Admin...</div>}>
               <AdminManagersLazy />
             </Suspense>

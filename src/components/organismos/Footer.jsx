@@ -1,52 +1,80 @@
 import styled from "styled-components";
-import { GiPadlock } from "react-icons/gi";
+import { v } from "../../styles/variables";
+import { Device } from "../../styles/breakpoints";
+
 export function Footer() {
+    const currentYear = new Date().getFullYear();
+
     return (
-        <Container>
-            <section className="lock">
-                <GiPadlock />
-                <span>
-                    Esta es una página segura de codigo369. Si tienes dudas sobre la
-                    autenticidad de la web, comunícate con
-                    <br /> nosotros al 311-9898 o a través de nuestros medios digitales.
-                </span>
-            </section>
-            <section className="derechos">
-                <span>Ada369 S.A - RUC: 20100047218</span>
-                <div className="separador"></div>
-                <span>Todos los derechos reservados</span>
-                <div className="separador"></div>
-                <span>© 2023 codigo369.com</span>
-            </section>
-        </Container>
+        <FooterContainer>
+            <span className="copyright">
+                © {currentYear} Bracket App
+            </span>
+            <div className="links">
+                <a href="/terminos">Términos</a>
+                <span className="dot">•</span>
+                <a href="/privacidad">Privacidad</a>
+                <span className="dot">•</span>
+                <a href="/soporte">Soporte</a>
+            </div>
+        </FooterContainer>
     );
 }
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  font-size: 12.2px;
-  color: #91a4b7;
-  gap:5px;
-  margin:10px;
-  .lock {
-    border-bottom: 1px solid rgba(145, 164, 183,0.3);
-    gap:5px;
-    display:flex;
-    align-items:center;
-  }
-  .derechos {
+
+const FooterContainer = styled.footer`
+    /* Posicionamiento y Espacio */
+    width: 100%;
+    padding: ${v.mdSpacing}; /* Reducido de lg a md */
+    
+    /* Diseño Flex simple */
     display: flex;
-    justify-content: space-between;
-   .separador{
-    width:1px;
-    background-color:rgba(145, 164, 183,0.3);
-    margin-top:4px;
-    height:80%;
-    align-items:center;
-    display:flex;
-   }
-    span{
-      margin-top:5px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: ${v.smSpacing};
+    
+    /* Tipografía y Color */
+    background-color: transparent; /* Transparente para que se funda con el login */
+    color: ${({ theme }) => theme.text};
+    opacity: 0.6; /* Un poco transparente para no distraer */
+    font-size: ${v.fontxs}; /* Letra pequeña (aprox 12px) */
+    
+    /* En pantallas grandes (Tablets/PC) se pone en una sola línea */
+    @media ${Device.tablet} {
+        flex-direction: row;
+        gap: ${v.lgSpacing};
     }
-  }
+
+    .copyright {
+        font-weight: 600;
+    }
+
+    .links {
+        display: flex;
+        align-items: center;
+        gap: ${v.smSpacing};
+
+        a {
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.2s;
+
+            &:hover {
+                color: ${v.colorPrincipal};
+                opacity: 1;
+                text-decoration: underline;
+            }
+        }
+
+        .dot {
+            font-size: 0.5rem; /* Puntito separador muy sutil */
+            opacity: 0.5;
+        }
+    }
+
+    /* Efecto Hover en todo el footer para que destaque solo si pasas el mouse */
+    transition: opacity 0.3s ease;
+    &:hover {
+        opacity: 1;
+    }
 `;

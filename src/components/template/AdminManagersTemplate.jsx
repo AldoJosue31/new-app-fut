@@ -1,19 +1,25 @@
 import React from "react";
 import styled from "styled-components";
-import { 
-  ContentContainer, 
-  Title, 
-  Btnsave, 
-  Toast,
-  Skeleton
-} from "../../index"; 
+
+// --- CORRECCIÓN AQUÍ: Importaciones directas para romper el ciclo ---
+import { ContentContainer } from "../atomos/ContentContainer";
+import { Title } from "../atomos/Title";
+import { Toast } from "../atomos/Toast";
+import { Skeleton } from "../atomos/Skeleton";
+import { Btnsave } from "../moleculas/Btnsave";
+// ------------------------------------------------------------------
+
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { v } from "../../styles/variables";
-import { Device } from "../../styles/breakpoints"; // Importante
+import { Device } from "../../styles/breakpoints"; 
 
 import { ManagerCard } from "../organismos/adminManagers/ManagerCard";
 import { ManagerDetailModal } from "../organismos/adminManagers/ManagerDetailModal";
 import { ManagerCreateModal } from "../organismos/adminManagers/ManagerCreateModal";
+
+// Si ya tienes el componente global EmptyState creado en organisms, impórtalo así:
+// import { EmptyState } from "../organismos/EmptyState";
+// Si no, puedes mantener el styled-component local que tienes abajo.
 
 export function AdminManagersTemplate({
   managers,
@@ -88,7 +94,7 @@ export function AdminManagersTemplate({
         ))}
       </GridContainer>
 
-      {/* --- MODALES (Sin cambios en lógica) --- */}
+      {/* --- MODALES --- */}
       <ManagerDetailModal 
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
@@ -140,11 +146,10 @@ const HeaderSection = styled.div`
   .actions-area {
     width: 100%;
     button {
-      width: 100%; // Botón full width en móvil
+      width: 100%;
     }
   }
 
-  // Estilos Tablet y Desktop
   @media ${Device.tablet} {
     flex-direction: row; 
     justify-content: space-between; 
@@ -161,13 +166,11 @@ const HeaderSection = styled.div`
 
 const GridContainer = styled.div`
   display: grid;
-  // Mobile: 1 columna
   grid-template-columns: 1fr;
   gap: ${v.mdSpacing};
   width: 100%;
   padding-bottom: ${v.xlSpacing};
 
-  // Tablet: 2 columnas, o Grid automático con mínimo de 300px
   @media ${Device.tablet} {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: ${v.lgSpacing};

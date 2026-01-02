@@ -15,7 +15,8 @@ export function TorneosTemplate({
   standings,
   // 1. RECIBIMOS LAS PROPS NUEVAS AQUÍ
   reglas,
-  setReglas
+  setReglas,
+  EmptyState
 }) {
   const tabList = [
     { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
@@ -50,25 +51,47 @@ export function TorneosTemplate({
             />
             </TabContent>
         )}
-
+{/* 2. VALIDAR SI HAY TORNEO ACTIVO EN JORNADAS */}
 {activeTab === "jornadas" && (
-  <TabContent>
-           <TorneoJornadasTab 
-              activeTournament={activeTournament} 
-              // CAMBIO IMPORTANTE: Pasamos la lista filtrada, no 'allTeams'
-              participatingTeams={participatingTeamsObj} 
-           />
+          <TabContent>
+            {activeTournament ? (
+               <TorneoJornadasTab 
+                  activeTournament={activeTournament} 
+                  participatingTeams={participatingTeamsObj} 
+               />
+            ) : (
+               <EmptyState
+                 title="Torneo no iniciado"
+                 description="Debes definir e iniciar un torneo en la pestaña 'Definir Torneo' antes de ver las jornadas."
+                 actionComponent={
+                   <button 
+                     onClick={() => setActiveTab("definir")}
+                     style={{padding: '10px 20px', cursor: 'pointer', borderRadius: '5px', border: 'none', background: v.colorPrincipal, color: '#fff'}}
+                   >
+                     Ir a Definir
+                   </button>
+                 }
+               />
+            )}
            </TabContent>
         )}
-
-        {activeTab === "standings" && (
+{/* 3. VALIDAR SI HAY TORNEO ACTIVO EN STANDINGS */}
+{activeTab === "standings" && (
           <TabContent>
-           <TorneosStandingsTab
-              standings={standings} 
-              division={{ name: divisionName }} 
-              season={activeTournament?.season || "Torneo Actual"}
-              loading={isLoadingData}
-           />
+            {activeTournament ? (
+               <TorneosStandingsTab
+                  standings={standings} 
+                  division={{ name: divisionName }} 
+                  season={activeTournament?.season || "Torneo Actual"}
+                  loading={isLoadingData}
+               />
+            ) : (
+               <EmptyState
+                 icon={<v.iconocorona size={40}/>}
+                 title="Sin Datos"
+                 description="No hay un torneo activo para mostrar la tabla de posiciones."
+               />
+            )}
            </TabContent>
         )}
       </ContentGrid>

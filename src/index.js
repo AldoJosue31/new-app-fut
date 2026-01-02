@@ -17,6 +17,7 @@ export * from './components/moleculas/TabsNavigation'
 export * from './components/organismos/Footer';
 export * from './components/organismos/ToggleTema';
 export * from './components/organismos/ConfirmModal';
+export * from './components/organismos/EmptyState';
 export * from './components/organismos/Modal';
 export * from './components/organismos/formularios/InputText2';
 export * from './components/organismos/formularios/InputNumber';

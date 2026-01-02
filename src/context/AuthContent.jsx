@@ -22,36 +22,24 @@ export function AuthContextProvider({ children }) {
         .eq('id', sessionUser.id)
         .single();
 
-      // 2. Si hay error o NO hay data, es un intruso (o cuenta no vinculada)
+      // 2. Si hay error o NO hay data (puede pasar durante registro inicial antes del RPC)
       if (error || !data) {
-        console.warn("Acceso denegado: Cuenta de Google no vinculada.");
-
-        // --- IMPORTANTE: CERRAR SESIÓN INMEDIATAMENTE ---
+        console.warn("AuthContext: Perfil no encontrado o cuenta no vinculada. Cerrando sesión...");
+        // Eliminamos el alert() para no interrumpir flujos de registro
         await supabase.auth.signOut();
-        
-        // Limpiamos el estado local para que la UI reaccione rápido
         setUser(null);
         setProfile(null);
-
-        // --- MENSAJE DE ERROR ---
-        alert("ACCESO DENEGADO: Esta cuenta de Google no está vinculada a ningún usuario registrado. Pide al administrador que cree tu cuenta primero.");
-        
         return;
       }
 
-      // 3. VALIDACIÓN DE ROL (ROLE GUARD) ⚠️
-      // Solo permitimos 'manager' y 'admin'
+      // 3. VALIDACIÓN DE ROL (ROLE GUARD)
       const authorizedRoles = ['manager', 'admin'];
       if (!authorizedRoles.includes(data.role)) {
-        console.warn(`Acceso denegado: El usuario ${data.id} tiene rol '${data.role}'`);
-        
-        // Cerramos sesión inmediatamente
+        console.warn(`AuthContext: Rol no autorizado (${data.role}). Cerrando sesión...`);
+        // Eliminamos el alert()
         await supabase.auth.signOut();
-        
         setUser(null);
         setProfile(null);
-        
-        alert("ACCESO DENEGADO: Tu cuenta existe, pero no tienes permisos de Administrador/Manager para entrar aquí.");
         return;
       }
 
@@ -61,7 +49,6 @@ export function AuthContextProvider({ children }) {
       
     } catch (err) {
       console.error("Error validando perfil:", err);
-      // Por seguridad, si falla algo grave, también cerramos sesión
       await supabase.auth.signOut();
     }
   };
@@ -77,10 +64,7 @@ export function AuthContextProvider({ children }) {
         if (mounted) {
           if (session?.user) {
             setUser(session.user);
-            // Sincronizar usuario inmediatamente
             useAuthStore.setState({ user: session.user });
-            
-            // Lanzamos la validación SIN esperar
             validateProfile(session.user);
           }
         }
@@ -100,8 +84,6 @@ export function AuthContextProvider({ children }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-        
-        // Sincronizar Store
         useAuthStore.setState({ user: currentUser });
         
         if (currentUser) {
@@ -113,8 +95,6 @@ export function AuthContextProvider({ children }) {
         setUser(null);
         setProfile(null);
         setIsLoading(false);
-        
-        // Limpiar Store al salir
         useAuthStore.setState({ user: null, profile: null });
       }
     });

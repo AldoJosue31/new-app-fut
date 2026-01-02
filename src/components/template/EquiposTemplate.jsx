@@ -13,7 +13,8 @@ import {
   TabsNavigation, 
   ConfirmModal,
   Skeleton,
-  ContainerScroll
+  ContainerScroll,
+  EmptyState
 } from "../../index";
 import { Modal } from "../organismos/Modal";
 import { Toast } from "../atomos/Toast"; // <--- 1. Importar Toast
@@ -209,7 +210,23 @@ export function EquiposTemplate({
                             </div>
                         </TeamCard>
                     ))}
-                    {equipos.length === 0 && !loading && <EmptyState><p>No hay equipos registrados.</p></EmptyState>}
+                        {equipos.length === 0 && !loading && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <EmptyState
+                          icon={<IoMdFootball size={48} />}
+                          title="Sin Equipos"
+                          description="No hay equipos registrados en esta división."
+                          actionComponent={
+                            <Btnsave 
+                              titulo="Crear Primer Equipo" 
+                              bgcolor={v.colorPrincipal} 
+                              icono={<v.iconoagregar />} 
+                              funcion={onCreate} 
+                            />
+                          }
+                        />
+                      </div>
+                    )}
                 </>
             )}
         </Grid>
@@ -232,7 +249,6 @@ export function EquiposTemplate({
 
         {activeTab === "info" && (
             <TabContent>
-          // 4. Usar handleSaveWrapper en lugar de onSave directo
           <Form onSubmit={handleSaveWrapper}>
             <div className="logo-section" style={{ background: form.color ? `${form.color}33` : undefined, borderColor: form.color }}>
                 <div className="preview-container">
@@ -494,9 +510,7 @@ const ColorInputContainer = styled.div`
 const SelectStyled = styled.select`
   width: 100%; padding: 12px; border-radius: 15px; border: 2px solid ${({ theme }) => theme.color2}; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; font-family: inherit; outline: none;
 `;
-const EmptyState = styled.div`
-  grid-column: 1 / -1; text-align: center; padding: 50px; background: ${({theme})=> theme.bgtotal}; border-radius: 16px; border: 2px dashed ${({theme})=> theme.bg4}; p { margin-bottom: 20px; color: ${({theme})=> theme.text}; }
-`;
+
 
 const DetailContainer = styled.div`
     display: flex; flex-direction: column; align-items: center; position: relative; padding-bottom: 10px; width: 100%; overflow-x: hidden; 
@@ -699,7 +713,7 @@ const StatusBadge = styled.div`
     position: absolute; 
     top: 10px; 
     right: 10px;
-    background: ${({$active}) => $active ? '#2ecc71' : '#e74c3c'};
+    background: ${({$active}) => $active ? '#068d3eff' : '#ad1605ff'};
     color: white; 
     font-size: 10px; 
     padding: 4px 8px; 

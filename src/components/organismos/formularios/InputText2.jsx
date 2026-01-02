@@ -34,9 +34,11 @@ const Container = styled.div`
     font-size: 17px;
     color: ${(props) => props.theme.text};
     padding: 12px;
-    background: inherit;
+    background: transparent;
     transition: border-color 0.2s;
-    width: 94%;
+    width: 100%; /* Ajustado al 100% del contenedor padre */
+    box-sizing: border-box;
+
     &.disabled {
       color: #696969;
       background: #2d2d2d;
@@ -45,19 +47,43 @@ const Container = styled.div`
       border-bottom: 1px dashed #656565;
     }
   }
-  .form__field:placeholder-shown ~ .form__label {
+
+  /* Estilos para el Label (Etiqueta Flotante) */
+  .form__label {
+    position: absolute;
+    top: 12px;
+    left: 15px;
+    display: block;
+    transition: 0.2s;
     font-size: 17px;
-    cursor: text;
+    color: ${({ theme }) => theme.text};
+    opacity: 0.7;
+    pointer-events: none; /* Permite hacer clic a través del label hacia el input */
+  }
+
+  /* Cuando el input tiene placeholder (aunque sea espacio vacío) o focus */
+  .form__field:focus ~ .form__label,
+  .form__field:not(:placeholder-shown) ~ .form__label {
+    position: absolute;
+    top: -10px;
+    left: 15px;
+    display: block;
+    font-size: 14px;
+    color: #1cb0f6;
+    font-weight: 700;
+    background-color: ${({ theme }) => theme.bgcards || theme.bgtotal}; /* Fondo para tapar el borde */
+    padding: 0 5px;
+    opacity: 1;
+  }
+
+  /* Reset input invalid */
+  .form__field:required,
+  .form__field:invalid {
+    box-shadow: none;
   }
 
   .form__field:focus {
     font-weight: 700;
-    border-image-slice: 1;
     border: 2px solid #1cb0f6;
-  }
-  /* reset input */
-  .form__field:required,
-  .form__field:invalid {
-    box-shadow: none;
   }
 `;
