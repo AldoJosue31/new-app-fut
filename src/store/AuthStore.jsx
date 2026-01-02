@@ -74,14 +74,14 @@ export const useAuthStore = create((set, get) => {
     },
 
     // --- Login con Google (MODIFICADO) ---
-    loginGoogle: async () => {
+loginGoogle: async () => {
       set({ authLoadingAction: true });
       try {
         const { error } = await supabase.auth.signInWithOAuth({ 
           provider: 'google',
           options: {
-            // Asegura que vuelva a tu app (ajusta la ruta si es necesario)
-            redirectTo: `${window.location.origin}/dashboard`,
+            // CAMBIO AQUÍ: Redirigir a /login para capturar errores si fallara
+            redirectTo: `${window.location.origin}/login`, 
             queryParams: {
               access_type: 'offline',
               prompt: 'consent',
@@ -90,7 +90,6 @@ export const useAuthStore = create((set, get) => {
         });
         
         if (error) throw error;
-        // No seteamos false aquí inmediatamente porque la redirección recarga la página
       } catch (err) {
         set({ authLoadingAction: false });
         throw err;

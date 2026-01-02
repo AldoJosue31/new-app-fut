@@ -1,34 +1,38 @@
 import React from "react";
 import styled from "styled-components";
-import { Card } from "../../../index"; // Ajusta la ruta según tu estructura
+import { Card } from "../../../index";
 import { v } from "../../../styles/variables";
-import { BiTrash, BiUserCircle } from "react-icons/bi";
+import { Device } from "../../../styles/breakpoints"; // Importamos los breakpoints
+import { BiTrash } from "react-icons/bi";
 
 export const ManagerCard = ({ manager, onClick, onDelete }) => {
   return (
-    <StyledCard maxWidth="100%" onClick={onClick}>
-      <CardContent>
-        <div className="left-section">
-          <div className="avatar-container">
+    <StyledCard onClick={onClick}>
+      <CardContainer>
+        <InfoGroup>
+          <AvatarContainer>
             {manager.avatar_url ? (
               <img src={manager.avatar_url} alt="avatar" />
             ) : (
               <v.iconoUser />
             )}
-          </div>
-          <div className="text-info">
-            <h3>{manager.full_name || "Sin Nombre"}</h3>
-            <span className="email">{manager.email}</span>
+          </AvatarContainer>
+          
+          <TextContainer>
+            <Name>{manager.full_name || "Sin Nombre"}</Name>
+            <Email>{manager.email}</Email>
+            
             {manager.leagues?.[0] ? (
-              <span className="league-tag">
+              <LeagueBadge>
                 <v.iconocorona /> {manager.leagues[0].name}
-              </span>
+              </LeagueBadge>
             ) : (
-              <span className="no-league-tag">Sin Liga Asignada</span>
+              <NoLeagueBadge>Sin Liga Asignada</NoLeagueBadge>
             )}
-          </div>
-        </div>
-        <div className="actions">
+          </TextContainer>
+        </InfoGroup>
+
+        <Actions>
           <DeleteButton
             onClick={(e) => {
               e.stopPropagation();
@@ -38,76 +42,141 @@ export const ManagerCard = ({ manager, onClick, onDelete }) => {
           >
             <BiTrash />
           </DeleteButton>
-        </div>
-      </CardContent>
+        </Actions>
+      </CardContainer>
     </StyledCard>
   );
 };
 
-// --- STYLED COMPONENTS DEL CARD ---
+// --- STYLED COMPONENTS MEJORADOS ---
+
 const StyledCard = styled(Card)`
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+  background-color: ${({ theme }) => theme.bgcards};
+  border-radius: ${v.borderRadius};
+  width: 100%;
+  
   &:hover {
-    transform: translateY(-3px);
+    transform: translateY(-5px);
+    box-shadow: ${v.boxshadowGray};
+    border-color: ${({ theme }) => theme.bg4}; // Borde sutil al hacer hover
     background-color: ${({ theme }) => theme.bg2};
   }
 `;
 
-const CardContent = styled.div`
+const CardContainer = styled.div`
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 5px;
-  .left-section {
-    display: flex;
+  padding: ${v.mdSpacing};
+  gap: ${v.mdSpacing};
+  position: relative;
+
+  // En pantallas Tablet o superiores, cambiamos a fila
+  @media ${Device.tablet} {
+    flex-direction: row;
+    justify-content: space-between;
     align-items: center;
-    gap: 15px;
+    text-align: left;
   }
-  .avatar-container {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: ${({ theme }) => theme.bg3};
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+`;
+
+const InfoGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${v.mdSpacing};
+  width: 100%;
+
+  @media ${Device.tablet} {
+    flex-direction: row;
+    width: auto;
   }
-  .text-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    h3 {
-      font-size: 15px;
-      font-weight: 700;
-      margin: 0;
-      color: ${({ theme }) => theme.text};
-    }
-    .email {
-      font-size: 12px;
-      opacity: 0.7;
-    }
-    .league-tag {
-      font-size: 11px;
-      color: ${({ theme }) => theme.primary};
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-weight: 600;
-      margin-top: 4px;
-    }
-    .no-league-tag {
-      font-size: 11px;
-      opacity: 0.5;
-      font-style: italic;
-      margin-top: 4px;
-    }
+`;
+
+const AvatarContainer = styled.div`
+  width: 60px;
+  height: 60px;
+  min-width: 60px; // Evita que se aplaste
+  border-radius: 50%;
+  background: ${({ theme }) => theme.bg3};
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  font-size: 24px;
+  color: ${({ theme }) => theme.text};
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+
+const TextContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  @media ${Device.tablet} {
+    align-items: flex-start;
+  }
+`;
+
+const Name = styled.h3`
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: ${({ theme }) => theme.text};
+  text-align: center;
+  
+  @media ${Device.tablet} {
+    text-align: left;
+  }
+`;
+
+const Email = styled.span`
+  font-size: 13px;
+  color: ${({ theme }) => theme.colorSubtitle}; // Usando variable del theme
+  word-break: break-all; // Evita desbordes si el email es largo
+`;
+
+const LeagueBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: ${v.rgbafondos}; // Fondo suave usando variable
+  color: ${v.colorselector};
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+`;
+
+const NoLeagueBadge = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.text};
+  opacity: 0.5;
+  font-style: italic;
+  margin-top: 6px;
+  background-color: ${({ theme }) => theme.bg4};
+  padding: 4px 8px;
+  border-radius: 4px;
+`;
+
+const Actions = styled.div`
+  display: flex;
+  align-items: center;
+  
+  // Posicionamiento absoluto en mobile para ahorrar espacio o relativo en desktop
+  @media ${Device.tablet} {
+    margin-left: auto;
   }
 `;
 
@@ -115,14 +184,20 @@ const DeleteButton = styled.button`
   background: transparent;
   border: none;
   color: ${({ theme }) => theme.text};
-  opacity: 0.3;
-  font-size: 18px;
+  opacity: 0.5;
+  font-size: 20px;
   cursor: pointer;
   padding: 8px;
   border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   &:hover {
-    background: ${v.rojo}20;
+    background: ${v.rojo}20; // Rojo con transparencia
     color: ${v.rojo};
     opacity: 1;
+    transform: scale(1.1);
   }
 `;

@@ -1,39 +1,108 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { Btnsave, InputText2, Title, Footer } from '../../index';
 import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
 import { useAuthStore } from "../../store/AuthStore";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // Agregamos useLocation
+import { Toast } from '../../components/atomos/Toast';
 
 export function LoginTemplate() {
     const navigate = useNavigate();
+    // 1. Necesitamos useLocation para leer la URL
+    const location = useLocation(); 
     const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
     const emailRef = useRef(null);
     const passRef = useRef(null);
 
+    const [toastConfig, setToastConfig] = useState({
+        show: false,
+        message: '',
+        type: 'error'
+    });
+
+    const showError = (message) => {
+        setToastConfig({ show: true, message, type: 'error' });
+    };
+
+    const handleCloseToast = () => {
+        setToastConfig((prev) => ({ ...prev, show: false }));
+    };
+
     useEffect(() => {
+        // --- A. DETECCIÓN DE ERRORES POR URL (Desde Supabase/Google) ---
+        // Supabase devuelve los errores en el hash (#) de la URL, ejemplo: #error=server_error&error_description=...
+        const hashParams = new URLSearchParams(location.hash.substring(1)); // Quitamos el '#'
+        const errorDescription = hashParams.get('error_description');
+        const errorCode = hashParams.get('error');
+
+        if (errorDescription || errorCode) {
+            // Limpiamos la URL para que no se vea feo
+            window.history.replaceState(null, '', window.location.pathname);
+
+            // Mensaje amigable
+            let msg = decodeURIComponent(errorDescription).replace(/\+/g, ' ');
+            
+            // Si el mensaje viene del Trigger SQL
+            if (msg.includes('No se permite el registro directo') || msg.includes('Database error saving new user')) {
+                msg = 'Esta cuenta de Google no está registrada en el sistema. Solicita acceso a tu administrador.';
+            }
+
+            showError(msg);
+        }
+
+        // --- B. DETECCIÓN DE ERRORES LOCALES (AuthContext) ---
+        const localError = localStorage.getItem('auth_error');
+        if (localError) {
+            if (localError === 'unlinked_google') showError("Cuenta no vinculada.");
+            else if (localError === 'unauthorized_role') showError("No tienes permisos de acceso.");
+            localStorage.removeItem('auth_error');
+        }
+        
         if (emailRef.current) emailRef.current.focus();
-    }, []);
+    }, [location]); // Agregamos location a las dependencias
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         const email = emailRef.current?.value?.trim();
         const password = passRef.current?.value;
-        if (!email || !password) return alert('Ingresa correo y contraseña');
+        
+        if (!email || !password) return showError('Ingresa correo y contraseña');
         
         try {
             await loginWithEmail(email, password);
             navigate('/dashboard', { replace: true });
         } catch (err) {
-            alert(err.message || 'Error al iniciar sesión');
+            let msg = err.message || 'Error al iniciar sesión';
+            if (msg.includes('Invalid login credentials')) msg = 'Correo o contraseña incorrectos.';
+            showError(msg);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        try {
+            await loginGoogle();
+        } catch (err) {
+            console.error("Google Login Error:", err);
+            showError('No se pudo iniciar la conexión con Google.');
         }
     };
 
     return (
         <Container>
             <BackgroundLayer />
+            
+            <Toast 
+                show={toastConfig.show} 
+                message={toastConfig.message} 
+                type={toastConfig.type} 
+                onClose={handleCloseToast}
+                // Aumentamos un poco la duración para que dé tiempo a leer tras el redirect
+                duration={6000} 
+            />
+
             <Card>
+                {/* ... (Todo el contenido visual sigue igual) ... */}
                 <ContentLogo>
                     <img src="/logo_app.png" alt="Logo" />
                     <div className="logoText">
@@ -81,7 +150,7 @@ export function LoginTemplate() {
 
                 <GoogleWrap>
                     <Btnsave
-                        funcion={loginGoogle}
+                        funcion={handleGoogleLogin}
                         titulo="Continuar con Google"
                         icono={<v.iconogoogle />}
                         disabled={authLoadingAction}
