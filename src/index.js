@@ -33,6 +33,7 @@ export { AdminManagersTemplate } from './components/template/AdminManagersTempla
 export { ManagerCard } from "./components/organismos/adminManagers/ManagerCard";
 export { ManagerDetailModal } from "./components/organismos/adminManagers/ManagerDetailModal";
 export { ManagerCreateModal } from "./components/organismos/adminManagers/ManagerCreateModal";
+export { default as PantallaCarga } from './components/organismos/PantallaCarga';
 export * from './context/AuthContent';
 export * from './hooks/ProtectedRoute';
 export * from './main';

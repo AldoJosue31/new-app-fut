@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import styled, { ThemeProvider, keyframes } from "styled-components";
+import styled, { ThemeProvider } from "styled-components";
 import {
   AuthContextProvider,
   GlobalStyles,
   MyRoutes,
   Sidebar,
   UserAuth,
+  PantallaCarga // <--- 1. Nos aseguramos que esté importado
 } from "./index";
 import { Device } from "./styles/breakpoints";
 import { v } from "./styles/variables";
@@ -25,18 +26,19 @@ function AppContent() {
       setLoaderDone(false);
       return;
     }
-    const delay = 180;
+    // Puedes ajustar este delay si quieres que la animación del logo dure más tiempo
+    const delay = 2000; 
     const timer = setTimeout(() => setLoaderDone(true), delay);
     return () => clearTimeout(timer);
   }, [isLoading]);
 
+  // --- 2. RENDERIZADO DE LA NUEVA PANTALLA DE CARGA ---
   if (!loaderDone) {
     return (
       <ThemeProvider theme={themeStyle}>
-        <Container>
-          <GlobalStyles />
-          <LoadingScreen />
-        </Container>
+        <GlobalStyles />
+        {/* Ya no usamos <Container> aquí porque PantallaCarga es fixed full-screen */}
+        <PantallaCarga />
       </ThemeProvider>
     );
   }
@@ -64,7 +66,6 @@ function AppContent() {
         </Container>
       ) : (
         // MODO PANTALLA COMPLETA (LOGIN / REGISTRO)
-        // Usamos MyRoutes directamente para que el enrutador decida qué mostrar (Login o RegisterManager)
         <MyRoutes />
       )}
     </ThemeProvider>
@@ -79,30 +80,8 @@ function App() {
   );
 }
 
-// --- LOADING COMPONENTS (Sin cambios) ---
-function LoadingScreen() {
-  return (
-    <LoaderWrap>
-      <Backdrop />
-      <LoaderCard>
-        <SpinnerWrap><Spinner /></SpinnerWrap>
-        <div className="titleBlock">
-          <h3>Cargando...</h3>
-        </div>
-      </LoaderCard>
-    </LoaderWrap>
-  );
-}
-
-// --- STYLED COMPONENTS ---
-const spin = keyframes` to { transform: rotate(360deg); } `;
-const fadeIn = keyframes` from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } `;
-
-const LoaderWrap = styled.div` position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; pointer-events: none; `;
-const Backdrop = styled.div` position: absolute; inset: 0; background: rgba(8, 10, 20, 0.18); pointer-events: none; backdrop-filter: blur(4px); `;
-const LoaderCard = styled.div` position: relative; z-index: 10000; pointer-events: auto; width: 92%; max-width: 420px; padding: 18px 20px; border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.92)); box-shadow: 0 10px 30px rgba(8,10,25,0.12); display: flex; gap: 14px; align-items: center; animation: ${fadeIn} 220ms ease-out; .titleBlock h3 { margin: 0; font-size: 16px; font-weight: 700; color: #333; }`;
-const SpinnerWrap = styled.div` flex: 0 0 56px; display:flex; align-items:center; justify-content:center; `;
-const Spinner = styled.div` width: 46px; height: 46px; border-radius: 999px; border: 4px solid rgba(0,0,0,0.06); border-top-color: ${({ theme }) => theme.primary ?? "#1CB0F6"}; animation: ${spin} 900ms linear infinite; `;
+// --- STYLED COMPONENTS DEL LAYOUT PRINCIPAL ---
+// (He eliminado los estilos de LoaderWrap, Spinner, etc. porque ya no se usan)
 
 const Container = styled.main`
   display: grid;
