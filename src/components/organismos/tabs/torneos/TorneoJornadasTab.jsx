@@ -1,40 +1,31 @@
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { supabase } from "../../../../supabase/supabase.config";
-import { v } from "../../../../styles/variables";
-import { 
-  RiArrowLeftSLine, RiArrowRightSLine, RiMagicLine
-} from "react-icons/ri";
-// Importamos Toast, Modal normal y BtnNormal
-import { ConfirmModal, Btnsave, Modal, BtnNormal, Toast } from "../../../../index";
-import { JornadaPlanificacion } from "./JornadaPlanificacion";
+import { Toast } from "../../../../index";
+import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
+import { guardarJornadaService } from "../../../../services/torneos";
 
 export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
   const [jornadas, setJornadas] = useState([]);
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
-  const [matches, setMatches] = useState([]);
+  const [currentMatches, setCurrentMatches] = useState([]); 
+  const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
-  
-  // Modals estados
-  const [warningModal, setWarningModal] = useState({ open: false, data: null });
-  const [previewModal, setPreviewModal] = useState({ open: false, cruces: [] });
-
-  // --- ESTADO DEL TOAST ---
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
-  // Helper para mostrar notificaciones
-  const showToast = (message, type = 'error') => {
-      setToastConfig({ show: true, message, type });
-  };
-
   useEffect(() => {
-    if (activeTournament) fetchJornadas();
+    if (activeTournament) {
+        fetchJornadas();
+        fetchGlobalPendingMatches();
+    }
   }, [activeTournament]);
 
   useEffect(() => {
-    if (jornadas.length > 0) {
-      fetchMatches(jornadas[currentJornadaIndex].id);
+    if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
+      fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+    } else {
+      setCurrentMatches([]);
     }
   }, [currentJornadaIndex, jornadas]);
 
@@ -49,154 +40,87 @@ export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
       if (error) throw error;
       setJornadas(data);
       
-      const activeIndex = data.findIndex(j => j.status !== 'Finalizada');
+      const activeIndex = data.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
       if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
+      else if (data.length > 0) setCurrentJornadaIndex(data.length - 1);
     } catch (error) {
-      console.error("Error fetching jornadas:", error);
-      showToast("Error cargando jornadas", "error");
+      console.error("Error:", error);
     }
   };
 
-  const fetchMatches = async (jornadaId) => {
+  const fetchCurrentJornadaMatches = async (jornadaId) => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('matches')
         .select('*')
         .eq('jornada_id', jornadaId);
-
       if (error) throw error;
-      setMatches(data);
+      setCurrentMatches(data);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- GENERACIÓN DE CRUCES ---
-  
-  const handlePreviewGeneration = () => {
-    // Validación con Toast
-    if(!participatingTeams || participatingTeams.length < 2) {
-        showToast("No hay suficientes equipos participantes para generar cruces.", "error");
-        return;
-    }
-    
-    setLoading(true);
-    try {
-       let equiposDisponibles = [...participatingTeams];
-       const crucesVistaPrevia = [];
-       
-       // Fisher-Yates shuffle
-       for (let i = equiposDisponibles.length - 1; i > 0; i--) {
-           const j = Math.floor(Math.random() * (i + 1));
-           [equiposDisponibles[i], equiposDisponibles[j]] = [equiposDisponibles[j], equiposDisponibles[i]];
-       }
-
-       // Emparejar
-       while(equiposDisponibles.length >= 2) {
-         const t1 = equiposDisponibles.pop();
-         const t2 = equiposDisponibles.pop();
-         crucesVistaPrevia.push({ t1: t1, t2: t2 });
-       }
-
-       if(equiposDisponibles.length > 0) {
-          showToast("Atención: Número impar de equipos, uno quedará libre.", "warning");
-       }
-
-       setPreviewModal({ open: true, cruces: crucesVistaPrevia });
-
-    } catch (error) {
-       showToast("Error generando vista previa: " + error.message, "error");
-    } finally {
-       setLoading(false);
-    }
-  };
-
-  const confirmGeneration = async () => {
-    setPreviewModal({ ...previewModal, open: false });
-    setLoading(true);
-    try {
-       const jornadaId = jornadas[currentJornadaIndex].id;
-       
-       const inserts = previewModal.cruces.map(cruce => ({
-         jornada_id: jornadaId,
-         team1_id: cruce.t1.id,
-         team2_id: cruce.t2.id,
-         status: 'Programado'
-       }));
-
-       const { error } = await supabase.from('matches').insert(inserts);
-       if(error) throw error;
-
-       await fetchMatches(jornadaId);
-       
-       // --- AQUÍ EL TOAST DE ÉXITO ---
-       showToast("Cruces generados y guardados exitosamente.", "success");
-
-    } catch (error) {
-       showToast("Error guardando cruces en BD: " + error.message, "error");
-    } finally {
-       setLoading(false);
-    }
-  };
-
-
-  // --- CONFIRMACIÓN DE JORNADA ---
-  const handleConfirmJornada = async (scheduledMatches, pendingMatches) => {
-    if (pendingMatches.length > 0) {
-      setWarningModal({ 
-        open: true, 
-        data: { scheduled: scheduledMatches, pending: pendingMatches } 
-      });
-    } else {
-      executeConfirm(scheduledMatches, []);
-    }
-  };
-
-  const executeConfirm = async (scheduled, pending) => {
-    setLoading(true);
-    try {
-      const jornadaId = jornadas[currentJornadaIndex].id;
-      // 1. Actualizar Partidos con Horario
-      for (const m of scheduled) {
-        await supabase.from('matches').update({ 
-            date: m.tempDateStr, 
-            status: 'Programado' 
-        }).eq('id', m.id);
+  const fetchGlobalPendingMatches = async () => {
+      try {
+          // Solicitamos el nombre de la jornada para mostrarlo en la tarjeta
+          const { data, error } = await supabase
+            .from('matches')
+            .select('*, jornadas!inner(id, name, tournament_id)') 
+            .eq('jornadas.tournament_id', activeTournament.id)
+            .eq('status', 'Pendiente');
+            
+          if(error) throw error;
+          setGlobalPendingMatches(data);
+      } catch (error) {
+          console.error("Error cargando pendientes globales:", error);
       }
-      // 2. Actualizar Pendientes
-      for (const m of pending) {
-        await supabase.from('matches').update({ 
-            status: 'Pendiente', 
-            date: null 
-        }).eq('id', m.id);
-      }
-      // 3. Cerrar Jornada
-      await supabase.from('jornadas').update({ status: 'Confirmada' }).eq('id', jornadaId);
+  };
 
-      const newJornadas = [...jornadas];
-      newJornadas[currentJornadaIndex].status = 'Confirmada';
-      setJornadas(newJornadas);
-      setWarningModal({ open: false, data: null });
-      
-      showToast("Jornada confirmada exitosamente.", "success");
-      
+  const handleConfirmJornada = async (dataToSave) => {
+    setLoading(true);
+    try {
+        await guardarJornadaService(activeTournament.id, dataToSave);
+        setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
+        
+        const updatedJornadas = [...jornadas];
+        if(updatedJornadas[currentJornadaIndex]) {
+            updatedJornadas[currentJornadaIndex].status = 'Confirmada';
+            setJornadas(updatedJornadas);
+        }
+        
+        fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+        fetchGlobalPendingMatches();
     } catch (error) {
-      showToast("Error: " + error.message, "error");
+        setToastConfig({ show: true, message: error.message, type: "error" });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
+  };
+
+  const handleMatchUpdate = async (matchId, updates) => {
+      try {
+          const { error } = await supabase.from('matches').update(updates).eq('id', matchId);
+          if (error) throw error;
+          setToastConfig({ show: true, message: "Partido actualizado.", type: "success" });
+          fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+          fetchGlobalPendingMatches();
+      } catch (error) {
+          setToastConfig({ show: true, message: "Error al actualizar.", type: "error" });
+      }
   };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
-  if (jornadas.length === 0) return <EmptyState>Cargando jornadas...</EmptyState>;
+  if (jornadas.length === 0) return <EmptyState>Cargando estructura...</EmptyState>;
 
   const currentJornada = jornadas[currentJornadaIndex];
-  const isPhaseAssignment = currentJornada.status === 'Pendiente';
+  const isPhaseAssignment = currentJornada.status !== 'Finalizada';
+  const prevJornada = currentJornadaIndex > 0 ? jornadas[currentJornadaIndex - 1] : null;
+  const canConfirm = !prevJornada || ['Confirmada', 'Finalizada'].includes(prevJornada.status);
 
   return (
-    <Container>
-      {/* Componente Toast Renderizado */}
+    <TabContainer>
       <Toast 
           show={toastConfig.show} 
           message={toastConfig.message} 
@@ -204,135 +128,40 @@ export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
           onClose={() => setToastConfig({ ...toastConfig, show: false })}
       />
 
-      <HeaderNav>
-        <NavButton onClick={() => setCurrentJornadaIndex(i => i - 1)} disabled={currentJornadaIndex === 0}>
-          <RiArrowLeftSLine />
-        </NavButton>
-        <div className="title-box">
-          <h2>{currentJornada.name}</h2>
-          <StatusBadge $status={currentJornada.status}>{currentJornada.status}</StatusBadge>
-        </div>
-        <NavButton onClick={() => setCurrentJornadaIndex(i => i + 1)} disabled={currentJornadaIndex === jornadas.length - 1}>
-          <RiArrowRightSLine />
-        </NavButton>
-      </HeaderNav>
-
-      {loading && !previewModal.open ? (
+      {loading ? (
         <LoadingBox>Procesando...</LoadingBox>
       ) : (
         <>
-          {matches.length === 0 && isPhaseAssignment ? (
-             <EmptyMatchesState>
-                <p>Esta jornada no tiene partidos asignados aún.</p>
-                <Btnsave 
-                  titulo="Generar Cruces Automáticamente" 
-                  bgcolor={v.colorPrincipal}
-                  icono={<RiMagicLine />}
-                  funcion={handlePreviewGeneration}
-                />
-             </EmptyMatchesState>
-          ) : (
-             isPhaseAssignment ? (
-                <JornadaPlanificacion 
-                  matches={matches} 
-                  teams={participatingTeams} 
-                  onConfirm={handleConfirmJornada}
-                />
-             ) : (
-                <JornadaResultados 
-                  matches={matches} 
-                  teams={participatingTeams}
-                  jornadaId={currentJornada.id}
-                  refreshMatches={() => fetchMatches(currentJornada.id)}
-                />
-             )
-          )}
+           {isPhaseAssignment ? (
+              <JornadaPlanificacion 
+                matchesDB={currentMatches} 
+                globalPendingMatches={globalPendingMatches}
+                teams={participatingTeams} 
+                jornadaIndex={currentJornadaIndex} 
+                activeTournament={activeTournament}
+                jornadaData={currentJornada}
+                onConfirm={handleConfirmJornada}
+                onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
+                totalJornadas={jornadas.length}
+                onMatchUpdate={handleMatchUpdate}
+                canConfirm={canConfirm}
+              />
+           ) : (
+              <JornadaResultados 
+                matches={currentMatches} 
+                teams={participatingTeams}
+                jornadaId={currentJornada.id}
+                refreshMatches={() => fetchCurrentJornadaMatches(currentJornada.id)}
+              />
+           )}
         </>
       )}
-
-      {/* Modal Advertencia */}
-      <ConfirmModal 
-        isOpen={warningModal.open}
-        onClose={() => setWarningModal({ ...warningModal, open: false })}
-        title="Partidos Sin Horario"
-        message={`Hay ${warningModal.data?.pending.length} partidos sin asignar en la tabla.`}
-        subMessage="Quedarán como 'Pendientes' (P.P). ¿Deseas continuar?"
-        confirmText="Confirmar Jornada"
-        onConfirm={() => executeConfirm(warningModal.data?.scheduled, warningModal.data?.pending)}
-      />
-
-      {/* Modal Vista Previa */}
-      <Modal
-            isOpen={previewModal.open}
-            onClose={() => setPreviewModal({ ...previewModal, open: false })}
-            title="Vista Previa de Cruces"
-        >
-            <PreviewContainer>
-                <p className="info-text">Se generarán aleatoriamente los siguientes partidos para esta jornada. Verifica antes de confirmar.</p>
-                <PreviewList>
-                    {previewModal.cruces.map((cruce, idx) => (
-                        <PreviewItem key={idx}>
-                            <div className="team t-left">
-                                <span>{cruce.t1.name}</span>
-                                <img src={cruce.t1.logo_url || v.iconofotovacia} alt={cruce.t1.name}/>
-                            </div>
-                            <div className="vs">VS</div>
-                            <div className="team t-right">
-                                <img src={cruce.t2.logo_url || v.iconofotovacia} alt={cruce.t2.name}/>
-                                <span>{cruce.t2.name}</span>
-                            </div>
-                        </PreviewItem>
-                    ))}
-                </PreviewList>
-                <div className="modal-actions">
-                    <BtnNormal titulo="Cancelar" funcion={() => setPreviewModal({ ...previewModal, open: false })} />
-                    <Btnsave titulo="Confirmar y Generar" bgcolor={v.colorPrincipal} funcion={confirmGeneration} />
-                </div>
-            </PreviewContainer>
-        </Modal>
-
-    </Container>
+    </TabContainer>
   );
 }
 
-// STYLES
-const Container = styled.div` display: flex; flex-direction: column; gap: 20px; width: 100%; `;
-const HeaderNav = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
-  background: ${({theme})=>theme.bgcards}; padding: 15px 20px; border-radius: 16px;
-  box-shadow: ${({theme})=>theme.boxshadowGray}; border: 1px solid ${({theme})=>theme.bg4};
-  .title-box { text-align: center; h2 { margin: 0; font-size: 1.2rem; color: ${({theme})=>theme.text}; } }
-`;
-const NavButton = styled.button`
-  background: transparent; border: none; font-size: 2rem; cursor: pointer; color: ${({theme})=>theme.text};
-  opacity: 0.7; transition: 0.2s;
-  &:hover:not(:disabled) { transform: scale(1.2); opacity: 1; color: ${v.colorPrincipal}; }
-  &:disabled { opacity: 0.1; cursor: default; }
-`;
-const StatusBadge = styled.span`
-  font-size: 0.75rem; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 10px;
-  background: ${({$status, theme}) => $status === 'Pendiente' ? theme.bg4 : '#2ecc7120'};
-  color: ${({$status}) => $status === 'Pendiente' ? '#888' : '#2ecc71'};
-  border: 1px solid ${({$status}) => $status === 'Pendiente' ? '#8888' : '#2ecc71'};
-`;
+// Estilos
+const fadeIn = keyframes` from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } `;
+const TabContainer = styled.div` display: flex; flex-direction: column; gap: 20px; width: 100%; animation: ${fadeIn} 0.5s ease-out; `;
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;
-const LoadingBox = styled.div` padding: 50px; text-align: center; color: ${({theme})=>theme.text}; font-weight:600; `;
-const EmptyMatchesState = styled.div`
-  background: ${({theme})=>theme.bgcards}; padding: 40px; border-radius: 16px; border: 2px dashed ${({theme})=>theme.bg4};
-  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;
-  p { font-size: 1.1rem; opacity: 0.7; }
-`;
-const PreviewContainer = styled.div` 
-  padding: 10px; 
-  .info-text{margin-bottom:20px; opacity:0.8; font-size: 0.9rem;} 
-  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4};} 
-`;
-const PreviewList = styled.div` display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto; padding-right: 5px; `;
-const PreviewItem = styled.div` 
-  display:flex; align-items:center; justify-content:center; gap: 15px;
-  background:${({theme})=>theme.bgtotal}; padding:10px 15px; border-radius:8px; border:1px solid ${({theme})=>theme.bg4}; 
-  .team{display:flex; align-items:center; gap:10px; width:40%; font-weight:600; font-size:0.9rem; img{width:28px; height:28px; object-fit:contain;}} 
-  .t-left{justify-content: flex-end; text-align: right;}
-  .t-right{justify-content: flex-start; text-align: left;}
-  .vs{opacity:0.5; font-weight:bold; font-size:0.8rem; color: ${v.colorPrincipal};} 
-`;
+const LoadingBox = styled.div` padding: 50px; text-align: center; font-weight:600; `;

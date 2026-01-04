@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
+import { Device } from "../../styles/breakpoints";
 
-// 1. Componente de Navegación (Con el Glider que ya hicimos)
 export function TabsNavigation({ tabs, activeTab, setActiveTab }) {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, opacity: 0 });
   const tabsRef = useRef([]);
 
-  useEffect(() => {
+  const updateIndicator = () => {
     const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
     const currentTab = tabsRef.current[activeIndex];
-
     if (currentTab) {
       setIndicatorStyle({
         left: currentTab.offsetLeft,
@@ -17,6 +16,17 @@ export function TabsNavigation({ tabs, activeTab, setActiveTab }) {
         opacity: 1 
       });
     }
+  };
+
+  useEffect(() => {
+    updateIndicator();
+    window.addEventListener("resize", updateIndicator);
+    // Un pequeño timeout ayuda a que el layout se estabilice antes de medir (útil para flex:1)
+    const timeoutId = setTimeout(updateIndicator, 50);
+    return () => {
+        window.removeEventListener("resize", updateIndicator);
+        clearTimeout(timeoutId);
+    };
   }, [activeTab, tabs]);
 
   return (
@@ -37,54 +47,54 @@ export function TabsNavigation({ tabs, activeTab, setActiveTab }) {
           type="button"
         >
           {tab.icon && <span className="icon">{tab.icon}</span>}
-          <span style={{ position: "relative", zIndex: 2 }}>{tab.label}</span>
+          <span className="label" style={{ position: "relative", zIndex: 2 }}>{tab.label}</span>
         </TabButton>
       ))}
     </Container>
   );
 }
 
-// --- 2. NUEVO: Wrapper animado para el contenido ---
-// Expórtalo para usarlo en tus Templates (Torneos, Equipos, etc.)
 export const TabContent = styled.div`
   width: 100%;
-  /* Animación de entrada suave: desliza un poco hacia arriba y aparece */
   animation: fadeSlideUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  overflow-x: hidden; 
 
   @keyframes fadeSlideUp {
-    from {
-      opacity: 0;
-      transform: translateY(15px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 `;
 
-// --- Estilos del TabsNavigation ---
+// --- ESTILOS OPTIMIZADOS ---
 
 const Container = styled.div`
   position: relative;
   display: flex;
   align-items: center;
-  gap: 15px;
   margin-bottom: 20px;
   width: 100%;
+  min-width: 0;
+  
   border-bottom: 1px solid ${({ theme }) => theme.bg4};
   padding-bottom: 10px;
+  
   overflow-x: auto;
   &::-webkit-scrollbar { display: none; }
   -ms-overflow-style: none;
   scrollbar-width: none;
+
+  /* Gap pequeño para que se note la separación, pero flex:1 hará el trabajo principal */
+  gap: 5px; 
+
+  @media ${Device.tablet} {
+    gap: 15px;
+  }
 `;
 
 const Glider = styled.div`
   position: absolute;
   height: calc(100% - 10px);
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   background: ${({ theme }) => theme.bg4};
   border: 1px solid ${({ theme }) => theme.color2};
   border-radius: 20px;
@@ -97,28 +107,49 @@ const TabButton = styled.button`
   background: transparent;
   color: ${({ $active, theme }) => ($active ? theme.primary : theme.text)};
   border: 1px solid transparent;
-  padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
   font-weight: 600;
   font-size: 0.9rem;
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
+  
   display: flex;
   align-items: center;
+  justify-content: center; 
   gap: 8px;
-  white-space: nowrap;
+  
   position: relative;
   z-index: 1;
 
-  &:hover {
-    color: ${({ theme }) => theme.primary};
+  /* --- ESTILOS GENERALES (MÓVIL Y DESKTOP) --- */
+  /* CAMBIO PRINCIPAL: flex: 1 siempre, para ocupar todo el ancho disponible */
+  flex: 1; 
+  padding: 12px 0; 
+  
+  .label {
+    display: none;
   }
-
+  
   .icon {
+    font-size: 1.4rem; 
     display: flex;
     align-items: center;
-    font-size: 1.1em;
-    position: relative;
-    z-index: 2;
+    justify-content: center;
   }
+
+  /* --- AJUSTES ESPECÍFICOS DESKTOP --- */
+  @media ${Device.tablet} {
+    /* Ya no sobreescribimos flex, se mantiene en 1 */
+    padding: 10px 16px; 
+    
+    .label {
+      display: block;
+    }
+    
+    .icon {
+      font-size: 1.1em;
+    }
+  }
+
+  &:hover { color: ${({ theme }) => theme.primary}; }
 `;

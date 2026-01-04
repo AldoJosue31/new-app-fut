@@ -30,7 +30,7 @@ export const useTorneosLogic = () => {
 
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
-  const [form, setForm] = useState(() => {
+const [form, setForm] = useState(() => {
     const savedRules = localStorage.getItem("torneo_reglas_draft");
     return savedRules ? JSON.parse(savedRules) : {
       season: "",
@@ -38,7 +38,12 @@ export const useTorneosLogic = () => {
       vueltas: "1",       
       minPlayers: 7,
       format: TOURNAMENT_FORMAT.LEAGUE,
-      tieBreakType: TIE_BREAK_TYPE.GOALS
+      tieBreakType: TIE_BREAK_TYPE.GOALS,
+      // --- NUEVOS CAMPOS ---
+      zonaLiguilla: false,
+      clasificados: 4, // Default
+      hasRepechaje: false,
+      repechajeTeams: 0
     };
   });
 

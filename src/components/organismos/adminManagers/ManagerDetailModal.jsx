@@ -16,9 +16,10 @@ import {
 export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
   const [activeTab, setActiveTab] = useState(0);
 
+  // 1. CORRECCIÓN: Agregamos iconos a los tabs para la vista móvil
   const managerTabs = [
-    { id: 0, label: "Perfil & Cuenta" },
-    { id: 1, label: "Gestión Deportiva" }
+    { id: 0, label: "Perfil & Cuenta", icon: <BiUserCircle size={20} /> },
+    { id: 1, label: "Gestión Deportiva", icon: <BiTrophy size={20} /> }
   ];
 
   // Lógica interna auxiliar
@@ -69,11 +70,14 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
            </div>
         </DetailHeader>
 
-        <TabsNavigation 
-           tabs={managerTabs}
-           activeTab={activeTab}
-           setActiveTab={setActiveTab}
-        />
+        {/* 2. CORRECCIÓN: Wrapper para controlar el ancho en flexbox */}
+        <TabsWrapper>
+            <TabsNavigation 
+               tabs={managerTabs}
+               activeTab={activeTab}
+               setActiveTab={setActiveTab}
+            />
+        </TabsWrapper>
 
         {activeTab === 0 && (
           <TabContent>
@@ -81,34 +85,34 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
                 <InfoBox>
                   <h4><BiTime/> Actividad</h4>
                   <div className="row">
-                     <label>Última conexión:</label> 
-                     <span>{formatDate(manager.last_sign_in_at)}</span>
+                      <label>Última conexión:</label> 
+                      <span>{formatDate(manager.last_sign_in_at)}</span>
                   </div>
                   <div className="row">
-                     <label>Miembro desde:</label> 
-                     <span>{formatDate(manager.created_at)}</span>
+                      <label>Miembro desde:</label> 
+                      <span>{formatDate(manager.created_at)}</span>
                   </div>
                 </InfoBox>
 
                 <InfoBox>
                   <h4><BiIdCard/> Credenciales</h4>
                   <div className="row">
-                     <label>Correo:</label> <span className="email-text">{manager.email}</span>
+                      <label>Correo:</label> <span className="email-text">{manager.email}</span>
                   </div>
                   
                   <div className="google-section">
-                     <label>Vinculación:</label>
-                     {getGoogleInfo(manager).linked ? (
-                       <div className="linked-card">
-                          <BiLogoGoogle color="#4285F4" size={24}/>
-                          <div className="link-info">
-                            <span className="link-title">Cuenta Google</span>
-                            <span className="link-email">{getGoogleInfo(manager).email}</span>
-                          </div>
-                       </div>
-                     ) : (
-                       <span className="not-linked"><BiEnvelope/> Correo y Contraseña</span>
-                     )}
+                      <label>Vinculación:</label>
+                      {getGoogleInfo(manager).linked ? (
+                        <div className="linked-card">
+                           <BiLogoGoogle color="#4285F4" size={24}/>
+                           <div className="link-info">
+                             <span className="link-title">Cuenta Google</span>
+                             <span className="link-email">{getGoogleInfo(manager).email}</span>
+                           </div>
+                        </div>
+                      ) : (
+                        <span className="not-linked"><BiEnvelope/> Correo y Contraseña</span>
+                      )}
                   </div>
                 </InfoBox>
              </InfoGrid>
@@ -146,8 +150,8 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
                   </LeagueCard>
                 ) : (
                   <EmptyLeague>
-                     <v.iconocorona size={40}/>
-                     <p>Sin asignación deportiva.</p>
+                      <v.iconocorona size={40}/>
+                      <p>Sin asignación deportiva.</p>
                   </EmptyLeague>
                 )}
              </InfoBox>
@@ -167,6 +171,15 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
 };
 
 // --- STYLED COMPONENTS DEL MODAL ---
+
+// 3. AGREGAR ESTILO DEL WRAPPER
+const TabsWrapper = styled.div`
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+`;
+
 const DetailContainer = styled.div`
   display: flex; flex-direction: column; gap: 20px; color: ${({ theme }) => theme.text};
 `;

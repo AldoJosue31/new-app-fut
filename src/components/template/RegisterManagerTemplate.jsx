@@ -170,7 +170,6 @@ export function RegisterManagerTemplate({ token }) {
                   onChange={e => setForm({...form, leagueName: e.target.value})} 
                 />
                 <label className="form__label">Nombre de tu Liga</label>
-                <BiFootball className="icon-input"/>
               </InputText2>
            )}
 
