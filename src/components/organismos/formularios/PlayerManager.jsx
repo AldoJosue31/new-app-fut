@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../styles/variables";
-import { InputText2, Btnsave, PhotoUploader, InputNumber, Skeleton, ContainerScroll } from "../../../index";
+import { InputText2, Btnsave, PhotoUploader, InputNumber, Skeleton, ContainerScroll, useSort, SortControl } from "../../../index";
 import { Modal } from "../Modal"; 
 import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { supabase } from "../../../supabase/supabase.config";
@@ -11,6 +11,14 @@ import {
     // RiCheckboxCircleLine eliminado ya que no usamos el modal de éxito viejo
 } from "react-icons/ri";
 import { compressImage } from "../../../utils/imageProcessor";
+
+  // DEFINICIÓN DE ORDEN DE POSICIONES (Puede ir en constants.js idealmente, pero aquí funciona)
+const POSITION_RANK = {
+    'Portero': 1,
+    'Defensa': 2,
+    'Medio': 3,
+    'Delantero': 4
+};
 
 // 1. Recibimos showToast como prop
 export function PlayerManager({ teamId, showToast }) {
@@ -34,6 +42,21 @@ export function PlayerManager({ teamId, showToast }) {
   const [form, setForm] = useState(initialForm);
   const [dorsalError, setDorsalError] = useState("");
   const [shakeError, setShakeError] = useState(false);
+
+
+
+// 1. Configuramos el hook useSort pasando los jugadores crudos
+  const { items: sortedPlayers, requestSort, sortConfig } = useSort(jugadores, { 
+      key: 'dorsal', 
+      direction: 'ascending' // Orden por defecto: Dorsal
+  });
+
+  // 2. Definimos las opciones para el componente visual
+  const sortOptions = [
+      { label: "Dorsal", key: "dorsal" }, // Orden numérico natural
+      { label: "Nombre", key: "first_name" }, // Orden alfabético
+      { label: "Posición", key: "position", customOrder: POSITION_RANK } // Orden personalizado
+  ];
 
   useEffect(() => {
     if (!form.dorsal || !jugadores.length) {
@@ -166,6 +189,15 @@ export function PlayerManager({ teamId, showToast }) {
              <span>Agregar</span>
           </BtnSmall>
         </div>
+
+{!isLoading && jugadores.length > 0 && (
+            <SortControl 
+                options={sortOptions} 
+                currentSort={sortConfig} 
+                onSortChange={requestSort} 
+            />
+        )}
+
         <ContainerScroll $maxHeight="400px">
         <ListContainer>
         {isLoading ? (
@@ -179,7 +211,7 @@ export function PlayerManager({ teamId, showToast }) {
             </div>
           ))
           ) : (
-            jugadores.map((p) => (
+sortedPlayers.map((p) => (
               <PlayerRow key={p.id}>
                 <div className="info">
                   <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="foto" />

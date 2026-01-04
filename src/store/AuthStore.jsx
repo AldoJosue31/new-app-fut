@@ -1,16 +1,13 @@
-// src/store/AuthStore.jsx
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabase.config';
-import { useDivisionStore } from "../store/DivisionStore";
+
 export const useAuthStore = create((set, get) => {
   
-  // Helpers internos
   const fetchProfile = async (id) => {
     if (!id) {
       set({ profile: null });
       return null;
     }
-    // Nota: No activamos isLoading global aquí para no parpadear la UI si se llama en segundo plano
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -33,16 +30,13 @@ export const useAuthStore = create((set, get) => {
   };
 
   const actions = {
-    // --- Registro con Email ---
     signupWithEmail: async (email, password, extra = {}) => {
       set({ authLoadingAction: true });
       try {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        
         const user = data?.user ?? data;
         if (user?.id) {
-          // Crear perfil inmediatamente
           await supabase.from('profiles').upsert({
             id: user.id,
             email,
@@ -59,7 +53,6 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    // --- Login con Email ---
     loginWithEmail: async (email, password) => {
       set({ authLoadingAction: true });
       try {
@@ -73,14 +66,12 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    // --- Login con Google (MODIFICADO) ---
-loginGoogle: async () => {
+    loginGoogle: async () => {
       set({ authLoadingAction: true });
       try {
         const { error } = await supabase.auth.signInWithOAuth({ 
           provider: 'google',
           options: {
-            // CAMBIO AQUÍ: Redirigir a /login para capturar errores si fallara
             redirectTo: `${window.location.origin}/login`, 
             queryParams: {
               access_type: 'offline',
@@ -88,7 +79,6 @@ loginGoogle: async () => {
             },
           },
         });
-        
         if (error) throw error;
       } catch (err) {
         set({ authLoadingAction: false });
@@ -96,16 +86,13 @@ loginGoogle: async () => {
       }
     },
 
-    // --- Cerrar Sesión ---
-cerrarSesion: async () => {
+    // --- CAMBIO PRINCIPAL: Limpieza solo local ---
+    cerrarSesion: async () => {
       try {
         await supabase.auth.signOut();
+        // Solo limpiamos el estado de usuario en este store.
+        // La limpieza de otros stores (Division, Torneos) la maneja App.jsx
         set({ user: null, profile: null });
-        
-        // LIMPIEZA DE DATOS VIEJOS
-        useDivisionStore.getState().resetStore(); // <--- AGREGA ESTO
-        localStorage.removeItem('division-storage'); // Opcional: forzar borrado del storage
-        
       } catch (err) {
         console.error('Error al cerrar sesión', err);
       }
@@ -113,7 +100,6 @@ cerrarSesion: async () => {
 
     fetchProfile,
 
-    // Estado inicial
     user: null,
     profile: null,
     isLoading: true,

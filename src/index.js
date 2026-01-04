@@ -14,12 +14,16 @@ export * from './components/moleculas/CardHeader';
 export * from './components/moleculas/PhotoUploader';
 export * from './components/moleculas/DivisionSelector';
 export * from './components/moleculas/TabsNavigation'
+export * from './components/moleculas/SortControl';
 export * from './components/organismos/Footer';
 export * from './components/organismos/ToggleTema';
 export * from './components/organismos/ConfirmModal';
+export * from './components/organismos/EmptyState';
 export * from './components/organismos/Modal';
+export * from './components/organismos/TeamDetailModal'
 export * from './components/organismos/formularios/InputText2';
 export * from './components/organismos/formularios/InputNumber';
+export * from './components/organismos/formularios/PlayerManager';
 export * from './components/organismos/sidebar/Sidebar';
 export * from './components/template/HomeTemplate';
 export * from './components/template/PartidosTemplate';
@@ -34,8 +38,11 @@ export { ManagerCard } from "./components/organismos/adminManagers/ManagerCard";
 export { ManagerDetailModal } from "./components/organismos/adminManagers/ManagerDetailModal";
 export { ManagerCreateModal } from "./components/organismos/adminManagers/ManagerCreateModal";
 export { default as PantallaCarga } from './components/organismos/PantallaCarga';
+export { TorneoDashboard } from './components/organismos/tabs/torneos/subcomponents/TorneoDashboard';
+export { TabGeneral, TabFormat, TabScoring, TabGameRules } from './components/organismos/tabs/torneos/subcomponents/TorneoFormTabs';
 export * from './context/AuthContent';
 export * from './hooks/ProtectedRoute';
+export * from './hooks/useSort';
 export * from './main';
 export * from './pages/Home';
 export * from './pages/Login';

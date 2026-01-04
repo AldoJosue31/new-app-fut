@@ -1,19 +1,29 @@
+import React from "react";
 import styled from "styled-components";
+import { EmptyState, Title, ContentContainer } from "../../index"; // Importar
+import { RiCalendarTodoLine } from "react-icons/ri";
 
 export function PartidosTemplate() {
   return (
-    <Container>
-      <h1>Gestión de Partidos</h1>
-      <span>Aquí podrás programar y ver los resultados de los partidos.</span>
-    </Container>
+    <ContentContainer>
+      <div style={{marginBottom: 20}}>
+        <Title>Gestión de Partidos</Title>
+      </div>
+      
+      <Container>
+        <EmptyState 
+            icon={<RiCalendarTodoLine size={60} />}
+            title="Próximamente"
+            description="El módulo de gestión detallada de partidos estará disponible pronto. Por ahora gestiona los resultados desde la sección de Torneos."
+        />
+      </Container>
+    </ContentContainer>
   );
 }
 
 const Container = styled.div`
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  h1 { font-size: 2rem; font-weight: 700; }
+  height: 60vh;
 `;

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
 // Asegúrate de que esta ruta sea correcta hacia tu imagen
-import logo from '../../../public/logo_app.png'; 
+import logo from '/logo_app.png'; 
 
 const PantallaCarga = () => {
   return (

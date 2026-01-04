@@ -1,333 +1,318 @@
-import React, { useState, useEffect } from "react";
-import styled from "styled-components";
-import { v } from "../../../../styles/variables";
-import { RiAddLine, RiDeleteBinLine, RiTimeLine, RiCalendarLine } from "react-icons/ri";
-import { Btnsave, InputText2 } from "../../../../index";
+import React, { useState, useEffect, useMemo } from "react";
+import styled, { keyframes } from "styled-components";
+import { v, Btnsave, Toast, ContainerScroll } from "../../../../index"; 
+import { generarFixture } from "../../../../services/torneos"; 
+import { RiCalendarLine, RiCheckDoubleLine, RiAddCircleLine, RiLockLine } from "react-icons/ri";
 
-// Días de la semana para las columnas
-const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+// Subcomponentes modulares
+import { PlanningHeader } from "./planificacion/PlanningHeader";
+import { PendingMatchCard } from "./planificacion/PendingMatchCard";
+import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
+import { ManualMatchModal } from "./planificacion/ManualMatchModal";
+import { ResultModal } from "./planificacion/ResultModal";
 
-export function JornadaPlanificacion({ matches, teams, onConfirm }) {
-  // --- ESTADOS ---
-  const [timeSlots, setTimeSlots] = useState(["08:00", "09:00", "10:00"]); // Filas iniciales
-  const [grid, setGrid] = useState({}); // Mapa: "dayIndex-timeIndex" -> MatchObject
-  const [unscheduledMatches, setUnscheduledMatches] = useState([]);
+export function JornadaPlanificacion({ 
+  matchesDB = [], 
+  globalPendingMatches = [], 
+  teams,         
+  jornadaIndex,
+  activeTournament,
+  jornadaData, 
+  onConfirm, 
+  onChangeJornada,
+  totalJornadas,
+  onMatchUpdate,
+  canConfirm 
+}) {
+  const [scheduledMatches, setScheduledMatches] = useState([]);
+  const [pendingMatches, setPendingMatches] = useState([]);
+  const [fixtureMaster, setFixtureMaster] = useState([]);
+
+  // UI States
   const [draggedMatch, setDraggedMatch] = useState(null);
-  
-  // Fecha base para calcular fechas reales (Opcional: input de fecha por día)
-  // Por simplicidad, asumiremos que "Lunes" es el próximo lunes. 
-  // En una versión PRO, cada columna tendría un input de fecha real.
-  const [baseDate, setBaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  const [selectedMatchResult, setSelectedMatchResult] = useState(null);
+  const [toast, setToast] = useState({ show: false, msg: '', type: '' });
 
-  // INICIALIZACIÓN
+  const isConfirmed = jornadaData?.status === 'Confirmada';
+  
+  const durationMatch = useMemo(() => {
+    const minPorTiempo = parseInt(activeTournament?.config?.minutosPorTiempo || 45);
+    return (minPorTiempo * 2) + 15;
+  }, [activeTournament]);
+
+  // --- 1. Fixture ---
   useEffect(() => {
-    // 1. Enriquecer partidos con logos y nombres
-    const enriched = matches.map(m => ({
-      ...m,
-      t1: teams.find(t => t.id === m.team1_id),
-      t2: teams.find(t => t.id === m.team2_id)
-    }));
+    if (teams && teams.length > 1) {
+      const vueltas = activeTournament?.config?.vueltas || "1";
+      const baseRounds = generarFixture(teams);
+      let finalFixture = [...baseRounds];
+      if (vueltas === "2") {
+          const roundsVuelta = baseRounds.map(r => r.map(m => ({ home: m.away, away: m.home })));
+          finalFixture = [...baseRounds, ...roundsVuelta];
+      }
+      setFixtureMaster(finalFixture);
+    }
+  }, [teams, activeTournament]);
 
-    // 2. Separar los que ya tienen fecha (si recargamos página) de los que no
-    // Para simplificar la demo, mandamos todos a la barra lateral (unscheduled)
-    // O podrías intentar parsear m.date para ubicarlos en la grilla.
-    setUnscheduledMatches(enriched);
-    setGrid({}); 
-  }, [matches, teams]);
+  // --- 2. Procesamiento de Partidos ---
+  useEffect(() => {
+    if (!teams) return;
+    const dbScheduled = [];
+    const dbPendingForThisJornada = [];
 
-  // --- DRAG & DROP HANDLERS ---
-  const handleDragStart = (e, match, source) => {
-    setDraggedMatch({ ...match, source }); // source: 'dock' | 'grid'
-    e.dataTransfer.effectAllowed = "move";
-  };
+    const formatMatch = (m) => {
+        const localTeam = teams.find(t => t.id === m.team1_id);
+        const visitTeam = teams.find(t => t.id === m.team2_id);
+        if (!localTeam || !visitTeam) return null;
+        return {
+            id: m.id,
+            local: localTeam,
+            visitante: visitTeam,
+            date: m.date ? m.date.split('T')[0] : getDefaultDate(),
+            time: m.date ? m.date.split('T')[1]?.substring(0,5) : "10:00",
+            status: m.status,
+            goals1: m.goals1,
+            goals2: m.goals2,
+            originJornada: m.jornadas?.name // Capturamos el nombre de la jornada origen
+        };
+    };
 
-  const handleDragOver = (e) => e.preventDefault();
-
-  const handleDropOnGrid = (e, dayIndex, timeIndex) => {
-    e.preventDefault();
-    if (!draggedMatch) return;
-
-    const cellKey = `${dayIndex}-${timeIndex}`;
-    const previousMatchInCell = grid[cellKey];
-    
-    // 1. Si viene de la barra (dock)
-    if (draggedMatch.source === 'dock') {
-        const newUnscheduled = unscheduledMatches.filter(m => m.id !== draggedMatch.id);
-        if (previousMatchInCell) newUnscheduled.push(previousMatchInCell); // Swap
-        
-        setUnscheduledMatches(newUnscheduled);
-        setGrid({ ...grid, [cellKey]: draggedMatch });
-    } 
-    // 2. Si viene de otra celda (grid)
-    else if (draggedMatch.source.type === 'grid') {
-        const oldKey = draggedMatch.source.key;
-        const newGrid = { ...grid };
-        
-        delete newGrid[oldKey]; // Quitar de origen
-        
-        if (previousMatchInCell) {
-            newGrid[oldKey] = previousMatchInCell; // Swap a la celda vieja
+    matchesDB.forEach(m => {
+        const matchObj = formatMatch(m);
+        if (matchObj) {
+            if (m.status === 'Programado' || m.status === 'Finalizado') {
+                dbScheduled.push(matchObj);
+            } else {
+                dbPendingForThisJornada.push(matchObj);
+            }
         }
-        
-        newGrid[cellKey] = draggedMatch;
-        setGrid(newGrid);
-    }
-    
-    setDraggedMatch(null);
-  };
-
-  const handleDropOnDock = (e) => {
-    e.preventDefault();
-    if (!draggedMatch) return;
-
-    if (draggedMatch.source.type === 'grid') {
-        // Quitar del grid
-        const newGrid = { ...grid };
-        delete newGrid[draggedMatch.source.key];
-        setGrid(newGrid);
-        
-        // Agregar al dock
-        setUnscheduledMatches([...unscheduledMatches, draggedMatch]);
-    }
-    setDraggedMatch(null);
-  };
-
-  // --- GESTIÓN DE FILAS DE HORARIO ---
-  const addTimeSlot = () => {
-     // Lógica simple para añadir hora
-     const last = timeSlots[timeSlots.length-1];
-     const [h,m] = last.split(':');
-     const nextH = (parseInt(h) + 1).toString().padStart(2,'0');
-     setTimeSlots([...timeSlots, `${nextH}:${m}`]);
-  };
-  
-  const removeTimeSlot = (index) => {
-      // Devolver partidos de esa fila al dock
-      const newGrid = { ...grid };
-      const returnedMatches = [];
-      
-      DAYS.forEach((_, dIndex) => {
-          const key = `${dIndex}-${index}`;
-          if (newGrid[key]) {
-              returnedMatches.push(newGrid[key]);
-              delete newGrid[key];
-          }
-      });
-      
-      setGrid(newGrid);
-      setUnscheduledMatches([...unscheduledMatches, ...returnedMatches]);
-      setTimeSlots(timeSlots.filter((_, i) => i !== index));
-  };
-
-  // --- CONFIRMAR ---
-  const handleConfirm = () => {
-    const scheduled = [];
-    
-    Object.keys(grid).forEach(key => {
-        const [dayIndex, timeIndex] = key.split('-');
-        const match = grid[key];
-        const time = timeSlots[timeIndex];
-        
-        // Calcular fecha real (Demo: BaseDate + DayIndex días)
-        const dateObj = new Date(baseDate);
-        dateObj.setDate(dateObj.getDate() + parseInt(dayIndex));
-        const dateStr = dateObj.toISOString().split('T')[0];
-        
-        scheduled.push({
-            ...match,
-            tempDateStr: `${dateStr} ${time}:00` // Formato timestamp
-        });
     });
+    setScheduledMatches(dbScheduled);
 
-    onConfirm(scheduled, unscheduledMatches);
+    const formattedGlobalPending = globalPendingMatches
+        .map(formatMatch)
+        .filter(m => m !== null)
+        .filter(m => !dbPendingForThisJornada.some(localM => localM.id === m.id));
+
+    const allPendingReal = [...dbPendingForThisJornada, ...formattedGlobalPending];
+
+    let suggestions = [];
+    if (fixtureMaster[jornadaIndex]) {
+        const crucesIdeales = fixtureMaster[jornadaIndex];
+        crucesIdeales.forEach(cruce => {
+            const t1 = teams.find(t => t.id === cruce.home);
+            const t2 = teams.find(t => t.id === cruce.away);
+            if (!t1 || !t2) return;
+            const exists = [...dbScheduled, ...allPendingReal].some(m => 
+                (m.local.id === t1.id && m.visitante.id === t2.id) ||
+                (m.local.id === t2.id && m.visitante.id === t1.id)
+            );
+            if (!exists) {
+                suggestions.push({
+                    id: `suggested-${jornadaIndex}-${t1.id}-${t2.id}`,
+                    local: t1, visitante: t2, status: 'Pendiente'
+                });
+            }
+        });
+    }
+    setPendingMatches([...allPendingReal, ...suggestions]);
+  }, [matchesDB, globalPendingMatches, teams, fixtureMaster, jornadaIndex]);
+
+  // --- Helpers & Handlers ---
+  const getDefaultDate = () => {
+     if(!activeTournament?.start_date) return new Date().toISOString().split('T')[0];
+     const fecha = new Date(activeTournament.start_date);
+     fecha.setDate(fecha.getDate() + (jornadaIndex * 7));
+     return fecha.toISOString().split('T')[0];
+  };
+
+  const checkTimeCollision = (newTime, matchIdToIgnore) => {
+      const [h, m] = newTime.split(':').map(Number);
+      const newStart = h * 60 + m;
+      const newEnd = newStart + durationMatch;
+      for (const match of scheduledMatches) {
+          if (match.id === matchIdToIgnore) continue;
+          const [mh, mm] = match.time.split(':').map(Number);
+          const existStart = mh * 60 + mm;
+          const existEnd = existStart + durationMatch;
+          if (newStart < existEnd && newEnd > existStart) return true; 
+      }
+      return false;
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (!draggedMatch || isConfirmed) return;
+    const teamsPlaying = new Set();
+    scheduledMatches.forEach(m => { teamsPlaying.add(m.local.id); teamsPlaying.add(m.visitante.id); });
+    if (teamsPlaying.has(draggedMatch.local.id) || teamsPlaying.has(draggedMatch.visitante.id)) {
+        setToast({ show: true, msg: 'Error: Equipo ya juega en esta jornada.', type: 'error' });
+        return;
+    }
+    let nextTime = "10:00";
+    if (scheduledMatches.length > 0) {
+        const lastMatch = scheduledMatches[scheduledMatches.length - 1];
+        const [h, m] = lastMatch.time.split(':').map(Number);
+        const totalMin = h * 60 + m + durationMatch;
+        const nh = Math.floor(totalMin / 60);
+        const nm = totalMin % 60;
+        nextTime = `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+    }
+    if (checkTimeCollision(nextTime, draggedMatch.id)) {
+        setToast({ show: true, msg: `Choque de horarios (${nextTime}).`, type: 'warning' });
+    }
+    const newMatch = { ...draggedMatch, time: nextTime, date: draggedMatch.date || getDefaultDate(), status: 'Programado' };
+    setScheduledMatches([...scheduledMatches, newMatch]);
+    setPendingMatches(pendingMatches.filter(m => m.id !== draggedMatch.id));
+    setDraggedMatch(null);
+  };
+
+  const handleManualAdd = (localId, visitaId) => {
+      if (!localId || !visitaId) return;
+      if (localId === visitaId) { setToast({ show: true, msg: 'Equipos iguales.', type: 'error' }); return; }
+      const t1 = teams.find(t => t.id === parseInt(localId));
+      const t2 = teams.find(t => t.id === parseInt(visitaId));
+      const exists = [...scheduledMatches, ...pendingMatches].some(m => 
+        (m.local.id === t1.id && m.visitante.id === t2.id) || (m.local.id === t2.id && m.visitante.id === t1.id)
+      );
+      if (exists) { setToast({ show: true, msg: 'Cruce existente.', type: 'error' }); return; }
+      const newManual = { id: `manual-${Date.now()}`, local: t1, visitante: t2, date: getDefaultDate(), status: 'Pendiente' };
+      setPendingMatches([...pendingMatches, newManual]);
+      setManualModalOpen(false);
+      setToast({ show: true, msg: 'Agregado.', type: 'success' });
+  };
+
+  const handleTryConfirm = () => {
+      if(!canConfirm) {
+          setToast({ show: true, msg: `Confirma la jornada anterior primero.`, type: 'error' });
+          return;
+      }
+      if (onConfirm) onConfirm({ id: jornadaIndex + 1, matches: scheduledMatches, pendingMatches });
   };
 
   return (
     <Container>
-        <TopBar>
-            <div className="date-control">
-                <label>Semana de inicio (Lunes):</label>
-                <InputText2>
-                    <input type="date" value={baseDate} onChange={(e)=>setBaseDate(e.target.value)} className="form__field" />
-                </InputText2>
-            </div>
-            <div className="legend">
-               <span>🗓️ Arrastra los partidos a la celda correspondiente.</span>
-            </div>
-        </TopBar>
+        <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={()=>setToast({...toast, show:false})}/>
+        
+        <PlanningHeader 
+            jornadaIndex={jornadaIndex} 
+            status={jornadaData.status} 
+            onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
+            onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
+            totalJornadas={totalJornadas}
+        />
 
-        <Workspace>
-            {/* --- TABLA HORARIOS --- */}
-            <TableContainer>
-                <Table>
-                    <thead>
-                        <tr>
-                            <th className="corner">Hora</th>
-                            {DAYS.map((day, i) => <th key={i}>{day}</th>)}
-                            <th className="action-col"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {timeSlots.map((time, tIndex) => (
-                            <tr key={tIndex}>
-                                <td className="time-cell">
-                                    <input 
-                                        type="time" 
-                                        value={time} 
-                                        onChange={(e)=>{
-                                            const newSlots = [...timeSlots];
-                                            newSlots[tIndex] = e.target.value;
-                                            setTimeSlots(newSlots);
+        {/* key={jornadaIndex} fuerza remontaje y dispara animación */}
+        <TransitionWrapper key={jornadaIndex}>
+            <Workspace>
+                <Sidebar>
+                    <div className="sb-header">
+                        <span>Por Asignar ({pendingMatches.length})</span>
+                        {!isConfirmed && (
+                            <button className="btn-add" onClick={() => setManualModalOpen(true)}>
+                                <RiAddCircleLine />
+                            </button>
+                        )}
+                    </div>
+                    {/* Contenido scrolleable mejorado */}
+                    <div className="scroll-wrapper">
+                        <ContainerScroll>
+                           <div className="list-content">
+                                {pendingMatches.map(match => (
+                                    <PendingMatchCard 
+                                        key={match.id} 
+                                        match={match} 
+                                        isConfirmed={isConfirmed}
+                                        onDragStart={(e) => {
+                                            if(isConfirmed) return;
+                                            setDraggedMatch(match);
+                                            e.dataTransfer.setData("text", match.id);
                                         }}
+                                        jornadaIndex={jornadaIndex}
                                     />
-                                </td>
-                                {DAYS.map((_, dIndex) => {
-                                    const cellKey = `${dIndex}-${tIndex}`;
-                                    const match = grid[cellKey];
-                                    return (
-                                        <td 
-                                            key={cellKey} 
-                                            onDragOver={handleDragOver}
-                                            onDrop={(e) => handleDropOnGrid(e, dIndex, tIndex)}
-                                            className={match ? "occupied" : "empty"}
-                                        >
-                                            {match ? (
-                                                <MiniMatchCard 
-                                                    match={match} 
-                                                    draggable 
-                                                    onDragStart={(e) => handleDragStart(e, match, { type: 'grid', key: cellKey })}
-                                                />
-                                            ) : (
-                                                <div className="placeholder">+</div>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-                                <td className="action-cell">
-                                    <button onClick={() => removeTimeSlot(tIndex)}><RiDeleteBinLine/></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </Table>
-                <AddRowBtn onClick={addTimeSlot}><RiAddLine/> Agregar Horario</AddRowBtn>
-            </TableContainer>
+                                ))}
+                                {pendingMatches.length === 0 && <div className="empty">Todo asignado ✅</div>}
+                           </div>
+                        </ContainerScroll>
+                    </div>
+                </Sidebar>
 
-            {/* --- DOCK DE PARTIDOS --- */}
-            <Dock onDragOver={handleDragOver} onDrop={handleDropOnDock}>
-                <div className="dock-header">
-                    <h4><RiCalendarLine/> Partidos por Asignar ({unscheduledMatches.length})</h4>
-                </div>
-                <div className="dock-content">
-                    {unscheduledMatches.map(m => (
-                        <DockCard 
-                            key={m.id} 
-                            draggable 
-                            onDragStart={(e) => handleDragStart(e, m, 'dock')}
-                        >
-                            <img src={m.t1?.logo_url || v.iconofotovacia} alt="t1" />
-                            <div className="vs">VS</div>
-                            <img src={m.t2?.logo_url || v.iconofotovacia} alt="t2" />
-                            <div className="names">
-                                <span>{m.t1?.name}</span>
-                                <span>{m.t2?.name}</span>
-                            </div>
-                        </DockCard>
-                    ))}
-                    {unscheduledMatches.length === 0 && <p className="empty">¡Todo asignado!</p>}
-                </div>
-            </Dock>
-        </Workspace>
+                <DropZone 
+                    onDragOver={(e)=>{e.preventDefault(); if(!isConfirmed) setIsDragOver(true)}} 
+                    onDragLeave={()=>setIsDragOver(false)}
+                    onDrop={handleDrop}
+                    $isOver={isDragOver}
+                >
+                    {scheduledMatches.length === 0 ? (
+                        <div className="placeholder"><RiCalendarLine size={40}/>
+                            {isConfirmed ? "Sin partidos programados." : "Arrastra los partidos aquí"}
+                        </div>
+                    ) : (
+                        <Grid>
+                            {scheduledMatches.map((match, idx) => (
+                                <ScheduledMatchRow 
+                                    key={match.id}
+                                    match={match}
+                                    isConfirmed={isConfirmed}
+                                    onUpdateDate={(val) => { const up=[...scheduledMatches]; up[idx].date=val; setScheduledMatches(up); }}
+                                    onUpdateTime={(val) => { if(checkTimeCollision(val, match.id)) setToast({show:true, msg:'Conflicto', type:'warning'}); const up=[...scheduledMatches]; up[idx].time=val; setScheduledMatches(up); }}
+                                    onRemove={() => { setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); setPendingMatches([...pendingMatches, { ...match, status: 'Pendiente' }]); }}
+                                    onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }}
+                                    onPostpone={(m) => { if(onMatchUpdate) onMatchUpdate(m.id, { status: 'Pendiente', date: null }); }}
+                                />
+                            ))}
+                        </Grid>
+                    )}
+                </DropZone>
+            </Workspace>
+        </TransitionWrapper>
 
-        <FooterActions>
-             <Btnsave 
-                titulo="Confirmar Horarios" 
-                bgcolor={v.colorPrincipal} 
-                icono={<v.iconoguardar/>} 
-                funcion={handleConfirm}
-                width="100%"
-            />
-        </FooterActions>
+        <Footer>
+            <div className="note">Duración: {durationMatch} min</div>
+            {!isConfirmed && (
+                <div style={{position:'relative'}}>
+                    {!canConfirm && <WarningTooltip>Confirma jornada previa.</WarningTooltip>}
+                    <Btnsave titulo="Confirmar Jornada" funcion={handleTryConfirm} icono={canConfirm ? <RiCheckDoubleLine/> : <RiLockLine/>} bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} />
+                </div>
+            )}
+        </Footer>
+
+        <ManualMatchModal isOpen={manualModalOpen} onClose={()=>setManualModalOpen(false)} teams={teams} onAdd={handleManualAdd} />
+        <ResultModal isOpen={resultModalOpen} onClose={()=>setResultModalOpen(false)} match={selectedMatchResult} onSave={(id, h, a) => { if(onMatchUpdate) onMatchUpdate(id, { status: 'Finalizado', goals1: parseInt(h), goals2: parseInt(a) }); }} />
+
     </Container>
   );
 }
 
-// --- COMPONENTES AUXILIARES ---
-const MiniMatchCard = ({ match, draggable, onDragStart }) => (
-    <MiniCard draggable={draggable} onDragStart={onDragStart}>
-        <div className="logos">
-            <img src={match.t1?.logo_url} alt="" />
-            <span>vs</span>
-            <img src={match.t2?.logo_url} alt="" />
-        </div>
-        <div className="info">
-            <span className="name">{match.t1?.name}</span>
-            <span className="name">{match.t2?.name}</span>
-        </div>
-    </MiniCard>
-);
+// Estilos
+const slideIn = keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `;
+const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
+const TransitionWrapper = styled.div` animation: ${slideIn} 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; width: 100%; `;
 
-// --- STYLED COMPONENTS (MEJORADOS) ---
-
-const Container = styled.div` display: flex; flex-direction: column; gap: 20px; animation: fadeIn 0.3s ease; `;
-
-const TopBar = styled.div` 
-    display: flex; justify-content: space-between; align-items: flex-end; 
-    background: ${({theme})=>theme.bgcards}; padding: 15px; border-radius: 12px; border: 1px solid ${({theme})=>theme.bg4};
-    .date-control { display:flex; flex-direction:column; gap:5px; label{font-size:0.8rem; font-weight:600;} }
-    .legend { font-size: 0.9rem; opacity: 0.7; }
+const Workspace = styled.div` display: flex; gap: 20px; height: 500px; @media(max-width:768px){flex-direction:column; height:auto;} `;
+const Sidebar = styled.div` 
+    width: 280px; background: ${({theme})=>theme.bgcards}; border: 1px solid ${({theme})=>theme.bg4}; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+    .sb-header { padding: 10px; border-bottom: 1px solid ${({theme})=>theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 600; 
+        .btn-add { background: none; border: none; font-size: 1.5rem; color: ${v.colorPrincipal}; cursor: pointer; transition:0.2s; &:hover{transform:scale(1.1);} } 
+    }
+    .scroll-wrapper { flex: 1; height: 100%; overflow: hidden; }
+    .list-content { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+    .empty { text-align: center; opacity: 0.5; margin-top: 20px; }
 `;
-
-const Workspace = styled.div`
-    display: grid; grid-template-columns: 1fr 280px; gap: 20px; height: 600px;
-    @media (max-width: 1000px) { grid-template-columns: 1fr; height: auto; }
+const DropZone = styled.div`
+    flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; 
+    border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 20px; overflow-y: auto; position: relative;
+    .placeholder { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; opacity:0.5; svg{display:block; margin:0 auto 10px;} }
 `;
-
-const TableContainer = styled.div`
-    overflow: auto; background: ${({theme})=>theme.bgcards}; border-radius: 12px; border: 1px solid ${({theme})=>theme.bg4}; position: relative;
-    display: flex; flex-direction: column;
+const Grid = styled.div` display: flex; flex-direction: column; gap: 10px; `;
+const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note{font-size:0.8rem; opacity:0.7;} `;
+const WarningTooltip = styled.div`
+    position: absolute; bottom: 100%; right: 0; background: #e74c3c; color: white;
+    padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 8px;
+    white-space: nowrap; pointer-events: none; animation: fadeIn 0.2s;
+    &:after { content:''; position:absolute; top:100%; right:20px; border:5px solid transparent; border-top-color:#e74c3c; }
 `;
-
-const Table = styled.table`
-    width: 100%; border-collapse: separate; border-spacing: 0; min-width: 800px;
-    th { position: sticky; top: 0; background: ${({theme})=>theme.bg3}; color: ${({theme})=>theme.text}; padding: 10px; font-size: 0.85rem; z-index: 10; border-bottom: 2px solid ${({theme})=>theme.bg4}; }
-    td { border-bottom: 1px solid ${({theme})=>theme.bg4}; border-right: 1px solid ${({theme})=>theme.bg4}; vertical-align: top; padding: 5px; height: 80px; width: 120px; }
-    .time-cell { width: 80px; text-align: center; input { width: 100%; text-align: center; border:none; background:transparent; color: ${({theme})=>theme.text}; font-weight:700; } }
-    .action-cell { width: 40px; text-align: center; vertical-align: middle; button { background:transparent; border:none; color:${v.rojo}; cursor:pointer; font-size:1.2rem; } }
-    
-    /* Drag zones */
-    td.empty .placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0.1; font-size: 1.5rem; border: 2px dashed transparent; border-radius: 8px; transition: 0.2s; }
-    td.empty:hover .placeholder { border-color: ${({theme})=>theme.primary}; opacity: 0.5; color: ${({theme})=>theme.primary}; }
-`;
-
-const AddRowBtn = styled.button`
-    width: 100%; padding: 10px; background: ${({theme})=>theme.bgtotal}; border: none; border-top: 1px solid ${({theme})=>theme.bg4};
-    color: ${({theme})=>theme.primary}; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
-    &:hover { background: ${({theme})=>theme.bg4}; }
-`;
-
-const Dock = styled.div`
-    background: ${({theme})=>theme.bg3}; border-left: 1px solid ${({theme})=>theme.bg4}; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px;
-    .dock-header { padding: 15px; border-bottom: 1px solid ${({theme})=>theme.bg4}; h4 { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; } }
-    .dock-content { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; .empty { text-align: center; opacity: 0.5; margin-top: 20px; } }
-`;
-
-const DockCard = styled.div`
-    background: ${({theme})=>theme.bgcards}; border: 1px solid ${({theme})=>theme.bg4}; padding: 10px; border-radius: 10px;
-    display: flex; align-items: center; gap: 10px; cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
-    &:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-color: ${v.colorPrincipal}; }
-    &:active { cursor: grabbing; }
-    
-    img { width: 32px; height: 32px; border-radius: 50%; object-fit: contain; background: #fff; padding: 2px; }
-    .vs { font-size: 0.7rem; font-weight: 800; opacity: 0.5; }
-    .names { display: flex; flex-direction: column; font-size: 0.8rem; font-weight: 600; overflow: hidden; span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
-`;
-
-const MiniCard = styled.div`
-    background: ${({theme})=>theme.primary}20; border: 1px solid ${({theme})=>theme.primary}; border-radius: 8px; padding: 5px; cursor: grab; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 4px;
-    &:active { cursor: grabbing; }
-    .logos { display: flex; justify-content: center; align-items: center; gap: 5px; img { width: 20px; height: 20px; border-radius: 50%; background: #fff; } span { font-size: 0.6rem; font-weight: 700; opacity: 0.7; } }
-    .info { display: flex; flex-direction: column; text-align: center; .name { font-size: 0.65rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; } }
-`;
-
-const FooterActions = styled.div` margin-top: 10px; `;

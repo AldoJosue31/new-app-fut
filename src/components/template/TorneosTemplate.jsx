@@ -1,21 +1,21 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
-import { Title, TabsNavigation, ContentContainer } from "../../index";
+import { Title, TabsNavigation, ContentContainer, EmptyState } from "../../index";
 import { RiCalendarEventLine, RiBarChartGroupedLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 import { TabContent } from "../moleculas/TabsNavigation";
+import { Device } from "../../styles/breakpoints"; 
 
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
   isLoadingData,
   standings,
-  // 1. RECIBIMOS LAS PROPS NUEVAS AQUÍ
   reglas,
-  setReglas
+  setReglas,
 }) {
   const tabList = [
     { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
@@ -28,53 +28,124 @@ export function TorneosTemplate({
 
   return (
     <ContentContainer>
-      <HeaderSection><Title>Gestión de Torneos</Title></HeaderSection>
+      <HeaderSection>
+        <Title>Gestión de Torneos</Title>
+      </HeaderSection>
 
-      <div style={{width: '100%', maxWidth: '1000px'}}>
+      <TabsWrapper>
          <TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={setActiveTab} />
-      </div>
+      </TabsWrapper>
 
       <ContentGrid>
         {activeTab === "definir" && (
-          <TabContent>
+          <FullWidthTab>
             <TorneoDefinicionTab 
                 form={form} onChange={onChange} onSubmit={onSubmit} loading={loading}
                 divisionName={divisionName} activeTournament={activeTournament}
                 allTeams={allTeams} participatingIds={participatingIds}
                 onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                 isLoading={isLoadingData}
-                
-                // 2. PASAMOS LAS PROPS AL HIJO AQUÍ
                 reglas={reglas}
                 setReglas={setReglas}
             />
-            </TabContent>
+          </FullWidthTab>
         )}
 
-{activeTab === "jornadas" && (
-  <TabContent>
-           <TorneoJornadasTab 
-              activeTournament={activeTournament} 
-              // CAMBIO IMPORTANTE: Pasamos la lista filtrada, no 'allTeams'
-              participatingTeams={participatingTeamsObj} 
-           />
-           </TabContent>
+        {activeTab === "jornadas" && (
+          <FullWidthTab>
+            {activeTournament ? (
+               <TorneoJornadasTab 
+                  activeTournament={activeTournament} 
+                  participatingTeams={participatingTeamsObj} 
+               />
+            ) : (
+               <EmptyState
+                 title="Torneo no iniciado"
+                 description="Debes definir e iniciar un torneo en la pestaña 'Definir Torneo' antes de ver las jornadas."
+                 actionComponent={
+                   <ActionButton onClick={() => setActiveTab("definir")}>
+                     Ir a Definir
+                   </ActionButton>
+                 }
+               />
+            )}
+           </FullWidthTab>
         )}
 
         {activeTab === "standings" && (
-          <TabContent>
-           <TorneosStandingsTab
-              standings={standings} 
-              division={{ name: divisionName }} 
-              season={activeTournament?.season || "Torneo Actual"}
-              loading={isLoadingData}
-           />
-           </TabContent>
+          <FullWidthTab>
+            {activeTournament ? (
+<TorneosStandingsTab 
+division={{ name: divisionName }}
+    torneo={activeTournament}
+    equipos={participatingTeamsObj} // <--- ¡ESTO FALTABA!
+    estadisticas={standings}        // <--- CAMBIAR 'standings' por 'estadisticas'
+/>
+            ) : (
+               <EmptyState
+                 icon={<v.iconocorona size={40}/>}
+                 title="Sin Datos"
+                 description="No hay un torneo activo para mostrar la tabla de posiciones."
+               />
+            )}
+           </FullWidthTab>
         )}
       </ContentGrid>
     </ContentContainer>
   );
 }
 
-const HeaderSection = styled.div` margin-bottom: 10px; width: 100%; max-width: 1000px; `;
-const ContentGrid = styled.div` display: flex; justify-content: center; width: 100%; `;
+// --- ESTILOS ACTUALIZADOS ---
+
+const HeaderSection = styled.div`
+  margin-bottom: 20px;
+  width: 100%;
+  /* CAMBIO: Aumentado de 1000px a 1600px para más espacio en desktop */
+  max-width: 1600px; 
+  display: flex;
+  flex-direction: column;
+  @media ${Device.mobile} { align-items: center; text-align: center; }
+`;
+
+const TabsWrapper = styled.div`
+  width: 100%;
+  /* CAMBIO: Aumentado de 1000px a 1600px */
+  max-width: 1600px;
+  margin: 0 auto 20px auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; 
+`;
+
+const ContentGrid = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  /* CAMBIO: Aumentado de 1000px a 1600px */
+  max-width: 1600px;
+  gap: 20px;
+`;
+
+const FullWidthTab = styled(TabContent)`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden; 
+`;
+
+const ActionButton = styled.button`
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 8px;
+  border: none;
+  background: ${v.colorPrincipal};
+  color: #fff;
+  font-weight: 600;
+  transition: all 0.2s;
+  
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+`;

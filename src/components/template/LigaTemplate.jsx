@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { Device } from "../../styles/breakpoints";
-import { Title, TabsNavigation } from "../../index";
+import { Title, TabsNavigation, EmptyState } from "../../index";
 import { RiShieldUserLine, RiBarChartGroupedLine, RiSettings4Line, RiBuilding2Line } from "react-icons/ri";
 import { GiWhistle } from "react-icons/gi";
 
@@ -23,7 +23,16 @@ export function LigaTemplate({
     { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
   ];
-
+if (!loading && !leagueData) {
+      return (
+        <Container>
+           <EmptyState 
+              title="Liga no encontrada"
+              description="No pudimos cargar la información de tu liga. Intenta recargar la página."
+           />
+        </Container>
+      )
+  }
   return (
     <Container>
       <HeaderSection><Title>Mi Liga</Title></HeaderSection>

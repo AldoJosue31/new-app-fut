@@ -11,9 +11,12 @@ export const Modal = ({ isOpen, onClose, title, children, closeOnOverlayClick = 
       <ModalContainer $width={width} onClick={(e) => e.stopPropagation()}>
         <Header>
           <h3>{title}</h3>
-          <button className="close-btn" onClick={onClose}>
-            <AiOutlineClose />
-          </button>
+          {/* Si hay onClose, mostramos la X. Si no, asumimos que es un modal bloqueante */}
+          {onClose && (
+            <button className="close-btn" onClick={onClose}>
+              <AiOutlineClose />
+            </button>
+          )}
         </Header>
         <Body>
           {children}
@@ -35,7 +38,8 @@ const Overlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  /* CORRECCIÓN: Z-Index muy alto para superar al FullScreenContainer (9999) */
+  z-index: 100000; 
   animation: ${fadeIn} 0.2s ease-out;
   padding: 20px;
 `;
@@ -43,7 +47,7 @@ const Overlay = styled.div`
 const ModalContainer = styled.div`
   background-color: ${({ theme }) => theme.bgcards};
   width: 100%;
-  max-width: ${({ $width }) => $width}; /* Usamos la prop width */
+  max-width: ${({ $width }) => $width};
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.2);
   animation: ${slideIn} 0.3s ease-out;
@@ -51,12 +55,12 @@ const ModalContainer = styled.div`
   flex-direction: column;
   overflow: hidden;
   color: ${({ theme }) => theme.text};
-  transition: max-width 0.3s ease; /* Animación suave si cambia el ancho */
+  transition: max-width 0.3s ease;
 `;
 
 const Header = styled.div`
   padding: 20px 25px;
-  border-bottom: 1px solid ${({ theme }) => theme.bg4}; /* Usamos var theme */
+  border-bottom: 1px solid ${({ theme }) => theme.bg4};
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -72,10 +76,9 @@ const Header = styled.div`
 
 const Body = styled.div`
   padding: 25px;
-  max-height: 85vh; /* Un poco más alto para aprovechar espacio */
+  max-height: 85vh;
   overflow-y: auto;
   
-  /* Scrollbar personalizado */
   &::-webkit-scrollbar { width: 8px; }
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb { background: ${({theme})=>theme.bg4}; border-radius: 4px; }

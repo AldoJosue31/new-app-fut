@@ -89,7 +89,7 @@ export const v = {
     bpbart: `48em`,
     bpmarge: `62em`,
     bphomer: `75em`,
-    colorPrincipal: `#00F34A`,
+    colorPrincipal: `#038024`,
     boxshadowGray: `0px 10px 15px -3px rgba(0,0,0,0.1)`,
     iconoFlechabajo: IoIosArrowDown,
     iconocorona: RiVipCrownFill,

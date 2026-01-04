@@ -1,50 +1,71 @@
 import React, { useEffect, useState } from "react";
 import styled, { ThemeProvider } from "styled-components";
+import { useLocation } from "react-router-dom";
+
+// Imports de Componentes y Contextos
 import {
   AuthContextProvider,
   GlobalStyles,
   MyRoutes,
   Sidebar,
   UserAuth,
-  PantallaCarga // <--- 1. Nos aseguramos que esté importado
+  PantallaCarga 
 } from "./index";
+
+// Imports de Estilos
 import { Device } from "./styles/breakpoints";
 import { v } from "./styles/variables";
+
+// Imports de Stores (Zustand)
 import { useThemeStore } from "./store/ThemeStore";
-import { useLocation } from "react-router-dom";
+import { useDivisionStore } from "./store/DivisionStore";
 
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { themeStyle } = useThemeStore();
-  const { isLoading } = UserAuth();
   const { pathname } = useLocation();
+  
+  // Obtenemos el usuario del Contexto (Fuente de verdad actual para la sesión)
+  const { user, isLoading } = UserAuth();
+  
+  // Obtenemos la función de limpieza del Store de Divisiones
+  const { resetStore: resetDivision } = useDivisionStore();
 
   const [loaderDone, setLoaderDone] = useState(!isLoading);
 
+  // --- 1. EFECTO REACTIVO (ORQUESTADOR DE LIMPIEZA) ---
+  // Este useEffect vigila el estado del usuario. Si se desconecta, limpia los datos.
+  useEffect(() => {
+    if (!isLoading && !user) {
+      // Usuario no logueado o sesión cerrada -> Limpiar Stores
+      resetDivision();
+      // Aseguramos limpieza del persist en localStorage
+      localStorage.removeItem('division-storage');
+    }
+  }, [user, isLoading, resetDivision]);
+
+  // --- 2. CONTROL DEL LOADER ---
   useEffect(() => {
     if (isLoading) {
       setLoaderDone(false);
       return;
     }
-    // Puedes ajustar este delay si quieres que la animación del logo dure más tiempo
     const delay = 2000; 
     const timer = setTimeout(() => setLoaderDone(true), delay);
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // --- 2. RENDERIZADO DE LA NUEVA PANTALLA DE CARGA ---
+  // --- 3. RENDERIZADO DE PANTALLA DE CARGA ---
   if (!loaderDone) {
     return (
       <ThemeProvider theme={themeStyle}>
         <GlobalStyles />
-        {/* Ya no usamos <Container> aquí porque PantallaCarga es fixed full-screen */}
         <PantallaCarga />
       </ThemeProvider>
     );
   }
 
-  // --- LÓGICA DE EXCLUSIÓN ---
-  // Si es Login o Invitación, NO mostramos el Sidebar
+  // --- 4. LÓGICA DE INTERFAZ (SIDEBAR vs FULLSCREEN) ---
   const isStandAlonePage = pathname === "/login" || pathname.startsWith("/invitation");
 
   return (
@@ -52,7 +73,6 @@ function AppContent() {
       <GlobalStyles />
       
       {!isStandAlonePage ? (
-        // MODO DASHBOARD (CON SIDEBAR)
         <Container className={sidebarOpen ? "active" : ""}>
           <section className="contentSidebar">
             <Sidebar state={sidebarOpen} setState={setSidebarOpen} />
@@ -65,7 +85,6 @@ function AppContent() {
           </section>
         </Container>
       ) : (
-        // MODO PANTALLA COMPLETA (LOGIN / REGISTRO)
         <MyRoutes />
       )}
     </ThemeProvider>
@@ -80,21 +99,21 @@ function App() {
   );
 }
 
-// --- STYLED COMPONENTS DEL LAYOUT PRINCIPAL ---
-// (He eliminado los estilos de LoaderWrap, Spinner, etc. porque ya no se usan)
-
+// --- STYLED COMPONENTS ---
 const Container = styled.main`
   display: grid;
   grid-template-columns: 1fr;
   transition: 0.1s ease-in-out;
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
+  min-height: 100vh; /* Asegura que ocupe al menos toda la pantalla */
   
   .contentSidebar {
     display: block;
     background-color: ${({ theme }) => theme.bgtgderecha};
     position: absolute; 
     z-index: 50;
+    height: 100%; /* Asegura que el sidebar cubra la altura */
     @media ${Device.tablet} {
        display: initial;
        position: relative;
