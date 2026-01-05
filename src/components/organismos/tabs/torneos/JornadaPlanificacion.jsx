@@ -64,19 +64,20 @@ export function JornadaPlanificacion({
     const dbPendingForThisJornada = [];
 
     const formatMatch = (m) => {
-        const localTeam = teams.find(t => t.id === m.team1_id);
-        const visitTeam = teams.find(t => t.id === m.team2_id);
+        const localTeam = teams.find(t => t.id == m.team1_id);
+        const visitTeam = teams.find(t => t.id == m.team2_id);
         if (!localTeam || !visitTeam) return null;
         return {
             id: m.id,
             local: localTeam,
             visitante: visitTeam,
             date: m.date ? m.date.split('T')[0] : getDefaultDate(),
-            time: m.date ? m.date.split('T')[1]?.substring(0,5) : "10:00",
+            time: m.date && m.date.includes('T') ? m.date.split('T')[1].substring(0,5) : "10:00",
             status: m.status,
             goals1: m.goals1,
             goals2: m.goals2,
-            originJornada: m.jornadas?.name // Capturamos el nombre de la jornada origen
+            jornada_id: m.jornada_id,
+            originJornada: m.jornadas?.name 
         };
     };
 
@@ -92,6 +93,7 @@ export function JornadaPlanificacion({
     });
     setScheduledMatches(dbScheduled);
 
+    // Filtro Ajustado: Muestra pendientes globales que NO estén en la lista local
     const formattedGlobalPending = globalPendingMatches
         .map(formatMatch)
         .filter(m => m !== null)
@@ -99,6 +101,7 @@ export function JornadaPlanificacion({
 
     const allPendingReal = [...dbPendingForThisJornada, ...formattedGlobalPending];
 
+    // Sugerencias
     let suggestions = [];
     if (fixtureMaster[jornadaIndex]) {
         const crucesIdeales = fixtureMaster[jornadaIndex];
@@ -119,9 +122,10 @@ export function JornadaPlanificacion({
         });
     }
     setPendingMatches([...allPendingReal, ...suggestions]);
+
   }, [matchesDB, globalPendingMatches, teams, fixtureMaster, jornadaIndex]);
 
-  // --- Helpers & Handlers ---
+  // --- Helpers ---
   const getDefaultDate = () => {
      if(!activeTournament?.start_date) return new Date().toISOString().split('T')[0];
      const fecha = new Date(activeTournament.start_date);
@@ -143,16 +147,42 @@ export function JornadaPlanificacion({
       return false;
   };
 
+  // --- HANDLE DROP (MODIFICADO PARA PERMITIR DOBLE JORNADA) ---
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
     if (!draggedMatch || isConfirmed) return;
-    const teamsPlaying = new Set();
-    scheduledMatches.forEach(m => { teamsPlaying.add(m.local.id); teamsPlaying.add(m.visitante.id); });
-    if (teamsPlaying.has(draggedMatch.local.id) || teamsPlaying.has(draggedMatch.visitante.id)) {
-        setToast({ show: true, msg: 'Error: Equipo ya juega en esta jornada.', type: 'error' });
+
+    // 1. Evitar duplicar EXACTAMENTE el mismo partido (ID match)
+    const alreadyExists = scheduledMatches.some(m => m.id === draggedMatch.id);
+    if (alreadyExists) {
+        setToast({ show: true, msg: 'Este partido específico ya está en la lista.', type: 'warning' });
         return;
     }
+
+    // 2. Validación de Cruces (Opcional: evitar A vs B dos veces el mismo día)
+    const duplicateMatchup = scheduledMatches.find(m => 
+       (m.local.id === draggedMatch.local.id && m.visitante.id === draggedMatch.visitante.id) ||
+       (m.local.id === draggedMatch.visitante.id && m.visitante.id === draggedMatch.local.id)
+    );
+    if (duplicateMatchup) {
+         setToast({ show: true, msg: 'Advertencia: Estos dos equipos ya juegan entre sí hoy.', type: 'warning' });
+         // No hacemos return, permitimos que se agregue si el usuario quiere
+    }
+
+    // 3. Detectar Doble Jornada (Informativo, NO Bloqueante)
+    // Verificamos si alguno de los equipos ya está jugando otro partido
+    const isDoubleHeader = scheduledMatches.some(m => 
+        m.local.id === draggedMatch.local.id || m.local.id === draggedMatch.visitante.id ||
+        m.visitante.id === draggedMatch.local.id || m.visitante.id === draggedMatch.visitante.id
+    );
+
+    if (isDoubleHeader) {
+        // Mostramos un mensaje de éxito/info indicando que se ha permitido la doble jornada
+        setToast({ show: true, msg: 'Doble Jornada: Un equipo jugará más de un partido.', type: 'success' });
+    }
+
+    // 4. Calcular hora automática
     let nextTime = "10:00";
     if (scheduledMatches.length > 0) {
         const lastMatch = scheduledMatches[scheduledMatches.length - 1];
@@ -162,10 +192,21 @@ export function JornadaPlanificacion({
         const nm = totalMin % 60;
         nextTime = `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
     }
+
     if (checkTimeCollision(nextTime, draggedMatch.id)) {
-        setToast({ show: true, msg: `Choque de horarios (${nextTime}).`, type: 'warning' });
+        setToast({ show: true, msg: `Horario ajustado (${nextTime})`, type: '' });
     }
-    const newMatch = { ...draggedMatch, time: nextTime, date: draggedMatch.date || getDefaultDate(), status: 'Programado' };
+
+    // 5. Agregar el partido
+    const newMatch = { 
+        ...draggedMatch, 
+        time: nextTime, 
+        date: draggedMatch.date || getDefaultDate(), 
+        status: 'Programado',
+        is_rescheduled: true, 
+        new_jornada_id: jornadaData?.id 
+    };
+
     setScheduledMatches([...scheduledMatches, newMatch]);
     setPendingMatches(pendingMatches.filter(m => m.id !== draggedMatch.id));
     setDraggedMatch(null);
@@ -176,14 +217,19 @@ export function JornadaPlanificacion({
       if (localId === visitaId) { setToast({ show: true, msg: 'Equipos iguales.', type: 'error' }); return; }
       const t1 = teams.find(t => t.id === parseInt(localId));
       const t2 = teams.find(t => t.id === parseInt(visitaId));
-      const exists = [...scheduledMatches, ...pendingMatches].some(m => 
+      
+      // Permitimos agregar cruces manuales incluso si ya juegan otros partidos (Doble jornada manual)
+      // Solo validamos que no sea el MISMO cruce exacto
+      const matchExists = [...scheduledMatches, ...pendingMatches].some(m => 
         (m.local.id === t1.id && m.visitante.id === t2.id) || (m.local.id === t2.id && m.visitante.id === t1.id)
       );
-      if (exists) { setToast({ show: true, msg: 'Cruce existente.', type: 'error' }); return; }
+      
+      if (matchExists) { setToast({ show: true, msg: 'Este cruce específico ya existe.', type: 'error' }); return; }
+      
       const newManual = { id: `manual-${Date.now()}`, local: t1, visitante: t2, date: getDefaultDate(), status: 'Pendiente' };
       setPendingMatches([...pendingMatches, newManual]);
       setManualModalOpen(false);
-      setToast({ show: true, msg: 'Agregado.', type: 'success' });
+      setToast({ show: true, msg: 'Partido agregado.', type: 'success' });
   };
 
   const handleTryConfirm = () => {
@@ -206,7 +252,6 @@ export function JornadaPlanificacion({
             totalJornadas={totalJornadas}
         />
 
-        {/* key={jornadaIndex} fuerza remontaje y dispara animación */}
         <TransitionWrapper key={jornadaIndex}>
             <Workspace>
                 <Sidebar>
@@ -218,7 +263,6 @@ export function JornadaPlanificacion({
                             </button>
                         )}
                     </div>
-                    {/* Contenido scrolleable mejorado */}
                     <div className="scroll-wrapper">
                         <ContainerScroll>
                            <div className="list-content">
@@ -259,8 +303,11 @@ export function JornadaPlanificacion({
                                     match={match}
                                     isConfirmed={isConfirmed}
                                     onUpdateDate={(val) => { const up=[...scheduledMatches]; up[idx].date=val; setScheduledMatches(up); }}
-                                    onUpdateTime={(val) => { if(checkTimeCollision(val, match.id)) setToast({show:true, msg:'Conflicto', type:'warning'}); const up=[...scheduledMatches]; up[idx].time=val; setScheduledMatches(up); }}
-                                    onRemove={() => { setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); setPendingMatches([...pendingMatches, { ...match, status: 'Pendiente' }]); }}
+                                    onUpdateTime={(val) => { if(checkTimeCollision(val, match.id)) setToast({show:true, msg:'Conflicto horario', type:'warning'}); const up=[...scheduledMatches]; up[idx].time=val; setScheduledMatches(up); }}
+                                    onRemove={() => { 
+                                        setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
+                                        setPendingMatches([...pendingMatches, { ...match, status: 'Pendiente' }]); 
+                                    }}
                                     onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }}
                                     onPostpone={(m) => { if(onMatchUpdate) onMatchUpdate(m.id, { status: 'Pendiente', date: null }); }}
                                 />
