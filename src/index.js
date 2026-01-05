@@ -40,6 +40,7 @@ export { ManagerCreateModal } from "./components/organismos/adminManagers/Manage
 export { default as PantallaCarga } from './components/organismos/PantallaCarga';
 export { TorneoDashboard } from './components/organismos/tabs/torneos/subcomponents/TorneoDashboard';
 export { TabGeneral, TabFormat, TabScoring, TabGameRules } from './components/organismos/tabs/torneos/subcomponents/TorneoFormTabs';
+export { Tooltip } from './components/atomos/Tooltip';
 export * from './context/AuthContent';
 export * from './hooks/ProtectedRoute';
 export * from './hooks/useSort';
