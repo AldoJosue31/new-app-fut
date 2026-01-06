@@ -86,10 +86,10 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
   try {
     if (!torneoId) throw new Error("ID de torneo no proporcionado");
 
-    // 1. Obtener o Crear la Jornada
+    // 1. Obtener o Crear la Jornada (SIN confirmar el estado aún)
     const { data: existingJornada, error: fetchError } = await supabase
       .from('jornadas')
-      .select('id')
+      .select('id, status')
       .eq('tournament_id', torneoId)
       .eq('name', `Jornada ${jornadaData.id}`)
       .maybeSingle();
@@ -97,21 +97,16 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     if (fetchError) throw fetchError;
 
     let jornadaId;
-
     if (existingJornada) {
       jornadaId = existingJornada.id;
-      // Actualizar estatus de la jornada a Confirmada
-      await supabase
-        .from('jornadas')
-        .update({ status: 'Confirmada' }) 
-        .eq('id', jornadaId);
     } else {
+      // Si es nueva, la creamos como 'Pendiente'
       const { data: newJornada, error: insertError } = await supabase
         .from('jornadas')
         .insert({
           tournament_id: torneoId,
           name: `Jornada ${jornadaData.id}`,
-          status: 'Confirmada'
+          status: 'Pendiente'
         })
         .select()
         .single();
@@ -120,55 +115,60 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
       jornadaId = newJornada.id;
     }
 
-    // 2. Unificar listas (Programados + Pendientes)
-    // Los pendientes se guardan con status 'Pendiente' y fecha NULL (o fecha base sin hora)
-    
+    // 2. Formatear partidos (Mantenemos la lógica de IDs reales vs temporales)
     const formatMatchForDB = (m, status) => {
-       // Determinar si es un ID temporal del frontend (ej: "match-0-12-14" o "suggested-...")
-       const isTempId = String(m.id).includes('-') || typeof m.id === 'string';
-       
+       const isRealId = m.id && !String(m.id).includes('-') && !isNaN(Number(m.id));
        const payload = {
-          jornada_id: jornadaId,
+          jornada_id: status === 'Programado' ? jornadaId : (m.jornada_id || jornadaId),
           team1_id: m.local.id,
           team2_id: m.visitante.id,
           status: status
        };
 
        if (status === 'Programado') {
-          // Combinar fecha y hora
           const fullDate = new Date(`${m.date}T${m.time}:00`);
           payload.date = fullDate.toISOString();
        } else {
-          // Pendiente: Puede tener fecha tentativa o null
           payload.date = m.date ? new Date(m.date).toISOString() : null; 
        }
 
-       // Solo incluimos el ID si es REAL (numérico de la DB), si es temporal no lo mandamos para que cree uno nuevo
-       if (!isTempId) {
-          payload.id = m.id;
-       }
-
+       if (isRealId) payload.id = Number(m.id);
        return payload;
     };
 
     const scheduledPayloads = jornadaData.matches.map(m => formatMatchForDB(m, 'Programado'));
     const pendingPayloads = (jornadaData.pendingMatches || []).map(m => formatMatchForDB(m, 'Pendiente'));
-
     const allMatches = [...scheduledPayloads, ...pendingPayloads];
 
-    // 3. Ejecutar Upsert
-    // Supabase upsert requiere que si mandas ID, este exista. Si no mandas ID, crea.
-    const { data: savedMatches, error: matchError } = await supabase
-      .from('matches')
-      .upsert(allMatches, { onConflict: 'id' }) 
-      .select();
+    // 3. Intentar guardar los partidos
+    // Si aquí salta el error de "HORARIO NO DISPONIBLE", el flujo irá al catch 
+    // y la jornada NO se confirmará.
+    const toUpdate = allMatches.filter(m => m.id);
+    const toInsert = allMatches.filter(m => !m.id);
 
-    if (matchError) throw matchError;
+    if (toUpdate.length > 0) {
+        const { error: upError } = await supabase.from('matches').upsert(toUpdate, { onConflict: 'id' });
+        if (upError) throw upError;
+    }
 
-    return { jornadaId, savedMatches };
+    if (toInsert.length > 0) {
+        const { error: inError } = await supabase.from('matches').insert(toInsert);
+        if (inError) throw inError;
+    }
+
+    // 4. SOLO SI LOS PARTIDOS SE GUARDARON: Confirmar la jornada
+    const { error: confirmError } = await supabase
+      .from('jornadas')
+      .update({ status: 'Confirmada' })
+      .eq('id', jornadaId);
+
+    if (confirmError) throw confirmError;
+
+    return { jornadaId };
 
   } catch (error) {
+    // El mensaje de "HORARIO NO DISPONIBLE" se lanzará aquí
     console.error("Error en guardarJornadaService:", error.message);
-    throw error;
+    throw error; 
   }
 };

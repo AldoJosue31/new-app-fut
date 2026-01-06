@@ -100,20 +100,21 @@ division={{ name: divisionName }}
 const HeaderSection = styled.div`
   margin-bottom: 20px;
   width: 100%;
-  /* CAMBIO: Aumentado de 1000px a 1600px para más espacio en desktop */
   max-width: 1600px; 
   display: flex;
   flex-direction: column;
+  /* En móvil centramos, en desktop alineamos a la izquierda para aprovechar el espacio */
   @media ${Device.mobile} { align-items: center; text-align: center; }
+  @media ${Device.laptop} { align-items: flex-start; text-align: left; }
 `;
 
 const TabsWrapper = styled.div`
   width: 100%;
-  /* CAMBIO: Aumentado de 1000px a 1600px */
   max-width: 1600px;
   margin: 0 auto 20px auto;
   display: flex;
   flex-direction: column;
+  /* FIX: min-width: 0 evita que Flexbox rompa el layout con contenidos anchos */
   min-width: 0; 
 `;
 
@@ -122,16 +123,18 @@ const ContentGrid = styled.div`
   flex-direction: column;
   align-items: center;
   width: 100%;
-  /* CAMBIO: Aumentado de 1000px a 1600px */
   max-width: 1600px;
   gap: 20px;
+  /* FIX: Aseguramos que nada dentro exceda el ancho */
+  overflow-x: hidden; 
 `;
 
 const FullWidthTab = styled(TabContent)`
   width: 100%;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden; 
+  /* FIX: Importante para sliders y tablas */
+  overflow: visible; 
 `;
 
 const ActionButton = styled.button`

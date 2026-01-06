@@ -15,6 +15,7 @@ export * from './components/moleculas/PhotoUploader';
 export * from './components/moleculas/DivisionSelector';
 export * from './components/moleculas/TabsNavigation'
 export * from './components/moleculas/SortControl';
+export { ViewToggle } from "./components/organismos/toggle/ViewToggle";
 export * from './components/organismos/Footer';
 export * from './components/organismos/ToggleTema';
 export * from './components/organismos/ConfirmModal';
@@ -40,6 +41,7 @@ export { ManagerCreateModal } from "./components/organismos/adminManagers/Manage
 export { default as PantallaCarga } from './components/organismos/PantallaCarga';
 export { TorneoDashboard } from './components/organismos/tabs/torneos/subcomponents/TorneoDashboard';
 export { TabGeneral, TabFormat, TabScoring, TabGameRules } from './components/organismos/tabs/torneos/subcomponents/TorneoFormTabs';
+export { Tooltip } from './components/atomos/Tooltip';
 export * from './context/AuthContent';
 export * from './hooks/ProtectedRoute';
 export * from './hooks/useSort';
