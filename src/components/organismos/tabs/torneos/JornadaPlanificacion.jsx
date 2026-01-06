@@ -1,26 +1,38 @@
 import React, { useState, useEffect, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
-import { v, Btnsave, Toast, ContainerScroll } from "../../../../index"; 
+import { v, Btnsave, Toast, ContainerScroll, ViewToggle } from "../../../../index"; 
 import { generarFixture } from "../../../../services/torneos"; 
 import { RiCalendarLine, RiCheckDoubleLine, RiAddCircleLine, RiLockLine } from "react-icons/ri";
 
+// Subcomponentes modulares
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PendingMatchCard } from "./planificacion/PendingMatchCard";
 import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
 import { ManualMatchModal } from "./planificacion/ManualMatchModal";
 import { ResultModal } from "./planificacion/ResultModal";
+import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 
 export function JornadaPlanificacion({ 
-  matchesDB = [], globalPendingMatches = [], teams, jornadaIndex,
-  activeTournament, jornadaData, onConfirm, onChangeJornada,
-  totalJornadas, onMatchUpdate, canConfirm 
+  matchesDB = [], 
+  globalPendingMatches = [], 
+  teams,         
+  jornadaIndex,
+  activeTournament,
+  jornadaData, 
+  onConfirm, 
+  onChangeJornada,
+  totalJornadas,
+  onMatchUpdate,
+  canConfirm 
 }) {
+  // --- Estados de Datos ---
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [pendingMatches, setPendingMatches] = useState([]);
   const [fixtureMaster, setFixtureMaster] = useState([]);
   const [weekStartDate, setWeekStartDate] = useState("");
 
-  // UI States
+  // --- Estados de UI ---
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'grid'
   const [draggedMatch, setDraggedMatch] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [manualModalOpen, setManualModalOpen] = useState(false);
@@ -30,12 +42,56 @@ export function JornadaPlanificacion({
 
   const isConfirmed = jornadaData?.status === 'Confirmada';
   
+  // Cálculo de duración total: (Mins x 2) + Descanso
   const durationMatch = useMemo(() => {
     const minPorTiempo = parseInt(activeTournament?.config?.minutosPorTiempo || 45);
-    return (minPorTiempo * 2) + 15;
+    const minDescanso = parseInt(activeTournament?.config?.minutosDescanso || 15);
+    return (minPorTiempo * 2) + minDescanso;
   }, [activeTournament]);
 
-// Inicializar fecha de semana según configuración del torneo
+  // --- Lógica de Ajuste Automático de Horarios ---
+  const autoAdjustTimes = (matches, dateToFix) => {
+    // Filtramos los partidos del día que se modificó y los ordenamos por hora
+    let matchesOfDay = matches
+      .filter(m => m.date === dateToFix)
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    if (matchesOfDay.length <= 1) return matches;
+
+    let adjusted = false;
+    for (let i = 1; i < matchesOfDay.length; i++) {
+        const prev = matchesOfDay[i - 1];
+        const curr = matchesOfDay[i];
+
+        const [ph, pm] = prev.time.split(':').map(Number);
+        const prevEndMinutes = (ph * 60) + pm + durationMatch;
+        
+        const [ch, cm] = curr.time.split(':').map(Number);
+        const currStartMinutes = (ch * 60) + cm;
+
+        // Si el actual empieza antes de que termine el anterior, lo movemos
+        if (currStartMinutes < prevEndMinutes) {
+            const newH = Math.floor(prevEndMinutes / 60);
+            const newM = prevEndMinutes % 60;
+            curr.time = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+            adjusted = true;
+        }
+    }
+
+    if (adjusted) {
+        setToast({ 
+          show: true, 
+          msg: "Horarios ajustados automáticamente para evitar traslapes.", 
+          type: "warning" 
+        });
+    }
+
+    const otherMatches = matches.filter(m => m.date !== dateToFix);
+    return [...otherMatches, ...matchesOfDay];
+  };
+
+  // --- 1. Gestión de Fechas y Semanas ---
+
   useEffect(() => {
     if (activeTournament?.start_date) {
         const baseDate = new Date(activeTournament.start_date + "T00:00:00");
@@ -44,7 +100,6 @@ export function JornadaPlanificacion({
     }
   }, [activeTournament, jornadaIndex]);
 
-// AJUSTE AUTOMÁTICO: Si cambia la semana, movemos partidos fuera de rango al nuevo inicio
   useEffect(() => {
     if (!weekStartDate || isConfirmed || scheduledMatches.length === 0) return;
     const start = new Date(weekStartDate + "T00:00:00");
@@ -63,12 +118,15 @@ export function JornadaPlanificacion({
 
     if (count > 0) {
         setScheduledMatches(adjusted);
-        setToast({ show: true, msg: `Se ajustaron ${count} partidos a la nueva semana definida (DD/MM/YY).`, type: 'warning' });
+        setToast({ 
+            show: true, 
+            msg: `Se ajustaron ${count} partidos al nuevo rango semanal.`, 
+            type: 'warning' 
+        });
     }
   }, [weekStartDate]);
 
-  // --- 3. Validación de fecha individual ---
-const validateDateInRange = (targetDate) => {
+  const validateDateInRange = (targetDate) => {
     const start = new Date(weekStartDate + "T00:00:00");
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
@@ -79,19 +137,25 @@ const validateDateInRange = (targetDate) => {
         return weekStartDate;
     }
     if (current > end) {
-        setToast({ show: true, msg: 'La fecha excede la semana. Ajustada al límite de 7 días.', type: 'warning' });
+        setToast({ show: true, msg: 'La fecha excede el límite de 7 días.', type: 'warning' });
         return end.toISOString().split('T')[0];
     }
     return targetDate;
   };
 
-  // --- 4. Fixture y Procesamiento ---
+  const lastMatchDate = useMemo(() => {
+    if (scheduledMatches.length === 0) return weekStartDate;
+    const dates = scheduledMatches.map(m => new Date(m.date + "T00:00:00").getTime());
+    return new Date(Math.max(...dates)).toISOString().split('T')[0];
+  }, [scheduledMatches, weekStartDate]);
+
+  // --- 2. Lógica de Fixture y Procesamiento ---
+
   useEffect(() => {
     if (teams && teams.length > 1) {
-      const vueltas = activeTournament?.config?.vueltas || "1";
       const baseRounds = generarFixture(teams);
       let finalFixture = [...baseRounds];
-      if (vueltas === "2") {
+      if (activeTournament?.config?.vueltas === "2") {
           const roundsVuelta = baseRounds.map(r => r.map(m => ({ home: m.away, away: m.home })));
           finalFixture = [...baseRounds, ...roundsVuelta];
       }
@@ -157,25 +221,7 @@ const validateDateInRange = (targetDate) => {
     setPendingMatches([...allPendingReal, ...suggestions]);
   }, [matchesDB, globalPendingMatches, teams, fixtureMaster, jornadaIndex, weekStartDate]);
 
-    const lastMatchDate = useMemo(() => {
-    if (scheduledMatches.length === 0) return weekStartDate;
-    const dates = scheduledMatches.map(m => new Date(m.date + "T00:00:00").getTime());
-    return new Date(Math.max(...dates)).toISOString().split('T')[0];
-  }, [scheduledMatches, weekStartDate]);
-
-  const checkTimeCollision = (newTime, matchIdToIgnore) => {
-      const [h, m] = newTime.split(':').map(Number);
-      const newStart = h * 60 + m;
-      const newEnd = newStart + durationMatch;
-      for (const match of scheduledMatches) {
-          if (match.id === matchIdToIgnore) continue;
-          const [mh, mm] = match.time.split(':').map(Number);
-          const existStart = mh * 60 + mm;
-          const existEnd = existStart + durationMatch;
-          if (newStart < existEnd && newEnd > existStart) return true; 
-      }
-      return false;
-  };
+  // --- 3. Manejadores de Drop y Actualización ---
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -188,26 +234,24 @@ const validateDateInRange = (targetDate) => {
     }
 
     let nextTime = "10:00";
-    if (scheduledMatches.length > 0) {
-        const lastMatch = scheduledMatches[scheduledMatches.length - 1];
-        const [h, m] = lastMatch.time.split(':').map(Number);
-        const totalMin = h * 60 + m + durationMatch;
-        nextTime = `${String(Math.floor(totalMin/60)).padStart(2,'0')}:${String(totalMin%60).padStart(2,'0')}`;
+    const matchesOfToday = scheduledMatches.filter(m => m.date === weekStartDate);
+    if (matchesOfToday.length > 0) {
+        const last = matchesOfToday.sort((a,b) => a.time.localeCompare(b.time)).pop();
+        const [h, m] = last.time.split(':').map(Number);
+        const total = (h * 60) + m + durationMatch;
+        nextTime = `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
     }
 
-    const newMatch = { 
-        ...draggedMatch, 
-        time: nextTime, 
-        date: weekStartDate, // Por defecto al inicio de la semana seleccionada
-        status: 'Programado'
-    };
-
-    setScheduledMatches([...scheduledMatches, newMatch]);
+    const newMatch = { ...draggedMatch, time: nextTime, date: weekStartDate, status: 'Programado' };
+    const allMatches = [...scheduledMatches, newMatch];
+    
+    // Al agregar uno nuevo, validamos traslapes
+    setScheduledMatches(autoAdjustTimes(allMatches, weekStartDate));
     setPendingMatches(pendingMatches.filter(m => m.id !== draggedMatch.id));
     setDraggedMatch(null);
   };
 
-const handleTryConfirm = () => {
+  const handleTryConfirm = () => {
       if(!canConfirm) { setToast({ show: true, msg: `Confirma la jornada anterior primero.`, type: 'error' }); return; }
       if (onConfirm) onConfirm({ id: jornadaIndex + 1, matches: scheduledMatches, pendingMatches });
   };
@@ -215,15 +259,22 @@ const handleTryConfirm = () => {
   return (
     <Container>
         <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={()=>setToast({...toast, show:false})}/>
-        <PlanningHeader 
-            jornadaIndex={jornadaIndex} status={jornadaData.status} 
-            onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
-            onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
-            totalJornadas={totalJornadas}
-            weekStartDate={weekStartDate} setWeekStartDate={setWeekStartDate} lastMatchDate={lastMatchDate}
-        />
+        
+        <HeaderWrapper>
+            <PlanningHeader 
+                jornadaIndex={jornadaIndex} 
+                status={jornadaData.status} 
+                onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
+                onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
+                totalJornadas={totalJornadas}
+                weekStartDate={weekStartDate}
+                setWeekStartDate={setWeekStartDate}
+                lastMatchDate={lastMatchDate}
+            />
+            <ViewToggle currentMode={viewMode} onToggle={setViewMode} />
+        </HeaderWrapper>
 
-        <TransitionWrapper key={jornadaIndex}>
+        <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
                 <Sidebar>
                     <div className="sb-header">
@@ -246,42 +297,60 @@ const handleTryConfirm = () => {
                     </div>
                 </Sidebar>
 
-                <DropZone 
-                    onDragOver={(e)=>{e.preventDefault(); if(!isConfirmed) setIsDragOver(true)}} 
-                    onDragLeave={()=>setIsDragOver(false)}
-                    onDrop={handleDrop} $isOver={isDragOver}
-                >
-                    {scheduledMatches.length === 0 ? (
-                        <div className="placeholder"><RiCalendarLine size={40}/> {isConfirmed ? "Sin partidos." : "Arrastra partidos aquí"}</div>
+                <MainZone>
+                    {viewMode === 'list' ? (
+                        <DropZone 
+                            onDragOver={(e)=>{e.preventDefault(); if(!isConfirmed) setIsDragOver(true)}} 
+                            onDragLeave={()=>setIsDragOver(false)}
+                            onDrop={handleDrop} 
+                            $isOver={isDragOver}
+                        >
+                            {scheduledMatches.length === 0 ? (
+                                <div className="placeholder"><RiCalendarLine size={40}/> {isConfirmed ? "Sin partidos." : "Arrastra partidos aquí"}</div>
+                            ) : (
+                                <GridList>
+                                    {scheduledMatches
+                                      .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+                                      .map((match, idx) => (
+                                        <ScheduledMatchRow 
+                                            key={match.id} match={match} isConfirmed={isConfirmed}
+                                            onUpdateDate={(val) => { 
+                                                const validated = validateDateInRange(val);
+                                                const up = [...scheduledMatches];
+                                                up[idx].date = validated;
+                                                setScheduledMatches(autoAdjustTimes(up, validated)); 
+                                            }}
+                                            onUpdateTime={(val) => { 
+                                                const up = [...scheduledMatches];
+                                                up[idx].time = val;
+                                                setScheduledMatches(autoAdjustTimes(up, up[idx].date));
+                                            }}
+                                            onRemove={() => { 
+                                                setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
+                                                setPendingMatches([...pendingMatches, { ...match, status: 'Pendiente' }]); 
+                                            }}
+                                            onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }}
+                                            onPostpone={(m) => { if(onMatchUpdate) onMatchUpdate(m.id, { status: 'Pendiente', date: null }); }}
+                                        />
+                                    ))}
+                                </GridList>
+                            )}
+                        </DropZone>
                     ) : (
-                        <Grid>
-                            {scheduledMatches.map((match, idx) => (
-                                <ScheduledMatchRow 
-                                    key={match.id} match={match} isConfirmed={isConfirmed}
-onUpdateDate={(val) => { 
-                        const validated = validateDateInRange(val);
-                        const up=[...scheduledMatches]; up[idx].date=validated; setScheduledMatches(up); 
-                    }}
-                                    onUpdateTime={(val) => { 
-                                        if(checkTimeCollision(val, match.id)) setToast({show:true, msg:'Conflicto horario', type:'warning'}); 
-                                        const up=[...scheduledMatches]; up[idx].time=val; setScheduledMatches(up); 
-                                    }}
-                                    onRemove={() => { 
-                                        setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                        setPendingMatches([...pendingMatches, { ...match, status: 'Pendiente' }]); 
-                                    }}
-                                    onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }}
-                                    onPostpone={(m) => { if(onMatchUpdate) onMatchUpdate(m.id, { status: 'Pendiente', date: null }); }}
-                                />
-                            ))}
-                        </Grid>
+                        <WeeklyGridView 
+                            weekStartDate={weekStartDate}
+                            scheduledMatches={scheduledMatches}
+                            isConfirmed={isConfirmed}
+                            onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }}
+                            onPostpone={(m) => { if(onMatchUpdate) onMatchUpdate(m.id, { status: 'Pendiente', date: null }); }}
+                        />
                     )}
-                </DropZone>
+                </MainZone>
             </Workspace>
         </TransitionWrapper>
 
         <Footer>
-            <div className="note">Duración: {durationMatch} min</div>
+            <div className="note">Duración total partido: {durationMatch} min</div>
             {!isConfirmed && (
                 <div style={{position:'relative'}}>
                     {!canConfirm && <WarningTooltip>Confirma jornada previa.</WarningTooltip>}
@@ -296,27 +365,26 @@ onUpdateDate={(val) => {
   );
 }
 
-// Estilos
 const slideIn = keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `;
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
-const TransitionWrapper = styled.div` animation: ${slideIn} 0.4s both; width: 100%; `;
-const Workspace = styled.div` display: flex; gap: 20px; height: 500px; @media(max-width:768px){flex-direction:column; height:auto;} `;
+const HeaderWrapper = styled.div` display: flex; gap: 10px; align-items: stretch; > div:first-child { flex: 1; } `;
+const TransitionWrapper = styled.div` animation: ${slideIn} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
+const Workspace = styled.div` display: flex; gap: 20px; height: 550px; @media(max-width:768px){flex-direction:column; height:auto;} `;
 const Sidebar = styled.div` 
     width: 280px; background: ${({theme})=>theme.bgcards}; border: 1px solid ${({theme})=>theme.bg4}; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
-    .sb-header { padding: 10px; border-bottom: 1px solid ${({theme})=>theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 600; 
-        .btn-add { background: none; border: none; font-size: 1.5rem; color: ${v.colorPrincipal}; cursor: pointer; } 
-    }
+    .sb-header { padding: 10px; border-bottom: 1px solid ${({theme})=>theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; }
     .scroll-wrapper { flex: 1; height: 100%; overflow: hidden; }
     .list-content { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
     .empty { text-align: center; opacity: 0.5; margin-top: 20px; }
 `;
+const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; `;
 const DropZone = styled.div`
     flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; 
     border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 20px; overflow-y: auto; position: relative;
     .placeholder { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; opacity:0.5; }
 `;
-const Grid = styled.div` display: flex; flex-direction: column; gap: 10px; `;
-const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note{font-size:0.8rem; opacity:0.7;} `;
+const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; `;
+const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note{ font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 5px 10px; border-radius: 6px; } `;
 const WarningTooltip = styled.div`
     position: absolute; bottom: 100%; right: 0; background: #e74c3c; color: white;
     padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; margin-bottom: 8px; white-space: nowrap;

@@ -251,28 +251,40 @@ export const TabGameRules = ({ reglas, setReglas }) => {
     setReglas({ ...reglas, [e.target.name]: e.target.value });
   };
 
+  const inputStyle = (val) => ({
+    width: '100%', 
+    border: `2px solid ${!val ? '#e74c3c' : '#333'}`,
+    borderRadius: '15px', 
+    padding: '12px',
+    background: v.bgtotal, 
+    color: v.text, 
+    outline: 'none'
+  });
+
   return (
     <TabContainer>
       <SectionLabel>Tiempos y Duración</SectionLabel>
-      <Row2>
+      <Row3>
         <FormGroup>
            <label>Minutos por Tiempo {reglas?.minutosPorTiempo === "" && <span style={{color:'red'}}>*</span>}</label>
-           {/* Input normal para aceptar empty string */}
            <input 
               type="number"
               name="minutosPorTiempo" 
               value={reglas?.minutosPorTiempo} 
               onChange={handleChange}
               placeholder="Ej: 45"
-              style={{
-                  width: '100%', 
-                  border: `2px solid ${!reglas.minutosPorTiempo ? '#e74c3c' : '#333'}`, // Borde rojo si está vacío
-                  borderRadius: '15px', 
-                  padding: '12px',
-                  background: v.bgtotal, 
-                  color: v.text, 
-                  outline: 'none'
-              }}
+              style={inputStyle(reglas.minutosPorTiempo)}
+           />
+        </FormGroup>
+        <FormGroup>
+           <label>Minutos de Descanso</label>
+           <input 
+              type="number"
+              name="minutosDescanso" 
+              value={reglas?.minutosDescanso} 
+              onChange={handleChange}
+              placeholder="Ej: 15"
+              style={inputStyle(reglas.minutosDescanso !== "")}
            />
         </FormGroup>
         <FormGroup>
@@ -283,7 +295,7 @@ export const TabGameRules = ({ reglas, setReglas }) => {
               <option value="Sin Reingreso">Sin Reingreso</option>
            </SelectStyled>
         </FormGroup>
-      </Row2>
+      </Row3>
       <Divider />
       <FormGroup>
          <label>Observaciones o Reglas Extra</label>
