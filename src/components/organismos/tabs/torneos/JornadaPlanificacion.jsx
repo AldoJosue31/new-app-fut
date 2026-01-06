@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast, ContainerScroll, ViewToggle } from "../../../../index"; 
 import { generarFixture } from "../../../../services/torneos"; 
+import { supabase } from "../../../../supabase/supabase.config";
 import { RiCalendarLine, RiCheckDoubleLine, RiAddCircleLine, RiLockLine } from "react-icons/ri";
 
 // Subcomponentes modulares
@@ -28,6 +29,7 @@ export function JornadaPlanificacion({
   // --- Estados de Datos ---
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [pendingMatches, setPendingMatches] = useState([]);
+  const [externalMatches, setExternalMatches] = useState([]); // Partidos de otras divisiones
   const [fixtureMaster, setFixtureMaster] = useState([]);
   const [weekStartDate, setWeekStartDate] = useState("");
 
@@ -69,7 +71,7 @@ export function JornadaPlanificacion({
         const [ch, cm] = curr.time.split(':').map(Number);
         const currStartMinutes = (ch * 60) + cm;
 
-        // Si el actual empieza antes de que termine el anterior, lo movemos
+        // Si el actual empieza antes de que termine el anterior, lo movemos automáticamente
         if (currStartMinutes < prevEndMinutes) {
             const newH = Math.floor(prevEndMinutes / 60);
             const newM = prevEndMinutes % 60;
@@ -90,8 +92,38 @@ export function JornadaPlanificacion({
     return [...otherMatches, ...matchesOfDay];
   };
 
-  // --- 1. Gestión de Fechas y Semanas ---
+  // --- Búsqueda de partidos de TODAS las divisiones (Master Calendar) ---
+  useEffect(() => {
+    if (!weekStartDate) return;
+    const fetchCrossDivisionMatches = async () => {
+        const start = `${weekStartDate}T00:00:00Z`;
+        const endDate = new Date(weekStartDate + "T00:00:00");
+        endDate.setDate(endDate.getDate() + 7);
+        const end = endDate.toISOString();
 
+        // Buscamos partidos de cualquier división en el rango de esta semana
+        const { data, error } = await supabase
+            .from('matches')
+            .select(`
+                id, date, status, 
+                team1:teams!matches_team1_id_fkey(name),
+                team2:teams!matches_team2_id_fkey(name),
+                jornada:jornadas!inner(
+                    tournament:tournaments!inner(
+                        division:divisions!inner(name)
+                    )
+                )
+            `)
+            .gte('date', start)
+            .lt('date', end)
+            .neq('jornada_id', jornadaData.id); // Excluimos los de la jornada actual para no duplicar
+
+        if (!error) setExternalMatches(data || []);
+    };
+    fetchCrossDivisionMatches();
+  }, [weekStartDate, jornadaData.id]);
+
+  // --- Gestión de Fechas y Semanas ---
   useEffect(() => {
     if (activeTournament?.start_date) {
         const baseDate = new Date(activeTournament.start_date + "T00:00:00");
@@ -124,7 +156,7 @@ export function JornadaPlanificacion({
             type: 'warning' 
         });
     }
-  }, [weekStartDate]);
+  }, [weekStartDate, isConfirmed, scheduledMatches]);
 
   const validateDateInRange = (targetDate) => {
     const start = new Date(weekStartDate + "T00:00:00");
@@ -149,8 +181,7 @@ export function JornadaPlanificacion({
     return new Date(Math.max(...dates)).toISOString().split('T')[0];
   }, [scheduledMatches, weekStartDate]);
 
-  // --- 2. Lógica de Fixture y Procesamiento ---
-
+  // --- Lógica de Fixture y Procesamiento de Datos ---
   useEffect(() => {
     if (teams && teams.length > 1) {
       const baseRounds = generarFixture(teams);
@@ -221,8 +252,7 @@ export function JornadaPlanificacion({
     setPendingMatches([...allPendingReal, ...suggestions]);
   }, [matchesDB, globalPendingMatches, teams, fixtureMaster, jornadaIndex, weekStartDate]);
 
-  // --- 3. Manejadores de Drop y Actualización ---
-
+  // --- Manejadores de Interacción ---
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -245,7 +275,7 @@ export function JornadaPlanificacion({
     const newMatch = { ...draggedMatch, time: nextTime, date: weekStartDate, status: 'Programado' };
     const allMatches = [...scheduledMatches, newMatch];
     
-    // Al agregar uno nuevo, validamos traslapes
+    // Al agregar uno nuevo, validamos automáticamente los traslapes
     setScheduledMatches(autoAdjustTimes(allMatches, weekStartDate));
     setPendingMatches(pendingMatches.filter(m => m.id !== draggedMatch.id));
     setDraggedMatch(null);
@@ -258,7 +288,12 @@ export function JornadaPlanificacion({
 
   return (
     <Container>
-        <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={()=>setToast({...toast, show:false})}/>
+        <Toast 
+          show={toast.show} 
+          message={toast.msg} 
+          type={toast.type} 
+          onClose={()=>setToast({...toast, show:false})}
+        />
         
         <HeaderWrapper>
             <PlanningHeader 
@@ -340,6 +375,8 @@ export function JornadaPlanificacion({
                         <WeeklyGridView 
                             weekStartDate={weekStartDate}
                             scheduledMatches={scheduledMatches}
+                            externalMatches={externalMatches}
+                            divisionActual={activeTournament?.division?.name}
                             isConfirmed={isConfirmed}
                             onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }}
                             onPostpone={(m) => { if(onMatchUpdate) onMatchUpdate(m.id, { status: 'Pendiente', date: null }); }}
@@ -354,7 +391,12 @@ export function JornadaPlanificacion({
             {!isConfirmed && (
                 <div style={{position:'relative'}}>
                     {!canConfirm && <WarningTooltip>Confirma jornada previa.</WarningTooltip>}
-                    <Btnsave titulo="Confirmar Jornada" funcion={handleTryConfirm} icono={canConfirm ? <RiCheckDoubleLine/> : <RiLockLine/>} bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} />
+                    <Btnsave 
+                      titulo="Confirmar Jornada" 
+                      funcion={handleTryConfirm} 
+                      icono={canConfirm ? <RiCheckDoubleLine/> : <RiLockLine/>} 
+                      bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} 
+                    />
                 </div>
             )}
         </Footer>
