@@ -79,7 +79,8 @@ export function TorneosTemplate({
 division={{ name: divisionName }}
     torneo={activeTournament}
     equipos={participatingTeamsObj} // <--- ¡ESTO FALTABA!
-    estadisticas={standings}        // <--- CAMBIAR 'standings' por 'estadisticas'
+    estadisticas={standings}
+    reglas={reglas}        // <--- CAMBIAR 'standings' por 'estadisticas'
 />
             ) : (
                <EmptyState
