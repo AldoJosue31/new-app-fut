@@ -41,6 +41,7 @@ export function Torneos() {
         setReglas={actions.setReglas}
         onInclude={actions.onInclude}
         onExclude={actions.onExclude}
+        refreshStandings={actions.refreshData}
       />
     </>
   );
