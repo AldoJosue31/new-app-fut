@@ -16,6 +16,7 @@ export function TorneosTemplate({
   standings,
   reglas,
   setReglas,
+  refreshStandings
 }) {
   const tabList = [
     { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
@@ -57,6 +58,7 @@ export function TorneosTemplate({
                <TorneoJornadasTab 
                   activeTournament={activeTournament} 
                   participatingTeams={participatingTeamsObj} 
+                  refreshStandings={refreshStandings}
                />
             ) : (
                <EmptyState
@@ -79,7 +81,8 @@ export function TorneosTemplate({
 division={{ name: divisionName }}
     torneo={activeTournament}
     equipos={participatingTeamsObj} // <--- ¡ESTO FALTABA!
-    estadisticas={standings}        // <--- CAMBIAR 'standings' por 'estadisticas'
+    estadisticas={standings}
+    reglas={reglas}        // <--- CAMBIAR 'standings' por 'estadisticas'
 />
             ) : (
                <EmptyState

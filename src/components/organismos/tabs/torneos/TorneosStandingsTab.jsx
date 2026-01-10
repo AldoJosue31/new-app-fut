@@ -1,279 +1,117 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { v } from '../../../../styles/variables';
-import { Device } from '../../../../styles/breakpoints'; //
+import { Device } from '../../../../styles/breakpoints'; 
 import { ContentContainer } from '../../../atomos/ContentContainer';
+import { ContainerScroll } from '../../../atomos/ContainerScroll';
 
-// --- STYLED COMPONENTS RESPONSIVE ---
-
-const TableCard = styled.div`
-  background-color: ${({ theme }) => theme.bg};
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-  margin-bottom: 30px;
-  border: 1px solid ${({ theme }) => theme.bg3 || '#eee'};
-  
-  /* CLAVE: Esto evita que la tabla rompa el layout de la página/tabs */
-  width: 100%;
-  max-width: 100%; 
-  overflow: hidden; 
-`;
-
-const TableScrollWrapper = styled.div`
-  width: 100%;
-  overflow-x: auto; /* Habilita el scroll horizontal interno */
-  -webkit-overflow-scrolling: touch;
-  
-  /* Ajuste para que el scrollbar no se solape */
-  padding-bottom: 5px; 
-  
-  &::-webkit-scrollbar {
-    height: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: ${({ theme }) => theme.bg3 || '#ccc'};
-    border-radius: 4px;
-  }
-`;
-
-const StyledTable = styled.table`
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  
-  /* Eliminamos el min-width forzado exagerado para que se adapte mejor */
-  /* Solo forzamos ancho si realmente hay muchas columnas visibles */
-`;
-
-const Th = styled.th`
-  background-color: ${({ theme }) => theme.bg2 || '#f8f9fa'};
-  color: ${({ theme }) => theme.textSoft || '#555'};
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  padding: 15px 10px;
-  text-align: center;
-  border-bottom: 2px solid ${({ theme }) => theme.bg3 || '#eee'};
-  white-space: nowrap;
-
-  /* Sticky primera columna (Equipo) */
-  &:first-child {
-    text-align: left;
-    padding-left: 16px;
-    position: sticky;
-    left: 0;
-    z-index: 10;
-    background-color: ${({ theme }) => theme.bg2 || '#f8f9fa'};
-    border-right: 1px solid rgba(0,0,0,0.05);
-  }
-
-  /* Sticky última columna (PTS) */
-  &:last-child {
-      position: sticky;
-      right: 0;
-      z-index: 10;
-      background-color: ${({ theme }) => theme.bg2 || '#f8f9fa'};
-      border-left: 1px solid rgba(0,0,0,0.05);
-  }
-`;
-
-const Td = styled.td`
-  padding: 16px 10px;
-  text-align: center;
-  font-size: 1rem;
-  color: ${({ theme }) => theme.text};
-  border-bottom: 1px solid ${({ theme }) => theme.bg3 || '#f0f0f0'};
-  white-space: nowrap;
-
-  /* Sticky primera columna */
-  &:first-child {
-    text-align: left;
-    padding-left: 16px;
-    font-weight: 600;
-    position: sticky;
-    left: 0;
-    background-color: ${({ theme }) => theme.bg};
-    z-index: 5;
-    border-right: 1px solid rgba(0,0,0,0.05);
-    max-width: 160px; /* Limitamos ancho en móvil */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    
-    @media ${Device.tablet} {
-        max-width: 250px; /* Más espacio en tablet/desktop */
-    }
-  }
-  
-  /* Sticky última columna (PTS) */
-  &:last-child {
-      font-weight: 800;
-      color: ${({ theme }) => theme.primary || '#007bff'};
-      position: sticky;
-      right: 0;
-      background-color: ${({ theme }) => theme.bg};
-      z-index: 5;
-      border-left: 1px solid rgba(0,0,0,0.05);
-  }
-`;
-
-// Celdas que se OCULTAN en móvil (< Tablet)
-const HideMobile = styled.th`
-  display: none;
-  /* Se muestran solo a partir de Tablet (768px) */
-  @media ${Device.tablet} {
-    display: table-cell;
-  }
-  
-  /* Heredamos estilos base de Th/Td para no repetir código */
-  background-color: ${({ as, theme }) => as === 'td' ? 'transparent' : (theme.bg2 || '#f8f9fa')};
-  border-bottom: ${({ as, theme }) => as === 'td' ? `1px solid ${theme.bg3}` : `2px solid ${theme.bg3}`};
-  padding: 15px 10px;
-  text-align: center;
-  color: ${({ as, theme }) => as === 'td' ? theme.text : (theme.textSoft || '#555')};
-  font-weight: ${({ as }) => as === 'td' ? '400' : '700'};
-  font-size: ${({ as }) => as === 'td' ? '1rem' : '0.85rem'};
-`;
-
-// Helper para celdas TD que se ocultan (usamos 'as="td"' en el componente HideMobile)
-const TdHidden = (props) => <HideMobile as="td" {...props} />;
-
-
-const TeamNameCell = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  
-  .position-number {
-    color: ${({ theme }) => theme.textSoft || '#888'};
-    font-size: 0.9rem;
-    min-width: 20px;
-  }
-
-  img {
-    width: 30px;
-    height: 30px;
-    object-fit: contain;
-  }
-
-  .team-name-text {
-    font-size: 0.95rem;
-    white-space: normal;
-    line-height: 1.2;
-    
-    @media ${Device.tablet} {
-        font-size: 1.1rem;
-    }
-  }
-`;
-
-const EmptyStateContainer = styled.div`
-    padding: 40px 20px;
-    text-align: center;
-    color: ${({ theme }) => theme.text};
-    opacity: 0.7;
-`;
-
-// --- COMPONENTE PRINCIPAL ---
 export const TorneosStandingsTab = ({ 
-  torneo, 
+  torneo = {}, 
   equipos = [], 
-  estadisticas = [] 
+  estadisticas = [],
+  reglas = {} 
 }) => {
+
+  /* 1. LÓGICA DE CONFIGURACIÓN: Nombres reales de tu base de datos/estado */
+  const config = useMemo(() => {
+    // Verificamos si la liguilla está habilitada en la config del torneo
+    const isLiguillaActive = torneo?.config?.zonaLiguilla ?? reglas?.zonaLiguilla ?? false;
+
+    return {
+      // ZONA VERDE: 
+      // Si hay Liguilla -> Se basa en 'clasificados' (Playoffs)
+      // Si NO hay Liguilla -> Se basa en 'ascensos' (Directos)
+      avanzan: isLiguillaActive 
+        ? Number(torneo?.config?.clasificados || reglas?.clasificados || 0)
+        : Number(torneo?.config?.ascensos || reglas?.ascensos || 0),
+      
+      // ZONA REPECHAJE: Solo visible si hay Liguilla
+      repechaje: isLiguillaActive 
+        ? Number(torneo?.config?.repechajeTeams || reglas?.repechajeTeams || 0)
+        : 0,
+      
+      // ZONA ROJA: Siempre visible (Descensos)
+      descensos: Number(torneo?.config?.descensos || reglas?.descensos || 0)
+    };
+  }, [torneo?.config, reglas]);
 
   const tablaGeneral = useMemo(() => {
     if (!equipos) return [];
-
-    const dataProcesada = equipos.map((equipo) => {
-      const stats = estadisticas.find(s => s.equipo_id === equipo.id) || {};
+    const data = equipos.map((equipo) => {
+      // BUSCA por team_id (así devuelve la vista)
+      const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
       return {
         id: equipo.id,
-        nombre: equipo.name || equipo.nombre || "Equipo", // Soporte para ambos nombres de campo
+        nombre: equipo.name || equipo.nombre,
         logo: equipo.logo_url || equipo.img, 
         pj: stats.pj || 0,
-        g: stats.g || 0,
-        e: stats.e || 0,
-        p: stats.p || 0,
+        g:  stats.pg || 0,   // <- ganados (pg en la vista)
+        e:  stats.pe || 0,   // <- empatados (pe en la vista)
+        p:  stats.pp || 0,   // <- perdidos (pp en la vista)
         gf: stats.gf || 0,
         gc: stats.gc || 0,
         dg: stats.dg || 0,
         pts: stats.pts || 0,
       };
     });
+    return data.sort((a, b) => b.pts !== a.pts ? b.pts - a.pts : b.dg - a.dg);
+  }, [equipos, JSON.stringify(estadisticas)]);
 
-    return dataProcesada.sort((a, b) => {
-      if (b.pts !== a.pts) return b.pts - a.pts;
-      if (b.dg !== a.dg) return b.dg - a.dg;
-      return b.gf - a.gf;
-    });
-
-  }, [equipos, estadisticas]);
+  /* 2. LÓGICA DE COLORES DE ZONA */
+  const getZoneColor = (index, total) => {
+    const position = index + 1;
+    if (config.avanzan > 0 && position <= config.avanzan) return v.verde;
+    if (config.repechaje > 0 && position <= (config.avanzan + config.repechaje)) return v.colorselector;
+    if (config.descensos > 0 && position > (total - config.descensos)) return v.rojo;
+    return null;
+  };
 
   return (
     <ContentContainer>
       <TableCard>
-        <TableScrollWrapper>
+        <TableScrollWrapper $height="auto">
           <StyledTable>
             <thead>
               <tr>
                 <Th>Equipo</Th>
-                <Th title="Partidos Jugados">PJ</Th>
-                
-                {/* Estadísticas Básicas (Visibles siempre) */}
-                <Th title="Ganados">G</Th>
-                <Th title="Empatados">E</Th>
-                <Th title="Perdidos">P</Th>
-
-                {/* Estadísticas Detalladas (Ocultas en Móvil) */}
-                <HideMobile title="Goles a Favor">GF</HideMobile>
-                <HideMobile title="Goles en Contra">GC</HideMobile>
-                <HideMobile title="Diferencia de Goles">DG</HideMobile>
-
-                <Th title="Puntos">PTS</Th>
+                <Th className="stat-col">PJ</Th>
+                <Th className="stat-col">G</Th>
+                <Th className="stat-col">E</Th>
+                <Th className="stat-col">P</Th>
+                <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
+                <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
+                <Th className="stat-col">DG</Th>
+                <Th className="stat-col">PTS</Th>
               </tr>
             </thead>
             <tbody>
-              {tablaGeneral.length > 0 ? (
-                tablaGeneral.map((fila, index) => (
-                  <tr key={fila.id}>
-                    <Td>
+              {tablaGeneral.map((fila, index) => {
+                const zoneColor = getZoneColor(index, tablaGeneral.length);
+                return (
+                  <Tr key={fila.id}>
+                    <Td className="team-col" $zoneColor={zoneColor}>
                       <TeamNameCell>
-                        <span className="position-number">{index + 1}</span>
-                        {fila.logo ? (
-                            <img src={fila.logo} alt={fila.nombre} onError={(e) => e.target.style.display='none'}/> 
-                        ) : (
-                             <div style={{width:30, height:30, background: '#eee', borderRadius: '50%'}}></div>
-                        )}
-                        <span className="team-name-text">{fila.nombre}</span>
+                        <span className="pos">{index + 1}</span>
+                        {fila.logo && <img src={fila.logo} alt="logo" />}
+                        <span className="team-name">{fila.nombre}</span>
                       </TeamNameCell>
                     </Td>
-                    
-                    <Td>{fila.pj}</Td>
-                    <Td>{fila.g}</Td>
-                    <Td>{fila.e}</Td>
-                    <Td>{fila.p}</Td>
-
-                    {/* Celdas ocultas en móvil */}
-                    <TdHidden>{fila.gf}</TdHidden>
-                    <TdHidden>{fila.gc}</TdHidden>
-                    <TdHidden style={{ 
-                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
-                        fontWeight: fila.dg !== 0 ? '600' : '400'
+                    <Td className="stat-col">{fila.pj}</Td>
+                    <Td className="stat-col">{fila.g}</Td>
+                    <Td className="stat-col">{fila.e}</Td>
+                    <Td className="stat-col">{fila.p}</Td>
+                    <HideOnMobile className="stat-col">{fila.gf}</HideOnMobile>
+                    <HideOnMobile className="stat-col">{fila.gc}</HideOnMobile>
+                    <Td className="stat-col" style={{ 
+                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit', 
+                        fontWeight: 'bold' 
                     }}>
                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
-                    </TdHidden>
-
-                    <Td>{fila.pts}</Td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="9" style={{ padding: 0 }}>
-                    <EmptyStateContainer>
-                      Sin equipos registrados.
-                    </EmptyStateContainer>
-                  </td>
-                </tr>
-              )}
+                    </Td>
+                    <Td className="stat-col points-cell">{fila.pts}</Td>
+                  </Tr>
+                );
+              })}
             </tbody>
           </StyledTable>
         </TableScrollWrapper>
@@ -281,3 +119,143 @@ export const TorneosStandingsTab = ({
     </ContentContainer>
   );
 };
+
+// --- STYLED COMPONENTS (DISEÑO SOLICITADO + LOGICA DE CENTRADO) ---
+
+const TableCard = styled.div`
+  background-color: ${({ theme }) => theme.bg};
+  border-radius: 16px;
+  box-shadow: ${v.boxshadowGray};
+  margin: 0 auto 30px auto; /* Centrado horizontal */
+  border: 1px solid ${({ theme }) => theme.color2}; 
+  width: 95%; /* Ancho reducido */
+  max-width: 900px; 
+  overflow: hidden; 
+`;
+
+const TableScrollWrapper = styled(ContainerScroll)`
+  overflow-x: auto; 
+  padding-right: 0;
+  padding-bottom: 8px;
+`;
+
+const StyledTable = styled.table`
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+`;
+
+const Th = styled.th`
+  background-color: ${({ theme }) => theme.bgtotal};
+  color: ${({ theme }) => theme.text};
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 18px 12px;
+  text-align: center;
+  border-bottom: 2px solid ${({ theme }) => theme.color2};
+  white-space: nowrap;
+
+  &:first-child {
+    text-align: left;
+    padding-left: 20px;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background-color: ${({ theme }) => theme.bgtotal};
+  }
+
+  &.stat-col {
+    width: 1%; /* Evita que las columnas de números se estiren */
+    min-width: 45px;
+  }
+`;
+
+const Td = styled.td`
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 0.95rem;
+  color: ${({ theme }) => theme.text};
+  border-bottom: 1px solid ${({ theme }) => theme.color2};
+  white-space: nowrap;
+
+  &.team-col {
+    text-align: left;
+    padding-left: 20px;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background-color: ${({ theme }) => theme.bg};
+    
+    /* BORDE DE ZONA: Usamos box-shadow inset para que sea visible en celdas sticky */
+    box-shadow: inset 5px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'};
+    
+    max-width: 180px; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    @media ${Device.tablet} {
+        max-width: 250px;
+    }
+  }
+
+  &.stat-col {
+    width: 1%;
+  }
+
+  &.points-cell {
+    font-weight: 800;
+    color: ${({ theme }) => theme.primary};
+    font-size: 1.05rem;
+  }
+`;
+
+const Tr = styled.tr`
+  &:hover td {
+    background-color: ${({ theme }) => theme.bgAlpha};
+  }
+  &:last-child td {
+    border-bottom: none;
+  }
+`;
+
+const HideOnMobile = styled.td`
+  display: none;
+  @media ${Device.tablet} {
+    display: table-cell;
+    padding: 16px 12px;
+    text-align: center;
+    border-bottom: 1px solid ${({ theme }) => theme.color2};
+  }
+`;
+
+const ThHideOnMobile = styled(Th)`
+  display: none;
+  @media ${Device.tablet} {
+    display: table-cell;
+  }
+`;
+
+const TeamNameCell = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+
+  .pos {
+    font-weight: 700;
+    min-width: 20px;
+    opacity: 0.5;
+    margin-left: 5px; /* Espacio para el borde de color */
+  }
+
+  .team-name {
+    font-weight: 600;
+  }
+`;

@@ -15,11 +15,23 @@ export function JornadaResultados({ matches, teams, jornadaId, refreshMatches })
     setTempScore({ g1: match.goals1 || 0, g2: match.goals2 || 0 });
   };
 
-  const handleSave = async (matchId) => {
+const handleSave = async (matchId) => {
+    // Reglas de puntuación
+    const winPoints = parseInt(activeTournament?.config?.winPoints ?? 3);
+    const drawPoints = parseInt(activeTournament?.config?.drawPoints ?? 1);
+    const lossPoints = parseInt(activeTournament?.config?.lossPoints ?? 0);
+
+    let p1 = 0, p2 = 0;
+    if (tempScore.g1 > tempScore.g2) { p1 = winPoints; p2 = lossPoints; }
+    else if (tempScore.g2 > tempScore.g1) { p1 = lossPoints; p2 = winPoints; }
+    else { p1 = drawPoints; p2 = drawPoints; }
+
     try {
         const { error } = await supabase.from('matches').update({
             goals1: tempScore.g1,
             goals2: tempScore.g2,
+            puntos1: p1, // Guardar puntos según reglas
+            puntos2: p2,
             status: 'Finalizado'
         }).eq('id', matchId);
         

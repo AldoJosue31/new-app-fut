@@ -1,12 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react"; // CORRECCIÓN: Se agrega { useEffect }
+import { preloadBackgroundRemoval } from "../utils/imageProcessor";
 import { EquiposTemplate } from "../components/template/EquiposTemplate";
 import { useEquiposLogic } from "../hooks/pages/useEquiposLogic";
 
 export function Equipos() {
-  const { data, form, modals, actions } = useEquiposLogic();
+  // Limpieza: Solo llamamos a la lógica una vez
+  const logic = useEquiposLogic();
+  const { data, form, modals, actions } = logic;
+
+  // Implementación de la pre-carga
+  useEffect(() => {
+    preloadBackgroundRemoval();
+  }, []);
 
   return (
     <EquiposTemplate 
+      {...logic}
       // Datos
       equipos={data.equipos}
       division={data.selectedDivision}

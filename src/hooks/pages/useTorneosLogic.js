@@ -98,23 +98,25 @@ export const useTorneosLogic = () => {
       setAllTeams(processedTeams);
       setActiveTournament(torneo);
 
-      if (torneo) {
-        setForm(prev => ({
-          ...prev,
-          season: torneo.season,
-          startDate: torneo.start_date,
-          vueltas: torneo.config?.vueltas || "1",
-          format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
-          maxTeams: torneo.config?.maxTeams || prev.maxTeams,
-          winPoints: torneo.config?.winPoints ?? 3,
-          drawPoints: torneo.config?.drawPoints ?? 1,
-          lossPoints: torneo.config?.lossPoints ?? 0,
-          // Recuperar estado de liguilla si existe
-          zonaLiguilla: torneo.config?.zonaLiguilla || false,
-          clasificados: torneo.config?.clasificados || 4,
-          hasRepechaje: torneo.config?.hasRepechaje || false,
-          repechajeTeams: torneo.config?.repechajeTeams || 0
-        }));
+if (torneo) {
+  setForm(prev => ({
+    ...prev,
+    season: torneo.season,
+    startDate: torneo.start_date,
+    vueltas: torneo.config?.vueltas || "1",
+    format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
+    maxTeams: torneo.config?.maxTeams || prev.maxTeams,
+    winPoints: torneo.config?.winPoints ?? 3,
+    drawPoints: torneo.config?.drawPoints ?? 1,
+    lossPoints: torneo.config?.lossPoints ?? 0,
+    zonaLiguilla: torneo.config?.zonaLiguilla || false,
+    clasificados: torneo.config?.clasificados || 4,
+    hasRepechaje: torneo.config?.hasRepechaje || false,
+    repechajeTeams: torneo.config?.repechajeTeams || 0,
+    // AGREGAR ESTAS LÍNEAS:
+ascensos: torneo.config?.ascensos || 0, // Recuperar de DB
+          descensos: torneo.config?.descensos || 0
+  }));
         
         if (torneo.config) {
           setReglas({
@@ -128,8 +130,10 @@ export const useTorneosLogic = () => {
         }
 
         try {
-            const dataStats = await getTablaPosicionesService(selectedDivision.id, torneo.season);
-            setStandings(dataStats || []);
+const dataStats = await getTablaPosicionesService(selectedDivision.name);
+
+console.log('📊 standings from DB:', dataStats);
+setStandings(dataStats || []);
         } catch (err) {
             console.error("Error posiciones:", err);
             setStandings([]);
@@ -233,6 +237,8 @@ export const useTorneosLogic = () => {
           clasificados: form.clasificados,
           hasRepechaje: form.hasRepechaje,
           repechajeTeams: form.repechajeTeams,
+          ascensos: form.ascensos, // Enviar a DB
+          descensos: form.descensos, // Enviar a DB
           ...reglas 
         },
         jornadas: jornadasArray
@@ -264,7 +270,8 @@ export const useTorneosLogic = () => {
       handleChange,
       onInclude: moveTeamToParticipating,
       onExclude: moveTeamToExcluded,
-      setReglas
+      setReglas,
+      refreshData: fetchData
     },
     formData: {
       form,

@@ -59,6 +59,64 @@ export const generarFixture = (equipos) => {
   return rounds;
 };
 
+export const actualizarConfigTorneoService = async (tournamentId, newConfig, baseJornadasCount) => {
+  // 1. Actualizar configuración en la tabla tournaments
+  const { error: updateError } = await supabase
+    .from('tournaments')
+    .update({ config: newConfig })
+    .eq('id', tournamentId);
+
+  if (updateError) throw updateError;
+
+  // 2. Manejo de Jornadas según las vueltas
+  if (newConfig.vueltas === "2") {
+    // Agregar jornadas si se cambia a Ida y Vuelta
+    const { data: jornadasActuales } = await supabase
+      .from('jornadas')
+      .select('id')
+      .eq('tournament_id', tournamentId);
+    
+    if (jornadasActuales.length === baseJornadasCount) {
+        const nuevasJornadas = [];
+        for (let i = baseJornadasCount; i < baseJornadasCount * 2; i++) {
+            nuevasJornadas.push({
+                tournament_id: tournamentId,
+                name: `Jornada ${i + 1}`,
+                status: 'Pendiente'
+            });
+        }
+        if (nuevasJornadas.length > 0) {
+            const { error: jError } = await supabase.from('jornadas').insert(nuevasJornadas);
+            if (jError) throw jError;
+        }
+    }
+  } else if (newConfig.vueltas === "1") {
+    // ELIMINAR jornadas excedentes si se regresa a Solo Ida
+    // Buscamos jornadas cuyo número en el nombre sea mayor al total de la primera vuelta
+    const { data: jornadasParaBorrar, error: fetchErr } = await supabase
+      .from('jornadas')
+      .select('id, name')
+      .eq('tournament_id', tournamentId);
+
+    if (!fetchErr && jornadasParaBorrar) {
+      const idsABorrar = jornadasParaBorrar
+        .filter(j => {
+          const numeroJornada = parseInt(j.name.replace('Jornada ', ''));
+          return numeroJornada > baseJornadasCount;
+        })
+        .map(j => j.id);
+
+      if (idsABorrar.length > 0) {
+        const { error: delError } = await supabase
+          .from('jornadas')
+          .delete()
+          .in('id', idsABorrar);
+        if (delError) throw delError;
+      }
+    }
+  }
+};
+
 export const iniciarTorneoService = async ({ 
   divisionName, season, startDate, config, jornadas 
 }) => {
@@ -77,16 +135,10 @@ export const iniciarTorneoService = async ({
   }
 };
 
-/**
- * Guarda la jornada y procesa partidos programados y pendientes.
- * @param {number} torneoId 
- * @param {object} jornadaData - Objeto con { id (index), matches (programados), pendingMatches (pendientes) }
- */
 export const guardarJornadaService = async (torneoId, jornadaData) => {
   try {
     if (!torneoId) throw new Error("ID de torneo no proporcionado");
 
-    // 1. Obtener o Crear la Jornada (SIN confirmar el estado aún)
     const { data: existingJornada, error: fetchError } = await supabase
       .from('jornadas')
       .select('id, status')
@@ -100,7 +152,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     if (existingJornada) {
       jornadaId = existingJornada.id;
     } else {
-      // Si es nueva, la creamos como 'Pendiente'
       const { data: newJornada, error: insertError } = await supabase
         .from('jornadas')
         .insert({
@@ -115,7 +166,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
       jornadaId = newJornada.id;
     }
 
-    // 2. Formatear partidos (Mantenemos la lógica de IDs reales vs temporales)
     const formatMatchForDB = (m, status) => {
        const isRealId = m.id && !String(m.id).includes('-') && !isNaN(Number(m.id));
        const payload = {
@@ -140,9 +190,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const pendingPayloads = (jornadaData.pendingMatches || []).map(m => formatMatchForDB(m, 'Pendiente'));
     const allMatches = [...scheduledPayloads, ...pendingPayloads];
 
-    // 3. Intentar guardar los partidos
-    // Si aquí salta el error de "HORARIO NO DISPONIBLE", el flujo irá al catch 
-    // y la jornada NO se confirmará.
     const toUpdate = allMatches.filter(m => m.id);
     const toInsert = allMatches.filter(m => !m.id);
 
@@ -156,7 +203,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         if (inError) throw inError;
     }
 
-    // 4. SOLO SI LOS PARTIDOS SE GUARDARON: Confirmar la jornada
     const { error: confirmError } = await supabase
       .from('jornadas')
       .update({ status: 'Confirmada' })
@@ -167,7 +213,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     return { jornadaId };
 
   } catch (error) {
-    // El mensaje de "HORARIO NO DISPONIBLE" se lanzará aquí
     console.error("Error en guardarJornadaService:", error.message);
     throw error; 
   }

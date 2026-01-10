@@ -4,22 +4,30 @@ import { supabase } from "../../../../supabase/supabase.config";
 import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
-import { guardarJornadaService } from "../../../../services/torneos";
+import { guardarJornadaService, actualizarConfigTorneoService } from "../../../../services/torneos";
 
-export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
+export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams,refreshStandings }) {
+  // Estado local para permitir actualizaciones reactivas sin recargar la página
+  const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
   const [currentMatches, setCurrentMatches] = useState([]); 
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
+  
+
+  // Sincronizar el estado local si el prop cambia desde afuera
+  useEffect(() => {
+    setActiveTournament(initialTournament);
+  }, [initialTournament]);
 
   useEffect(() => {
     if (activeTournament) {
         fetchJornadas();
         fetchGlobalPendingMatches();
     }
-  }, [activeTournament]);
+  }, [activeTournament.id]);
 
   useEffect(() => {
     if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
@@ -36,46 +44,33 @@ export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
         .select('*')
         .eq('tournament_id', activeTournament.id)
         .order('id', { ascending: true });
-      
       if (error) throw error;
       setJornadas(data);
-      
       const activeIndex = data.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
       if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
       else if (data.length > 0) setCurrentJornadaIndex(data.length - 1);
-    } catch (error) {
-      console.error("Error:", error);
-    }
+    } catch (error) { console.error("Error fetchJornadas:", error); }
   };
 
   const fetchCurrentJornadaMatches = async (jornadaId) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('jornada_id', jornadaId);
+      const { data, error } = await supabase.from('matches').select('*').eq('jornada_id', jornadaId);
       if (error) throw error;
       setCurrentMatches(data);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const fetchGlobalPendingMatches = async () => {
       try {
-          // Solicitamos el nombre de la jornada para mostrarlo en la tarjeta
           const { data, error } = await supabase
             .from('matches')
             .select('*, jornadas!inner(id, name, tournament_id)') 
             .eq('jornadas.tournament_id', activeTournament.id)
-            .eq('status', 'Pendiente');
-            
+            .eq('status', 'Pending'); // Cambiado a 'Pending' según convenciones o mantener 'Pendiente' si es su caso
           if(error) throw error;
           setGlobalPendingMatches(data);
-      } catch (error) {
-          console.error("Error cargando pendientes globales:", error);
-      }
+      } catch (error) { console.error("Error fetchGlobalPending:", error); }
   };
 
   const handleConfirmJornada = async (dataToSave) => {
@@ -83,33 +78,56 @@ export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
     try {
         await guardarJornadaService(activeTournament.id, dataToSave);
         setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
-        
-        const updatedJornadas = [...jornadas];
-        if(updatedJornadas[currentJornadaIndex]) {
-            updatedJornadas[currentJornadaIndex].status = 'Confirmada';
-            setJornadas(updatedJornadas);
-        }
-        
-        fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+        await fetchJornadas();
         fetchGlobalPendingMatches();
-    } catch (error) {
-        setToastConfig({ show: true, message: error.message, type: "error" });
-    } finally {
-        setLoading(false);
-    }
+    } catch (error) { setToastConfig({ show: true, message: error.message, type: "error" }); }
+    finally { setLoading(false); }
   };
 
-  const handleMatchUpdate = async (matchId, updates) => {
-      try {
-          const { error } = await supabase.from('matches').update(updates).eq('id', matchId);
-          if (error) throw error;
-          setToastConfig({ show: true, message: "Partido actualizado.", type: "success" });
-          fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
-          fetchGlobalPendingMatches();
-      } catch (error) {
-          setToastConfig({ show: true, message: "Error al actualizar.", type: "error" });
-      }
+  const handleSaveConfig = async (newConfig) => {
+    setLoading(true);
+    try {
+        const baseJornadas = participatingTeams.length % 2 === 0 
+            ? participatingTeams.length - 1 
+            : participatingTeams.length;
+
+        await actualizarConfigTorneoService(activeTournament.id, newConfig, baseJornadas);
+        setActiveTournament(prev => ({ ...prev, config: newConfig }));
+        
+        // ACTUALIZACIÓN DE ESTADO SIN RECARGAR LA PÁGINA
+        setActiveTournament(prev => ({ ...prev, config: newConfig }));
+        setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
+        
+        // Refrescar la lista de jornadas para reflejar adiciones/eliminaciones
+        await fetchJornadas(); 
+    } catch (error) {
+        setToastConfig({ show: true, message: error.message, type: "error" });
+    } finally { setLoading(false); }
   };
+
+const handleMatchUpdate = async (matchId, updates) => {
+  try {
+    const { error } = await supabase
+      .from('matches')
+      .update(updates)
+      .eq('id', matchId);
+
+    if (error) throw error;
+
+    // 👇 Da tiempo a que la vista se recalule
+    await new Promise(res => setTimeout(res, 80));
+
+if (refreshStandings) {
+  console.log('🔄 refreshStandings CALLED');
+  await refreshStandings(); 
+}
+
+    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+
+  } catch (e) {
+    throw e;
+  }
+};
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
   if (jornadas.length === 0) return <EmptyState>Cargando estructura...</EmptyState>;
@@ -121,38 +139,29 @@ export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
 
   return (
     <TabContainer>
-      <Toast 
-          show={toastConfig.show} 
-          message={toastConfig.message} 
-          type={toastConfig.type} 
-          onClose={() => setToastConfig({ ...toastConfig, show: false })}
-      />
-
-      {loading ? (
-        <LoadingBox>Procesando...</LoadingBox>
-      ) : (
+      <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
+      {loading ? ( <LoadingBox>Procesando...</LoadingBox> ) : (
         <>
            {isPhaseAssignment ? (
               <JornadaPlanificacion 
-                matchesDB={currentMatches} 
-                globalPendingMatches={globalPendingMatches}
-                teams={participatingTeams} 
-                jornadaIndex={currentJornadaIndex} 
-                activeTournament={activeTournament}
-                jornadaData={currentJornada}
-                onConfirm={handleConfirmJornada}
-                onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
-                totalJornadas={jornadas.length}
-                onMatchUpdate={handleMatchUpdate}
-                canConfirm={canConfirm}
+                matchesDB={currentMatches} globalPendingMatches={globalPendingMatches}
+                teams={participatingTeams} jornadaIndex={currentJornadaIndex} 
+                activeTournament={activeTournament} jornadaData={currentJornada}
+                onConfirm={handleConfirmJornada} onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
+                totalJornadas={jornadas.length} onMatchUpdate={handleMatchUpdate}
+                canConfirm={canConfirm} onSaveConfig={handleSaveConfig}
               />
            ) : (
-              <JornadaResultados 
-                matches={currentMatches} 
-                teams={participatingTeams}
-                jornadaId={currentJornada.id}
-                refreshMatches={() => fetchCurrentJornadaMatches(currentJornada.id)}
-              />
+<JornadaResultados 
+        matches={currentMatches} 
+        teams={participatingTeams} 
+        jornadaId={currentJornada.id} 
+        activeTournament={activeTournament} // <--- FALTABA ESTO
+        refreshMatches={() => {
+            fetchCurrentJornadaMatches(currentJornada.id);
+            if(refreshStandings) refreshStandings(); 
+        }} 
+    />
            )}
         </>
       )}
@@ -160,7 +169,6 @@ export function TorneoJornadasTab({ activeTournament, participatingTeams }) {
   );
 }
 
-// Estilos
 const fadeIn = keyframes` from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } `;
 const TabContainer = styled.div` display: flex; flex-direction: column; gap: 20px; width: 100%; animation: ${fadeIn} 0.5s ease-out; `;
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;

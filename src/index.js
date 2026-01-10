@@ -16,6 +16,9 @@ export * from './components/moleculas/DivisionSelector';
 export * from './components/moleculas/TabsNavigation'
 export * from './components/moleculas/SortControl';
 export { ViewToggle } from "./components/organismos/toggle/ViewToggle";
+export * from './components/organismos/equipos/TeamCard';
+export * from './components/organismos/equipos/TeamTransferModal';
+export * from './components/organismos/formularios/TeamForm';
 export * from './components/organismos/Footer';
 export * from './components/organismos/ToggleTema';
 export * from './components/organismos/ConfirmModal';

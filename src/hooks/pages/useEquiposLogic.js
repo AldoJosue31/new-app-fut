@@ -14,7 +14,6 @@ export const useEquiposLogic = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   
-  // Modales y Selecciones
   const [teamToEdit, setTeamToEdit] = useState(null);
   const [teamToView, setTeamToView] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
@@ -32,14 +31,12 @@ export const useEquiposLogic = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  // --- EFFECT ---
   useEffect(() => {
     if (selectedDivision) {
         fetchEquipos(selectedDivision.id);
     }
   }, [selectedDivision, fetchEquipos]);
 
-  // --- LOGIC: IMÁGENES ---
   const getDominantColor = (imageFile) => {
     return new Promise((resolve) => {
         const img = new Image();
@@ -64,11 +61,14 @@ export const useEquiposLogic = () => {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       
-      try {
-        const dominantColor = await getDominantColor(selectedFile);
-        setForm(prev => ({ ...prev, color: dominantColor }));
-      } catch (error) {
-        console.error("No se pudo extraer color", error);
+      // OPTIMIZACIÓN: Solo extraer color si NO estamos editando
+      if (!teamToEdit) {
+        try {
+          const dominantColor = await getDominantColor(selectedFile);
+          setForm(prev => ({ ...prev, color: dominantColor }));
+        } catch (error) {
+          console.error("No se pudo extraer color", error);
+        }
       }
     }
   };
@@ -102,7 +102,6 @@ export const useEquiposLogic = () => {
     }
   };
 
-  // --- CRUD ACTIONS ---
   const handleSave = async (e) => {
     e.preventDefault();
     if (!selectedDivision) return alert("Selecciona una división");
@@ -140,17 +139,16 @@ export const useEquiposLogic = () => {
         const { data, error } = await supabase.from('teams').update(teamData).eq('id', teamToEdit.id).select();
         if (error) throw error;
         updateEquipoLocal(data[0]);
-        alert("Equipo actualizado");
       } else {
         const { data, error } = await supabase.from('teams').insert(teamData).select();
         if (error) throw error;
         addEquipoLocal(data[0]);
-        alert("Equipo registrado");
       }
 
       setIsFormOpen(false);
     } catch (error) {
       alert("Error: " + error.message);
+      throw error;
     } finally {
       setUploading(false);
     }
@@ -168,7 +166,6 @@ export const useEquiposLogic = () => {
     }
   };
 
-  // Handlers de UI
   const handleFormChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const openCreateModal = () => { setTeamToEdit(null); setForm(initialForm); setFile(null); setPreview(null); setIsFormOpen(true); };
   const openEditModal = (team) => { setTeamToEdit(team); setForm(team); setFile(null); setPreview(team.logo_url); setIsFormOpen(true); };
@@ -176,36 +173,9 @@ export const useEquiposLogic = () => {
   const openDeleteConfirmation = (id) => { setDeleteId(id); setIsDeleteModalOpen(true); };
 
   return {
-    data: {
-        equipos,
-        loading,
-        selectedDivision,
-        uploading
-    },
-    form: {
-        data: form,
-        file,
-        preview,
-        handleChange: handleFormChange,
-        handleFileChange,
-        handleClearImage,
-        handleGenerateLogo,
-        handleRemoveBg
-    },
-    modals: {
-        isFormOpen, setIsFormOpen,
-        isDetailOpen, setIsDetailOpen,
-        isDeleteModalOpen, setIsDeleteModalOpen,
-        teamToEdit,
-        teamToView
-    },
-    actions: {
-        handleSave,
-        confirmDelete,
-        openCreateModal,
-        openEditModal,
-        openDetailModal,
-        openDeleteConfirmation
-    }
+    data: { equipos, loading, selectedDivision, uploading },
+    form: { data: form, file, preview, handleChange: handleFormChange, handleFileChange, handleClearImage, handleGenerateLogo, handleRemoveBg },
+    modals: { isFormOpen, setIsFormOpen, isDetailOpen, setIsDetailOpen, isDeleteModalOpen, setIsDeleteModalOpen, teamToEdit, teamToView },
+    actions: { handleSave, confirmDelete, openCreateModal, openEditModal, openDetailModal, openDeleteConfirmation }
   };
 };
