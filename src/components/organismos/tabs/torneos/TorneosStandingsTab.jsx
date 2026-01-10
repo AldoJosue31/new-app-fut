@@ -13,7 +13,7 @@ export const TorneosStandingsTab = ({
 }) => {
 
   /* 1. LÓGICA DE CONFIGURACIÓN: Nombres reales de tu base de datos/estado */
-const config = useMemo(() => {
+  const config = useMemo(() => {
     // Verificamos si la liguilla está habilitada en la config del torneo
     const isLiguillaActive = torneo?.config?.zonaLiguilla ?? reglas?.zonaLiguilla ?? false;
 
@@ -38,13 +38,20 @@ const config = useMemo(() => {
   const tablaGeneral = useMemo(() => {
     if (!equipos) return [];
     const data = equipos.map((equipo) => {
+      // BUSCA por team_id (así devuelve la vista)
       const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
       return {
         id: equipo.id,
         nombre: equipo.name || equipo.nombre,
         logo: equipo.logo_url || equipo.img, 
-        pj: stats.pj || 0, g: stats.g || 0, e: stats.e || 0, p: stats.p || 0,
-        gf: stats.gf || 0, gc: stats.gc || 0, dg: stats.dg || 0, pts: stats.pts || 0,
+        pj: stats.pj || 0,
+        g:  stats.pg || 0,   // <- ganados (pg en la vista)
+        e:  stats.pe || 0,   // <- empatados (pe en la vista)
+        p:  stats.pp || 0,   // <- perdidos (pp en la vista)
+        gf: stats.gf || 0,
+        gc: stats.gc || 0,
+        dg: stats.dg || 0,
+        pts: stats.pts || 0,
       };
     });
     return data.sort((a, b) => b.pts !== a.pts ? b.pts - a.pts : b.dg - a.dg);
