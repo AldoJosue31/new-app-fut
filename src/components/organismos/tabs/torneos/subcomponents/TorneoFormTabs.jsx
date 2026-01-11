@@ -6,8 +6,24 @@ import { InputNumber, InputText2 } from "../../../../../index";
 // --- STYLED COMPONENTS LOCALES ---
 const TabContainer = styled.div` display: flex; flex-direction: column; gap: 15px; animation: fadeIn 0.3s ease; `;
 const FormGroup = styled.div` display: flex; flex-direction: column; gap: 5px; label { font-size: 13px; font-weight: 600; opacity: 0.8; } `;
-const Row2 = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 10px; `;
-const Row3 = styled.div` display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; `;
+const Row2 = styled.div` 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+    gap: 15px; 
+
+    @media (max-width: 500px) {
+        grid-template-columns: 1fr; // Colapsar totalmente en móviles pequeños
+    }
+`;
+const Row3 = styled.div` 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+    gap: 10px; 
+
+    @media (max-width: 450px) {
+        grid-template-columns: 1fr; // Apilar inputs en móviles
+    }
+`;
 const SectionLabel = styled.div` font-size: 12px; font-weight: 700; color: ${v.colorPrincipal}; text-transform: uppercase; margin: 10px 0 5px; `;
 const Divider = styled.div` height: 1px; background: ${({theme})=>theme.bg4}; width: 100%; margin: 5px 0; opacity: 0.5; `;
 const SelectStyled = styled.select` width: 100%; border: 2px solid ${({ theme }) => theme.color2}; border-radius: 12px; padding: 10px; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; outline: none; font-size:14px; &:focus{ border-color: ${v.colorPrincipal}; } &:disabled { opacity: 0.6; cursor: not-allowed; background: ${({theme}) => theme.bg3}; } `;

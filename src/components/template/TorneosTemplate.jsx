@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { Title, TabsNavigation, ContentContainer, EmptyState } from "../../index";
-import { RiCalendarEventLine, RiBarChartGroupedLine } from "react-icons/ri"; 
+import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
+import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; // <-- nuevo
 import { TabContent } from "../moleculas/TabsNavigation";
 import { Device } from "../../styles/breakpoints"; 
 
@@ -21,7 +22,8 @@ export function TorneosTemplate({
   const tabList = [
     { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
     { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
-    { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> }
+    { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> },
+    { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> } // nuevo tab
   ];
 
   const [activeTab, setActiveTab] = useState("definir");
@@ -77,13 +79,13 @@ export function TorneosTemplate({
         {activeTab === "standings" && (
           <FullWidthTab>
             {activeTournament ? (
-<TorneosStandingsTab 
-division={{ name: divisionName }}
-    torneo={activeTournament}
-    equipos={participatingTeamsObj} // <--- ¡ESTO FALTABA!
-    estadisticas={standings}
-    reglas={reglas}        // <--- CAMBIAR 'standings' por 'estadisticas'
-/>
+              <TorneosStandingsTab 
+                division={{ name: divisionName }}
+                torneo={activeTournament}
+                equipos={participatingTeamsObj}
+                estadisticas={standings}
+                reglas={reglas}
+              />
             ) : (
                <EmptyState
                  icon={<v.iconocorona size={40}/>}
@@ -92,6 +94,24 @@ division={{ name: divisionName }}
                />
             )}
            </FullWidthTab>
+        )}
+
+        {activeTab === "goleadores" && (
+          <FullWidthTab>
+            {activeTournament ? (
+              <GoleadoresTab
+                divisionName={divisionName}
+                tournamentId={activeTournament?.id}
+                limit={20}
+              />
+            ) : (
+              <EmptyState
+                title="Sin Datos"
+                description="Inicia un torneo para ver la tabla de goleadores."
+                actionComponent={<ActionButton onClick={() => setActiveTab("definir")}>Ir a Definir</ActionButton>}
+              />
+            )}
+          </FullWidthTab>
         )}
       </ContentGrid>
     </ContentContainer>
@@ -106,18 +126,17 @@ const HeaderSection = styled.div`
   max-width: 1600px; 
   display: flex;
   flex-direction: column;
-  /* En móvil centramos, en desktop alineamos a la izquierda para aprovechar el espacio */
   @media ${Device.mobile} { align-items: center; text-align: center; }
   @media ${Device.laptop} { align-items: flex-start; text-align: left; }
 `;
 
 const TabsWrapper = styled.div`
   width: 100%;
-  max-width: 1600px;
+  /* Reducimos el ancho máximo para que sea consistente con los Cards (1000px-1200px) */
+  max-width: 1000px; 
   margin: 0 auto 20px auto;
   display: flex;
   flex-direction: column;
-  /* FIX: min-width: 0 evita que Flexbox rompa el layout con contenidos anchos */
   min-width: 0; 
 `;
 
@@ -126,17 +145,15 @@ const ContentGrid = styled.div`
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 1600px;
-  gap: 20px;
-  /* FIX: Aseguramos que nada dentro exceda el ancho */
-  overflow-x: hidden; 
+  max-width: 1000px; 
+  margin: 0 auto;
+  gap: 10px; /* 3. Reduce el gap de 20px a 10px o 0 si lo quieres pegado a los tabs */
 `;
 
 const FullWidthTab = styled(TabContent)`
   width: 100%;
   display: flex;
   flex-direction: column;
-  /* FIX: Importante para sliders y tablas */
   overflow: visible; 
 `;
 

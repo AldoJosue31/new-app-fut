@@ -38,8 +38,9 @@ export function ScheduledMatchRow({
                         <button className="action-btn result" onClick={() => onOpenResult(match)}>
                             <RiTrophyLine /> {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
                         </button>
-                        <button className="action-btn postpone" onClick={() => onPostpone(match)}>
+                        <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
                             <RiTimeLine />
+                            Aplazar
                         </button>
                     </div>
                 </div>
