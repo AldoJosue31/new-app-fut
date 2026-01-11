@@ -67,21 +67,67 @@ export function PlanningHeader({
 }
 
 const Container = styled.div` 
-    display: flex; justify-content: space-between; align-items: center; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
     background: ${({theme})=>theme.bgcards}; 
-    padding: 15px 20px; border-radius: 10px; border: 1px solid ${({theme})=>theme.bg4};
-    gap: 20px;
-    .left-section { display: flex; flex-direction: column; gap: 8px; }
-    .step-info { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
-    .status-pill { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; 
-        &.ok{background:#2ecc7120; color:#2ecc71;} &.draft{background:#e74c3c20; color:#e74c3c;} 
+    padding: 15px 20px; 
+    border-radius: 12px; 
+    border: 1px solid ${({theme})=>theme.bg4};
+    gap: 15px;
+    width: 100%;
+    box-sizing: border-box;
+
+    @media (max-width: 768px) {
+        flex-direction: column; /* Apilar en móvil */
+        align-items: flex-start;
+        padding: 15px;
     }
+
+    .left-section { 
+        display: flex; 
+        flex-direction: column; 
+        gap: 10px; 
+        width: 100%;
+    }
+
+    .step-info { 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        font-weight: 700; 
+        font-size: 1.1rem; 
+    }
+
     .week-range { 
-        display: flex; align-items: center; gap: 8px; font-size: 0.9rem; opacity: 0.9;
+        display: flex; 
+        flex-wrap: wrap; /* Permite que la fecha baje si no cabe */
+        align-items: center; 
+        gap: 8px; 
+        font-size: 0.85rem; 
+        opacity: 0.9;
+        
         .week-input {
-            background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4};
-            color: ${({theme})=>theme.text}; border-radius: 4px; padding: 2px 5px;
+            background: ${({theme})=>theme.bg3}; 
+            border: 1px solid ${({theme})=>theme.bg4};
+            color: ${({theme})=>theme.text}; 
+            border-radius: 6px; 
+            padding: 4px 8px;
+            font-size: 0.85rem;
+            outline: none;
         }
     }
-    .controls { display: flex; gap: 5px; }
+
+    .controls { 
+        display: flex; 
+        gap: 10px; 
+        width: 100%;
+        justify-content: flex-end;
+
+        @media (max-width: 768px) {
+            justify-content: space-between; /* Botones a los lados en móvil */
+            border-top: 1px solid ${({theme})=>theme.bg4};
+            padding-top: 10px;
+        }
+    }
 `;
