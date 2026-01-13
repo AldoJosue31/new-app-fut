@@ -13,7 +13,7 @@ import {
   BiLogoGoogle, BiEnvelope, BiTrophy, BiGridAlt 
 } from "react-icons/bi";
 
-export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
+export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} }) => {
   const [activeTab, setActiveTab] = useState(0);
 
   // 1. CORRECCIÓN: Agregamos iconos a los tabs para la vista móvil
@@ -38,21 +38,39 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
     });
   };
 
-  const getConnectionStatus = (lastSignIn) => {
+// 2. CORRECCIÓN: Lógica de conexión mejorada con Realtime
+const getConnectionStatus = (mgrId, lastSignIn) => {
+    // 1. Verificación: mgrId debe ser el UUID del perfil (que coincide con auth.users.id)
+    if (onlineUsers[mgrId]) {
+      return { 
+        status: "En Línea", 
+        color: v.verde, 
+        icon: <BiWifi/>,
+        isRealtime: true 
+      };
+    }
+
+    // Si no está en presencia, usamos el último inicio de sesión como respaldo
     if (!lastSignIn) return { status: "Desconectado", color: v.gray, icon: <BiWifiOff/> };
+    
     const last = new Date(lastSignIn).getTime();
     const now = new Date().getTime();
     const diffMinutes = (now - last) / (1000 * 60);
-    if (diffMinutes < 15) return { status: "En Línea", color: v.verde, icon: <BiWifi/> };
+
+    // Si fue hace menos de 10 min pero no está en presencia, pudo ser una desconexión abrupta
+    if (diffMinutes < 10) return { status: "Ausente", color: "#FFA500", icon: <BiWifi/> };
+    
     return { status: "Desconectado", color: v.gray, icon: <BiWifiOff/> };
   };
 
   if (!manager) return null;
 
+  const currentStatus = getConnectionStatus(manager.id, manager.last_sign_in_at);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Perfil de Usuario" width="600px">
       <DetailContainer>
-        <DetailHeader>
+      <DetailHeader>
            <div className="profile-image">
               {manager.avatar_url ? <img src={manager.avatar_url} alt="av" /> : <BiUserCircle size={60}/>}
            </div>
@@ -60,10 +78,12 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager }) => {
              <h2>{manager.full_name}</h2>
              <div className="badges-row">
                 <Badge color={v.colorPrincipal}>Manager</Badge>
-                <Badge color={getConnectionStatus(manager.last_sign_in_at).color}>
+                {/* 3. Mostrar el estado en tiempo real */}
+                <Badge color={currentStatus.color}>
                    <FlexRow>
-                      {getConnectionStatus(manager.last_sign_in_at).icon}
-                      {getConnectionStatus(manager.last_sign_in_at).status}
+                      {currentStatus.icon}
+                      {currentStatus.status}
+                      {currentStatus.isRealtime && <span className="pulse-dot">●</span>}
                    </FlexRow>
                 </Badge>
              </div>
@@ -195,7 +215,20 @@ const DetailHeader = styled.div`
     .badges-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   }
 `;
-const FlexRow = styled.div` display: flex; align-items: center; gap: 6px; `;
+// 4. Agregar una animación de pulso opcional para el estado "En Vivo"
+const FlexRow = styled.div` 
+  display: flex; align-items: center; gap: 6px; 
+  .pulse-dot {
+    font-size: 8px;
+    animation: pulse 2s infinite;
+    margin-left: 2px;
+  }
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+`;
 const InfoGrid = styled.div`
   display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
   @media (max-width: 550px) { grid-template-columns: 1fr; }

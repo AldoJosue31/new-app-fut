@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase/supabase.config';
 import { useAuthStore } from '../store/AuthStore';
 
@@ -10,43 +10,39 @@ export function AuthContextProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
 
+  // Ref para mantener canal de presencia único por sesión
+  const presenceRef = useRef(null);
+
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
   const validateProfile = async (sessionUser) => {
     if (!sessionUser) return;
 
     try {
-      // 1. Buscamos si existe el perfil en tu tabla
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', sessionUser.id)
         .single();
 
-      // 2. Si hay error o NO hay data (puede pasar durante registro inicial antes del RPC)
       if (error || !data) {
         console.warn("AuthContext: Perfil no encontrado o cuenta no vinculada. Cerrando sesión...");
-        // Eliminamos el alert() para no interrumpir flujos de registro
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
         return;
       }
 
-      // 3. VALIDACIÓN DE ROL (ROLE GUARD)
       const authorizedRoles = ['manager', 'admin'];
       if (!authorizedRoles.includes(data.role)) {
         console.warn(`AuthContext: Rol no autorizado (${data.role}). Cerrando sesión...`);
-        // Eliminamos el alert()
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
         return;
       }
 
-      // 4. Si pasó los filtros, permitimos el acceso
       setProfile(data);
-      useAuthStore.setState({ profile: data }); 
-      
+      useAuthStore.setState({ profile: data });
     } catch (err) {
       console.error("Error validando perfil:", err);
       await supabase.auth.signOut();
@@ -56,7 +52,6 @@ export function AuthContextProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    // --- 1. INICIALIZACIÓN RÁPIDA ---
     async function init() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -77,7 +72,6 @@ export function AuthContextProvider({ children }) {
 
     init();
 
-    // --- 2. ESCUCHADOR DE EVENTOS ---
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
@@ -104,6 +98,74 @@ export function AuthContextProvider({ children }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // ---------------------------
+  // NUEVO: EFECTO DE PRESENCIA
+  // ---------------------------
+  useEffect(() => {
+    // Si no hay usuario: limpiar canal si existe
+    if (!user?.id) {
+      if (presenceRef.current) {
+        try { presenceRef.current.untrack?.().catch(()=>{}); } catch(e){};
+        try { presenceRef.current.unsubscribe(); } catch(e){};
+        presenceRef.current = null;
+      }
+      return;
+    }
+
+    // Si ya existe, no volver a crear
+    if (presenceRef.current) {
+      console.log('[AUTH] presence already active for', user.id);
+      return;
+    }
+
+    const channel = supabase.channel('online-managers');
+    presenceRef.current = channel;
+
+    const handleSubscribe = async (status) => {
+      console.log('[AUTH][TRACKER] channel status', status);
+      // debug session
+      try {
+        const { data } = await supabase.auth.getSession();
+        console.log('[AUTH][TRACKER] session', data);
+      } catch(e) {
+        console.warn('[AUTH][TRACKER] getSession err', e);
+      }
+
+      if (status === 'SUBSCRIBED') {
+        try {
+          await channel.track({
+            user_id: user.id,
+            online_at: new Date().toISOString()
+          });
+          console.log('[AUTH][TRACKER] tracked presence for', user.id);
+        } catch (err) {
+          console.error('[AUTH][TRACKER] track error', err);
+        }
+      }
+    };
+
+    channel.subscribe(handleSubscribe);
+
+    // Re-track on visibility change (optional but useful)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          channel.track({ user_id: user.id, online_at: new Date().toISOString() })
+            .then(() => console.log('[AUTH][TRACKER] re-tracked on visible', user.id))
+            .catch(e => console.error('[AUTH][TRACKER] re-track err', e));
+        } catch(e) {}
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      try { channel.untrack?.().catch(()=>{}); } catch(e) {}
+      try { channel.unsubscribe(); } catch(e) {}
+      presenceRef.current = null;
+    };
+  }, [user?.id]);
 
   // --- Funciones Públicas ---
   async function signInWithEmail(email, password) {
