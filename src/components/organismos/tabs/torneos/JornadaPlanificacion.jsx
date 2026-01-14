@@ -1,22 +1,20 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast, ViewToggle, Modal, TabsNavigation } from "../../../../index"; 
 import { 
     RiCalendarLine, RiCheckDoubleLine, RiSettings4Line, RiFileList3Line, 
-    RiCoinLine, RiGitMergeLine, RiArrowLeftRightLine 
+    RiCoinLine, RiGitMergeLine 
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
-// Hooks y Servicios
+// Hooks
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
-import { intercambiarPartidosService } from "../../../../services/torneos";
 
 // Subcomponentes
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
 import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
-import { IntercambioMatchModal } from "./planificacion/IntercambioMatchModal";
 import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 
@@ -24,27 +22,22 @@ export function JornadaPlanificacion({
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
   jornadaData, onConfirm, onChangeJornada, totalJornadas, onMatchUpdate, canConfirm, onSaveConfig
 }) {
-  // --- LÓGICA DEL HOOK ---
   const {
     scheduledMatches, setScheduledMatches,
     allPendingMatches, setAllPendingMatches,
     pendingCurrentJornada,
-    futureMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes,
     currentJornadaName
   } = usePlanificacionMatches(activeTournament, jornadaIndex, teams, matchesDB, globalPendingMatches);
 
-  // --- ESTADOS DE UI ---
   const [viewMode, setViewMode] = useState('list');
   const [draggedMatch, setDraggedMatch] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [swapModalOpen, setSwapModalOpen] = useState(false);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: '', type: '' });
   
-  // Estados para Modal de Configuración
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configTab, setConfigTab] = useState("general");
   const [editedConfig, setEditedConfig] = useState(activeTournament?.config || {});
@@ -52,49 +45,6 @@ export function JornadaPlanificacion({
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
 
-  // --- MANEJADOR DE INTERCAMBIO (GUARDADO INMEDIATO) ---
-const handleSwapMatches = async (currentMatchId, futureMatchId) => {
-    const isScheduled = scheduledMatches.some(m => m.id === currentMatchId);
-    const matchHoy = [...scheduledMatches, ...pendingCurrentJornada].find(m => m.id === currentMatchId);
-    const matchFuturo = futureMatches.find(m => m.id === futureMatchId);
-
-    if (!matchHoy || !matchFuturo) return;
-
-    try {
-        // Asegurar que matchHoy tiene una fecha antes de mandar al servicio
-        const safeMatchHoy = { ...matchHoy, date: matchHoy.date || weekStartDate, time: matchHoy.time || "10:00" };
-        const safeMatchFuturo = { ...matchFuturo, date: safeMatchHoy.date, time: safeMatchHoy.time };
-
-        await intercambiarPartidosService(activeTournament.id, safeMatchHoy, safeMatchFuturo);
-
-        const nuevoHoy = {
-            ...safeMatchFuturo,
-            id: String(safeMatchFuturo.id).includes('suggested') ? `swap-${Date.now()}` : safeMatchFuturo.id,
-            status: isScheduled ? 'Programado' : 'Pendiente',
-            originJornada: currentJornadaName,
-            isModified: true
-        };
-
-        const nuevoFuturo = {
-            ...safeMatchHoy,
-            status: 'Pendiente', date: null, time: null,
-            originJornada: safeMatchFuturo.originJornada,
-            isModified: true
-        };
-
-        if (isScheduled) {
-            setScheduledMatches(prev => autoAdjustTimes([...prev.filter(m => m.id !== currentMatchId), nuevoHoy], nuevoHoy.date));
-            setAllPendingMatches(prev => [...prev.filter(m => m.id !== futureMatchId), nuevoFuturo]);
-        } else {
-            setAllPendingMatches(prev => [...prev.filter(m => m.id !== futureMatchId && m.id !== currentMatchId), nuevoHoy, nuevoFuturo]);
-        }
-        setToast({ show: true, msg: "Intercambio guardado.", type: "success" });
-    } catch (error) {
-        setToast({ show: true, msg: "Error al guardar intercambio.", type: "error" });
-    }
-  };
-
-  // --- MANEJADORES DE DRAG & DROP ---
   const handleDrop = (e) => {
     e.preventDefault(); 
     setIsDragOver(false);
@@ -110,18 +60,18 @@ const handleSwapMatches = async (currentMatchId, futureMatchId) => {
         nextTime = `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
     }
 
-const newMatch = { 
+    const newMatch = { 
         ...draggedMatch, 
         time: nextTime, 
         date: weekStartDate, 
         status: 'Programado',
-        isModified: true // Asegura persistencia
+        isModified: true 
     };
     
     setScheduledMatches(autoAdjustTimes([...scheduledMatches, newMatch], weekStartDate));
     setAllPendingMatches(allPendingMatches.filter(m => m.id !== draggedMatch.id));
     setDraggedMatch(null);
-};
+  };
 
   return (
     <Container>
@@ -146,7 +96,6 @@ const newMatch = {
                 <PlanningSidebar 
                     matches={pendingCurrentJornada}
                     isConfirmed={isConfirmed}
-                    onSwapClick={() => setSwapModalOpen(true)}
                     setDraggedMatch={setDraggedMatch}
                     jornadaIndex={jornadaIndex}
                 />
@@ -209,28 +158,18 @@ const newMatch = {
         <Footer>
             <div className="note">Duración Estimada: {durationMatch} min por encuentro</div>
             {!isConfirmed && ( 
-<Btnsave 
-    titulo="Confirmar Jornada" 
-    funcion={() => onConfirm({ 
-        jornada_numero: jornadaIndex + 1, // Pasar el número para el mapeo
-        matches: scheduledMatches, 
-        allPendingMatches: allPendingMatches 
-    })} 
-    icono={<RiCheckDoubleLine/>} 
-    bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} 
-/>
+                <Btnsave 
+                    titulo="Confirmar Jornada" 
+                    funcion={() => onConfirm({ 
+                        jornada_numero: jornadaIndex + 1,
+                        matches: scheduledMatches, 
+                        allPendingMatches: allPendingMatches 
+                    })} 
+                    icono={<RiCheckDoubleLine/>} 
+                    bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} 
+                />
             )}
         </Footer>
-
-        {/* MODALES MODULARES */}
-        <IntercambioMatchModal 
-            isOpen={swapModalOpen} 
-            onClose={() => setSwapModalOpen(false)} 
-            scheduledMatches={scheduledMatches} 
-            pendingCurrentJornada={pendingCurrentJornada} 
-            futureMatches={futureMatches} 
-            onSwap={handleSwapMatches} 
-        />
 
         <Modal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} title="Ajustes de Torneo" width="600px">
             <ModalContent>
@@ -267,7 +206,6 @@ const newMatch = {
   );
 }
 
-// --- ESTILOS ---
 const BtnConfig = styled.button`
   background: ${({theme})=>theme.bg4};
   border: none;
@@ -280,100 +218,19 @@ const BtnConfig = styled.button`
   cursor: pointer;
   color: ${({theme})=>theme.text};
   transition: all 0.2s;
-  &:hover {
-    background: ${v.colorPrincipal}20;
-    color: ${v.colorPrincipal};
-  }
+  &:hover { background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; }
 `;
 
 const ModalContent = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: 15px;
-    border-top: 1px solid ${({theme})=>theme.bg4};
-  }
+  display: flex; flex-direction: column; gap: 15px;
+  .modal-actions { display: flex; justify-content: flex-end; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; }
 `;
 
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  width: 100%;
-`;
-
-const HeaderWrapper = styled.div`
-  display: flex;
-  gap: 10px;
-  align-items: stretch;
-  > div:first-child { flex: 1; }
-`;
-
-const TransitionWrapper = styled.div`
-  animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both;
-  width: 100%;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-`;
-
-const Workspace = styled.div`
-  display: flex;
-  gap: 20px;
-  height: 550px;
-  @media(max-width:768px){
-    flex-direction:column;
-    height:auto;
-  }
-`;
-
-const MainZone = styled.div`
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-`;
-
-const DropZone = styled.div`
-  flex: 1;
-  background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards};
-  border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4};
-  border-radius: 10px;
-  padding: 20px;
-  overflow-y: auto;
-  position: relative;
-  transition: all 0.3s ease;
-  .placeholder {
-    position: absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    text-align:center;
-    opacity:0.4;
-    p { margin-top: 10px; font-size: 0.9rem; }
-  }
-`;
-
-const GridList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-`;
-
-const Footer = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 5px;
-  .note {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: ${v.colorPrincipal};
-    background: ${v.colorPrincipal}15;
-    padding: 8px 12px;
-    border-radius: 8px;
-  }
-`;
+const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
+const HeaderWrapper = styled.div` display: flex; gap: 10px; align-items: stretch; > div:first-child { flex: 1; } `;
+const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
+const Workspace = styled.div` display: flex; gap: 20px; height: 550px; @media(max-width:768px){ flex-direction:column; height:auto; } `;
+const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; `;
+const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 20px; overflow-y: auto; position: relative; transition: all 0.3s ease; .placeholder { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; opacity:0.4; p { margin-top: 10px; font-size: 0.9rem; } } `;
+const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; `;
+const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note { font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; } `;
