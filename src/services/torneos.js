@@ -60,7 +60,6 @@ export const generarFixture = (equipos) => {
 };
 
 export const actualizarConfigTorneoService = async (tournamentId, newConfig, baseJornadasCount) => {
-  // 1. Actualizar configuración en la tabla tournaments
   const { error: updateError } = await supabase
     .from('tournaments')
     .update({ config: newConfig })
@@ -68,9 +67,7 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
 
   if (updateError) throw updateError;
 
-  // 2. Manejo de Jornadas según las vueltas
   if (newConfig.vueltas === "2") {
-    // Agregar jornadas si se cambia a Ida y Vuelta
     const { data: jornadasActuales } = await supabase
       .from('jornadas')
       .select('id')
@@ -91,8 +88,6 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
         }
     }
   } else if (newConfig.vueltas === "1") {
-    // ELIMINAR jornadas excedentes si se regresa a Solo Ida
-    // Buscamos jornadas cuyo número en el nombre sea mayor al total de la primera vuelta
     const { data: jornadasParaBorrar, error: fetchErr } = await supabase
       .from('jornadas')
       .select('id, name')
@@ -135,51 +130,94 @@ export const iniciarTorneoService = async ({
   }
 };
 
+// NUEVA FUNCIÓN: Intercambio Inmediato
+export const intercambiarPartidosService = async (torneoId, matchHoy, matchFuturo) => {
+  try {
+    const { data: jornadas } = await supabase
+      .from('jornadas')
+      .select('id, name')
+      .eq('tournament_id', torneoId)
+      .in('name', [matchHoy.originJornada, matchFuturo.originJornada]);
+
+    const idJornadaHoy = jornadas.find(j => j.name === matchHoy.originJornada)?.id;
+    const idJornadaFutura = jornadas.find(j => j.name === matchFuturo.originJornada)?.id;
+
+    if (!idJornadaHoy || !idJornadaFutura) throw new Error("No se encontraron las jornadas");
+
+    // 1. Preparamos el partido que viene del futuro hacia HOY
+    const payloadHoy = {
+      jornada_id: idJornadaHoy,
+      team1_id: matchFuturo.local.id,
+      team2_id: matchFuturo.visitante.id,
+      status: matchHoy.status, // Hereda 'Programado' o 'Pendiente'
+    };
+
+    // Si el espacio de hoy estaba programado, asignamos esa fecha/hora exacta al nuevo partido
+    if (matchHoy.status === 'Programado' && matchHoy.date) {
+      payloadHoy.date = `${matchHoy.date} ${matchHoy.time || '10:00'}:00`;
+    } else {
+      payloadHoy.date = null;
+    }
+
+    // 2. Preparamos el partido que se va al FUTURO (queda pendiente y sin fecha para evitar colisiones)
+    const payloadFuturo = {
+      jornada_id: idJornadaFutura,
+      team1_id: matchHoy.local.id,
+      team2_id: matchHoy.visitante.id,
+      status: 'Pendiente',
+      date: null // Crucial: limpiar la fecha para liberar el horario en la DB
+    };
+
+    // 3. Mantenimiento de IDs para Upsert
+    if (!String(matchHoy.id).includes('suggested') && !String(matchHoy.id).includes('swap')) {
+      payloadFuturo.id = Number(matchHoy.id);
+    }
+    if (!String(matchFuturo.id).includes('suggested') && !String(matchFuturo.id).includes('swap')) {
+      payloadHoy.id = Number(matchFuturo.id);
+    }
+
+    // Ejecutamos el intercambio en una sola instrucción upsert
+    const { error } = await supabase.from('matches').upsert([payloadFuturo, payloadHoy]);
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error en intercambio:", error);
+    throw error;
+  }
+};
+
 export const guardarJornadaService = async (torneoId, jornadaData) => {
   try {
     if (!torneoId) throw new Error("ID de torneo no proporcionado");
 
-    const { data: existingJornada, error: fetchError } = await supabase
+    const { data: todasLasJornadas } = await supabase
       .from('jornadas')
-      .select('id, status')
-      .eq('tournament_id', torneoId)
-      .eq('name', `Jornada ${jornadaData.id}`)
-      .maybeSingle();
+      .select('id, name')
+      .eq('tournament_id', torneoId);
 
-    if (fetchError) throw fetchError;
+    const jornadasMap = {};
+    todasLasJornadas.forEach(j => { jornadasMap[j.name] = j.id; });
 
-    let jornadaId;
-    if (existingJornada) {
-      jornadaId = existingJornada.id;
-    } else {
-      const { data: newJornada, error: insertError } = await supabase
-        .from('jornadas')
-        .insert({
-          tournament_id: torneoId,
-          name: `Jornada ${jornadaData.id}`,
-          status: 'Pendiente'
-        })
-        .select()
-        .single();
-      
-      if (insertError) throw insertError;
-      jornadaId = newJornada.id;
-    }
+    const currentJornadaId = jornadasMap[`Jornada ${jornadaData.jornada_numero}`];
+    if (!currentJornadaId) throw new Error("Jornada no encontrada");
 
     const formatMatchForDB = (m, status) => {
-       const isRealId = m.id && !String(m.id).includes('-') && !isNaN(Number(m.id));
+       const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
+       const isRealId = m.id && !String(m.id).includes('suggested') && !String(m.id).includes('swap');
+       
        const payload = {
-          jornada_id: status === 'Programado' ? jornadaId : (m.jornada_id || jornadaId),
-          team1_id: m.local.id,
-          team2_id: m.visitante.id,
+          jornada_id: targetJornadaId,
+          team1_id: Number(m.local.id),
+          team2_id: Number(m.visitante.id),
           status: status
        };
 
        if (status === 'Programado') {
-          const fullDate = new Date(`${m.date}T${m.time}:00`);
-          payload.date = fullDate.toISOString();
+          const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
+          payload.date = `${safeDate} ${m.time || "10:00"}:00`;
        } else {
-          payload.date = m.date ? new Date(m.date).toISOString() : null; 
+          payload.date = null; // Pendientes siempre null
        }
 
        if (isRealId) payload.id = Number(m.id);
@@ -187,33 +225,22 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     };
 
     const scheduledPayloads = jornadaData.matches.map(m => formatMatchForDB(m, 'Programado'));
-    const pendingPayloads = (jornadaData.pendingMatches || []).map(m => formatMatchForDB(m, 'Pendiente'));
+    const pendingPayloads = (jornadaData.allPendingMatches || [])
+      .filter(m => m.isModified || (!String(m.id).includes('suggested') && !String(m.id).includes('swap')))
+      .map(m => formatMatchForDB(m, 'Pendiente'));
+
     const allMatches = [...scheduledPayloads, ...pendingPayloads];
 
-    const toUpdate = allMatches.filter(m => m.id);
-    const toInsert = allMatches.filter(m => !m.id);
-
-    if (toUpdate.length > 0) {
-        const { error: upError } = await supabase.from('matches').upsert(toUpdate, { onConflict: 'id' });
-        if (upError) throw upError;
+    if (allMatches.length > 0) {
+        const { error: matchError } = await supabase.from('matches').upsert(allMatches);
+        if (matchError) throw matchError;
     }
 
-    if (toInsert.length > 0) {
-        const { error: inError } = await supabase.from('matches').insert(toInsert);
-        if (inError) throw inError;
-    }
+    await supabase.from('jornadas').update({ status: 'Confirmada' }).eq('id', currentJornadaId);
 
-    const { error: confirmError } = await supabase
-      .from('jornadas')
-      .update({ status: 'Confirmada' })
-      .eq('id', jornadaId);
-
-    if (confirmError) throw confirmError;
-
-    return { jornadaId };
-
+    return { success: true };
   } catch (error) {
-    console.error("Error en guardarJornadaService:", error.message);
+    console.error("Error detallado en guardarJornadaService:", error);
     throw error; 
   }
 };
