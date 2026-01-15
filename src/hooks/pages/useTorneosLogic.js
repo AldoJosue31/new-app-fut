@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-// Importamos los nuevos servicios centralizados
 import { getTorneoActivo, getEquiposDivision, iniciarTorneoService } from "../../services/torneos"; 
 import { getTablaPosicionesService } from "../../services/estadisticas";
 import { useDivisionStore } from "../../store/DivisionStore";
@@ -21,7 +20,7 @@ export const useTorneosLogic = () => {
   const [participatingIds, setParticipatingIds] = useState([]); 
   const [standings, setStandings] = useState([]);
 
-  // --- CONFIGURACIÓN DE REGLAS (Persistencia + Default Vacío) ---
+  // --- CONFIGURACIÓN DE REGLAS ---
   const [reglas, setReglas] = useState(() => {
     const savedData = localStorage.getItem("torneo_reglas_draft");
     if (savedData) {
@@ -54,23 +53,22 @@ export const useTorneosLogic = () => {
       clasificados: 4, 
       hasRepechaje: false,
       repechajeTeams: 0,
-      maxTeams: 16 
+      maxTeams: 16,
+      ascensos: 0,
+      descensos: 0
     };
   });
 
-  // Helpers
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
   const closeToast = () => setToastConfig({ ...toastConfig, show: false });
 
-  // --- EFECTOS DE LIMPIEZA AUTOMÁTICA ---
-  // FIX: Esto asegura que si desactivas repechaje, se limpie el valor sin romper el checkbox
+  // Limpieza y Validación
   useEffect(() => {
     if (!form.hasRepechaje && form.repechajeTeams !== 0) {
         setForm(prev => ({ ...prev, repechajeTeams: 0 }));
     }
   }, [form.hasRepechaje]);
 
-  // --- VALIDACIÓN DE SOBRECUPO ---
   useEffect(() => {
     const max = parseInt(form.maxTeams || 0);
     if (max > 0 && participatingIds.length > max) {
@@ -80,7 +78,7 @@ export const useTorneosLogic = () => {
     }
   }, [form.maxTeams, participatingIds.length]);
 
-  // --- CORE LOGIC: DATA FETCHING ---
+  // Data Fetching
   const fetchData = useCallback(async () => {
     if (!selectedDivision) return;
     
@@ -98,25 +96,24 @@ export const useTorneosLogic = () => {
       setAllTeams(processedTeams);
       setActiveTournament(torneo);
 
-if (torneo) {
-  setForm(prev => ({
-    ...prev,
-    season: torneo.season,
-    startDate: torneo.start_date,
-    vueltas: torneo.config?.vueltas || "1",
-    format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
-    maxTeams: torneo.config?.maxTeams || prev.maxTeams,
-    winPoints: torneo.config?.winPoints ?? 3,
-    drawPoints: torneo.config?.drawPoints ?? 1,
-    lossPoints: torneo.config?.lossPoints ?? 0,
-    zonaLiguilla: torneo.config?.zonaLiguilla || false,
-    clasificados: torneo.config?.clasificados || 4,
-    hasRepechaje: torneo.config?.hasRepechaje || false,
-    repechajeTeams: torneo.config?.repechajeTeams || 0,
-    // AGREGAR ESTAS LÍNEAS:
-ascensos: torneo.config?.ascensos || 0, // Recuperar de DB
-          descensos: torneo.config?.descensos || 0
-  }));
+      if (torneo) {
+        setForm(prev => ({
+            ...prev,
+            season: torneo.season,
+            startDate: torneo.start_date,
+            vueltas: torneo.config?.vueltas || "1",
+            format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
+            maxTeams: torneo.config?.maxTeams || prev.maxTeams,
+            winPoints: torneo.config?.winPoints ?? 3,
+            drawPoints: torneo.config?.drawPoints ?? 1,
+            lossPoints: torneo.config?.lossPoints ?? 0,
+            zonaLiguilla: torneo.config?.zonaLiguilla || false,
+            clasificados: torneo.config?.clasificados || 4,
+            hasRepechaje: torneo.config?.hasRepechaje || false,
+            repechajeTeams: torneo.config?.repechajeTeams || 0,
+            ascensos: torneo.config?.ascensos || 0, 
+            descensos: torneo.config?.descensos || 0
+        }));
         
         if (torneo.config) {
           setReglas({
@@ -130,10 +127,8 @@ ascensos: torneo.config?.ascensos || 0, // Recuperar de DB
         }
 
         try {
-const dataStats = await getTablaPosicionesService(selectedDivision.name);
-
-console.log('📊 standings from DB:', dataStats);
-setStandings(dataStats || []);
+            const dataStats = await getTablaPosicionesService(selectedDivision.name);
+            setStandings(dataStats || []);
         } catch (err) {
             console.error("Error posiciones:", err);
             setStandings([]);
@@ -159,7 +154,6 @@ setStandings(dataStats || []);
     fetchData();
   }, [fetchData]);
 
-  // --- HANDLERS ---
   const moveTeamToParticipating = (teamId) => {
     if(activeTournament) return;
     const max = parseInt(form.maxTeams || 0);
@@ -174,19 +168,14 @@ setStandings(dataStats || []);
     if(!activeTournament) setParticipatingIds(prev => prev.filter(id => id !== teamId));
   };
 
-  // FIX: Handler seguro con actualización funcional
-  // Esto previene que múltiples cambios rápidos se cancelen entre sí
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const val = type === 'checkbox' ? checked : value;
-
-    setForm(prevForm => ({ 
-      ...prevForm, 
-      [name]: val 
-    }));
+    setForm(prevForm => ({ ...prevForm, [name]: val }));
   };
 
-  const handleSubmit = async () => {
+  // ACTUALIZACIÓN: Ahora aceptamos fixtureData (opcional)
+  const handleSubmit = async (fixtureData = null) => {
     if (activeTournament) return; 
 
     const draftData = { ...form, reglasDraft: reglas };
@@ -212,6 +201,7 @@ setStandings(dataStats || []);
     try {
       if (participatingIds.length < 2) throw new Error("Mínimo 2 equipos requeridos.");
 
+      // Calculamos las jornadas "teóricas" por si no hubiera fixtureData
       const jornadasPorVuelta = participatingIds.length % 2 === 0 ? participatingIds.length - 1 : participatingIds.length;
       const totalJornadasCalc = form.vueltas === "2" ? jornadasPorVuelta * 2 : jornadasPorVuelta;
 
@@ -219,6 +209,7 @@ setStandings(dataStats || []);
         name: `Jornada ${i + 1}`
       }));
 
+      // Pasamos fixtureData como segundo argumento al servicio
       await iniciarTorneoService({
         divisionName: selectedDivision.name,
         season: form.season,
@@ -232,19 +223,18 @@ setStandings(dataStats || []);
           winPoints: form.winPoints,
           drawPoints: form.drawPoints,
           lossPoints: form.lossPoints,
-          // Guardar configuración de liguilla
           zonaLiguilla: form.zonaLiguilla,
           clasificados: form.clasificados,
           hasRepechaje: form.hasRepechaje,
           repechajeTeams: form.repechajeTeams,
-          ascensos: form.ascensos, // Enviar a DB
-          descensos: form.descensos, // Enviar a DB
+          ascensos: form.ascensos,
+          descensos: form.descensos,
           ...reglas 
         },
-        jornadas: jornadasArray
-      });
+        jornadas: jornadasArray 
+      }, fixtureData);
 
-      showToast("¡Torneo iniciado!", "success");
+      showToast("¡Torneo iniciado correctamente!", "success");
       fetchData(); 
 
     } catch (error) {
@@ -266,7 +256,7 @@ setStandings(dataStats || []);
       divisionName: selectedDivision?.name
     },
     actions: {
-      handleSubmit,
+      handleSubmit, // Ahora esta función acepta argumentos
       handleChange,
       onInclude: moveTeamToParticipating,
       onExclude: moveTeamToExcluded,

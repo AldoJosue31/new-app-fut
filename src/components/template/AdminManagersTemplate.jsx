@@ -17,12 +17,9 @@ import { ManagerCard } from "../organismos/adminManagers/ManagerCard";
 import { ManagerDetailModal } from "../organismos/adminManagers/ManagerDetailModal";
 import { ManagerCreateModal } from "../organismos/adminManagers/ManagerCreateModal";
 
-// Si ya tienes el componente global EmptyState creado en organisms, impórtalo así:
-// import { EmptyState } from "../organismos/EmptyState";
-// Si no, puedes mantener el styled-component local que tienes abajo.
-
 export function AdminManagersTemplate({
   managers,
+  onlineUsers = {},      // <-- ahora lo recibe
   loading,
   form,
   createModalOpen,
@@ -85,9 +82,12 @@ export function AdminManagersTemplate({
         
         {/* --- LISTA DE CARDS --- */}
         {!loading && managers.map((manager) => (
+          // Le pasamos si está online como prop y también onlineUsers por si el card lo necesita
           <ManagerCard 
             key={manager.id} 
             manager={manager}
+            online={!!onlineUsers[manager.id]}
+            onlineUsers={onlineUsers}
             onClick={() => openDetailModal(manager)}
             onDelete={openDeleteModal}
           />
@@ -99,6 +99,7 @@ export function AdminManagersTemplate({
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         manager={selectedManager}
+        onlineUsers={onlineUsers}   // <-- importante: pasamos aquí también
       />
 
       <ManagerCreateModal 
@@ -125,6 +126,7 @@ export function AdminManagersTemplate({
 }
 
 // --- STYLED COMPONENTS DEL TEMPLATE ---
+// (Mantenemos los styled-components que ya tenías)
 
 const HeaderSection = styled.div`
   display: flex; 

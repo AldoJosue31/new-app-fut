@@ -6,8 +6,7 @@ import { JornadaPlanificacion } from "./JornadaPlanificacion";
 import { JornadaResultados } from "./JornadaResultados";
 import { guardarJornadaService, actualizarConfigTorneoService } from "../../../../services/torneos";
 
-export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams,refreshStandings }) {
-  // Estado local para permitir actualizaciones reactivas sin recargar la página
+export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
@@ -15,9 +14,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
-  
 
-  // Sincronizar el estado local si el prop cambia desde afuera
   useEffect(() => {
     setActiveTournament(initialTournament);
   }, [initialTournament]);
@@ -55,7 +52,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const fetchCurrentJornadaMatches = async (jornadaId) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('matches').select('*').eq('jornada_id', jornadaId);
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*, jornadas(name)')
+        .eq('jornada_id', jornadaId);
       if (error) throw error;
       setCurrentMatches(data);
     } finally { setLoading(false); }
@@ -67,7 +67,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             .from('matches')
             .select('*, jornadas!inner(id, name, tournament_id)') 
             .eq('jornadas.tournament_id', activeTournament.id)
-            .eq('status', 'Pending'); // Cambiado a 'Pending' según convenciones o mantener 'Pendiente' si es su caso
+            .eq('status', 'Pendiente'); 
           if(error) throw error;
           setGlobalPendingMatches(data);
       } catch (error) { console.error("Error fetchGlobalPending:", error); }
@@ -93,41 +93,23 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
         await actualizarConfigTorneoService(activeTournament.id, newConfig, baseJornadas);
         setActiveTournament(prev => ({ ...prev, config: newConfig }));
-        
-        // ACTUALIZACIÓN DE ESTADO SIN RECARGAR LA PÁGINA
-        setActiveTournament(prev => ({ ...prev, config: newConfig }));
         setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
-        
-        // Refrescar la lista de jornadas para reflejar adiciones/eliminaciones
         await fetchJornadas(); 
     } catch (error) {
         setToastConfig({ show: true, message: error.message, type: "error" });
     } finally { setLoading(false); }
   };
 
-const handleMatchUpdate = async (matchId, updates) => {
-  try {
-    const { error } = await supabase
-      .from('matches')
-      .update(updates)
-      .eq('id', matchId);
-
-    if (error) throw error;
-
-    // 👇 Da tiempo a que la vista se recalule
-    await new Promise(res => setTimeout(res, 80));
-
-if (refreshStandings) {
-  console.log('🔄 refreshStandings CALLED');
-  await refreshStandings(); 
-}
-
-    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
-
-  } catch (e) {
-    throw e;
-  }
-};
+  const handleMatchUpdate = async (matchId, updates) => {
+    try {
+      const { error } = await supabase.from('matches').update(updates).eq('id', matchId);
+      if (error) throw error;
+      await new Promise(res => setTimeout(res, 80));
+      if (refreshStandings) await refreshStandings(); 
+      await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+      await fetchGlobalPendingMatches();
+    } catch (e) { throw e; }
+  };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
   if (jornadas.length === 0) return <EmptyState>Cargando estructura...</EmptyState>;
@@ -144,24 +126,30 @@ if (refreshStandings) {
         <>
            {isPhaseAssignment ? (
               <JornadaPlanificacion 
-                matchesDB={currentMatches} globalPendingMatches={globalPendingMatches}
-                teams={participatingTeams} jornadaIndex={currentJornadaIndex} 
-                activeTournament={activeTournament} jornadaData={currentJornada}
-                onConfirm={handleConfirmJornada} onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
-                totalJornadas={jornadas.length} onMatchUpdate={handleMatchUpdate}
-                canConfirm={canConfirm} onSaveConfig={handleSaveConfig}
+                matchesDB={currentMatches} 
+                globalPendingMatches={globalPendingMatches}
+                teams={participatingTeams} 
+                jornadaIndex={currentJornadaIndex} 
+                activeTournament={activeTournament} 
+                jornadaData={currentJornada}
+                onConfirm={handleConfirmJornada} 
+                onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
+                totalJornadas={jornadas.length} 
+                onMatchUpdate={handleMatchUpdate}
+                canConfirm={canConfirm} 
+                onSaveConfig={handleSaveConfig}
               />
            ) : (
-<JornadaResultados 
-        matches={currentMatches} 
-        teams={participatingTeams} 
-        jornadaId={currentJornada.id} 
-        activeTournament={activeTournament} // <--- FALTABA ESTO
-        refreshMatches={() => {
-            fetchCurrentJornadaMatches(currentJornada.id);
-            if(refreshStandings) refreshStandings(); 
-        }} 
-    />
+            <JornadaResultados 
+                matches={currentMatches} 
+                teams={participatingTeams} 
+                jornadaId={currentJornada.id} 
+                activeTournament={activeTournament}
+                refreshMatches={() => {
+                    fetchCurrentJornadaMatches(currentJornada.id);
+                    if(refreshStandings) refreshStandings(); 
+                }} 
+            />
            )}
         </>
       )}

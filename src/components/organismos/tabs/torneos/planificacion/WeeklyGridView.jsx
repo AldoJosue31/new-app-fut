@@ -1,9 +1,9 @@
-//
 import React, { useMemo } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../index";
 
-export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches, divisionActual }) {
+// Se añade "externalMatches = []" para evitar el error si no se pasa la prop
+export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual }) {
     const weekDays = useMemo(() => {
         if (!weekStartDate) return [];
         const start = new Date(weekStartDate + "T00:00:00");
@@ -23,6 +23,8 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
         <GridContainer>
             {weekDays.map(day => {
                 const currentDay = scheduledMatches.filter(m => m.date === day).map(m => ({...m, division: divisionActual}));
+                
+                // Ahora externalMatches es un array (vacío o con datos), por lo que .filter no fallará
                 const otherDay = externalMatches.filter(m => m.date.startsWith(day)).map(m => ({
                     time: m.date.split('T')[1].substring(0,5),
                     local: { name: m.team1.name },

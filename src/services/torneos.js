@@ -40,7 +40,7 @@ export const getEquiposDivision = async (divisionId) => {
 
 export const generarFixture = (equipos) => {
   const list = [...equipos];
-  if (list.length % 2 !== 0) list.push({ id: null }); // Bye
+  if (list.length % 2 !== 0) list.push({ id: null }); // Bye / Descanso
   const rounds = [];
   const totalRounds = list.length - 1;
 
@@ -60,7 +60,6 @@ export const generarFixture = (equipos) => {
 };
 
 export const actualizarConfigTorneoService = async (tournamentId, newConfig, baseJornadasCount) => {
-  // 1. Actualizar configuración en la tabla tournaments
   const { error: updateError } = await supabase
     .from('tournaments')
     .update({ config: newConfig })
@@ -68,9 +67,7 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
 
   if (updateError) throw updateError;
 
-  // 2. Manejo de Jornadas según las vueltas
   if (newConfig.vueltas === "2") {
-    // Agregar jornadas si se cambia a Ida y Vuelta
     const { data: jornadasActuales } = await supabase
       .from('jornadas')
       .select('id')
@@ -91,8 +88,6 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
         }
     }
   } else if (newConfig.vueltas === "1") {
-    // ELIMINAR jornadas excedentes si se regresa a Solo Ida
-    // Buscamos jornadas cuyo número en el nombre sea mayor al total de la primera vuelta
     const { data: jornadasParaBorrar, error: fetchErr } = await supabase
       .from('jornadas')
       .select('id, name')
@@ -117,20 +112,122 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
   }
 };
 
+/**
+ * Crea el torneo, las jornadas y los partidos generados en el preview.
+ */
 export const iniciarTorneoService = async ({ 
   divisionName, season, startDate, config, jornadas 
-}) => {
+}, fixtureGenerado) => {
   try {
-    const { data, error } = await supabase.rpc("crear_torneo_completo", {
-      p_division: divisionName,
-      p_season: season,
-      p_start_date: startDate,
-      p_config: config,
-      p_jornadas: jornadas 
-    });
-    if (error) throw error;
-    return data;
+    const { data: divisionData } = await supabase.from('divisions').select('id').eq('name', divisionName).single();
+    if (!divisionData) throw new Error("División no encontrada");
+
+    const { data: torneo, error: tError } = await supabase
+        .from('tournaments')
+        .insert({
+            division_id: divisionData.id,
+            season: season,
+            start_date: startDate,
+            config: config,
+            status: TOURNAMENT_STATUS.ACTIVE
+        })
+        .select()
+        .single();
+    
+    if (tError) throw tError;
+
+    const jornadasToInsert = fixtureGenerado 
+        ? fixtureGenerado.map(f => ({ tournament_id: torneo.id, name: f.name, status: 'Pendiente' }))
+        : jornadas.map(j => ({ tournament_id: torneo.id, name: j.name, status: 'Pendiente' }));
+
+    const { data: jornadasCreadas, error: jError } = await supabase
+        .from('jornadas')
+        .insert(jornadasToInsert)
+        .select();
+
+    if (jError) throw jError;
+
+    if (fixtureGenerado && fixtureGenerado.length > 0) {
+        let matchesToInsert = [];
+
+        fixtureGenerado.forEach(jornadaData => {
+            const jornadaDB = jornadasCreadas.find(j => j.name === jornadaData.name);
+            if (!jornadaDB) return;
+
+            jornadaData.matches.forEach(match => {
+                matchesToInsert.push({
+                    jornada_id: jornadaDB.id,
+                    team1_id: match.local.id,
+                    team2_id: match.visitante.id,
+                    status: 'Programado', // <--- Solicitado: Iniciar como Programado
+                    date: null            // <--- Pero sin fecha, para que vaya al Sidebar
+                });
+            });
+        });
+
+        if (matchesToInsert.length > 0) {
+            const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
+            if (mError) throw mError;
+        }
+    }
+
+    return torneo;
   } catch (error) {
+    console.error("Error en iniciarTorneoService:", error);
+    throw error;
+  }
+};
+
+export const intercambiarPartidosService = async (torneoId, matchHoy, matchFuturo) => {
+  try {
+    const { data: jornadas } = await supabase
+      .from('jornadas')
+      .select('id, name')
+      .eq('tournament_id', torneoId)
+      .in('name', [matchHoy.originJornada, matchFuturo.originJornada]);
+
+    const idJornadaHoy = jornadas.find(j => j.name === matchHoy.originJornada)?.id;
+    const idJornadaFutura = jornadas.find(j => j.name === matchFuturo.originJornada)?.id;
+
+    if (!idJornadaHoy || !idJornadaFutura) throw new Error("No se encontraron las jornadas");
+
+    // 1. Partido Futuro -> Hoy
+    const payloadHoy = {
+      jornada_id: idJornadaHoy,
+      team1_id: matchFuturo.local.id,
+      team2_id: matchFuturo.visitante.id,
+      status: matchHoy.status, 
+    };
+
+    if (matchHoy.status === 'Programado' && matchHoy.date) {
+      payloadHoy.date = `${matchHoy.date} ${matchHoy.time || '10:00'}:00`;
+    } else {
+      payloadHoy.date = null;
+    }
+
+    // 2. Partido Hoy -> Futuro
+    const payloadFuturo = {
+      jornada_id: idJornadaFutura,
+      team1_id: matchHoy.local.id,
+      team2_id: matchHoy.visitante.id,
+      status: 'Pendiente',
+      date: null 
+    };
+
+    // Mantenimiento de IDs
+    if (!String(matchHoy.id).includes('suggested') && !String(matchHoy.id).includes('swap')) {
+      payloadFuturo.id = Number(matchHoy.id);
+    }
+    if (!String(matchFuturo.id).includes('suggested') && !String(matchFuturo.id).includes('swap')) {
+      payloadHoy.id = Number(matchFuturo.id);
+    }
+
+    const { error } = await supabase.from('matches').upsert([payloadFuturo, payloadHoy]);
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error en intercambio:", error);
     throw error;
   }
 };
@@ -139,47 +236,33 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
   try {
     if (!torneoId) throw new Error("ID de torneo no proporcionado");
 
-    const { data: existingJornada, error: fetchError } = await supabase
+    const { data: todasLasJornadas } = await supabase
       .from('jornadas')
-      .select('id, status')
-      .eq('tournament_id', torneoId)
-      .eq('name', `Jornada ${jornadaData.id}`)
-      .maybeSingle();
+      .select('id, name')
+      .eq('tournament_id', torneoId);
 
-    if (fetchError) throw fetchError;
+    const jornadasMap = {};
+    todasLasJornadas.forEach(j => { jornadasMap[j.name] = j.id; });
 
-    let jornadaId;
-    if (existingJornada) {
-      jornadaId = existingJornada.id;
-    } else {
-      const { data: newJornada, error: insertError } = await supabase
-        .from('jornadas')
-        .insert({
-          tournament_id: torneoId,
-          name: `Jornada ${jornadaData.id}`,
-          status: 'Pendiente'
-        })
-        .select()
-        .single();
-      
-      if (insertError) throw insertError;
-      jornadaId = newJornada.id;
-    }
+    const currentJornadaId = jornadasMap[`Jornada ${jornadaData.jornada_numero}`];
+    if (!currentJornadaId) throw new Error("Jornada no encontrada");
 
     const formatMatchForDB = (m, status) => {
-       const isRealId = m.id && !String(m.id).includes('-') && !isNaN(Number(m.id));
+       const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
+       const isRealId = m.id && !String(m.id).includes('suggested') && !String(m.id).includes('swap');
+       
        const payload = {
-          jornada_id: status === 'Programado' ? jornadaId : (m.jornada_id || jornadaId),
-          team1_id: m.local.id,
-          team2_id: m.visitante.id,
+          jornada_id: targetJornadaId,
+          team1_id: Number(m.local.id),
+          team2_id: Number(m.visitante.id),
           status: status
        };
 
        if (status === 'Programado') {
-          const fullDate = new Date(`${m.date}T${m.time}:00`);
-          payload.date = fullDate.toISOString();
+          const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
+          payload.date = `${safeDate} ${m.time || "10:00"}:00`;
        } else {
-          payload.date = m.date ? new Date(m.date).toISOString() : null; 
+          payload.date = null; 
        }
 
        if (isRealId) payload.id = Number(m.id);
@@ -187,33 +270,26 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     };
 
     const scheduledPayloads = jornadaData.matches.map(m => formatMatchForDB(m, 'Programado'));
-    const pendingPayloads = (jornadaData.pendingMatches || []).map(m => formatMatchForDB(m, 'Pendiente'));
+    
+    // AQUÍ: Si están en la lista de pendientes (Sidebar), los guardamos como Pendientes (o como Programado sin fecha si prefieres)
+    // El comportamiento estándar es que si está en Sidebar -> es Pendiente. 
+    // Si quieres que siga siendo Programado, cámbialo aquí, pero la UI lo detecta por "sin fecha".
+    const pendingPayloads = (jornadaData.allPendingMatches || [])
+      .filter(m => m.isModified || (!String(m.id).includes('suggested') && !String(m.id).includes('swap')))
+      .map(m => formatMatchForDB(m, 'Pendiente'));
+
     const allMatches = [...scheduledPayloads, ...pendingPayloads];
 
-    const toUpdate = allMatches.filter(m => m.id);
-    const toInsert = allMatches.filter(m => !m.id);
-
-    if (toUpdate.length > 0) {
-        const { error: upError } = await supabase.from('matches').upsert(toUpdate, { onConflict: 'id' });
-        if (upError) throw upError;
+    if (allMatches.length > 0) {
+        const { error: matchError } = await supabase.from('matches').upsert(allMatches);
+        if (matchError) throw matchError;
     }
 
-    if (toInsert.length > 0) {
-        const { error: inError } = await supabase.from('matches').insert(toInsert);
-        if (inError) throw inError;
-    }
+    await supabase.from('jornadas').update({ status: 'Confirmada' }).eq('id', currentJornadaId);
 
-    const { error: confirmError } = await supabase
-      .from('jornadas')
-      .update({ status: 'Confirmada' })
-      .eq('id', jornadaId);
-
-    if (confirmError) throw confirmError;
-
-    return { jornadaId };
-
+    return { success: true };
   } catch (error) {
-    console.error("Error en guardarJornadaService:", error.message);
+    console.error("Error detallado en guardarJornadaService:", error);
     throw error; 
   }
 };
