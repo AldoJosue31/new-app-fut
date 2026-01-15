@@ -1,16 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
-import { v, Btnsave, Toast, ViewToggle, Modal, TabsNavigation } from "../../../../index"; 
+// Asegúrate de que este path sea correcto y src/index exporte estos componentes.
+// Si falla, cámbialo a rutas directas como: import { Btnsave } from "../../../moleculas/Btnsave";
+import { v, Btnsave, Toast, Modal, TabsNavigation } from "../../../../index"; 
 import { 
-    RiCalendarLine, RiCheckDoubleLine, RiSettings4Line, RiFileList3Line, 
+    RiCalendarLine, RiCheckDoubleLine, RiFileList3Line, 
     RiCoinLine, RiGitMergeLine 
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
-// Hooks
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
 
-// Subcomponentes
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
@@ -45,6 +45,46 @@ export function JornadaPlanificacion({
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
 
+  // --- LÓGICA DE FECHAS CORREGIDA (MATEMÁTICA PURA) ---
+useEffect(() => {
+    // Prioridad 1: Si ya hay partidos programados en esta jornada, usar esa fecha.
+    if (scheduledMatches && scheduledMatches.length > 0) {
+        const existingDate = scheduledMatches[0].date;
+        if (existingDate && existingDate !== weekStartDate) {
+            setWeekStartDate(existingDate);
+        }
+        return; 
+    }
+
+    // Prioridad 2: Calcular fecha basada en el inicio del torneo
+    // CORRECCIÓN 1: Buscar en 'start_date' (nivel raíz de la DB) y como fallback en config.
+    const fechaInicioTorneo = activeTournament?.start_date || activeTournament?.config?.startDate;
+
+    if (fechaInicioTorneo) {
+        // Parseo manual YYYY-MM-DD
+        const [yearStr, monthStr, dayStr] = fechaInicioTorneo.split('-');
+        const startDate = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
+
+        // CORRECCIÓN 2: Cambiar multiplicación de 7 a 8 días según tu requerimiento
+        // Jornada 0 = +0 días, Jornada 1 = +8 días, Jornada 2 = +16 días...
+        const daysToAdd = jornadaIndex * 8; 
+        
+        startDate.setDate(startDate.getDate() + daysToAdd);
+
+        // Formateo manual a YYYY-MM-DD
+        const y = startDate.getFullYear();
+        const m = String(startDate.getMonth() + 1).padStart(2, '0');
+        const d = String(startDate.getDate()).padStart(2, '0');
+        const calculatedDate = `${y}-${m}-${d}`;
+
+        // Aplicamos la fecha si es diferente y la jornada no está confirmada
+        if (weekStartDate !== calculatedDate && !isConfirmed) {
+            setWeekStartDate(calculatedDate);
+        }
+    }
+  }, [jornadaIndex, activeTournament, isConfirmed, scheduledMatches]);
+  // --------------------------------------------------------
+
   const handleDrop = (e) => {
     e.preventDefault(); 
     setIsDragOver(false);
@@ -77,19 +117,18 @@ export function JornadaPlanificacion({
     <Container>
         <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={()=>setToast({...toast, show:false})} />
         
-        <HeaderWrapper>
-            <PlanningHeader 
-                jornadaIndex={jornadaIndex} status={jornadaData.status} 
-                onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
-                onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
-                totalJornadas={totalJornadas} weekStartDate={weekStartDate}
-                setWeekStartDate={setWeekStartDate}
-            />
-            <BtnConfig onClick={() => setConfigModalOpen(true)} title="Configuración de Jornada">
-                <RiSettings4Line size={20}/>
-            </BtnConfig>
-            <ViewToggle currentMode={viewMode} onToggle={setViewMode} />
-        </HeaderWrapper>
+        <PlanningHeader 
+            jornadaIndex={jornadaIndex} 
+            status={jornadaData.status} 
+            onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
+            onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
+            totalJornadas={totalJornadas} 
+            weekStartDate={weekStartDate}
+            setWeekStartDate={setWeekStartDate}
+            onConfig={() => setConfigModalOpen(true)}
+            viewMode={viewMode}
+            onToggleView={setViewMode}
+        />
 
         <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
@@ -145,10 +184,9 @@ export function JornadaPlanificacion({
                         <WeeklyGridView 
                             weekStartDate={weekStartDate} 
                             scheduledMatches={scheduledMatches} 
+                            externalMatches={[]} 
                             divisionActual={activeTournament?.division?.name} 
                             isConfirmed={isConfirmed} 
-                            onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
-                            onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
                         /> 
                     )}
                 </MainZone>
@@ -206,28 +244,12 @@ export function JornadaPlanificacion({
   );
 }
 
-const BtnConfig = styled.button`
-  background: ${({theme})=>theme.bg4};
-  border: none;
-  border-radius: 8px;
-  width: 45px;
-  height: 45px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: ${({theme})=>theme.text};
-  transition: all 0.2s;
-  &:hover { background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; }
-`;
-
 const ModalContent = styled.div`
   display: flex; flex-direction: column; gap: 15px;
   .modal-actions { display: flex; justify-content: flex-end; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; }
 `;
 
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
-const HeaderWrapper = styled.div` display: flex; gap: 10px; align-items: stretch; > div:first-child { flex: 1; } `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
 const Workspace = styled.div` display: flex; gap: 20px; height: 550px; @media(max-width:768px){ flex-direction:column; height:auto; } `;
 const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; `;

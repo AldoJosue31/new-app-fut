@@ -40,7 +40,7 @@ export const getEquiposDivision = async (divisionId) => {
 
 export const generarFixture = (equipos) => {
   const list = [...equipos];
-  if (list.length % 2 !== 0) list.push({ id: null }); // Bye
+  if (list.length % 2 !== 0) list.push({ id: null }); // Bye / Descanso
   const rounds = [];
   const totalRounds = list.length - 1;
 
@@ -112,25 +112,72 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
   }
 };
 
+/**
+ * Crea el torneo, las jornadas y los partidos generados en el preview.
+ */
 export const iniciarTorneoService = async ({ 
   divisionName, season, startDate, config, jornadas 
-}) => {
+}, fixtureGenerado) => {
   try {
-    const { data, error } = await supabase.rpc("crear_torneo_completo", {
-      p_division: divisionName,
-      p_season: season,
-      p_start_date: startDate,
-      p_config: config,
-      p_jornadas: jornadas 
-    });
-    if (error) throw error;
-    return data;
+    const { data: divisionData } = await supabase.from('divisions').select('id').eq('name', divisionName).single();
+    if (!divisionData) throw new Error("División no encontrada");
+
+    const { data: torneo, error: tError } = await supabase
+        .from('tournaments')
+        .insert({
+            division_id: divisionData.id,
+            season: season,
+            start_date: startDate,
+            config: config,
+            status: TOURNAMENT_STATUS.ACTIVE
+        })
+        .select()
+        .single();
+    
+    if (tError) throw tError;
+
+    const jornadasToInsert = fixtureGenerado 
+        ? fixtureGenerado.map(f => ({ tournament_id: torneo.id, name: f.name, status: 'Pendiente' }))
+        : jornadas.map(j => ({ tournament_id: torneo.id, name: j.name, status: 'Pendiente' }));
+
+    const { data: jornadasCreadas, error: jError } = await supabase
+        .from('jornadas')
+        .insert(jornadasToInsert)
+        .select();
+
+    if (jError) throw jError;
+
+    if (fixtureGenerado && fixtureGenerado.length > 0) {
+        let matchesToInsert = [];
+
+        fixtureGenerado.forEach(jornadaData => {
+            const jornadaDB = jornadasCreadas.find(j => j.name === jornadaData.name);
+            if (!jornadaDB) return;
+
+            jornadaData.matches.forEach(match => {
+                matchesToInsert.push({
+                    jornada_id: jornadaDB.id,
+                    team1_id: match.local.id,
+                    team2_id: match.visitante.id,
+                    status: 'Programado', // <--- Solicitado: Iniciar como Programado
+                    date: null            // <--- Pero sin fecha, para que vaya al Sidebar
+                });
+            });
+        });
+
+        if (matchesToInsert.length > 0) {
+            const { error: mError } = await supabase.from('matches').insert(matchesToInsert);
+            if (mError) throw mError;
+        }
+    }
+
+    return torneo;
   } catch (error) {
+    console.error("Error en iniciarTorneoService:", error);
     throw error;
   }
 };
 
-// NUEVA FUNCIÓN: Intercambio Inmediato
 export const intercambiarPartidosService = async (torneoId, matchHoy, matchFuturo) => {
   try {
     const { data: jornadas } = await supabase
@@ -144,31 +191,30 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
 
     if (!idJornadaHoy || !idJornadaFutura) throw new Error("No se encontraron las jornadas");
 
-    // 1. Preparamos el partido que viene del futuro hacia HOY
+    // 1. Partido Futuro -> Hoy
     const payloadHoy = {
       jornada_id: idJornadaHoy,
       team1_id: matchFuturo.local.id,
       team2_id: matchFuturo.visitante.id,
-      status: matchHoy.status, // Hereda 'Programado' o 'Pendiente'
+      status: matchHoy.status, 
     };
 
-    // Si el espacio de hoy estaba programado, asignamos esa fecha/hora exacta al nuevo partido
     if (matchHoy.status === 'Programado' && matchHoy.date) {
       payloadHoy.date = `${matchHoy.date} ${matchHoy.time || '10:00'}:00`;
     } else {
       payloadHoy.date = null;
     }
 
-    // 2. Preparamos el partido que se va al FUTURO (queda pendiente y sin fecha para evitar colisiones)
+    // 2. Partido Hoy -> Futuro
     const payloadFuturo = {
       jornada_id: idJornadaFutura,
       team1_id: matchHoy.local.id,
       team2_id: matchHoy.visitante.id,
       status: 'Pendiente',
-      date: null // Crucial: limpiar la fecha para liberar el horario en la DB
+      date: null 
     };
 
-    // 3. Mantenimiento de IDs para Upsert
+    // Mantenimiento de IDs
     if (!String(matchHoy.id).includes('suggested') && !String(matchHoy.id).includes('swap')) {
       payloadFuturo.id = Number(matchHoy.id);
     }
@@ -176,7 +222,6 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       payloadHoy.id = Number(matchFuturo.id);
     }
 
-    // Ejecutamos el intercambio en una sola instrucción upsert
     const { error } = await supabase.from('matches').upsert([payloadFuturo, payloadHoy]);
     if (error) throw error;
     
@@ -217,7 +262,7 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
           const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
           payload.date = `${safeDate} ${m.time || "10:00"}:00`;
        } else {
-          payload.date = null; // Pendientes siempre null
+          payload.date = null; 
        }
 
        if (isRealId) payload.id = Number(m.id);
@@ -225,6 +270,10 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     };
 
     const scheduledPayloads = jornadaData.matches.map(m => formatMatchForDB(m, 'Programado'));
+    
+    // AQUÍ: Si están en la lista de pendientes (Sidebar), los guardamos como Pendientes (o como Programado sin fecha si prefieres)
+    // El comportamiento estándar es que si está en Sidebar -> es Pendiente. 
+    // Si quieres que siga siendo Programado, cámbialo aquí, pero la UI lo detecta por "sin fecha".
     const pendingPayloads = (jornadaData.allPendingMatches || [])
       .filter(m => m.isModified || (!String(m.id).includes('suggested') && !String(m.id).includes('swap')))
       .map(m => formatMatchForDB(m, 'Pendiente'));

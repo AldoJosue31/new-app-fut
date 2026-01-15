@@ -37,6 +37,7 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
   useEffect(() => {
     if (!teams || teams.length < 2) return;
 
+    // 1. Fixture Base (Standard)
     const baseRounds = generarFixture(teams);
     let fixtureMaster = [...baseRounds];
     if (activeTournament?.config?.vueltas === "2") {
@@ -44,6 +45,7 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
       fixtureMaster = [...baseRounds, ...roundsVuelta];
     }
 
+    // 2. Formatear Partidos Reales (DB)
     const formatMatch = (m) => {
       const localId = m.team1_id ?? m.local?.id;
       const visitId = m.team2_id ?? m.visitante?.id;
@@ -55,12 +57,22 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
       const isPending = m.status === 'Pendiente';
       const hasT = typeof m.date === 'string' && m.date.includes('T');
 
+      // CORRECCIÓN: Si no hay fecha en DB, se queda null (incluso si es Programado)
+      // Esto permite que 'Programado' sin fecha vaya al Sidebar
+      let finalDate = null;
+      let finalTime = null;
+
+      if (m.date) {
+         finalDate = hasT ? m.date.split('T')[0] : m.date;
+         finalTime = hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || "10:00");
+      }
+
       return {
         id: m.id,
         local: localTeam,
         visitante: visitTeam,
-        date: isPending ? null : (m.date ? (hasT ? m.date.split('T')[0] : m.date) : weekStartDate),
-        time: isPending ? null : (hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || "10:00")),
+        date: finalDate,
+        time: finalTime,
         status: m.status,
         goals1: m.goals1,
         goals2: m.goals2,
@@ -70,7 +82,6 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
       };
     };
 
-    // Unificamos todos los partidos conocidos para evitar duplicar sugerencias
     const allMatchesRaw = [...(matchesDB || []), ...(globalPendingMatches || [])];
     const uniqueMap = new Map();
     allMatchesRaw.forEach(m => {
@@ -79,22 +90,32 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
 
     const formattedMatches = Array.from(uniqueMap.values()).map(formatMatch).filter(Boolean);
 
-    // Generar sugerencias para TODAS las jornadas que falten en la DB
+    // 3. Generar Sugerencias (sin conflictos)
     let allSuggestions = [];
+    
     fixtureMaster.forEach((round, rIndex) => {
       const jName = `Jornada ${rIndex + 1}`;
+      const teamsOccupiedInJornada = new Set();
+      formattedMatches
+        .filter(m => m.originJornada === jName)
+        .forEach(m => {
+            if(m.local?.id) teamsOccupiedInJornada.add(m.local.id);
+            if(m.visitante?.id) teamsOccupiedInJornada.add(m.visitante.id);
+        });
+
       round.forEach(cruce => {
         const t1 = teams.find(t => t.id === cruce.home);
         const t2 = teams.find(t => t.id === cruce.away);
         if (!t1 || !t2) return;
 
-        // Si este cruce ya existe en la DB (en cualquier jornada), no sugerimos
         const existsAnywhere = formattedMatches.some(m =>
           (m.local.id === t1.id && m.visitante.id === t2.id) ||
           (m.local.id === t2.id && m.visitante.id === t1.id)
         );
 
-        if (!existsAnywhere) {
+        const isConflict = teamsOccupiedInJornada.has(t1.id) || teamsOccupiedInJornada.has(t2.id);
+
+        if (!existsAnywhere && !isConflict) {
           allSuggestions.push({
             id: `suggested-${rIndex}-${t1.id}-${t2.id}`,
             local: t1, visitante: t2, status: 'Pendiente',
@@ -105,15 +126,17 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
       });
     });
 
-    // Filtramos para la vista actual
-    const currentScheduled = formattedMatches.filter(m => m.originJornada === currentJornadaName && m.status !== 'Pendiente');
-    const currentPending = formattedMatches.filter(m => m.originJornada === currentJornadaName && m.status === 'Pendiente');
+    // FILTROS PRINCIPALES
+    // Scheduled: Tiene Fecha definida
+    const currentScheduled = formattedMatches.filter(m => m.originJornada === currentJornadaName && m.date);
+    
+    // Pending: NO tiene Fecha (o es sugerencia)
+    const currentPending = formattedMatches.filter(m => m.originJornada === currentJornadaName && !m.date);
     const currentSuggestions = allSuggestions.filter(s => s.originJornada === currentJornadaName);
 
     setScheduledMatches(currentScheduled);
     setAllPendingMatches([...currentPending, ...currentSuggestions]);
     
-    // Guardamos todas las sugerencias globales para que el modal las vea
     lastJornadaRef.current = {
         jornadaIndex,
         allKnownSuggestions: allSuggestions,
@@ -123,15 +146,13 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
 
   const pendingCurrentJornada = useMemo(() => allPendingMatches.filter(m => m.originJornada === currentJornadaName), [allPendingMatches, currentJornadaName]);
 
-  // CORRECCIÓN: futureMatches ahora incluye sugerencias futuras Y partidos pendientes de la DB
   const futureMatches = useMemo(() => {
     if (!lastJornadaRef.current) return [];
-    
     const { allKnownSuggestions, allFormattedMatches } = lastJornadaRef.current;
     
-    // Combinamos partidos pendientes reales de otras jornadas + sugerencias de otras jornadas
+    // Future pool: Todos los que no tienen fecha
     const pool = [
-        ...allFormattedMatches.filter(m => m.status === 'Pendiente'),
+        ...allFormattedMatches.filter(m => !m.date),
         ...allKnownSuggestions
     ];
 
