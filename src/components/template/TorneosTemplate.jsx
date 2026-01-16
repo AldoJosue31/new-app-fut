@@ -1,12 +1,12 @@
-import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
+import { useNavigate, useParams } from "react-router-dom";
 import { Title, TabsNavigation, ContentContainer, EmptyState } from "../../index";
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
-import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; // <-- nuevo
+import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
 import { TabContent } from "../moleculas/TabsNavigation";
 import { Device } from "../../styles/breakpoints"; 
 
@@ -19,14 +19,26 @@ export function TorneosTemplate({
   setReglas,
   refreshStandings
 }) {
+  const navigate = useNavigate();
+  const { tab } = useParams();
+  
   const tabList = [
     { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
     { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
     { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> },
-    { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> } // nuevo tab
+    { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> } 
   ];
 
-  const [activeTab, setActiveTab] = useState("definir");
+  const validTabIds = tabList.map(t => t.id);
+  const activeTab = validTabIds.includes(tab) ? tab : "definir";
+
+  // Identificamos las vistas que requieren ancho completo
+  const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
+
+  const handleTabChange = (newTabId) => {
+    navigate(`/torneos/${newTabId}`);
+  };
+
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
 
   return (
@@ -35,11 +47,19 @@ export function TorneosTemplate({
         <Title>Gestión de Torneos</Title>
       </HeaderSection>
 
+      {/* FIX: TabsWrapper se mantiene estable en 1000px. 
+         Al no cambiar de ancho, el indicador del tab viaja suavemente sin "fantasmas".
+      */}
       <TabsWrapper>
-         <TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={setActiveTab} />
+         <TabsNavigation 
+            tabs={tabList} 
+            activeTab={activeTab} 
+            setActiveTab={handleTabChange} 
+         />
       </TabsWrapper>
 
-      <ContentGrid>
+      {/* ContentGrid sí recibe la propiedad para expandirse */}
+      <ContentGrid $isWide={isWideView}>
         {activeTab === "definir" && (
           <FullWidthTab>
             <TorneoDefinicionTab 
@@ -66,11 +86,11 @@ export function TorneosTemplate({
                <EmptyState
                  title="Torneo no iniciado"
                  description="Debes definir e iniciar un torneo en la pestaña 'Definir Torneo' antes de ver las jornadas."
-                 actionComponent={
-                   <ActionButton onClick={() => setActiveTab("definir")}>
-                     Ir a Definir
-                   </ActionButton>
-                 }
+                         actionComponent={
+          <ActionButton onClick={() => handleTabChange("definir")}>
+            Ir a Definir
+          </ActionButton>
+        }
                />
             )}
            </FullWidthTab>
@@ -91,6 +111,11 @@ export function TorneosTemplate({
                  icon={<v.iconocorona size={40}/>}
                  title="Sin Datos"
                  description="No hay un torneo activo para mostrar la tabla de posiciones."
+                         actionComponent={
+          <ActionButton onClick={() => handleTabChange("definir")}>
+            Ir a Definir
+          </ActionButton>
+        }
                />
             )}
            </FullWidthTab>
@@ -105,11 +130,16 @@ export function TorneosTemplate({
                 limit={20}
               />
             ) : (
-              <EmptyState
-                title="Sin Datos"
-                description="Inicia un torneo para ver la tabla de goleadores."
-                actionComponent={<ActionButton onClick={() => setActiveTab("definir")}>Ir a Definir</ActionButton>}
-              />
+<EmptyState
+        title="Sin Datos"
+        description="Inicia un torneo para ver la tabla de goleadores."
+        // CAMBIO AQUÍ: Usamos handleTabChange en lugar de setActiveTab
+        actionComponent={
+          <ActionButton onClick={() => handleTabChange("definir")}>
+            Ir a Definir
+          </ActionButton>
+        }
+      />
             )}
           </FullWidthTab>
         )}
@@ -118,12 +148,12 @@ export function TorneosTemplate({
   );
 }
 
-// --- ESTILOS ACTUALIZADOS ---
+// --- ESTILOS OPTIMIZADOS ---
 
 const HeaderSection = styled.div`
   margin-bottom: 20px;
   width: 100%;
-  max-width: 1600px; 
+  padding: 0 10px;
   display: flex;
   flex-direction: column;
   @media ${Device.mobile} { align-items: center; text-align: center; }
@@ -132,12 +162,15 @@ const HeaderSection = styled.div`
 
 const TabsWrapper = styled.div`
   width: 100%;
-  /* Reducimos el ancho máximo para que sea consistente con los Cards (1000px-1200px) */
+  /* Mantenemos esto fijo en 1000px (o el estándar de tus cards).
+     Esto evita que los tabs se muevan al cambiar de vista, 
+     solucionando el bug visual del indicador "invadiendo".
+  */
   max-width: 1000px; 
   margin: 0 auto 20px auto;
   display: flex;
   flex-direction: column;
-  min-width: 0; 
+  min-width: 0;
 `;
 
 const ContentGrid = styled.div`
@@ -145,9 +178,18 @@ const ContentGrid = styled.div`
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 1000px; 
   margin: 0 auto;
-  gap: 10px; /* 3. Reduce el gap de 20px a 10px o 0 si lo quieres pegado a los tabs */
+  gap: 10px;
+  
+  /* Transición suave solo para el contenido */
+  transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  /* Lógica dinámica de ancho: Si es 'wide', usa 98%, si no 1000px */
+  max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
+
+  @media ${Device.desktop} {
+     max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")};
+  }
 `;
 
 const FullWidthTab = styled(TabContent)`

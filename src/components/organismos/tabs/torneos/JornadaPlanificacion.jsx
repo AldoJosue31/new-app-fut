@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
-// Asegúrate de que este path sea correcto y src/index exporte estos componentes.
-// Si falla, cámbialo a rutas directas como: import { Btnsave } from "../../../moleculas/Btnsave";
 import { v, Btnsave, Toast, Modal, TabsNavigation } from "../../../../index"; 
 import { 
     RiCalendarLine, RiCheckDoubleLine, RiFileList3Line, 
@@ -45,9 +43,8 @@ export function JornadaPlanificacion({
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
 
-  // --- LÓGICA DE FECHAS CORREGIDA (MATEMÁTICA PURA) ---
-useEffect(() => {
-    // Prioridad 1: Si ya hay partidos programados en esta jornada, usar esa fecha.
+  // --- LÓGICA DE FECHAS (Idéntica a tu original) ---
+  useEffect(() => {
     if (scheduledMatches && scheduledMatches.length > 0) {
         const existingDate = scheduledMatches[0].date;
         if (existingDate && existingDate !== weekStartDate) {
@@ -55,29 +52,17 @@ useEffect(() => {
         }
         return; 
     }
-
-    // Prioridad 2: Calcular fecha basada en el inicio del torneo
-    // CORRECCIÓN 1: Buscar en 'start_date' (nivel raíz de la DB) y como fallback en config.
     const fechaInicioTorneo = activeTournament?.start_date || activeTournament?.config?.startDate;
 
     if (fechaInicioTorneo) {
-        // Parseo manual YYYY-MM-DD
         const [yearStr, monthStr, dayStr] = fechaInicioTorneo.split('-');
         const startDate = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
-
-        // CORRECCIÓN 2: Cambiar multiplicación de 7 a 8 días según tu requerimiento
-        // Jornada 0 = +0 días, Jornada 1 = +8 días, Jornada 2 = +16 días...
         const daysToAdd = jornadaIndex * 8; 
-        
         startDate.setDate(startDate.getDate() + daysToAdd);
-
-        // Formateo manual a YYYY-MM-DD
         const y = startDate.getFullYear();
         const m = String(startDate.getMonth() + 1).padStart(2, '0');
         const d = String(startDate.getDate()).padStart(2, '0');
         const calculatedDate = `${y}-${m}-${d}`;
-
-        // Aplicamos la fecha si es diferente y la jornada no está confirmada
         if (weekStartDate !== calculatedDate && !isConfirmed) {
             setWeekStartDate(calculatedDate);
         }
@@ -251,7 +236,21 @@ const ModalContent = styled.div`
 
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
-const Workspace = styled.div` display: flex; gap: 20px; height: 550px; @media(max-width:768px){ flex-direction:column; height:auto; } `;
+
+/* WORKSPACE: Aquí es donde aplicamos el cambio de altura */
+const Workspace = styled.div` 
+    display: flex; 
+    gap: 20px; 
+    /* Altura dinámica: ocupa al menos el 75% de la altura de la ventana para aprovechar pantallas grandes */
+    min-height: 75vh; 
+    
+    @media(max-width:768px){ 
+        flex-direction:column; 
+        height:auto; 
+        min-height: auto;
+    } 
+`;
+
 const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; `;
 const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 20px; overflow-y: auto; position: relative; transition: all 0.3s ease; .placeholder { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; opacity:0.4; p { margin-top: 10px; font-size: 0.9rem; } } `;
 const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; `;

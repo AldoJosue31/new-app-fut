@@ -158,6 +158,12 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 }
 
 const fadeIn = keyframes` from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } `;
-const TabContainer = styled.div` display: flex; flex-direction: column; gap: 20px; width: 100%; animation: ${fadeIn} 0.5s ease-out; `;
+const TabContainer = styled.div` 
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+    width: 100%; 
+    animation: ${fadeIn} 0.5s ease-out; 
+`;
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;
 const LoadingBox = styled.div` padding: 50px; text-align: center; font-weight:600; `;
