@@ -4,7 +4,7 @@ import { supabase } from "../../../../supabase/supabase.config";
 import { v } from "../../../../styles/variables";
 import { Btnsave } from "../../../../index";
 
-export function JornadaResultados({ matches, teams, jornadaId, refreshMatches }) {
+export function JornadaResultados({ matches, teams, jornadaId, refreshMatches, activeTournament }) {
   const [editingId, setEditingId] = useState(null);
   const [tempScore, setTempScore] = useState({ g1: 0, g2: 0 });
 
@@ -15,7 +15,7 @@ export function JornadaResultados({ matches, teams, jornadaId, refreshMatches })
     setTempScore({ g1: match.goals1 || 0, g2: match.goals2 || 0 });
   };
 
-const handleSave = async (matchId) => {
+  const handleSave = async (matchId) => {
     // Reglas de puntuación
     const winPoints = parseInt(activeTournament?.config?.winPoints ?? 3);
     const drawPoints = parseInt(activeTournament?.config?.drawPoints ?? 1);
@@ -30,7 +30,7 @@ const handleSave = async (matchId) => {
         const { error } = await supabase.from('matches').update({
             goals1: tempScore.g1,
             goals2: tempScore.g2,
-            puntos1: p1, // Guardar puntos según reglas
+            puntos1: p1, 
             puntos2: p2,
             status: 'Finalizado'
         }).eq('id', matchId);
@@ -104,28 +104,28 @@ const handleSave = async (matchId) => {
   );
 }
 
-const Container = styled.div`
-    background: ${({theme})=>theme.bgcards}; padding: 20px; border-radius: 16px; border: 1px solid ${({theme})=>theme.bg4};
-    h3 { margin-bottom: 20px; opacity: 0.8; }
-`;
+const Container = styled.div` background: ${({theme})=>theme.bgcards}; padding: 20px; border-radius: 16px; border: 1px solid ${({theme})=>theme.bg4}; h3 { margin-bottom: 20px; opacity: 0.8; } width: 100%; `;
 
 const Grid = styled.div` display: flex; flex-direction: column; gap: 10px; `;
 
 const MatchRow = styled.div`
-    display: grid; grid-template-columns: 80px 1fr 60px; align-items: center; 
+    display: grid; 
+    /* Grid optimizado para pantallas grandes: */
+    grid-template-columns: 80px 1fr 100px; 
+    align-items: center; 
     background: ${({theme, $isPending}) => $isPending ? `${theme.bg4}50` : theme.bgtotal}; 
     padding: 10px 15px; border-radius: 12px; border: 1px solid ${({theme})=>theme.bg4};
 
     .date-col { font-size: 0.9rem; font-weight: 700; opacity: 0.7; text-align: center; }
     .badge-pending { background: #f39c12; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
 
-    .teams-score { display: flex; align-items: center; justify-content: center; gap: 20px; }
-    .team { display: flex; align-items: center; gap: 10px; width: 150px; font-weight: 600; font-size: 0.9rem; img{width:30px; height:30px; object-fit:contain;} }
+    .teams-score { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; }
+    .team { display: flex; align-items: center; gap: 10px; width: 40%; font-weight: 600; font-size: 0.9rem; img{width:30px; height:30px; object-fit:contain;} }
     .t-left { justify-content: flex-end; text-align: right; }
     .t-right { justify-content: flex-start; text-align: left; }
 
     .score-box { 
-        width: 80px; display: flex; justify-content: center; 
+        width: 100px; display: flex; justify-content: center; 
         .display { font-size: 1.5rem; font-weight: 800; color: ${v.colorPrincipal}; display: flex; gap: 5px; }
         .inputs { display: flex; align-items: center; gap: 5px; input { width: 35px; text-align: center; padding: 5px; border-radius: 5px; border: 1px solid #444; background: ${({theme})=>theme.bgcards}; color: ${({theme})=>theme.text}; font-weight: bold; } }
     }
@@ -134,5 +134,12 @@ const MatchRow = styled.div`
         button { padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700; font-size: 0.8rem; }
         .btn-edit { background: ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; &:hover{background: ${({theme})=>theme.primary}; color: white;} }
         .btn-save { background: ${v.verde}; color: white; }
+    }
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        .teams-score { justify-content: space-between; }
+        .actions { justify-content: center; }
     }
 `;

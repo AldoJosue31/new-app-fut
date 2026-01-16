@@ -59,8 +59,8 @@ export function MyRoutes() {
       
       <Route path="/partidos" element={<ProtectedRoute><Partidos /></ProtectedRoute>} />
       <Route path="/equipos" element={<ProtectedRoute><Equipos /></ProtectedRoute>} />
-      <Route path="/torneos" element={<ProtectedRoute><Torneos /></ProtectedRoute>} />
-      <Route path="/liga" element={<ProtectedRoute><Liga /></ProtectedRoute>} />
+      <Route path="/torneos/:tab?" element={<ProtectedRoute><Torneos /></ProtectedRoute>} />
+      <Route path="/liga/:tab?" element={<ProtectedRoute><Liga /></ProtectedRoute>} />
       <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
       <Route path="/invitation/:token" element={<RegisterManager />} />
 

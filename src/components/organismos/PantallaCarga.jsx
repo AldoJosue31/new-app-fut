@@ -3,7 +3,8 @@ import styled, { keyframes, css } from 'styled-components';
 // Asegúrate de que esta ruta sea correcta hacia tu imagen
 import logo from '/logo_app.png'; 
 
-const PantallaCarga = () => {
+// CAMBIO AQUÍ: Usamos 'export const' en lugar de definirlo y luego usar 'export default'
+export const PantallaCarga = () => {
   return (
     <Container>
       <LogoWrapper>
@@ -17,8 +18,6 @@ const PantallaCarga = () => {
     </Container>
   );
 };
-
-export default PantallaCarga;
 
 // --- Keyframes ---
 const assembleTL = keyframes`
@@ -83,7 +82,6 @@ const LogoWrapper = styled.div`
   margin-bottom: 2rem;
 `;
 
-// Aquí estaba el error. Usamos el helper 'css' en cada caso.
 const Cuadrante = styled.div`
   position: absolute;
   width: 50%;

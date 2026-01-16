@@ -40,7 +40,9 @@ export const getEquiposDivision = async (divisionId) => {
 
 export const generarFixture = (equipos) => {
   const list = [...equipos];
-  if (list.length % 2 !== 0) list.push({ id: null }); // Bye / Descanso
+  // Si es impar, añadimos un placeholder (null o objeto dummy) para control interno
+  if (list.length % 2 !== 0) list.push({ id: null }); 
+  
   const rounds = [];
   const totalRounds = list.length - 1;
 
@@ -49,7 +51,9 @@ export const generarFixture = (equipos) => {
     for (let j = 0; j < list.length / 2; j++) {
       const t1 = list[j];
       const t2 = list[list.length - 1 - j];
-      if (t1.id && t2.id) {
+      // Nota: Si t1 o t2 es el placeholder, se genera el partido igualmente aquí
+      // para que el Modal pueda mostrar "Descansa". El modal filtrará 'BYE' antes de guardar.
+      if (t1.id || t2.id) { 
         round.push({ home: t1.id, away: t2.id });
       }
     }
@@ -122,6 +126,7 @@ export const iniciarTorneoService = async ({
     const { data: divisionData } = await supabase.from('divisions').select('id').eq('name', divisionName).single();
     if (!divisionData) throw new Error("División no encontrada");
 
+    // 1. Crear Torneo
     const { data: torneo, error: tError } = await supabase
         .from('tournaments')
         .insert({
@@ -136,6 +141,8 @@ export const iniciarTorneoService = async ({
     
     if (tError) throw tError;
 
+    // 2. Determinar Jornadas a insertar
+    // Si viene fixtureGenerado (manual), usamos sus nombres. Si no, los genéricos.
     const jornadasToInsert = fixtureGenerado 
         ? fixtureGenerado.map(f => ({ tournament_id: torneo.id, name: f.name, status: 'Pendiente' }))
         : jornadas.map(j => ({ tournament_id: torneo.id, name: j.name, status: 'Pendiente' }));
@@ -147,6 +154,7 @@ export const iniciarTorneoService = async ({
 
     if (jError) throw jError;
 
+    // 3. Insertar Partidos
     if (fixtureGenerado && fixtureGenerado.length > 0) {
         let matchesToInsert = [];
 
@@ -155,13 +163,16 @@ export const iniciarTorneoService = async ({
             if (!jornadaDB) return;
 
             jornadaData.matches.forEach(match => {
-                matchesToInsert.push({
-                    jornada_id: jornadaDB.id,
-                    team1_id: match.local.id,
-                    team2_id: match.visitante.id,
-                    status: 'Programado', // <--- Solicitado: Iniciar como Programado
-                    date: null            // <--- Pero sin fecha, para que vaya al Sidebar
-                });
+                // Verificar IDs validos (que no sean BYE ni undefined)
+                if(match.local.id && match.visitante.id && match.local.id !== 'BYE' && match.visitante.id !== 'BYE') {
+                    matchesToInsert.push({
+                        jornada_id: jornadaDB.id,
+                        team1_id: match.local.id,
+                        team2_id: match.visitante.id,
+                        status: 'Programado', 
+                        date: null // Sin fecha = Pendiente en UI (Sidebar)
+                    });
+                }
             });
         });
 

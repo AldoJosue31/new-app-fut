@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React from "react"; // Ya no necesitamos useState
+import { useNavigate, useParams } from "react-router-dom"; // Importamos los hooks necesarios
 import styled from "styled-components";
 import { Device } from "../../styles/breakpoints";
 import { Title, TabsNavigation, EmptyState } from "../../index";
 import { RiShieldUserLine, RiBarChartGroupedLine, RiSettings4Line, RiBuilding2Line } from "react-icons/ri";
 import { GiWhistle } from "react-icons/gi";
-
 
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
@@ -12,18 +12,31 @@ import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
 
 export function LigaTemplate({ 
    division, season, loading, 
-  leagueData, referees = [], allDivisions = [],
-  onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
-  onAddReferee, onEditReferee, onDeleteReferee
+   leagueData, referees = [], allDivisions = [],
+   onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
+   onAddReferee, onEditReferee, onDeleteReferee
 }) {
-  const [activeTab, setActiveTab] = useState("general");
+  // 1. Hooks de navegación y parámetros
+  const navigate = useNavigate();
+  const { tab } = useParams();
 
   const tabList = [
     { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
     { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
   ];
-if (!loading && !leagueData) {
+
+  // 2. Determinar tab activo basado en la URL
+  // Si 'tab' es undefined o no existe en nuestra lista, usamos 'general'
+  const validTabIds = tabList.map(t => t.id);
+  const activeTab = validTabIds.includes(tab) ? tab : "general";
+
+  // 3. Función para cambiar de pestaña (actualiza la URL)
+  const handleTabChange = (newTabId) => {
+    navigate(`/liga/${newTabId}`);
+  };
+
+  if (!loading && !leagueData) {
       return (
         <Container>
            <EmptyState 
@@ -33,12 +46,18 @@ if (!loading && !leagueData) {
         </Container>
       )
   }
+
   return (
     <Container>
       <HeaderSection><Title>Mi Liga</Title></HeaderSection>
       
       <div style={{width: '100%', maxWidth: '1000px'}}>
-         <TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={setActiveTab} />
+         {/* 4. Pasamos activeTab calculado y la función handleTabChange */}
+         <TabsNavigation 
+            tabs={tabList} 
+            activeTab={activeTab} 
+            setActiveTab={handleTabChange} 
+         />
       </div>
 
       <ContentGrid>

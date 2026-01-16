@@ -174,7 +174,7 @@ export const useTorneosLogic = () => {
     setForm(prevForm => ({ ...prevForm, [name]: val }));
   };
 
-  // ACTUALIZACIÓN: Ahora aceptamos fixtureData (opcional)
+  // --- ACTUALIZACIÓN: Recepción de fixtureData manual ---
   const handleSubmit = async (fixtureData = null) => {
     if (activeTournament) return; 
 
@@ -201,15 +201,17 @@ export const useTorneosLogic = () => {
     try {
       if (participatingIds.length < 2) throw new Error("Mínimo 2 equipos requeridos.");
 
-      // Calculamos las jornadas "teóricas" por si no hubiera fixtureData
-      const jornadasPorVuelta = participatingIds.length % 2 === 0 ? participatingIds.length - 1 : participatingIds.length;
-      const totalJornadasCalc = form.vueltas === "2" ? jornadasPorVuelta * 2 : jornadasPorVuelta;
+      // Si viene fixtureData (del modal manual), lo usamos.
+      // Si no, generamos placeholders (aunque el modal es quien inicia el proceso ahora).
+      let jornadasArray = [];
+      if (!fixtureData) {
+          const jornadasPorVuelta = participatingIds.length % 2 === 0 ? participatingIds.length - 1 : participatingIds.length;
+          const totalJornadasCalc = form.vueltas === "2" ? jornadasPorVuelta * 2 : jornadasPorVuelta;
+          jornadasArray = Array.from({ length: totalJornadasCalc }, (_, i) => ({
+            name: `Jornada ${i + 1}`
+          }));
+      }
 
-      const jornadasArray = Array.from({ length: totalJornadasCalc }, (_, i) => ({
-        name: `Jornada ${i + 1}`
-      }));
-
-      // Pasamos fixtureData como segundo argumento al servicio
       await iniciarTorneoService({
         divisionName: selectedDivision.name,
         season: form.season,
@@ -256,7 +258,7 @@ export const useTorneosLogic = () => {
       divisionName: selectedDivision?.name
     },
     actions: {
-      handleSubmit, // Ahora esta función acepta argumentos
+      handleSubmit, 
       handleChange,
       onInclude: moveTeamToParticipating,
       onExclude: moveTeamToExcluded,

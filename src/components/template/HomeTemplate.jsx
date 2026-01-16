@@ -1,62 +1,41 @@
 import styled from "styled-components";
-import { useAuthStore } from "../../store/AuthStore";
-import { UserAuth } from "../../context/AuthContent";
+import { useHomeDashboard } from "../../hooks/pages/useHomeDashboard";
+import { WelcomeDashboard } from "../organismos/dashboard/WelcomeDashboard";
+import { SummaryDashboard } from "../organismos/dashboard/SummaryDashboard";
+import { PantallaCarga } from "../organismos/PantallaCarga";
+import { ContentContainer } from "../atomos/ContentContainer";
 
-export function HomeTemplate(){
-    const { cerrarSesion } = useAuthStore();
-    const { user, isLoading } = UserAuth();
+export function HomeTemplate() {
+    const { stats, loading, user } = useHomeDashboard();
 
-    if (isLoading) {
-        return (
-            <Container>
-                <span>Cargando...</span>
-            </Container>
-        );
-    }
+    // Obtener nombre corto del usuario o email
+    const userName = user?.user_metadata?.nombre || user?.email?.split('@')[0] || "Manager";
 
-    if (!user) {
-        return (
-            <Container>
-                <span>Por favor inicia sesión</span>
-            </Container>
-        );
-    }
 
-    return(
-        <Container>
-            <span>HomeTemplate</span>
-            <button onClick={cerrarSesion}>Cerrar</button>
-            <span> Bienvenido {user?.id}</span>
-            {user?.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="Avatar" />}
-        </Container>
-    )
+
+    return (
+        <ContentContainer>
+            <MainContainer>
+                {/* Condición: Si no hay divisiones, mostramos WelcomeDashboard.
+                  Si hay divisiones, mostramos SummaryDashboard.
+                */}
+                {stats.divisiones.length === 0 ? (
+                    <WelcomeDashboard userName={userName} />
+                ) : (
+                    <SummaryDashboard stats={stats} userName={userName} />
+                )}
+            </MainContainer>
+        </ContentContainer>
+    );
 }
-const Container = styled.div`
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
 
-    img {
-        width: 100px;
-        height: 100px;
-        border-radius: 50%;
-        object-fit: cover;
+const MainContainer = styled.div`
+    width: 100%;
+    min-height: 100%;
+    animation: fadeIn 0.5s ease-in;
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-
-    button {
-        padding: 10px 20px;
-        background-color: ${({ theme }) => theme.primary || '#1CB0F6'};
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 16px;
-
-        &:hover {
-            opacity: 0.8;
-        }
-    }
-`
+`;
