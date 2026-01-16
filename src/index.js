@@ -41,7 +41,7 @@ export { AdminManagersTemplate } from './components/template/AdminManagersTempla
 export { ManagerCard } from "./components/organismos/adminManagers/ManagerCard";
 export { ManagerDetailModal } from "./components/organismos/adminManagers/ManagerDetailModal";
 export { ManagerCreateModal } from "./components/organismos/adminManagers/ManagerCreateModal";
-export { default as PantallaCarga } from './components/organismos/PantallaCarga';
+export { PantallaCarga } from './components/organismos/PantallaCarga';
 export { TorneoDashboard } from './components/organismos/tabs/torneos/subcomponents/TorneoDashboard';
 export { TabGeneral, TabFormat, TabScoring, TabGameRules } from './components/organismos/tabs/torneos/subcomponents/TorneoFormTabs';
 export { Tooltip } from './components/atomos/Tooltip';

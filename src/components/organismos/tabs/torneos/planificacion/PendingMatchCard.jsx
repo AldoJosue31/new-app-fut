@@ -1,60 +1,87 @@
 import React from "react";
 import styled from "styled-components";
-import { v } from "../../../../../index";
+import { Badge } from "../../../../../index"; 
+import { RiDragMove2Line } from "react-icons/ri";
 
-export function PendingMatchCard({ match, isConfirmed, onDragStart, jornadaIndex }) {
-  const isSuggested = String(match.id).includes('suggested');
-  const isFromOtherJornada = isSuggested && !String(match.id).includes(`suggested-${jornadaIndex}`);
-  const isPostponed = typeof match.id === 'number' && match.status === 'Pendiente';
+export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJornadaIndex }) => {
+  // Detectar si es atrasado
+  const matchJornadaNum = match.originJornada ? parseInt(match.originJornada.split(' ')[1]) : 999;
+  const isDelayed = matchJornadaNum < (currentJornadaIndex + 1);
 
   return (
     <Card 
-        draggable={!isConfirmed}
-        onDragStart={(e) => onDragStart(e, match)}
-        $disabled={isConfirmed}
+      draggable={!isConfirmed} 
+      onDragStart={onDragStart}
+      $isConfirmed={isConfirmed}
+      $isDelayed={isDelayed}
     >
-       <div className="teams">
-           <img src={match.local.logo_url || v.iconofotovacia} alt="local"/>
-           <span>vs</span>
-           <img src={match.visitante.logo_url || v.iconofotovacia} alt="visita"/>
-       </div>
-       <div className="names">
-           {match.local.name} vs {match.visitante.name}
-       </div>
-       
-       {isFromOtherJornada && (
-           <Tag $color="#f39c12">Sugerido (Otra fecha)</Tag>
-       )}
-
-       {isPostponed && (
-           <Tag $color="#e74c3c">
-              {match.originJornada ? `Pendiente de ${match.originJornada}` : 'Pospuesto'}
-           </Tag>
-       )}
+      <div className="drag-handle">
+        <RiDragMove2Line />
+      </div>
+      
+      <div className="info">
+        <div className="teams">
+            <span className="team-name">{match.local?.name || "Local"}</span>
+            <span className="vs">vs</span>
+            <span className="team-name">{match.visitante?.name || "Visitante"}</span>
+        </div>
+        
+        {isDelayed && (
+            <div className="meta">
+                         <Badge color="#e74c3c" >
+                                    Pendiente {match.originJornada}
+                         </Badge>
+            </div>
+        )}
+      </div>
     </Card>
   );
-}
+};
 
 const Card = styled.div`
-    background: ${({theme, $disabled})=> $disabled ? theme.bg3 : theme.bgtotal}; 
-    border: 1px solid ${({theme})=>theme.bg4}; padding: 10px; border-radius: 8px; 
-    cursor: ${({$disabled})=> $disabled ? 'default' : 'grab'}; 
-    opacity: ${({$disabled})=> $disabled ? 0.7 : 1};
-    transition: all 0.2s ease;
+  background: ${({ theme, $isDelayed }) => $isDelayed ? theme.bg4 + '40' : theme.bg2};
+  border: 1px solid ${({ theme, $isDelayed }) => $isDelayed ? '#e74c3c' : theme.bg4};
+  border-left: 4px solid ${({ theme, $isDelayed }) => $isDelayed ? '#e74c3c' : theme.gray300};
+  padding: 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: ${({ $isConfirmed }) => $isConfirmed ? 'default' : 'grab'};
+  transition: all 0.2s;
+  opacity: ${({ $isConfirmed }) => $isConfirmed ? 0.6 : 1};
+
+  &:hover {
+    transform: ${({ $isConfirmed }) => $isConfirmed ? 'none' : 'translateY(-2px)'};
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: ${({ theme, $isDelayed }) => $isDelayed ? '#c0392b' : theme.primary};
+  }
+
+  .drag-handle {
+    color: ${({ theme }) => theme.text2};
+    cursor: grab;
+  }
+
+  .info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .teams {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
     
-    &:hover { 
-        border-color: ${({$disabled, theme})=> $disabled ? theme.bg4 : v.colorPrincipal}; 
-        transform: ${({$disabled})=> $disabled ? 'none' : 'translateY(-2px)'};
-        box-shadow: ${({$disabled})=> $disabled ? 'none' : '0 4px 10px rgba(0,0,0,0.1)'};
-    }
+    .vs { color: ${({theme})=>theme.text2}; font-size: 0.7rem; }
+    .team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+  }
 
-    .teams { display: flex; justify-content: center; gap: 10px; margin-bottom: 5px; img { width: 25px; height: 25px; object-fit: contain; } }
-    .names { text-align: center; font-size: 0.8rem; font-weight: 600; }
-`;
-
-const Tag = styled.div`
-    text-align: center; font-size: 0.7rem; margin-top: 6px; font-weight: 700;
-    color: ${({$color}) => $color};
-    background: ${({$color}) => $color + '15'};
-    padding: 2px 5px; border-radius: 4px;
+  .meta {
+    display: flex;
+    justify-content: flex-start;
+  }
 `;

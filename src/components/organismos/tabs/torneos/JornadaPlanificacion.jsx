@@ -23,7 +23,7 @@ export function JornadaPlanificacion({
   const {
     scheduledMatches, setScheduledMatches,
     allPendingMatches, setAllPendingMatches,
-    pendingCurrentJornada,
+    sidebarMatches, // <--- CAMBIO: Usamos la lista inteligente que incluye atrasados
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes,
     currentJornadaName
@@ -43,7 +43,7 @@ export function JornadaPlanificacion({
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
 
-  // --- LÓGICA DE FECHAS (Idéntica a tu original) ---
+  // --- LÓGICA DE FECHAS ---
   useEffect(() => {
     if (scheduledMatches && scheduledMatches.length > 0) {
         const existingDate = scheduledMatches[0].date;
@@ -68,7 +68,6 @@ export function JornadaPlanificacion({
         }
     }
   }, [jornadaIndex, activeTournament, isConfirmed, scheduledMatches]);
-  // --------------------------------------------------------
 
   const handleDrop = (e) => {
     e.preventDefault(); 
@@ -93,7 +92,10 @@ export function JornadaPlanificacion({
         isModified: true 
     };
     
+    // Al soltar, actualizamos scheduledMatches
     setScheduledMatches(autoAdjustTimes([...scheduledMatches, newMatch], weekStartDate));
+    
+    // Y quitamos del pool de pendientes
     setAllPendingMatches(allPendingMatches.filter(m => m.id !== draggedMatch.id));
     setDraggedMatch(null);
   };
@@ -118,7 +120,7 @@ export function JornadaPlanificacion({
         <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
                 <PlanningSidebar 
-                    matches={pendingCurrentJornada}
+                    matches={sidebarMatches} // <--- Pasamos la lista inteligente
                     isConfirmed={isConfirmed}
                     setDraggedMatch={setDraggedMatch}
                     jornadaIndex={jornadaIndex}
@@ -155,8 +157,16 @@ export function JornadaPlanificacion({
                                             setScheduledMatches(autoAdjustTimes(updated, match.date));
                                           }}
                                           onRemove={() => { 
+                                            // Al quitar del grid, lo regresamos al pool general como Pendiente
                                             setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                            setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', originJornada: currentJornadaName, isModified: true }]); 
+                                            setAllPendingMatches([...allPendingMatches, { 
+                                                ...match, 
+                                                status: 'Pendiente', 
+                                                // Mantenemos su originJornada original para que el Sidebar sepa si es atrasado
+                                                date: null, 
+                                                time: null,
+                                                isModified: true 
+                                            }]); 
                                           }} 
                                           onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
                                           onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
@@ -186,6 +196,7 @@ export function JornadaPlanificacion({
                     funcion={() => onConfirm({ 
                         jornada_numero: jornadaIndex + 1,
                         matches: scheduledMatches, 
+                        // Enviamos allPendingMatches para que se guarden los estatus de los que quedan en sidebar
                         allPendingMatches: allPendingMatches 
                     })} 
                     icono={<RiCheckDoubleLine/>} 
@@ -237,11 +248,9 @@ const ModalContent = styled.div`
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
 
-/* WORKSPACE: Aquí es donde aplicamos el cambio de altura */
 const Workspace = styled.div` 
     display: flex; 
     gap: 20px; 
-    /* Altura dinámica: ocupa al menos el 75% de la altura de la ventana para aprovechar pantallas grandes */
     min-height: 75vh; 
     
     @media(max-width:768px){ 

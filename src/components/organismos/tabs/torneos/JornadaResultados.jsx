@@ -104,14 +104,7 @@ export function JornadaResultados({ matches, teams, jornadaId, refreshMatches, a
   );
 }
 
-const Container = styled.div`
-    background: ${({theme})=>theme.bgcards}; 
-    padding: 20px; 
-    border-radius: 16px; 
-    border: 1px solid ${({theme})=>theme.bg4};
-    h3 { margin-bottom: 20px; opacity: 0.8; }
-    width: 100%;
-`;
+const Container = styled.div` background: ${({theme})=>theme.bgcards}; padding: 20px; border-radius: 16px; border: 1px solid ${({theme})=>theme.bg4}; h3 { margin-bottom: 20px; opacity: 0.8; } width: 100%; `;
 
 const Grid = styled.div` display: flex; flex-direction: column; gap: 10px; `;
 
