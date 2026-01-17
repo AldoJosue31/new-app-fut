@@ -5,6 +5,7 @@ import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
 import { guardarJornadaService, actualizarConfigTorneoService } from "../../../../services/torneos";
+import { Device } from "../../../../styles/breakpoints"; // Asegúrate de importar esto
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
@@ -158,12 +159,20 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 }
 
 const fadeIn = keyframes` from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } `;
+
 const TabContainer = styled.div` 
     display: flex; 
     flex-direction: column; 
     gap: 20px; 
     width: 100%; 
+    max-width: 100vw; /* Evita desbordamiento horizontal global */
+    box-sizing: border-box;
     animation: ${fadeIn} 0.5s ease-out; 
+    
+    @media ${Device.tablet} {
+        /* Ajustes específicos para tablet si son necesarios */
+    }
 `;
+
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;
 const LoadingBox = styled.div` padding: 50px; text-align: center; font-weight:600; `;
