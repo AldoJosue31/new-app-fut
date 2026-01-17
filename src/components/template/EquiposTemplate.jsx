@@ -29,7 +29,6 @@ export function EquiposTemplate({
     const [teamToTransfer, setTeamToTransfer] = useState(null);
     const { divisiones } = useDivisionStore();
     
-    // Estado del Toast según el estándar solicitado
     const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
 
     const showToast = (msg, type = "success") => setToast({ show: true, msg, type });
@@ -73,15 +72,16 @@ export function EquiposTemplate({
             Array.from({ length: 8 }).map((_, i) => <TeamCardSkeleton key={i} />)
             ) : (
                 <>
-                    {equipos.map((team) => (
+                    {/* Verificamos que equipos sea un array para evitar errores de renderizado */}
+                    {Array.isArray(equipos) && equipos.map((team) => (
                         <TeamCard 
                           key={team.id} team={team} onEdit={onEdit} onView={onView}
                           onDelete={onDelete} onTransfer={(t) => { setTeamToTransfer(t); setIsTransferModalOpen(true); }} 
                         />
                     ))}
-                    {equipos.length === 0 && (
+                    {(!equipos || equipos.length === 0) && (
                       <div style={{ gridColumn: "1 / -1" }}>
-                        <EmptyState icon={<IoMdFootball size={48} />} title="Sin Equipos" description="No hay equipos registrados." actionComponent={<Btnsave titulo="Crear Primer Equipo" bgcolor={v.colorPrincipal} icono={<v.iconoagregar />} funcion={onCreate} />} />
+                        <EmptyState icon={<IoMdFootball size={48} />} title="Sin Equipos" description="No hay equipos registrados en esta división." actionComponent={<Btnsave titulo="Crear Primer Equipo" bgcolor={v.colorPrincipal} icono={<v.iconoagregar />} funcion={onCreate} />} />
                       </div>
                     )}
                 </>

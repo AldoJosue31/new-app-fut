@@ -8,7 +8,7 @@ import { TEAM_STATUS } from "../../utils/constants";
 
 export const useEquiposLogic = () => {
   const { selectedDivision } = useDivisionStore();
-  const { equipos, loading, fetchEquipos, addEquipoLocal, updateEquipoLocal, deleteEquipoLocal } = useEquiposStore();
+  const { equipos, loading, fetchEquipos, addEquipoLocal, updateEquipoLocal, deleteEquipoLocal, resetStore } = useEquiposStore();
   
   const [uploading, setUploading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -31,11 +31,16 @@ export const useEquiposLogic = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
 
+  // Lógica de carga inteligente
   useEffect(() => {
-    if (selectedDivision) {
+    if (selectedDivision?.id) {
         fetchEquipos(selectedDivision.id);
+    } else {
+        // Si no hay división seleccionada (o se deseleccionó), limpiamos la vista
+        // Esto previene ver equipos cuando no corresponde
+        resetStore();
     }
-  }, [selectedDivision, fetchEquipos]);
+  }, [selectedDivision, fetchEquipos, resetStore]);
 
   const getDominantColor = (imageFile) => {
     return new Promise((resolve) => {
@@ -61,7 +66,6 @@ export const useEquiposLogic = () => {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       
-      // OPTIMIZACIÓN: Solo extraer color si NO estamos editando
       if (!teamToEdit) {
         try {
           const dominantColor = await getDominantColor(selectedFile);

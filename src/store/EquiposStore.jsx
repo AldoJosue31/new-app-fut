@@ -4,19 +4,16 @@ import { supabase } from '../supabase/supabase.config';
 export const useEquiposStore = create((set, get) => ({
   equipos: [],
   loading: false,
-  cachedDivisionId: null, // Guardamos el ID de la última división cargada
+  cachedDivisionId: null,
 
   fetchEquipos: async (divisionId) => {
     const { cachedDivisionId, equipos } = get();
 
-    // LÓGICA INTELEGENTE:
-    // Si la división solicitada es la misma que ya tenemos en memoria
-    // Y hay equipos cargados, NO hacemos nada (mostramos lo que hay al instante).
+    // Si ya tenemos los datos de esta división en memoria, no recargamos
     if (divisionId === cachedDivisionId && equipos.length > 0) {
       return; 
     }
 
-    // Si es una división diferente, activamos skeletons y pedimos datos
     set({ loading: true, cachedDivisionId: divisionId, equipos: [] });
 
     try {
@@ -30,25 +27,26 @@ export const useEquiposStore = create((set, get) => ({
       set({ equipos: data });
     } catch (error) {
       console.error("Error fetching equipos:", error);
+      // En caso de error, aseguramos que loading sea false
+      set({ equipos: [] });
     } finally {
       set({ loading: false });
     }
   },
 
-  // ACCIONES CRUD PARA ACTUALIZAR LA LISTA SIN RECARGAR (SIN SKELETONS)
-  
-  // Agregar un equipo manualmente a la lista local
+  // ACCIONES LOCALES
   addEquipoLocal: (team) => set((state) => ({ 
     equipos: [...state.equipos, team].sort((a, b) => a.name.localeCompare(b.name)) 
   })),
 
-  // Actualizar un equipo manualmente en la lista local
   updateEquipoLocal: (updatedTeam) => set((state) => ({
     equipos: state.equipos.map((t) => (t.id === updatedTeam.id ? updatedTeam : t))
   })),
 
-  // Eliminar un equipo manualmente de la lista local
   deleteEquipoLocal: (id) => set((state) => ({
     equipos: state.equipos.filter((t) => t.id !== id)
   })),
+
+  // NUEVA FUNCIÓN: Limpieza total del store (para el Logout)
+  resetStore: () => set({ equipos: [], loading: false, cachedDivisionId: null }),
 }));
