@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../styles/variables";
 import { RiBuilding2Line, RiAddLine, RiPencilLine, RiDeleteBinLine } from "react-icons/ri";
-import { Card, CardHeader, BtnNormal, Modal, InputText2, Btnsave, ConfirmModal } from "../../../../index";
+import { Card, CardHeader, BtnGreen, Modal, InputText2, Btnsave, ConfirmModal } from "../../../../index";
 
 export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
   const [modal, setModal] = useState({ open: false, type: 'add', data: null });
@@ -28,10 +28,17 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
 
   return (
     <Card maxWidth="800px">
-        <div className="header-row">
+        {/* Usamos el nuevo contenedor responsive */}
+        <HeaderContainer>
             <CardHeader Icono={RiBuilding2Line} titulo="Mis Divisiones" subtitulo="Categorías activas" />
-            <BtnNormal titulo="Nueva División" icono={<RiAddLine/>} funcion={() => handleOpen('add')} />
-        </div>
+            <div className="action-area">
+                <BtnGreen 
+                    titulo="Nueva División" 
+                    icono={<RiAddLine/>} 
+                    funcion={() => handleOpen('add')} 
+                />
+            </div>
+        </HeaderContainer>
         
         <ListGrid>
             {divisions.map((div) => (
@@ -49,7 +56,6 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
             {divisions.length === 0 && <EmptyMsg>No hay divisiones creadas.</EmptyMsg>}
         </ListGrid>
 
-        {/* Modal Formulario */}
         <Modal isOpen={modal.open} onClose={() => setModal({...modal, open:false})} title={modal.type === 'add' ? "Crear División" : "Editar"}>
            <ModalContent>
                <label>Nombre de la División</label>
@@ -62,7 +68,6 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
            </ModalContent>
         </Modal>
 
-        {/* Modal Confirmación */}
         <ConfirmModal 
             isOpen={deleteModal.open} onClose={() => setDeleteModal({...deleteModal, open:false})}
             onConfirm={confirmDelete} title="Eliminar División" message={`¿Eliminar "${deleteModal.name}"?`}
@@ -71,8 +76,30 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
   );
 }
 
-// Styles
-const ListGrid = styled.div` display: flex; flex-direction: column; gap: 10px; .header-row { display: flex; justify-content: space-between; margin-bottom: 20px; } `;
+// --- STYLES RESPONSIVE ---
+const HeaderContainer = styled.div`
+  display: flex;
+  flex-direction: column; /* Mobile First: Uno debajo del otro */
+  gap: 15px;
+  margin-bottom: 25px;
+
+  /* Tablet y Desktop: Uno al lado del otro */
+  @media (min-width: 768px) {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .action-area {
+      display: flex;
+      justify-content: flex-start; /* En movil alineado a la izq */
+      @media (min-width: 768px) {
+          justify-content: flex-end; /* En PC alineado a la derecha */
+      }
+  }
+`;
+
+const ListGrid = styled.div` display: flex; flex-direction: column; gap: 10px; `;
 const ListItem = styled.div`
     display: flex; align-items: center; justify-content: space-between; padding: 15px; border-radius: 12px;
     background: ${({theme}) => theme.bgtotal}; border: 1px solid ${({theme}) => theme.bg4};

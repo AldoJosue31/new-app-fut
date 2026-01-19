@@ -3,9 +3,10 @@ import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast, Modal, TabsNavigation } from "../../../../index"; 
 import { 
     RiCalendarLine, RiCheckDoubleLine, RiFileList3Line, 
-    RiCoinLine, RiGitMergeLine 
+    RiCoinLine, RiGitMergeLine, RiEyeLine, RiEyeOffLine
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
+import { supabase } from "../../../../supabase/supabase.config"; 
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
 
@@ -23,7 +24,7 @@ export function JornadaPlanificacion({
   const {
     scheduledMatches, setScheduledMatches,
     allPendingMatches, setAllPendingMatches,
-    sidebarMatches, // <--- CAMBIO: Usamos la lista inteligente que incluye atrasados
+    sidebarMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes,
     currentJornadaName
@@ -36,9 +37,15 @@ export function JornadaPlanificacion({
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: '', type: '' });
   
+  // --- CONFIGURACIÓN ---
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [configTab, setConfigTab] = useState("general");
   const [editedConfig, setEditedConfig] = useState(activeTournament?.config || {});
+
+  // --- GHOST MODE (Otras Divisiones) ---
+  const [showGhosts, setShowGhosts] = useState(false);
+  const [externalMatches, setExternalMatches] = useState([]);
+  const [loadingGhosts, setLoadingGhosts] = useState(false);
 
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
@@ -69,19 +76,82 @@ export function JornadaPlanificacion({
     }
   }, [jornadaIndex, activeTournament, isConfirmed, scheduledMatches]);
 
+  // --- LÓGICA GHOST MODE: Fetch partidos de otras divisiones ---
+  useEffect(() => {
+    if (!showGhosts || !weekStartDate || !activeTournament?.division_id) return;
+
+    const fetchExternal = async () => {
+        setLoadingGhosts(true);
+        try {
+            const start = new Date(weekStartDate);
+            const end = new Date(start);
+            end.setDate(end.getDate() + 7);
+            const endDateStr = end.toISOString().split('T')[0];
+
+            const { data, error } = await supabase
+                .from('matches')
+                .select(`
+                    id, date, status,
+                    team1:teams!team1_id(name),
+                    team2:teams!team2_id(name),
+                    jornadas!inner(
+                        tournament_id,
+                        tournaments!inner(division_id, divisions(name))
+                    )
+                `)
+                .gte('date', weekStartDate) 
+                .lte('date', endDateStr)
+                .eq('status', 'Programado')
+                .neq('jornadas.tournaments.division_id', activeTournament.division_id);
+
+            if (error) throw error;
+
+            const formatted = data.map(m => {
+                const isoDate = m.date || "";
+                const [datePart, timePart] = isoDate.split('T');
+                return {
+                    id: `ext-${m.id}`, 
+                    date: datePart,
+                    time: timePart ? timePart.substring(0, 5) : '00:00',
+                    team1: { name: m.team1?.name || 'Eq1' },
+                    team2: { name: m.team2?.name || 'Eq2' },
+                    divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra',
+                    isExternal: true
+                };
+            });
+
+            setExternalMatches(formatted);
+        } catch (err) {
+            console.error("Error fetching ghost matches:", err);
+            setToast({ show: true, msg: "Error cargando otras divisiones", type: "error" });
+        } finally {
+            setLoadingGhosts(false);
+        }
+    };
+
+    fetchExternal();
+  }, [showGhosts, weekStartDate, activeTournament]);
+
   const handleDrop = (e) => {
     e.preventDefault(); 
     setIsDragOver(false);
     if (!draggedMatch || isConfirmed) return;
 
     const matchesOfToday = scheduledMatches.filter(m => m.date === weekStartDate);
-    let nextTime = "10:00";
+    
+    // -- LÓGICA MODIFICADA PARA USAR HORA CONFIGURADA --
+    // Obtenemos la hora de inicio configurada (o default 10:00 si no existe)
+    const configStartHour = activeTournament?.config?.horaInicio || "10:00";
+    let nextTime = configStartHour;
     
     if (matchesOfToday.length > 0) {
         const last = matchesOfToday.sort((a,b) => a.time.localeCompare(b.time)).pop();
         const [h, m] = last.time.split(':').map(Number);
         const total = (h * 60) + m + durationMatch;
         nextTime = `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+        
+        // Opcional: Podrías validar aquí si nextTime supera activeTournament.config.horaFin
+        // pero por ahora solo respetamos el inicio.
     }
 
     const newMatch = { 
@@ -92,10 +162,7 @@ export function JornadaPlanificacion({
         isModified: true 
     };
     
-    // Al soltar, actualizamos scheduledMatches
     setScheduledMatches(autoAdjustTimes([...scheduledMatches, newMatch], weekStartDate));
-    
-    // Y quitamos del pool de pendientes
     setAllPendingMatches(allPendingMatches.filter(m => m.id !== draggedMatch.id));
     setDraggedMatch(null);
   };
@@ -117,14 +184,34 @@ export function JornadaPlanificacion({
             onToggleView={setViewMode}
         />
 
+        {viewMode === 'grid' && (
+            <ControlsBar>
+                <GhostButton 
+                    onClick={() => setShowGhosts(!showGhosts)}
+                    $active={showGhosts}
+                >
+                    {showGhosts ? <RiEyeOffLine/> : <RiEyeLine/>}
+                    {showGhosts ? 'Ocultar otras divisiones' : 'Ver otras divisiones'}
+                    {loadingGhosts && <span className="spinner">...</span>}
+                </GhostButton>
+                <span className="info-text">
+                    {showGhosts 
+                        ? "Viendo partidos de TODAS las divisiones para evitar choques." 
+                        : "Viendo solo partidos de esta división."}
+                </span>
+            </ControlsBar>
+        )}
+
         <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
-                <PlanningSidebar 
-                    matches={sidebarMatches} // <--- Pasamos la lista inteligente
-                    isConfirmed={isConfirmed}
-                    setDraggedMatch={setDraggedMatch}
-                    jornadaIndex={jornadaIndex}
-                />
+                {viewMode === 'list' && (
+                    <PlanningSidebar 
+                        matches={sidebarMatches} 
+                        isConfirmed={isConfirmed}
+                        setDraggedMatch={setDraggedMatch}
+                        jornadaIndex={jornadaIndex}
+                    />
+                )}
 
                 <MainZone>
                     {viewMode === 'list' ? (
@@ -157,12 +244,10 @@ export function JornadaPlanificacion({
                                             setScheduledMatches(autoAdjustTimes(updated, match.date));
                                           }}
                                           onRemove={() => { 
-                                            // Al quitar del grid, lo regresamos al pool general como Pendiente
                                             setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
                                             setAllPendingMatches([...allPendingMatches, { 
                                                 ...match, 
                                                 status: 'Pendiente', 
-                                                // Mantenemos su originJornada original para que el Sidebar sepa si es atrasado
                                                 date: null, 
                                                 time: null,
                                                 isModified: true 
@@ -179,7 +264,7 @@ export function JornadaPlanificacion({
                         <WeeklyGridView 
                             weekStartDate={weekStartDate} 
                             scheduledMatches={scheduledMatches} 
-                            externalMatches={[]} 
+                            externalMatches={showGhosts ? externalMatches : []}
                             divisionActual={activeTournament?.division?.name} 
                             isConfirmed={isConfirmed} 
                         /> 
@@ -196,7 +281,6 @@ export function JornadaPlanificacion({
                     funcion={() => onConfirm({ 
                         jornada_numero: jornadaIndex + 1,
                         matches: scheduledMatches, 
-                        // Enviamos allPendingMatches para que se guarden los estatus de los que quedan en sidebar
                         allPendingMatches: allPendingMatches 
                     })} 
                     icono={<RiCheckDoubleLine/>} 
@@ -240,6 +324,7 @@ export function JornadaPlanificacion({
   );
 }
 
+// --- ESTILOS ---
 const ModalContent = styled.div`
   display: flex; flex-direction: column; gap: 15px;
   .modal-actions { display: flex; justify-content: flex-end; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; }
@@ -252,15 +337,28 @@ const Workspace = styled.div`
     display: flex; 
     gap: 20px; 
     min-height: 75vh; 
-    
-    @media(max-width:768px){ 
-        flex-direction:column; 
-        height:auto; 
-        min-height: auto;
-    } 
+    @media(max-width:768px){ flex-direction:column; height:auto; min-height: auto; } 
 `;
 
 const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; `;
 const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 20px; overflow-y: auto; position: relative; transition: all 0.3s ease; .placeholder { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; opacity:0.4; p { margin-top: 10px; font-size: 0.9rem; } } `;
 const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; `;
 const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note { font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; } `;
+
+const ControlsBar = styled.div`
+    display: flex; align-items: center; gap: 15px; padding: 0 5px;
+    animation: ${keyframes`from{opacity:0}to{opacity:1}`} 0.3s ease;
+    
+    .info-text { font-size: 0.85rem; color: ${({theme})=>theme.text}; opacity: 0.7; font-style: italic; }
+`;
+
+const GhostButton = styled.button`
+    display: flex; align-items: center; gap: 8px;
+    background: ${({ $active, theme }) => $active ? theme.bgtotal : theme.bgcards};
+    color: ${({ $active, theme }) => $active ? v.colorPrincipal : theme.text};
+    border: 1px solid ${({ $active, theme }) => $active ? v.colorPrincipal : theme.bg4};
+    padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+
+    &:hover { transform: translateY(-1px); border-color: ${v.colorPrincipal}; color: ${v.colorPrincipal}; }
+`;

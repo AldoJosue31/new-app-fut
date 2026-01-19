@@ -8,7 +8,7 @@ import { TEAM_STATUS } from "../../utils/constants";
 
 export const useEquiposLogic = () => {
   const { selectedDivision } = useDivisionStore();
-  const { equipos, loading, fetchEquipos, addEquipoLocal, updateEquipoLocal, deleteEquipoLocal } = useEquiposStore();
+  const { equipos, loading, fetchEquipos, addEquipoLocal, updateEquipoLocal, deleteEquipoLocal, resetStore } = useEquiposStore();
   
   const [uploading, setUploading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -31,16 +31,32 @@ export const useEquiposLogic = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
 
+  // Lógica de carga inteligente
   useEffect(() => {
-    if (selectedDivision) {
+    if (selectedDivision?.id) {
         fetchEquipos(selectedDivision.id);
+    } else {
+        // Si no hay división seleccionada (o se deseleccionó), limpiamos la vista
+        // Esto previene ver equipos cuando no corresponde
+        resetStore();
     }
-  }, [selectedDivision, fetchEquipos]);
+  }, [selectedDivision, fetchEquipos, resetStore]);
 
-  const getDominantColor = (imageFile) => {
+  // Agregar este useEffect para limpiar memoria
+useEffect(() => {
+    return () => {
+        if (preview && preview.startsWith('blob:')) {
+            URL.revokeObjectURL(preview);
+        }
+    };
+}, [preview]);
+
+const getDominantColor = (imageFile) => {
     return new Promise((resolve) => {
         const img = new Image();
-        img.src = URL.createObjectURL(imageFile);
+        // Guardamos la referencia para revocarla
+        const objectUrl = URL.createObjectURL(imageFile);
+        img.src = objectUrl;
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -48,11 +64,15 @@ export const useEquiposLogic = () => {
             ctx.drawImage(img, 0, 0, 1, 1);
             const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
             const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+URL.revokeObjectURL(objectUrl); 
             resolve(hex);
         };
-        img.onerror = () => resolve("#000000");
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl); // Liberar en error también
+            resolve("#000000");
+        }
     });
-  };
+};
 
   const handleFileChange = async (eOrFile) => {
     let selectedFile = eOrFile.target ? eOrFile.target.files[0] : eOrFile;
@@ -61,7 +81,6 @@ export const useEquiposLogic = () => {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
       
-      // OPTIMIZACIÓN: Solo extraer color si NO estamos editando
       if (!teamToEdit) {
         try {
           const dominantColor = await getDominantColor(selectedFile);

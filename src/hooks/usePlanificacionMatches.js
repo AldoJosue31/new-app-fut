@@ -8,6 +8,9 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
   const lastJornadaRef = useRef(null);
 
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
+  
+  // Extraer configuración de horarios
+  const configHoraInicio = activeTournament?.config?.horaInicio || "08:00";
 
   // Helper para obtener el número de la jornada desde el string "Jornada X"
   const getJornadaNum = (str) => {
@@ -67,7 +70,8 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
 
       if (m.date) {
          finalDate = hasT ? m.date.split('T')[0] : m.date;
-         finalTime = hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || "10:00");
+         // Usar la hora configurada por defecto si no viene tiempo
+         finalTime = hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || configHoraInicio);
       }
 
       return {
@@ -102,7 +106,7 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
         const jName = currentJornadaName;
         const teamsOccupiedInJornada = new Set();
         
-        // Revisamos ocupación en TODOS los partidos formateados (por si se movió uno de J1 a J3)
+        // Revisamos ocupación
         formattedMatches
             .filter(m => m.originJornada === jName || (m.date && m.date === weekStartDate)) 
             .forEach(m => {
@@ -115,13 +119,11 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
             const t2 = teams.find(t => t.id === cruce.away);
             if (!t1 || !t2) return;
 
-            // Verificar si este cruce ya existe en DB (en cualquier jornada)
             const existsAnywhere = formattedMatches.some(m =>
             (m.local.id === t1.id && m.visitante.id === t2.id) ||
             (m.local.id === t2.id && m.visitante.id === t1.id)
             );
 
-            // Verificar conflicto de equipos
             const isConflict = teamsOccupiedInJornada.has(t1.id) || teamsOccupiedInJornada.has(t2.id);
 
             if (!existsAnywhere && !isConflict) {
@@ -136,21 +138,14 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     }
 
     // --- FILTRADO INTELIGENTE ---
-
-    // 1. Programados: Partidos con fecha definida (sea de esta jornada u otra reprogamada)
-    // Mostramos en Grid si pertenecen a esta jornada o si tienen fecha coincidente con la semana de inicio (opcional)
-    // Por simplicidad, el grid muestra lo que sea de "Esta Jornada" con fecha, y lo que sea "Reprogramado" que caiga aqui.
     const currentScheduled = formattedMatches.filter(m => 
         (m.originJornada === currentJornadaName && m.date)
     );
 
-    // 2. Pendientes de Jornada Actual
     const currentPending = formattedMatches.filter(m => 
         m.originJornada === currentJornadaName && !m.date
     );
 
-    // 3. Pendientes Atrasados (Backlog)
-    // Filtramos partidos cuya jornada origen sea MENOR a la actual y no tengan fecha
     const currentJornadaNum = jornadaIndex + 1;
     const backlogPending = formattedMatches.filter(m => {
         const mNum = getJornadaNum(m.originJornada);
@@ -158,36 +153,26 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     });
 
     setScheduledMatches(currentScheduled);
-    
-    // El pool "allPendingMatches" ahora contiene: Atrasados + Actuales + Sugerencias
     setAllPendingMatches([...backlogPending, ...currentPending, ...currentSuggestions]);
     
     lastJornadaRef.current = {
         jornadaIndex,
         formattedMatches
     };
-  }, [matchesDB, globalPendingMatches, teams, jornadaIndex, weekStartDate, activeTournament, currentJornadaName]);
+  }, [matchesDB, globalPendingMatches, teams, jornadaIndex, weekStartDate, activeTournament, currentJornadaName, configHoraInicio]);
 
-  // --- DERIVADOS PARA LA UI ---
-
-  // Sidebar Matches: Todo lo que esté pendiente (Actual o Atrasado)
-  // Se filtran los que ya están en scheduledMatches por seguridad
+  // Sidebar Matches
   const sidebarMatches = useMemo(() => {
     const scheduledIds = new Set(scheduledMatches.map(m => String(m.id)));
-    
-    // Filtramos para asegurar que mostramos los pendientes de ESTA jornada y los ATRASADOS.
-    // Futuros no (se encargará la lógica de futureMatches).
     const currentNum = jornadaIndex + 1;
     
     return allPendingMatches
         .filter(m => !scheduledIds.has(String(m.id)))
         .filter(m => {
             const mNum = getJornadaNum(m.originJornada);
-            // Mostrar si es de esta jornada, o si es anterior (atrasado)
             return m.originJornada === currentJornadaName || mNum < currentNum;
         })
         .sort((a, b) => {
-            // Ordenar: Primero los más antiguos (atrasados), luego los actuales
             const numA = getJornadaNum(a.originJornada);
             const numB = getJornadaNum(b.originJornada);
             return numA - numB; 
@@ -199,7 +184,7 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
   return {
     scheduledMatches, setScheduledMatches,
     allPendingMatches, setAllPendingMatches,
-    sidebarMatches, // REEMPLAZA a pendingCurrentJornada
+    sidebarMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes, currentJornadaName
   };

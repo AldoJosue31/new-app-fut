@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabase.config';
+import { useEquiposStore } from './EquiposStore'; // Importamos el store de equipos
 
 export const useAuthStore = create((set, get) => {
   
@@ -86,13 +87,19 @@ export const useAuthStore = create((set, get) => {
       }
     },
 
-    // --- CAMBIO PRINCIPAL: Limpieza solo local ---
+    // --- CORRECCIÓN DEL BUG ---
     cerrarSesion: async () => {
       try {
         await supabase.auth.signOut();
-        // Solo limpiamos el estado de usuario en este store.
-        // La limpieza de otros stores (Division, Torneos) la maneja App.jsx
+        
+        // 1. Limpiamos usuario
         set({ user: null, profile: null });
+
+        // 2. Limpiamos el store de equipos para evitar datos fantasma
+        useEquiposStore.getState().resetStore();
+
+        // RECOMENDACIÓN: Si tienes un DivisionStore o TorneosStore, límpialos aquí también de la misma forma.
+        
       } catch (err) {
         console.error('Error al cerrar sesión', err);
       }

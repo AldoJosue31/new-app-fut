@@ -59,7 +59,7 @@ export const SummaryDashboard = ({ stats, userName }) => {
                 ))}
                 
                 {/* Tarjeta para agregar nueva división */}
-                <AddCard onClick={() => navigate('/liga')}>
+                <AddCard onClick={() => navigate('/liga/divisions')}>
                     <v.agregar />
                     <span>Nueva División</span>
                 </AddCard>
