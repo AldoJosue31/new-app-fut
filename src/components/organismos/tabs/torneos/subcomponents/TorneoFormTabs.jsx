@@ -166,7 +166,6 @@ export const TabFormat = ({ form, onChange, vueltasDisabled, isStarted }) => {
            <label style={{fontWeight:600}}>Fase Final (Playoffs)</label>
         </div>
 
-        {/* AÑADIR ESTO: Inputs dinámicos que aparecen al activar playoffs */}
         {form.zonaLiguilla && (
           <Row2 style={{marginTop: '10px', animation: 'fadeIn 0.3s ease'}}>
             <FormGroup>
@@ -191,26 +190,50 @@ export const TabGameRules = ({ reglas, setReglas }) => {
 
   return (
     <TabContainer>
-      <SectionLabel>Tiempos y Duración</SectionLabel>
+      <SectionLabel>Tiempos y Horarios</SectionLabel>
+      <Row2>
+         <FormGroup>
+            <label>Hora Inicio (1er Partido)</label>
+            <InputText2>
+                <input 
+                    className="form__field"
+                    type="time" 
+                    name="horaInicio" 
+                    value={reglas?.horaInicio || "08:00"} 
+                    onChange={handleChange}
+                />
+            </InputText2>
+         </FormGroup>
+         <FormGroup>
+            <label>Hora Límite (Ult. Partido)</label>
+            <InputText2>
+                <input 
+                    className="form__field"
+                    type="time" 
+                    name="horaFin" 
+                    value={reglas?.horaFin || "22:00"} 
+                    onChange={handleChange}
+                />
+            </InputText2>
+         </FormGroup>
+      </Row2>
+
+      <SectionLabel>Duración y Cambios</SectionLabel>
       <Row3>
         <FormGroup>
            <label>Minutos por Tiempo</label>
-           <input 
-            type="number" 
-            name="minutosPorTiempo" 
-            value={reglas?.minutosPorTiempo || ""} 
-            onChange={handleChange} 
-            style={{padding:'10px', borderRadius:'10px', border:`1px solid ${v.bg4}`, background:v.bgtotal, color:v.text}} 
+           <InputNumber 
+             name="minutosPorTiempo" 
+             value={reglas?.minutosPorTiempo || ""} 
+             onChange={handleChange}
            />
         </FormGroup>
         <FormGroup>
            <label>Minutos Descanso</label>
-           <input 
-            type="number" 
-            name="minutosDescanso" 
-            value={reglas?.minutosDescanso || ""} 
-            onChange={handleChange} 
-            style={{padding:'10px', borderRadius:'10px', border:`1px solid ${v.bg4}`, background:v.bgtotal, color:v.text}} 
+           <InputNumber 
+             name="minutosDescanso" 
+             value={reglas?.minutosDescanso || ""} 
+             onChange={handleChange}
            />
         </FormGroup>
         <FormGroup>

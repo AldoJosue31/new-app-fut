@@ -83,7 +83,6 @@ export function JornadaPlanificacion({
     const fetchExternal = async () => {
         setLoadingGhosts(true);
         try {
-            // Calcular fin de la semana (7 días) para filtrar
             const start = new Date(weekStartDate);
             const end = new Date(start);
             end.setDate(end.getDate() + 7);
@@ -92,38 +91,28 @@ export function JornadaPlanificacion({
             const { data, error } = await supabase
                 .from('matches')
                 .select(`
-                    id, 
-                    date, 
-                    status,
+                    id, date, status,
                     team1:teams!team1_id(name),
                     team2:teams!team2_id(name),
                     jornadas!inner(
                         tournament_id,
-                        tournaments!inner(
-                            division_id,
-                            divisions(name)
-                        )
+                        tournaments!inner(division_id, divisions(name))
                     )
                 `)
-                // Nota: date aquí es timestamp, pero supabase lo compara bien contra strings YYYY-MM-DD
                 .gte('date', weekStartDate) 
                 .lte('date', endDateStr)
                 .eq('status', 'Programado')
-                // Excluir la división actual
                 .neq('jornadas.tournaments.division_id', activeTournament.division_id);
 
             if (error) throw error;
 
-            // Procesar los datos: Separar el timestamp 'date' en fecha y hora
             const formatted = data.map(m => {
-                // El formato suele ser "2024-01-20T14:30:00+00:00"
                 const isoDate = m.date || "";
                 const [datePart, timePart] = isoDate.split('T');
-                
                 return {
                     id: `ext-${m.id}`, 
-                    date: datePart, // "2024-01-20"
-                    time: timePart ? timePart.substring(0, 5) : '00:00', // "14:30"
+                    date: datePart,
+                    time: timePart ? timePart.substring(0, 5) : '00:00',
                     team1: { name: m.team1?.name || 'Eq1' },
                     team2: { name: m.team2?.name || 'Eq2' },
                     divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra',
@@ -149,13 +138,20 @@ export function JornadaPlanificacion({
     if (!draggedMatch || isConfirmed) return;
 
     const matchesOfToday = scheduledMatches.filter(m => m.date === weekStartDate);
-    let nextTime = "10:00";
+    
+    // -- LÓGICA MODIFICADA PARA USAR HORA CONFIGURADA --
+    // Obtenemos la hora de inicio configurada (o default 10:00 si no existe)
+    const configStartHour = activeTournament?.config?.horaInicio || "10:00";
+    let nextTime = configStartHour;
     
     if (matchesOfToday.length > 0) {
         const last = matchesOfToday.sort((a,b) => a.time.localeCompare(b.time)).pop();
         const [h, m] = last.time.split(':').map(Number);
         const total = (h * 60) + m + durationMatch;
         nextTime = `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+        
+        // Opcional: Podrías validar aquí si nextTime supera activeTournament.config.horaFin
+        // pero por ahora solo respetamos el inicio.
     }
 
     const newMatch = { 
@@ -188,7 +184,6 @@ export function JornadaPlanificacion({
             onToggleView={setViewMode}
         />
 
-        {/* --- BARRA DE CONTROL EXTRA (Solo visible en modo Grid) --- */}
         {viewMode === 'grid' && (
             <ControlsBar>
                 <GhostButton 
@@ -209,7 +204,6 @@ export function JornadaPlanificacion({
 
         <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
-                {/* El Sidebar solo se muestra en modo lista */}
                 {viewMode === 'list' && (
                     <PlanningSidebar 
                         matches={sidebarMatches} 
@@ -270,7 +264,7 @@ export function JornadaPlanificacion({
                         <WeeklyGridView 
                             weekStartDate={weekStartDate} 
                             scheduledMatches={scheduledMatches} 
-                            externalMatches={showGhosts ? externalMatches : []} // Pasamos los fantasmas
+                            externalMatches={showGhosts ? externalMatches : []}
                             divisionActual={activeTournament?.division?.name} 
                             isConfirmed={isConfirmed} 
                         /> 
@@ -351,7 +345,6 @@ const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver
 const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; `;
 const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note { font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; } `;
 
-// --- Estilos Nuevos para el Panel de Control ---
 const ControlsBar = styled.div`
     display: flex; align-items: center; gap: 15px; padding: 0 5px;
     animation: ${keyframes`from{opacity:0}to{opacity:1}`} 0.3s ease;
