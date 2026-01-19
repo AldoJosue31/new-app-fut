@@ -1,7 +1,10 @@
+import React from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { useNavigate, useParams } from "react-router-dom";
-import { Title, TabsNavigation, ContentContainer, EmptyState } from "../../index";
+import { ContentContainer } from "../atomos/ContentContainer";
+import { PageHeader } from "../moleculas/PageHeader";
+import { TabsNavigation, EmptyState } from "../../index";
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
@@ -13,11 +16,7 @@ import { Device } from "../../styles/breakpoints";
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
-  isLoadingData,
-  standings,
-  reglas,
-  setReglas,
-  refreshStandings
+  isLoadingData, standings, reglas, setReglas, refreshStandings
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -31,8 +30,6 @@ export function TorneosTemplate({
 
   const validTabIds = tabList.map(t => t.id);
   const activeTab = validTabIds.includes(tab) ? tab : "definir";
-
-  // Identificamos las vistas que requieren ancho completo
   const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
 
   const handleTabChange = (newTabId) => {
@@ -43,22 +40,10 @@ export function TorneosTemplate({
 
   return (
     <ContentContainer>
-      <HeaderSection>
-        <Title>Gestión de Torneos</Title>
-      </HeaderSection>
+      <PageHeader title="Gestión de Torneos" maxWidth="1000px" 
+        tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+      />
 
-      {/* FIX: TabsWrapper se mantiene estable en 1000px. 
-         Al no cambiar de ancho, el indicador del tab viaja suavemente sin "fantasmas".
-      */}
-      <TabsWrapper>
-         <TabsNavigation 
-            tabs={tabList} 
-            activeTab={activeTab} 
-            setActiveTab={handleTabChange} 
-         />
-      </TabsWrapper>
-
-      {/* ContentGrid sí recibe la propiedad para expandirse */}
       <ContentGrid $isWide={isWideView}>
         {activeTab === "definir" && (
           <FullWidthTab>
@@ -67,9 +52,7 @@ export function TorneosTemplate({
                 divisionName={divisionName} activeTournament={activeTournament}
                 allTeams={allTeams} participatingIds={participatingIds}
                 onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
-                isLoading={isLoadingData}
-                reglas={reglas}
-                setReglas={setReglas}
+                isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
             />
           </FullWidthTab>
         )}
@@ -77,21 +60,9 @@ export function TorneosTemplate({
         {activeTab === "jornadas" && (
           <FullWidthTab>
             {activeTournament ? (
-               <TorneoJornadasTab 
-                  activeTournament={activeTournament} 
-                  participatingTeams={participatingTeamsObj} 
-                  refreshStandings={refreshStandings}
-               />
+               <TorneoJornadasTab activeTournament={activeTournament} participatingTeams={participatingTeamsObj} refreshStandings={refreshStandings}/>
             ) : (
-               <EmptyState
-                 title="Torneo no iniciado"
-                 description="Debes definir e iniciar un torneo en la pestaña 'Definir Torneo' antes de ver las jornadas."
-                         actionComponent={
-          <ActionButton onClick={() => handleTabChange("definir")}>
-            Ir a Definir
-          </ActionButton>
-        }
-               />
+               <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}
            </FullWidthTab>
         )}
@@ -99,24 +70,9 @@ export function TorneosTemplate({
         {activeTab === "standings" && (
           <FullWidthTab>
             {activeTournament ? (
-              <TorneosStandingsTab 
-                division={{ name: divisionName }}
-                torneo={activeTournament}
-                equipos={participatingTeamsObj}
-                estadisticas={standings}
-                reglas={reglas}
-              />
+              <TorneosStandingsTab division={{ name: divisionName }} torneo={activeTournament} equipos={participatingTeamsObj} estadisticas={standings} reglas={reglas} />
             ) : (
-               <EmptyState
-                 icon={<v.iconocorona size={40}/>}
-                 title="Sin Datos"
-                 description="No hay un torneo activo para mostrar la tabla de posiciones."
-                         actionComponent={
-          <ActionButton onClick={() => handleTabChange("definir")}>
-            Ir a Definir
-          </ActionButton>
-        }
-               />
+               <EmptyState icon={<v.iconocorona size={40}/>} title="Sin Datos" description="No hay un torneo activo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}
            </FullWidthTab>
         )}
@@ -124,22 +80,9 @@ export function TorneosTemplate({
         {activeTab === "goleadores" && (
           <FullWidthTab>
             {activeTournament ? (
-              <GoleadoresTab
-                divisionName={divisionName}
-                tournamentId={activeTournament?.id}
-                limit={20}
-              />
+              <GoleadoresTab divisionName={divisionName} tournamentId={activeTournament?.id} limit={20} />
             ) : (
-<EmptyState
-        title="Sin Datos"
-        description="Inicia un torneo para ver la tabla de goleadores."
-        // CAMBIO AQUÍ: Usamos handleTabChange en lugar de setActiveTab
-        actionComponent={
-          <ActionButton onClick={() => handleTabChange("definir")}>
-            Ir a Definir
-          </ActionButton>
-        }
-      />
+                <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}
           </FullWidthTab>
         )}
@@ -148,31 +91,7 @@ export function TorneosTemplate({
   );
 }
 
-// --- ESTILOS OPTIMIZADOS ---
-
-const HeaderSection = styled.div`
-  margin-bottom: 20px;
-  width: 100%;
-  padding: 0 10px;
-  display: flex;
-  flex-direction: column;
-  @media ${Device.mobile} { align-items: center; text-align: center; }
-  @media ${Device.laptop} { align-items: flex-start; text-align: left; }
-`;
-
-const TabsWrapper = styled.div`
-  width: 100%;
-  /* Mantenemos esto fijo en 1000px (o el estándar de tus cards).
-     Esto evita que los tabs se muevan al cambiar de vista, 
-     solucionando el bug visual del indicador "invadiendo".
-  */
-  max-width: 1000px; 
-  margin: 0 auto 20px auto;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-`;
-
+// Limpio: Sin animación
 const ContentGrid = styled.div`
   display: flex;
   flex-direction: column;
@@ -180,37 +99,10 @@ const ContentGrid = styled.div`
   width: 100%;
   margin: 0 auto;
   gap: 10px;
-  
-  /* Transición suave solo para el contenido */
   transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-
-  /* Lógica dinámica de ancho: Si es 'wide', usa 98%, si no 1000px */
   max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
-
-  @media ${Device.desktop} {
-     max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")};
-  }
+  @media ${Device.desktop} { max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")}; }
 `;
 
-const FullWidthTab = styled(TabContent)`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: visible; 
-`;
-
-const ActionButton = styled.button`
-  padding: 10px 20px;
-  cursor: pointer;
-  border-radius: 8px;
-  border: none;
-  background: ${v.colorPrincipal};
-  color: #fff;
-  font-weight: 600;
-  transition: all 0.2s;
-  
-  &:hover {
-    opacity: 0.9;
-    transform: translateY(-2px);
-  }
-`;
+const FullWidthTab = styled(TabContent)` width: 100%; display: flex; flex-direction: column; overflow: visible; `;
+const ActionButton = styled.button` padding: 10px 20px; cursor: pointer; border-radius: 8px; border: none; background: ${v.colorPrincipal}; color: #fff; font-weight: 600; transition: all 0.2s; &:hover { opacity: 0.9; transform: translateY(-2px); } `;

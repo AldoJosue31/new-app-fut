@@ -1,9 +1,10 @@
-import React from "react"; // Ya no necesitamos useState
-import { useNavigate, useParams } from "react-router-dom"; // Importamos los hooks necesarios
+import React from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import { Device } from "../../styles/breakpoints";
-import { Title, TabsNavigation, EmptyState } from "../../index";
-import { RiShieldUserLine, RiBarChartGroupedLine, RiSettings4Line, RiBuilding2Line } from "react-icons/ri";
+import { ContentContainer } from "../atomos/ContentContainer";
+import { PageHeader } from "../moleculas/PageHeader";
+import { TabsNavigation, EmptyState } from "../../index";
+import { RiSettings4Line, RiBuilding2Line } from "react-icons/ri";
 import { GiWhistle } from "react-icons/gi";
 
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
@@ -16,7 +17,6 @@ export function LigaTemplate({
    onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
    onAddReferee, onEditReferee, onDeleteReferee
 }) {
-  // 1. Hooks de navegación y parámetros
   const navigate = useNavigate();
   const { tab } = useParams();
 
@@ -26,59 +26,33 @@ export function LigaTemplate({
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
   ];
 
-  // 2. Determinar tab activo basado en la URL
-  // Si 'tab' es undefined o no existe en nuestra lista, usamos 'general'
   const validTabIds = tabList.map(t => t.id);
   const activeTab = validTabIds.includes(tab) ? tab : "general";
 
-  // 3. Función para cambiar de pestaña (actualiza la URL)
-  const handleTabChange = (newTabId) => {
-    navigate(`/liga/${newTabId}`);
-  };
+  const handleTabChange = (newTabId) => { navigate(`/liga/${newTabId}`); };
 
   if (!loading && !leagueData) {
       return (
-        <Container>
-           <EmptyState 
-              title="Liga no encontrada"
-              description="No pudimos cargar la información de tu liga. Intenta recargar la página."
-           />
-        </Container>
+        <ContentContainer>
+           <EmptyState title="Liga no encontrada" description="No pudimos cargar la información de tu liga. Intenta recargar la página." />
+        </ContentContainer>
       )
   }
 
   return (
-    <Container>
-      <HeaderSection><Title>Mi Liga</Title></HeaderSection>
-      
-      <div style={{width: '100%', maxWidth: '1000px'}}>
-         {/* 4. Pasamos activeTab calculado y la función handleTabChange */}
-         <TabsNavigation 
-            tabs={tabList} 
-            activeTab={activeTab} 
-            setActiveTab={handleTabChange} 
-         />
-      </div>
+    <ContentContainer>
+      <PageHeader title="Mi Liga" maxWidth="1000px"
+        tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+      />
 
       <ContentGrid>
-        {activeTab === "general" && (
-            <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />
-        )}
-        {activeTab === "divisions" && (
-            <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />
-        )}
-        {activeTab === "referees" && (
-            <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />
-        )}
+        {activeTab === "general" && (<LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />)}
+        {activeTab === "divisions" && (<LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />)}
+        {activeTab === "referees" && (<LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />)}
       </ContentGrid>
-    </Container>
+    </ContentContainer>
   );
 }
 
-const Container = styled.div`
-  min-height: 100vh; padding: 20px; width: 100%; display: flex; flex-direction: column; gap: 20px; align-items: center;
-  background-color: ${({ theme }) => theme.bgtotal}; padding-top: 80px; 
-  @media ${Device.tablet} { padding-top: 20px; }
-`;
-const HeaderSection = styled.div` margin-bottom: 10px; width: 100%; max-width: 1000px; `;
+// Limpio: Sin animación
 const ContentGrid = styled.div` display: flex; justify-content: center; width: 100%; gap: 20px; `;

@@ -1,23 +1,27 @@
+import React from 'react';
 import styled from "styled-components";
-import { Icono } from "../../index";
+import { Icono } from "../atomos/Icono"; // <--- CORRECCIÓN: Importación directa para evitar ciclo
 
-export function BtnNormal({
-  funcion,
-  titulo,
+export const BtnNormal = ({ // <--- Exportación nombrada
+  onClick,  // Cambiamos 'funcion' por el estándar 'onClick'
+  children, // Usamos children para que puedas escribir dentro del botón
+  titulo,   // Mantenemos compatibilidad por si acaso
   icono,
   disabled,
-  width
-}) {
+  width,
+  type = "button"
+}) => {
   return (
     <Container
       $width={width}
       disabled={disabled}
-      onClick={funcion}
-      type="button"
+      onClick={onClick}
+      type={type}
     >
       <section className="content">
         {icono && <Icono>{icono}</Icono>}
-        {titulo && <span className="btn">{titulo}</span>}
+        {/* Renderiza children si existe, si no, usa titulo */}
+        <span className="btn">{children || titulo}</span>
       </section>
     </Container>
   );
@@ -30,11 +34,10 @@ const Container = styled.button`
   padding: 10px 25px;
   border-radius: 16px;
   
-  /* --- COLORES DINÁMICOS DEL TEMA --- */
-  background-color: ${({ theme }) => theme.bg4}; /* Gris claro en Light, Gris oscuro en Dark */
-  color: ${({ theme }) => theme.text};           /* Texto oscuro en Light, Blanco en Dark */
+  background-color: ${({ theme }) => theme.bg4};
+  color: ${({ theme }) => theme.text};
   border: 2px solid ${({ theme }) => theme.color2};
-  border-bottom: 5px solid ${({ theme }) => theme.color2}; /* Efecto 3D sutil */
+  border-bottom: 5px solid ${({ theme }) => theme.color2};
   
   transform: translate(0, -3px);
   cursor: pointer;
@@ -50,7 +53,6 @@ const Container = styled.button`
     align-items: center;
   }
 
-  /* Efecto Hover para mejorar feedback */
   &:hover {
     filter: brightness(0.95);
     transform: translate(0, -4px);
