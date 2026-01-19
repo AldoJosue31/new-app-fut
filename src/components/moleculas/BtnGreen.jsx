@@ -1,9 +1,12 @@
 import styled from "styled-components";
 import { Icono } from "../../index";
+import { v } from "../../styles/variables";
 
-export function BtnNormal({
+export function BtnGreen({
   funcion,
+  onClick,   // Agregamos soporte para onClick estándar
   titulo,
+  children,  // Agregamos soporte para texto como hijo
   icono,
   disabled,
   width
@@ -12,12 +15,14 @@ export function BtnNormal({
     <Container
       $width={width}
       disabled={disabled}
-      onClick={funcion}
+      // Priorizamos onClick, si no existe usa funcion
+      onClick={onClick || funcion} 
       type="button"
     >
       <section className="content">
         {icono && <Icono>{icono}</Icono>}
-        {titulo && <span className="btn">{titulo}</span>}
+        {/* Renderiza children (ej. <Btn>Texto</Btn>) o titulo (ej. titulo="Texto") */}
+        <span className="btn">{children ? children : titulo}</span>
       </section>
     </Container>
   );
@@ -30,11 +35,11 @@ const Container = styled.button`
   padding: 10px 25px;
   border-radius: 16px;
   
-  /* --- COLORES DINÁMICOS DEL TEMA --- */
-  background-color: ${({ theme }) => theme.bg4}; /* Gris claro en Light, Gris oscuro en Dark */
-  color: ${({ theme }) => theme.text};           /* Texto oscuro en Light, Blanco en Dark */
-  border: 2px solid ${({ theme }) => theme.color2};
-  border-bottom: 5px solid ${({ theme }) => theme.color2}; /* Efecto 3D sutil */
+  /* --- COLORES VERDES --- */
+  background-color: ${v.verde}; 
+  color: #ffffff;
+  border: 2px solid ${v.verde};
+  border-bottom: 5px solid #3a8e3d; 
   
   transform: translate(0, -3px);
   cursor: pointer;
@@ -50,15 +55,14 @@ const Container = styled.button`
     align-items: center;
   }
 
-  /* Efecto Hover para mejorar feedback */
   &:hover {
-    filter: brightness(0.95);
+    filter: brightness(1.1); 
     transform: translate(0, -4px);
   }
 
   &:active {
     transform: translate(0, 0);
-    border-bottom: 2px solid ${({ theme }) => theme.color2};
+    border-bottom: 2px solid #3a8e3d;
   }
 
   &[disabled] {
@@ -66,6 +70,7 @@ const Container = styled.button`
     color: #ccc;
     cursor: no-drop;
     border-color: #444;
+    border-bottom-color: #333;
     box-shadow: none;
     transform: none;
   }

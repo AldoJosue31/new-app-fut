@@ -42,10 +42,21 @@ export const useEquiposLogic = () => {
     }
   }, [selectedDivision, fetchEquipos, resetStore]);
 
-  const getDominantColor = (imageFile) => {
+  // Agregar este useEffect para limpiar memoria
+useEffect(() => {
+    return () => {
+        if (preview && preview.startsWith('blob:')) {
+            URL.revokeObjectURL(preview);
+        }
+    };
+}, [preview]);
+
+const getDominantColor = (imageFile) => {
     return new Promise((resolve) => {
         const img = new Image();
-        img.src = URL.createObjectURL(imageFile);
+        // Guardamos la referencia para revocarla
+        const objectUrl = URL.createObjectURL(imageFile);
+        img.src = objectUrl;
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -53,11 +64,15 @@ export const useEquiposLogic = () => {
             ctx.drawImage(img, 0, 0, 1, 1);
             const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
             const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+URL.revokeObjectURL(objectUrl); 
             resolve(hex);
         };
-        img.onerror = () => resolve("#000000");
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl); // Liberar en error también
+            resolve("#000000");
+        }
     });
-  };
+};
 
   const handleFileChange = async (eOrFile) => {
     let selectedFile = eOrFile.target ? eOrFile.target.files[0] : eOrFile;

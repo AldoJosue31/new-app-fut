@@ -29,30 +29,48 @@ export function LigaTemplate({
   const validTabIds = tabList.map(t => t.id);
   const activeTab = validTabIds.includes(tab) ? tab : "general";
 
-  const handleTabChange = (newTabId) => { navigate(`/liga/${newTabId}`); };
+  const handleTabChange = (newTabId) => {
+    navigate(`/liga/${newTabId}`);
+  };
 
   if (!loading && !leagueData) {
       return (
         <ContentContainer>
-           <EmptyState title="Liga no encontrada" description="No pudimos cargar la información de tu liga. Intenta recargar la página." />
+           <EmptyState 
+              title="Liga no encontrada"
+              description="No pudimos cargar la información de tu liga. Intenta recargar la página."
+           />
         </ContentContainer>
       )
   }
 
   return (
     <ContentContainer>
-      <PageHeader title="Mi Liga" maxWidth="1000px"
-        tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+      <PageHeader 
+        title="Mi Liga" 
+        maxWidth="1000px" // Alineación consistente
+        tabs={
+            <TabsNavigation 
+                tabs={tabList} 
+                activeTab={activeTab} 
+                setActiveTab={handleTabChange} 
+            />
+        }
       />
 
       <ContentGrid>
-        {activeTab === "general" && (<LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />)}
-        {activeTab === "divisions" && (<LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />)}
-        {activeTab === "referees" && (<LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />)}
+        {activeTab === "general" && (
+            <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />
+        )}
+        {activeTab === "divisions" && (
+            <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />
+        )}
+        {activeTab === "referees" && (
+            <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />
+        )}
       </ContentGrid>
     </ContentContainer>
   );
 }
 
-// Limpio: Sin animación
 const ContentGrid = styled.div` display: flex; justify-content: center; width: 100%; gap: 20px; `;

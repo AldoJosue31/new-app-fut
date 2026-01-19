@@ -7,7 +7,7 @@ import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { Skeleton } from "../atomos/Skeleton";
 import { Toast } from "../atomos/Toast";
 import { 
-  TeamCard, TeamForm, TeamTransferModal, TeamDetailModal, PlayerManager, Card 
+  TeamCard, TeamForm, TeamTransferModal, TeamDetailModal, PlayerManager, Card , BtnGreen
 } from "../../index";
 import { Modal } from "../organismos/Modal"; 
 import { ConfirmModal } from "../organismos/ConfirmModal";
@@ -59,9 +59,13 @@ export const EquiposTemplate = ({
   return (
     <ContentContainer>
       <PageHeader title="Gestión de Equipos" tabs={tabs} maxWidth={VIEW_MAX_WIDTH}>
-         <BtnNormal onClick={onCreate} disabled={!division} icono={<IoMdFootball/>}>
+<BtnGreen 
+            onClick={onCreate} 
+            disabled={!division} 
+            icono={<IoMdFootball/>}
+         >
             Crear Equipo
-         </BtnNormal>
+         </BtnGreen>
       </PageHeader>
       
       <MainContainer $maxWidth={VIEW_MAX_WIDTH}>
