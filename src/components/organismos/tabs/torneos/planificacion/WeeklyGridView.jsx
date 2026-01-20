@@ -1,10 +1,9 @@
 import React, { useMemo } from "react";
-import styled from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../index";
 import { Device } from "../../../../../styles/breakpoints";
-import { getDivisionColor } from "../../../../../utils/colorUtils"; // Asegúrate de importar esto
 
-export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual }) {
+export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
     
     // Generar los 7 días de la semana
     const weekDays = useMemo(() => {
@@ -32,12 +31,15 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
         <Container>
             {weekDays.map(day => {
                 // 1. Partidos de la División Actual (Editables / Principales)
+                // Si la jornada NO está confirmada, estos son "Previsualizaciones/Borradores"
                 const currentDay = scheduledMatches
                     .filter(m => m.date === day)
                     .map(m => ({
                         ...m, 
                         division: divisionActual,
-                        isExternal: false
+                        isExternal: false,
+                        // Flag para saber si es un borrador (preview)
+                        isPreview: !isConfirmed 
                     }));
                 
                 // 2. Partidos de Otras Divisiones (Fantasmas / Solo lectura)
@@ -48,7 +50,8 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                         local: { name: m.team1.name },
                         visitante: { name: m.team2.name },
                         division: m.divisionName,
-                        isExternal: true
+                        isExternal: true,
+                        isPreview: false
                     }));
                 
                 // 3. Unir y ordenar cronológicamente
@@ -66,6 +69,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                                     <MatchCard 
                                         key={idx} 
                                         $isExternal={m.isExternal}
+                                        $isPreview={m.isPreview}
                                         $divisionName={m.division}
                                     >
                                         <div className="time-pill">{m.time}</div>
@@ -73,6 +77,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                                             {/* Badge de División con color dinámico */}
                                             <span className={`div-tag ${m.isExternal ? 'external' : 'local'}`}>
                                                 {m.division}
+                                                {m.isPreview && " (Borrador)"}
                                             </span>
                                             
                                             <div className="teams">
@@ -92,6 +97,13 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
         </Container>
     );
 }
+
+// --- ANIMACIONES ---
+const pulseAnimation = keyframes`
+  0% { opacity: 0.7; box-shadow: 0 0 0 rgba(0,0,0,0); }
+  50% { opacity: 1; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  100% { opacity: 0.7; box-shadow: 0 0 0 rgba(0,0,0,0); }
+`;
 
 // --- ESTILOS RESPONSIVOS ---
 
@@ -139,19 +151,32 @@ const MatchesList = styled.div`
 
 const MatchCard = styled.div`
     display: flex; align-items: center; gap: 12px;
-    background: ${({theme, $isExternal})=> $isExternal ? theme.bg3 : theme.bg2};
-    padding: 10px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    opacity: ${({$isExternal}) => $isExternal ? 0.85 : 1};
-    
-    /* Borde dinámico usando utilidades de clase de Tailwind (inyectadas vía className en implementación pura) 
-       o estilo en línea si usas styled-components puro. 
-       Aquí usamos la prop $divisionName para calcular el color. 
-    */
-    border-left: 4px solid ${({ $isExternal, $divisionName }) => 
-        $isExternal ? 'transparent' : v.colorPrincipal}; // Default fallback
+    border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
 
-    /* Aplicamos la clase de color calculada dinámicamente vía attrs si fuera necesario, 
-       pero aquí usaremos un truco de estilo en línea para simplicidad en styled-components */
+    /* Estilos Base (Confirmado o Normal) */
+    background: ${({theme, $isExternal})=> $isExternal ? theme.bg3 : theme.bg2};
+    opacity: ${({$isExternal}) => $isExternal ? 0.85 : 1};
+    border-left: 4px solid ${({ $isExternal }) => $isExternal ? 'transparent' : v.colorPrincipal};
+
+    /* ESTILOS PARA PREVIEW / BORRADOR (Lo que pidió el usuario) */
+    ${({ $isPreview, theme }) => $isPreview && css`
+        background: ${theme.bg4}; /* Fondo Gris */
+        border-left: 4px solid #95a5a6; /* Borde Gris */
+        border: 1px dashed #7f8c8d; /* Borde punteado para indicar borrador */
+        animation: ${pulseAnimation} 2s infinite ease-in-out; /* Parpadeo suave */
+        
+        .time-pill {
+            background: #bdc3c7 !important;
+            color: #2c3e50 !important;
+        }
+        
+        .div-tag.local {
+            color: #7f8c8d !important;
+        }
+    `}
+
+    /* Colores dinámicos para externos si no es preview */
     ${({ $isExternal, $divisionName }) => $isExternal && `
         border-left-color: hsl(${($divisionName?.split('').reduce((a,c)=>a+c.charCodeAt(0),0) * 50) % 360}, 70%, 50%);
     `}

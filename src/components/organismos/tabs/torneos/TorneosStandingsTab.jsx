@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { v } from '../../../../styles/variables';
 import { Device } from '../../../../styles/breakpoints'; 
-import { ContentContainer } from '../../../atomos/ContentContainer';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
 
 export const TorneosStandingsTab = ({ 
@@ -12,16 +11,15 @@ export const TorneosStandingsTab = ({
   reglas = {} 
 }) => {
 
+  // Procesamos la configuración mezclando torneo.config y reglas por si acaso
   const config = useMemo(() => {
-    const isLiguillaActive = torneo?.config?.zonaLiguilla ?? reglas?.zonaLiguilla ?? false;
+    const c = torneo?.config || reglas || {};
     return {
-      avanzan: isLiguillaActive 
-        ? Number(torneo?.config?.clasificados || reglas?.clasificados || 0)
-        : Number(torneo?.config?.ascensos || reglas?.ascensos || 0),
-      repechaje: isLiguillaActive 
-        ? Number(torneo?.config?.repechajeTeams || reglas?.repechajeTeams || 0)
-        : 0,
-      descensos: Number(torneo?.config?.descensos || reglas?.descensos || 0)
+      ascensos: parseInt(c.ascensos) || 0,
+      descensos: parseInt(c.descensos) || 0,
+      zonaLiguilla: c.zonaLiguilla || false,
+      clasificados: parseInt(c.clasificados) || 0,
+      repechaje: parseInt(c.repechajeTeams) || 0
     };
   }, [torneo?.config, reglas]);
 
@@ -44,13 +42,38 @@ export const TorneosStandingsTab = ({
       };
     });
     return data.sort((a, b) => b.pts !== a.pts ? b.pts - a.pts : b.dg - a.dg);
-  }, [equipos, JSON.stringify(estadisticas)]);
+  }, [equipos, estadisticas]);
 
-  const getZoneColor = (index, total) => {
-    const position = index + 1;
-    if (config.avanzan > 0 && position <= config.avanzan) return v.verde;
-    if (config.repechaje > 0 && position <= (config.avanzan + config.repechaje)) return v.colorselector;
-    if (config.descensos > 0 && position > (total - config.descensos)) return v.rojo;
+  // Lógica mejorada para soportar coexistencia de zonas
+  const getZoneStatus = (index, total) => {
+    const rank = index + 1; // Posición actual (1-based)
+    
+    // 1. Zona Ascenso
+    if (rank <= config.ascensos) {
+      return { color: '#22c55e', label: 'Ascenso Directo' }; // Verde vibrante
+    }
+
+    let currentLimit = config.ascensos;
+
+    // 2. Zona Liguilla (Clasificación y Repechaje)
+    if (config.zonaLiguilla) {
+      // Clasificados Directos
+      if (rank > currentLimit && rank <= (currentLimit + config.clasificados)) {
+        return { color: '#3b82f6', label: 'Liguilla' }; // Azul vibrante
+      }
+      currentLimit += config.clasificados;
+
+      // Repechaje
+      if (rank > currentLimit && rank <= (currentLimit + config.repechaje)) {
+        return { color: '#f59e0b', label: 'Repechaje' }; // Naranja/Ambar
+      }
+    }
+
+    // 3. Zona Descenso (Calculado desde abajo)
+    if (config.descensos > 0 && rank > (total - config.descensos)) {
+      return { color: '#ef4444', label: 'Descenso' }; // Rojo
+    }
+
     return null;
   };
 
@@ -63,20 +86,20 @@ export const TorneosStandingsTab = ({
               <tr>
                 <Th>Equipo</Th>
                 <Th className="stat-col">PJ</Th>
-                {/* Columnas ocultas en móvil */}
                 <ThHideOnMobile className="stat-col">G</ThHideOnMobile>
                 <ThHideOnMobile className="stat-col">E</ThHideOnMobile>
                 <ThHideOnMobile className="stat-col">P</ThHideOnMobile>
                 <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
                 <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
-                {/* DG y PTS se mantienen por ser críticos */}
                 <Th className="stat-col">DG</Th>
                 <Th className="stat-col">PTS</Th>
               </tr>
             </thead>
             <tbody>
               {tablaGeneral.map((fila, index) => {
-                const zoneColor = getZoneColor(index, tablaGeneral.length);
+                const status = getZoneStatus(index, tablaGeneral.length);
+                const zoneColor = status?.color;
+                
                 return (
                   <Tr key={fila.id}>
                     <Td className="team-col" $zoneColor={zoneColor}>
@@ -102,31 +125,44 @@ export const TorneosStandingsTab = ({
                   </Tr>
                 );
               })}
+              {tablaGeneral.length === 0 && (
+                <tr><td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>No hay datos disponibles</td></tr>
+              )}
             </tbody>
           </StyledTable>
         </TableScrollWrapper>
       </TableCard>
+
+      {/* Leyenda de colores */}
+      {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
+        <LeyendaContainer>
+             {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
+             {config.zonaLiguilla && (
+                <>
+                    <Badge $color="#3b82f6">Liguilla</Badge>
+                    {config.repechaje > 0 && <Badge $color="#f59e0b">Repechaje</Badge>}
+                </>
+             )}
+             {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
+        </LeyendaContainer>
+      )}
     </div>
   );
 };
 
-// --- STYLED COMPONENTS OPTIMIZADOS ---
+// --- STYLED COMPONENTS ---
 
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg};
   border-radius: 16px;
   box-shadow: ${v.boxshadowGray};
-  
-  /* 2. Cambia el margen superior de 15px a 0 */
-  /* El 'auto' lateral mantiene el centrado */
-  margin: 0 auto 30px auto; 
-  
+  margin: 0 auto 10px auto; 
   border: 1px solid ${({ theme }) => theme.color2}; 
   width: 98%; 
   max-width: 900px; 
   overflow: hidden; 
   flex-shrink: 0;
-  align-self: center; /* Mantiene el centrado horizontal */
+  align-self: center;
 `;
 
 const TableScrollWrapper = styled(ContainerScroll)`
@@ -145,8 +181,8 @@ const Th = styled.th`
   color: ${({ theme }) => theme.text};
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 0.65rem; /* Fuente más pequeña en móvil */
-  padding: 12px 8px; /* Padding reducido */
+  font-size: 0.65rem;
+  padding: 12px 8px;
   text-align: center;
   border-bottom: 2px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
@@ -167,17 +203,15 @@ const Th = styled.th`
 
   &.stat-col {
     width: 1%;
-    min-width: 35px; /* Más estrecho en móvil */
-    @media ${Device.tablet} {
-        min-width: 45px;
-    }
+    min-width: 35px;
+    @media ${Device.tablet} { min-width: 45px; }
   }
 `;
 
 const Td = styled.td`
-  padding: 12px 8px; /* Padding reducido en móvil */
+  padding: 12px 8px;
   text-align: center;
-  font-size: 0.85rem; /* Fuente más pequeña */
+  font-size: 0.85rem;
   color: ${({ theme }) => theme.text};
   border-bottom: 1px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
@@ -195,9 +229,10 @@ const Td = styled.td`
     z-index: 5;
     background-color: ${({ theme }) => theme.bg};
     box-shadow: inset 4px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'};
-    max-width: 130px; /* Nombre más recortado en móvil */
+    max-width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: box-shadow 0.3s ease;
 
     @media ${Device.tablet} {
         max-width: 250px;
@@ -209,64 +244,64 @@ const Td = styled.td`
     font-weight: 800;
     color: ${({ theme }) => theme.primary};
     font-size: 0.95rem;
-    @media ${Device.tablet} {
-        font-size: 1.05rem;
-    }
+    @media ${Device.tablet} { font-size: 1.05rem; }
   }
 `;
 
 const Tr = styled.tr`
-  &:hover td {
-    background-color: ${({ theme }) => theme.bgAlpha};
-  }
+  &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
 `;
 
-// Componentes para ocultar columnas dinámicamente
 const TdHideOnMobile = styled(Td)`
   display: none;
-  @media ${Device.tablet} {
-    display: table-cell;
-  }
+  @media ${Device.tablet} { display: table-cell; }
 `;
 
 const ThHideOnMobile = styled(Th)`
   display: none;
-  @media ${Device.tablet} {
-    display: table-cell;
-  }
+  @media ${Device.tablet} { display: table-cell; }
 `;
 
 const TeamNameCell = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px; /* Gap reducido */
-  
-  @media ${Device.tablet} {
-    gap: 12px;
-  }
+  display: flex; align-items: center; gap: 6px;
+  @media ${Device.tablet} { gap: 12px; }
 
   img {
-    width: 24px; /* Logo más pequeño en móvil */
-    height: 24px;
-    object-fit: contain;
-    @media ${Device.tablet} {
-        width: 32px;
-        height: 32px;
-    }
+    width: 24px; height: 24px; object-fit: contain;
+    @media ${Device.tablet} { width: 32px; height: 32px; }
   }
 
   .pos {
-    font-weight: 700;
-    min-width: 15px;
-    font-size: 0.8rem;
-    opacity: 0.5;
+    font-weight: 700; min-width: 15px; font-size: 0.8rem; opacity: 0.5;
   }
 
   .team-name {
-    font-weight: 600;
-    font-size: 0.85rem;
-    @media ${Device.tablet} {
-        font-size: 0.95rem;
-    }
+    font-weight: 600; font-size: 0.85rem;
+    @media ${Device.tablet} { font-size: 0.95rem; }
   }
+`;
+
+const LeyendaContainer = styled.div`
+    display: flex; 
+    gap: 8px; 
+    flex-wrap: wrap; 
+    justify-content: flex-end; 
+    max-width: 900px;
+    margin: 0 auto 20px auto;
+    padding: 0 10px;
+`;
+
+const Badge = styled.span`
+    font-size: 0.7rem; 
+    font-weight: 700; 
+    padding: 4px 8px; 
+    border-radius: 6px;
+    background: ${({$color}) => `${$color}15`};
+    color: ${({$color}) => $color};
+    border: 1px solid ${({$color}) => $color};
+    
+    @media ${Device.tablet} {
+        font-size: 0.8rem;
+        padding: 4px 12px;
+    }
 `;
