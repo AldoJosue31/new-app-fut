@@ -10,6 +10,10 @@ export const getTorneoActivo = async (divisionId) => {
       .select('*')
       .eq('division_id', divisionId)
       .in('status', [TOURNAMENT_STATUS.ACTIVE, TOURNAMENT_STATUS.ONGOING])
+      // CORRECCIÓN: Ordenamos por ID descendente y limitamos a 1
+      // Esto previene el error si existen múltiples torneos activos por error.
+      .order('id', { ascending: false }) 
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;
@@ -282,9 +286,7 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
 
     const scheduledPayloads = jornadaData.matches.map(m => formatMatchForDB(m, 'Programado'));
     
-    // AQUÍ: Si están en la lista de pendientes (Sidebar), los guardamos como Pendientes (o como Programado sin fecha si prefieres)
-    // El comportamiento estándar es que si está en Sidebar -> es Pendiente. 
-    // Si quieres que siga siendo Programado, cámbialo aquí, pero la UI lo detecta por "sin fecha".
+    // AQUÍ: Si están en la lista de pendientes (Sidebar), los guardamos como Pendientes
     const pendingPayloads = (jornadaData.allPendingMatches || [])
       .filter(m => m.isModified || (!String(m.id).includes('suggested') && !String(m.id).includes('swap')))
       .map(m => formatMatchForDB(m, 'Pendiente'));

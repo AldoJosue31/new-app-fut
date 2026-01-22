@@ -1,0 +1,145 @@
+import React from "react";
+import styled, { css } from "styled-components";
+import { RiLock2Line, RiLockUnlockLine } from "react-icons/ri";
+import { v } from "../../../../../styles/variables";
+
+export const FixtureMatchCard = ({ 
+    match, 
+    onDragStart, 
+    onDragOver, 
+    onDrop, 
+    toggleLock, 
+    isConflict,
+    selectedTeamId,
+    onTeamClick
+}) => {
+    // Determinar si algún equipo de este partido está seleccionado globalmente
+    const isLocalSelected = selectedTeamId && match.local.id === selectedTeamId;
+    const isVisitSelected = selectedTeamId && match.visitante.id === selectedTeamId;
+    const isHighlighted = isLocalSelected || isVisitSelected;
+
+    const isByeMatch = match.visitante.id === 'BYE' || match.local.id === 'BYE';
+
+    return (
+        <CardContainer
+            draggable
+            onDragStart={(e) => onDragStart(e, match)}
+            onDragOver={onDragOver}
+            onDrop={(e) => onDrop(e, match)}
+            $isLocked={match.locked}
+            $isConflict={isConflict}
+            $isBye={isByeMatch}
+            $isHighlighted={isHighlighted}
+        >
+            <LockIcon onClick={(e) => { e.stopPropagation(); toggleLock(match.id); }}>
+                {match.locked ? <RiLock2Line /> : <RiLockUnlockLine className="unlock" />}
+            </LockIcon>
+            
+            <TeamsRow>
+                <TeamName 
+                    $align="left" 
+                    $isSelected={isLocalSelected}
+                    onClick={(e) => { e.stopPropagation(); onTeamClick(match.local.id); }}
+                    title={match.local.name}
+                >
+                    {match.local.name}
+                </TeamName>
+                
+                <VersusBadge $isBye={isByeMatch}>
+                    {isByeMatch ? 'DESCANSA' : 'VS'}
+                </VersusBadge>
+                
+                {/* Si es BYE, no lo hacemos clickeable para filtrar, o sí, dependiendo de preferencia. 
+                    Normalmente BYE no es un equipo real, así que evitamos click en él */}
+                <TeamName 
+                    $align="right" 
+                    $isSelected={isVisitSelected}
+                    $isBye={match.visitante.id === 'BYE'}
+                    onClick={(e) => { 
+                        if(match.visitante.id !== 'BYE') {
+                            e.stopPropagation(); 
+                            onTeamClick(match.visitante.id);
+                        }
+                    }}
+                    title={match.visitante.name}
+                >
+                    {match.visitante.name}
+                </TeamName>
+            </TeamsRow>
+        </CardContainer>
+    );
+};
+
+// --- STYLES ---
+
+const CardContainer = styled.div`
+    background: ${({ theme, $isConflict, $isLocked, $isBye, $isHighlighted }) => {
+        if ($isHighlighted) return `${v.colorPrincipal}20`; // Prioridad al highlight
+        if ($isConflict) return `${v.colorError}15`;
+        if ($isLocked) return theme.bg3; // Grisaceo para locked
+        if ($isBye) return theme.bg; // Fondo más suave para descansos
+        return theme.bg2;
+    }};
+    border: 2px solid ${({ theme, $isConflict, $isLocked, $isHighlighted }) => {
+        if ($isHighlighted) return v.colorPrincipal; // Borde fuerte si está seleccionado
+        if ($isConflict) return v.colorError;
+        if ($isLocked) return `${v.colorPrincipal}50`;
+        return 'transparent';
+    }};
+    border-radius: 8px; padding: 10px; cursor: grab; position: relative;
+    box-shadow: ${({ $isHighlighted }) => $isHighlighted ? '0 0 10px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)'};
+    user-select: none;
+    transition: all 0.2s ease;
+    
+    /* Escalar ligeramente si está seleccionado para que destaque */
+    transform: ${({ $isHighlighted }) => $isHighlighted ? 'scale(1.02)' : 'scale(1)'};
+    z-index: ${({ $isHighlighted }) => $isHighlighted ? '10' : '1'};
+
+    &:active { cursor: grabbing; transform: scale(1.03); z-index: 20; }
+    &:hover { border-color: ${({theme, $isHighlighted}) => $isHighlighted ? v.colorPrincipal : theme.textFade}; }
+
+    .unlock { opacity: 0; transition: opacity 0.2s; }
+    &:hover .unlock { opacity: 0.5; }
+`;
+
+const TeamsRow = styled.div`
+    display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;
+`;
+
+const TeamName = styled.div`
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: ${({ $isSelected }) => $isSelected ? '800' : '500'};
+    color: ${({ theme, $isSelected, $isBye }) => {
+        if ($isBye) return theme.textFade; // Color apagado para texto 'BYE'
+        if ($isSelected) return v.colorPrincipal;
+        return theme.text;
+    }};
+    text-align: ${props => props.$align}; 
+    font-size: 0.85rem;
+    cursor: ${({ $isBye }) => $isBye ? 'default' : 'pointer'};
+    padding: 2px 4px; border-radius: 4px;
+
+    &:hover {
+        background: ${({ $isBye, theme }) => $isBye ? 'transparent' : theme.bg3};
+    }
+`;
+
+const VersusBadge = styled.span`
+    font-size: ${({ $isBye }) => $isBye ? '0.6rem' : '0.65rem'};
+    font-weight: 800; 
+    color: ${({ theme, $isBye }) => $isBye ? theme.textFade : theme.textFade}; 
+    text-transform: uppercase;
+    background: ${({theme}) => theme.bg3};
+    padding: 2px 6px; border-radius: 4px;
+`;
+
+const LockIcon = styled.div`
+    position: absolute; top: -8px; right: -8px; 
+    width: 24px; height: 24px; background: ${({theme}) => theme.bg}; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: ${v.colorPrincipal}; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    cursor: pointer; z-index: 15;
+    transition: transform 0.2s;
+    &:hover { transform: scale(1.1); }
+`;
