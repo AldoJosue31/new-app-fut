@@ -16,7 +16,8 @@ import { Device } from "../../styles/breakpoints";
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
-  isLoadingData, standings, reglas, setReglas, refreshStandings
+  isLoadingData, standings, reglas, setReglas, refreshStandings,
+  onTournamentReset // <--- Recibimos la función de recarga
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -53,6 +54,8 @@ export function TorneosTemplate({
                 allTeams={allTeams} participatingIds={participatingIds}
                 onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                 isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
+                // Pasamos la prop al componente hijo
+                onTournamentReset={onTournamentReset}
             />
           </FullWidthTab>
         )}
@@ -91,7 +94,6 @@ export function TorneosTemplate({
   );
 }
 
-// Limpio: Sin animación
 const ContentGrid = styled.div`
   display: flex;
   flex-direction: column;

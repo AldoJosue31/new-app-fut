@@ -356,3 +356,68 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     throw error; 
   }
 };
+
+export const eliminarTorneoService = async (tournamentId) => {
+    try {
+        if (!tournamentId) throw new Error("ID de torneo inválido");
+
+        // 1. Obtener todas las jornadas del torneo
+        const { data: jornadas, error: jError } = await supabase
+            .from('jornadas')
+            .select('id')
+            .eq('tournament_id', tournamentId);
+        
+        if (jError) throw jError;
+
+        const jornadaIds = jornadas.map(j => j.id);
+
+        if (jornadaIds.length > 0) {
+            // 2. Obtener todos los partidos de esas jornadas
+            const { data: matches, error: mError } = await supabase
+                .from('matches')
+                .select('id')
+                .in('jornada_id', jornadaIds);
+
+            if (mError) throw mError;
+            
+            const matchIds = matches.map(m => m.id);
+
+            // 3. Borrar Eventos de Partido (Match Events)
+            if (matchIds.length > 0) {
+                const { error: meError } = await supabase
+                    .from('match_events')
+                    .delete()
+                    .in('match_id', matchIds);
+                if (meError) throw meError;
+
+                // 4. Borrar Partidos (Matches)
+                const { error: delMatchesErr } = await supabase
+                    .from('matches')
+                    .delete()
+                    .in('jornada_id', jornadaIds);
+                if (delMatchesErr) throw delMatchesErr;
+            }
+
+            // 5. Borrar Jornadas
+            const { error: delJornadasErr } = await supabase
+                .from('jornadas')
+                .delete()
+                .eq('tournament_id', tournamentId); // Más seguro usar el ID del torneo directo o los IDs
+            if (delJornadasErr) throw delJornadasErr;
+        }
+
+        // 6. Finalmente, borrar el Torneo
+        const { error: tError } = await supabase
+            .from('tournaments')
+            .delete()
+            .eq('id', tournamentId);
+            
+        if (tError) throw tError;
+
+        return { success: true };
+
+    } catch (error) {
+        console.error("Error crítico eliminando torneo:", error);
+        throw error;
+    }
+};

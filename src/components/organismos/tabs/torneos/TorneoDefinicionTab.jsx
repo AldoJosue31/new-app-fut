@@ -2,26 +2,35 @@ import React, { useState } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../../../styles/variables";
 import { 
-    RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine 
+    RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
 // Componentes comunes
-import { Card, CardHeader, Btnsave, Modal, TabsNavigation, Toast } from "../../../../index";
+import { Card, CardHeader, Btnsave, Modal, TabsNavigation, Toast, BtnNormal } from "../../../../index";
+import { ConfirmModal } from "../../ConfirmModal";
 
 // Sub-componentes
 import { TorneoDashboard } from "./subcomponents/TorneoDashboard";
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
-// IMPORTAMOS EL MODAL NUEVO
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
+
+// Servicio
+import { eliminarTorneoService } from "../../../../services/torneos";
 
 export function TorneoDefinicionTab({ 
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
     allTeams, participatingIds, onInclude, onExclude, minPlayers,
-    isLoading, reglas, setReglas
+    isLoading, reglas, setReglas, onTournamentReset 
 }) {
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false); // Estado para el preview
+  const [showPreviewModal, setShowPreviewModal] = useState(false); 
+  const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
+  
+  // Estado para controlar la animación de salida
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+
   const [configTab, setConfigTab] = useState("general"); 
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
@@ -37,9 +46,7 @@ export function TorneoDefinicionTab({
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
 
-  // Función interceptora del inicio
   const handlePreStartTournament = () => {
-      // 1. Validaciones
       if (participatingTeams.length < 2) {
           showToast(`Se requieren al menos 2 equipos para iniciar el torneo.`, "error");
           return;
@@ -48,7 +55,6 @@ export function TorneoDefinicionTab({
           showToast(`Torneo impar (${participatingTeams.length} equipos). Se asignará un 'Descanso' por jornada.`, "success");
       }
       
-      // Validaciones Liguilla
       if (form.zonaLiguilla) {
           const directos = parseInt(form.clasificados || 0);
           const repechaje = form.hasRepechaje ? parseInt(form.repechajeTeams || 0) : 0;
@@ -64,14 +70,11 @@ export function TorneoDefinicionTab({
           }
       }
       
-      // En lugar de guardar directo, ABRIMOS EL PREVIEW
       setShowPreviewModal(true);
   };
 
-  // Callback cuando confirman en el modal
   const handleConfirmFixture = (fixtureData) => {
       setShowPreviewModal(false);
-      // Llamamos a onSubmit (que viene de useTorneosLogic) pasándole los datos generados
       onSubmit(fixtureData);
   };
 
@@ -87,17 +90,57 @@ export function TorneoDefinicionTab({
     showToast("Configuración guardada (Borrador local).", "success");
   };
 
+  // --- LÓGICA DE ELIMINACIÓN CON TRANSICIÓN ---
+  const handleEndTournament = async () => {
+      if(!activeTournament?.id) return;
+      
+      setIsDeleting(true);
+      try {
+          await eliminarTorneoService(activeTournament.id);
+          
+          setShowEndTournamentModal(false);
+          showToast("Torneo eliminado. Reiniciando vista...", "success");
+          
+          // 1. Iniciamos la animación de salida (Fade Out del overlay + Unblur del contenido)
+          setIsExiting(true);
+          
+          // 2. Esperamos a que termine la animación visual (600ms) antes de recargar los datos
+          setTimeout(() => {
+              if(onTournamentReset) {
+                  onTournamentReset(); 
+              }
+              // Reseteamos estados locales
+              setIsExiting(false);
+              setIsDeleting(false);
+          }, 600);
+          
+      } catch (error) {
+          showToast("Error al finalizar el torneo. Revisa la consola.", "error");
+          setIsDeleting(false);
+      }
+  };
+
   return (
-    <StyledCardWrapper $isBlur={!!activeTournament}>
+    // Pasamos !isExiting para que el Blur se quite mientras se desvanece el overlay
+    <StyledCardWrapper $isBlur={!!activeTournament && !isExiting}>
         <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
 
         {activeTournament && (
-            <LockedOverlay>
+            <LockedOverlay $isExiting={isExiting}>
                 <div className="lock-message">
                     <v.iconocorona className="big-icon" />
                     <h2>Torneo en Curso</h2>
                     <p>{activeTournament.season}</p>
-                    <span>Finaliza el torneo actual para crear uno nuevo.</span>
+                    <span className="desc">Finaliza el torneo actual para crear uno nuevo.</span>
+                    
+                    <div className="actions-overlay">
+                        <BtnNormal 
+                            titulo="Finalizar Torneo"
+                            funcion={() => setShowEndTournamentModal(true)}
+                            icono={<RiDeleteBinLine/>}
+                            bgcolor="rgba(255,255,255,0.15)"
+                        />
+                    </div>
                 </div>
             </LockedOverlay>
         )}
@@ -130,7 +173,7 @@ export function TorneoDefinicionTab({
             </div>
         </Card>
 
-        {/* --- MODAL DE PREVIEW Y SORTEO (NUEVO) --- */}
+        {/* --- MODALES --- */}
         <FixturePreviewModal 
             isOpen={showPreviewModal}
             onClose={() => setShowPreviewModal(false)}
@@ -140,18 +183,25 @@ export function TorneoDefinicionTab({
             isLoading={loading}
         />
 
-        {/* --- MODAL DE CONFIGURACIÓN --- */}
+        <ConfirmModal 
+            isOpen={showEndTournamentModal}
+            onClose={() => setShowEndTournamentModal(false)}
+            onConfirm={handleEndTournament}
+            title="¿Finalizar Torneo Actual?"
+            message="Esta acción borrará permanentemente todos los partidos, jornadas y estadísticas del torneo actual."
+            subMessage="No podrás deshacer esta acción."
+            confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"}
+            confirmColor={v.rojo}
+        />
+
         <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configurar Reglas" width="650px">
             <ModalContentStyled>
                 <div className="info-message"><RiInformationLine className="icon"/><span>Define las reglas de competencia.</span></div>
-                
                 <TabsNavigation tabs={configTabList} activeTab={configTab} setActiveTab={setConfigTab} />
-
                 {configTab === 'general' && <TabGeneral form={form} onChange={onChange} />}
                 {configTab === 'scoring' && <TabScoring form={form} onChange={onChange} />}
                 {configTab === 'format' && <TabFormat form={form} onChange={onChange} />}
                 {configTab === 'gameRules' && <TabGameRules reglas={reglas} setReglas={setReglas} />}
-                
                 <div className="modal-actions">
                     <Btnsave titulo="Guardar Configuración" bgcolor={v.colorPrincipal} funcion={handleSaveConfig} />
                 </div>
@@ -162,6 +212,59 @@ export function TorneoDefinicionTab({
 }
 
 // --- STYLES ---
-const StyledCardWrapper = styled.div` position: relative; width: 100%; display: flex; justify-content: center; ${props => props.$isBlur && css` & > div:last-child { filter: blur(4px) grayscale(0.8); pointer-events: none; user-select: none; } `} `;
-const LockedOverlay = styled.div` position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; justify-content: center; .lock-message { background: rgba(0,0,0,0.85); padding: 30px; border-radius: 16px; text-align: center; color: white; backdrop-filter: blur(5px); } .big-icon{ font-size: 50px; color: ${v.colorPrincipal}; margin-bottom:10px;} h2{margin:0; font-size:24px;} p{margin:5px 0 15px; font-size:18px; font-weight:600; color:${v.colorPrincipal};} span{opacity:0.7; font-size:14px;}`;
+const StyledCardWrapper = styled.div` 
+    position: relative; width: 100%; display: flex; justify-content: center; 
+    
+    /* Animación del contenido base: Blur y Escala */
+    & > div:last-child { 
+        transition: filter 0.6s ease-in-out, transform 0.6s ease-in-out, opacity 0.6s;
+        ${props => props.$isBlur ? css`
+            filter: blur(4px) grayscale(0.8); 
+            pointer-events: none; 
+            user-select: none; 
+            transform: scale(0.98); // Efecto de profundidad
+            opacity: 0.8;
+        ` : css`
+            filter: blur(0px) grayscale(0); 
+            pointer-events: all;
+            transform: scale(1);
+            opacity: 1;
+        `}
+    } 
+`;
+
+const LockedOverlay = styled.div` 
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; 
+    display: flex; align-items: center; justify-content: center; 
+    
+    /* Transición de Salida/Entrada */
+    transition: opacity 0.5s ease-in-out, visibility 0.5s;
+    opacity: ${props => props.$isExiting ? 0 : 1};
+    visibility: ${props => props.$isExiting ? 'hidden' : 'visible'};
+    pointer-events: ${props => props.$isExiting ? 'none' : 'all'};
+
+    .lock-message { 
+        background: rgba(0,0,0,0.85); padding: 40px; border-radius: 16px; 
+        text-align: center; color: white; backdrop-filter: blur(5px); 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        max-width: 400px; width: 100%;
+        
+        /* Animación interna del modal */
+        transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transform: ${props => props.$isExiting ? 'scale(0.8) translateY(20px)' : 'scale(1) translateY(0)'};
+    } 
+    .big-icon{ font-size: 60px; color: ${v.colorPrincipal}; margin-bottom:15px;} 
+    h2{margin:0; font-size:26px; font-weight: 700;} 
+    p{margin:5px 0 10px; font-size:20px; font-weight:600; color:${v.colorPrincipal};} 
+    .desc{opacity:0.7; font-size:14px; display:block; margin-bottom: 20px;}
+    .actions-overlay {
+        display: flex; justify-content: center; width: 100%;
+        button {
+             border: 1px solid rgba(255,255,255,0.2);
+             transition: all 0.2s;
+             &:hover { background: ${v.rojo} !important; border-color: ${v.rojo}; }
+        }
+    }
+`;
+
 const ModalContentStyled = styled.div` display: flex; flex-direction: column; gap: 15px; padding-top: 10px; .info-message { background: rgba(28, 176, 246, 0.1); border-left: 4px solid ${({theme})=>theme.primary}; padding: 10px; font-size: 12px; display: flex; gap:10px; align-items:center; .icon{font-size:18px; color:${({theme})=>theme.primary};} } .modal-actions { display: flex; justify-content: flex-end; margin-top: 20px; pt:20px; border-top: 1px solid ${({theme})=>theme.bg4}; } `;
