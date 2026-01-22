@@ -2,6 +2,8 @@ import React, { useMemo } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../index";
 import { Device } from "../../../../../styles/breakpoints";
+// Asegúrate de ajustar la ruta de importación
+import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
 
 export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
     
@@ -54,7 +56,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                         isPreview: false
                     }));
                 
-                // 3. Unir y ordenar cronológicamente
+                // 3. Unir y ordenar cronológicamente (Usamos formato 24h para ordenar correctamente)
                 const allMatches = [...currentDay, ...otherDay].sort((a,b) => a.time.localeCompare(b.time));
 
                 return (
@@ -72,7 +74,8 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                                         $isPreview={m.isPreview}
                                         $divisionName={m.division}
                                     >
-                                        <div className="time-pill">{m.time}</div>
+                                        {/* APLICADO AQUÍ: Visualización en formato 12h */}
+                                        <div className="time-pill">{formatTimeTo12Hour(m.time)}</div>
                                         <div className="info">
                                             {/* Badge de División con color dinámico */}
                                             <span className={`div-tag ${m.isExternal ? 'external' : 'local'}`}>

@@ -10,8 +10,6 @@ export const getTorneoActivo = async (divisionId) => {
       .select('*')
       .eq('division_id', divisionId)
       .in('status', [TOURNAMENT_STATUS.ACTIVE, TOURNAMENT_STATUS.ONGOING])
-      // CORRECCIÓN: Ordenamos por ID descendente y limitamos a 1
-      // Esto previene el error si existen múltiples torneos activos por error.
       .order('id', { ascending: false }) 
       .limit(1)
       .maybeSingle();
@@ -44,7 +42,6 @@ export const getEquiposDivision = async (divisionId) => {
 
 export const generarFixture = (equipos) => {
   const list = [...equipos];
-  // Si es impar, añadimos un placeholder (null o objeto dummy) para control interno
   if (list.length % 2 !== 0) list.push({ id: null }); 
   
   const rounds = [];
@@ -55,8 +52,8 @@ export const generarFixture = (equipos) => {
     for (let j = 0; j < list.length / 2; j++) {
       const t1 = list[j];
       const t2 = list[list.length - 1 - j];
-      // Nota: Si t1 o t2 es el placeholder, se genera el partido igualmente aquí
-      // para que el Modal pueda mostrar "Descansa". El modal filtrará 'BYE' antes de guardar.
+      
+      // Permitimos cruces con placeholder
       if (t1.id || t2.id) { 
         round.push({ home: t1.id, away: t2.id });
       }
@@ -120,9 +117,6 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
   }
 };
 
-/**
- * Crea el torneo, las jornadas y los partidos generados en el preview.
- */
 export const iniciarTorneoService = async ({ 
   divisionName, season, startDate, config, jornadas 
 }, fixtureGenerado) => {
@@ -145,8 +139,7 @@ export const iniciarTorneoService = async ({
     
     if (tError) throw tError;
 
-    // 2. Determinar Jornadas a insertar
-    // Si viene fixtureGenerado (manual), usamos sus nombres. Si no, los genéricos.
+    // 2. Determinar Jornadas
     const jornadasToInsert = fixtureGenerado 
         ? fixtureGenerado.map(f => ({ tournament_id: torneo.id, name: f.name, status: 'Pendiente' }))
         : jornadas.map(j => ({ tournament_id: torneo.id, name: j.name, status: 'Pendiente' }));
@@ -158,7 +151,7 @@ export const iniciarTorneoService = async ({
 
     if (jError) throw jError;
 
-    // 3. Insertar Partidos
+    // 3. Insertar Partidos (Sólo inserts aquí, no hay updates)
     if (fixtureGenerado && fixtureGenerado.length > 0) {
         let matchesToInsert = [];
 
@@ -167,14 +160,17 @@ export const iniciarTorneoService = async ({
             if (!jornadaDB) return;
 
             jornadaData.matches.forEach(match => {
-                // Verificar IDs validos (que no sean BYE ni undefined)
-                if(match.local.id && match.visitante.id && match.local.id !== 'BYE' && match.visitante.id !== 'BYE') {
+                // Verificar IDs validos
+                if(match.local.id && match.local.id !== 'BYE') {
+                    // Si el visitante es 'BYE', guardamos null
+                    const team2Id = (match.visitante.id && match.visitante.id !== 'BYE') ? match.visitante.id : null;
+                    
                     matchesToInsert.push({
                         jornada_id: jornadaDB.id,
                         team1_id: match.local.id,
-                        team2_id: match.visitante.id,
+                        team2_id: team2Id,
                         status: 'Programado', 
-                        date: null // Sin fecha = Pendiente en UI (Sidebar)
+                        date: null 
                     });
                 }
             });
@@ -206,11 +202,17 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
 
     if (!idJornadaHoy || !idJornadaFutura) throw new Error("No se encontraron las jornadas");
 
-    // 1. Partido Futuro -> Hoy
+    const getTeamId = (team) => (team && team.id && team.id !== 'BYE') ? team.id : null;
+
+    // Detectar si son IDs reales o temporales
+    const isTempIdHoy = String(matchHoy.id).includes('suggested') || String(matchHoy.id).includes('swap') || String(matchHoy.id).includes('generated');
+    const isTempIdFuturo = String(matchFuturo.id).includes('suggested') || String(matchFuturo.id).includes('swap') || String(matchFuturo.id).includes('generated');
+
+    // Preparar payloads
     const payloadHoy = {
       jornada_id: idJornadaHoy,
-      team1_id: matchFuturo.local.id,
-      team2_id: matchFuturo.visitante.id,
+      team1_id: getTeamId(matchFuturo.local),
+      team2_id: getTeamId(matchFuturo.visitante),
       status: matchHoy.status, 
     };
 
@@ -220,25 +222,43 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       payloadHoy.date = null;
     }
 
-    // 2. Partido Hoy -> Futuro
     const payloadFuturo = {
       jornada_id: idJornadaFutura,
-      team1_id: matchHoy.local.id,
-      team2_id: matchHoy.visitante.id,
+      team1_id: getTeamId(matchHoy.local),
+      team2_id: getTeamId(matchHoy.visitante),
       status: 'Pendiente',
       date: null 
     };
 
-    // Mantenimiento de IDs
-    if (!String(matchHoy.id).includes('suggested') && !String(matchHoy.id).includes('swap')) {
-      payloadFuturo.id = Number(matchHoy.id);
-    }
-    if (!String(matchFuturo.id).includes('suggested') && !String(matchFuturo.id).includes('swap')) {
-      payloadHoy.id = Number(matchFuturo.id);
+    // Estrategia de Guardado Separado
+    const matchesToInsert = [];
+    const matchesToUpdate = [];
+
+    // Lógica para Match Futuro -> Hoy
+    if (isTempIdFuturo) {
+       matchesToInsert.push(payloadHoy);
+    } else {
+       payloadHoy.id = Number(matchFuturo.id);
+       matchesToUpdate.push(payloadHoy);
     }
 
-    const { error } = await supabase.from('matches').upsert([payloadFuturo, payloadHoy]);
-    if (error) throw error;
+    // Lógica para Match Hoy -> Futuro
+    if (isTempIdHoy) {
+       matchesToInsert.push(payloadFuturo);
+    } else {
+       payloadFuturo.id = Number(matchHoy.id);
+       matchesToUpdate.push(payloadFuturo);
+    }
+
+    // Ejecutar operaciones
+    if (matchesToInsert.length > 0) {
+        const { error: iError } = await supabase.from('matches').insert(matchesToInsert);
+        if (iError) throw iError;
+    }
+    if (matchesToUpdate.length > 0) {
+        const { error: uError } = await supabase.from('matches').upsert(matchesToUpdate);
+        if (uError) throw uError;
+    }
     
     return { success: true };
   } catch (error) {
@@ -262,14 +282,16 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const currentJornadaId = jornadasMap[`Jornada ${jornadaData.jornada_numero}`];
     if (!currentJornadaId) throw new Error("Jornada no encontrada");
 
-    const formatMatchForDB = (m, status) => {
+    // Función auxiliar para preparar el objeto
+    const createMatchObject = (m, status) => {
        const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
-       const isRealId = m.id && !String(m.id).includes('suggested') && !String(m.id).includes('swap');
        
+       const t2Id = (m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
+
        const payload = {
           jornada_id: targetJornadaId,
           team1_id: Number(m.local.id),
-          team2_id: Number(m.visitante.id),
+          team2_id: t2Id,
           status: status
        };
 
@@ -279,25 +301,53 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
        } else {
           payload.date = null; 
        }
-
-       if (isRealId) payload.id = Number(m.id);
        return payload;
     };
 
-    const scheduledPayloads = jornadaData.matches.map(m => formatMatchForDB(m, 'Programado'));
-    
-    // AQUÍ: Si están en la lista de pendientes (Sidebar), los guardamos como Pendientes
-    const pendingPayloads = (jornadaData.allPendingMatches || [])
-      .filter(m => m.isModified || (!String(m.id).includes('suggested') && !String(m.id).includes('swap')))
-      .map(m => formatMatchForDB(m, 'Pendiente'));
+    const matchesToInsert = [];
+    const matchesToUpdate = [];
 
-    const allMatches = [...scheduledPayloads, ...pendingPayloads];
+    // Procesar todos los partidos (Programados y Pendientes)
+    const allMatchesToProcess = [
+        ...jornadaData.matches.map(m => ({ ...m, finalStatus: 'Programado' })),
+        ...(jornadaData.allPendingMatches || [])
+            .filter(m => {
+                const isTempId = String(m.id).includes('suggested') || String(m.id).includes('swap') || String(m.id).includes('generated');
+                return m.isModified || isTempId || (m.id && !isTempId);
+            })
+            .map(m => ({ ...m, finalStatus: 'Pendiente' }))
+    ];
 
-    if (allMatches.length > 0) {
-        const { error: matchError } = await supabase.from('matches').upsert(allMatches);
-        if (matchError) throw matchError;
+    allMatchesToProcess.forEach(m => {
+        const isTempId = String(m.id).includes('suggested') || 
+                         String(m.id).includes('swap') || 
+                         String(m.id).includes('generated');
+        
+        const payload = createMatchObject(m, m.finalStatus);
+
+        if (!isTempId && m.id) {
+            // Es actualización
+            payload.id = Number(m.id);
+            matchesToUpdate.push(payload);
+        } else {
+            // Es inserción (NUNCA incluir 'id' aquí)
+            matchesToInsert.push(payload);
+        }
+    });
+
+    // 1. Ejecutar Inserts (Nuevos partidos / Descansos generados)
+    if (matchesToInsert.length > 0) {
+        const { error: insertError } = await supabase.from('matches').insert(matchesToInsert);
+        if (insertError) throw insertError;
     }
 
+    // 2. Ejecutar Upserts/Updates (Partidos existentes)
+    if (matchesToUpdate.length > 0) {
+        const { error: updateError } = await supabase.from('matches').upsert(matchesToUpdate);
+        if (updateError) throw updateError;
+    }
+
+    // 3. Confirmar jornada
     await supabase.from('jornadas').update({ status: 'Confirmada' }).eq('id', currentJornadaId);
 
     return { success: true };

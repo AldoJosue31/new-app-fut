@@ -7,6 +7,8 @@ import {
 import { supabase } from "../../../../supabase/supabase.config"; 
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
+// Importamos la utilidad de fechas
+import { formatDateWithWeekday } from "../../../../utils/dateUtils";
 
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
@@ -219,34 +221,46 @@ export function JornadaPlanificacion({
                             ) : (
                                 <GridList>
                                     {scheduledMatches
-                                      .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-                                      .map((match) => (
-                                        <ScheduledMatchRow 
-                                          key={match.id} 
-                                          match={match} 
-                                          isConfirmed={isConfirmed} 
-                                          onUpdateDate={(val) => {
-                                            const updated = scheduledMatches.map(m => m.id === match.id ? {...m, date: val} : m);
-                                            setScheduledMatches(autoAdjustTimes(updated, val));
-                                          }}
-                                          onUpdateTime={(val) => {
-                                            const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val} : m);
-                                            setScheduledMatches(autoAdjustTimes(updated, match.date));
-                                          }}
-                                          onRemove={() => { 
-                                            setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                            setAllPendingMatches([...allPendingMatches, { 
-                                                ...match, 
-                                                status: 'Pendiente', 
-                                                date: null, 
-                                                time: null,
-                                                isModified: true 
-                                            }]); 
-                                          }} 
-                                          onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
-                                          onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
-                                        />
-                                    ))}
+                                      .sort((a,b) => {
+                                          // Ordenar primero por fecha y luego por hora
+                                          if(a.date !== b.date) return a.date.localeCompare(b.date);
+                                          return a.time.localeCompare(b.time);
+                                      })
+                                      .map((match, idx, arr) => {
+                                          // Calcular si debemos mostrar el encabezado de fecha
+                                          const prevMatch = arr[idx - 1];
+                                          const isNewDay = !prevMatch || match.date !== prevMatch.date;
+                                          const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
+
+                                          return (
+                                            <ScheduledMatchRow 
+                                              key={match.id} 
+                                              match={match} 
+                                              groupLabel={groupLabel} // Pasamos la etiqueta
+                                              isConfirmed={isConfirmed} 
+                                              onUpdateDate={(val) => {
+                                                const updated = scheduledMatches.map(m => m.id === match.id ? {...m, date: val} : m);
+                                                setScheduledMatches(autoAdjustTimes(updated, val));
+                                              }}
+                                              onUpdateTime={(val) => {
+                                                const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val} : m);
+                                                setScheduledMatches(autoAdjustTimes(updated, match.date));
+                                              }}
+                                              onRemove={() => { 
+                                                setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
+                                                setAllPendingMatches([...allPendingMatches, { 
+                                                    ...match, 
+                                                    status: 'Pendiente', 
+                                                    date: null, 
+                                                    time: null,
+                                                    isModified: true 
+                                                }]); 
+                                              }} 
+                                              onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
+                                              onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
+                                            />
+                                          );
+                                      })}
                                 </GridList>
                             )}
                         </DropZone>
