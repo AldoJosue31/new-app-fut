@@ -44,18 +44,41 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const [rosterLocal, setRosterLocal] = useState([]);
   const [rosterVisit, setRosterVisit] = useState([]);
 
-  // --- REGLAS ---
-  const winPoints = parseInt(activeTournament?.config?.winPoints ?? 3);
-  const drawPoints = parseInt(activeTournament?.config?.drawPoints ?? 1);
-  const lossPoints = parseInt(activeTournament?.config?.lossPoints ?? 0);
-  const minPlayers = parseInt(activeTournament?.config?.minPlayers || 7);
+  // --- REGLAS (CORREGIDO PARA LEER ROBUSTEZ) ---
+  const tournamentConfig = useMemo(() => {
+      // Intentamos parsear si viene como string, o usar el objeto directo
+      let config = {};
+      try {
+          if (activeTournament?.config) {
+              config = typeof activeTournament.config === 'string' 
+                  ? JSON.parse(activeTournament.config) 
+                  : activeTournament.config;
+          }
+      } catch (e) {
+          console.error("Error parsing config in ResultModal", e);
+      }
+      return config;
+  }, [activeTournament]);
+
+  const winPoints = parseInt(tournamentConfig.winPoints ?? 3);
+  const drawPoints = parseInt(tournamentConfig.drawPoints ?? 1);
+  const lossPoints = parseInt(tournamentConfig.lossPoints ?? 0);
+  
+  // Aquí estaba el error: ahora buscamos en config, luego en activeTournament root, luego default
+  const minPlayers = parseInt(
+      tournamentConfig.minPlayers || 
+      activeTournament?.min_players || 
+      activeTournament?.minPlayers || 
+      7
+  );
+  
   const halfMinPlayers = Math.ceil(minPlayers / 2);
   const maxSubs = 10; 
 
   const isExtraPointEnabled = useMemo(() => {
-    const type = activeTournament?.config?.tieBreakType?.toLowerCase();
+    const type = (tournamentConfig.tieBreakType || "").toLowerCase();
     return ['penalties', 'shoutouts', 'shouts', 'penales'].includes(type);
-  }, [activeTournament]);
+  }, [tournamentConfig]);
 
   // --- CÁLCULOS DE GOLES ---
   const totalGoalsLocal = useMemo(() => {
@@ -113,7 +136,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // 1. Árbitros y Jugadores (Misma lógica anterior)
+      // 1. Árbitros y Jugadores
       let leagueId = activeTournament?.division?.league_id || activeTournament?.league_id || activeTournament?.leagues?.id || selectedDivision?.league_id;
       const divId = activeTournament?.division_id || activeTournament?.id_division || selectedDivision?.id;
       if (!leagueId && divId) {
@@ -151,7 +174,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             ...playerStats[pid]
           }));
 
-        // Construir el roster (llenar slots iniciales y luego agregar el resto como suplentes)
+        // Construir el roster (USANDO EL minPlayers CORREGIDO)
         const newRoster = Array.from({ length: minPlayers }, (_, i) => ({
           idTemp: `${prefix}-${i}`,
           playerId: playersWithEvents[i]?.playerId || "",
@@ -184,6 +207,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setRosterVisit(processRosterData(pVisit || [], 'v'));
 
     } catch (error) {
+      console.error(error);
       setToastConfig({ show: true, message: "Error al cargar datos", type: "error" });
     } finally {
       setLoading(false);
@@ -193,7 +217,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const handleFinalSave = async () => {
     setLoading(true);
     try {
-      // 1. ELIMINAR EVENTOS ANTERIORES PARA ESTE PARTIDO (REIMPLANTACIÓN)
+      // 1. ELIMINAR EVENTOS ANTERIORES PARA ESTE PARTIDO
       const { error: delError } = await supabase.from('match_events').delete().eq('match_id', match.id);
       if(delError) throw delError;
 
@@ -256,9 +280,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setLoading(false);
     }
   };
-
-  // ... Render (ScoreHeader, TabsNavigation, ContentBody) se mantiene igual que la versión anterior ...
-  // Asegúrate de usar handleFinalSave y handleSaveAttempt mejorados.
 
   const PlayerRow = ({ slot, idx, team, players, globalRoster }) => (
     <div className="player-row" key={slot.idTemp}>
@@ -427,7 +448,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   );
 }
 
-// Estilos (Se mantienen los de la respuesta anterior)
+// Estilos
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; `;
 const TabsWrapper = styled.div` width: 100%; `;
 const InputGroup = styled.div` display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; label { font-weight: 700; display: flex; align-items: center; gap: 8px; color: ${({theme})=>theme.text}; } select { padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; &:focus { border-color: ${v.colorPrincipal}; } } `;

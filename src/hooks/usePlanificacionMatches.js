@@ -1,17 +1,19 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { generarFixture } from "../services/torneos";
 
 export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, matchesDB, globalPendingMatches) => {
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [allPendingMatches, setAllPendingMatches] = useState([]); 
+  
+  // Estado para la fecha de visualización (Semana), iniciamos con hoy
   const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const lastJornadaRef = useRef(null);
+  
+  // Referencias para evitar re-calculos innecesarios al editar
+  const loadedRef = useRef(false);
 
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
-  
   const configHoraInicio = activeTournament?.config?.horaInicio || "08:00";
   
-  // Objeto estático para el descanso (sin imagen)
+  // Objeto estático para el descanso (memoizado)
   const byeTeam = useMemo(() => ({ id: 'BYE', name: 'DESCANSA', img: null, isBye: true }), []);
 
   const getJornadaNum = (str) => {
@@ -26,25 +28,42 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     return (minPorTiempo * 2) + minDescanso;
   }, [activeTournament]);
 
+  // Algoritmo para ajustar horas automáticamente y evitar superposiciones
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
-    let matchesOfDay = [...matches].filter(m => m.date === dateToFix).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    // Solo ajustamos los partidos de la fecha que se tocó
+    let matchesOfDay = matches.filter(m => m.date === dateToFix);
+    const otherMatches = matches.filter(m => m.date !== dateToFix);
+
     if (matchesOfDay.length <= 1) return matches;
+
+    // Ordenar por hora actual
+    matchesOfDay.sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+
     for (let i = 1; i < matchesOfDay.length; i++) {
       const prev = matchesOfDay[i - 1];
       const curr = matchesOfDay[i];
+
       const [ph, pm] = (prev.time || "00:00").split(':').map(Number);
       const prevEndMinutes = (ph * 60) + pm + durationMatch;
+
       const [ch, cm] = (curr.time || "00:00").split(':').map(Number);
       const currStartMinutes = (ch * 60) + cm;
+
+      // Solo empujamos la hora si se solapan
       if (currStartMinutes < prevEndMinutes) {
         const newH = Math.floor(prevEndMinutes / 60);
         const newM = prevEndMinutes % 60;
+        // Marcamos como modificado para guardar después
         curr.time = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+        curr.isModified = true; 
       }
     }
-    return [...matches.filter(m => m.date !== dateToFix), ...matchesOfDay];
+
+    return [...otherMatches, ...matchesOfDay];
   }, [durationMatch]);
 
+  // EFECTO PRINCIPAL DE CARGA DE DATOS
+  // NOTA: Quitamos weekStartDate de las dependencias para evitar reseteos al navegar el calendario
   useEffect(() => {
     if (!teams || teams.length < 2) return;
 
@@ -96,7 +115,7 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
 
     const formattedMatches = Array.from(uniqueMap.values()).map(formatMatch).filter(Boolean);
 
-    // 2. Generar Sugerencias de Descanso (Exclusión Lógica)
+    // Generar Sugerencias de Descanso (Exclusión Lógica)
     let currentSuggestions = [];
     
     if (teams.length % 2 !== 0) {
@@ -151,13 +170,16 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     setScheduledMatches(currentScheduled);
     setAllPendingMatches([...backlogPending, ...currentPending, ...currentSuggestions]);
     
-    lastJornadaRef.current = {
-        jornadaIndex,
-        formattedMatches
-    };
-  }, [matchesDB, globalPendingMatches, teams, jornadaIndex, weekStartDate, activeTournament, currentJornadaName, configHoraInicio, byeTeam]);
+    // Si tenemos partidos programados, sincronizamos la semana de vista con el primer partido
+    if (currentScheduled.length > 0 && !loadedRef.current) {
+         setWeekStartDate(currentScheduled[0].date);
+         loadedRef.current = true;
+    }
 
-  // Sidebar Matches
+  }, [matchesDB, globalPendingMatches, teams, jornadaIndex, activeTournament, currentJornadaName, byeTeam]); 
+  // ^^^ ELIMINADO: weekStartDate y configHoraInicio para evitar reseteos en edición
+
+  // Sidebar Matches (Lógica derivada)
   const sidebarMatches = useMemo(() => {
     const scheduledIds = new Set(scheduledMatches.map(m => String(m.id)));
     const currentNum = jornadaIndex + 1;
