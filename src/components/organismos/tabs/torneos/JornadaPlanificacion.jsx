@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
-import { v, Btnsave, Toast, Modal, TabsNavigation } from "../../../../index"; 
+import { v, Btnsave, Toast } from "../../../../index"; // Quitamos Modal y TabsNavigation de aquí
 import { 
-    RiCalendarLine, RiCheckDoubleLine, RiFileList3Line, 
-    RiCoinLine, RiGitMergeLine, RiEyeLine, RiEyeOffLine
+    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine
 } from "react-icons/ri";
-import { IoMdStopwatch } from "react-icons/io";
 import { supabase } from "../../../../supabase/supabase.config"; 
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
+// Importamos la utilidad de fechas
+import { formatDateWithWeekday } from "../../../../utils/dateUtils";
 
-import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
 import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
 import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
+// Importamos el nuevo componente modularizado
+import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
@@ -26,8 +27,7 @@ export function JornadaPlanificacion({
     allPendingMatches, setAllPendingMatches,
     sidebarMatches,
     weekStartDate, setWeekStartDate,
-    durationMatch, autoAdjustTimes,
-    currentJornadaName
+    durationMatch, autoAdjustTimes
   } = usePlanificacionMatches(activeTournament, jornadaIndex, teams, matchesDB, globalPendingMatches);
 
   const [viewMode, setViewMode] = useState('list');
@@ -37,10 +37,8 @@ export function JornadaPlanificacion({
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: '', type: '' });
   
-  // --- CONFIGURACIÓN ---
+  // --- CONFIGURACIÓN (Ahora solo controlamos si está abierto o cerrado) ---
   const [configModalOpen, setConfigModalOpen] = useState(false);
-  const [configTab, setConfigTab] = useState("general");
-  const [editedConfig, setEditedConfig] = useState(activeTournament?.config || {});
 
   // --- GHOST MODE (Otras Divisiones) ---
   const [showGhosts, setShowGhosts] = useState(false);
@@ -76,7 +74,7 @@ export function JornadaPlanificacion({
     }
   }, [jornadaIndex, activeTournament, isConfirmed, scheduledMatches]);
 
-  // --- LÓGICA GHOST MODE: Fetch partidos de otras divisiones ---
+  // --- LÓGICA GHOST MODE ---
   useEffect(() => {
     if (!showGhosts || !weekStartDate || !activeTournament?.division_id) return;
 
@@ -138,9 +136,6 @@ export function JornadaPlanificacion({
     if (!draggedMatch || isConfirmed) return;
 
     const matchesOfToday = scheduledMatches.filter(m => m.date === weekStartDate);
-    
-    // -- LÓGICA MODIFICADA PARA USAR HORA CONFIGURADA --
-    // Obtenemos la hora de inicio configurada (o default 10:00 si no existe)
     const configStartHour = activeTournament?.config?.horaInicio || "10:00";
     let nextTime = configStartHour;
     
@@ -149,9 +144,6 @@ export function JornadaPlanificacion({
         const [h, m] = last.time.split(':').map(Number);
         const total = (h * 60) + m + durationMatch;
         nextTime = `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
-        
-        // Opcional: Podrías validar aquí si nextTime supera activeTournament.config.horaFin
-        // pero por ahora solo respetamos el inicio.
     }
 
     const newMatch = { 
@@ -229,34 +221,46 @@ export function JornadaPlanificacion({
                             ) : (
                                 <GridList>
                                     {scheduledMatches
-                                      .sort((a,b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-                                      .map((match) => (
-                                        <ScheduledMatchRow 
-                                          key={match.id} 
-                                          match={match} 
-                                          isConfirmed={isConfirmed} 
-                                          onUpdateDate={(val) => {
-                                            const updated = scheduledMatches.map(m => m.id === match.id ? {...m, date: val} : m);
-                                            setScheduledMatches(autoAdjustTimes(updated, val));
-                                          }}
-                                          onUpdateTime={(val) => {
-                                            const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val} : m);
-                                            setScheduledMatches(autoAdjustTimes(updated, match.date));
-                                          }}
-                                          onRemove={() => { 
-                                            setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                            setAllPendingMatches([...allPendingMatches, { 
-                                                ...match, 
-                                                status: 'Pendiente', 
-                                                date: null, 
-                                                time: null,
-                                                isModified: true 
-                                            }]); 
-                                          }} 
-                                          onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
-                                          onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
-                                        />
-                                    ))}
+                                      .sort((a,b) => {
+                                          // Ordenar primero por fecha y luego por hora
+                                          if(a.date !== b.date) return a.date.localeCompare(b.date);
+                                          return a.time.localeCompare(b.time);
+                                      })
+                                      .map((match, idx, arr) => {
+                                          // Calcular si debemos mostrar el encabezado de fecha
+                                          const prevMatch = arr[idx - 1];
+                                          const isNewDay = !prevMatch || match.date !== prevMatch.date;
+                                          const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
+
+                                          return (
+                                            <ScheduledMatchRow 
+                                              key={match.id} 
+                                              match={match} 
+                                              groupLabel={groupLabel} // Pasamos la etiqueta
+                                              isConfirmed={isConfirmed} 
+                                              onUpdateDate={(val) => {
+                                                const updated = scheduledMatches.map(m => m.id === match.id ? {...m, date: val} : m);
+                                                setScheduledMatches(autoAdjustTimes(updated, val));
+                                              }}
+                                              onUpdateTime={(val) => {
+                                                const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val} : m);
+                                                setScheduledMatches(autoAdjustTimes(updated, match.date));
+                                              }}
+                                              onRemove={() => { 
+                                                setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
+                                                setAllPendingMatches([...allPendingMatches, { 
+                                                    ...match, 
+                                                    status: 'Pendiente', 
+                                                    date: null, 
+                                                    time: null,
+                                                    isModified: true 
+                                                }]); 
+                                              }} 
+                                              onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
+                                              onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
+                                            />
+                                          );
+                                      })}
                                 </GridList>
                             )}
                         </DropZone>
@@ -289,29 +293,14 @@ export function JornadaPlanificacion({
             )}
         </Footer>
 
-        <Modal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} title="Ajustes de Torneo" width="600px">
-            <ModalContent>
-                <TabsNavigation 
-                    tabs={[ 
-                        { id: "general", label: "General", icon: <RiFileList3Line/> }, 
-                        { id: "scoring", label: "Puntos", icon: <RiCoinLine/> }, 
-                        { id: "format", label: "Formato", icon: <RiGitMergeLine/> }, 
-                        { id: "gameRules", label: "Reglas", icon: <IoMdStopwatch/> } 
-                    ]} 
-                    activeTab={configTab} 
-                    setActiveTab={setConfigTab} 
-                />
-                <div style={{marginTop:'15px'}}>
-                    {configTab === 'general' && <TabGeneral form={editedConfig} onChange={(e) => setEditedConfig(prev => ({ ...prev, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))} isStarted={true} activeTournament={activeTournament} />}
-                    {configTab === 'scoring' && <TabScoring form={editedConfig} onChange={(e) => setEditedConfig(prev => ({ ...prev, [e.target.name]: e.target.value }))} isStarted={true} />}
-                    {configTab === 'format' && <TabFormat form={editedConfig} onChange={(e) => setEditedConfig(prev => ({ ...prev, [e.target.name]: e.target.value }))} vueltasDisabled={isVueltasLocked} isStarted={true} />}
-                    {configTab === 'gameRules' && <TabGameRules reglas={editedConfig} setReglas={setEditedConfig} />}
-                </div>
-                <div className="modal-actions">
-                    <Btnsave titulo="Guardar Cambios" bgcolor={v.colorPrincipal} funcion={() => { onSaveConfig(editedConfig); setConfigModalOpen(false); }} />
-                </div>
-            </ModalContent>
-        </Modal>
+        {/* --- MODAL MODULARIZADO --- */}
+        <TournamentConfigModal 
+            isOpen={configModalOpen}
+            onClose={() => setConfigModalOpen(false)}
+            activeTournament={activeTournament}
+            onSave={onSaveConfig}
+            isVueltasLocked={isVueltasLocked}
+        />
 
         <ResultModal 
             isOpen={resultModalOpen} 
@@ -325,11 +314,6 @@ export function JornadaPlanificacion({
 }
 
 // --- ESTILOS ---
-const ModalContent = styled.div`
-  display: flex; flex-direction: column; gap: 15px;
-  .modal-actions { display: flex; justify-content: flex-end; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; }
-`;
-
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
 

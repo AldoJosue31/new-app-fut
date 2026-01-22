@@ -3,63 +3,110 @@ import styled from "styled-components";
 import { v } from "../../../../../index";
 import { RiDeleteBinLine, RiTrophyLine, RiTimeLine } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
+import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 
 export function ScheduledMatchRow({ 
-    match, isConfirmed, onUpdateDate, onUpdateTime, onRemove, onOpenResult, onPostpone 
+    match, 
+    isConfirmed, 
+    onUpdateDate, 
+    onUpdateTime, 
+    onRemove, 
+    onOpenResult, 
+    onPostpone,
+    groupLabel // <--- NUEVA PROP: Recibe el texto del encabezado (ej. "Jueves 30...")
 }) {
   
-  const formatShortDate = (dateStr) => {
-    if (!dateStr) return "";
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year.slice(-2)}`;
-  };
-
   return (
-    <Container $isConfirmed={isConfirmed}>
-        <div className="info">
-            <div className="team local">
-                <span className="name">{match.local.name}</span>
-                {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals1}</span>}
-            </div>
-            <span className="vs">VS</span>
-            <div className="team visit">
-                {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals2}</span>}
-                <span className="name">{match.visitante.name}</span>
-            </div>
-        </div>
+    <Wrapper>
+        {/* Renderiza la división si existe groupLabel */}
+        {groupLabel && (
+            <DateDivider>
+                <span>{groupLabel}</span>
+                <div className="line"></div>
+            </DateDivider>
+        )}
 
-        <div className="settings">
-            {isConfirmed ? (
-                <div className="confirmed-actions">
-                    <div className="datetime-display">
-                        <span>{formatShortDate(match.date)}</span>
-                        <small>{match.time}</small>
-                    </div>
-                    <div className="btns-row">
-                        <button className="action-btn result" onClick={() => onOpenResult(match)}>
-                            <RiTrophyLine /> {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
-                        </button>
-                        <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
-                            <RiTimeLine />
-                            Aplazar
-                        </button>
-                    </div>
+        <Container $isConfirmed={isConfirmed}>
+            <div className="info">
+                <div className="team local">
+                    <span className="name">{match.local.name}</span>
+                    {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals1}</span>}
                 </div>
-            ) : (
-                <>
-                    <input type="date" className="input-date" value={match.date} onChange={(e)=> onUpdateDate(e.target.value)} />
-                    <input type="time" className="input-time" value={match.time} onChange={(e)=> onUpdateTime(e.target.value)} />
-                    <button className="del" onClick={onRemove}><RiDeleteBinLine/></button>
-                </>
-            )}
-        </div>
-    </Container>
+                <span className="vs">VS</span>
+                <div className="team visit">
+                    {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals2}</span>}
+                    <span className="name">{match.visitante.name}</span>
+                </div>
+            </div>
+
+            <div className="settings">
+                {isConfirmed ? (
+                    <div className="confirmed-actions">
+                        <div className="datetime-display">
+                            {/* Opcional: Si ya hay header de grupo, podrías ocultar la fecha aquí, 
+                                pero la dejo por si quieres mantener la referencia individual */}
+                            <span className="date-text mobile-only">{formatDateWithWeekday(match.date)}</span>
+                            <small>{formatTimeTo12Hour(match.time)}</small>
+                        </div>
+                        <div className="btns-row">
+                            <button className="action-btn result" onClick={() => onOpenResult(match)}>
+                                <RiTrophyLine /> {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
+                            </button>
+                            <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
+                                <RiTimeLine />
+                                Aplazar
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <input type="date" className="input-date" value={match.date} onChange={(e)=> onUpdateDate(e.target.value)} />
+                        <input type="time" className="input-time" value={match.time} onChange={(e)=> onUpdateTime(e.target.value)} />
+                        <button className="del" onClick={onRemove}><RiDeleteBinLine/></button>
+                    </>
+                )}
+            </div>
+        </Container>
+    </Wrapper>
   );
 }
 
+// --- ESTILOS NUEVOS Y EXISTENTES ---
+
+const Wrapper = styled.div`
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+`;
+
+const DateDivider = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding-top: 15px;
+    padding-bottom: 5px;
+    width: 100%;
+
+    span {
+        font-weight: 800;
+        color: ${({theme})=>theme.text1};
+        font-size: 1rem;
+        text-transform: capitalize;
+        white-space: nowrap;
+    }
+
+    .line {
+        height: 1px;
+        background: ${({theme})=>theme.bg4};
+        width: 100%;
+        flex: 1;
+    }
+`;
+
 const Container = styled.div`
     display: flex;
-    flex-direction: column; /* Móvil: Columna */
+    flex-direction: column;
     gap: 12px;
     background: ${({theme})=>theme.bgtotal}; 
     padding: 12px; 
@@ -67,7 +114,6 @@ const Container = styled.div`
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; 
     width: 100%;
     
-    /* Desktop: Grid horizontal */
     @media ${Device.tablet} {
         display: grid; 
         grid-template-columns: 1fr auto; 
@@ -115,9 +161,9 @@ const Container = styled.div`
             background: ${({theme})=>theme.bg3}; 
             border: 1px solid ${({theme})=>theme.bg4}; 
             color: ${({theme})=>theme.text}; 
-            padding: 8px; /* Más padding para touch */
+            padding: 8px; 
             border-radius: 6px; 
-            flex: 1; /* Inputs ocupan espacio disponible en móvil */
+            flex: 1; 
             font-size: 0.9rem;
             
             @media ${Device.tablet} {
@@ -143,7 +189,7 @@ const Container = styled.div`
             align-items: center; 
             gap: 10px;
             width: 100%;
-            flex-direction: column; /* Botones abajo en móvil muy pequeño */
+            flex-direction: column; 
             
             @media (min-width: 450px) {
                 flex-direction: row;
@@ -158,14 +204,14 @@ const Container = styled.div`
             .datetime-display { 
                 display: flex; 
                 flex-direction: row; 
-                gap: 10px;
+                gap: 8px;
                 align-items: center;
                 font-size: 0.85rem; 
-                opacity: 0.8; 
+                opacity: 0.9; 
                 width: 100%;
                 justify-content: center;
                 background: ${({theme})=>theme.bg3};
-                padding: 5px;
+                padding: 5px 10px;
                 border-radius: 6px;
 
                 @media ${Device.tablet} {
@@ -174,8 +220,24 @@ const Container = styled.div`
                     flex-direction: column;
                     align-items: flex-end;
                     width: auto;
+                    gap: 2px;
                 }
-                small{font-weight:700;} 
+                
+                .date-text {
+                    font-weight: 500;
+                    text-transform: capitalize;
+                    /* Ocultamos la fecha en desktop si queremos que solo se vea el titulo de grupo
+                       o puedes dejarla. Aquí la dejo visible en móvil y desktop */
+                    &.mobile-only {
+                       @media ${Device.tablet} { display: none; } /* Ejemplo: Ocultar fecha repetida en desktop */
+                    }
+                }
+
+                small {
+                    font-weight: 700;
+                    color: ${v.colorPrincipal};
+                    font-size: 0.95rem; /* Hora un poco más grande */
+                } 
             }
 
             .btns-row {

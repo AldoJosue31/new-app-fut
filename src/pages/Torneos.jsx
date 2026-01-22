@@ -1,7 +1,7 @@
 import React from "react";
 import { TorneosTemplate } from "../components/template/TorneosTemplate";
-import { Toast } from "../index"; // O "../components/atomos/Toast"
-import { useTorneosLogic } from "../hooks/pages/useTorneosLogic"; // Importamos el hook
+import { Toast } from "../index"; 
+import { useTorneosLogic } from "../hooks/pages/useTorneosLogic"; 
 
 export function Torneos() {
   // 1. Llamamos al hook y obtenemos todo lo necesario
@@ -9,7 +9,6 @@ export function Torneos() {
 
   return (
     <>
-      {/* 2. El Toast se renderiza aquí pero su lógica viene del hook */}
       <Toast 
           show={toast.show} 
           message={toast.message} 
@@ -42,6 +41,9 @@ export function Torneos() {
         onInclude={actions.onInclude}
         onExclude={actions.onExclude}
         refreshStandings={actions.refreshData}
+        
+        // --- NUEVA PROP: Conectamos la recarga discreta ---
+        onTournamentReset={actions.refreshData}
       />
     </>
   );
