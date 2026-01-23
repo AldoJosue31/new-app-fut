@@ -100,7 +100,7 @@ export const EquiposTemplate = ({
         </Card>
       </MainContainer>
 
-      <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={teamToEdit ? `Editar: ${teamToEdit.name}` : "Nuevo Equipo"}>
+      <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={teamToEdit ? `Editar: ${teamToEdit.name}` : "Nuevo Equipo"} closeOnOverlayClick={false}>
         {teamToEdit && (<TabsWrapper><TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} /></TabsWrapper>)}
         {activeTab === "info" && (
             <TabContent>

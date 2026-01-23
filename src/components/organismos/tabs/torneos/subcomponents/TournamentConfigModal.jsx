@@ -134,7 +134,7 @@ export function TournamentConfigModal({
     return (
         <>
             <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
-            <Modal isOpen={isOpen} onClose={onClose} title="Ajustes de Torneo (En Curso)" width="600px">
+            <Modal isOpen={isOpen} onClose={onClose} title="Ajustes de Torneo (En Curso)" width="600px" closeOnOverlayClick={false}>
                 <ModalContent>
                     <TabsNavigation 
                         tabs={[ 

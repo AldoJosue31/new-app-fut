@@ -194,7 +194,7 @@ export function TorneoDefinicionTab({
             confirmColor={v.rojo}
         />
 
-        <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configurar Reglas" width="650px">
+        <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configurar Reglas" width="650px" closeOnOverlayClick={false}>
             <ModalContentStyled>
                 <div className="info-message"><RiInformationLine className="icon"/><span>Define las reglas de competencia.</span></div>
                 <TabsNavigation tabs={configTabList} activeTab={configTab} setActiveTab={setConfigTab} />
