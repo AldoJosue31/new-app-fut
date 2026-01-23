@@ -1,15 +1,26 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, matchesDB, globalPendingMatches) => {
+  // Estados principales
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [allPendingMatches, setAllPendingMatches] = useState([]); 
   
+  // Control para saber si ya cargamos los datos iniciales (evita sobrescribir localStorage con vacíos)
+  const [isLoaded, setIsLoaded] = useState(false);
+
   const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
   const lastJornadaRef = useRef(null);
 
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const configHoraInicio = activeTournament?.config?.horaInicio || "08:00";
   
+  // --- CLAVE ÚNICA PARA LOCAL STORAGE ---
+  // Se asegura de que el borrador sea único por Torneo y Jornada
+  const storageKey = useMemo(() => {
+    if (!activeTournament?.id) return null;
+    return `planning_draft_${activeTournament.id}_J${jornadaIndex}`;
+  }, [activeTournament?.id, jornadaIndex]);
+
   const byeTeam = useMemo(() => ({ id: 'BYE', name: 'DESCANSA', img: null, isBye: true }), []);
 
   const getJornadaNum = (str) => {
@@ -23,6 +34,15 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     const minDescanso = parseInt(activeTournament?.config?.minutosDescanso || 15, 10);
     return (minPorTiempo * 2) + minDescanso;
   }, [activeTournament]);
+
+  // --- FUNCIÓN PARA LIMPIAR BORRADOR ---
+  // Se llamará cuando se confirme la jornada exitosamente
+  const clearDraft = useCallback(() => {
+    if (storageKey) {
+        localStorage.removeItem(storageKey);
+        // Opcional: console.log("Borrador eliminado para", storageKey);
+    }
+  }, [storageKey]);
 
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
     let matchesOfDay = [...matches].filter(m => m.date === dateToFix).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
@@ -44,9 +64,38 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     return [...matches.filter(m => m.date !== dateToFix), ...matchesOfDay];
   }, [durationMatch]);
 
+  // --- EFECTO DE CARGA INICIAL Y CÁLCULO ---
   useEffect(() => {
     if (!teams || teams.length < 2) return;
 
+    // 1. Verificar si existe un borrador en LocalStorage
+    let hasDraft = false;
+    if (storageKey) {
+        const savedData = localStorage.getItem(storageKey);
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                // Validamos que tenga la estructura correcta
+                if (parsed.scheduledMatches && parsed.allPendingMatches) {
+                    setScheduledMatches(parsed.scheduledMatches);
+                    setAllPendingMatches(parsed.allPendingMatches);
+                    hasDraft = true;
+                }
+            } catch (error) {
+                console.error("Error al cargar el borrador de planificación:", error);
+                // Si falla, continuamos con la lógica normal
+            }
+        }
+    }
+
+    // Si encontramos un borrador válido, marcamos como cargado y salimos
+    // Esto evita que se recalcule desde la DB y se pierdan los cambios locales
+    if (hasDraft) {
+        setIsLoaded(true);
+        return; 
+    }
+
+    // 2. Lógica estándar de formateo desde la BD (Solo si no hay borrador)
     const formatMatch = (m) => {
       const localId = m.team1_id ?? m.local?.id;
       const visitId = m.team2_id ?? m.visitante?.id;
@@ -80,8 +129,8 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
         status: m.status,
         goals1: m.goals1,
         goals2: m.goals2,
-        referee_id: m.referee_id,    // Importante para la carga
-        observations: m.observations, // Importante para la carga
+        referee_id: m.referee_id,
+        observations: m.observations,
         jornada_id: m.jornada_id,
         originJornada: m.jornadas?.name || m.originJornada || currentJornadaName,
         isModified: Boolean(m.isModified) || false,
@@ -151,11 +200,26 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     setScheduledMatches(currentScheduled);
     setAllPendingMatches([...backlogPending, ...currentPending, ...currentSuggestions]);
     
+    // Marcamos como cargado para habilitar el guardado posterior
+    setIsLoaded(true);
+
     lastJornadaRef.current = {
         jornadaIndex,
         formattedMatches
     };
-  }, [matchesDB, globalPendingMatches, teams, jornadaIndex, activeTournament, currentJornadaName, configHoraInicio, byeTeam]); 
+  }, [matchesDB, globalPendingMatches, teams, jornadaIndex, activeTournament, currentJornadaName, configHoraInicio, byeTeam, storageKey]); 
+
+  // --- EFECTO DE GUARDADO AUTOMÁTICO ---
+  useEffect(() => {
+    // Solo guardamos si ya se cargó la data inicial y tenemos una key válida
+    if (isLoaded && storageKey) {
+        const draftData = {
+            scheduledMatches,
+            allPendingMatches
+        };
+        localStorage.setItem(storageKey, JSON.stringify(draftData));
+    }
+  }, [scheduledMatches, allPendingMatches, storageKey, isLoaded]);
 
   const sidebarMatches = useMemo(() => {
     const scheduledIds = new Set(scheduledMatches.map(m => String(m.id)));
@@ -185,6 +249,7 @@ export const usePlanificacionMatches = (activeTournament, jornadaIndex, teams, m
     allPendingMatches, setAllPendingMatches,
     sidebarMatches,
     weekStartDate, setWeekStartDate,
-    durationMatch, autoAdjustTimes, currentJornadaName
+    durationMatch, autoAdjustTimes, currentJornadaName,
+    clearDraft // Exportamos la función para limpiar
   };
 };

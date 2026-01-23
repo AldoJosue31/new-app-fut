@@ -15,7 +15,8 @@ export function TournamentConfigModal({
     onClose, 
     activeTournament, 
     onSave, 
-    isVueltasLocked 
+    isVueltasLocked,
+    isStartDateLocked // Nueva Prop recibida de JornadaPlanificacion
 }) {
     const [configTab, setConfigTab] = useState("general");
     const [editedConfig, setEditedConfig] = useState(INITIAL_TOURNAMENT_CONFIG);
@@ -39,7 +40,6 @@ export function TournamentConfigModal({
             }
 
             // 2. Función para leer valor existente o mantener el actual del form si es undefined
-            // Esto evita sobreescribir con "defaults" si el dato existe en la BD
             const getVal = (key, fallback) => {
                 if (dbConfig[key] !== undefined && dbConfig[key] !== null) return dbConfig[key];
                 return fallback;
@@ -52,28 +52,20 @@ export function TournamentConfigModal({
 
             // 3. Construir el estado inicial mezclando TODO
             setEditedConfig({
-                // Base: Usamos INITIAL solo para estructura, pero los valores vendrán de la BD
                 ...INITIAL_TOURNAMENT_CONFIG, 
                 ...dbConfig, // Lo que venga de la BD tiene prioridad absoluta
-
-                // --- MAPEO EXPLÍCITO DE CAMPOS CRÍTICOS ---
-                // Si dbConfig.minPlayers existe, se usa. Si no, se usa el de activeTournament (si existiera). 
-                // Solo al final se usa el INITIAL como último recurso para evitar errores de renderizado.
                 
                 minPlayers: getNum(dbConfig.minPlayers, INITIAL_TOURNAMENT_CONFIG.minPlayers),
                 maxPlayers: getNum(dbConfig.maxPlayers, INITIAL_TOURNAMENT_CONFIG.maxPlayers),
                 maxTeams: getNum(dbConfig.maxTeams, INITIAL_TOURNAMENT_CONFIG.maxTeams),
                 
-                // Reglas de Juego
                 minutosPorTiempo: getNum(dbConfig.minutosPorTiempo, INITIAL_TOURNAMENT_CONFIG.minutosPorTiempo),
                 minutosDescanso: getNum(dbConfig.minutosDescanso, INITIAL_TOURNAMENT_CONFIG.minutosDescanso),
                 
-                // Scoring
                 winPoints: getNum(dbConfig.winPoints, 3),
                 drawPoints: getNum(dbConfig.drawPoints, 1),
                 lossPoints: getNum(dbConfig.lossPoints, 0),
 
-                // Campos Raíz (Season/Dates a veces están fuera del JSON)
                 season: activeTournament.season || dbConfig.season || "",
                 startDate: activeTournament.start_date || dbConfig.startDate || "",
             });
@@ -82,6 +74,10 @@ export function TournamentConfigModal({
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        
+        // Bloqueo de seguridad explícito en el change
+        if (name === 'startDate' && isStartDateLocked) return;
+
         setEditedConfig((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -104,12 +100,9 @@ export function TournamentConfigModal({
     const sanitizeAndSave = () => {
         if (!validateConfig()) return;
 
-        // Aquí construimos el objeto FINAL explícitamente.
-        // Esto asegura que 'minPlayers' se guarde SIEMPRE, incluso si antes no existía.
         const finalConfig = {
-            ...editedConfig, // Mantenemos campos extra (ids, etc.)
+            ...editedConfig, 
 
-            // Forzamos números para evitar errores de tipo "string" en la BD
             minPlayers: parseInt(editedConfig.minPlayers) || 5,
             maxPlayers: parseInt(editedConfig.maxPlayers) || 25,
             maxTeams: parseInt(editedConfig.maxTeams) || 20,
@@ -126,7 +119,6 @@ export function TournamentConfigModal({
             clasificados: parseInt(editedConfig.clasificados) || 8,
             repechajeTeams: parseInt(editedConfig.repechajeTeams) || 0,
 
-            // Strings / Booleans
             vueltas: String(editedConfig.vueltas || "1"),
             zonaLiguilla: !!editedConfig.zonaLiguilla,
             tieBreakType: String(editedConfig.tieBreakType || "normal"),
@@ -155,7 +147,15 @@ export function TournamentConfigModal({
                     />
                     
                     <div className="tab-content-wrapper">
-                        {configTab === 'general' && <TabGeneral form={editedConfig} onChange={handleChange} isStarted={true} />}
+                        {configTab === 'general' && (
+                            <TabGeneral 
+                                form={editedConfig} 
+                                onChange={handleChange} 
+                                // SOLUCIÓN CLAVE: Pasamos el estado de bloqueo real en lugar de 'true'.
+                                // Esto asegura que el input se habilite/deshabilite según la Jornada 1.
+                                isStarted={isStartDateLocked} 
+                            />
+                        )}
                         {configTab === 'scoring' && <TabScoring form={editedConfig} onChange={handleChange} />}
                         {configTab === 'format' && <TabFormat form={editedConfig} onChange={handleChange} vueltasDisabled={isVueltasLocked} />}
                         {configTab === 'gameRules' && <TabGameRules reglas={editedConfig} setReglas={setEditedConfig} />}

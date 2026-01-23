@@ -5,9 +5,11 @@ import { TOURNAMENT_STATUS } from '../utils/constants';
 
 export const getTorneoActivo = async (divisionId) => {
   try {
+    // MODIFICADO: Agregamos 'jornadas(name, status)' al select.
+    // Esto permite al frontend saber si la Jornada 1 está confirmada.
     const { data, error } = await supabase
       .from('tournaments')
-      .select('*')
+      .select('*, jornadas(name, status)')
       .eq('division_id', divisionId)
       .in('status', [TOURNAMENT_STATUS.ACTIVE, TOURNAMENT_STATUS.ONGOING])
       .order('id', { ascending: false }) 
@@ -65,13 +67,25 @@ export const generarFixture = (equipos) => {
 };
 
 export const actualizarConfigTorneoService = async (tournamentId, newConfig, baseJornadasCount) => {
+  
+  // Preparamos el objeto de actualización
+  const updates = {
+      config: newConfig
+  };
+
+  // Si viene la fecha en la config, actualizamos TAMBIÉN la columna raíz 'start_date'
+  if (newConfig.startDate) {
+      updates.start_date = newConfig.startDate;
+  }
+
   const { error: updateError } = await supabase
     .from('tournaments')
-    .update({ config: newConfig })
+    .update(updates) // Enviamos start_date y config
     .eq('id', tournamentId);
 
   if (updateError) throw updateError;
 
+  // Lógica de Vueltas (Mantenemos igual)
   if (newConfig.vueltas === "2") {
     const { data: jornadasActuales } = await supabase
       .from('jornadas')

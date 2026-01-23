@@ -5,7 +5,7 @@ import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
 import { guardarJornadaService, actualizarConfigTorneoService } from "../../../../services/torneos";
-import { Device } from "../../../../styles/breakpoints"; // Asegúrate de importar esto
+import { Device } from "../../../../styles/breakpoints"; 
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
@@ -93,7 +93,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             : participatingTeams.length;
 
         await actualizarConfigTorneoService(activeTournament.id, newConfig, baseJornadas);
-        setActiveTournament(prev => ({ ...prev, config: newConfig }));
+        
+        // CORRECCIÓN AQUÍ: Actualizamos 'start_date' en el estado local también
+        setActiveTournament(prev => ({ 
+            ...prev, 
+            config: newConfig,
+            start_date: newConfig.startDate || prev.start_date // <--- ACTUALIZACIÓN CRÍTICA
+        }));
+        
         setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
         await fetchJornadas(); 
     } catch (error) {
@@ -165,12 +172,11 @@ const TabContainer = styled.div`
     flex-direction: column; 
     gap: 20px; 
     width: 100%; 
-    max-width: 100vw; /* Evita desbordamiento horizontal global */
+    max-width: 100vw; 
     box-sizing: border-box;
     animation: ${fadeIn} 0.5s ease-out; 
     
     @media ${Device.tablet} {
-        /* Ajustes específicos para tablet si son necesarios */
     }
 `;
 

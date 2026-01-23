@@ -25,7 +25,8 @@ export function JornadaPlanificacion({
     allPendingMatches, setAllPendingMatches,
     sidebarMatches,
     weekStartDate, setWeekStartDate,
-    durationMatch, autoAdjustTimes
+    durationMatch, autoAdjustTimes, 
+    clearDraft // Importamos la función de limpieza
   } = usePlanificacionMatches(activeTournament, jornadaIndex, teams, matchesDB, globalPendingMatches);
 
   const [viewMode, setViewMode] = useState('list');
@@ -43,27 +44,29 @@ export function JornadaPlanificacion({
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
 
-  // Inicialización inteligente de fecha si no hay partidos
+  const isFirstJornadaConfirmed = activeTournament?.jornadas?.some(
+      j => j.name === 'Jornada 1' && j.status === 'Confirmada'
+  );
+
   useEffect(() => {
-    // Si ya tenemos partidos, el hook se encarga de la fecha.
-    // Solo si no hay partidos y estamos en modo inicial, calculamos la fecha teórica.
-    if (scheduledMatches.length === 0 && activeTournament?.start_date) {
+    if (activeTournament?.start_date && !isConfirmed) {
         const [yearStr, monthStr, dayStr] = activeTournament.start_date.split('-');
         const startDate = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
-        const daysToAdd = jornadaIndex * 8; 
+        const daysToAdd = jornadaIndex * 7; 
+        
         startDate.setDate(startDate.getDate() + daysToAdd);
+        
         const y = startDate.getFullYear();
         const m = String(startDate.getMonth() + 1).padStart(2, '0');
         const d = String(startDate.getDate()).padStart(2, '0');
         const calculatedDate = `${y}-${m}-${d}`;
         
-        if (weekStartDate !== calculatedDate && !isConfirmed) {
+        if (weekStartDate !== calculatedDate) {
             setWeekStartDate(calculatedDate);
         }
     }
-  }, [jornadaIndex, activeTournament]);
+  }, [jornadaIndex, activeTournament, isConfirmed]); 
 
-  // --- LÓGICA GHOST MODE ---
   useEffect(() => {
     if (!showGhosts || !weekStartDate || !activeTournament?.division_id) return;
 
@@ -141,7 +144,6 @@ export function JornadaPlanificacion({
         isModified: true 
     };
     
-    // Primero añadimos, luego ajustamos tiempos para asegurar orden
     const newList = [...scheduledMatches, newMatch];
     setScheduledMatches(autoAdjustTimes(newList, weekStartDate));
     setAllPendingMatches(allPendingMatches.filter(m => m.id !== draggedMatch.id));
@@ -149,12 +151,23 @@ export function JornadaPlanificacion({
   };
 
   const handleUpdateDate = (matchId, newDate) => {
-      // 1. Crear la nueva lista con la fecha actualizada
       const updatedList = scheduledMatches.map(m => 
           m.id === matchId ? { ...m, date: newDate, isModified: true } : m
       );
-      // 2. Ejecutar auto-ajuste de horarios en la NUEVA fecha para evitar choques
       setScheduledMatches(autoAdjustTimes(updatedList, newDate));
+  };
+
+  // --- NUEVA FUNCIÓN DE CONFIRMACIÓN ---
+  const handleConfirmJornada = () => {
+      // 1. Ejecutar la función original
+      onConfirm({ 
+          jornada_numero: jornadaIndex + 1,
+          matches: scheduledMatches, 
+          allPendingMatches: allPendingMatches 
+      });
+      
+      // 2. Limpiar el borrador local porque ya se guardó en BD
+      clearDraft();
   };
 
   return (
@@ -219,7 +232,6 @@ export function JornadaPlanificacion({
                                           return (a.time || "").localeCompare(b.time || "");
                                       })
                                       .map((match, idx, arr) => {
-                                          // Lógica para agrupar visualmente por fecha
                                           const prevMatch = arr[idx - 1];
                                           const isNewDay = !prevMatch || match.date !== prevMatch.date;
                                           const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
@@ -235,7 +247,6 @@ export function JornadaPlanificacion({
                                                 const updated = scheduledMatches.map(m => 
                                                     m.id === match.id ? {...m, time: val, isModified: true} : m
                                                 );
-                                                // Al cambiar hora, reordenamos sin cambiar fechas
                                                 setScheduledMatches(updated);
                                               }}
                                               onRemove={() => { 
@@ -274,11 +285,7 @@ export function JornadaPlanificacion({
             {!isConfirmed && ( 
                 <Btnsave 
                     titulo="Confirmar Jornada" 
-                    funcion={() => onConfirm({ 
-                        jornada_numero: jornadaIndex + 1,
-                        matches: scheduledMatches, 
-                        allPendingMatches: allPendingMatches 
-                    })} 
+                    funcion={handleConfirmJornada} 
                     icono={<RiCheckDoubleLine/>} 
                     bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} 
                 />
@@ -291,6 +298,7 @@ export function JornadaPlanificacion({
             activeTournament={activeTournament}
             onSave={onSaveConfig}
             isVueltasLocked={isVueltasLocked}
+            isStartDateLocked={isFirstJornadaConfirmed} 
         />
 
         <ResultModal 
