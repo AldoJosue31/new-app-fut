@@ -8,11 +8,6 @@ export function Equipos() {
   const logic = useEquiposLogic();
   const { data, form, modals, actions } = logic;
 
-  // Implementación de la pre-carga
-  useEffect(() => {
-    preloadBackgroundRemoval();
-  }, []);
-
   return (
     <EquiposTemplate 
       {...logic}

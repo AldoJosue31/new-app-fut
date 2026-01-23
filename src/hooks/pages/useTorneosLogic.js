@@ -104,6 +104,8 @@ export const useTorneosLogic = () => {
             vueltas: torneo.config?.vueltas || "1",
             format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
             maxTeams: torneo.config?.maxTeams || prev.maxTeams,
+            // 1. LEER minPlayers DESDE LA CONFIGURACIÓN DEL TORNEO
+            minPlayers: torneo.config?.minPlayers || prev.minPlayers, 
             winPoints: torneo.config?.winPoints ?? 3,
             drawPoints: torneo.config?.drawPoints ?? 1,
             lossPoints: torneo.config?.lossPoints ?? 0,
@@ -221,7 +223,9 @@ export const useTorneosLogic = () => {
           vueltas: form.vueltas,
           tieBreakType: form.tieBreakType,
           participatingIds,
-          maxTeams: form.maxTeams,
+          // 2. GUARDAR minPlayers EN LA BASE DE DATOS
+          minPlayers: parseInt(form.minPlayers) || 7, 
+          maxTeams: parseInt(form.maxTeams) || 16,
           winPoints: form.winPoints,
           drawPoints: form.drawPoints,
           lossPoints: form.lossPoints,

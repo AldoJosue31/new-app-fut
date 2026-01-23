@@ -15,33 +15,69 @@ export function TournamentConfigModal({
     onClose, 
     activeTournament, 
     onSave, 
-    isVueltasLocked 
+    isVueltasLocked,
+    isStartDateLocked // Nueva Prop recibida de JornadaPlanificacion
 }) {
     const [configTab, setConfigTab] = useState("general");
-    
-    // Inicializamos con la configuración por defecto
     const [editedConfig, setEditedConfig] = useState(INITIAL_TOURNAMENT_CONFIG);
     const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
+    // --- EFECTO: CARGAR DATOS REALES (SIN DEFAULTS FORZADOS) ---
     useEffect(() => {
         if (isOpen && activeTournament) {
-            // FUSION INTELIGENTE DE DATOS:
-            // 1. Usamos INITIAL como base (minPlayers: 5, etc.)
-            // 2. Sobrescribimos con lo que tenga la BD en 'config' (si existe)
-            // 3. Mapeamos 'season' y 'startDate' que viven en la raíz del objeto, no en config.
+            let dbConfig = {};
+            
+            // 1. Extraer el JSON de config de la BD
+            try {
+                if (typeof activeTournament.config === 'string') {
+                    dbConfig = JSON.parse(activeTournament.config);
+                } else {
+                    dbConfig = activeTournament.config || {};
+                }
+            } catch (e) {
+                console.error("Error leyendo config:", e);
+                dbConfig = {};
+            }
+
+            // 2. Función para leer valor existente o mantener el actual del form si es undefined
+            const getVal = (key, fallback) => {
+                if (dbConfig[key] !== undefined && dbConfig[key] !== null) return dbConfig[key];
+                return fallback;
+            };
+
+            const getNum = (val, fallback) => {
+                const parsed = parseInt(val, 10);
+                return isNaN(parsed) ? fallback : parsed;
+            };
+
+            // 3. Construir el estado inicial mezclando TODO
             setEditedConfig({
-                ...INITIAL_TOURNAMENT_CONFIG,
-                ...(activeTournament.config || {}),
+                ...INITIAL_TOURNAMENT_CONFIG, 
+                ...dbConfig, // Lo que venga de la BD tiene prioridad absoluta
                 
-                // Mapeo explícito de columnas raíz para que no salgan vacías
-                season: activeTournament.season || INITIAL_TOURNAMENT_CONFIG.season,
-                startDate: activeTournament.start_date || INITIAL_TOURNAMENT_CONFIG.startDate
+                minPlayers: getNum(dbConfig.minPlayers, INITIAL_TOURNAMENT_CONFIG.minPlayers),
+                maxPlayers: getNum(dbConfig.maxPlayers, INITIAL_TOURNAMENT_CONFIG.maxPlayers),
+                maxTeams: getNum(dbConfig.maxTeams, INITIAL_TOURNAMENT_CONFIG.maxTeams),
+                
+                minutosPorTiempo: getNum(dbConfig.minutosPorTiempo, INITIAL_TOURNAMENT_CONFIG.minutosPorTiempo),
+                minutosDescanso: getNum(dbConfig.minutosDescanso, INITIAL_TOURNAMENT_CONFIG.minutosDescanso),
+                
+                winPoints: getNum(dbConfig.winPoints, 3),
+                drawPoints: getNum(dbConfig.drawPoints, 1),
+                lossPoints: getNum(dbConfig.lossPoints, 0),
+
+                season: activeTournament.season || dbConfig.season || "",
+                startDate: activeTournament.start_date || dbConfig.startDate || "",
             });
         }
     }, [isOpen, activeTournament]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+        
+        // Bloqueo de seguridad explícito en el change
+        if (name === 'startDate' && isStartDateLocked) return;
+
         setEditedConfig((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -49,66 +85,56 @@ export function TournamentConfigModal({
     };
 
     const validateConfig = () => {
-        const maxTeams = parseInt(editedConfig.maxTeams);
-        const ascensos = parseInt(editedConfig.ascensos);
-        const descensos = parseInt(editedConfig.descensos);
+        const maxTeams = parseInt(editedConfig.maxTeams) || 0;
+        const ascensos = parseInt(editedConfig.ascensos) || 0;
+        const descensos = parseInt(editedConfig.descensos) || 0;
         
         if ((ascensos + descensos) > maxTeams) {
-            setToast({ 
-                show: true, 
-                message: `Error: Ascensos + Descensos (${ascensos + descensos}) superan el total de equipos permitidos (${maxTeams}).`, 
-                type: 'error' 
-            });
+            setToast({ show: true, message: `Error: Ascensos + Descensos superan el total de equipos (${maxTeams}).`, type: 'error' });
             return false;
         }
-
-        if (editedConfig.zonaLiguilla) {
-            const clasificados = parseInt(editedConfig.clasificados);
-            const repechaje = parseInt(editedConfig.repechajeTeams);
-            
-            if ((clasificados + repechaje) > maxTeams) {
-                setToast({ 
-                    show: true, 
-                    message: `Error: Clasificados + Repechaje superan el total de equipos (${maxTeams}).`, 
-                    type: 'error' 
-                });
-                return false;
-            }
-
-            if (clasificados < 2) {
-                setToast({ 
-                    show: true, 
-                    message: "Debe haber al menos 2 clasificados para jugar playoffs.", 
-                    type: 'error' 
-                });
-                return false;
-            }
-        }
-        
         return true;
     };
 
-    const handleSave = () => {
+    // --- FUNCIÓN DE GUARDADO BLINDADA ---
+    const sanitizeAndSave = () => {
         if (!validateConfig()) return;
-        onSave(editedConfig);
+
+        const finalConfig = {
+            ...editedConfig, 
+
+            minPlayers: parseInt(editedConfig.minPlayers) || 5,
+            maxPlayers: parseInt(editedConfig.maxPlayers) || 25,
+            maxTeams: parseInt(editedConfig.maxTeams) || 20,
+            
+            minutosPorTiempo: parseInt(editedConfig.minutosPorTiempo) || 45,
+            minutosDescanso: parseInt(editedConfig.minutosDescanso) || 15,
+            
+            winPoints: parseInt(editedConfig.winPoints) || 3,
+            drawPoints: parseInt(editedConfig.drawPoints) || 1,
+            lossPoints: parseInt(editedConfig.lossPoints) || 0,
+            
+            ascensos: parseInt(editedConfig.ascensos) || 0,
+            descensos: parseInt(editedConfig.descensos) || 0,
+            clasificados: parseInt(editedConfig.clasificados) || 8,
+            repechajeTeams: parseInt(editedConfig.repechajeTeams) || 0,
+
+            vueltas: String(editedConfig.vueltas || "1"),
+            zonaLiguilla: !!editedConfig.zonaLiguilla,
+            tieBreakType: String(editedConfig.tieBreakType || "normal"),
+            cambios: String(editedConfig.cambios || "Ilimitados"),
+            observaciones: String(editedConfig.observaciones || "")
+        };
+
+        console.log("Guardando Configuración Completa:", finalConfig);
+        onSave(finalConfig);
         onClose();
     };
 
     return (
         <>
-            <Toast 
-                show={toast.show} 
-                message={toast.message} 
-                type={toast.type} 
-                onClose={() => setToast({ ...toast, show: false })} 
-            />
-
-            <Modal 
-                isOpen={isOpen} 
-                onClose={onClose} 
-                title="Ajustes de Torneo (En Curso)" 
-                width="600px"
-            >
+            <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+            <Modal isOpen={isOpen} onClose={onClose} title="Ajustes de Torneo (En Curso)" width="600px" closeOnOverlayClick={false}>
                 <ModalContent>
                     <TabsNavigation 
                         tabs={[ 
@@ -117,8 +143,7 @@ export function TournamentConfigModal({
                             { id: "format", label: "Formato", icon: <RiGitMergeLine/> }, 
                             { id: "gameRules", label: "Reglas", icon: <IoMdStopwatch/> } 
                         ]} 
-                        activeTab={configTab} 
-                        setActiveTab={setConfigTab} 
+                        activeTab={configTab} setActiveTab={setConfigTab} 
                     />
                     
                     <div className="tab-content-wrapper">
@@ -126,42 +151,18 @@ export function TournamentConfigModal({
                             <TabGeneral 
                                 form={editedConfig} 
                                 onChange={handleChange} 
-                                isStarted={true} 
-                                activeTournament={activeTournament} 
+                                // SOLUCIÓN CLAVE: Pasamos el estado de bloqueo real en lugar de 'true'.
+                                // Esto asegura que el input se habilite/deshabilite según la Jornada 1.
+                                isStarted={isStartDateLocked} 
                             />
                         )}
-                        
-                        {configTab === 'scoring' && (
-                            <TabScoring 
-                                form={editedConfig} 
-                                onChange={handleChange} 
-                                isStarted={true} 
-                            />
-                        )}
-                        
-                        {configTab === 'format' && (
-                            <TabFormat 
-                                form={editedConfig} 
-                                onChange={handleChange} 
-                                vueltasDisabled={isVueltasLocked} 
-                                isStarted={true} 
-                            />
-                        )}
-                        
-                        {configTab === 'gameRules' && (
-                            <TabGameRules 
-                                reglas={editedConfig} 
-                                setReglas={setEditedConfig} 
-                            />
-                        )}
+                        {configTab === 'scoring' && <TabScoring form={editedConfig} onChange={handleChange} />}
+                        {configTab === 'format' && <TabFormat form={editedConfig} onChange={handleChange} vueltasDisabled={isVueltasLocked} />}
+                        {configTab === 'gameRules' && <TabGameRules reglas={editedConfig} setReglas={setEditedConfig} />}
                     </div>
 
                     <div className="modal-actions">
-                        <Btnsave 
-                            titulo="Guardar Cambios" 
-                            bgcolor={v.colorPrincipal} 
-                            funcion={handleSave} 
-                        />
+                        <Btnsave titulo="Guardar Cambios" bgcolor={v.colorPrincipal} funcion={sanitizeAndSave} />
                     </div>
                 </ModalContent>
             </Modal>
@@ -170,22 +171,7 @@ export function TournamentConfigModal({
 }
 
 const ModalContent = styled.div`
-  display: flex; 
-  flex-direction: column; 
-  gap: 15px;
-
-  .tab-content-wrapper {
-      margin-top: 15px;
-      min-height: 320px; 
-      overflow-y: auto; 
-      max-height: 60vh;
-      padding-right: 5px;
-  }
-
-  .modal-actions { 
-      display: flex; 
-      justify-content: flex-end; 
-      padding-top: 15px; 
-      border-top: 1px solid ${({theme})=>theme.bg4}; 
-  }
+  display: flex; flex-direction: column; gap: 15px;
+  .tab-content-wrapper { margin-top: 15px; min-height: 320px; overflow-y: auto; max-height: 60vh; padding-right: 5px; }
+  .modal-actions { display: flex; justify-content: flex-end; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; }
 `;

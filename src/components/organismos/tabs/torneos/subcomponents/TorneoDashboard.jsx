@@ -242,7 +242,7 @@ export const TorneoDashboard = ({
                                                 return (
                                                     <TeamItem key={team.id}>
                                                         <span className="number">{globalIndex}</span>
-                                                        <img src={team.logo_url || v.iconofotovacia} alt="logo" />
+                                                        <img src={team.logo_url || "/logo_gen.png"} alt="logo" />
                                                         <span className="name" title={team.name}>{team.name}</span>
                                                         <ActionButton className="remove" onClick={() => onExclude(team.id)}>
                                                             <RiCloseCircleLine />
