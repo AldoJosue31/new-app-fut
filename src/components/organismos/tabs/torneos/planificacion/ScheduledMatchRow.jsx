@@ -1,11 +1,10 @@
 import React, { memo } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../index";
-import { RiDeleteBinLine, RiTrophyLine, RiTimeLine } from "react-icons/ri";
+import { RiDeleteBinLine, RiTrophyLine, RiTimeLine, RiEditLine } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 
-// Usamos memo para evitar re-renderizados si las props no cambian
 export const ScheduledMatchRow = memo(function ScheduledMatchRow({ 
     match, 
     isConfirmed, 
@@ -19,7 +18,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   
   return (
     <Wrapper>
-        {/* Renderiza la división si existe groupLabel */}
         {groupLabel && (
             <DateDivider>
                 <span>{groupLabel}</span>
@@ -49,7 +47,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                         </div>
                         <div className="btns-row">
                             <button className="action-btn result" onClick={() => onOpenResult(match)}>
-                                <RiTrophyLine /> {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
+                                {match.status === 'Finalizado' ? <RiEditLine /> : <RiTrophyLine />}
+                                {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
                             </button>
                             <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
                                 <RiTimeLine />
@@ -59,7 +58,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                     </div>
                 ) : (
                     <>
-                        {/* Importante: value={match.date || ''} previene warnings de uncontrolled inputs */}
                         <input 
                             type="date" 
                             className="input-date" 

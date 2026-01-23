@@ -20,7 +20,7 @@ export function TeamCard({ team, onEdit, onDelete, onTransfer, onView }) {
         <StatusBadge $active={team.status === 'Activo'}>
           {team.status}
         </StatusBadge>
-        <LogoImg src={team.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={team.name} />
+        <LogoImg src={team.logo_url || "/logo_gen.png"} alt={team.name} />
       </div>
       <div className="card-body">
         <h3>{team.name}</h3>

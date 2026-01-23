@@ -83,10 +83,13 @@ export function FixturePreviewModal({
         // SWAP
         const updatedMatches = matches.map(m => {
             if (m.id === draggedMatch.id) {
+                // El partido que el usuario arrastró SÍ se bloquea
                 return { ...m, jornadaIndex: targetMatch.jornadaIndex, locked: true };
             }
             if (m.id === targetMatch.id) {
-                return { ...m, jornadaIndex: draggedMatch.jornadaIndex, locked: true };
+                // El partido desplazado NO se autobloquea (mantiene su estado anterior o queda libre)
+                // Se eliminó 'locked: true' para que el algoritmo pueda moverlo si es necesario
+                return { ...m, jornadaIndex: draggedMatch.jornadaIndex };
             }
             return m;
         });
@@ -103,7 +106,6 @@ export function FixturePreviewModal({
         // Validar torneos impares
         const hasByes = matches.some(m => m.isByeMatch);
         if (hasByes) {
-            alert("En torneos con número impar de equipos, por favor arrastra el partido SOBRE otro partido para hacer un intercambio y no romper el balance de descansos.");
             return;
         }
 
