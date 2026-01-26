@@ -26,8 +26,15 @@ export function JornadaPlanificacion({
     sidebarMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes, 
-    clearDraft // Importamos la función de limpieza
-  } = usePlanificacionMatches(activeTournament, jornadaIndex, teams, matchesDB, globalPendingMatches);
+    clearDraft 
+  } = usePlanificacionMatches(
+      activeTournament, 
+      jornadaIndex, 
+      teams, 
+      matchesDB, 
+      globalPendingMatches, 
+      jornadaData?.status // IMPORTANTE: Pasamos el status
+  );
 
   const [viewMode, setViewMode] = useState('list');
   const [draggedMatch, setDraggedMatch] = useState(null);
@@ -48,9 +55,11 @@ export function JornadaPlanificacion({
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
 
+  // Sincronizar fecha inicial con la config del torneo
   useEffect(() => {
     if (activeTournament?.start_date && !isConfirmed) {
         const [yearStr, monthStr, dayStr] = activeTournament.start_date.split('-');
+        // Crear fecha usando componentes UTC o locales para evitar desfases
         const startDate = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
         const daysToAdd = jornadaIndex * 7; 
         
@@ -61,12 +70,14 @@ export function JornadaPlanificacion({
         const d = String(startDate.getDate()).padStart(2, '0');
         const calculatedDate = `${y}-${m}-${d}`;
         
+        // Solo actualizar si es diferente para evitar loops
         if (weekStartDate !== calculatedDate) {
             setWeekStartDate(calculatedDate);
         }
     }
   }, [jornadaIndex, activeTournament, isConfirmed]); 
 
+  // Fetch de partidos fantasma (otras divisiones)
   useEffect(() => {
     if (!showGhosts || !weekStartDate || !activeTournament?.division_id) return;
 
@@ -157,17 +168,16 @@ export function JornadaPlanificacion({
       setScheduledMatches(autoAdjustTimes(updatedList, newDate));
   };
 
-  // --- NUEVA FUNCIÓN DE CONFIRMACIÓN ---
-  const handleConfirmJornada = () => {
-      // 1. Ejecutar la función original
+  const handleConfirmJornada = async () => {
+      // 1. Limpiamos el borrador local inmediatamente para prevenir inconsistencias
+      clearDraft();
+      
+      // 2. Enviamos la data al padre
       onConfirm({ 
           jornada_numero: jornadaIndex + 1,
           matches: scheduledMatches, 
           allPendingMatches: allPendingMatches 
       });
-      
-      // 2. Limpiar el borrador local porque ya se guardó en BD
-      clearDraft();
   };
 
   return (

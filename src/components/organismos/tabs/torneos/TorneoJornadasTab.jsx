@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { supabase } from "../../../../supabase/supabase.config";
 import { Toast } from "../../../../index";
@@ -20,13 +20,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     setActiveTournament(initialTournament);
   }, [initialTournament]);
 
+  // Carga inicial
   useEffect(() => {
-    if (activeTournament) {
-        fetchJornadas();
-        fetchGlobalPendingMatches();
+    if (activeTournament?.id) {
+        loadTournamentData();
     }
-  }, [activeTournament.id]);
+  }, [activeTournament?.id]);
 
+  // Carga de partidos cuando cambia el índice
   useEffect(() => {
     if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
       fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
@@ -34,6 +35,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setCurrentMatches([]);
     }
   }, [currentJornadaIndex, jornadas]);
+
+  const loadTournamentData = async () => {
+      await fetchJornadas();
+      await fetchGlobalPendingMatches();
+  };
 
   const fetchJornadas = async () => {
     try {
@@ -44,9 +50,13 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         .order('id', { ascending: true });
       if (error) throw error;
       setJornadas(data);
-      const activeIndex = data.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
-      if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
-      else if (data.length > 0) setCurrentJornadaIndex(data.length - 1);
+      
+      // Solo setear el índice si es la primera carga (para no saltar de jornada al refrescar)
+      if (jornadas.length === 0) {
+        const activeIndex = data.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
+        if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
+        else if (data.length > 0) setCurrentJornadaIndex(data.length - 1);
+      }
     } catch (error) { console.error("Error fetchJornadas:", error); }
   };
 
@@ -59,7 +69,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         .eq('jornada_id', jornadaId);
       if (error) throw error;
       setCurrentMatches(data);
-    } finally { setLoading(false); }
+    } catch (e) { 
+        console.error(e);
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const fetchGlobalPendingMatches = async () => {
@@ -77,12 +91,24 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const handleConfirmJornada = async (dataToSave) => {
     setLoading(true);
     try {
+        // 1. Guardar en Base de Datos
         await guardarJornadaService(activeTournament.id, dataToSave);
         setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
-        await fetchJornadas();
-        fetchGlobalPendingMatches();
-    } catch (error) { setToastConfig({ show: true, message: error.message, type: "error" }); }
-    finally { setLoading(false); }
+
+        // 2. REFRESCO PROFUNDO Y ATÓMICO
+        // Es crucial esperar a que TODO se actualice antes de soltar el loading
+        // para que el Hook hijo reciba la data nueva (Confirmed) y no el borrador viejo.
+        await Promise.all([
+            fetchJornadas(), // Actualiza el status de la jornada a 'Confirmada' en el state
+            fetchGlobalPendingMatches(), // Limpia los pendientes globales
+            fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id) // Trae los partidos ya con fecha oficial
+        ]);
+        
+    } catch (error) { 
+        setToastConfig({ show: true, message: error.message, type: "error" }); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const handleSaveConfig = async (newConfig) => {
@@ -94,11 +120,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
         await actualizarConfigTorneoService(activeTournament.id, newConfig, baseJornadas);
         
-        // CORRECCIÓN AQUÍ: Actualizamos 'start_date' en el estado local también
         setActiveTournament(prev => ({ 
             ...prev, 
             config: newConfig,
-            start_date: newConfig.startDate || prev.start_date // <--- ACTUALIZACIÓN CRÍTICA
+            start_date: newConfig.startDate || prev.start_date 
         }));
         
         setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
@@ -112,7 +137,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     try {
       const { error } = await supabase.from('matches').update(updates).eq('id', matchId);
       if (error) throw error;
-      await new Promise(res => setTimeout(res, 80));
+      
+      // Pequeño delay para asegurar consistencia DB
+      await new Promise(res => setTimeout(res, 100));
+      
       if (refreshStandings) await refreshStandings(); 
       await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
       await fetchGlobalPendingMatches();
@@ -123,17 +151,25 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   if (jornadas.length === 0) return <EmptyState>Cargando estructura...</EmptyState>;
 
   const currentJornada = jornadas[currentJornadaIndex];
-  const isPhaseAssignment = currentJornada.status !== 'Finalizada';
+  
+  // Determinamos si estamos en fase de planificación
+  // Una jornada está en planificación si NO está Finalizada y queremos ver el planificador.
+  // PERO: Si está "Confirmada", queremos ver el planificador en modo solo lectura/edición, no el borrador.
+  const isPhaseAssignment = currentJornada.status !== 'Finalizada'; 
+  
   const prevJornada = currentJornadaIndex > 0 ? jornadas[currentJornadaIndex - 1] : null;
   const canConfirm = !prevJornada || ['Confirmada', 'Finalizada'].includes(prevJornada.status);
 
   return (
     <TabContainer>
       <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
-      {loading ? ( <LoadingBox>Procesando...</LoadingBox> ) : (
+      
+      {/* Si está cargando datos CRÍTICOS (como al confirmar), bloqueamos la UI para evitar race conditions visuales */}
+      {loading ? ( <LoadingBox>Sincronizando datos...</LoadingBox> ) : (
         <>
            {isPhaseAssignment ? (
               <JornadaPlanificacion 
+                key={`plan-${currentJornada.id}-${currentJornada.status}`} // KEY CRÍTICA: Fuerza remontaje si cambia status
                 matchesDB={currentMatches} 
                 globalPendingMatches={globalPendingMatches}
                 teams={participatingTeams} 
@@ -181,4 +217,4 @@ const TabContainer = styled.div`
 `;
 
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;
-const LoadingBox = styled.div` padding: 50px; text-align: center; font-weight:600; `;
+const LoadingBox = styled.div` padding: 50px; text-align: center; font-weight:600; color: #7f8c8d; `;
