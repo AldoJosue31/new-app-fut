@@ -2,13 +2,12 @@ import { generarFixture } from "../services/torneos";
 
 /**
  * Genera la estructura plana inicial de partidos.
- * Incluye la lógica para manejar equipos impares (BYE).
  */
 export const generarEstructuraInicial = (teams, config) => {
     if (!teams || teams.length < 2) return [];
 
     const mixed = [...teams];
-    // Barajeo Fisher-Yates: Mezcla los equipos antes de generar el calendario base
+    // Barajeo Fisher-Yates
     for (let i = mixed.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [mixed[i], mixed[j]] = [mixed[j], mixed[i]];
@@ -30,19 +29,14 @@ export const generarEstructuraInicial = (teams, config) => {
             let visita = t2;
             let isBye = false;
 
-            // Caso 1: t2 no existe (t1 vs BYE)
             if (local && !visita) {
                 visita = byeTeam;
                 isBye = true;
-            }
-            // Caso 2: t1 no existe (BYE vs t2) -> Invertimos para que el Bye siempre sea visualmente el visitante
-            else if (!local && visita) {
+            } else if (!local && visita) {
                 local = visita;
                 visita = byeTeam;
                 isBye = true;
-            }
-            // Caso 3: Ambos existen
-            else if (local && visita) {
+            } else if (local && visita) {
                 isBye = false;
             } else {
                 return; 
@@ -50,21 +44,20 @@ export const generarEstructuraInicial = (teams, config) => {
 
             if (local) {
                 newMatches.push({
-                    id: `match_${matchIdCounter++}`, // Prefijo más limpio
+                    id: `match_${matchIdCounter++}`,
                     local: local,
                     visitante: visita,
                     jornadaIndex: rIndex,
-                    locked: false, // Inicialmente nada está bloqueado
+                    locked: false, 
                     isByeMatch: isBye
                 });
             }
         });
     });
 
-    // Si es ida y vuelta
+    // Ida y vuelta
     if (config?.vueltas === "2") {
         const totalRoundsIda = rounds.length;
-        // Creamos la vuelta invirtiendo localías
         const matchesVuelta = newMatches.map(m => ({
             ...m,
             id: `match_${matchIdCounter++}`,
@@ -72,7 +65,6 @@ export const generarEstructuraInicial = (teams, config) => {
             visitante: m.local,
             jornadaIndex: m.jornadaIndex + totalRoundsIda,
             locked: false,
-            // El tipo de partido (Bye o Normal) se mantiene igual aunque giren
             isByeMatch: m.isByeMatch
         }));
         newMatches = [...newMatches, ...matchesVuelta];
@@ -82,106 +74,151 @@ export const generarEstructuraInicial = (teams, config) => {
 };
 
 /**
- * Valida el fixture en busca de equipos jugando dos veces en la misma jornada.
- * Retorna un objeto con los conflictos y el conteo total.
+ * Valida conflictos (equipos repetidos) Y desbalance numérico de jornadas.
  */
-export const validarFixture = (matches) => {
+export const validarFixture = (matches, totalTeams) => {
     const conflicts = {};
     let totalConflicts = 0;
+    
+    // Cálculo dinámico de partidos esperados por jornada
+    // Si N es par: N/2 partidos. Si N es impar: (N+1)/2 partidos (incluyendo el Bye)
+    const expectedMatchesPerRound = Math.ceil(totalTeams / 2);
 
     const byRound = {};
-    // Agrupamos por jornada
+    const maxJornada = Math.max(...matches.map(m => m.jornadaIndex), 0);
+
+    // Inicializar arrays para todas las jornadas
+    for(let i=0; i<=maxJornada; i++) byRound[i] = [];
+    
     for (const m of matches) {
-        if (!byRound[m.jornadaIndex]) byRound[m.jornadaIndex] = [];
-        byRound[m.jornadaIndex].push(m);
+        if(byRound[m.jornadaIndex]) byRound[m.jornadaIndex].push(m);
     }
 
     for (const rIndex in byRound) {
+        const roundMatches = byRound[rIndex];
+        const roundErrors = [];
+
+        // 1. Validación de Cantidad (Balance)
+        if (roundMatches.length > expectedMatchesPerRound) {
+            roundErrors.push('OVERFLOW'); // Demasiados partidos
+            totalConflicts += (roundMatches.length - expectedMatchesPerRound) * 2; // Penalización alta
+        }
+
+        // 2. Validación de Duplicados (Equipos jugando doble)
         const teamsInRound = new Set();
         const duplicates = new Set();
-        const roundMatches = byRound[rIndex];
 
         for (const m of roundMatches) {
-            // Verificar Local
+            // Check Local
             if (m.local.id !== 'BYE') {
                 if (teamsInRound.has(m.local.id)) duplicates.add(m.local.id);
                 teamsInRound.add(m.local.id);
             }
-            // Verificar Visitante
+            // Check Visitante
             if (m.visitante.id !== 'BYE') {
                 if (teamsInRound.has(m.visitante.id)) duplicates.add(m.visitante.id);
                 teamsInRound.add(m.visitante.id);
             }
         }
 
-        if (duplicates.size > 0) {
+        if (duplicates.size > 0 || roundErrors.length > 0) {
+            // Guardamos los IDs duplicados para marcarlos en rojo en la UI
+            // Si es error de overflow, marcamos toda la jornada técnicamente
             conflicts[rIndex] = Array.from(duplicates);
             totalConflicts += duplicates.size;
         }
     }
 
-    return { conflicts, totalConflicts };
+    return { conflicts, totalConflicts, expectedMatchesPerRound };
 };
 
 /**
- * Algoritmo "Min-Conflicts" Optimizado.
- * Respeta estrictamente los partidos con locked: true.
+ * Algoritmo Optimizado: Fase de Balanceo + Fase de Min-Conflicts
  */
-export const autoCorregirFixture = (initialMatches, maxIterations = 10000) => {
-    // Clon profundo para no mutar el estado directamente durante el cálculo
+export const autoCorregirFixture = (initialMatches, totalTeams, maxIterations = 5000) => {
     let currentMatches = JSON.parse(JSON.stringify(initialMatches));
+    const expectedMatchesPerRound = Math.ceil(totalTeams / 2);
     
-    let { totalConflicts: bestScore } = validarFixture(currentMatches);
+    // Función auxiliar para recalcular estado
+    const getStatus = (ms) => validarFixture(ms, totalTeams);
+
+    let { totalConflicts: bestScore } = getStatus(currentMatches);
     let bestSolution = JSON.parse(JSON.stringify(currentMatches));
 
     if (bestScore === 0) return currentMatches;
 
-    const maxJornada = Math.max(...currentMatches.map(m => m.jornadaIndex));
-
     for (let i = 0; i < maxIterations; i++) {
         if (bestScore === 0) break;
 
-        // 1. Identificar jornadas con conflictos
-        const { conflicts } = validarFixture(currentMatches);
+        // --- FASE 1: BALANCEO DE CARGA (Para arreglar drag & drop de jornadas) ---
+        // Identificar jornadas con exceso y defecto
+        const byRound = {};
+        currentMatches.forEach(m => {
+            if(!byRound[m.jornadaIndex]) byRound[m.jornadaIndex] = [];
+            byRound[m.jornadaIndex].push(m);
+        });
+
+        const roundsIndexes = Object.keys(byRound).map(Number);
+        const fatRounds = roundsIndexes.filter(r => byRound[r].length > expectedMatchesPerRound);
+        const thinRounds = roundsIndexes.filter(r => byRound[r].length < expectedMatchesPerRound);
+
+        // Si hay desbalance, MOVER (Move) en lugar de INTERCAMBIAR (Swap)
+        if (fatRounds.length > 0 && thinRounds.length > 0) {
+            const sourceR = fatRounds[Math.floor(Math.random() * fatRounds.length)];
+            const targetR = thinRounds[Math.floor(Math.random() * thinRounds.length)];
+
+            // Buscar partido no bloqueado en la jornada llena
+            const candidates = byRound[sourceR].filter(m => !m.locked);
+            
+            if (candidates.length > 0) {
+                const matchToMove = candidates[Math.floor(Math.random() * candidates.length)];
+                matchToMove.jornadaIndex = targetR; // MOVIMIENTO UNILATERAL
+                
+                // Evaluar si mejoramos
+                const { totalConflicts: newScore } = getStatus(currentMatches);
+                if (newScore < bestScore) {
+                    bestScore = newScore;
+                    bestSolution = JSON.parse(JSON.stringify(currentMatches));
+                }
+                continue; // Pasamos a la siguiente iteración sin hacer swap normal
+            }
+        }
+
+        // --- FASE 2: RESOLUCIÓN DE CONFLICTOS (SWAP) ---
+        const { conflicts } = getStatus(currentMatches);
         const conflictRounds = Object.keys(conflicts);
         
-        if (conflictRounds.length === 0) break;
+        if (conflictRounds.length === 0) continue; // Si solo queda desbalance, lo maneja la fase 1
 
-        // 2. Elegir una jornada conflictiva al azar
         const badRound = Number(conflictRounds[Math.floor(Math.random() * conflictRounds.length)]);
         const badTeams = conflicts[badRound];
         
-        // 3. Buscar un partido que cause el conflicto Y que NO esté bloqueado
+        // Buscar partido causante del conflicto
         let conflictiveMatches = currentMatches.filter(m => 
             m.jornadaIndex === badRound && 
-            !m.locked && // CRUCIAL: Respetar bloqueo
+            !m.locked && 
             (badTeams.includes(m.local.id) || badTeams.includes(m.visitante.id))
         );
 
-        // Si todos los conflictivos están bloqueados, intentamos mover otro no bloqueado de la misma jornada para hacer espacio
         if (conflictiveMatches.length === 0) {
              conflictiveMatches = currentMatches.filter(m => m.jornadaIndex === badRound && !m.locked);
         }
         
-        // Si absolutamente todo está bloqueado en esa jornada, no podemos hacer nada ahí
         if (conflictiveMatches.length === 0) continue; 
 
-        // Elegimos uno al azar para mover
         const matchA = conflictiveMatches[Math.floor(Math.random() * conflictiveMatches.length)];
         const idxA = currentMatches.findIndex(m => m.id === matchA.id);
 
-        // 4. Buscar candidato para intercambio (SWAP)
-        const targetRoundsToCheck = [];
-        for(let r=0; r<=maxJornada; r++) if(r !== badRound) targetRoundsToCheck.push(r);
+        // Buscar pareja para swap
+        const targetRoundsToCheck = roundsIndexes.filter(r => r !== badRound);
         
-        // Estrategia Probabilística: 
-        // 90% Greedy (Mejor movimiento local), 10% Aleatorio (para salir de mínimos locales)
+        // Lógica Greedy (90%) vs Random (10%)
         if (Math.random() < 0.10) {
             const randomR = targetRoundsToCheck[Math.floor(Math.random() * targetRoundsToCheck.length)];
             const candidatesB = currentMatches.filter(m => 
                 m.jornadaIndex === randomR && 
                 !m.locked &&
-                m.isByeMatch === matchA.isByeMatch 
+                m.isByeMatch === matchA.isByeMatch // Mantiene consistencia si es torneo impar
             );
             
             if (candidatesB.length > 0) {
@@ -189,12 +226,9 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 10000) => {
                 performSwap(currentMatches, idxA, matchB);
             }
         } else {
-            // Greedy: Buscar el swap que minimice conflictos
             let bestSwapCandidate = null;
-            let minDelta = Infinity; // Buscamos reducir conflictos (delta negativo o bajo)
+            let minDelta = Infinity;
 
-            // Limitamos la búsqueda a unas cuantas jornadas al azar para rendimiento si son muchas
-            // (Si tienes < 20 jornadas, revisar todas está bien)
             for (let r of targetRoundsToCheck) {
                 const candidatesB = currentMatches.filter(m => 
                     m.jornadaIndex === r && 
@@ -203,11 +237,9 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 10000) => {
                 );
                 
                 for (let matchB of candidatesB) {
-                    // Calculamos cuántos conflictos genera poner A en la jornada R
+                    // Costo heurístico simple
                     const costA_in_R = countConflictsForMatchInRound(matchA, r, currentMatches, matchB.id); 
-                    // Calculamos cuántos conflictos genera traer B a la jornada conflictiva (badRound)
                     const costB_in_Bad = countConflictsForMatchInRound(matchB, badRound, currentMatches, matchA.id);
-                    
                     const totalCost = costA_in_R + costB_in_Bad;
 
                     if (totalCost < minDelta) {
@@ -222,27 +254,22 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 10000) => {
             }
         }
 
-        // 5. Evaluar si mejoramos la solución global
-        const { totalConflicts: currentTotal } = validarFixture(currentMatches);
+        const { totalConflicts: currentTotal } = getStatus(currentMatches);
         if (currentTotal < bestScore) {
             bestScore = currentTotal;
             bestSolution = JSON.parse(JSON.stringify(currentMatches));
-        } else {
-            // Mecanismo de "Reinicio Suave": Si llevamos muchos intentos sin mejorar, volvemos a la mejor conocida
-            if (i % 500 === 0) {
-                currentMatches = JSON.parse(JSON.stringify(bestSolution));
-            }
+        } else if (i % 200 === 0) {
+            // Reinicio suave para salir de minimos locales
+            currentMatches = JSON.parse(JSON.stringify(bestSolution));
         }
     }
 
     return bestSolution;
 };
 
-// --- Helpers Internos ---
-
+// Helpers internos
 function performSwap(matches, idxA, matchB) {
     const idxB = matches.findIndex(m => m.id === matchB.id);
-    // Intercambio simple de indices de jornada
     const tempJornada = matches[idxA].jornadaIndex;
     matches[idxA].jornadaIndex = matches[idxB].jornadaIndex;
     matches[idxB].jornadaIndex = tempJornada;
@@ -250,8 +277,6 @@ function performSwap(matches, idxA, matchB) {
 
 function countConflictsForMatchInRound(match, roundIndex, allMatches, ignoreMatchId) {
     let conflicts = 0;
-    // Filtramos partidos en esa jornada, ignorando los que se van a mover (ignoreMatchId)
-    // y el propio partido que estamos evaluando
     const matchesInRound = allMatches.filter(m => 
         m.jornadaIndex === roundIndex && 
         m.id !== ignoreMatchId && 
@@ -264,7 +289,6 @@ function countConflictsForMatchInRound(match, roundIndex, allMatches, ignoreMatc
         if(m.visitante.id !== 'BYE') teamsInRound.add(m.visitante.id);
     });
 
-    // Si mis equipos ya están en esa jornada, es conflicto
     if (match.local.id !== 'BYE' && teamsInRound.has(match.local.id)) conflicts++;
     if (match.visitante.id !== 'BYE' && teamsInRound.has(match.visitante.id)) conflicts++;
     

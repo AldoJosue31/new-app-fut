@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { createPortal } from "react-dom";
 import styled, { keyframes } from "styled-components";
 import { v } from "../../../../../styles/variables";
@@ -12,8 +12,8 @@ import {
     RiErrorWarningLine
 } from "react-icons/ri";
 import { Btnsave } from "../../../../../index"; 
-import { generarEstructuraInicial, validarFixture, autoCorregirFixture } from "../../../../../utils/fixtureAlgorithms";
 import { FixtureMatchCard } from "./FixtureMatchCard";
+import { useFixturePreview } from "../../../../../hooks/useFixturePreview"; // Asegúrate de importar desde la ruta correcta
 
 export function FixturePreviewModal({ 
     isOpen, 
@@ -23,126 +23,23 @@ export function FixturePreviewModal({
     config, 
     isLoading 
 }) {
-    const [matches, setMatches] = useState([]);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const [draggedMatch, setDraggedMatch] = useState(null);
-    const [conflicts, setConflicts] = useState({});
-    const [selectedTeamId, setSelectedTeamId] = useState(null);
+    // Usamos el hook modularizado
+    const {
+        matches,
+        matchesByRound,
+        conflicts,
+        selectedTeamId,
+        isAnimating,
+        handleTeamClick,
+        toggleLock,
+        handleShuffle,
+        handleAutoFix,
+        handleDragStart,
+        handleDropOnMatch,
+        handleDropOnJornada
+    } = useFixturePreview(teams, config, isOpen);
 
-    // --- EFECTOS ---
-    useEffect(() => {
-        if (isOpen && teams.length > 0) {
-            // Solo generamos si está vacío para persistencia
-            if (matches.length === 0) {
-                const initial = generarEstructuraInicial(teams, config);
-                setMatches(initial);
-            }
-            setSelectedTeamId(null); 
-        }
-    }, [isOpen, teams, config, matches.length]);
-
-    useEffect(() => {
-        const { conflicts: newConflicts } = validarFixture(matches);
-        setConflicts(newConflicts);
-    }, [matches]);
-
-    // --- HANDLERS ---
-    const handleTeamClick = (teamId) => {
-        if (selectedTeamId === teamId) {
-            setSelectedTeamId(null);
-        } else {
-            setSelectedTeamId(teamId);
-        }
-    };
-
-    const toggleLock = (matchId) => {
-        setMatches(prev => prev.map(m => m.id === matchId ? { ...m, locked: !m.locked } : m));
-    };
-
-    // --- DRAG & DROP ---
-    const handleDragStart = (e, match) => {
-        setDraggedMatch(match);
-        e.dataTransfer.effectAllowed = "move";
-    };
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-    };
-
-    const handleDropOnMatch = (e, targetMatch) => {
-        e.preventDefault();
-        if (!draggedMatch || draggedMatch.id === targetMatch.id) return;
-
-        // Validar tipos
-        if (draggedMatch.isByeMatch !== targetMatch.isByeMatch) {
-            alert("Para mantener el balance del torneo, solo puedes intercambiar un Descanso por otro Descanso.");
-            return;
-        }
-
-        // SWAP
-        const updatedMatches = matches.map(m => {
-            if (m.id === draggedMatch.id) {
-                // El partido que el usuario arrastró SÍ se bloquea
-                return { ...m, jornadaIndex: targetMatch.jornadaIndex, locked: true };
-            }
-            if (m.id === targetMatch.id) {
-                // El partido desplazado NO se autobloquea (mantiene su estado anterior o queda libre)
-                // Se eliminó 'locked: true' para que el algoritmo pueda moverlo si es necesario
-                return { ...m, jornadaIndex: draggedMatch.jornadaIndex };
-            }
-            return m;
-        });
-
-        setMatches(updatedMatches);
-        setDraggedMatch(null);
-    };
-
-    const handleDropOnJornada = (e, targetJornadaIndex) => {
-        e.preventDefault();
-        if (!draggedMatch) return;
-        if (draggedMatch.jornadaIndex === targetJornadaIndex) return;
-
-        // Validar torneos impares
-        const hasByes = matches.some(m => m.isByeMatch);
-        if (hasByes) {
-            return;
-        }
-
-        const updatedMatches = matches.map(m => {
-            if (m.id === draggedMatch.id) {
-                return { ...m, jornadaIndex: targetJornadaIndex, locked: true };
-            }
-            return m;
-        });
-        setMatches(updatedMatches);
-        setDraggedMatch(null);
-    };
-
-    // --- ACCIONES ---
-    const handleShuffle = () => {
-        if (matches.some(m => m.locked)) {
-            if(!window.confirm("Se perderán los bloqueos. ¿Continuar?")) return;
-        }
-
-        setIsAnimating(true);
-        setTimeout(() => {
-            const newMatches = generarEstructuraInicial(teams, config);
-            setMatches(newMatches);
-            setIsAnimating(false);
-            setConflicts({});
-            setSelectedTeamId(null);
-        }, 300);
-    };
-
-    const handleAutoFix = () => {
-        setIsAnimating(true);
-        setTimeout(() => {
-            const fixedMatches = autoCorregirFixture(matches, 15000); 
-            setMatches(fixedMatches);
-            setIsAnimating(false);
-        }, 100);
-    };
+    if (!isOpen) return null;
 
     const handleConfirmar = () => {
         const maxJornada = Math.max(...matches.map(m => m.jornadaIndex));
@@ -167,30 +64,12 @@ export function FixturePreviewModal({
         onConfirm(finalFixture);
     };
 
-    if (!isOpen) return null;
-
-    // --- PREPARACIÓN DEL RENDER ---
-    const matchesByRound = {};
-    matches.forEach(m => {
-        if(!matchesByRound[m.jornadaIndex]) matchesByRound[m.jornadaIndex] = [];
-        matchesByRound[m.jornadaIndex].push(m);
-    });
-
-    // --- ORDENAMIENTO VISUAL (NUEVO) ---
-    // Recorremos cada jornada y ordenamos para que los partidos de descanso (isByeMatch) queden primeros.
-    Object.keys(matchesByRound).forEach(key => {
-        matchesByRound[key].sort((a, b) => {
-            // Si 'a' es bye y 'b' no lo es, 'a' va antes (-1)
-            if (a.isByeMatch && !b.isByeMatch) return -1;
-            // Si 'b' es bye y 'a' no lo es, 'b' va antes (1)
-            if (!a.isByeMatch && b.isByeMatch) return 1;
-            return 0;
-        });
-    });
-    
     const roundIndexes = Object.keys(matchesByRound).sort((a,b) => Number(a) - Number(b));
     const conflictCount = Object.keys(conflicts).length;
 
+    // Calculamos si hay algún conflicto "crítico" (ej: jornada vacía o sobrepoblada)
+    // El validado ya nos da esto en conflicts.
+    
     return createPortal(
         <Overlay>
             <ModalContainer onClick={(e) => e.stopPropagation()}>
@@ -210,7 +89,7 @@ export function FixturePreviewModal({
                         <div className="info-teams">
                             <RiTeamLine /> {teams.length} Equipos 
                             {conflictCount > 0 ? (
-                                <BadgeError><RiErrorWarningLine /> {conflictCount} Conflictos</BadgeError>
+                                <BadgeError><RiErrorWarningLine /> {conflictCount} Errores</BadgeError>
                             ) : (
                                 <BadgeSuccess><RiCheckDoubleLine /> Fixture Válido</BadgeSuccess>
                             )}
@@ -234,7 +113,7 @@ export function FixturePreviewModal({
                             {roundIndexes.map((rIndex) => (
                                 <JornadaColumn 
                                     key={rIndex}
-                                    onDragOver={handleDragOver}
+                                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
                                     onDrop={(e) => handleDropOnJornada(e, Number(rIndex))}
                                     $hasConflict={!!conflicts[rIndex]}
                                 >
@@ -252,7 +131,7 @@ export function FixturePreviewModal({
                                                     key={match.id}
                                                     match={match}
                                                     onDragStart={handleDragStart}
-                                                    onDragOver={handleDragOver}
+                                                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
                                                     onDrop={handleDropOnMatch}
                                                     toggleLock={toggleLock}
                                                     isConflict={isConflict}
@@ -271,7 +150,7 @@ export function FixturePreviewModal({
                 <Footer>
                     <WarningText>
                        * Haz click en un equipo para ver su ruta.<br/>
-                       * Arrastra un partido SOBRE otro para intercambiarlos.
+                       * Puedes mover partidos entre jornadas o intercambiarlos.
                     </WarningText>
                     <ActionWrapper>
                         <Btnsave 
