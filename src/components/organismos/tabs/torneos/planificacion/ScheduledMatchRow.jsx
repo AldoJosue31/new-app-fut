@@ -28,13 +28,13 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
         <Container $isConfirmed={isConfirmed}>
             <div className="info">
                 <div className="team local">
-                    <span className="name">{match.local.name}</span>
+                    <span className="name">{match.local?.name || "Equipo Local"}</span>
                     {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals1}</span>}
                 </div>
                 <span className="vs">VS</span>
                 <div className="team visit">
                     {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals2}</span>}
-                    <span className="name">{match.visitante.name}</span>
+                    <span className="name">{match.visitante?.name || "Equipo Visitante"}</span>
                 </div>
             </div>
 

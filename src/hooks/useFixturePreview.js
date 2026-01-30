@@ -1,23 +1,36 @@
 import { useState, useEffect } from "react";
-import { generarEstructuraInicial, validarFixture, autoCorregirFixture } from "../utils/fixtureAlgorithms";
+import { generarEstructuraInicial, validarFixture, autoCorregirFixture, transformarPartidosExistentes } from "../utils/fixtureAlgorithms";
 
-export const useFixturePreview = (teams, config, isOpen) => {
+export const useFixturePreview = (teams, config, isOpen, existingData = null) => {
     const [matches, setMatches] = useState([]);
     const [isAnimating, setIsAnimating] = useState(false);
     const [draggedMatch, setDraggedMatch] = useState(null);
     const [conflicts, setConflicts] = useState({});
     const [selectedTeamId, setSelectedTeamId] = useState(null);
+    
+    // existingData tiene: { matches: [], jornadas: [] } si es modo edición
+    const isEditMode = !!existingData;
 
     // Inicializar
     useEffect(() => {
         if (isOpen && teams.length > 0) {
-            if (matches.length === 0) {
-                const initial = generarEstructuraInicial(teams, config);
+            if (isEditMode) {
+                // MODO EDICIÓN: Cargar y transformar desde DB
+                const initial = transformarPartidosExistentes(existingData.matches, existingData.jornadas, teams);
                 setMatches(initial);
+            } else {
+                // MODO CREACIÓN: Generar nuevo Random
+                if (matches.length === 0) {
+                    const initial = generarEstructuraInicial(teams, config);
+                    setMatches(initial);
+                }
             }
             setSelectedTeamId(null); 
+        } else if (!isOpen && !isEditMode) {
+             // Limpiar al cerrar solo si es creación
+             setMatches([]);
         }
-    }, [isOpen, teams, config, matches.length]);
+    }, [isOpen, teams, config, isEditMode]); // Agregado existingData a deps indirectamente via isEditMode
 
     // Validar en cada cambio
     useEffect(() => {
@@ -32,17 +45,31 @@ export const useFixturePreview = (teams, config, isOpen) => {
     };
 
     const toggleLock = (matchId) => {
-        setMatches(prev => prev.map(m => m.id === matchId ? { ...m, locked: !m.locked } : m));
+        setMatches(prev => prev.map(m => {
+            if (m.id === matchId) {
+                // No permitir desbloquear si la jornada entera está bloqueada (Confirmada)
+                if (m.roundLocked) return m;
+                return { ...m, locked: !m.locked };
+            }
+            return m;
+        }));
     };
 
     const handleShuffle = () => {
-        if (matches.some(m => m.locked)) {
-            if(!window.confirm("Se perderán los bloqueos. ¿Continuar?")) return;
+        if (matches.some(m => m.locked && !m.roundLocked)) {
+            if(!window.confirm("Se perderán los bloqueos manuales. ¿Continuar?")) return;
         }
 
         setIsAnimating(true);
         setTimeout(() => {
-            const newMatches = generarEstructuraInicial(teams, config);
+            let newMatches;
+            if (isEditMode) {
+                // En modo edición, el shuffle NO debe ser total, sino solo de lo disponible.
+                // Como simplificación robusta, "Restaurar" devuelve al estado inicial de la DB
+                newMatches = transformarPartidosExistentes(existingData.matches, existingData.jornadas, teams);
+            } else {
+                newMatches = generarEstructuraInicial(teams, config);
+            }
             setMatches(newMatches);
             setIsAnimating(false);
             setConflicts({});
@@ -53,8 +80,7 @@ export const useFixturePreview = (teams, config, isOpen) => {
     const handleAutoFix = () => {
         setIsAnimating(true);
         setTimeout(() => {
-            // Pasamos teams.length para calcular el balance ideal
-            const fixedMatches = autoCorregirFixture(matches, teams.length, 10000); 
+            const fixedMatches = autoCorregirFixture(matches, teams.length, 5000); 
             setMatches(fixedMatches);
             setIsAnimating(false);
         }, 100);
@@ -63,23 +89,31 @@ export const useFixturePreview = (teams, config, isOpen) => {
     // --- DRAG & DROP ---
 
     const handleDragStart = (e, match) => {
+        // PREVENIR ARRASTRE SI ESTÁ BLOQUEADO POR JORNADA CONFIRMADA
+        if (match.roundLocked) {
+            e.preventDefault();
+            return;
+        }
+
         setDraggedMatch(match);
-        // Efecto visual
         e.dataTransfer.effectAllowed = "move";
-        // Opcional: setear una imagen fantasma personalizada si se desea
     };
 
     const handleDropOnMatch = (e, targetMatch) => {
         e.preventDefault();
         if (!draggedMatch || draggedMatch.id === targetMatch.id) return;
 
-        // Validar que no mezclemos Bye con Normales (Descanso vs Descanso o Normal vs Normal)
+        // PREVENIR DROP EN JORNADA BLOQUEADA
+        if (targetMatch.roundLocked) {
+            alert("No puedes mover partidos a una jornada ya confirmada.");
+            return;
+        }
+
         if (draggedMatch.isByeMatch !== targetMatch.isByeMatch) {
             alert("Solo puedes intercambiar partidos del mismo tipo (Descanso vs Descanso o Normal vs Normal).");
             return;
         }
 
-        // SWAP Explícito (Usuario soltó A sobre B)
         const updatedMatches = matches.map(m => {
             if (m.id === draggedMatch.id) {
                 return { ...m, jornadaIndex: targetMatch.jornadaIndex, locked: true };
@@ -99,17 +133,17 @@ export const useFixturePreview = (teams, config, isOpen) => {
         if (!draggedMatch) return;
         if (draggedMatch.jornadaIndex === targetJornadaIndex) return;
 
-        // --- LÓGICA DE AUTO-SWAP ---
-        // Buscamos un candidato en la jornada destino para intercambiar y mantener el balance.
-        
+        // Validar si la jornada destino está bloqueada
+        const targetIsLocked = matches.some(m => m.jornadaIndex === targetJornadaIndex && m.roundLocked);
+        if (targetIsLocked) {
+            alert("Esta jornada ya fue jugada o confirmada.");
+            return;
+        }
+
         const targetMatches = matches.filter(m => m.jornadaIndex === targetJornadaIndex);
-        
-        // 1. Filtrar candidatos válidos:
-        //    Deben ser del mismo tipo (Bye con Bye, Normal con Normal) para no romper la estructura.
         let candidates = targetMatches.filter(m => m.isByeMatch === draggedMatch.isByeMatch);
         
-        // 2. Si NO hay candidatos (ej: jornada vacía o solo tiene partidos incompatibles),
-        //    hacemos un movimiento simple (MOVE).
+        // Si no hay candidatos (ej. jornada vacía de ese tipo), movemos directo sin swap
         if (candidates.length === 0) {
              const updatedMatches = matches.map(m => {
                 if (m.id === draggedMatch.id) {
@@ -122,21 +156,22 @@ export const useFixturePreview = (teams, config, isOpen) => {
             return;
         }
 
-        // 3. Si hay candidatos, elegimos uno para hacer SWAP.
-        //    Estrategia: Preferimos uno que NO esté bloqueado. Si todos están bloqueados, tomamos el primero.
-        let matchToSwap = candidates.find(m => !m.locked);
+        // Buscar swap disponible (que no esté locked ni roundLocked)
+        let matchToSwap = candidates.find(m => !m.locked && !m.roundLocked);
         if (!matchToSwap) {
-            matchToSwap = candidates[0];
+            matchToSwap = candidates.find(m => !m.roundLocked); // Fallback a bloqueado manual
+        }
+        
+        if (!matchToSwap) {
+             alert("No hay espacio disponible o partidos intercambiables en esta jornada.");
+             return;
         }
 
-        // 4. Ejecutar el intercambio
         const updatedMatches = matches.map(m => {
             if (m.id === draggedMatch.id) {
-                // El partido que arrastró el usuario va al destino y se bloquea
                 return { ...m, jornadaIndex: targetJornadaIndex, locked: true };
             }
             if (m.id === matchToSwap.id) {
-                // El partido "sacrificado" toma el lugar del arrastrado en la jornada origen
                 return { ...m, jornadaIndex: draggedMatch.jornadaIndex };
             }
             return m;
@@ -154,7 +189,6 @@ export const useFixturePreview = (teams, config, isOpen) => {
         matchesByRound[m.jornadaIndex].push(m);
     });
 
-    // Ordenar: Byes primero
     Object.keys(matchesByRound).forEach(key => {
         matchesByRound[key].sort((a, b) => {
             if (a.isByeMatch && !b.isByeMatch) return -1;
@@ -169,6 +203,7 @@ export const useFixturePreview = (teams, config, isOpen) => {
         conflicts,
         selectedTeamId,
         isAnimating,
+        isEditMode,
         handleTeamClick,
         toggleLock,
         handleShuffle,

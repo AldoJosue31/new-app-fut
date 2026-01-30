@@ -1,16 +1,17 @@
 import React from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line } from "react-icons/ri";
+import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line } from "react-icons/ri";
 import { ViewToggle } from "../../../../../index"; 
 
 export function PlanningHeader({ 
     jornadaIndex, status, onPrev, onNext, totalJornadas, 
     weekStartDate, setWeekStartDate,
-    onConfig, viewMode, onToggleView
+    onConfig, viewMode, onToggleView,
+    onEditFixture, 
+    isTournamentActive 
 }) {
     
-    // Función auxiliar para sumar días (retorna objeto Date)
     const addDays = (dateStr, days) => {
         if(!dateStr) return null;
         const d = new Date(dateStr + "T00:00:00");
@@ -18,17 +19,12 @@ export function PlanningHeader({
         return d;
     };
 
-    // Función auxiliar para formatear a dd/mm/yy
     const formatCustomDate = (dateInput) => {
         if (!dateInput) return "??/??/??";
-        
-        // Si viene como string YYYY-MM-DD
         if (typeof dateInput === 'string' && dateInput.includes('-')) {
             const [y, m, d] = dateInput.split('-');
             return `${d}/${m}/${y.slice(-2)}`;
         }
-        
-        // Si es objeto Date
         if (dateInput instanceof Date) {
             const d = String(dateInput.getDate()).padStart(2, '0');
             const m = String(dateInput.getMonth() + 1).padStart(2, '0');
@@ -64,9 +60,7 @@ export function PlanningHeader({
                         <span className="static-date">{formatCustomDate(weekStartDate)}</span>
                     ) : (
                         <div className="input-wrapper">
-                             {/* Texto visible dd/mm/yy */}
                             <span className="fake-input">{formatCustomDate(weekStartDate)}</span>
-                            {/* Input invisible que cubre todo el área para clickear */}
                             <input 
                                 type="date" 
                                 value={weekStartDate || ''} 
@@ -81,9 +75,17 @@ export function PlanningHeader({
             </InfoGroup>
 
             <ActionsGroup>
-                <BtnConfig onClick={onConfig} title="Configuración de Jornada">
+                {/* Botón de Edición de Fixture para torneos iniciados */}
+                {isTournamentActive && (
+                    <BtnAction onClick={onEditFixture} title="Reorganizar partidos futuros">
+                        <RiEdit2Line size={20}/>
+                    </BtnAction>
+                )}
+                
+                <BtnAction onClick={onConfig} title="Configuración de Jornada">
                     <RiSettings4Line size={20}/>
-                </BtnConfig>
+                </BtnAction>
+                
                 <div className="separator"></div>
                 <ViewToggle currentMode={viewMode} onToggle={onToggleView} />
             </ActionsGroup>
@@ -142,53 +144,17 @@ const DateRow = styled.div`
   border: 1px solid ${({theme})=>theme.bg4};
   font-family: 'Nunito', sans-serif;
   flex-wrap: wrap;
-
   .label-text { font-size: 0.9rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.8; }
   .static-date { font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem; }
-
   .input-wrapper {
-      position: relative;
-      display: inline-block;
-      min-width: 85px; 
-      height: 24px;
-      text-align: center;
-      cursor: pointer;
-
-      .fake-input {
-          font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem;
-          border-bottom: 2px dashed ${v.colorPrincipal};
-          padding-bottom: 2px;
-          display: block;
-          width: 100%;
-      }
-
-      input[type="date"] {
-          position: absolute; 
-          top: 0; 
-          left: 0; 
-          width: 100%; 
-          height: 100%;
-          opacity: 0; 
-          cursor: pointer;
-          z-index: 10;
-          
-          &::-webkit-calendar-picker-indicator { 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            padding: 0;
-            margin: 0;
-            cursor: pointer; 
-          }
-      }
+      position: relative; display: inline-block; min-width: 85px; height: 24px; text-align: center; cursor: pointer;
+      .fake-input { font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem; border-bottom: 2px dashed ${v.colorPrincipal}; padding-bottom: 2px; display: block; width: 100%; }
+      input[type="date"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
   }
-
   @media (max-width: 768px) { justify-content: center; width: 100%; }
 `;
 
-const BtnConfig = styled.button`
+const BtnAction = styled.button`
   background: ${({theme})=>theme.bg4}; border: none; border-radius: 8px; width: 42px; height: 42px;
   display: flex; align-items: center; justify-content: center; cursor: pointer; color: ${({theme})=>theme.text}; transition: all 0.2s;
   &:hover { background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; transform: translateY(-2px); }

@@ -1,75 +1,46 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { 
-    RiRefreshLine, 
-    RiCheckDoubleLine, 
-    RiCloseLine, 
-    RiCalendarEventLine, 
-    RiTeamLine,
-    RiMagicLine,
-    RiErrorWarningLine
+    RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine, 
+    RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line 
 } from "react-icons/ri";
 import { Btnsave } from "../../../../../index"; 
 import { FixtureMatchCard } from "./FixtureMatchCard";
-import { useFixturePreview } from "../../../../../hooks/useFixturePreview"; // Asegúrate de importar desde la ruta correcta
+import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 
 export function FixturePreviewModal({ 
-    isOpen, 
-    onClose, 
-    onConfirm, 
-    teams = [], 
-    config, 
-    isLoading 
+    isOpen, onClose, onConfirm, teams = [], config, isLoading,
+    existingData = null // Prop nueva: Si viene, activa modo edición
 }) {
-    // Usamos el hook modularizado
     const {
-        matches,
-        matchesByRound,
-        conflicts,
-        selectedTeamId,
-        isAnimating,
-        handleTeamClick,
-        toggleLock,
-        handleShuffle,
-        handleAutoFix,
-        handleDragStart,
-        handleDropOnMatch,
-        handleDropOnJornada
-    } = useFixturePreview(teams, config, isOpen);
+        matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
+        handleTeamClick, toggleLock, handleShuffle, handleAutoFix,
+        handleDragStart, handleDropOnMatch, handleDropOnJornada
+    } = useFixturePreview(teams, config, isOpen, existingData);
 
     if (!isOpen) return null;
 
     const handleConfirmar = () => {
-        const maxJornada = Math.max(...matches.map(m => m.jornadaIndex));
-        const finalFixture = [];
-
-        for (let i = 0; i <= maxJornada; i++) {
-            const matchesInRound = matches
-                .filter(m => m.jornadaIndex === i)
-                .map(m => ({
-                    local: m.local,
-                    visitante: m.visitante
-                }));
-            
-            if (matchesInRound.length > 0) {
-                finalFixture.push({
-                    name: `Jornada ${i + 1}`,
-                    matches: matchesInRound
-                });
+        if (isEditMode) {
+            // MODO EDICIÓN: Devolver todos los matches (el padre filtrará y actualizará)
+            onConfirm(matches);
+        } else {
+            // MODO CREACIÓN (Original)
+            const maxJornada = Math.max(...matches.map(m => m.jornadaIndex));
+            const finalFixture = [];
+            for (let i = 0; i <= maxJornada; i++) {
+                const matchesInRound = matches.filter(m => m.jornadaIndex === i).map(m => ({ local: m.local, visitante: m.visitante }));
+                if (matchesInRound.length > 0) finalFixture.push({ name: `Jornada ${i + 1}`, matches: matchesInRound });
             }
+            onConfirm(finalFixture);
         }
-        
-        onConfirm(finalFixture);
     };
 
     const roundIndexes = Object.keys(matchesByRound).sort((a,b) => Number(a) - Number(b));
     const conflictCount = Object.keys(conflicts).length;
 
-    // Calculamos si hay algún conflicto "crítico" (ej: jornada vacía o sobrepoblada)
-    // El validado ya nos da esto en conflicts.
-    
     return createPortal(
         <Overlay>
             <ModalContainer onClick={(e) => e.stopPropagation()}>
@@ -77,8 +48,8 @@ export function FixturePreviewModal({
                     <div className="header-info">
                         <IconWrapper><RiCalendarEventLine /></IconWrapper>
                         <div className="texts">
-                            <h3>Editor de Fixture</h3>
-                            <span>Organiza las jornadas antes de guardar</span>
+                            <h3>{isEditMode ? "Reorganizar Calendario" : "Editor de Fixture"}</h3>
+                            <span>{isEditMode ? "Mueve partidos futuros. Las jornadas jugadas están bloqueadas." : "Organiza las jornadas antes de guardar"}</span>
                         </div>
                     </div>
                     <CloseBtn onClick={onClose}><RiCloseLine /></CloseBtn>
@@ -98,63 +69,74 @@ export function FixturePreviewModal({
                             {conflictCount > 0 && (
                                 <ActionButton onClick={handleAutoFix} disabled={isAnimating} $color={v.colorWarning}>
                                     <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
-                                    <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
+                                    <span>Corregir</span>
                                 </ActionButton>
                             )}
                             <ActionButton onClick={handleShuffle} disabled={isAnimating}>
                                 <RiRefreshLine className={isAnimating ? "icon-spin" : ""} />
-                                <span>Reiniciar</span>
+                                <span>{isEditMode ? "Restaurar" : "Reiniciar"}</span>
                             </ActionButton>
                         </div>
                     </Toolbar>
 
                     <ScrollArea>
                         <Grid $isAnimating={isAnimating}>
-                            {roundIndexes.map((rIndex) => (
-                                <JornadaColumn 
-                                    key={rIndex}
-                                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-                                    onDrop={(e) => handleDropOnJornada(e, Number(rIndex))}
-                                    $hasConflict={!!conflicts[rIndex]}
-                                >
-                                    <JornadaTitle $hasConflict={!!conflicts[rIndex]}>
-                                        Jornada {Number(rIndex) + 1}
-                                    </JornadaTitle>
-                                    <MatchesList>
-                                        {matchesByRound[rIndex].map((match) => {
-                                            const isConflict = conflicts[rIndex] && (
-                                                conflicts[rIndex].includes(match.local.id) || 
-                                                conflicts[rIndex].includes(match.visitante.id)
-                                            );
-                                            return (
-                                                <FixtureMatchCard 
-                                                    key={match.id}
-                                                    match={match}
-                                                    onDragStart={handleDragStart}
-                                                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-                                                    onDrop={handleDropOnMatch}
-                                                    toggleLock={toggleLock}
-                                                    isConflict={isConflict}
-                                                    selectedTeamId={selectedTeamId}
-                                                    onTeamClick={handleTeamClick}
-                                                />
-                                            );
-                                        })}
-                                        {matchesByRound[rIndex].length === 0 && <EmptySlot>Vacío</EmptySlot>}
-                                    </MatchesList>
-                                </JornadaColumn>
-                            ))}
+                            {roundIndexes.map((rIndex) => {
+                                // Detectar si la jornada está bloqueada revisando sus partidos
+                                const isRoundLocked = matchesByRound[rIndex].some(m => m.roundLocked);
+                                
+                                return (
+                                    <JornadaColumn 
+                                        key={rIndex}
+                                        $locked={isRoundLocked}
+                                        onDragOver={(e) => { 
+                                            if(!isRoundLocked) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
+                                        }}
+                                        onDrop={(e) => {
+                                            if(!isRoundLocked) handleDropOnJornada(e, Number(rIndex))
+                                        }}
+                                        $hasConflict={!!conflicts[rIndex]}
+                                    >
+                                        <JornadaTitle $hasConflict={!!conflicts[rIndex]} $locked={isRoundLocked}>
+                                            <span>Jornada {Number(rIndex) + 1}</span>
+                                            {isRoundLocked && <RiLock2Line />}
+                                        </JornadaTitle>
+                                        <MatchesList>
+                                            {matchesByRound[rIndex].map((match) => {
+                                                const isConflict = conflicts[rIndex] && (
+                                                    conflicts[rIndex].includes(match.local.id) || 
+                                                    conflicts[rIndex].includes(match.visitante.id)
+                                                );
+                                                return (
+                                                    <FixtureMatchCard 
+                                                        key={match.id}
+                                                        match={match}
+                                                        onDragStart={handleDragStart}
+                                                        onDragOver={(e) => { if(!match.roundLocked) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}}
+                                                        onDrop={handleDropOnMatch}
+                                                        toggleLock={toggleLock}
+                                                        isConflict={isConflict}
+                                                        selectedTeamId={selectedTeamId}
+                                                        onTeamClick={handleTeamClick}
+                                                    />
+                                                );
+                                            })}
+                                            {matchesByRound[rIndex].length === 0 && <EmptySlot>Vacío</EmptySlot>}
+                                        </MatchesList>
+                                    </JornadaColumn>
+                                );
+                            })}
                         </Grid>
                     </ScrollArea>
                 </Content>
                 <Footer>
                     <WarningText>
                        * Haz click en un equipo para ver su ruta.<br/>
-                       * Puedes mover partidos entre jornadas o intercambiarlos.
+                       {isEditMode ? "* Solo puedes modificar jornadas NO confirmadas." : "* Puedes mover partidos entre jornadas."}
                     </WarningText>
                     <ActionWrapper>
                         <Btnsave 
-                            titulo={isLoading ? "Guardando..." : "Confirmar Fixture"}
+                            titulo={isLoading ? "Guardando..." : "Confirmar Cambios"}
                             bgcolor={conflictCount > 0 ? v.colorWarning : v.colorPrincipal}
                             icono={<RiCheckDoubleLine />}
                             funcion={handleConfirmar}
@@ -183,8 +165,30 @@ const BadgeError = styled.span`display: flex; align-items: center; gap: 5px; col
 const BadgeSuccess = styled.span`display: flex; align-items: center; gap: 5px; color: ${v.colorPrincipal}; font-size: 0.8rem; background: ${v.colorPrincipal}15; padding: 4px 8px; border-radius: 4px;`;
 const ScrollArea = styled.div`flex: 1; overflow-y: auto; padding: 24px; &::-webkit-scrollbar { width: 8px; } &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.bg4}; border-radius: 4px; } @media (max-width: 768px) { padding: 12px; }`;
 const Grid = styled.div`display: flex; flex-wrap: wrap; gap: 16px; opacity: ${props => props.$isAnimating ? 0.5 : 1}; transition: opacity 0.3s ease; align-items: flex-start;`;
-const JornadaColumn = styled.div`background: ${({ theme, $hasConflict }) => $hasConflict ? `${v.colorError}05` : theme.bgcards}; border: 1px solid ${({ theme, $hasConflict }) => $hasConflict ? v.colorError : theme.bg4}; border-radius: 12px; overflow: hidden; width: 280px; flex-shrink: 0; display: flex; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.03); @media (max-width: 600px) { width: 100%; }`;
-const JornadaTitle = styled.div`padding: 10px 15px; background: ${({ theme }) => theme.bg3}; font-size: 0.85rem; color: ${({ theme, $hasConflict }) => $hasConflict ? v.colorError : v.colorPrincipal}; font-weight: 700; border-bottom: 1px solid ${({ theme }) => theme.bg4}; display: flex; justify-content: space-between;`;
+
+// Modificado para soportar prop Locked
+const JornadaColumn = styled.div`
+    background: ${({ theme, $hasConflict, $locked }) => 
+        $locked ? theme.bg3 : ($hasConflict ? `${v.colorError}05` : theme.bgcards)}; 
+    border: 1px solid ${({ theme, $hasConflict, $locked }) => 
+        $locked ? theme.bg4 : ($hasConflict ? v.colorError : theme.bg4)}; 
+    border-radius: 12px; overflow: hidden; width: 280px; flex-shrink: 0; display: flex; flex-direction: column; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+    opacity: ${({$locked}) => $locked ? 0.7 : 1};
+    ${({$locked}) => $locked && css`pointer-events: none;`}
+    @media (max-width: 600px) { width: 100%; }
+`;
+
+const JornadaTitle = styled.div`
+    padding: 10px 15px; 
+    background: ${({ theme, $locked }) => $locked ? theme.bg4 : theme.bg3}; 
+    font-size: 0.85rem; 
+    color: ${({ theme, $hasConflict, $locked }) => 
+        $locked ? theme.textFade : ($hasConflict ? v.colorError : v.colorPrincipal)}; 
+    font-weight: 700; border-bottom: 1px solid ${({ theme }) => theme.bg4}; 
+    display: flex; justify-content: space-between; align-items: center;
+`;
+
 const MatchesList = styled.div`padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 50px;`;
 const EmptySlot = styled.div`padding: 10px; border: 2px dashed ${({theme})=>theme.bg4}; border-radius: 8px; color: ${({theme})=>theme.textFade}; font-size: 0.8rem; text-align: center;`;
 const Footer = styled.footer`padding: 16px 24px; border-top: 1px solid ${({ theme }) => theme.bg4}; display: flex; justify-content: space-between; align-items: center; background: ${({ theme }) => theme.bg}; flex-shrink: 0; gap: 15px; @media (max-width: 600px) { flex-direction: column-reverse; align-items: stretch; padding: 16px; }`;
