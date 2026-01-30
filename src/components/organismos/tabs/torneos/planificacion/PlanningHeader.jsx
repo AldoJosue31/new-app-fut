@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useRef } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line } from "react-icons/ri";
 import { ViewToggle } from "../../../../../index"; 
+import { addDaysToDate } from "../../../../../utils/dateUtils";
 
 export function PlanningHeader({ 
     jornadaIndex, status, onPrev, onNext, totalJornadas, 
@@ -11,6 +12,8 @@ export function PlanningHeader({
     onEditFixture, 
     isTournamentActive 
 }) {
+    // 1. Creamos la referencia
+    const dateInputRef = useRef(null);
     
     const addDays = (dateStr, days) => {
         if(!dateStr) return null;
@@ -34,8 +37,22 @@ export function PlanningHeader({
         return "??/??/??";
     };
 
-    const endDate = addDays(weekStartDate, 6);
+    const endDate = addDaysToDate(weekStartDate, 6);
     const isConfirmed = status === 'Confirmada';
+
+    // 2. Función para abrir el calendario forzosamente
+    const triggerDatePicker = () => {
+        if(dateInputRef.current) {
+            // showPicker es el método moderno para abrir el calendario nativo
+            if(dateInputRef.current.showPicker) {
+                dateInputRef.current.showPicker();
+            } else {
+                // Fallback para navegadores antiguos
+                dateInputRef.current.focus();
+                dateInputRef.current.click(); 
+            }
+        }
+    };
 
     return (
         <Container>
@@ -59,9 +76,11 @@ export function PlanningHeader({
                     {isConfirmed ? (
                         <span className="static-date">{formatCustomDate(weekStartDate)}</span>
                     ) : (
-                        <div className="input-wrapper">
+                        // 3. Agregamos el onClick al contenedor padre
+                        <div className="input-wrapper" onClick={triggerDatePicker}>
                             <span className="fake-input">{formatCustomDate(weekStartDate)}</span>
                             <input 
+                                ref={dateInputRef} // Conectamos la ref
                                 type="date" 
                                 value={weekStartDate || ''} 
                                 onChange={(e) => setWeekStartDate(e.target.value)}
@@ -144,13 +163,52 @@ const DateRow = styled.div`
   border: 1px solid ${({theme})=>theme.bg4};
   font-family: 'Nunito', sans-serif;
   flex-wrap: wrap;
+  
   .label-text { font-size: 0.9rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.8; }
   .static-date { font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem; }
+  
+  /* Estilo mejorado para el wrapper del input */
   .input-wrapper {
-      position: relative; display: inline-block; min-width: 85px; height: 24px; text-align: center; cursor: pointer;
-      .fake-input { font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem; border-bottom: 2px dashed ${v.colorPrincipal}; padding-bottom: 2px; display: block; width: 100%; }
-      input[type="date"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
+      position: relative; 
+      display: inline-flex; /* Flex para mejor alineación */
+      align-items: center;
+      justify-content: center;
+      min-width: 85px; 
+      /* Quitamos el height fijo para que se adapte al contenido */
+      padding: 0 4px; /* Un poco de padding horizontal extra */
+      text-align: center; 
+      cursor: pointer;
+      
+      /* Efecto hover para indicar que es clickeable */
+      transition: background 0.2s;
+      border-radius: 4px;
+      &:hover {
+          background: ${({theme}) => theme.bg4};
+      }
+
+      .fake-input { 
+          font-weight: 800; 
+          color: ${v.colorPrincipal}; 
+          font-size: 0.95rem; 
+          border-bottom: 2px dashed ${v.colorPrincipal}; 
+          padding-bottom: 2px; 
+          display: block; 
+          width: 100%; 
+          pointer-events: none; /* Asegura que el click pase al wrapper */
+      }
+      
+      input[type="date"] { 
+          position: absolute; 
+          top: 0; 
+          left: 0; 
+          width: 100%; 
+          height: 100%; 
+          opacity: 0; 
+          cursor: pointer; 
+          z-index: 10; 
+      }
   }
+  
   @media (max-width: 768px) { justify-content: center; width: 100%; }
 `;
 
