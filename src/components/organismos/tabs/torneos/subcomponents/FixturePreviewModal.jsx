@@ -12,7 +12,7 @@ import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 
 export function FixturePreviewModal({ 
     isOpen, onClose, onConfirm, teams = [], config, isLoading,
-    existingData = null // Prop nueva: Si viene, activa modo edición
+    existingData = null 
 }) {
     const {
         matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
@@ -24,11 +24,9 @@ export function FixturePreviewModal({
 
     const handleConfirmar = () => {
         if (isEditMode) {
-            // MODO EDICIÓN: Devolver todos los matches (el padre filtrará y actualizará)
             onConfirm(matches);
         } else {
-            // MODO CREACIÓN (Original)
-            const maxJornada = Math.max(...matches.map(m => m.jornadaIndex));
+            const maxJornada = Math.max(...matches.map(m => m.jornadaIndex), 0);
             const finalFixture = [];
             for (let i = 0; i <= maxJornada; i++) {
                 const matchesInRound = matches.filter(m => m.jornadaIndex === i).map(m => ({ local: m.local, visitante: m.visitante }));
@@ -60,7 +58,7 @@ export function FixturePreviewModal({
                         <div className="info-teams">
                             <RiTeamLine /> {teams.length} Equipos 
                             {conflictCount > 0 ? (
-                                <BadgeError><RiErrorWarningLine /> {conflictCount} Errores</BadgeError>
+                                <BadgeError><RiErrorWarningLine /> {conflictCount} Conflictos</BadgeError>
                             ) : (
                                 <BadgeSuccess><RiCheckDoubleLine /> Fixture Válido</BadgeSuccess>
                             )}
@@ -69,7 +67,7 @@ export function FixturePreviewModal({
                             {conflictCount > 0 && (
                                 <ActionButton onClick={handleAutoFix} disabled={isAnimating} $color={v.colorWarning}>
                                     <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
-                                    <span>Corregir</span>
+                                    <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
                                 </ActionButton>
                             )}
                             <ActionButton onClick={handleShuffle} disabled={isAnimating}>
@@ -82,19 +80,13 @@ export function FixturePreviewModal({
                     <ScrollArea>
                         <Grid $isAnimating={isAnimating}>
                             {roundIndexes.map((rIndex) => {
-                                // Detectar si la jornada está bloqueada revisando sus partidos
                                 const isRoundLocked = matchesByRound[rIndex].some(m => m.roundLocked);
-                                
                                 return (
                                     <JornadaColumn 
                                         key={rIndex}
                                         $locked={isRoundLocked}
-                                        onDragOver={(e) => { 
-                                            if(!isRoundLocked) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
-                                        }}
-                                        onDrop={(e) => {
-                                            if(!isRoundLocked) handleDropOnJornada(e, Number(rIndex))
-                                        }}
+                                        onDragOver={(e) => { if(!isRoundLocked) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}}
+                                        onDrop={(e) => { if(!isRoundLocked) handleDropOnJornada(e, Number(rIndex)) }}
                                         $hasConflict={!!conflicts[rIndex]}
                                     >
                                         <JornadaTitle $hasConflict={!!conflicts[rIndex]} $locked={isRoundLocked}>
@@ -136,7 +128,7 @@ export function FixturePreviewModal({
                     </WarningText>
                     <ActionWrapper>
                         <Btnsave 
-                            titulo={isLoading ? "Guardando..." : "Confirmar Cambios"}
+                            titulo={isLoading ? "Guardando..." : (isEditMode ? "Confirmar Cambios" : "Confirmar Fixture")}
                             bgcolor={conflictCount > 0 ? v.colorWarning : v.colorPrincipal}
                             icono={<RiCheckDoubleLine />}
                             funcion={handleConfirmar}
@@ -150,7 +142,7 @@ export function FixturePreviewModal({
     );
 }
 
-// --- STYLES ---
+// --- STYLES (Se mantienen los del proyecto actual) ---
 const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const fadeIn = keyframes`from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); }`;
 const Overlay = styled.div`position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 2000; display: flex; justify-content: center; align-items: center; padding: 20px; @media (max-width: 768px) { padding: 0; align-items: flex-end; }`;
@@ -166,7 +158,6 @@ const BadgeSuccess = styled.span`display: flex; align-items: center; gap: 5px; c
 const ScrollArea = styled.div`flex: 1; overflow-y: auto; padding: 24px; &::-webkit-scrollbar { width: 8px; } &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.bg4}; border-radius: 4px; } @media (max-width: 768px) { padding: 12px; }`;
 const Grid = styled.div`display: flex; flex-wrap: wrap; gap: 16px; opacity: ${props => props.$isAnimating ? 0.5 : 1}; transition: opacity 0.3s ease; align-items: flex-start;`;
 
-// Modificado para soportar prop Locked
 const JornadaColumn = styled.div`
     background: ${({ theme, $hasConflict, $locked }) => 
         $locked ? theme.bg3 : ($hasConflict ? `${v.colorError}05` : theme.bgcards)}; 
