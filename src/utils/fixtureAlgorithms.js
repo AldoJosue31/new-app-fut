@@ -17,7 +17,6 @@ export const generarEstructuraInicial = (teams, config) => {
     let newMatches = [];
     let matchIdCounter = 1;
 
-    // Objeto Dummy para descanso
     const byeTeam = { id: 'BYE', name: 'DESCANSA', img: null, isBye: true };
 
     rounds.forEach((round, rIndex) => {
@@ -44,19 +43,18 @@ export const generarEstructuraInicial = (teams, config) => {
 
             if (local) {
                 newMatches.push({
-                    id: `temp_${matchIdCounter++}`, // ID temporal
+                    id: `temp_${matchIdCounter++}`,
                     local: local,
                     visitante: visita,
                     jornadaIndex: rIndex,
                     locked: false, 
                     isByeMatch: isBye,
-                    dbId: null // No tiene ID en BD aún
+                    dbId: null 
                 });
             }
         });
     });
 
-    // Ida y vuelta
     if (config?.vueltas === "2") {
         const totalRoundsIda = rounds.length;
         const matchesVuelta = newMatches.map(m => ({
@@ -76,19 +74,13 @@ export const generarEstructuraInicial = (teams, config) => {
 
 /**
  * Transforma partidos de BD al formato del Editor (EDICIÓN POST-INICIO).
- * Reconstruye los partidos normales y crea objetos "ficticios" para los equipos que descansan.
  */
 export const transformarPartidosExistentes = (matchesDB, jornadas, teams) => {
     const byeTeam = { id: 'BYE', name: 'DESCANSA', img: null, isBye: true };
     const editorMatches = [];
-    
-    // Mapeo rápido de jornadas ID -> { index, status }
     const jornadaMap = {};
-    const jornadaIndexToId = {}; // Para reconstruir descansos
     
-    // Ordenamos jornadas por ID o nombre para asegurar índice secuencial
     const jornadasSorted = [...jornadas].sort((a,b) => {
-        // Intenta extraer el numero de "Jornada X"
         const numA = parseInt(a.name.replace(/\D/g, '')) || a.id;
         const numB = parseInt(b.name.replace(/\D/g, '')) || b.id;
         return numA - numB;
@@ -96,44 +88,33 @@ export const transformarPartidosExistentes = (matchesDB, jornadas, teams) => {
 
     jornadasSorted.forEach((j, index) => {
         jornadaMap[j.id] = { index: index, status: j.status, id: j.id };
-        jornadaIndexToId[index] = j.id;
     });
 
-    // 1. Procesar partidos reales de la DB
     matchesDB.forEach(m => {
         const jInfo = jornadaMap[m.jornada_id];
-        if (!jInfo) return; // Partido de jornada eliminada o desconocida
+        if (!jInfo) return;
 
         const localTeam = teams.find(t => t.id === m.team1_id);
         const visitaTeam = teams.find(t => t.id === m.team2_id);
-        
-        // Si falta un equipo en el match de DB (ej. null), es un BYE implícito guardado
-        // (Aunque normalmente no se guardan, manejamos el caso)
-        const isByeMatch = !localTeam || !visitaTeam;
-        
-        // Si la jornada está confirmada/finalizada, bloqueamos
         const isRoundLocked = (jInfo.status === 'Confirmada' || jInfo.status === 'Finalizada');
 
         if (localTeam) {
             editorMatches.push({
-                id: m.id, // UUID real
+                id: m.id,
                 dbId: m.id,
                 local: localTeam,
                 visitante: visitaTeam || byeTeam,
                 jornadaIndex: jInfo.index,
                 locked: isRoundLocked,
-                roundLocked: isRoundLocked, // Flag crítico para la UI
-                isByeMatch: isByeMatch || (visitaTeam === undefined)
+                roundLocked: isRoundLocked,
+                isByeMatch: !localTeam || !visitaTeam
             });
         }
     });
 
-    // 2. Reconstruir Descansos (BYEs no guardados en BD)
-    // Para cada jornada, ver qué equipos NO jugaron y emparejarlos con el BYE
     jornadasSorted.forEach((j, index) => {
         const jInfo = jornadaMap[j.id];
         const isRoundLocked = (jInfo.status === 'Confirmada' || jInfo.status === 'Finalizada');
-
         const matchesInRound = editorMatches.filter(m => m.jornadaIndex === index);
         const playedTeamIds = new Set();
         
@@ -144,11 +125,10 @@ export const transformarPartidosExistentes = (matchesDB, jornadas, teams) => {
 
         const teamsResting = teams.filter(t => !playedTeamIds.has(t.id));
 
-        // Crear match ficticio de descanso para estos equipos
         teamsResting.forEach(t => {
             editorMatches.push({
-                id: `temp_bye_${index}_${t.id}`, // ID temporal
-                dbId: null, // No existe en BD
+                id: `temp_bye_${index}_${t.id}`,
+                dbId: null,
                 local: t,
                 visitante: byeTeam,
                 jornadaIndex: index,
@@ -162,118 +142,71 @@ export const transformarPartidosExistentes = (matchesDB, jornadas, teams) => {
     return editorMatches;
 };
 
-
 /**
- * Valida conflictos (equipos repetidos) Y desbalance numérico.
+ * Valida conflictos (equipos repetidos en la misma jornada).
  */
-export const validarFixture = (matches, totalTeams) => {
+export const validarFixture = (matches) => {
     const conflicts = {};
     let totalConflicts = 0;
-    
-    const expectedMatchesPerRound = Math.ceil(totalTeams / 2);
-
     const byRound = {};
-    const maxJornada = Math.max(...matches.map(m => m.jornadaIndex), 0);
 
-    for(let i=0; i<=maxJornada; i++) byRound[i] = [];
-    
     for (const m of matches) {
-        if(byRound[m.jornadaIndex]) byRound[m.jornadaIndex].push(m);
+        if (!byRound[m.jornadaIndex]) byRound[m.jornadaIndex] = [];
+        byRound[m.jornadaIndex].push(m);
     }
 
     for (const rIndex in byRound) {
-        const roundMatches = byRound[rIndex];
-        const roundErrors = [];
-
-        // 1. Validación de Cantidad (Balance)
-        if (roundMatches.length > expectedMatchesPerRound) {
-            roundErrors.push('OVERFLOW'); 
-            totalConflicts += (roundMatches.length - expectedMatchesPerRound) * 2;
-        }
-
-        // 2. Validación de Duplicados
         const teamsInRound = new Set();
         const duplicates = new Set();
+        const roundMatches = byRound[rIndex];
 
         for (const m of roundMatches) {
-            // Check Local
             if (m.local.id !== 'BYE') {
                 if (teamsInRound.has(m.local.id)) duplicates.add(m.local.id);
                 teamsInRound.add(m.local.id);
             }
-            // Check Visitante
             if (m.visitante.id !== 'BYE') {
                 if (teamsInRound.has(m.visitante.id)) duplicates.add(m.visitante.id);
                 teamsInRound.add(m.visitante.id);
             }
         }
 
-        if (duplicates.size > 0 || roundErrors.length > 0) {
+        if (duplicates.size > 0) {
             conflicts[rIndex] = Array.from(duplicates);
             totalConflicts += duplicates.size;
         }
     }
 
-    return { conflicts, totalConflicts, expectedMatchesPerRound };
+    return { conflicts, totalConflicts };
 };
 
-export const autoCorregirFixture = (initialMatches, totalTeams, maxIterations = 5000) => {
-    // NOTA: Para el modo edición, NO debemos mover partidos que tengan 'roundLocked' o 'locked'
-    
+/**
+ * Algoritmo "Min-Conflicts" Optimizado (Recuperado).
+ * Respeta estrictamente los bloqueos de jornadas y bloqueos manuales.
+ */
+export const autoCorregirFixture = (initialMatches, maxIterations = 10000) => {
     let currentMatches = JSON.parse(JSON.stringify(initialMatches));
-    const expectedMatchesPerRound = Math.ceil(totalTeams / 2);
-    
-    const getStatus = (ms) => validarFixture(ms, totalTeams);
-
-    let { totalConflicts: bestScore } = getStatus(currentMatches);
+    let { totalConflicts: bestScore } = validarFixture(currentMatches);
     let bestSolution = JSON.parse(JSON.stringify(currentMatches));
 
     if (bestScore === 0) return currentMatches;
 
+    const maxJornada = Math.max(...currentMatches.map(m => m.jornadaIndex), 0);
+
     for (let i = 0; i < maxIterations; i++) {
         if (bestScore === 0) break;
 
-        const byRound = {};
-        currentMatches.forEach(m => {
-            if(!byRound[m.jornadaIndex]) byRound[m.jornadaIndex] = [];
-            byRound[m.jornadaIndex].push(m);
-        });
-
-        const roundsIndexes = Object.keys(byRound).map(Number);
-        const fatRounds = roundsIndexes.filter(r => byRound[r].length > expectedMatchesPerRound);
-        const thinRounds = roundsIndexes.filter(r => byRound[r].length < expectedMatchesPerRound);
-
-        if (fatRounds.length > 0 && thinRounds.length > 0) {
-            const sourceR = fatRounds[Math.floor(Math.random() * fatRounds.length)];
-            const targetR = thinRounds[Math.floor(Math.random() * thinRounds.length)];
-
-            // Importante: Solo candidatos NO bloqueados
-            const candidates = byRound[sourceR].filter(m => !m.locked && !m.roundLocked);
-            
-            if (candidates.length > 0) {
-                const matchToMove = candidates[Math.floor(Math.random() * candidates.length)];
-                matchToMove.jornadaIndex = targetR; 
-                
-                const { totalConflicts: newScore } = getStatus(currentMatches);
-                if (newScore < bestScore) {
-                    bestScore = newScore;
-                    bestSolution = JSON.parse(JSON.stringify(currentMatches));
-                }
-                continue; 
-            }
-        }
-
-        const { conflicts } = getStatus(currentMatches);
+        const { conflicts } = validarFixture(currentMatches);
         const conflictRounds = Object.keys(conflicts);
-        
-        if (conflictRounds.length === 0) continue; 
+        if (conflictRounds.length === 0) break;
 
         const badRound = Number(conflictRounds[Math.floor(Math.random() * conflictRounds.length)]);
         const badTeams = conflicts[badRound];
         
+        // Buscar un partido que cause el conflicto Y que NO esté bloqueado (ni por BD ni manual)
         let conflictiveMatches = currentMatches.filter(m => 
             m.jornadaIndex === badRound && 
-            !m.locked && !m.roundLocked &&
+            !m.locked && !m.roundLocked && 
             (badTeams.includes(m.local.id) || badTeams.includes(m.visitante.id))
         );
 
@@ -285,39 +218,72 @@ export const autoCorregirFixture = (initialMatches, totalTeams, maxIterations = 
 
         const matchA = conflictiveMatches[Math.floor(Math.random() * conflictiveMatches.length)];
         const idxA = currentMatches.findIndex(m => m.id === matchA.id);
-
-        const targetRoundsToCheck = roundsIndexes.filter(r => r !== badRound);
+        const targetRoundsToCheck = [];
+        for(let r=0; r<=maxJornada; r++) if(r !== badRound) targetRoundsToCheck.push(r);
         
-        let bestSwapCandidate = null;
-
-        // Búsqueda simplificada para swap
-        for (let r of targetRoundsToCheck) {
+        // Estrategia Probabilística del código original
+        if (Math.random() < 0.10) {
+            const randomR = targetRoundsToCheck[Math.floor(Math.random() * targetRoundsToCheck.length)];
             const candidatesB = currentMatches.filter(m => 
-                m.jornadaIndex === r && 
-                !m.locked && !m.roundLocked &&
-                m.isByeMatch === matchA.isByeMatch
+                m.jornadaIndex === randomR && !m.locked && !m.roundLocked && m.isByeMatch === matchA.isByeMatch 
             );
-            
-            if(candidatesB.length > 0) {
-                 const matchB = candidatesB[Math.floor(Math.random() * candidatesB.length)];
-                 bestSwapCandidate = matchB;
-                 break; 
+            if (candidatesB.length > 0) {
+                const matchB = candidatesB[Math.floor(Math.random() * candidatesB.length)];
+                performSwap(currentMatches, idxA, matchB);
             }
+        } else {
+            // Greedy: Buscar el swap que minimice conflictos
+            let bestSwapCandidate = null;
+            let minDelta = Infinity;
+
+            for (let r of targetRoundsToCheck) {
+                const candidatesB = currentMatches.filter(m => 
+                    m.jornadaIndex === r && !m.locked && !m.roundLocked && m.isByeMatch === matchA.isByeMatch
+                );
+                for (let matchB of candidatesB) {
+                    const costA_in_R = countConflictsForMatchInRound(matchA, r, currentMatches, matchB.id); 
+                    const costB_in_Bad = countConflictsForMatchInRound(matchB, badRound, currentMatches, matchA.id);
+                    const totalCost = costA_in_R + costB_in_Bad;
+
+                    if (totalCost < minDelta) {
+                        minDelta = totalCost;
+                        bestSwapCandidate = matchB;
+                    }
+                }
+            }
+            if (bestSwapCandidate) performSwap(currentMatches, idxA, bestSwapCandidate);
         }
 
-        if (bestSwapCandidate) {
-            const idxB = currentMatches.findIndex(m => m.id === bestSwapCandidate.id);
-            const temp = currentMatches[idxA].jornadaIndex;
-            currentMatches[idxA].jornadaIndex = currentMatches[idxB].jornadaIndex;
-            currentMatches[idxB].jornadaIndex = temp;
-
-            const { totalConflicts: currentTotal } = getStatus(currentMatches);
-             if (currentTotal < bestScore) {
-                bestScore = currentTotal;
-                bestSolution = JSON.parse(JSON.stringify(currentMatches));
-            }
+        const { totalConflicts: currentTotal } = validarFixture(currentMatches);
+        if (currentTotal < bestScore) {
+            bestScore = currentTotal;
+            bestSolution = JSON.parse(JSON.stringify(currentMatches));
+        } else if (i % 500 === 0) {
+            currentMatches = JSON.parse(JSON.stringify(bestSolution));
         }
     }
-
     return bestSolution;
 };
+
+// --- Helpers Internos Recuperados ---
+function performSwap(matches, idxA, matchB) {
+    const idxB = matches.findIndex(m => m.id === matchB.id);
+    const tempJornada = matches[idxA].jornadaIndex;
+    matches[idxA].jornadaIndex = matches[idxB].jornadaIndex;
+    matches[idxB].jornadaIndex = tempJornada;
+}
+
+function countConflictsForMatchInRound(match, roundIndex, allMatches, ignoreMatchId) {
+    let conflicts = 0;
+    const matchesInRound = allMatches.filter(m => 
+        m.jornadaIndex === roundIndex && m.id !== ignoreMatchId && m.id !== match.id
+    );
+    const teamsInRound = new Set();
+    matchesInRound.forEach(m => {
+        if(m.local.id !== 'BYE') teamsInRound.add(m.local.id);
+        if(m.visitante.id !== 'BYE') teamsInRound.add(m.visitante.id);
+    });
+    if (match.local.id !== 'BYE' && teamsInRound.has(match.local.id)) conflicts++;
+    if (match.visitante.id !== 'BYE' && teamsInRound.has(match.visitante.id)) conflicts++;
+    return conflicts;
+}
