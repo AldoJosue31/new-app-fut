@@ -1,16 +1,20 @@
-import React from "react";
+import React, { useRef } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line } from "react-icons/ri";
+import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line } from "react-icons/ri";
 import { ViewToggle } from "../../../../../index"; 
+import { addDaysToDate } from "../../../../../utils/dateUtils";
 
 export function PlanningHeader({ 
     jornadaIndex, status, onPrev, onNext, totalJornadas, 
     weekStartDate, setWeekStartDate,
-    onConfig, viewMode, onToggleView
+    onConfig, viewMode, onToggleView,
+    onEditFixture, 
+    isTournamentActive 
 }) {
+    // 1. Creamos la referencia
+    const dateInputRef = useRef(null);
     
-    // Función auxiliar para sumar días (retorna objeto Date)
     const addDays = (dateStr, days) => {
         if(!dateStr) return null;
         const d = new Date(dateStr + "T00:00:00");
@@ -18,17 +22,12 @@ export function PlanningHeader({
         return d;
     };
 
-    // Función auxiliar para formatear a dd/mm/yy
     const formatCustomDate = (dateInput) => {
         if (!dateInput) return "??/??/??";
-        
-        // Si viene como string YYYY-MM-DD
         if (typeof dateInput === 'string' && dateInput.includes('-')) {
             const [y, m, d] = dateInput.split('-');
             return `${d}/${m}/${y.slice(-2)}`;
         }
-        
-        // Si es objeto Date
         if (dateInput instanceof Date) {
             const d = String(dateInput.getDate()).padStart(2, '0');
             const m = String(dateInput.getMonth() + 1).padStart(2, '0');
@@ -38,8 +37,22 @@ export function PlanningHeader({
         return "??/??/??";
     };
 
-    const endDate = addDays(weekStartDate, 6);
+    const endDate = addDaysToDate(weekStartDate, 6);
     const isConfirmed = status === 'Confirmada';
+
+    // 2. Función para abrir el calendario forzosamente
+    const triggerDatePicker = () => {
+        if(dateInputRef.current) {
+            // showPicker es el método moderno para abrir el calendario nativo
+            if(dateInputRef.current.showPicker) {
+                dateInputRef.current.showPicker();
+            } else {
+                // Fallback para navegadores antiguos
+                dateInputRef.current.focus();
+                dateInputRef.current.click(); 
+            }
+        }
+    };
 
     return (
         <Container>
@@ -63,11 +76,11 @@ export function PlanningHeader({
                     {isConfirmed ? (
                         <span className="static-date">{formatCustomDate(weekStartDate)}</span>
                     ) : (
-                        <div className="input-wrapper">
-                             {/* Texto visible dd/mm/yy */}
+                        // 3. Agregamos el onClick al contenedor padre
+                        <div className="input-wrapper" onClick={triggerDatePicker}>
                             <span className="fake-input">{formatCustomDate(weekStartDate)}</span>
-                            {/* Input invisible que cubre todo el área para clickear */}
                             <input 
+                                ref={dateInputRef} // Conectamos la ref
                                 type="date" 
                                 value={weekStartDate || ''} 
                                 onChange={(e) => setWeekStartDate(e.target.value)}
@@ -81,9 +94,17 @@ export function PlanningHeader({
             </InfoGroup>
 
             <ActionsGroup>
-                <BtnConfig onClick={onConfig} title="Configuración de Jornada">
+                {/* Botón de Edición de Fixture para torneos iniciados */}
+                {isTournamentActive && (
+                    <BtnAction onClick={onEditFixture} title="Reorganizar partidos futuros">
+                        <RiEdit2Line size={20}/>
+                    </BtnAction>
+                )}
+                
+                <BtnAction onClick={onConfig} title="Configuración de Jornada">
                     <RiSettings4Line size={20}/>
-                </BtnConfig>
+                </BtnAction>
+                
                 <div className="separator"></div>
                 <ViewToggle currentMode={viewMode} onToggle={onToggleView} />
             </ActionsGroup>
@@ -142,53 +163,56 @@ const DateRow = styled.div`
   border: 1px solid ${({theme})=>theme.bg4};
   font-family: 'Nunito', sans-serif;
   flex-wrap: wrap;
-
+  
   .label-text { font-size: 0.9rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.8; }
   .static-date { font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem; }
-
+  
+  /* Estilo mejorado para el wrapper del input */
   .input-wrapper {
-      position: relative;
-      display: inline-block;
+      position: relative; 
+      display: inline-flex; /* Flex para mejor alineación */
+      align-items: center;
+      justify-content: center;
       min-width: 85px; 
-      height: 24px;
-      text-align: center;
+      /* Quitamos el height fijo para que se adapte al contenido */
+      padding: 0 4px; /* Un poco de padding horizontal extra */
+      text-align: center; 
       cursor: pointer;
-
-      .fake-input {
-          font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem;
-          border-bottom: 2px dashed ${v.colorPrincipal};
-          padding-bottom: 2px;
-          display: block;
-          width: 100%;
+      
+      /* Efecto hover para indicar que es clickeable */
+      transition: background 0.2s;
+      border-radius: 4px;
+      &:hover {
+          background: ${({theme}) => theme.bg4};
       }
 
-      input[type="date"] {
+      .fake-input { 
+          font-weight: 800; 
+          color: ${v.colorPrincipal}; 
+          font-size: 0.95rem; 
+          border-bottom: 2px dashed ${v.colorPrincipal}; 
+          padding-bottom: 2px; 
+          display: block; 
+          width: 100%; 
+          pointer-events: none; /* Asegura que el click pase al wrapper */
+      }
+      
+      input[type="date"] { 
           position: absolute; 
           top: 0; 
           left: 0; 
           width: 100%; 
-          height: 100%;
+          height: 100%; 
           opacity: 0; 
-          cursor: pointer;
-          z-index: 10;
-          
-          &::-webkit-calendar-picker-indicator { 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            padding: 0;
-            margin: 0;
-            cursor: pointer; 
-          }
+          cursor: pointer; 
+          z-index: 10; 
       }
   }
-
+  
   @media (max-width: 768px) { justify-content: center; width: 100%; }
 `;
 
-const BtnConfig = styled.button`
+const BtnAction = styled.button`
   background: ${({theme})=>theme.bg4}; border: none; border-radius: 8px; width: 42px; height: 42px;
   display: flex; align-items: center; justify-content: center; cursor: pointer; color: ${({theme})=>theme.text}; transition: all 0.2s;
   &:hover { background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; transform: translateY(-2px); }
