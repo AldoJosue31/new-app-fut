@@ -6,23 +6,22 @@ export const usePlanificacionMatches = (
     teams, 
     matchesDB, 
     globalPendingMatches,
-    jornadaStatus // NUEVO: Pasamos el status para decidir la fuente de verdad
+    jornadaStatus,
+    dataVersion = 0
 ) => {
-  // --- ESTADOS ---
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [allPendingMatches, setAllPendingMatches] = useState([]); 
   const [isLoaded, setIsLoaded] = useState(false);
   const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // --- CONSTANTES Y MEMOS ---
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
-  // Clave única para el storage
+  // Key para LocalStorage que fuerza limpieza al cambiar versión
   const storageKey = useMemo(() => {
     if (!activeTournament?.id) return null;
-    return `planning_draft_${activeTournament.id}_J${jornadaIndex}`;
-  }, [activeTournament?.id, jornadaIndex]);
+    return `planning_draft_${activeTournament.id}_J${jornadaIndex}_v${dataVersion}`;
+  }, [activeTournament?.id, jornadaIndex, dataVersion]);
 
   const byeTeam = useMemo(() => ({ id: 'BYE', name: 'DESCANSA', img: null, isBye: true }), []);
 
@@ -32,7 +31,6 @@ export const usePlanificacionMatches = (
     return (minPorTiempo * 2) + minDescanso;
   }, [activeTournament]);
 
-  // --- HELPERS ---
   const getJornadaNum = (str) => {
     if (!str) return 999;
     const parts = str.split(' ');
@@ -40,10 +38,7 @@ export const usePlanificacionMatches = (
   };
 
   const clearDraft = useCallback(() => {
-    if (storageKey) {
-        localStorage.removeItem(storageKey);
-    }
-    // Reiniciamos estados locales para forzar una recarga limpia
+    if (storageKey) localStorage.removeItem(storageKey);
     setIsLoaded(false); 
   }, [storageKey]);
 
@@ -51,7 +46,6 @@ export const usePlanificacionMatches = (
     let matchesOfDay = [...matches].filter(m => m.date === dateToFix).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
     if (matchesOfDay.length <= 1) return matches;
     
-    // Lógica de ajuste de horarios en cascada
     for (let i = 1; i < matchesOfDay.length; i++) {
       const prev = matchesOfDay[i - 1];
       const curr = matchesOfDay[i];
@@ -70,7 +64,6 @@ export const usePlanificacionMatches = (
     return [...matches.filter(m => m.date !== dateToFix), ...matchesOfDay];
   }, [durationMatch]);
 
-  // --- FORMATEADOR DE DATOS ---
   const formatMatch = useCallback((m) => {
       const localId = m.team1_id ?? m.local?.id;
       const visitId = m.team2_id ?? m.visitante?.id;
@@ -87,118 +80,159 @@ export const usePlanificacionMatches = (
       if (!localTeam || !visitTeam) return null;
 
       const hasT = typeof m.date === 'string' && m.date.includes('T');
-      let finalDate = null;
-      let finalTime = null;
-
-      if (m.date) {
-         finalDate = hasT ? m.date.split('T')[0] : m.date;
-         finalTime = hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || activeTournament?.config?.horaInicio || "08:00");
+      // Si viene de DB y no tiene nombre, asignamos la actual. Si viene de Global, respetamos su origen (o falta de él).
+      let rawOrigin = m.jornadas?.name || m.originJornada;
+      if (!rawOrigin && m._source === 'db') {
+          rawOrigin = currentJornadaName;
       }
 
       return {
         id: m.id,
         local: localTeam,
         visitante: visitTeam,
-        date: finalDate,
-        time: finalTime,
+        date: m.date ? (hasT ? m.date.split('T')[0] : m.date) : null,
+        time: m.date ? (hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || activeTournament?.config?.horaInicio || "08:00")) : null,
         status: m.status,
         goals1: m.goals1,
         goals2: m.goals2,
         referee_id: m.referee_id,
         observations: m.observations,
         jornada_id: m.jornada_id,
-        originJornada: m.jornadas?.name || m.originJornada || currentJornadaName,
+        originJornada: rawOrigin, 
         isModified: Boolean(m.isModified) || false,
         isByeMatch: isByeMatch
       };
   }, [teams, byeTeam, currentJornadaName, activeTournament]);
 
-  // --- EFECTO PRINCIPAL DE CARGA DE DATOS ---
+  // --- CARGA Y PROCESAMIENTO ---
   useEffect(() => {
     if (!teams || teams.length < 2) return;
 
-    // A) SI LA JORNADA YA ESTÁ CONFIRMADA: IGNORAR LOCALSTORAGE Y USAR DB
-    if (isConfirmed) {
-        if (storageKey) localStorage.removeItem(storageKey); // Limpieza de seguridad
-        
-        const formattedDB = (matchesDB || []).map(formatMatch).filter(Boolean);
-        setScheduledMatches(formattedDB);
-        setAllPendingMatches([]); // Si está confirmada, no mostramos pendientes en la zona de trabajo principal
-        setIsLoaded(true);
-        return;
-    }
-
-    // B) SI LA JORNADA ES PENDIENTE: INTENTAR CARGAR BORRADOR
+    // 1. Borrador LocalStorage
     let hasDraft = false;
-    if (storageKey) {
+    let draftMap = new Map();
+
+    if (!isConfirmed && storageKey) {
         const savedData = localStorage.getItem(storageKey);
         if (savedData) {
             try {
                 const parsed = JSON.parse(savedData);
-                if (parsed.scheduledMatches && parsed.allPendingMatches) {
-                    setScheduledMatches(parsed.scheduledMatches);
-                    setAllPendingMatches(parsed.allPendingMatches);
+                const combined = [...(parsed.scheduledMatches || []), ...(parsed.allPendingMatches || [])];
+                if (combined.length > 0) {
+                    combined.forEach(m => draftMap.set(String(m.id), m));
                     hasDraft = true;
                 }
-            } catch (error) {
-                console.error("Error parseando borrador:", error);
-            }
+            } catch (e) { console.error(e); }
         }
     }
 
-    if (hasDraft) {
-        setIsLoaded(true);
-        return; 
-    }
+    // 2. Datos Reales (DB) - FUENTE DE VERDAD
+    const matchesDBList = (matchesDB || []).map(m => ({ ...m, _source: 'db' }));
+    
+    // Identificar equipos ocupados en la BD (para matar fantasmas)
+    const activeTeamIds = new Set();
+    matchesDBList.forEach(m => {
+        if (m.team1_id) activeTeamIds.add(String(m.team1_id));
+        if (m.team2_id) activeTeamIds.add(String(m.team2_id));
+    });
 
-    // C) SIN BORRADOR: CARGAR DESDE DB (Estado Inicial Limpio)
-    const allMatchesRaw = [...(matchesDB || []), ...(globalPendingMatches || [])];
+    const officialJornadaIds = new Set(matchesDBList.map(m => String(m.id)));
+    
+    // 3. Procesar Globales con FIREWALL ESTRICTO
+    const cleanGlobalMatches = (globalPendingMatches || []).reduce((acc, gm) => {
+        const gmId = String(gm.id);
+        const t1 = String(gm.team1_id ?? gm.local?.id);
+        const t2 = String(gm.team2_id ?? gm.visitante?.id);
+        const gmOriginName = (gm.jornadas?.name || gm.originJornada || "").trim();
+
+        // REGLA 1: Colisión de IDs (BD gana)
+        if (officialJornadaIds.has(gmId)) return acc;
+
+        // REGLA 2: Colisión de Nombre de Jornada (Si dice ser de esta jornada pero no está en BD -> Basura)
+        if (gmOriginName === currentJornadaName) return acc;
+
+        // REGLA 3 (LA SOLUCIÓN): Conflicto de Equipos (Anti-Ghost)
+        // Si el Equipo A ya tiene un partido oficial en esta jornada (matchesDB),
+        // ignoramos cualquier partido pendiente global que involucre al Equipo A.
+        // Esto elimina las versiones viejas ("partidos que antes de la modificación").
+        if (activeTeamIds.has(t1) || activeTeamIds.has(t2)) {
+             return acc; 
+        }
+
+        acc.push({ ...gm, _source: 'global' });
+        return acc;
+    }, []);
+
+    // 4. Fusión (Prioridad: cleanGlobal primero, matchesDB después para sobreescribir)
+    const allMatchesRaw = [...cleanGlobalMatches, ...matchesDBList];
     const uniqueMap = new Map();
     allMatchesRaw.forEach(m => { if (m?.id) uniqueMap.set(String(m.id), m); });
+    
+    const dbFormatted = Array.from(uniqueMap.values()).map(formatMatch).filter(Boolean);
 
-    const formattedMatches = Array.from(uniqueMap.values()).map(formatMatch).filter(Boolean);
+    // 5. Aplicar Borrador
+    const mergedMatches = dbFormatted.map(dbMatch => {
+        if (hasDraft) {
+            const draftMatch = draftMap.get(String(dbMatch.id));
+            if (draftMatch) {
+                return {
+                    ...dbMatch, 
+                    date: draftMatch.date, 
+                    time: draftMatch.time,
+                    status: draftMatch.status || dbMatch.status,
+                    isModified: draftMatch.isModified
+                };
+            }
+        }
+        return dbMatch;
+    });
 
-    // Generar descansos (BYE) si es impar
+    // 6. Clasificación
+    const currentScheduled = mergedMatches.filter(m => m.date);
+    
+    const currentPending = mergedMatches.filter(m => {
+        if (m.date || m.status === 'Finalizado') return false;
+        
+        // Si no tiene origen, lo descartamos (formateo fallido o fantasma)
+        if (!m.originJornada) return false;
+
+        const mNum = getJornadaNum(m.originJornada);
+        const cNum = jornadaIndex + 1;
+        
+        return m.originJornada === currentJornadaName || mNum < cNum;
+    });
+
+    // 7. Generar Descansos
     let currentSuggestions = [];
     if (teams.length % 2 !== 0) {
-        const teamsPlayingThisRound = new Set();
-        formattedMatches.forEach(m => {
-            if (m.originJornada === currentJornadaName) {
-                if (m.local?.id) teamsPlayingThisRound.add(m.local.id);
-                if (m.visitante?.id && !m.isByeMatch) teamsPlayingThisRound.add(m.visitante.id);
+        const teamsPlaying = new Set();
+        currentScheduled.forEach(m => {
+            if (m.originJornada === currentJornadaName || m.date) {
+                if (m.local?.id) teamsPlaying.add(m.local.id);
+                if (m.visitante?.id && !m.isByeMatch) teamsPlaying.add(m.visitante.id);
             }
         });
-        const restingTeams = teams.filter(t => !teamsPlayingThisRound.has(t.id));
-        restingTeams.forEach(team => {
+        // También consideramos los pendientes validados para no duplicar descansos
+        currentPending.forEach(m => {
+            if (m.originJornada === currentJornadaName) {
+                 if (m.local?.id) teamsPlaying.add(m.local.id);
+                 if (m.visitante?.id) teamsPlaying.add(m.visitante.id);
+            }
+        });
+
+        const resting = teams.filter(t => !teamsPlaying.has(t.id));
+        resting.forEach(team => {
             currentSuggestions.push({
-                id: `generated-bye-${jornadaIndex}-${team.id}`,
-                local: team,
-                visitante: byeTeam,
-                status: 'Pendiente',
-                originJornada: currentJornadaName,
-                isModified: false,
-                date: null, 
-                time: null,
-                isByeMatch: true
+                id: `bye-${jornadaIndex}-${team.id}`,
+                local: team, visitante: byeTeam, status: 'Pendiente',
+                originJornada: currentJornadaName, isModified: false, isByeMatch: true,
+                date: null, time: null
             });
         });
     }
 
-    // Clasificar
-    const currentScheduled = formattedMatches.filter(m => 
-        (m.originJornada === currentJornadaName && m.date)
-    );
-    const currentPending = formattedMatches.filter(m => 
-        m.originJornada === currentJornadaName && !m.date
-    );
-    const currentJornadaNum = jornadaIndex + 1;
-    const backlogPending = formattedMatches.filter(m => {
-        const mNum = getJornadaNum(m.originJornada);
-        return mNum < currentJornadaNum && !m.date && m.status !== 'Finalizado';
-    });
-
     setScheduledMatches(currentScheduled);
-    setAllPendingMatches([...backlogPending, ...currentPending, ...currentSuggestions]);
+    setAllPendingMatches([...currentPending, ...currentSuggestions]);
     setIsLoaded(true);
 
   }, [
@@ -207,40 +241,18 @@ export const usePlanificacionMatches = (
       currentJornadaName, jornadaIndex, byeTeam
   ]); 
 
-  // --- EFECTO DE GUARDADO EN LOCALSTORAGE ---
+  // Guardado
   useEffect(() => {
-    // Solo guardar si NO estamos confirmados y ya cargamos la data inicial
     if (isLoaded && storageKey && !isConfirmed) {
         const draftData = { scheduledMatches, allPendingMatches };
         localStorage.setItem(storageKey, JSON.stringify(draftData));
     }
   }, [scheduledMatches, allPendingMatches, storageKey, isLoaded, isConfirmed]);
 
-  // --- MEMO SIDEBAR ---
   const sidebarMatches = useMemo(() => {
-    // Filtrar partidos que ya están en scheduledMatches para no duplicar visualmente
     const scheduledIds = new Set(scheduledMatches.map(m => String(m.id)));
-    const currentNum = jornadaIndex + 1;
-    
-    return allPendingMatches
-        .filter(m => !scheduledIds.has(String(m.id)))
-        .filter(m => {
-            // Mostrar solo si pertenece a esta jornada o es anterior (pendiente arrastrado)
-            const mNum = getJornadaNum(m.originJornada);
-            return m.originJornada === currentJornadaName || mNum < currentNum;
-        })
-        .sort((a, b) => {
-            // Ordenar por antigüedad de jornada
-            const numA = getJornadaNum(a.originJornada);
-            const numB = getJornadaNum(b.originJornada);
-            if (numA !== numB) return numA - numB;
-            // Descansos al final
-            if (a.isByeMatch && !b.isByeMatch) return -1;
-            if (!a.isByeMatch && b.isByeMatch) return 1;
-            return 0;
-        });
-
-  }, [allPendingMatches, scheduledMatches, currentJornadaName, jornadaIndex]);
+    return allPendingMatches.filter(m => !scheduledIds.has(String(m.id)));
+  }, [allPendingMatches, scheduledMatches]);
 
   return {
     scheduledMatches, setScheduledMatches,

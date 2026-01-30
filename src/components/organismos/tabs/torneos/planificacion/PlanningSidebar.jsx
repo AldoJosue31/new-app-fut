@@ -10,7 +10,10 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
     const currentNum = jornadaIndex + 1;
     
     const result = matches.reduce((acc, m) => {
-        const mNum = m.originJornada ? parseInt(m.originJornada.split(' ')[1]) : 999;
+        // Validación de robustez
+        if (!m.originJornada) return acc;
+
+        const mNum = parseInt(m.originJornada.split(' ')[1]) || 999;
         
         if (mNum < currentNum) {
             acc.delayed.push(m);
@@ -20,7 +23,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
         return acc;
     }, { delayed: [], current: [] });
 
-    // Ordenar: Descansos primero
+    // Ordenar actuales: Descansos primero
     result.current.sort((a, b) => {
         if (a.isByeMatch && !b.isByeMatch) return -1;
         if (!a.isByeMatch && b.isByeMatch) return 1;
