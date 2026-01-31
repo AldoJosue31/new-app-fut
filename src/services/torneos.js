@@ -294,17 +294,16 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     todasLasJornadas.forEach(j => { jornadasMap[j.name] = j.id; });
 
     const currentJornadaId = jornadasMap[`Jornada ${jornadaData.jornada_numero}`];
-    if (!currentJornadaId) throw new Error("Jornada no encontrada");
+    if (!currentJornadaId) throw new Error("Jornada no encontrada en la BD");
 
-    // Función auxiliar para preparar el objeto
     const createMatchObject = (m, status) => {
        const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
-       
-       const t2Id = (m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
+       const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
+       const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
 
        const payload = {
           jornada_id: targetJornadaId,
-          team1_id: Number(m.local.id),
+          team1_id: t1Id,
           team2_id: t2Id,
           status: status
        };
@@ -321,41 +320,46 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const matchesToInsert = [];
     const matchesToUpdate = [];
 
-    // Procesar todos los partidos (Programados y Pendientes)
+    // Combinamos y aseguramos que 'allPendingMatches' sea un array
     const allMatchesToProcess = [
         ...jornadaData.matches.map(m => ({ ...m, finalStatus: 'Programado' })),
         ...(jornadaData.allPendingMatches || [])
             .filter(m => {
-                const isTempId = String(m.id).includes('suggested') || String(m.id).includes('swap') || String(m.id).includes('generated');
-                return m.isModified || isTempId || (m.id && !isTempId);
+                // Filtramos pendientes que han sido modificados o son nuevos (temporales)
+                const isTempId = !m.id || isNaN(Number(m.id));
+                return m.isModified || isTempId;
             })
             .map(m => ({ ...m, finalStatus: 'Pendiente' }))
     ];
 
     allMatchesToProcess.forEach(m => {
-        const isTempId = String(m.id).includes('suggested') || 
-                         String(m.id).includes('swap') || 
-                         String(m.id).includes('generated');
-        
         const payload = createMatchObject(m, m.finalStatus);
 
-        if (!isTempId && m.id) {
-            // Es actualización
-            payload.id = Number(m.id);
+        // VERIFICACIÓN ROBUSTA DE ID
+        // Si tiene ID y es un número válido, es una ACTUALIZACIÓN.
+        // Si el ID es string (ej: "temp_1", "bye-0-2") o null, es una INSERCIÓN.
+        const numericId = Number(m.id);
+        const isRealId = m.id && !isNaN(numericId) && numericId > 0;
+
+        if (isRealId) {
+            payload.id = numericId;
             matchesToUpdate.push(payload);
         } else {
-            // Es inserción (NUNCA incluir 'id' aquí)
+            // Aseguramos que NO vaya el campo ID para que Postgres genere uno nuevo
+            delete payload.id; 
             matchesToInsert.push(payload);
         }
     });
 
-    // 1. Ejecutar Inserts (Nuevos partidos / Descansos generados)
+    console.log("Guardando Jornada -> Insertar:", matchesToInsert.length, "Actualizar:", matchesToUpdate.length);
+
+    // 1. Ejecutar Inserts
     if (matchesToInsert.length > 0) {
         const { error: insertError } = await supabase.from('matches').insert(matchesToInsert);
         if (insertError) throw insertError;
     }
 
-    // 2. Ejecutar Upserts/Updates (Partidos existentes)
+    // 2. Ejecutar Upserts
     if (matchesToUpdate.length > 0) {
         const { error: updateError } = await supabase.from('matches').upsert(matchesToUpdate);
         if (updateError) throw updateError;
