@@ -118,6 +118,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const halfMinPlayers = Math.ceil(minPlayers / 2);
   const maxSubs = 15; 
 
+  // Detectar si el torneo tiene desempate por penales configurado
   const isExtraPointEnabled = useMemo(() => {
     const type = (tournamentConfig.tieBreakType || "").toLowerCase();
     return ['penalties', 'shoutouts', 'shouts', 'penales'].includes(type);
@@ -143,6 +144,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     if (!isWalkover || (isWalkover && woWinnerId === match?.visitante?.id)) {
       tabs.push({ id: "visit", label: match?.visitante?.name || "Visitante", icon: <IoMdFootball/> });
     }
+    // Mostrar tab de penales si hay empate y está activada la regla
     if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
       tabs.push({ id: "penalties", label: "Penales/Shouts", icon: <RiNumbersLine/> });
     }
@@ -211,6 +213,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         setWoWinnerId(null);
       }
 
+      // Lógica de lectura de penales (debe coincidir con la lógica de escritura)
       if (obs.includes('Pen')) {
         try {
             const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
@@ -252,14 +255,13 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       });
 
       // 2. Identificar jugadores activos
-      // Usamos el array 'players' como fuente de verdad y buscamos en el mapa
       const activePlayers = [];
       
       players.forEach(p => {
           const sId = String(p.id);
           if (statsMap[sId]) {
               activePlayers.push({
-                  playerId: p.id, // Mantenemos el ID original (Number o String) para que el <select> funcione
+                  playerId: p.id,
                   ...statsMap[sId]
               });
           }
@@ -269,8 +271,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const roster = [];
       
       if (isEditMode && activePlayers.length > 0) {
-          // MODO EDICIÓN: Priorizar jugadores con datos
-          
+          // MODO EDICIÓN
           activePlayers.forEach((pData, index) => {
               roster.push({
                   idTemp: `${prefix}-loaded-${index}`,
@@ -301,7 +302,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           }
 
       } else {
-          // MODO NUEVO o FALLBACK
+          // MODO NUEVO
           for (let i = 0; i < minPlayers; i++) {
               roster.push({
                   idTemp: `${prefix}-${i}`,
@@ -364,6 +365,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         }
     }
     
+    // Validación de penales
     if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
       if (parseInt(penalties.local) === parseInt(penalties.visit)) {
         return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
@@ -426,6 +428,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         if (isExtraPointEnabled) {
           if (parseInt(penalties.local) > parseInt(penalties.visit)) p1 += 1;
           else p2 += 1;
+          
+          // FORMATO ESTÁNDAR PARA PENALES
           obs = `Pen: ${penalties.local}-${penalties.visit}`;
         }
       }
@@ -560,7 +564,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             <RiCheckDoubleLine size={50} color={v.colorPrincipal} />
             <h2>¿Confirmar Marcador?</h2>
             <div className="final-score"><span>{totalGoalsLocal}</span> - <span>{totalGoalsVisit}</span></div>
-            {totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && (
+            {totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover && (
                 <div className="pen-score">Penales: {penalties.local} - {penalties.visit}</div>
             )}
             <div className="confirm-btns">

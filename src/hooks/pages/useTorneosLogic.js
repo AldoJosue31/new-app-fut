@@ -176,7 +176,6 @@ export const useTorneosLogic = () => {
     setForm(prevForm => ({ ...prevForm, [name]: val }));
   };
 
-  // --- ACTUALIZACIÓN: Recepción de fixtureData manual ---
   const handleSubmit = async (fixtureData = null) => {
     if (activeTournament) return; 
 
@@ -203,8 +202,6 @@ export const useTorneosLogic = () => {
     try {
       if (participatingIds.length < 2) throw new Error("Mínimo 2 equipos requeridos.");
 
-      // Si viene fixtureData (del modal manual), lo usamos.
-      // Si no, generamos placeholders (aunque el modal es quien inicia el proceso ahora).
       let jornadasArray = [];
       if (!fixtureData) {
           const jornadasPorVuelta = participatingIds.length % 2 === 0 ? participatingIds.length - 1 : participatingIds.length;
@@ -223,7 +220,6 @@ export const useTorneosLogic = () => {
           vueltas: form.vueltas,
           tieBreakType: form.tieBreakType,
           participatingIds,
-          // 2. GUARDAR minPlayers EN LA BASE DE DATOS
           minPlayers: parseInt(form.minPlayers) || 7, 
           maxTeams: parseInt(form.maxTeams) || 16,
           winPoints: form.winPoints,

@@ -6,6 +6,7 @@ export const getTablaPosicionesService = async (division) => {
     .select('*')
     .eq('division', division)
     .order('pts', { ascending: false })
+    .order('pj', { ascending: false }) // AGREGADO: Más jerarquía a más partidos jugados
     .order('dg', { ascending: false });
 
   if (error) throw error;

@@ -16,8 +16,8 @@ import { Device } from "../../styles/breakpoints";
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
-  isLoadingData, standings, reglas, setReglas, refreshStandings,
-  onTournamentReset // <--- Recibimos la función de recarga
+  isLoadingData, standings, reglas, setReglas, refreshStandings, // 1. Recibimos la función aquí
+  onTournamentReset 
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -54,7 +54,6 @@ export function TorneosTemplate({
                 allTeams={allTeams} participatingIds={participatingIds}
                 onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                 isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
-                // Pasamos la prop al componente hijo
                 onTournamentReset={onTournamentReset}
             />
           </FullWidthTab>
@@ -63,7 +62,11 @@ export function TorneosTemplate({
         {activeTab === "jornadas" && (
           <FullWidthTab>
             {activeTournament ? (
-               <TorneoJornadasTab activeTournament={activeTournament} participatingTeams={participatingTeamsObj} refreshStandings={refreshStandings}/>
+               <TorneoJornadasTab 
+                  activeTournament={activeTournament} 
+                  participatingTeams={participatingTeamsObj} 
+                  refreshStandings={refreshStandings} // Ya estaba aquí, correcto.
+               />
             ) : (
                <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}
@@ -73,7 +76,15 @@ export function TorneosTemplate({
         {activeTab === "standings" && (
           <FullWidthTab>
             {activeTournament ? (
-              <TorneosStandingsTab division={{ name: divisionName }} torneo={activeTournament} equipos={participatingTeamsObj} estadisticas={standings} reglas={reglas} />
+              // 2. AQUÍ ESTABA EL CAMBIO NECESARIO:
+              <TorneosStandingsTab 
+                  division={{ name: divisionName }} 
+                  torneo={activeTournament} 
+                  equipos={participatingTeamsObj} 
+                  estadisticas={standings} 
+                  reglas={reglas}
+                  onRefresh={refreshStandings} // <--- ¡Conectamos la prop nueva aquí!
+              />
             ) : (
                <EmptyState icon={<v.iconocorona size={40}/>} title="Sin Datos" description="No hay un torneo activo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}

@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import styled from 'styled-components';
-import { v } from '../../../../styles/variables';
+import { v } from '../../../../styles/variables'; // Importamos v para usar el logoGenerico
 import { Device } from '../../../../styles/breakpoints'; 
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
 
@@ -8,10 +8,16 @@ export const TorneosStandingsTab = ({
   torneo = {}, 
   equipos = [], 
   estadisticas = [],
-  reglas = {} 
+  reglas = {},
+  onRefresh 
 }) => {
 
-  // Procesamos la configuración mezclando torneo.config y reglas por si acaso
+  useEffect(() => {
+    if (onRefresh && typeof onRefresh === 'function') {
+        onRefresh();
+    }
+  }, []);
+
   const config = useMemo(() => {
     const c = torneo?.config || reglas || {};
     return {
@@ -25,6 +31,7 @@ export const TorneosStandingsTab = ({
 
   const tablaGeneral = useMemo(() => {
     if (!equipos) return [];
+    
     const data = equipos.map((equipo) => {
       const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
       return {
@@ -41,37 +48,41 @@ export const TorneosStandingsTab = ({
         pts: stats.pts || 0,
       };
     });
-    return data.sort((a, b) => b.pts !== a.pts ? b.pts - a.pts : b.dg - a.dg);
+
+    return data.sort((a, b) => {
+        if (b.pts !== a.pts) return b.pts - a.pts;
+        if (b.pj !== a.pj) return b.pj - a.pj;
+        if (b.dg !== a.dg) return b.dg - a.dg;
+        return b.gf - a.gf;
+    });
+
   }, [equipos, estadisticas]);
 
-  // Lógica mejorada para soportar coexistencia de zonas
+  // --- NUEVO: Detectar si al menos un equipo tiene logo ---
+  const hasAnyLogo = useMemo(() => {
+    return tablaGeneral.some(team => team.logo && team.logo.trim() !== '');
+  }, [tablaGeneral]);
+  // -------------------------------------------------------
+
   const getZoneStatus = (index, total) => {
-    const rank = index + 1; // Posición actual (1-based)
+    const rank = index + 1;
     
-    // 1. Zona Ascenso
     if (rank <= config.ascensos) {
-      return { color: '#22c55e', label: 'Ascenso Directo' }; // Verde vibrante
+      return { color: '#22c55e', label: 'Ascenso Directo' };
     }
 
-    let currentLimit = config.ascensos;
-
-    // 2. Zona Liguilla (Clasificación y Repechaje)
     if (config.zonaLiguilla) {
-      // Clasificados Directos
-      if (rank > currentLimit && rank <= (currentLimit + config.clasificados)) {
-        return { color: '#3b82f6', label: 'Liguilla' }; // Azul vibrante
+      if (rank > config.ascensos && rank <= config.clasificados) {
+        return { color: '#3b82f6', label: 'Liguilla' };
       }
-      currentLimit += config.clasificados;
-
-      // Repechaje
-      if (rank > currentLimit && rank <= (currentLimit + config.repechaje)) {
-        return { color: '#f59e0b', label: 'Repechaje' }; // Naranja/Ambar
+      const limitLiguilla = Math.max(config.clasificados, config.ascensos);
+      if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) {
+        return { color: '#f59e0b', label: 'Repechaje' };
       }
     }
 
-    // 3. Zona Descenso (Calculado desde abajo)
     if (config.descensos > 0 && rank > (total - config.descensos)) {
-      return { color: '#ef4444', label: 'Descenso' }; // Rojo
+      return { color: '#ef4444', label: 'Descenso' };
     }
 
     return null;
@@ -105,11 +116,26 @@ export const TorneosStandingsTab = ({
                     <Td className="team-col" $zoneColor={zoneColor}>
                       <TeamNameCell>
                         <span className="pos">{index + 1}</span>
-                        {fila.logo && <img src={fila.logo} alt="logo" />}
+                        
+                        {/* --- NUEVA LÓGICA DE RENDERIZADO DE IMAGEN --- */}
+                        {hasAnyLogo ? (
+                           // Si al menos uno tiene logo, mostramos imagen para todos
+                           <img 
+                             src={fila.logo || v.logoGenerico} 
+                             alt={fila.nombre} 
+                             // Si falla la carga del logo específico, usa el genérico
+                             onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
+                           />
+                        ) : (
+                           // Si NINGUNO tiene logo, no renderizamos nada (quita el espacio)
+                           null
+                        )}
+                        {/* ----------------------------------------------- */}
+
                         <span className="team-name">{fila.nombre}</span>
                       </TeamNameCell>
                     </Td>
-                    <Td className="stat-col">{fila.pj}</Td>
+                    <Td className="stat-col" style={{ fontWeight: 'bold', color: v.text }}>{fila.pj}</Td>
                     <TdHideOnMobile className="stat-col">{fila.g}</TdHideOnMobile>
                     <TdHideOnMobile className="stat-col">{fila.e}</TdHideOnMobile>
                     <TdHideOnMobile className="stat-col">{fila.p}</TdHideOnMobile>
@@ -133,7 +159,6 @@ export const TorneosStandingsTab = ({
         </TableScrollWrapper>
       </TableCard>
 
-      {/* Leyenda de colores */}
       {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
         <LeyendaContainer>
              {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
@@ -167,7 +192,7 @@ const TableCard = styled.div`
 
 const TableScrollWrapper = styled(ContainerScroll)`
   overflow-x: auto; 
-  padding-bottom: 4px;
+  padding-bottom: 2px; // Reducido
 `;
 
 const StyledTable = styled.table`
@@ -182,19 +207,19 @@ const Th = styled.th`
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.65rem;
-  padding: 12px 8px;
+  padding: 8px 4px; // Reducido de 12px 8px
   text-align: center;
   border-bottom: 2px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
 
   @media ${Device.tablet} {
     font-size: 0.75rem;
-    padding: 18px 12px;
+    padding: 12px 8px; // Reducido de 18px 12px
   }
 
   &:first-child {
     text-align: left;
-    padding-left: 15px;
+    padding-left: 10px; // Ligeramente ajustado
     position: sticky;
     left: 0;
     z-index: 10;
@@ -203,27 +228,27 @@ const Th = styled.th`
 
   &.stat-col {
     width: 1%;
-    min-width: 35px;
-    @media ${Device.tablet} { min-width: 45px; }
+    min-width: 30px; // Ligeramente más angosto
+    @media ${Device.tablet} { min-width: 40px; }
   }
 `;
 
 const Td = styled.td`
-  padding: 12px 8px;
+  padding: 6px 4px; // Reducido drásticamente (antes 12px) para compactar filas
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.8rem; // Ligeramente más pequeño en móvil
   color: ${({ theme }) => theme.text};
   border-bottom: 1px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
 
   @media ${Device.tablet} {
-    padding: 16px 12px;
+    padding: 10px 8px; // Reducido de 16px
     font-size: 0.95rem;
   }
 
   &.team-col {
     text-align: left;
-    padding-left: 15px;
+    padding-left: 10px; // Ajustado
     position: sticky;
     left: 0;
     z-index: 5;
@@ -243,7 +268,7 @@ const Td = styled.td`
   &.points-cell {
     font-weight: 800;
     color: ${({ theme }) => theme.primary};
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     @media ${Device.tablet} { font-size: 1.05rem; }
   }
 `;
@@ -264,20 +289,21 @@ const ThHideOnMobile = styled(Th)`
 
 const TeamNameCell = styled.div`
   display: flex; align-items: center; gap: 6px;
-  @media ${Device.tablet} { gap: 12px; }
+  @media ${Device.tablet} { gap: 10px; }
 
   img {
-    width: 24px; height: 24px; object-fit: contain;
-    @media ${Device.tablet} { width: 32px; height: 32px; }
+    width: 20px; height: 20px; object-fit: contain; // Reducido a 20px para móvil
+    @media ${Device.tablet} { width: 28px; height: 28px; } // Reducido a 28px para tablet
+    border-radius: 4px; 
   }
 
   .pos {
-    font-weight: 700; min-width: 15px; font-size: 0.8rem; opacity: 0.5;
+    font-weight: 700; min-width: 12px; font-size: 0.75rem; opacity: 0.5;
   }
 
   .team-name {
-    font-weight: 600; font-size: 0.85rem;
-    @media ${Device.tablet} { font-size: 0.95rem; }
+    font-weight: 600; font-size: 0.8rem; // Ajustado
+    @media ${Device.tablet} { font-size: 0.9rem; }
   }
 `;
 
@@ -287,21 +313,21 @@ const LeyendaContainer = styled.div`
     flex-wrap: wrap; 
     justify-content: flex-end; 
     max-width: 900px;
-    margin: 0 auto 20px auto;
+    margin: 0 auto 10px auto; // Margen inferior reducido
     padding: 0 10px;
 `;
 
 const Badge = styled.span`
-    font-size: 0.7rem; 
+    font-size: 0.65rem; 
     font-weight: 700; 
-    padding: 4px 8px; 
-    border-radius: 6px;
+    padding: 2px 6px; // Más compacto
+    border-radius: 4px;
     background: ${({$color}) => `${$color}15`};
     color: ${({$color}) => $color};
     border: 1px solid ${({$color}) => $color};
     
     @media ${Device.tablet} {
-        font-size: 0.8rem;
-        padding: 4px 12px;
+        font-size: 0.75rem;
+        padding: 4px 10px;
     }
 `;
