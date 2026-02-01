@@ -1,9 +1,21 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../index";
 import { RiDeleteBinLine, RiTrophyLine, RiTimeLine, RiEditLine } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
+
+// Helper para extraer penales (Modularizado internamente para este componente)
+const getPenaltyScore = (observations) => {
+    if (!observations) return null;
+    // Busca patrones como "Pen: 3-2", "Penales: 5-4", etc.
+    const regex = /Pen.*:\s*(\d+)\s*-\s*(\d+)/i;
+    const match = observations.match(regex);
+    if (match) {
+        return { local: match[1], visit: match[2] };
+    }
+    return null;
+};
 
 export const ScheduledMatchRow = memo(function ScheduledMatchRow({ 
     match, 
@@ -16,6 +28,14 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     groupLabel 
 }) {
   
+  // Memoizamos el cálculo de penales para rendimiento
+  const penalties = useMemo(() => {
+      if (isConfirmed && match.status === 'Finalizado') {
+          return getPenaltyScore(match.observations);
+      }
+      return null;
+  }, [match.observations, match.status, isConfirmed]);
+
   return (
     <Wrapper>
         {groupLabel && (
@@ -27,13 +47,27 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 
         <Container $isConfirmed={isConfirmed}>
             <div className="info">
+                {/* EQUIPO LOCAL */}
                 <div className="team local">
                     <span className="name">{match.local?.name || "Equipo Local"}</span>
-                    {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals1}</span>}
+                    {isConfirmed && match.status === 'Finalizado' && (
+                        <ScoreWrapper>
+                            <span className="main-score">{match.goals1}</span>
+                            {penalties && <span className="pen-score">({penalties.local})</span>}
+                        </ScoreWrapper>
+                    )}
                 </div>
+
                 <span className="vs">VS</span>
+
+                {/* EQUIPO VISITANTE */}
                 <div className="team visit">
-                    {isConfirmed && match.status === 'Finalizado' && <span className="score">{match.goals2}</span>}
+                    {isConfirmed && match.status === 'Finalizado' && (
+                        <ScoreWrapper>
+                            <span className="main-score">{match.goals2}</span>
+                            {penalties && <span className="pen-score">({penalties.visit})</span>}
+                        </ScoreWrapper>
+                    )}
                     <span className="name">{match.visitante?.name || "Equipo Visitante"}</span>
                 </div>
             </div>
@@ -96,6 +130,31 @@ const DateDivider = styled.div`
     .line { height: 1px; background: ${({theme})=>theme.bg4}; width: 100%; flex: 1; }
 `;
 
+const ScoreWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: ${({theme})=>theme.bg3};
+    padding: 2px 8px;
+    border-radius: 4px;
+    min-width: 30px;
+
+    .main-score {
+        font-size: 1.1rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .pen-score {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: ${({theme})=>theme.text};
+        opacity: 0.7;
+        margin-top: -2px;
+    }
+`;
+
 const Container = styled.div`
     display: flex; flex-direction: column; gap: 12px;
     background: ${({theme})=>theme.bgtotal}; padding: 12px; border-radius: 8px; 
@@ -107,8 +166,11 @@ const Container = styled.div`
 
     .info { 
         display: flex; gap: 10px; font-weight: 600; justify-content: space-between; align-items: center; width: 100%;
+        
         .team { display: flex; align-items: center; gap: 8px; flex:1; overflow: hidden; }
         .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem;}
+        
+        /* Ajustes específicos para alineación */
         .local { justify-content: flex-start; text-align: left; order: 1; }
         .visit { justify-content: flex-end; text-align: right; order: 3; }
         .vs { order: 2; font-size: 0.8rem; opacity: 0.6; }
@@ -118,7 +180,6 @@ const Container = styled.div`
             .local { justify-content: flex-end; text-align: right; }
             .visit { justify-content: flex-start; text-align: left; }
         }
-        .score { font-size: 1.1rem; background: ${({theme})=>theme.bg3}; padding: 2px 8px; border-radius: 4px; }
     }
 
     .settings { 

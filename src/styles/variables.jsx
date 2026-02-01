@@ -48,6 +48,7 @@ import { GrAdd } from "react-icons/gr";
 
 
 export const v = {
+    logoGenerico: "/logo_gen.png",
     iconoagregar: GrAdd,
     iconoimagenvacia: FcImageFile,
     iconoemijivacio: BsEmojiDizzy,
