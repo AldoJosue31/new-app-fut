@@ -4,7 +4,6 @@ import { v, Btnsave, Toast } from "../../../../index";
 import { 
     RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine
 } from "react-icons/ri";
-import { supabase } from "../../../../supabase/supabase.config"; 
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
 import { formatDateWithWeekday } from "../../../../utils/dateUtils";
@@ -27,7 +26,10 @@ export function JornadaPlanificacion({
     sidebarMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes, 
-    clearDraft 
+    clearDraft,
+    // Props nuevas del Hook
+    showExternalMatches, toggleExternalMatches,
+    externalMatches, loadingExternal
   } = usePlanificacionMatches(
       activeTournament, 
       jornadaIndex, 
@@ -47,9 +49,6 @@ export function JornadaPlanificacion({
   
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
-  // Modularización: Hook para lógica de Partidos Fantasma (Ver definición abajo)
-  const { showGhosts, setShowGhosts, externalMatches, loadingGhosts } = useGhostMatches(weekStartDate, activeTournament);
-
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
 
@@ -57,7 +56,6 @@ export function JornadaPlanificacion({
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
 
-  // Sincronizar fecha inicial
   useEffect(() => {
     if (activeTournament?.start_date && !isConfirmed) {
         const [yearStr, monthStr, dayStr] = activeTournament.start_date.split('-');
@@ -93,7 +91,6 @@ export function JornadaPlanificacion({
         }
     }
 
-    // Aseguramos que el ID se mantenga tal cual para que el servicio detecte si es temp o real
     const newMatch = { 
         ...draggedMatch, 
         time: nextTime, 
@@ -115,7 +112,6 @@ export function JornadaPlanificacion({
 
   const handleConfirmJornada = async () => {
       clearDraft();
-      // Pasamos los datos limpios
       onConfirm({ 
           jornada_numero: jornadaIndex + 1, 
           matches: scheduledMatches, 
@@ -137,12 +133,16 @@ export function JornadaPlanificacion({
         
         {viewMode === 'grid' && (
             <ControlsBar>
-                <GhostButton onClick={() => setShowGhosts(!showGhosts)} $active={showGhosts}>
-                    {showGhosts ? <RiEyeOffLine/> : <RiEyeLine/>}
-                    {showGhosts ? 'Ocultar otras divisiones' : 'Ver otras divisiones'}
-                    {loadingGhosts && <span className="spinner">...</span>}
+                <GhostButton onClick={toggleExternalMatches} $active={showExternalMatches}>
+                    {showExternalMatches ? <RiEyeOffLine/> : <RiEyeLine/>}
+                    {showExternalMatches ? 'Ocultar otras divisiones' : 'Ver otras divisiones'}
+                    {loadingExternal && <span className="spinner">...</span>}
                 </GhostButton>
-                <span className="info-text">{showGhosts ? "Viendo partidos de TODAS las divisiones." : "Viendo solo esta división."}</span>
+                <span className="info-text">
+                    {showExternalMatches 
+                        ? "Mostrando ocupación de canchas de TODAS las divisiones." 
+                        : "Solo se muestran partidos de esta división."}
+                </span>
             </ControlsBar>
         )}
 
@@ -159,33 +159,39 @@ export function JornadaPlanificacion({
                             ) : (
                                 <GridList>
                                     {scheduledMatches.sort((a,b) => {
-                                          if(a.date !== b.date) return a.date.localeCompare(b.date);
-                                          return (a.time || "").localeCompare(b.time || "");
-                                      }).map((match, idx, arr) => {
-                                          const prevMatch = arr[idx - 1];
-                                          const isNewDay = !prevMatch || match.date !== prevMatch.date;
-                                          const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
-                                          return (
-                                            <ScheduledMatchRow key={match.id} match={match} groupLabel={groupLabel} isConfirmed={isConfirmed} 
-                                              onUpdateDate={(val) => handleUpdateDate(match.id, val)}
-                                              onUpdateTime={(val) => {
-                                                const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val, isModified: true} : m);
-                                                setScheduledMatches(updated);
-                                              }}
-                                              onRemove={() => { 
-                                                setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                                setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
-                                              }} 
-                                              onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
-                                              onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
-                                            />
-                                          );
-                                      })}
+                                            if(a.date !== b.date) return a.date.localeCompare(b.date);
+                                            return (a.time || "").localeCompare(b.time || "");
+                                        }).map((match, idx, arr) => {
+                                            const prevMatch = arr[idx - 1];
+                                            const isNewDay = !prevMatch || match.date !== prevMatch.date;
+                                            const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
+                                            return (
+                                              <ScheduledMatchRow key={match.id} match={match} groupLabel={groupLabel} isConfirmed={isConfirmed} 
+                                                onUpdateDate={(val) => handleUpdateDate(match.id, val)}
+                                                onUpdateTime={(val) => {
+                                                  const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val, isModified: true} : m);
+                                                  setScheduledMatches(updated);
+                                                }}
+                                                onRemove={() => { 
+                                                  setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
+                                                  setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
+                                                }} 
+                                                onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
+                                                onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
+                                              />
+                                            );
+                                    })}
                                 </GridList>
                             )}
                         </DropZone>
                     ) : ( 
-                        <WeeklyGridView weekStartDate={weekStartDate} scheduledMatches={scheduledMatches} externalMatches={showGhosts ? externalMatches : []} divisionActual={activeTournament?.division?.name} isConfirmed={isConfirmed} /> 
+                        <WeeklyGridView 
+                            weekStartDate={weekStartDate} 
+                            scheduledMatches={scheduledMatches} 
+                            externalMatches={externalMatches} 
+                            divisionActual={activeTournament?.division?.name} 
+                            isConfirmed={isConfirmed} 
+                        /> 
                     )}
                 </MainZone>
             </Workspace>
@@ -200,55 +206,6 @@ export function JornadaPlanificacion({
   );
 }
 
-// --- HOOK MODULARIZADO PARA GHOST MATCHES ---
-function useGhostMatches(weekStartDate, activeTournament) {
-    const [showGhosts, setShowGhosts] = useState(false);
-    const [externalMatches, setExternalMatches] = useState([]);
-    const [loadingGhosts, setLoadingGhosts] = useState(false);
-
-    useEffect(() => {
-        if (!showGhosts || !weekStartDate || !activeTournament?.division_id) return;
-        
-        const fetchExternal = async () => {
-            setLoadingGhosts(true);
-            try {
-                const start = new Date(weekStartDate);
-                const end = new Date(start);
-                end.setDate(end.getDate() + 7);
-                const endDateStr = end.toISOString().split('T')[0];
-                
-                const { data, error } = await supabase
-                    .from('matches')
-                    .select(`id, date, time, status, team1:teams!team1_id(name), team2:teams!team2_id(name), jornadas!inner(tournament_id, tournaments!inner(division_id, divisions(name)))`)
-                    .gte('date', weekStartDate) 
-                    .lte('date', endDateStr)
-                    .eq('status', 'Programado')
-                    .neq('jornadas.tournaments.division_id', activeTournament.division_id);
-
-                if (error) throw error;
-                
-                const formatted = data.map(m => ({
-                    id: `ext-${m.id}`, 
-                    date: m.date, 
-                    time: m.time ? m.time.substring(0, 5) : '00:00',
-                    team1: { name: m.team1?.name || 'Eq1' }, 
-                    team2: { name: m.team2?.name || 'Eq2' },
-                    divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra', 
-                    isExternal: true
-                }));
-                setExternalMatches(formatted);
-            } catch (err) {
-                console.error("Error fetching ghost matches:", err);
-            } finally { 
-                setLoadingGhosts(false); 
-            }
-        };
-        fetchExternal();
-    }, [showGhosts, weekStartDate, activeTournament]);
-
-    return { showGhosts, setShowGhosts, externalMatches, loadingGhosts };
-}
-
 // --- ESTILOS ---
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
@@ -258,4 +215,4 @@ const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver
 const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; padding-bottom: 50px; `;
 const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note { font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; } `;
 const ControlsBar = styled.div` display: flex; align-items: center; gap: 15px; padding: 0 5px; animation: ${keyframes`from{opacity:0}to{opacity:1}`} 0.3s ease; .info-text { font-size: 0.85rem; color: ${({theme})=>theme.text}; opacity: 0.7; font-style: italic; } `;
-const GhostButton = styled.button` display: flex; align-items: center; gap: 8px; background: ${({ $active, theme }) => $active ? theme.bgtotal : theme.bgcards}; color: ${({ $active, theme }) => $active ? v.colorPrincipal : theme.text}; border: 1px solid ${({ $active, theme }) => $active ? v.colorPrincipal : theme.bg4}; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); &:hover { transform: translateY(-1px); border-color: ${v.colorPrincipal}; color: ${v.colorPrincipal}; } `;
+const GhostButton = styled.button` display: flex; align-items: center; gap: 8px; background: ${({ $active, theme }) => $active ? theme.bgtotal : theme.bgcards}; color: ${({ $active, theme }) => $active ? v.colorPrincipal : theme.text}; border: 1px solid ${({ $active, theme }) => $active ? v.colorPrincipal : theme.bg4}; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); &:hover { transform: translateY(-1px); border-color: ${v.colorPrincipal}; color: ${v.colorPrincipal}; } .spinner { animation: ${keyframes`0%{opacity:0} 50%{opacity:1} 100%{opacity:0}`} 1s infinite; }`;
