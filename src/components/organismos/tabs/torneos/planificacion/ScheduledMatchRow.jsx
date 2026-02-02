@@ -5,10 +5,8 @@ import { RiDeleteBinLine, RiTrophyLine, RiTimeLine, RiEditLine } from "react-ico
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 
-// Helper para extraer penales (Modularizado internamente para este componente)
 const getPenaltyScore = (observations) => {
     if (!observations) return null;
-    // Busca patrones como "Pen: 3-2", "Penales: 5-4", etc.
     const regex = /Pen.*:\s*(\d+)\s*-\s*(\d+)/i;
     const match = observations.match(regex);
     if (match) {
@@ -28,7 +26,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     groupLabel 
 }) {
   
-  // Memoizamos el cálculo de penales para rendimiento
   const penalties = useMemo(() => {
       if (isConfirmed && match.status === 'Finalizado') {
           return getPenaltyScore(match.observations);

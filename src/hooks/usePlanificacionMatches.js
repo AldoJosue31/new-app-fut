@@ -19,7 +19,7 @@ export const usePlanificacionMatches = (
   const [jornadaDates, setJornadaDates] = useState({});
   const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // --- LOGICA DE PARTIDOS EXTERNOS (FIXED) ---
+  // --- LOGICA DE PARTIDOS EXTERNOS ---
   const [showExternalMatches, setShowExternalMatches] = useState(false);
   const [externalMatches, setExternalMatches] = useState([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
@@ -84,25 +84,20 @@ export const usePlanificacionMatches = (
       });
   };
 
-  // --- EFECTO: CARGAR EXTERNOS CON CONVERSIÓN DE ZONA HORARIA ---
   useEffect(() => {
     if (showExternalMatches && weekStartDate && activeTournament?.id) {
         setLoadingExternal(true);
-        // Pedimos un rango amplio (8 días) para evitar bordes de zona horaria
         const endDate = addDaysToDate(weekStartDate, 8); 
         
         getPartidosExternosRango(weekStartDate, endDate, activeTournament.id)
             .then(data => {
-                // AQUÍ ESTA LA MAGIA: Convertimos la fecha UTC de la DB a la fecha LOCAL string 'YYYY-MM-DD'
                 const processed = data.map(m => {
                     if (!m.rawDate) return m;
                     const d = new Date(m.rawDate);
-                    // Forzamos la obtención de componentes locales
                     const year = d.getFullYear();
                     const month = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
                     const localDateStr = `${year}-${month}-${day}`;
-                    
                     return { ...m, date: localDateStr };
                 });
                 setExternalMatches(processed);
@@ -116,7 +111,6 @@ export const usePlanificacionMatches = (
 
   const toggleExternalMatches = () => setShowExternalMatches(prev => !prev);
   
-  // ... (Resto del código igual) ...
   const byeTeam = useMemo(() => ({ id: 'BYE', name: 'DESCANSA', img: null, isBye: true }), []);
 
   const durationMatch = useMemo(() => {
@@ -220,23 +214,37 @@ export const usePlanificacionMatches = (
 
     const matchesDBList = (matchesDB || []).map(m => ({ ...m, _source: 'db' }));
     
-    const activeTeamIds = new Set();
-    matchesDBList.forEach(m => {
-        if (m.team1_id) activeTeamIds.add(String(m.team1_id));
-        if (m.team2_id) activeTeamIds.add(String(m.team2_id));
-    });
-
+    // Identificamos IDs de partidos que YA están en la DB de esta jornada para no duplicarlos
     const officialJornadaIds = new Set(matchesDBList.map(m => String(m.id)));
     
     const cleanGlobalMatches = (globalPendingMatches || []).reduce((acc, gm) => {
         const gmId = String(gm.id);
-        const t1 = String(gm.team1_id ?? gm.local?.id);
-        const t2 = String(gm.team2_id ?? gm.visitante?.id);
         const gmOriginName = (gm.jornadas?.name || gm.originJornada || "").trim();
 
+        // 1. Si ya está programado en esta jornada, lo saltamos (usamos la versión de DB)
         if (officialJornadaIds.has(gmId)) return acc;
+        
+        // 2. Si pertenece originalmente a esta jornada, lo saltamos (se tratará como local)
         if (gmOriginName === currentJornadaName) return acc;
-        if (activeTeamIds.has(t1) || activeTeamIds.has(t2)) return acc; 
+
+        // IMPORTANTE: Eliminamos el filtro de activeTeamIds para que aparezca SIEMPRE
+        // aunque el equipo tenga otro partido esta semana.
+
+        const originNum = getJornadaNum(gmOriginName);
+        const currentNum = jornadaIndex + 1;
+
+        // 3. SOLO mostrar partidos de jornadas PASADAS que ya estén CONFIRMADAS
+        if (originNum < currentNum) {
+             const originStatus = gm.jornadas?.status;
+             // Si sabemos que NO está confirmada/finalizada, no lo mostramos.
+             // (Si es undefined, asumimos que sí para prevenir errores)
+             if (originStatus && originStatus !== 'Confirmada' && originStatus !== 'Finalizada') {
+                 return acc;
+             }
+        } else if (originNum > currentNum) {
+             // Si es futuro, no lo mostramos
+             return acc;
+        }
 
         acc.push({ ...gm, _source: 'global' });
         return acc;
@@ -257,7 +265,8 @@ export const usePlanificacionMatches = (
                     date: draftMatch.date, 
                     time: draftMatch.time,
                     status: draftMatch.status || dbMatch.status,
-                    isModified: draftMatch.isModified
+                    isModified: draftMatch.isModified,
+                    originJornada: draftMatch.originJornada || dbMatch.originJornada
                 };
             }
         }
@@ -268,21 +277,28 @@ export const usePlanificacionMatches = (
     
     const currentPending = mergedMatches.filter(m => {
         if (m.date || m.status === 'Finalizado') return false;
-        if (!m.originJornada) return false;
+        // Si no tiene fecha, es candidato. Verificamos que no sea "futuro"
+        if (!m.originJornada) return true; // Asumimos actual si no tiene info
+        
         const mNum = getJornadaNum(m.originJornada);
         const cNum = jornadaIndex + 1;
-        return m.originJornada === currentJornadaName || mNum < cNum;
+        
+        // Mostrar si es de esta jornada o anterior
+        return mNum <= cNum;
     });
 
     let currentSuggestions = [];
     if (teams.length % 2 !== 0) {
         const teamsPlaying = new Set();
+        
+        // Recolectar equipos ocupados en programados
         currentScheduled.forEach(m => {
-            if (m.originJornada === currentJornadaName || m.date) {
-                if (m.local?.id) teamsPlaying.add(m.local.id);
-                if (m.visitante?.id && !m.isByeMatch) teamsPlaying.add(m.visitante.id);
-            }
+             if (m.local?.id) teamsPlaying.add(m.local.id);
+             if (m.visitante?.id && !m.isByeMatch) teamsPlaying.add(m.visitante.id);
         });
+
+        // Recolectar equipos ocupados en pendientes DE ESTA JORNADA SOLAMENTE
+        // (Los pendientes arrastrados no deberían evitar que se genere el descanso local)
         currentPending.forEach(m => {
             if (m.originJornada === currentJornadaName) {
                  if (m.local?.id) teamsPlaying.add(m.local.id);
