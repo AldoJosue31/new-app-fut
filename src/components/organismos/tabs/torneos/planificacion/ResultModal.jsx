@@ -1,28 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import styled from "styled-components";
 import { 
-  v, 
-  Modal, 
-  BtnNormal, 
-  Btnsave, 
-  InputNumber, 
-  Toast,
-  TabsNavigation
+  v, Modal, BtnNormal, Btnsave, InputNumber, Toast, TabsNavigation
 } from "../../../../../index";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { 
-  RiErrorWarningLine,
-  RiCheckDoubleLine,
-  RiUserStarFill,
-  RiUserAddLine,
-  RiFileList3Line,
-  RiNumbersLine
+  RiErrorWarningLine, RiCheckDoubleLine, RiUserStarFill, RiUserAddLine, RiFileList3Line, RiNumbersLine
 } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
-import { useDivisionStore } from "../../../../../store/DivisionStore";
 
-// --- COMPONENTE DE FILA OPTIMIZADO ---
+// ==========================================
+// SUB-COMPONENTES (Modularización)
+// ==========================================
+
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
     return (
         <div className="player-row">
@@ -36,7 +27,7 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                     <option 
                         key={p.id} 
                         value={p.id} 
-                        // Deshabilitar si ya está seleccionado en OTRA fila (no en esta misma)
+                        // Evita seleccionar el mismo jugador dos veces en el mismo equipo
                         disabled={globalRoster.some(r => String(r.playerId) === String(p.id) && r.idTemp !== slot.idTemp)}
                     >
                         {p.first_name} {p.last_name} {p.dorsal ? `(${p.dorsal})` : ''}
@@ -67,10 +58,64 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
     );
 });
 
+const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName }) => (
+    <ScoreHeaderContainer>
+        <TeamInfo>
+            <img src={match.local?.logo_url || v.iconofotovacia} alt="L" />
+            <h3>{match.local?.name}</h3>
+            <span className="score">{goalsLocal}</span>
+        </TeamInfo>
+        <div className="center-info">
+            <span className="vs">VS</span>
+            <div className="match-data">
+                <span>{divisionName}</span>
+                <span>{match.time}</span>
+            </div>
+        </div>
+        <TeamInfo>
+            <span className="score">{goalsVisit}</span>
+            <h3>{match.visitante?.name}</h3>
+            <img src={match.visitante?.logo_url || v.iconofotovacia} alt="V" />
+        </TeamInfo>
+    </ScoreHeaderContainer>
+);
+
+const RosterSection = ({ roster, teamKey, players, isWalkover, minPlayers, onUpdate }) => (
+    <RosterGrid>
+        <div className="section-title"><RiUserStarFill/> Titulares (Mínimo {minPlayers})</div>
+        <div className="header-row"><span>Jugador</span><span>Goles</span><span>TA</span><span>TR</span></div>
+        {roster.map((slot, idx) => slot.isStarter && (
+            <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team={teamKey} players={players} globalRoster={roster} isWalkover={isWalkover} onUpdate={onUpdate} />
+        ))}
+        <div className="section-title subs"><RiUserAddLine/> Suplentes</div>
+        {roster.map((slot, idx) => !slot.isStarter && (
+                <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team={teamKey} players={players} globalRoster={roster} isWalkover={isWalkover} onUpdate={onUpdate} />
+        ))}
+    </RosterGrid>
+);
+
+const PenaltiesSection = ({ penalties, match, setPenalties }) => (
+    <PenaltiesContainer>
+        <h3>Definición por Penales / Shootouts</h3>
+        <div className="pen-inputs">
+            <div className="team">
+                <span>{match.local?.name}</span>
+                <InputNumber value={penalties.local} onChange={(e) => setPenalties({...penalties, local: e.target.value})} />
+            </div>
+            <div className="team">
+                <span>{match.visitante?.name}</span>
+                <InputNumber value={penalties.visit} onChange={(e) => setPenalties({...penalties, visit: e.target.value})} />
+            </div>
+        </div>
+    </PenaltiesContainer>
+);
+
+// ==========================================
+// COMPONENTE PRINCIPAL
+// ==========================================
+
 export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }) {
     
-  const { selectedDivision } = useDivisionStore();
-
   // --- ESTADOS ---
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
@@ -109,12 +154,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const lossPoints = parseInt(tournamentConfig.lossPoints ?? 0);
   
   const minPlayers = parseInt(
-      tournamentConfig.minPlayers || 
-      activeTournament?.min_players || 
-      activeTournament?.minPlayers || 
-      7
+      tournamentConfig.minPlayers || activeTournament?.min_players || activeTournament?.minPlayers || 7
   );
-  
   const halfMinPlayers = Math.ceil(minPlayers / 2);
   const maxSubs = 15; 
 
@@ -124,7 +165,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     return ['penalties', 'shoutouts', 'shouts', 'penales'].includes(type);
   }, [tournamentConfig]);
 
-  // --- CÁLCULOS DE GOLES EN VIVO ---
+  // --- CÁLCULOS DE GOLES ---
   const totalGoalsLocal = useMemo(() => {
     if (isWalkover) return woWinnerId === match?.local?.id ? 3 : 0;
     return rosterLocal.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
@@ -135,7 +176,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     return rosterVisit.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
   }, [rosterVisit, isWalkover, woWinnerId, match]);
 
-  // --- CONFIG TABS ---
+  // --- TABS DINÁMICAS ---
   const modalTabs = useMemo(() => {
     const tabs = [{ id: "general", label: "General", icon: <RiFileList3Line/> }];
     if (!isWalkover || (isWalkover && woWinnerId === match?.local?.id)) {
@@ -144,9 +185,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     if (!isWalkover || (isWalkover && woWinnerId === match?.visitante?.id)) {
       tabs.push({ id: "visit", label: match?.visitante?.name || "Visitante", icon: <IoMdFootball/> });
     }
-    // Mostrar tab de penales si hay empate y está activada la regla
     if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
-      tabs.push({ id: "penalties", label: "Penales/Shouts", icon: <RiNumbersLine/> });
+      tabs.push({ id: "penalties", label: "Penales", icon: <RiNumbersLine/> });
     }
     return tabs;
   }, [match, isWalkover, woWinnerId, totalGoalsLocal, totalGoalsVisit, isExtraPointEnabled]);
@@ -161,19 +201,21 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     }
   }, [isOpen, match?.id]);
 
-  // --- LÓGICA DE CARGA DE DATOS ---
+  // --- CARGA DE DATOS ---
   const fetchAllData = async () => {
     try {
-      // 1. Obtener Datos Frescos del Partido
+      // Usar Number() para asegurar que el ID es numérico y evitar errores de tipo
+      const matchId = Number(match.id);
+      if(isNaN(matchId)) throw new Error("ID de partido inválido");
+
       const { data: freshMatch, error: matchError } = await supabase
         .from('matches')
         .select('*')
-        .eq('id', match.id)
+        .eq('id', matchId)
         .single();
         
       if (matchError) throw matchError;
 
-      // 2. Obtener Árbitros
       let leagueId = activeTournament?.division?.league_id || activeTournament?.league_id;
       if (!leagueId && activeTournament?.division_id) {
         const { data: divData } = await supabase.from('divisions').select('league_id').eq('id', activeTournament.division_id).single();
@@ -184,12 +226,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         ? supabase.from('referees').select('*').eq('league_id', leagueId).order('full_name')
         : Promise.resolve({ data: [] });
 
-      // 3. Obtener Jugadores
       const localPlayersPromise = supabase.from('players').select('*').eq('team_id', match.local.id).eq('is_suspended', false).order('first_name');
       const visitPlayersPromise = supabase.from('players').select('*').eq('team_id', match.visitante.id).eq('is_suspended', false).order('first_name');
-
-      // 4. Obtener Eventos Guardados
-      const eventsPromise = supabase.from('match_events').select('*').eq('match_id', match.id);
+      
+      // Obtener eventos asociados a este ID de partido
+      const eventsPromise = supabase.from('match_events').select('*').eq('match_id', matchId);
 
       const [refsRes, localRes, visitRes, eventsRes] = await Promise.all([
         refereePromise, localPlayersPromise, visitPlayersPromise, eventsPromise
@@ -199,10 +240,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setLocalPlayers(localRes.data || []);
       setVisitPlayers(visitRes.data || []);
 
-      // SETEAR ESTADO DEL PARTIDO DESDE DB
       setSelectedReferee(freshMatch.referee_id || "");
       
-      // Parsear Observaciones
       const obs = freshMatch.observations || "";
       const isWO = obs.includes('W.O.');
       setIsWalkover(isWO);
@@ -213,7 +252,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         setWoWinnerId(null);
       }
 
-      // Lógica de lectura de penales (debe coincidir con la lógica de escritura)
       if (obs.includes('Pen')) {
         try {
             const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
@@ -227,7 +265,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         setPenalties({ local: 0, visit: 0 });
       }
 
-      // RECONSTRUIR ROSTERS
       const existingEvents = eventsRes.data || [];
       const isEditMode = freshMatch.status === 'Finalizado';
       
@@ -236,42 +273,32 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
     } catch (error) {
       console.error("Error loading result data:", error);
-      setToastConfig({ show: true, message: "Error cargando datos del partido", type: "error" });
+      setToastConfig({ show: true, message: "Error cargando datos: " + error.message, type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
   const reconstructRoster = (players, events, prefix, isEditMode) => {
-      // 1. Mapa de estadísticas por jugador (Normalizado a String ID)
       const statsMap = {};
       events.forEach(ev => {
-          const sId = String(ev.player_id); // CLAVE: Convertir a string para evitar errores de tipo
+          const sId = String(ev.player_id);
           if (!statsMap[sId]) statsMap[sId] = { goals: 0, yellow: false, red: false, played: true };
-          
           if (ev.event_type === 'goal') statsMap[sId].goals++;
           if (ev.event_type === 'yellow_card') statsMap[sId].yellow = true;
           if (ev.event_type === 'red_card') statsMap[sId].red = true;
       });
 
-      // 2. Identificar jugadores activos
       const activePlayers = [];
-      
       players.forEach(p => {
           const sId = String(p.id);
           if (statsMap[sId]) {
-              activePlayers.push({
-                  playerId: p.id,
-                  ...statsMap[sId]
-              });
+              activePlayers.push({ playerId: p.id, ...statsMap[sId] });
           }
       });
 
-      // 3. Construir Roster Final
       const roster = [];
-      
       if (isEditMode && activePlayers.length > 0) {
-          // MODO EDICIÓN
           activePlayers.forEach((pData, index) => {
               roster.push({
                   idTemp: `${prefix}-loaded-${index}`,
@@ -282,8 +309,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                   red: pData.red
               });
           });
-
-          // Rellenar hasta el mínimo
           while (roster.length < minPlayers) {
               roster.push({
                   idTemp: `${prefix}-fill-${roster.length}`,
@@ -291,8 +316,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                   playerId: "", goals: 0, yellow: false, red: false
               });
           }
-
-          // Añadir slot para suplente extra
           if (roster.length < (minPlayers + maxSubs)) {
                roster.push({ 
                   idTemp: `${prefix}-extra-${Date.now()}`, 
@@ -300,9 +323,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                   playerId: "", goals: 0, yellow: false, red: false 
               });
           }
-
       } else {
-          // MODO NUEVO
           for (let i = 0; i < minPlayers; i++) {
               roster.push({
                   idTemp: `${prefix}-${i}`,
@@ -315,28 +336,20 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
               playerId: "", goals: 0, yellow: false, red: false, isStarter: false 
           });
       }
-
       return roster;
   };
 
-  // --- HANDLERS ---
   const handleUpdateRoster = useCallback((team, index, field, value) => {
     const isLocal = team === 'local';
     const setter = isLocal ? setRosterLocal : setRosterVisit;
-    
     setter(prevRoster => {
         const newRoster = [...prevRoster];
         newRoster[index] = { ...newRoster[index], [field]: value };
-
-        // Auto-agregar fila
+        // Auto-add row logic
         if (field === 'playerId' && value !== "" && index === newRoster.length - 1 && newRoster.length < (minPlayers + maxSubs)) {
             newRoster.push({ 
                 idTemp: `${isLocal ? 'l' : 'v'}-${Date.now()}`, 
-                playerId: "", 
-                goals: 0, 
-                yellow: false, 
-                red: false, 
-                isStarter: false 
+                playerId: "", goals: 0, yellow: false, red: false, isStarter: false 
             });
         }
         return newRoster;
@@ -365,21 +378,23 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         }
     }
     
-    // Validación de penales
     if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
       if (parseInt(penalties.local) === parseInt(penalties.visit)) {
         return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
       }
     }
-    
     setShowConfirm(true);
   };
 
   const handleFinalSave = async () => {
     setLoading(true);
     try {
+      const matchId = Number(match.id);
+      
       // 1. ELIMINAR EVENTOS ANTERIORES
-      const { error: delError } = await supabase.from('match_events').delete().eq('match_id', match.id);
+      // Usamos delete().eq('match_id', matchId) asegurando el tipo numérico.
+      // Esto es crucial para evitar el bug de "doble registro" si el ID venía como string y no hacía match.
+      const { error: delError } = await supabase.from('match_events').delete().eq('match_id', matchId);
       if(delError) throw delError;
 
       // 2. PROCESAR NUEVOS EVENTOS
@@ -387,14 +402,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const processRoster = (r) => {
         r.forEach(p => {
           if (!p.playerId) return;
-          
-          events.push({ match_id: match.id, player_id: p.playerId, event_type: 'participation' });
+          // Evento de participación (1 por jugador)
+          events.push({ match_id: matchId, player_id: p.playerId, event_type: 'participation' });
 
           if (p.goals > 0) {
-            for(let i=0; i < p.goals; i++) events.push({ match_id: match.id, player_id: p.playerId, event_type: 'goal' });
+            for(let i=0; i < p.goals; i++) events.push({ match_id: matchId, player_id: p.playerId, event_type: 'goal' });
           }
-          if (p.yellow) events.push({ match_id: match.id, player_id: p.playerId, event_type: 'yellow_card' });
-          if (p.red) events.push({ match_id: match.id, player_id: p.playerId, event_type: 'red_card' });
+          if (p.yellow) events.push({ match_id: matchId, player_id: p.playerId, event_type: 'yellow_card' });
+          if (p.red) events.push({ match_id: matchId, player_id: p.playerId, event_type: 'red_card' });
         });
       };
 
@@ -428,13 +443,12 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         if (isExtraPointEnabled) {
           if (parseInt(penalties.local) > parseInt(penalties.visit)) p1 += 1;
           else p2 += 1;
-          
-          // FORMATO ESTÁNDAR PARA PENALES
           obs = `Pen: ${penalties.local}-${penalties.visit}`;
         }
       }
 
-      await onSave(match.id, {
+      // Llamamos a onSave con el ID numérico
+      await onSave(matchId, {
         goals1: totalGoalsLocal,
         goals2: totalGoalsVisit,
         puntos1: p1,
@@ -456,28 +470,20 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   return (
     <Modal isOpen={isOpen} onClose={onClose} width="950px" title="Definir Resultado" closeOnOverlayClick={false}>
       <Container>
-        <ScoreHeader>
-          <TeamInfo>
-            <img src={match.local?.logo_url || v.iconofotovacia} alt="L" />
-            <h3>{match.local?.name}</h3>
-            <span className="score">{totalGoalsLocal}</span>
-          </TeamInfo>
-          <div className="center-info">
-            <span className="vs">VS</span>
-            <div className="match-data"><span>{activeTournament?.division?.name}</span><span>{match.time}</span></div>
-          </div>
-          <TeamInfo>
-            <span className="score">{totalGoalsVisit}</span>
-            <h3>{match.visitante?.name}</h3>
-            <img src={match.visitante?.logo_url || v.iconofotovacia} alt="V" />
-          </TeamInfo>
-        </ScoreHeader>
+        <ScoreHeader 
+            match={match} 
+            goalsLocal={totalGoalsLocal} 
+            goalsVisit={totalGoalsVisit} 
+            divisionName={activeTournament?.division?.name}
+        />
 
         {loading ? (
-            <LoadingState>Cargando datos del partido...</LoadingState>
+            <LoadingState>Cargando datos...</LoadingState>
         ) : (
             <>
-                <TabsWrapper><TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} /></TabsWrapper>
+                <TabsWrapper>
+                    <TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} />
+                </TabsWrapper>
 
                 <ContentBody>
                 {activeTab === 'general' && (
@@ -507,45 +513,19 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
                 {activeTab === 'local' && (
                     <TabContent>
-                    <RosterGrid>
-                        <div className="section-title"><RiUserStarFill/> Titulares (Mínimo {minPlayers})</div>
-                        <div className="header-row"><span>Jugador</span><span>Goles</span><span>TA</span><span>TR</span></div>
-                        {rosterLocal.map((slot, idx) => slot.isStarter && (
-                            <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team="local" players={localPlayers} globalRoster={rosterLocal} isWalkover={isWalkover} onUpdate={handleUpdateRoster} />
-                        ))}
-                        <div className="section-title subs"><RiUserAddLine/> Suplentes</div>
-                        {rosterLocal.map((slot, idx) => !slot.isStarter && (
-                             <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team="local" players={localPlayers} globalRoster={rosterLocal} isWalkover={isWalkover} onUpdate={handleUpdateRoster} />
-                        ))}
-                    </RosterGrid>
+                        <RosterSection roster={rosterLocal} teamKey="local" players={localPlayers} isWalkover={isWalkover} minPlayers={minPlayers} onUpdate={handleUpdateRoster} />
                     </TabContent>
                 )}
 
                 {activeTab === 'visit' && (
                     <TabContent>
-                    <RosterGrid>
-                        <div className="section-title"><RiUserStarFill/> Titulares</div>
-                        <div className="header-row"><span>Jugador</span><span>Goles</span><span>TA</span><span>TR</span></div>
-                        {rosterVisit.map((slot, idx) => slot.isStarter && (
-                            <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team="visit" players={visitPlayers} globalRoster={rosterVisit} isWalkover={isWalkover} onUpdate={handleUpdateRoster} />
-                        ))}
-                        <div className="section-title subs"><RiUserAddLine/> Suplentes</div>
-                        {rosterVisit.map((slot, idx) => !slot.isStarter && (
-                            <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team="visit" players={visitPlayers} globalRoster={rosterVisit} isWalkover={isWalkover} onUpdate={handleUpdateRoster} />
-                        ))}
-                    </RosterGrid>
+                         <RosterSection roster={rosterVisit} teamKey="visit" players={visitPlayers} isWalkover={isWalkover} minPlayers={minPlayers} onUpdate={handleUpdateRoster} />
                     </TabContent>
                 )}
 
                 {activeTab === 'penalties' && (
                     <TabContent>
-                    <PenaltiesContainer>
-                        <h3>Definición por Penales / Shootouts</h3>
-                        <div className="pen-inputs">
-                        <div className="team"><span>{match.local?.name}</span><InputNumber value={penalties.local} onChange={(e) => setPenalties({...penalties, local: e.target.value})} /></div>
-                        <div className="team"><span>{match.visitante?.name}</span><InputNumber value={penalties.visit} onChange={(e) => setPenalties({...penalties, visit: e.target.value})} /></div>
-                        </div>
-                    </PenaltiesContainer>
+                        <PenaltiesSection penalties={penalties} match={match} setPenalties={setPenalties} />
                     </TabContent>
                 )}
                 </ContentBody>
@@ -586,7 +566,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; `;
 const TabsWrapper = styled.div` width: 100%; `;
 const InputGroup = styled.div` display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; label { font-weight: 700; display: flex; align-items: center; gap: 8px; color: ${({theme})=>theme.text}; } select { padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; &:focus { border-color: ${v.colorPrincipal}; } } `;
-const ScoreHeader = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; } } `;
+const ScoreHeaderContainer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; } } `;
 const TeamInfo = styled.div` display: flex; align-items: center; gap: 15px; width: 35%; img { width: 45px; height: 45px; object-fit: contain; } h3 { font-size: 0.9rem; flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .score { font-size: 2.2rem; font-weight: 800; color: ${v.colorPrincipal}; } `;
 const ContentBody = styled.div` min-height: 350px; `;
 const RosterGrid = styled.div` display: flex; flex-direction: column; gap: 8px; .section-title { font-size: 0.85rem; font-weight: 700; color: ${v.colorPrincipal}; display: flex; align-items: center; gap: 8px; margin-top: 10px; &.subs { color: ${({theme})=>theme.text}; opacity: 0.7; } } .header-row { display: grid; grid-template-columns: 1fr 80px 50px 50px; padding: 0 10px; font-size: 0.7rem; opacity: 0.5; text-transform: uppercase; } .player-row { display: grid; grid-template-columns: 1fr 80px 50px 50px; gap: 10px; align-items: center; padding: 8px; background: ${({theme})=>theme.bgtotal}; border-radius: 8px; border: 1px solid ${({theme})=>theme.bg4}; select, input { background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; padding: 5px; border-radius: 5px; width: 100%; outline: none; } } `;

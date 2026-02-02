@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect } from 'react';
 import styled from 'styled-components';
-import { v } from '../../../../styles/variables'; // Importamos v para usar el logoGenerico
+import { v } from '../../../../styles/variables'; 
 import { Device } from '../../../../styles/breakpoints'; 
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
 
@@ -29,11 +29,22 @@ export const TorneosStandingsTab = ({
     };
   }, [torneo?.config, reglas]);
 
-  const tablaGeneral = useMemo(() => {
+  // --- CORRECCIÓN DE DUPLICADOS ---
+  // Filtramos la lista de equipos para asegurar que cada ID sea único.
+  // Esto previene que si la BD devuelve el equipo "Golden Boys" dos veces, se renderice dos filas.
+  const uniqueEquipos = useMemo(() => {
     if (!equipos) return [];
-    
-    const data = equipos.map((equipo) => {
+    const map = new Map();
+    equipos.forEach(eq => map.set(eq.id, eq));
+    return Array.from(map.values());
+  }, [equipos]);
+
+  const tablaGeneral = useMemo(() => {
+    const data = uniqueEquipos.map((equipo) => {
+      // Usamos .find() que solo devuelve la primera coincidencia, lo cual es correcto.
+      // Si estadisticas tiene duplicados, esto ignora los extra.
       const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
+      
       return {
         id: equipo.id,
         nombre: equipo.name || equipo.nombre,
@@ -51,18 +62,17 @@ export const TorneosStandingsTab = ({
 
     return data.sort((a, b) => {
         if (b.pts !== a.pts) return b.pts - a.pts;
-        if (b.pj !== a.pj) return b.pj - a.pj;
         if (b.dg !== a.dg) return b.dg - a.dg;
-        return b.gf - a.gf;
+        if (b.gf !== a.gf) return b.gf - a.gf;
+        // Si todo es igual, menor partidos jugados va primero (mejor rendimiento)
+        return a.pj - b.pj;
     });
 
-  }, [equipos, estadisticas]);
+  }, [uniqueEquipos, estadisticas]);
 
-  // --- NUEVO: Detectar si al menos un equipo tiene logo ---
   const hasAnyLogo = useMemo(() => {
     return tablaGeneral.some(team => team.logo && team.logo.trim() !== '');
   }, [tablaGeneral]);
-  // -------------------------------------------------------
 
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
@@ -116,22 +126,13 @@ export const TorneosStandingsTab = ({
                     <Td className="team-col" $zoneColor={zoneColor}>
                       <TeamNameCell>
                         <span className="pos">{index + 1}</span>
-                        
-                        {/* --- NUEVA LÓGICA DE RENDERIZADO DE IMAGEN --- */}
                         {hasAnyLogo ? (
-                           // Si al menos uno tiene logo, mostramos imagen para todos
                            <img 
                              src={fila.logo || v.logoGenerico} 
                              alt={fila.nombre} 
-                             // Si falla la carga del logo específico, usa el genérico
                              onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
                            />
-                        ) : (
-                           // Si NINGUNO tiene logo, no renderizamos nada (quita el espacio)
-                           null
-                        )}
-                        {/* ----------------------------------------------- */}
-
+                        ) : null}
                         <span className="team-name">{fila.nombre}</span>
                       </TeamNameCell>
                     </Td>
@@ -192,7 +193,7 @@ const TableCard = styled.div`
 
 const TableScrollWrapper = styled(ContainerScroll)`
   overflow-x: auto; 
-  padding-bottom: 2px; // Reducido
+  padding-bottom: 2px;
 `;
 
 const StyledTable = styled.table`
@@ -207,19 +208,19 @@ const Th = styled.th`
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.65rem;
-  padding: 8px 4px; // Reducido de 12px 8px
+  padding: 8px 4px;
   text-align: center;
   border-bottom: 2px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
 
   @media ${Device.tablet} {
     font-size: 0.75rem;
-    padding: 12px 8px; // Reducido de 18px 12px
+    padding: 12px 8px;
   }
 
   &:first-child {
     text-align: left;
-    padding-left: 10px; // Ligeramente ajustado
+    padding-left: 10px;
     position: sticky;
     left: 0;
     z-index: 10;
@@ -228,27 +229,27 @@ const Th = styled.th`
 
   &.stat-col {
     width: 1%;
-    min-width: 30px; // Ligeramente más angosto
+    min-width: 30px;
     @media ${Device.tablet} { min-width: 40px; }
   }
 `;
 
 const Td = styled.td`
-  padding: 6px 4px; // Reducido drásticamente (antes 12px) para compactar filas
+  padding: 6px 4px;
   text-align: center;
-  font-size: 0.8rem; // Ligeramente más pequeño en móvil
+  font-size: 0.8rem;
   color: ${({ theme }) => theme.text};
   border-bottom: 1px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
 
   @media ${Device.tablet} {
-    padding: 10px 8px; // Reducido de 16px
+    padding: 10px 8px;
     font-size: 0.95rem;
   }
 
   &.team-col {
     text-align: left;
-    padding-left: 10px; // Ajustado
+    padding-left: 10px;
     position: sticky;
     left: 0;
     z-index: 5;
@@ -292,8 +293,8 @@ const TeamNameCell = styled.div`
   @media ${Device.tablet} { gap: 10px; }
 
   img {
-    width: 20px; height: 20px; object-fit: contain; // Reducido a 20px para móvil
-    @media ${Device.tablet} { width: 28px; height: 28px; } // Reducido a 28px para tablet
+    width: 20px; height: 20px; object-fit: contain;
+    @media ${Device.tablet} { width: 28px; height: 28px; }
     border-radius: 4px; 
   }
 
@@ -302,7 +303,7 @@ const TeamNameCell = styled.div`
   }
 
   .team-name {
-    font-weight: 600; font-size: 0.8rem; // Ajustado
+    font-weight: 600; font-size: 0.8rem;
     @media ${Device.tablet} { font-size: 0.9rem; }
   }
 `;
@@ -313,14 +314,14 @@ const LeyendaContainer = styled.div`
     flex-wrap: wrap; 
     justify-content: flex-end; 
     max-width: 900px;
-    margin: 0 auto 10px auto; // Margen inferior reducido
+    margin: 0 auto 10px auto; 
     padding: 0 10px;
 `;
 
 const Badge = styled.span`
     font-size: 0.65rem; 
     font-weight: 700; 
-    padding: 2px 6px; // Más compacto
+    padding: 2px 6px;
     border-radius: 4px;
     background: ${({$color}) => `${$color}15`};
     color: ${({$color}) => $color};

@@ -86,71 +86,80 @@ export const transformarPartidosExistentes = (matchesDB, jornadas, teams) => {
     const byeTeam = { id: 'BYE', name: 'DESCANSA', img: null, isBye: true };
     const editorMatches = [];
     
-    // Mapeo eficiente de jornadas
+    // Mapa auxiliar para asegurar unicidad de equipos por jornada
+    // Clave: jornadaIndex, Valor: Set de IDs de equipos (normalizados a string)
+    const teamsPlayingByRound = {};
+    
     const jornadaMap = {};
+    // Ordenamos jornadas para garantizar el índice correcto
     const jornadasSorted = [...jornadas].sort((a,b) => {
         const numA = parseInt(a.name.replace(/\D/g, '')) || a.id;
         const numB = parseInt(b.name.replace(/\D/g, '')) || b.id;
         return numA - numB;
     });
 
+    // Inicializamos el mapa y los Sets
     jornadasSorted.forEach((j, index) => {
         jornadaMap[j.id] = { index: index, status: j.status, id: j.id };
+        teamsPlayingByRound[index] = new Set(); 
     });
 
     // 1. Procesar partidos existentes en DB
     matchesDB.forEach(m => {
         const jInfo = jornadaMap[m.jornada_id];
-        if (!jInfo) return; // Ignorar si la jornada no existe en el scope
+        if (!jInfo) return;
 
-        const localTeam = teams.find(t => t.id === m.team1_id);
-        const visitaTeam = teams.find(t => t.id === m.team2_id);
+        // Normalización CRÍTICA: Convertir IDs a String para comparaciones seguras
+        const localTeam = teams.find(t => String(t.id) === String(m.team1_id));
+        const visitaTeam = teams.find(t => String(t.id) === String(m.team2_id));
         const isRoundLocked = (jInfo.status === 'Confirmada' || jInfo.status === 'Finalizada');
 
-        // Si tenemos al menos el equipo local, procesamos
         if (localTeam) {
+            const roundSet = teamsPlayingByRound[jInfo.index];
+            const localIdStr = String(localTeam.id);
+
+            // FILTRO ANTI-DUPLICADOS:
+            // Si el equipo local YA fue registrado en esta jornada (posible error en datos de DB), ignoramos este registro extra.
+            if (roundSet.has(localIdStr)) return;
+
+            // Marcamos el equipo local como "jugando" en esta jornada
+            roundSet.add(localIdStr);
+            
+            // Si hay visitante real, también lo marcamos
+            if (visitaTeam) {
+                roundSet.add(String(visitaTeam.id));
+            }
+
             editorMatches.push({
-                id: m.id, // ID real de la BD
+                id: m.id,
                 dbId: m.id,
                 local: localTeam,
-                visitante: visitaTeam || byeTeam, // Si no hay visita en BD, es BYE
+                visitante: visitaTeam || byeTeam,
                 jornadaIndex: jInfo.index,
                 locked: isRoundLocked,
-                roundLocked: isRoundLocked, // Flag crítico para bloqueo
-                isByeMatch: !visitaTeam || visitaTeam.id === 'BYE'
+                roundLocked: isRoundLocked,
+                isByeMatch: !visitaTeam || String(visitaTeam.id) === 'BYE'
             });
         }
     });
 
-    // 2. Rellenar huecos (BYE) SOLO si no existen ya
+    // 2. Rellenar huecos (BYE) para equipos que NO jugaron
     jornadasSorted.forEach((j, index) => {
         const jInfo = jornadaMap[j.id];
         const isRoundLocked = (jInfo.status === 'Confirmada' || jInfo.status === 'Finalizada');
-        
-        // Obtener partidos ya registrados en esta jornada (Paso 1)
-        const matchesInRound = editorMatches.filter(m => m.jornadaIndex === index);
-        
-        // Set de IDs que YA juegan en esta jornada (incluyendo contra BYE)
-        const playedTeamIds = new Set();
-        matchesInRound.forEach(m => {
-            if (m.local.id !== 'BYE') playedTeamIds.add(m.local.id);
-            if (m.visitante.id !== 'BYE') playedTeamIds.add(m.visitante.id);
-        });
+        const roundSet = teamsPlayingByRound[index];
 
-        // Filtrar equipos que faltan
-        const teamsResting = teams.filter(t => !playedTeamIds.has(t.id));
+        // Filtramos los equipos cuyo ID NO esté en el Set de esa jornada
+        const teamsResting = teams.filter(t => !roundSet.has(String(t.id)));
 
-        // Si la jornada está confirmada, debemos confiar en la BD.
-        // Pero si por error de datos falta un registro BYE, lo agregamos visualmente
-        // para mantener la consistencia, pero marcado como locked.
         teamsResting.forEach(t => {
             editorMatches.push({
-                id: `temp_bye_${index}_${t.id}`, // ID temporal
-                dbId: null, // No existe en BD aún
+                id: `temp_bye_${index}_${t.id}`,
+                dbId: null,
                 local: t,
                 visitante: byeTeam,
                 jornadaIndex: index,
-                locked: isRoundLocked,
+                locked: isRoundLocked, // Si la jornada está confirmada, el descanso generado también se bloquea
                 roundLocked: isRoundLocked,
                 isByeMatch: true
             });
