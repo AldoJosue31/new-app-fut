@@ -7,13 +7,20 @@ import { v } from "../../../../../styles/variables";
 export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornadaIndex }) {
   
   const { delayed, current } = useMemo(() => {
+    // La jornada actual es index + 1
     const currentNum = jornadaIndex + 1;
     
     const result = matches.reduce((acc, m) => {
         // Validación de robustez
-        if (!m.originJornada) return acc;
+        if (!m.originJornada) {
+             // Si no tiene origen, asumimos actual para que no se pierda
+             acc.current.push(m);
+             return acc;
+        }
 
-        const mNum = parseInt(m.originJornada.split(' ')[1]) || 999;
+        // Extraer numero: "Jornada 4" -> 4
+        const parts = m.originJornada.split(' ');
+        const mNum = parts.length > 1 ? parseInt(parts[1]) : 999;
         
         if (mNum < currentNum) {
             acc.delayed.push(m);
@@ -23,7 +30,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
         return acc;
     }, { delayed: [], current: [] });
 
-    // Ordenar actuales: Descansos primero
+    // Ordenar actuales: Descansos primero para mejor UX
     result.current.sort((a, b) => {
         if (a.isByeMatch && !b.isByeMatch) return -1;
         if (!a.isByeMatch && b.isByeMatch) return 1;
@@ -42,7 +49,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
         <ContainerScroll>
           <div className="list-content">
             
-            {/* Sección de Atrasados */}
+            {/* Sección de Atrasados - CRÍTICO PARA FUNCIONALIDAD SOLICITADA */}
             {delayed.length > 0 && (
                 <div className="section-group">
                     <span className="section-title warning">Pendientes Atrasados ({delayed.length})</span>
@@ -65,7 +72,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
 
             {/* Sección de Jornada Actual */}
             <div className="section-group">
-                {(delayed.length > 0 || current.length > 0) && <span className="section-title">De esta Jornada</span>}
+                {(delayed.length > 0 && current.length > 0) && <span className="section-title">De esta Jornada</span>}
                 
                 {current.map((match) => {
                     if (match.isByeMatch) {

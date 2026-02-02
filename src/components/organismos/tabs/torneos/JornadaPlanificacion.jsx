@@ -27,7 +27,6 @@ export function JornadaPlanificacion({
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes, 
     clearDraft,
-    // Props nuevas del Hook
     showExternalMatches, toggleExternalMatches,
     externalMatches, loadingExternal
   } = usePlanificacionMatches(
@@ -172,11 +171,14 @@ export function JornadaPlanificacion({
                                                   const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val, isModified: true} : m);
                                                   setScheduledMatches(updated);
                                                 }}
+                                                // 1. DESAGENDAR (Modo Borrador): Mueve a local pending y limpia todo.
                                                 onRemove={() => { 
                                                   setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
                                                   setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
                                                 }} 
                                                 onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
+                                                
+                                                // 2. APLAZAR (Modo Confirmado): Actualiza DB. ELIMINADA la prop 'time' para evitar error 400.
                                                 onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
                                               />
                                             );
