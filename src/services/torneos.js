@@ -5,7 +5,6 @@ import { TOURNAMENT_STATUS } from '../utils/constants';
 
 export const getTorneoActivo = async (divisionId) => {
   try {
-    // CORRECCIÓN: Traemos divisions(name) para tener el nombre de la división actual
     const { data, error } = await supabase
       .from('tournaments')
       .select('*, jornadas(name, status), divisions(name, id)')
@@ -16,7 +15,6 @@ export const getTorneoActivo = async (divisionId) => {
       .maybeSingle();
 
     if (error) throw error;
-    // Aplanamos el nombre de la división para facilitar acceso
     if (data && data.divisions) {
         data.division = data.divisions;
     }
@@ -47,7 +45,6 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
     try {
         if (!startDate || !endDate || !currentTournamentId) return [];
 
-        // Solicitamos datos a Supabase
         const { data, error } = await supabase
             .from('matches')
             .select(`
@@ -67,17 +64,16 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
             `)
             .gte('date', `${startDate} 00:00:00`)
             .lte('date', `${endDate} 23:59:59`)
-            .neq('jornadas.tournament_id', currentTournamentId) // Excluir torneo actual
-            .neq('status', 'Pendiente') // Solo programados
+            .neq('jornadas.tournament_id', currentTournamentId) 
+            .neq('status', 'Pendiente') 
             .order('date', { ascending: true })
             .order('time', { ascending: true });
 
         if (error) throw error;
 
-        // Mapeo simple (La conversión de fecha se hará en el Hook para evitar errores de UTC)
         return data.map(m => ({
             id: `ext-${m.id}`, 
-            rawDate: m.date, // Guardamos la fecha cruda para procesarla luego
+            rawDate: m.date,
             time: m.time,
             local: m.team1?.name || 'Por definir',
             visitante: m.team2?.name || 'Por definir',
