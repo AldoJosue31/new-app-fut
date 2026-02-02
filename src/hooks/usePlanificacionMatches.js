@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { addDaysToDate } from "../utils/dateUtils";
+import { getPartidosExternosRango } from "../services/torneos";
 
 export const usePlanificacionMatches = (
     activeTournament, 
@@ -14,72 +15,58 @@ export const usePlanificacionMatches = (
   const [allPendingMatches, setAllPendingMatches] = useState([]); 
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // --- NUEVO: GESTIÓN INTELIGENTE DE FECHAS ---
-  // Estado para guardar las fechas de inicio de cada jornada: { 0: '2023-01-01', 1: '2023-01-08' }
+  // --- LOGICA DE FECHAS ---
   const [jornadaDates, setJornadaDates] = useState({});
   const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // --- LOGICA DE PARTIDOS EXTERNOS (FIXED) ---
+  const [showExternalMatches, setShowExternalMatches] = useState(false);
+  const [externalMatches, setExternalMatches] = useState([]);
+  const [loadingExternal, setLoadingExternal] = useState(false);
 
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
-  // Key para LocalStorage (Draft de partidos)
   const storageKey = useMemo(() => {
     if (!activeTournament?.id) return null;
     return `planning_draft_${activeTournament.id}_J${jornadaIndex}_v${dataVersion}`;
   }, [activeTournament?.id, jornadaIndex, dataVersion]);
 
-  // Key para LocalStorage (Fechas de Jornadas)
   const datesStorageKey = useMemo(() => {
       if (!activeTournament?.id) return null;
       return `tournament_dates_${activeTournament.id}`;
   }, [activeTournament?.id]);
 
-  // 1. Cargar Mapa de Fechas Inicial
   useEffect(() => {
       if (datesStorageKey) {
           const savedDates = localStorage.getItem(datesStorageKey);
           if (savedDates) {
               setJornadaDates(JSON.parse(savedDates));
           } else {
-              // Si es nuevo, inicializar la jornada 0 con hoy o fecha config torneo
               const initialDate = activeTournament?.startDate || new Date().toISOString().split('T')[0];
               setJornadaDates({ 0: initialDate });
           }
       }
   }, [datesStorageKey, activeTournament]);
 
-  // 2. Sincronizar weekStartDate cuando cambia el indice de jornada
   useEffect(() => {
       if (Object.keys(jornadaDates).length === 0) return;
-
       const storedDate = jornadaDates[jornadaIndex];
 
       if (storedDate) {
-          // Si ya existe fecha para esta jornada, la usamos
           setWeekStartDate(storedDate);
       } else {
-          // LÓGICA AUTOMÁTICA: Si no existe, calculamos basada en la anterior
-          // Buscamos la jornada anterior más cercana que tenga fecha
           let referenceDate = new Date().toISOString().split('T')[0];
           let diffWeeks = 1;
 
           if (jornadaIndex > 0) {
-              // Intentar obtener la fecha de la jornada inmediatamente anterior
               const prevDate = jornadaDates[jornadaIndex - 1];
-              if (prevDate) {
-                  referenceDate = prevDate;
-              } else {
-                  // Fallback: buscar cualquier fecha anterior
-                  // (Por simplicidad, usamos la fecha base hoy si no hay historial)
-              }
+              if (prevDate) referenceDate = prevDate;
           }
 
-          // Calcular: Fecha anterior + 7 días
           const newCalculatedDate = addDaysToDate(referenceDate, 7 * diffWeeks);
-          
           setWeekStartDate(newCalculatedDate);
           
-          // Guardamos esta nueva fecha calculada en el estado global de fechas
           setJornadaDates(prev => {
               const newMap = { ...prev, [jornadaIndex]: newCalculatedDate };
               localStorage.setItem(datesStorageKey, JSON.stringify(newMap));
@@ -88,7 +75,6 @@ export const usePlanificacionMatches = (
       }
   }, [jornadaIndex, jornadaDates, datesStorageKey]);
 
-  // 3. Función para actualizar la fecha manualmente desde el Header
   const handleSetWeekStartDate = (newDate) => {
       setWeekStartDate(newDate);
       setJornadaDates(prev => {
@@ -98,8 +84,39 @@ export const usePlanificacionMatches = (
       });
   };
 
-  // --- FIN LÓGICA DE FECHAS ---
+  // --- EFECTO: CARGAR EXTERNOS CON CONVERSIÓN DE ZONA HORARIA ---
+  useEffect(() => {
+    if (showExternalMatches && weekStartDate && activeTournament?.id) {
+        setLoadingExternal(true);
+        // Pedimos un rango amplio (8 días) para evitar bordes de zona horaria
+        const endDate = addDaysToDate(weekStartDate, 8); 
+        
+        getPartidosExternosRango(weekStartDate, endDate, activeTournament.id)
+            .then(data => {
+                // AQUÍ ESTA LA MAGIA: Convertimos la fecha UTC de la DB a la fecha LOCAL string 'YYYY-MM-DD'
+                const processed = data.map(m => {
+                    if (!m.rawDate) return m;
+                    const d = new Date(m.rawDate);
+                    // Forzamos la obtención de componentes locales
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const localDateStr = `${year}-${month}-${day}`;
+                    
+                    return { ...m, date: localDateStr };
+                });
+                setExternalMatches(processed);
+            })
+            .catch(err => console.error(err))
+            .finally(() => setLoadingExternal(false));
+    } else if (!showExternalMatches) {
+        setExternalMatches([]);
+    }
+  }, [showExternalMatches, weekStartDate, activeTournament?.id]);
 
+  const toggleExternalMatches = () => setShowExternalMatches(prev => !prev);
+  
+  // ... (Resto del código igual) ...
   const byeTeam = useMemo(() => ({ id: 'BYE', name: 'DESCANSA', img: null, isBye: true }), []);
 
   const durationMatch = useMemo(() => {
@@ -184,7 +201,6 @@ export const usePlanificacionMatches = (
   useEffect(() => {
     if (!teams || teams.length < 2) return;
 
-    // 1. Borrador LocalStorage
     let hasDraft = false;
     let draftMap = new Map();
 
@@ -202,7 +218,6 @@ export const usePlanificacionMatches = (
         }
     }
 
-    // 2. Datos Reales (DB)
     const matchesDBList = (matchesDB || []).map(m => ({ ...m, _source: 'db' }));
     
     const activeTeamIds = new Set();
@@ -213,7 +228,6 @@ export const usePlanificacionMatches = (
 
     const officialJornadaIds = new Set(matchesDBList.map(m => String(m.id)));
     
-    // 3. Procesar Globales
     const cleanGlobalMatches = (globalPendingMatches || []).reduce((acc, gm) => {
         const gmId = String(gm.id);
         const t1 = String(gm.team1_id ?? gm.local?.id);
@@ -297,7 +311,6 @@ export const usePlanificacionMatches = (
       currentJornadaName, jornadaIndex, byeTeam
   ]); 
 
-  // Guardado
   useEffect(() => {
     if (isLoaded && storageKey && !isConfirmed) {
         const draftData = { scheduledMatches, allPendingMatches };
@@ -314,8 +327,9 @@ export const usePlanificacionMatches = (
     scheduledMatches, setScheduledMatches,
     allPendingMatches, setAllPendingMatches,
     sidebarMatches,
-    weekStartDate, setWeekStartDate: handleSetWeekStartDate, // Pasamos el manejador inteligente
+    weekStartDate, setWeekStartDate: handleSetWeekStartDate,
     durationMatch, autoAdjustTimes, currentJornadaName,
-    clearDraft 
+    clearDraft,
+    showExternalMatches, toggleExternalMatches, externalMatches, loadingExternal
   };
 };

@@ -123,7 +123,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division }) {
                             <div className="division-badge">{division?.name || "Liga"}</div>
                         </div>
                         <div className="logo-wrapper">
-                            <img src={team.logo_url || "https://i.ibb.co/MyJ50b7/logo-default.png"} alt={team.name} />
+                            <img src={team.logo_url || "/logo_gen.png"} alt={team.name} />
                         </div>
                         <h2 className="team-title">{team.name}</h2>
                         <div className="info-body">

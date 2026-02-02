@@ -1,27 +1,19 @@
-import React, { useRef } from "react";
+import React, { useRef, memo } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line } from "react-icons/ri";
 import { ViewToggle } from "../../../../../index"; 
 import { addDaysToDate } from "../../../../../utils/dateUtils";
 
-export function PlanningHeader({ 
+export const PlanningHeader = memo(({ 
     jornadaIndex, status, onPrev, onNext, totalJornadas, 
     weekStartDate, setWeekStartDate,
     onConfig, viewMode, onToggleView,
     onEditFixture, 
     isTournamentActive 
-}) {
-    // 1. Creamos la referencia
+}) => {
     const dateInputRef = useRef(null);
     
-    const addDays = (dateStr, days) => {
-        if(!dateStr) return null;
-        const d = new Date(dateStr + "T00:00:00");
-        d.setDate(d.getDate() + days);
-        return d;
-    };
-
     const formatCustomDate = (dateInput) => {
         if (!dateInput) return "??/??/??";
         if (typeof dateInput === 'string' && dateInput.includes('-')) {
@@ -40,14 +32,11 @@ export function PlanningHeader({
     const endDate = addDaysToDate(weekStartDate, 6);
     const isConfirmed = status === 'Confirmada';
 
-    // 2. Función para abrir el calendario forzosamente
     const triggerDatePicker = () => {
         if(dateInputRef.current) {
-            // showPicker es el método moderno para abrir el calendario nativo
             if(dateInputRef.current.showPicker) {
                 dateInputRef.current.showPicker();
             } else {
-                // Fallback para navegadores antiguos
                 dateInputRef.current.focus();
                 dateInputRef.current.click(); 
             }
@@ -61,7 +50,7 @@ export function PlanningHeader({
                     <NavBtn onClick={onPrev} disabled={jornadaIndex === 0}>
                         <RiArrowLeftSLine size={24}/>
                     </NavBtn>
-                    <Title>
+                    <Title $status={status}>
                         <span>Jornada {jornadaIndex + 1}</span>
                         <small>{status}</small>
                     </Title>
@@ -76,11 +65,10 @@ export function PlanningHeader({
                     {isConfirmed ? (
                         <span className="static-date">{formatCustomDate(weekStartDate)}</span>
                     ) : (
-                        // 3. Agregamos el onClick al contenedor padre
                         <div className="input-wrapper" onClick={triggerDatePicker}>
                             <span className="fake-input">{formatCustomDate(weekStartDate)}</span>
                             <input 
-                                ref={dateInputRef} // Conectamos la ref
+                                ref={dateInputRef}
                                 type="date" 
                                 value={weekStartDate || ''} 
                                 onChange={(e) => setWeekStartDate(e.target.value)}
@@ -94,7 +82,6 @@ export function PlanningHeader({
             </InfoGroup>
 
             <ActionsGroup>
-                {/* Botón de Edición de Fixture para torneos iniciados */}
                 {isTournamentActive && (
                     <BtnAction onClick={onEditFixture} title="Reorganizar partidos futuros">
                         <RiEdit2Line size={20}/>
@@ -110,7 +97,7 @@ export function PlanningHeader({
             </ActionsGroup>
         </Container>
     );
-}
+});
 
 // --- Styled Components ---
 

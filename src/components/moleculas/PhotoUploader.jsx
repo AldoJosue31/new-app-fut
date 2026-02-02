@@ -293,7 +293,7 @@ const CropModalOverlay = styled.div`
     width: 300px; height: 300px; position: relative; background: #333; border-radius: 8px; overflow: hidden; cursor: grab;
     &:active { cursor: grabbing; }
     canvas { width: 100%; height: 100%; }
-    .mask { position: absolute; inset: 0; pointer-events: none; border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 0 0 100px rgba(0,0,0,0.7); &.circle { border-radius: 50%; } }
+    .mask { position: absolute; inset: 0; pointer-events: none; border: 2px solid rgba(255,255,255,0.5); &.circle { border-radius: 50%; } }
   }
   .controls-container { width: 100%; display: flex; flex-direction: column; gap: 10px; }
   .slider-group { display: flex; align-items: center; gap: 10px; color: ${({theme})=>theme.text}; input { flex: 1; accent-color: ${v.colorPrincipal}; } }

@@ -2,23 +2,27 @@ import React, { useMemo } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../index";
 import { Device } from "../../../../../styles/breakpoints";
-// Asegúrate de ajustar la ruta de importación
 import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
 
 export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
     
-    // Generar los 7 días de la semana
+    // Generar los 7 días de la semana (Local Safe)
     const weekDays = useMemo(() => {
         if (!weekStartDate) return [];
+        // weekStartDate es "YYYY-MM-DD" String. 
+        // new Date(string + "T00:00:00") crea una fecha local.
         const start = new Date(weekStartDate + "T00:00:00");
         return Array.from({ length: 7 }, (_, i) => {
             const d = new Date(start);
             d.setDate(start.getDate() + i);
-            return d.toISOString().split('T')[0];
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         });
     }, [weekStartDate]);
 
-    // Formateadores de fecha
+    // Formateadores
     const formatMobileDay = (dateStr) => {
         const date = new Date(dateStr + "T00:00:00");
         return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -31,72 +35,73 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
 
     return (
         <Container>
-            {weekDays.map(day => {
-                // 1. Partidos de la División Actual (Editables / Principales)
-                // Si la jornada NO está confirmada, estos son "Previsualizaciones/Borradores"
-                const currentDay = scheduledMatches
-                    .filter(m => m.date === day)
-                    .map(m => ({
-                        ...m, 
-                        division: divisionActual,
-                        isExternal: false,
-                        // Flag para saber si es un borrador (preview)
-                        isPreview: !isConfirmed 
-                    }));
-                
-                // 2. Partidos de Otras Divisiones (Fantasmas / Solo lectura)
-                const otherDay = externalMatches
-                    .filter(m => m.date && m.date.startsWith(day))
-                    .map(m => ({
-                        time: m.time,
-                        local: { name: m.team1.name },
-                        visitante: { name: m.team2.name },
-                        division: m.divisionName,
-                        isExternal: true,
-                        isPreview: false
-                    }));
-                
-                // 3. Unir y ordenar cronológicamente (Usamos formato 24h para ordenar correctamente)
-                const allMatches = [...currentDay, ...otherDay].sort((a,b) => a.time.localeCompare(b.time));
+            <Legend>
+               <div className="item"><span className="dot local"></span> {divisionActual || "Esta División"}</div>
+               {externalMatches.length > 0 && <div className="item"><span className="dot external"></span> Otras Divisiones</div>}
+            </Legend>
 
-                return (
-                    <DayWrapper key={day}>
-                        <MobileHeader>{formatMobileDay(day)}</MobileHeader>
-                        
-                        <DayColumn>
-                            <DesktopHeader>{formatDesktopDay(day)}</DesktopHeader>
-                            
-                            <MatchesList>
-                                {allMatches.map((m, idx) => (
-                                    <MatchCard 
-                                        key={idx} 
-                                        $isExternal={m.isExternal}
-                                        $isPreview={m.isPreview}
-                                        $divisionName={m.division}
-                                    >
-                                        {/* APLICADO AQUÍ: Visualización en formato 12h */}
-                                        <div className="time-pill">{formatTimeTo12Hour(m.time)}</div>
-                                        <div className="info">
-                                            {/* Badge de División con color dinámico */}
-                                            <span className={`div-tag ${m.isExternal ? 'external' : 'local'}`}>
-                                                {m.division}
-                                                {m.isPreview && " (Borrador)"}
-                                            </span>
-                                            
-                                            <div className="teams">
-                                                <span>{m.local?.name || 'Local'}</span>
-                                                <span className="vs">vs</span>
-                                                <span>{m.visitante?.name || 'Visita'}</span>
+            <GridContainer>
+                {weekDays.map(day => {
+                    // 1. Partidos Locales
+                    const currentDay = scheduledMatches
+                        .filter(m => m.date === day)
+                        .map(m => ({
+                            ...m, 
+                            division: divisionActual,
+                            isExternal: false,
+                            isPreview: !isConfirmed 
+                        }));
+                    
+                    // 2. Partidos Externos
+                    const otherDay = externalMatches
+                        .filter(m => m.date === day)
+                        .map(m => ({
+                            id: m.id,
+                            time: m.time,
+                            local: { name: m.local },
+                            visitante: { name: m.visitante },
+                            division: m.divisionName,
+                            isExternal: true,
+                            isPreview: false
+                        }));
+                    
+                    // 3. Unir y ordenar
+                    const allMatches = [...currentDay, ...otherDay].sort((a,b) => a.time.localeCompare(b.time));
+
+                    return (
+                        <DayWrapper key={day}>
+                            <MobileHeader>{formatMobileDay(day)}</MobileHeader>
+                            <DayColumn>
+                                <DesktopHeader>{formatDesktopDay(day)}</DesktopHeader>
+                                <MatchesList>
+                                    {allMatches.map((m, idx) => (
+                                        <MatchCard 
+                                            key={m.id || idx} 
+                                            $isExternal={m.isExternal}
+                                            $isPreview={m.isPreview}
+                                            $divisionName={m.division}
+                                        >
+                                            <div className="time-pill">{formatTimeTo12Hour(m.time)}</div>
+                                            <div className="info">
+                                                <span className={`div-tag ${m.isExternal ? 'external' : 'local'}`}>
+                                                    {m.division}
+                                                    {m.isPreview && " (Borrador)"}
+                                                </span>
+                                                <div className="teams">
+                                                    <span>{m.local?.name || 'Local'}</span>
+                                                    <span className="vs">vs</span>
+                                                    <span>{m.visitante?.name || 'Visita'}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </MatchCard>
-                                ))}
-                                {allMatches.length === 0 && <EmptyState>Libre</EmptyState>}
-                            </MatchesList>
-                        </DayColumn>
-                    </DayWrapper>
-                );
-            })}
+                                        </MatchCard>
+                                    ))}
+                                    {allMatches.length === 0 && <EmptyState>Libre</EmptyState>}
+                                </MatchesList>
+                            </DayColumn>
+                        </DayWrapper>
+                    );
+                })}
+            </GridContainer>
         </Container>
     );
 }
@@ -111,6 +116,22 @@ const pulseAnimation = keyframes`
 // --- ESTILOS RESPONSIVOS ---
 
 const Container = styled.div`
+    display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%;
+    @media ${Device.laptop} {
+        display: grid; grid-template-rows: auto 1fr; gap: 5px;
+    }
+`;
+
+const Legend = styled.div`
+    display: flex; gap: 15px; font-size: 0.75rem; font-weight: 700; color: ${v.text};
+    padding-left: 5px; opacity: 0.8;
+    .item { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .local { background: ${v.colorPrincipal}; }
+    .external { background: #95a5a6; } /* Color explícito para debug */
+`;
+
+const GridContainer = styled.div`
     display: flex; flex-direction: column; gap: 15px; width: 100%; height: 100%;
     
     @media ${Device.laptop} {
@@ -157,31 +178,24 @@ const MatchCard = styled.div`
     border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     transition: all 0.3s ease;
 
-    /* Estilos Base (Confirmado o Normal) */
-    background: ${({theme, $isExternal})=> $isExternal ? theme.bg3 : theme.bg2};
-    opacity: ${({$isExternal}) => $isExternal ? 0.85 : 1};
+    /* Estilos Base */
+    background: ${({theme, $isExternal})=> $isExternal ? '#e2e6ea' : theme.bg2}; /* Color fijo para externo para asegurar que se vea */
+    opacity: ${({$isExternal}) => $isExternal ? 0.8 : 1};
     border-left: 4px solid ${({ $isExternal }) => $isExternal ? 'transparent' : v.colorPrincipal};
 
-    /* ESTILOS PARA PREVIEW / BORRADOR (Lo que pidió el usuario) */
+    /* ESTILOS PREVIEW */
     ${({ $isPreview, theme }) => $isPreview && css`
-        background: ${theme.bg4}; /* Fondo Gris */
-        border-left: 4px solid #95a5a6; /* Borde Gris */
-        border: 1px dashed #7f8c8d; /* Borde punteado para indicar borrador */
-        animation: ${pulseAnimation} 2s infinite ease-in-out; /* Parpadeo suave */
-        
-        .time-pill {
-            background: #bdc3c7 !important;
-            color: #2c3e50 !important;
-        }
-        
-        .div-tag.local {
-            color: #7f8c8d !important;
-        }
+        background: ${theme.bg4}; 
+        border-left: 4px solid #95a5a6;
+        border: 1px dashed #7f8c8d;
+        animation: ${pulseAnimation} 2s infinite ease-in-out;
+        .time-pill { background: #bdc3c7 !important; color: #2c3e50 !important; }
+        .div-tag.local { color: #7f8c8d !important; }
     `}
 
-    /* Colores dinámicos para externos si no es preview */
+    /* Colores dinámicos para externos */
     ${({ $isExternal, $divisionName }) => $isExternal && `
-        border-left-color: hsl(${($divisionName?.split('').reduce((a,c)=>a+c.charCodeAt(0),0) * 50) % 360}, 70%, 50%);
+        border-left-color: hsl(${($divisionName?.split('').reduce((a,c)=>a+c.charCodeAt(0),0) * 50) % 360}, 50%, 50%);
     `}
 
     .time-pill {
@@ -195,7 +209,7 @@ const MatchCard = styled.div`
         .div-tag { 
             font-size: 0.65rem; text-transform: uppercase; font-weight: 800; margin-bottom: 2px;
             &.local { color: ${v.colorPrincipal}; }
-            &.external { color: gray; }
+            &.external { color: #576574; }
         }
 
         .teams {
