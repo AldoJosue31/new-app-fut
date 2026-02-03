@@ -1,6 +1,6 @@
-import React from "react";
-import styled, { keyframes } from "styled-components";
-import { RiPencilLine, RiDeleteBinLine, RiExchangeDollarLine } from "react-icons/ri";
+import React, { useState, useEffect } from "react";
+import styled, { keyframes, css } from "styled-components";
+import { RiPencilLine, RiDeleteBinLine, RiExchangeDollarLine, RiTrophyLine, RiCheckboxCircleLine, RiCloseCircleLine } from "react-icons/ri";
 import { v } from "../../../styles/variables";
 
 const fadeIn = keyframes`
@@ -8,18 +8,56 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-export function TeamCard({ team, onEdit, onDelete, onTransfer, onView }) {
+export function TeamCard({ team, onEdit, onDelete, onTransfer, onView, isParticipating }) {
+  // Estado para controlar qué badge mostrar
+  const [showTournamentMode, setShowTournamentMode] = useState(false);
+
+  // Efecto para alternar el badge cada 2.5 segundos (un poco más lento para apreciar la transición)
+  useEffect(() => {
+    let interval;
+    if (isParticipating) {
+        // Iniciamos mostrando el torneo para que se note que participa
+        setShowTournamentMode(true);
+        interval = setInterval(() => {
+            setShowTournamentMode((prevMode) => !prevMode);
+        }, 2500); 
+    } else {
+      setShowTournamentMode(false);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [isParticipating]);
+
+  const isActive = team.status === 'Activo';
+
   return (
     <CardContainer onClick={() => onView(team)}>
       <div className="card-top" style={{ background: `linear-gradient(135deg, ${team.color}cc, ${team.color})` }}>
+        
         <ActionButtons>
           <button className="btn-edit" onClick={(e) => { e.stopPropagation(); onEdit(team); }} title="Editar"><RiPencilLine /></button>
           <button className="btn-transfer" onClick={(e) => { e.stopPropagation(); onTransfer(team); }} title="Transferir"><RiExchangeDollarLine /></button>
           <button className="btn-delete" onClick={(e) => { e.stopPropagation(); onDelete(team.id); }} title="Eliminar"><RiDeleteBinLine /></button>
         </ActionButtons>
-        <StatusBadge $active={team.status === 'Activo'}>
-          {team.status}
-        </StatusBadge>
+
+        <BadgePosition>
+            {/* Usamos un "Stack" para superponer los elementos y hacer fade entre ellos */}
+            <BadgeStack>
+                {/* Badge de ESTADO NORMAL */}
+                <StatusBadge $visible={!showTournamentMode} $isActive={isActive}>
+                    {isActive ? <RiCheckboxCircleLine size={11}/> : <RiCloseCircleLine size={11}/>}
+                    <span>{team.status}</span>
+                </StatusBadge>
+                
+                {/* Badge de TORNEO (Solo se renderiza si participa, se superpone al otro) */}
+                {isParticipating && (
+                    <TournamentBadge $visible={showTournamentMode}>
+                        <RiTrophyLine size={11} />
+                        <span>En Torneo</span>
+                    </TournamentBadge>
+                )}
+            </BadgeStack>
+        </BadgePosition>
+
         <LogoImg src={team.logo_url || "/logo_gen.png"} alt={team.name} />
       </div>
       <div className="card-body">
@@ -30,6 +68,8 @@ export function TeamCard({ team, onEdit, onDelete, onTransfer, onView }) {
     </CardContainer>
   );
 }
+
+// --- STYLED COMPONENTS ---
 
 const CardContainer = styled.div`
     width: 250px; flex-shrink: 0; background-color: ${({theme})=> theme.bgtotal}; border: 1px solid ${({theme})=> theme.bg4};
@@ -49,15 +89,56 @@ const LogoImg = styled.img`
 `;
 
 const ActionButtons = styled.div`
-    position: absolute; top: 10px; left: 10px; display: flex; gap: 8px;
+    position: absolute; top: 10px; left: 10px; display: flex; gap: 8px; z-index: 10;
     button { width: 28px; height: 28px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); color: white; }
     .btn-edit { background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(4px); &:hover { background: ${({theme}) => theme.primary || v.colorPrincipal}; } }
     .btn-delete { background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(4px); &:hover { background: #ff4757; } }
     .btn-transfer { background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(4px); &:hover { background: #f39c12; } }
 `;
 
+const BadgePosition = styled.div`
+    position: absolute; top: 10px; right: 10px; z-index: 10;
+`;
+
+// Truco de CSS Grid para apilar elementos en el mismo espacio
+const BadgeStack = styled.div`
+    display: grid;
+    grid-template-areas: "stack";
+    /* Todos los hijos directos se colocarán en la misma área "stack" */
+    > * { grid-area: stack; }
+    align-items: center;
+    justify-items: end;
+`;
+
+// Estilos base compartidos y lógica de transición suave
+const sharedBadgeStyles = css`
+    display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; color: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15);
+    
+    /* LA CLAVE: Transición suave de 0.6s con curva bezier */
+    transition: opacity 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), 
+                transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1),
+                visibility 0.6s;
+
+    /* Control de visibilidad basado en la prop $visible */
+    opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+    /* Pequeño escalado y movimiento vertical para un efecto de "entrada/salida" */
+    transform: ${({ $visible }) => ($visible ? 'translateY(0) scale(1)' : 'translateY(-5px) scale(0.95)')};
+    /* visibility asegura que el elemento oculto no capture clicks */
+    visibility: ${({ $visible }) => ($visible ? 'visible' : 'hidden')};
+    pointer-events: ${({ $visible }) => ($visible ? 'auto' : 'none')};
+
+    svg { flex-shrink: 0; }
+`;
+
 const StatusBadge = styled.div`
-    position: absolute; top: 10px; right: 10px;
-    background: ${({$active}) => $active ? '#068d3eff' : '#ad1605ff'};
-    color: white; font-size: 10px; padding: 4px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase; z-index: 2;
+    ${sharedBadgeStyles}
+    background: ${({ $isActive }) => ($isActive ? '#27ae60' : '#c0392b')};
+`;
+
+const TournamentBadge = styled.div`
+    ${sharedBadgeStyles}
+    background: linear-gradient(135deg, #f1c40f, #d35400);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
 `;

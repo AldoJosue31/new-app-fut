@@ -5,6 +5,8 @@ import { supabase } from "../../supabase/supabase.config";
 import { generateTeamLogo } from "../../utils/logoGenerator";
 import { removeBackground, compressImage } from "../../utils/imageProcessor";
 import { TEAM_STATUS } from "../../utils/constants";
+// Nuevo import para verificar torneos
+import { getTorneoActivo } from "../../services/torneos";
 
 export const useEquiposLogic = () => {
   const { selectedDivision } = useDivisionStore();
@@ -18,6 +20,9 @@ export const useEquiposLogic = () => {
   const [teamToView, setTeamToView] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
+  // Nuevo estado para saber qué equipos están en torneo
+  const [participatingIds, setParticipatingIds] = useState([]);
 
   const initialForm = {
     name: "",
@@ -31,48 +36,64 @@ export const useEquiposLogic = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  // Lógica de carga inteligente
+  // Lógica de carga inteligente de Equipos
   useEffect(() => {
     if (selectedDivision?.id) {
         fetchEquipos(selectedDivision.id);
     } else {
-        // Si no hay división seleccionada (o se deseleccionó), limpiamos la vista
-        // Esto previene ver equipos cuando no corresponde
         resetStore();
     }
   }, [selectedDivision, fetchEquipos, resetStore]);
 
-  // Agregar este useEffect para limpiar memoria
-useEffect(() => {
-    return () => {
-        if (preview && preview.startsWith('blob:')) {
-            URL.revokeObjectURL(preview);
+  // Lógica para obtener el Torneo Activo y sus participantes
+  useEffect(() => {
+    const fetchTournamentStatus = async () => {
+      setParticipatingIds([]); // Resetear al cambiar división
+      if (selectedDivision?.id) {
+        try {
+          const torneo = await getTorneoActivo(selectedDivision.id);
+          // Si hay torneo y tiene configuración de participantes, guardamos los IDs
+          if (torneo && torneo.config && Array.isArray(torneo.config.participatingIds)) {
+            setParticipatingIds(torneo.config.participatingIds);
+          }
+        } catch (error) {
+          console.error("Error verificando estado de torneo:", error);
         }
+      }
     };
-}, [preview]);
+    fetchTournamentStatus();
+  }, [selectedDivision]);
 
-const getDominantColor = (imageFile) => {
-    return new Promise((resolve) => {
-        const img = new Image();
-        // Guardamos la referencia para revocarla
-        const objectUrl = URL.createObjectURL(imageFile);
-        img.src = objectUrl;
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 1; canvas.height = 1;
-            ctx.drawImage(img, 0, 0, 1, 1);
-            const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-            const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-URL.revokeObjectURL(objectUrl); 
-            resolve(hex);
-        };
-        img.onerror = () => {
-            URL.revokeObjectURL(objectUrl); // Liberar en error también
-            resolve("#000000");
-        }
-    });
-};
+  // Limpieza de memoria para previsualizaciones
+  useEffect(() => {
+      return () => {
+          if (preview && preview.startsWith('blob:')) {
+              URL.revokeObjectURL(preview);
+          }
+      };
+  }, [preview]);
+
+  const getDominantColor = (imageFile) => {
+      return new Promise((resolve) => {
+          const img = new Image();
+          const objectUrl = URL.createObjectURL(imageFile);
+          img.src = objectUrl;
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              canvas.width = 1; canvas.height = 1;
+              ctx.drawImage(img, 0, 0, 1, 1);
+              const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+              const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+              URL.revokeObjectURL(objectUrl); 
+              resolve(hex);
+          };
+          img.onerror = () => {
+              URL.revokeObjectURL(objectUrl);
+              resolve("#000000");
+          }
+      });
+  };
 
   const handleFileChange = async (eOrFile) => {
     let selectedFile = eOrFile.target ? eOrFile.target.files[0] : eOrFile;
@@ -192,7 +213,13 @@ URL.revokeObjectURL(objectUrl);
   const openDeleteConfirmation = (id) => { setDeleteId(id); setIsDeleteModalOpen(true); };
 
   return {
-    data: { equipos, loading, selectedDivision, uploading },
+    data: { 
+        equipos, 
+        loading, 
+        selectedDivision, 
+        uploading, 
+        participatingIds // <--- EXPORTAMOS ESTO PARA EL TEMPLATE
+    },
     form: { data: form, file, preview, handleChange: handleFormChange, handleFileChange, handleClearImage, handleGenerateLogo, handleRemoveBg },
     modals: { isFormOpen, setIsFormOpen, isDetailOpen, setIsDetailOpen, isDeleteModalOpen, setIsDeleteModalOpen, teamToEdit, teamToView },
     actions: { handleSave, confirmDelete, openCreateModal, openEditModal, openDetailModal, openDeleteConfirmation }
