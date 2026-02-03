@@ -7,7 +7,8 @@ export const getTorneoActivo = async (divisionId) => {
   try {
     const { data, error } = await supabase
       .from('tournaments')
-      .select('*, jornadas(name, status), divisions(name, id)')
+      // CORRECCIÓN: Agregamos 'league_id' al select de divisions para saber a qué liga pertenece
+      .select('*, jornadas(name, status), divisions(name, id, league_id)')
       .eq('division_id', divisionId)
       .in('status', [TOURNAMENT_STATUS.ACTIVE, TOURNAMENT_STATUS.ONGOING])
       .order('id', { ascending: false }) 
@@ -41,16 +42,16 @@ export const getEquiposDivision = async (divisionId) => {
   }
 };
 
-export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId) => {
+export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId, leagueId) => {
     try {
-        if (!startDate || !endDate || !currentTournamentId) return [];
+        // CORRECCIÓN: Validamos que llegue el leagueId
+        if (!startDate || !endDate || !currentTournamentId || !leagueId) return [];
 
         const { data, error } = await supabase
             .from('matches')
             .select(`
                 id,
                 date,
-                time,
                 status,
                 team1:teams!team1_id(name),
                 team2:teams!team2_id(name),
@@ -58,29 +59,41 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
                     tournament_id,
                     tournaments!inner(
                         division_id,
-                        divisions(name)
+                        divisions!inner(
+                            name,
+                            league_id
+                        )
                     )
                 )
             `)
             .gte('date', `${startDate} 00:00:00`)
             .lte('date', `${endDate} 23:59:59`)
             .neq('jornadas.tournament_id', currentTournamentId) 
+            .eq('jornadas.tournaments.divisions.league_id', leagueId) // CORRECCIÓN: Filtro estricto por liga
             .neq('status', 'Pendiente') 
-            .order('date', { ascending: true })
-            .order('time', { ascending: true });
+            .order('date', { ascending: true });
 
         if (error) throw error;
 
-        return data.map(m => ({
-            id: `ext-${m.id}`, 
-            rawDate: m.date,
-            time: m.time,
-            local: m.team1?.name || 'Por definir',
-            visitante: m.team2?.name || 'Por definir',
-            divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
-            status: m.status,
-            isExternal: true
-        }));
+        return data.map(m => {
+            // Extracción segura de fecha y hora del ISO String
+            const fechaObj = new Date(m.date);
+            
+            // NOTA: Para evitar errores de zona horaria, extraemos lo que viene de la BD:
+            const [datePart, fullTimePart] = m.date.split('T');
+            const timePart = fullTimePart ? fullTimePart.substring(0, 5) : '00:00';
+
+            return {
+                id: `ext-${m.id}`, 
+                rawDate: datePart, // YYYY-MM-DD para agrupar
+                time: timePart,    // HH:mm para mostrar
+                local: m.team1?.name || 'Por definir',
+                visitante: m.team2?.name || 'Por definir',
+                divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
+                status: m.status,
+                isExternal: true
+            };
+        });
 
     } catch (error) {
         console.error("Error obteniendo partidos externos:", error);
@@ -261,6 +274,7 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       status: matchHoy.status, 
     };
 
+    // Construir Timestamp combinando Fecha y Hora
     if (matchHoy.status === 'Programado' && matchHoy.date) {
       payloadHoy.date = `${matchHoy.date} ${matchHoy.time || '10:00'}:00`;
     } else {
@@ -336,6 +350,7 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
        };
 
        if (status === 'Programado') {
+          // Construimos el Timestamp completo para guardar en la columna 'date'
           const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
           payload.date = `${safeDate} ${m.time || "10:00"}:00`;
        } else {
@@ -352,6 +367,7 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         ...(jornadaData.allPendingMatches || [])
             .filter(m => {
                 const isTempId = !m.id || isNaN(Number(m.id));
+                // Solo guardar pendientes si fueron modificados o son nuevos
                 return m.isModified || isTempId;
             })
             .map(m => ({ ...m, finalStatus: 'Pendiente' }))

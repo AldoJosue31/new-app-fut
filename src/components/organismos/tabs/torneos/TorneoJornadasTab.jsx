@@ -16,10 +16,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const [loading, setLoading] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
   
-  // Control de versión para forzar la recarga limpia de los componentes hijos
   const [dataVersion, setDataVersion] = useState(0);
-
-  // Estado para el Modal de Edición
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
 
@@ -98,8 +95,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       } catch (error) { console.error("Error fetchGlobalPending:", error); }
   };
 
-  // --- LÓGICA DE EDICIÓN DE FIXTURE ---
-
   const handleOpenFixtureEditor = async () => {
       setLoading(true);
       try {
@@ -155,13 +150,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             if (error) throw error;
             setToastConfig({ show: true, message: "Fixture reorganizado correctamente.", type: "success" });
             
-            // 1. Recargar datos
             await fetchGlobalPendingMatches(); 
             if (jornadas[currentJornadaIndex]?.id) {
                 await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
             }
 
-            // 2. Incrementar versión (Esto fuerza el cambio de key y de storageKey)
             setDataVersion(prev => prev + 1);
             
         } else {
@@ -270,7 +263,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
                 onSaveConfig={handleSaveConfig}
                 onEditFixture={handleOpenFixtureEditor}
                 isTournamentActive={true} 
-                dataVersion={dataVersion} // NUEVA PROP OBLIGATORIA
+                dataVersion={dataVersion}
+                jornadas={jornadas} // <--- NUEVA PROP ESENCIAL
               />
            ) : (
             <JornadaResultados 

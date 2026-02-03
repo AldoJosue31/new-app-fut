@@ -18,7 +18,7 @@ import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
   jornadaData, onConfirm, onChangeJornada, totalJornadas, onMatchUpdate, canConfirm, onSaveConfig,
-  onEditFixture, isTournamentActive, dataVersion
+  onEditFixture, isTournamentActive, dataVersion, jornadas = []
 }) {
   const {
     scheduledMatches, setScheduledMatches,
@@ -36,7 +36,8 @@ export function JornadaPlanificacion({
       matchesDB, 
       globalPendingMatches, 
       jornadaData?.status,
-      dataVersion 
+      dataVersion,
+      jornadas 
   );
 
   const [viewMode, setViewMode] = useState('list');
@@ -55,8 +56,10 @@ export function JornadaPlanificacion({
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
 
+  // Sincronizar fecha de inicio de semana si el torneo tiene fecha de inicio
   useEffect(() => {
     if (activeTournament?.start_date && !isConfirmed) {
+        // Corrección segura de fecha usando componentes numéricos para evitar saltos de zona horaria
         const [yearStr, monthStr, dayStr] = activeTournament.start_date.split('-');
         const startDate = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
         startDate.setDate(startDate.getDate() + (jornadaIndex * 7));
@@ -171,14 +174,14 @@ export function JornadaPlanificacion({
                                                   const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val, isModified: true} : m);
                                                   setScheduledMatches(updated);
                                                 }}
-                                                // 1. DESAGENDAR (Modo Borrador): Mueve a local pending y limpia todo.
+                                                // 1. DESAGENDAR
                                                 onRemove={() => { 
                                                   setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
                                                   setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
                                                 }} 
                                                 onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
                                                 
-                                                // 2. APLAZAR (Modo Confirmado): Actualiza DB. ELIMINADA la prop 'time' para evitar error 400.
+                                                // 2. APLAZAR
                                                 onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
                                               />
                                             );

@@ -9,7 +9,8 @@ export const usePlanificacionMatches = (
     matchesDB, 
     globalPendingMatches,
     jornadaStatus,
-    dataVersion = 0
+    dataVersion = 0,
+    jornadasList = [] 
 ) => {
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [allPendingMatches, setAllPendingMatches] = useState([]); 
@@ -27,6 +28,20 @@ export const usePlanificacionMatches = (
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
+  // Calcular cuál es la jornada "objetivo" para los pendientes (La siguiente a la última confirmada)
+  const targetJornadaIndex = useMemo(() => {
+      if (!jornadasList || jornadasList.length === 0) return 0; // Si no hay info, asumimos J1
+      
+      let lastConfirmedIdx = -1;
+      // Asumimos que jornadasList viene ordenada por el padre
+      for (let i = 0; i < jornadasList.length; i++) {
+          if (jornadasList[i].status === 'Confirmada' || jornadasList[i].status === 'Finalizada') {
+              lastConfirmedIdx = i;
+          }
+      }
+      return lastConfirmedIdx + 1;
+  }, [jornadasList, jornadaStatus]); 
+
   const storageKey = useMemo(() => {
     if (!activeTournament?.id) return null;
     return `planning_draft_${activeTournament.id}_J${jornadaIndex}_v${dataVersion}`;
@@ -88,8 +103,12 @@ export const usePlanificacionMatches = (
     if (showExternalMatches && weekStartDate && activeTournament?.id) {
         setLoadingExternal(true);
         const endDate = addDaysToDate(weekStartDate, 8); 
-        
-        getPartidosExternosRango(weekStartDate, endDate, activeTournament.id)
+
+        // CORRECCIÓN: Extraemos el league_id para filtrar
+        const leagueId = activeTournament.division?.league_id;
+
+        if (leagueId) {
+            getPartidosExternosRango(weekStartDate, endDate, activeTournament.id, leagueId)
             .then(data => {
                 const processed = data.map(m => {
                     if (!m.rawDate) return m;
@@ -104,10 +123,16 @@ export const usePlanificacionMatches = (
             })
             .catch(err => console.error(err))
             .finally(() => setLoadingExternal(false));
+        } else {
+            console.warn("No se pudo identificar la liga del torneo activo para filtrar externos.");
+            setExternalMatches([]);
+            setLoadingExternal(false);
+        }
+        
     } else if (!showExternalMatches) {
         setExternalMatches([]);
     }
-  }, [showExternalMatches, weekStartDate, activeTournament?.id]);
+  }, [showExternalMatches, weekStartDate, activeTournament?.id, activeTournament?.division?.league_id]);
 
   const toggleExternalMatches = () => setShowExternalMatches(prev => !prev);
   
@@ -213,8 +238,6 @@ export const usePlanificacionMatches = (
     }
 
     const matchesDBList = (matchesDB || []).map(m => ({ ...m, _source: 'db' }));
-    
-    // Identificamos IDs de partidos que YA están en la DB de esta jornada para no duplicarlos
     const officialJornadaIds = new Set(matchesDBList.map(m => String(m.id)));
     
     const cleanGlobalMatches = (globalPendingMatches || []).reduce((acc, gm) => {
@@ -227,24 +250,17 @@ export const usePlanificacionMatches = (
         // 2. Si pertenece originalmente a esta jornada, lo saltamos (se tratará como local)
         if (gmOriginName === currentJornadaName) return acc;
 
-        // IMPORTANTE: Eliminamos el filtro de activeTeamIds para que aparezca SIEMPRE
-        // aunque el equipo tenga otro partido esta semana.
+        // 3. LOGICA ESTRICTA: Solo mostrar si estamos en la jornada "objetivo"
+        if (jornadaIndex !== targetJornadaIndex) {
+            return acc;
+        }
 
+        // Si pasó el filtro anterior, significa que estamos en la jornada correcta.
+        // Ahora solo verificamos que no sea un partido del "futuro" (por seguridad)
         const originNum = getJornadaNum(gmOriginName);
         const currentNum = jornadaIndex + 1;
 
-        // 3. SOLO mostrar partidos de jornadas PASADAS que ya estén CONFIRMADAS
-        if (originNum < currentNum) {
-             const originStatus = gm.jornadas?.status;
-             // Si sabemos que NO está confirmada/finalizada, no lo mostramos.
-             // (Si es undefined, asumimos que sí para prevenir errores)
-             if (originStatus && originStatus !== 'Confirmada' && originStatus !== 'Finalizada') {
-                 return acc;
-             }
-        } else if (originNum > currentNum) {
-             // Si es futuro, no lo mostramos
-             return acc;
-        }
+        if (originNum > currentNum) return acc;
 
         acc.push({ ...gm, _source: 'global' });
         return acc;
@@ -298,7 +314,6 @@ export const usePlanificacionMatches = (
         });
 
         // Recolectar equipos ocupados en pendientes DE ESTA JORNADA SOLAMENTE
-        // (Los pendientes arrastrados no deberían evitar que se genere el descanso local)
         currentPending.forEach(m => {
             if (m.originJornada === currentJornadaName) {
                  if (m.local?.id) teamsPlaying.add(m.local.id);
@@ -324,7 +339,8 @@ export const usePlanificacionMatches = (
   }, [
       teams, matchesDB, globalPendingMatches, 
       isConfirmed, storageKey, formatMatch, 
-      currentJornadaName, jornadaIndex, byeTeam
+      currentJornadaName, jornadaIndex, byeTeam,
+      targetJornadaIndex 
   ]); 
 
   useEffect(() => {
