@@ -1,23 +1,28 @@
-import React, { useEffect } from "react"; // CORRECCIÓN: Se agrega { useEffect }
+import React, { useEffect } from "react";
 import { preloadBackgroundRemoval } from "../utils/imageProcessor";
 import { EquiposTemplate } from "../components/template/EquiposTemplate";
 import { useEquiposLogic } from "../hooks/pages/useEquiposLogic";
 
 export function Equipos() {
-  // Limpieza: Solo llamamos a la lógica una vez
+  // 1. Optimización: Precargamos el modelo de IA al entrar a la página
+  useEffect(() => {
+    preloadBackgroundRemoval();
+  }, []);
+
   const logic = useEquiposLogic();
   const { data, form, modals, actions } = logic;
 
   return (
     <EquiposTemplate 
       {...logic}
-      // Datos
+      // --- DATOS ---
       equipos={data.equipos}
       division={data.selectedDivision}
       loading={data.loading}
       isUploading={data.uploading}
+      participatingIds={data.participatingIds} // <--- ¡AQUÍ ESTÁ LA CLAVE! Sin esto no se ve la insignia
       
-      // Formulario e Imágenes
+      // --- FORMULARIO E IMÁGENES ---
       form={form.data}
       preview={form.preview}
       file={form.file}
@@ -28,7 +33,7 @@ export function Equipos() {
       onRemoveBg={form.handleRemoveBg}
       onSave={actions.handleSave}
 
-      // Modales y Estados
+      // --- MODALES Y ESTADOS ---
       isFormOpen={modals.isFormOpen}
       setIsFormOpen={modals.setIsFormOpen}
       teamToEdit={modals.teamToEdit}
@@ -40,7 +45,7 @@ export function Equipos() {
       isDeleteModalOpen={modals.isDeleteModalOpen}
       setIsDeleteModalOpen={modals.setIsDeleteModalOpen}
       
-      // Acciones CRUD
+      // --- ACCIONES CRUD ---
       onDelete={actions.openDeleteConfirmation}
       onConfirmDelete={actions.confirmDelete}
       onCreate={actions.openCreateModal}

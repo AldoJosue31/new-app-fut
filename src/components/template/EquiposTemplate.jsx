@@ -23,7 +23,8 @@ export const EquiposTemplate = ({
   teamToView, isDeleteModalOpen, setIsDeleteModalOpen,
   onFormChange, onFileChange, onClearImage, onGenerateLogo,
   onRemoveBg, onSave, onDelete, onCreate, onEdit, onView, onConfirmDelete,
-  tabs 
+  tabs,
+  participatingIds = [] // <--- RECIBIMOS LA NUEVA PROP
 }) => {
     const modalTabs = [
       { id: "info", label: "Datos del Equipo", icon: <RiFileList3Line/> },
@@ -59,7 +60,7 @@ export const EquiposTemplate = ({
   return (
     <ContentContainer>
       <PageHeader title="Gestión de Equipos" tabs={tabs} maxWidth={VIEW_MAX_WIDTH}>
-<BtnGreen 
+         <BtnGreen 
             onClick={onCreate} 
             disabled={!division} 
             icono={<IoMdFootball/>}
@@ -76,13 +77,22 @@ export const EquiposTemplate = ({
                   Array.from({ length: 8 }).map((_, i) => <TeamCardSkeleton key={i} />)
                   ) : (
                       <>
-                          {Array.isArray(equipos) && equipos.map((team) => (
-                              <TeamCard 
-                                key={team.id} team={team} onEdit={onEdit} onView={onView}
-                                onDelete={onDelete} 
-                                onTransfer={(t) => { setTeamToTransfer(t); setIsTransferModalOpen(true); }} 
-                              />
-                          ))}
+                          {Array.isArray(equipos) && equipos.map((team) => {
+                              // Verificación segura de participación (convierte a string para evitar errores de tipo)
+                              const isParticipating = participatingIds.some(pid => String(pid) === String(team.id));
+
+                              return (
+                                <TeamCard 
+                                  key={team.id} 
+                                  team={team} 
+                                  onEdit={onEdit} 
+                                  onView={onView}
+                                  onDelete={onDelete} 
+                                  onTransfer={(t) => { setTeamToTransfer(t); setIsTransferModalOpen(true); }}
+                                  isParticipating={isParticipating} // <--- PASAMOS EL ESTADO
+                                />
+                              );
+                          })}
                           {(!equipos || equipos.length === 0) && (
                             <div style={{ gridColumn: "1 / -1", width: "100%" }}>
                               <EmptyState 
