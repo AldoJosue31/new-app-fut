@@ -6,15 +6,14 @@ import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
 
 export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
     
-    // Generar los 7 días de la semana (Local Safe)
+    // 1. Generar los 7 días de la semana
     const weekDays = useMemo(() => {
         if (!weekStartDate) return [];
-        // weekStartDate es "YYYY-MM-DD" String. 
-        // new Date(string + "T00:00:00") crea una fecha local.
         const start = new Date(weekStartDate + "T00:00:00");
         return Array.from({ length: 7 }, (_, i) => {
             const d = new Date(start);
             d.setDate(start.getDate() + i);
+            // Formato YYYY-MM-DD local manual para evitar problemas de timezone
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
@@ -22,14 +21,62 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
         });
     }, [weekStartDate]);
 
-    // Formateadores
+    // 2. Optimización: Agrupar partidos por fecha en un Objeto (Diccionario)
+    const groupedMatches = useMemo(() => {
+        const groups = {};
+
+        // Función auxiliar para agregar al grupo
+        const addToGroup = (dateKey, matchItem) => {
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(matchItem);
+        };
+
+        // Procesar partidos locales
+        scheduledMatches.forEach(m => {
+            if (m.date) {
+                addToGroup(m.date, {
+                    ...m,
+                    division: divisionActual,
+                    isExternal: false,
+                    isPreview: !isConfirmed 
+                });
+            }
+        });
+
+        // Procesar partidos externos
+        externalMatches.forEach(m => {
+            const dateKey = m.rawDate || m.date; // Fallback por si acaso
+            if (dateKey) {
+                addToGroup(dateKey, {
+                    id: m.id,
+                    time: m.time,
+                    local: { name: m.local },
+                    visitante: { name: m.visitante },
+                    division: m.divisionName,
+                    isExternal: true,
+                    isPreview: false
+                });
+            }
+        });
+
+        // Ordenar cada grupo por hora una sola vez
+        Object.keys(groups).forEach(date => {
+            groups[date].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+        });
+
+        return groups;
+    }, [scheduledMatches, externalMatches, divisionActual, isConfirmed]);
+
+    // Formateadores de fecha
     const formatMobileDay = (dateStr) => {
-        const date = new Date(dateStr + "T00:00:00");
+        const parts = dateStr.split('-');
+        const date = new Date(parts[0], parts[1] - 1, parts[2]); // Constructor seguro local
         return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
     };
 
     const formatDesktopDay = (dateStr) => {
-        const date = new Date(dateStr + "T00:00:00");
+        const parts = dateStr.split('-');
+        const date = new Date(parts[0], parts[1] - 1, parts[2]);
         return date.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' });
     };
 
@@ -42,31 +89,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
 
             <GridContainer>
                 {weekDays.map(day => {
-                    // 1. Partidos Locales
-                    const currentDay = scheduledMatches
-                        .filter(m => m.date === day)
-                        .map(m => ({
-                            ...m, 
-                            division: divisionActual,
-                            isExternal: false,
-                            isPreview: !isConfirmed 
-                        }));
-                    
-                    // 2. Partidos Externos
-                    const otherDay = externalMatches
-                        .filter(m => m.date === day)
-                        .map(m => ({
-                            id: m.id,
-                            time: m.time,
-                            local: { name: m.local },
-                            visitante: { name: m.visitante },
-                            division: m.divisionName,
-                            isExternal: true,
-                            isPreview: false
-                        }));
-                    
-                    // 3. Unir y ordenar
-                    const allMatches = [...currentDay, ...otherDay].sort((a,b) => a.time.localeCompare(b.time));
+                    const matchesForDay = groupedMatches[day] || [];
 
                     return (
                         <DayWrapper key={day}>
@@ -74,9 +97,9 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                             <DayColumn>
                                 <DesktopHeader>{formatDesktopDay(day)}</DesktopHeader>
                                 <MatchesList>
-                                    {allMatches.map((m, idx) => (
+                                    {matchesForDay.map((m, idx) => (
                                         <MatchCard 
-                                            key={m.id || idx} 
+                                            key={m.id || `temp-${idx}`} 
                                             $isExternal={m.isExternal}
                                             $isPreview={m.isPreview}
                                             $divisionName={m.division}
@@ -95,7 +118,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                                             </div>
                                         </MatchCard>
                                     ))}
-                                    {allMatches.length === 0 && <EmptyState>Libre</EmptyState>}
+                                    {matchesForDay.length === 0 && <EmptyState>Libre</EmptyState>}
                                 </MatchesList>
                             </DayColumn>
                         </DayWrapper>
@@ -123,12 +146,13 @@ const Container = styled.div`
 `;
 
 const Legend = styled.div`
-    display: flex; gap: 15px; font-size: 0.75rem; font-weight: 700; color: ${v.text};
+    display: flex; gap: 15px; font-size: 0.75rem; font-weight: 700; 
+    color: ${({theme})=>theme.text}; /* CORREGIDO: Usa el color de texto del tema */
     padding-left: 5px; opacity: 0.8;
     .item { display: flex; align-items: center; gap: 5px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     .local { background: ${v.colorPrincipal}; }
-    .external { background: #95a5a6; } /* Color explícito para debug */
+    .external { background: ${({theme})=>theme.text}; opacity: 0.5; } /* CORREGIDO: Usa color del tema con opacidad para externos */
 `;
 
 const GridContainer = styled.div`
@@ -146,7 +170,7 @@ const DayWrapper = styled.div`
 `;
 
 const MobileHeader = styled.div`
-    font-size: 0.95rem; font-weight: 700; color: ${v.text}; padding-left: 4px; text-transform: capitalize;
+    font-size: 0.95rem; font-weight: 700; color: ${({theme})=>theme.text}; padding-left: 4px; text-transform: capitalize;
     @media ${Device.laptop} { display: none; }
 `;
 
@@ -178,9 +202,9 @@ const MatchCard = styled.div`
     border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     transition: all 0.3s ease;
 
-    /* Estilos Base */
-    background: ${({theme, $isExternal})=> $isExternal ? '#e2e6ea' : theme.bg2}; /* Color fijo para externo para asegurar que se vea */
-    opacity: ${({$isExternal}) => $isExternal ? 0.8 : 1};
+    /* Estilos Base - CORREGIDO: Uso de colores del tema */
+    background: ${({theme, $isExternal})=> $isExternal ? theme.bg4 : theme.bg2};
+    /* Eliminada la opacidad general para que el texto sea legible */
     border-left: 4px solid ${({ $isExternal }) => $isExternal ? 'transparent' : v.colorPrincipal};
 
     /* ESTILOS PREVIEW */
@@ -193,27 +217,30 @@ const MatchCard = styled.div`
         .div-tag.local { color: #7f8c8d !important; }
     `}
 
-    /* Colores dinámicos para externos */
+    /* Colores dinámicos para externos basados en el nombre de la división */
     ${({ $isExternal, $divisionName }) => $isExternal && `
         border-left-color: hsl(${($divisionName?.split('').reduce((a,c)=>a+c.charCodeAt(0),0) * 50) % 360}, 50%, 50%);
     `}
 
     .time-pill {
         font-weight: 800; font-size: 0.85rem; background: ${({theme})=>theme.bgtotal};
-        padding: 4px 8px; border-radius: 4px; color: ${v.text}; white-space: nowrap;
+        padding: 4px 8px; border-radius: 4px; color: ${({theme})=>theme.text}; white-space: nowrap;
     }
 
     .info {
         display: flex; flex-direction: column; flex: 1; overflow: hidden;
         
         .div-tag { 
-            font-size: 0.65rem; text-transform: uppercase; font-weight: 800; margin-bottom: 2px;
+            /* CORREGIDO: Tamaño de fuente aumentado y colores del tema */
+            font-size: 0.7rem; 
+            text-transform: uppercase; font-weight: 800; margin-bottom: 2px;
             &.local { color: ${v.colorPrincipal}; }
-            &.external { color: #576574; }
+            &.external { color: ${({theme})=>theme.text}; opacity: 0.7; }
         }
 
         .teams {
             display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; white-space: nowrap;
+            color: ${({theme})=>theme.text};
             span { overflow: hidden; text-overflow: ellipsis; }
             .vs { font-size: 0.75rem; opacity: 0.5; font-weight: 400; flex-shrink: 0; }
         }
@@ -231,4 +258,5 @@ const MatchCard = styled.div`
 
 const EmptyState = styled.div`
     text-align: center; font-size: 0.8rem; opacity: 0.4; font-style: italic; padding: 10px;
+    color: ${({theme})=>theme.text};
 `;
