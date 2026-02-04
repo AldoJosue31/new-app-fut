@@ -47,6 +47,12 @@ export function TorneoDefinicionTab({
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
 
   const handlePreStartTournament = () => {
+      // VALIDACIÓN IMPORTANTE: Fecha de Inicio Requerida
+      if (!form.startDate) {
+          showToast("Debes definir una 'Fecha de Inicio' para generar el calendario.", "error");
+          return;
+      }
+
       if (participatingTeams.length < 2) {
           showToast(`Se requieren al menos 2 equipos para iniciar el torneo.`, "error");
           return;

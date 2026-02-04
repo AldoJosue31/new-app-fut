@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { getTorneoActivo, getEquiposDivision, iniciarTorneoService } from "../../services/torneos"; 
+import { 
+    getTorneoActivo, 
+    getEquiposDivision, 
+    iniciarTorneoService, 
+    updateJornadaFechas, 
+    bulkUpdateJornadaFechas 
+} from "../../services/torneos"; 
 import { getTablaPosicionesService } from "../../services/estadisticas";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { 
@@ -8,13 +14,14 @@ import {
   TIE_BREAK_TYPE,
   TEAM_STATUS 
 } from "../../utils/constants";
+// Usamos SOLO las utilidades locales, sin date-fns
+import { addDaysToDate, isValidDate } from "../../utils/dateUtils";
 
 export const useTorneosLogic = () => {
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { selectedDivision } = useDivisionStore();
   
-  // Estados de datos
   const [activeTournament, setActiveTournament] = useState(null);
   const [allTeams, setAllTeams] = useState([]);
   const [participatingIds, setParticipatingIds] = useState([]); 
@@ -62,7 +69,6 @@ export const useTorneosLogic = () => {
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
   const closeToast = () => setToastConfig({ ...toastConfig, show: false });
 
-  // Limpieza y Validación
   useEffect(() => {
     if (!form.hasRepechaje && form.repechajeTeams !== 0) {
         setForm(prev => ({ ...prev, repechajeTeams: 0 }));
@@ -78,7 +84,6 @@ export const useTorneosLogic = () => {
     }
   }, [form.maxTeams, participatingIds.length]);
 
-  // Data Fetching
   const fetchData = useCallback(async () => {
     if (!selectedDivision) return;
     
@@ -104,7 +109,6 @@ export const useTorneosLogic = () => {
             vueltas: torneo.config?.vueltas || "1",
             format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
             maxTeams: torneo.config?.maxTeams || prev.maxTeams,
-            // 1. LEER minPlayers DESDE LA CONFIGURACIÓN DEL TORNEO
             minPlayers: torneo.config?.minPlayers || prev.minPlayers, 
             winPoints: torneo.config?.winPoints ?? 3,
             drawPoints: torneo.config?.drawPoints ?? 1,
@@ -155,6 +159,61 @@ export const useTorneosLogic = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // --- NUEVA LÓGICA DE FECHAS (Sin date-fns) ---
+
+  const syncTournamentDates = async (tournamentId, startDateString) => {
+    if (!tournamentId || !startDateString || !activeTournament?.jornadas) return;
+
+    try {
+        setLoading(true);
+        if (!isValidDate(startDateString)) throw new Error("Fecha de inicio inválida");
+
+        // Creamos las actualizaciones usando addDaysToDate que ya maneja strings
+        const updates = activeTournament.jornadas.map((jornada, index) => {
+            const weekStartStr = addDaysToDate(startDateString, index * 7);
+            const weekEndStr = addDaysToDate(weekStartStr, 6);
+            
+            return {
+                id: jornada.id,
+                start_date: weekStartStr,
+                end_date: weekEndStr
+            };
+        });
+
+        await bulkUpdateJornadaFechas(updates);
+        await fetchData(); // Recargar para ver los cambios
+        showToast("Fechas calculadas y guardadas automáticamente", "success");
+    } catch (error) {
+        console.error("Error sync dates:", error);
+        showToast("Error al sincronizar fechas", "error");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const updateJornadaDatesLocal = async (jornadaId, field, value) => {
+    try {
+        const jornada = activeTournament?.jornadas?.find(j => j.id === jornadaId);
+        if (!jornada) return;
+
+        const newStart = field === 'start_date' ? value : jornada.start_date;
+        const newEnd = field === 'end_date' ? value : jornada.end_date;
+
+        await updateJornadaFechas(jornadaId, newStart, newEnd);
+        
+        setActiveTournament(prev => ({
+            ...prev,
+            jornadas: prev.jornadas.map(j => j.id === jornadaId ? { ...j, [field]: value } : j)
+        }));
+
+    } catch (error) {
+        console.error("Error updating single jornada date:", error);
+        showToast("Error al actualizar fecha", "error");
+    }
+  };
+
+  // -----------------------------
 
   const moveTeamToParticipating = (teamId) => {
     if(activeTournament) return;
@@ -263,7 +322,10 @@ export const useTorneosLogic = () => {
       onInclude: moveTeamToParticipating,
       onExclude: moveTeamToExcluded,
       setReglas,
-      refreshData: fetchData
+      refreshData: fetchData,
+      // Nuevas acciones exportadas
+      syncTournamentDates,
+      updateJornadaDatesLocal
     },
     formData: {
       form,

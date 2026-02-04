@@ -5,7 +5,8 @@ import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
-import { guardarJornadaService, actualizarConfigTorneoService } from "../../../../services/torneos";
+import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
+import { addDaysToDate } from "../../../../utils/dateUtils";
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
@@ -170,6 +171,59 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       }
   };
 
+  const handleCascadingDateUpdate = async (newStart, newEnd) => {
+      setLoading(true);
+      try {
+          const currentJornada = jornadas[currentJornadaIndex];
+          
+          let daysDiff = 0;
+          if (currentJornada.start_date && newStart) {
+              const oldDate = new Date(currentJornada.start_date);
+              const newDate = new Date(newStart);
+              const diffTime = newDate - oldDate;
+              daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+          }
+
+          const updates = [];
+
+          updates.push({
+              id: currentJornada.id,
+              tournament_id: activeTournament.id, 
+              name: currentJornada.name,
+              status: currentJornada.status,
+              start_date: newStart,
+              end_date: newEnd
+          });
+
+          if (daysDiff !== 0) {
+              for (let i = currentJornadaIndex + 1; i < jornadas.length; i++) {
+                  const j = jornadas[i];
+                  if (j.start_date && j.end_date) {
+                      updates.push({
+                          id: j.id,
+                          tournament_id: activeTournament.id,
+                          name: j.name,
+                          status: j.status,
+                          start_date: addDaysToDate(j.start_date, daysDiff),
+                          end_date: addDaysToDate(j.end_date, daysDiff)
+                      });
+                  }
+              }
+          }
+
+          await bulkUpdateJornadaFechas(updates);
+
+          setToastConfig({ show: true, message: `Fechas actualizadas. Se recorrieron ${updates.length - 1} jornadas futuras.`, type: "success" });
+          await fetchJornadas(); 
+          
+      } catch (error) {
+          console.error(error);
+          setToastConfig({ show: true, message: "Error actualizando fechas: " + error.message, type: "error" });
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const handleConfirmJornada = async (dataToSave) => {
     setLoading(true);
     try {
@@ -191,6 +245,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   };
 
+  // --- LÓGICA CLAVE DE CONFIGURACIÓN ---
   const handleSaveConfig = async (newConfig) => {
     setLoading(true);
     try {
@@ -198,13 +253,51 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             ? participatingTeams.length - 1 
             : participatingTeams.length;
 
+        // 1. Detectar si la fecha de inicio cambió
+        if (newConfig.startDate && newConfig.startDate !== activeTournament.start_date) {
+            
+            // 2. Solo aplicamos cambios masivos si la Jornada 1 NO está confirmada
+            const isFirstConfirmed = jornadas.some(j => j.name === 'Jornada 1' && j.status === 'Confirmada');
+            
+            if (!isFirstConfirmed) {
+                // 3. Recalculamos matemáticamente todas las fechas: J1=Inicio, J2=Inicio+7, etc.
+                const updates = jornadas.map((j) => {
+                    const num = parseInt(j.name.replace(/\D/g, '')) || 0;
+                    if (num === 0) return null;
+
+                    const weeksOffset = (num - 1) * 7;
+                    const newStart = addDaysToDate(newConfig.startDate, weeksOffset);
+                    const newEnd = addDaysToDate(newStart, 6); // Lunes -> Domingo
+
+                    return {
+                        id: j.id,
+                        tournament_id: activeTournament.id,
+                        name: j.name,
+                        status: j.status,
+                        start_date: newStart,
+                        end_date: newEnd
+                    };
+                }).filter(Boolean);
+
+                if (updates.length > 0) {
+                    await bulkUpdateJornadaFechas(updates);
+                    setToastConfig(prev => ({ ...prev, show: true, message: "Fechas de jornadas recalculadas por cambio de inicio.", type: "success" }));
+                }
+            }
+        }
+
         await actualizarConfigTorneoService(activeTournament.id, newConfig, baseJornadas);
+        
         setActiveTournament(prev => ({ 
             ...prev, 
             config: newConfig,
             start_date: newConfig.startDate || prev.start_date 
         }));
-        setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
+        
+        if (!toastConfig.show) { // Evitar sobrescribir el toast de fechas si ya salió
+            setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
+        }
+        
         await fetchJornadas(); 
     } catch (error) {
         setToastConfig({ show: true, message: error.message, type: "error" });
@@ -264,7 +357,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
                 onEditFixture={handleOpenFixtureEditor}
                 isTournamentActive={true} 
                 dataVersion={dataVersion}
-                jornadas={jornadas} // <--- NUEVA PROP ESENCIAL
+                jornadas={jornadas} 
+                onUpdateDates={handleCascadingDateUpdate}
               />
            ) : (
             <JornadaResultados 

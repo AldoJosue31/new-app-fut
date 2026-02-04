@@ -1,13 +1,24 @@
 import { supabase } from '../supabase/supabase.config';
 import { TOURNAMENT_STATUS } from '../utils/constants';
+import { addDaysToDate } from '../utils/dateUtils'; // <--- IMPORTANTE: Importar utilidad de fechas
 
 // --- SERVICIOS DE LECTURA (Queries) ---
+
+export const getJornadas = async (tournamentId) => {
+  const { data, error } = await supabase
+    .from('jornadas')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('id', { ascending: true });
+
+  if (error) throw error;
+  return data;
+};
 
 export const getTorneoActivo = async (divisionId) => {
   try {
     const { data, error } = await supabase
       .from('tournaments')
-      // CORRECCIÓN: Agregamos 'league_id' al select de divisions para saber a qué liga pertenece
       .select('*, jornadas(name, status), divisions(name, id, league_id)')
       .eq('division_id', divisionId)
       .in('status', [TOURNAMENT_STATUS.ACTIVE, TOURNAMENT_STATUS.ONGOING])
@@ -44,7 +55,6 @@ export const getEquiposDivision = async (divisionId) => {
 
 export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId, leagueId) => {
     try {
-        // CORRECCIÓN: Validamos que llegue el leagueId
         if (!startDate || !endDate || !currentTournamentId || !leagueId) return [];
 
         const { data, error } = await supabase
@@ -69,24 +79,20 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
             .gte('date', `${startDate} 00:00:00`)
             .lte('date', `${endDate} 23:59:59`)
             .neq('jornadas.tournament_id', currentTournamentId) 
-            .eq('jornadas.tournaments.divisions.league_id', leagueId) // CORRECCIÓN: Filtro estricto por liga
+            .eq('jornadas.tournaments.divisions.league_id', leagueId)
             .neq('status', 'Pendiente') 
             .order('date', { ascending: true });
 
         if (error) throw error;
 
         return data.map(m => {
-            // Extracción segura de fecha y hora del ISO String
-            const fechaObj = new Date(m.date);
-            
-            // NOTA: Para evitar errores de zona horaria, extraemos lo que viene de la BD:
             const [datePart, fullTimePart] = m.date.split('T');
             const timePart = fullTimePart ? fullTimePart.substring(0, 5) : '00:00';
 
             return {
                 id: `ext-${m.id}`, 
-                rawDate: datePart, // YYYY-MM-DD para agrupar
-                time: timePart,    // HH:mm para mostrar
+                rawDate: datePart,
+                time: timePart,
                 local: m.team1?.name || 'Por definir',
                 visitante: m.team2?.name || 'Por definir',
                 divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
@@ -204,9 +210,32 @@ export const iniciarTorneoService = async ({
     
     if (tError) throw tError;
 
+    // --- AQUÍ ESTÁ LA LÓGICA DE FECHAS AUTOMÁTICAS ---
     const jornadasToInsert = fixtureGenerado 
-        ? fixtureGenerado.map(f => ({ tournament_id: torneo.id, name: f.name, status: 'Pendiente' }))
-        : jornadas.map(j => ({ tournament_id: torneo.id, name: j.name, status: 'Pendiente' }));
+        ? fixtureGenerado.map((f, index) => {
+            // Calculamos inicio y fin semanal para cada jornada
+            const fechaInicio = addDaysToDate(startDate, index * 7); // Jornada 1 = +0, J2 = +7, etc.
+            const fechaFin = addDaysToDate(fechaInicio, 6); // Domingo = Lunes + 6
+
+            return { 
+                tournament_id: torneo.id, 
+                name: f.name, 
+                status: 'Pendiente',
+                start_date: fechaInicio,
+                end_date: fechaFin 
+            };
+        })
+        : jornadas.map((j, index) => {
+            const fechaInicio = addDaysToDate(startDate, index * 7);
+            const fechaFin = addDaysToDate(fechaInicio, 6);
+            return { 
+                tournament_id: torneo.id, 
+                name: j.name, 
+                status: 'Pendiente',
+                start_date: fechaInicio,
+                end_date: fechaFin 
+            };
+        });
 
     const { data: jornadasCreadas, error: jError } = await supabase
         .from('jornadas')
@@ -274,7 +303,6 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       status: matchHoy.status, 
     };
 
-    // Construir Timestamp combinando Fecha y Hora
     if (matchHoy.status === 'Programado' && matchHoy.date) {
       payloadHoy.date = `${matchHoy.date} ${matchHoy.time || '10:00'}:00`;
     } else {
@@ -350,7 +378,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
        };
 
        if (status === 'Programado') {
-          // Construimos el Timestamp completo para guardar en la columna 'date'
           const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
           payload.date = `${safeDate} ${m.time || "10:00"}:00`;
        } else {
@@ -367,7 +394,6 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         ...(jornadaData.allPendingMatches || [])
             .filter(m => {
                 const isTempId = !m.id || isNaN(Number(m.id));
-                // Solo guardar pendientes si fueron modificados o son nuevos
                 return m.isModified || isTempId;
             })
             .map(m => ({ ...m, finalStatus: 'Pendiente' }))
@@ -463,4 +489,25 @@ export const eliminarTorneoService = async (tournamentId) => {
         console.error("Error crítico eliminando torneo:", error);
         throw error;
     }
+};
+
+export const updateJornadaFechas = async (jornadaId, startDate, endDate) => {
+  const { data, error } = await supabase
+    .from('jornadas')
+    .update({ start_date: startDate, end_date: endDate })
+    .eq('id', jornadaId)
+    .select();
+
+  if (error) throw error;
+  return data[0];
+};
+
+export const bulkUpdateJornadaFechas = async (jornadasConFechas) => {
+  const { data, error } = await supabase
+    .from('jornadas')
+    .upsert(jornadasConFechas, { onConflict: 'id' })
+    .select();
+
+  if (error) throw error;
+  return data;
 };
