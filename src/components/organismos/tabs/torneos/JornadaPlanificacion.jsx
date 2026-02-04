@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import { 
-    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiAddCircleLine, RiArrowDownLine
+    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiAddCircleLine
 } from "react-icons/ri";
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
@@ -18,14 +18,12 @@ import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 // --- COMPONENTE INTERNO PARA ZONA DE NUEVO DÍA ---
 const DaySeparatorDropZone = ({ baseDate, onDropAction, isConfirmed }) => {
     const [isOver, setIsOver] = useState(false);
-    
-    // Calcular el día siguiente
     const nextDate = addDaysToDate(baseDate, 1);
     const label = formatDateWithWeekday(nextDate);
 
     const handleDragOver = (e) => {
         e.preventDefault();
-        e.stopPropagation(); // Evitar que burbujee al contenedor principal
+        e.stopPropagation(); 
         if (!isConfirmed) setIsOver(true);
     };
 
@@ -73,7 +71,10 @@ const DaySeparatorDropZone = ({ baseDate, onDropAction, isConfirmed }) => {
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
   jornadaData, onConfirm, onChangeJornada, totalJornadas, onMatchUpdate, canConfirm, onSaveConfig,
-  onEditFixture, isTournamentActive, dataVersion, jornadas = []
+  onEditFixture, isTournamentActive, dataVersion, jornadas = [],
+  // NUEVOS PROPS
+  onUpdateDates, 
+  onAutoFill
 }) {
   const {
     scheduledMatches, setScheduledMatches,
@@ -97,7 +98,7 @@ export function JornadaPlanificacion({
 
   const [viewMode, setViewMode] = useState('list');
   const [draggedMatch, setDraggedMatch] = useState(null);
-  const [isDragOver, setIsDragOver] = useState(false); // Para el DropZone general
+  const [isDragOver, setIsDragOver] = useState(false); 
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: '', type: '' });
@@ -111,46 +112,32 @@ export function JornadaPlanificacion({
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
 
+  // EFECTO PRINCIPAL: Sincronizar weekStartDate con la base de datos
   useEffect(() => {
-    if (activeTournament?.start_date && !isConfirmed) {
-        const [yearStr, monthStr, dayStr] = activeTournament.start_date.split('-');
-        const startDate = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr));
-        startDate.setDate(startDate.getDate() + (jornadaIndex * 7));
-        
-        const y = startDate.getFullYear();
-        const m = String(startDate.getMonth() + 1).padStart(2, '0');
-        const d = String(startDate.getDate()).padStart(2, '0');
-        const calculatedDate = `${y}-${m}-${d}`;
-        
-        if (weekStartDate !== calculatedDate) {
-            setWeekStartDate(calculatedDate);
+    if (jornadaData?.start_date) {
+        setWeekStartDate(jornadaData.start_date);
+    } else {
+        // Fallback visual si no hay fecha en BD (usa lógica antigua de +7 días por jornada)
+        if (activeTournament?.start_date) {
+            setWeekStartDate(addDaysToDate(activeTournament.start_date, jornadaIndex * 7));
         }
     }
-  }, [jornadaIndex, activeTournament, isConfirmed]); 
+  }, [jornadaData, jornadaIndex, activeTournament]); 
 
-  /**
-   * MANEJO CENTRALIZADO DEL DROP
-   * @param {Event} e - Evento del drop
-   * @param {string|null} targetDate - Fecha objetivo. Si es null, usa weekStartDate.
-   */
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
-    // Detenemos propagación para que no se ejecute dos veces (hijo y padre)
     if(e.stopPropagation) e.stopPropagation();
 
     setIsDragOver(false);
     if (!draggedMatch || isConfirmed) return;
 
-    // 1. Determinar fecha final
     const finalDate = targetDate || weekStartDate;
 
-    // 2. Calcular hora basada en los partidos existentes DE ESA FECHA
     const matchesOfTargetDate = scheduledMatches.filter(m => m.date === finalDate);
     const configStartHour = activeTournament?.config?.horaInicio || "10:00";
     let nextTime = configStartHour;
 
     if (matchesOfTargetDate.length > 0) {
-        // Buscar el último partido por hora
         const last = matchesOfTargetDate.sort((a,b) => (a.time||"").localeCompare(b.time||"")).pop();
         if(last && last.time) {
             const [h, m] = last.time.split(':').map(Number);
@@ -188,20 +175,33 @@ export function JornadaPlanificacion({
       });
   };
 
-  // Ordenar partidos para renderizado: Fecha ASC, Hora ASC
   const sortedMatches = [...scheduledMatches].sort((a,b) => {
       if(a.date !== b.date) return a.date.localeCompare(b.date);
       return (a.time || "").localeCompare(b.time || "");
   });
 
+  const handleAutoFillWrapper = () => {
+    if(window.confirm("¿Calcular automáticamente las fechas de todas las jornadas basándose en el inicio del torneo?")) {
+        onAutoFill(activeTournament.id, activeTournament.start_date);
+    }
+  };
+
   return (
     <Container>
         <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={()=>setToast({...toast, show:false})} />
+        
         <PlanningHeader 
-            jornadaIndex={jornadaIndex} status={jornadaData.status} 
+            jornadaIndex={jornadaIndex} 
+            jornadaData={jornadaData} // Pasamos el objeto completo
+            status={jornadaData?.status || 'Pendiente'} 
             onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
             onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
-            totalJornadas={totalJornadas} weekStartDate={weekStartDate} setWeekStartDate={setWeekStartDate}
+            totalJornadas={totalJornadas} 
+            
+            // Pasamos funciones de fecha: Ahora usamos onSaveDates
+            onSaveDates={onUpdateDates} 
+            onAutoFill={handleAutoFillWrapper}
+
             onConfig={() => setConfigModalOpen(true)} viewMode={viewMode} onToggleView={setViewMode}
             onEditFixture={onEditFixture} isTournamentActive={isTournamentActive}
         />
@@ -231,7 +231,7 @@ export function JornadaPlanificacion({
                         <DropZone 
                             onDragOver={(e)=>{e.preventDefault(); if(!isConfirmed) setIsDragOver(true)}} 
                             onDragLeave={()=>setIsDragOver(false)} 
-                            onDrop={(e) => handleDrop(e, null)} // Drop genérico (container)
+                            onDrop={(e) => handleDrop(e, null)} 
                             $isOver={isDragOver}
                         >
                             {sortedMatches.length === 0 ? ( 
@@ -242,12 +242,9 @@ export function JornadaPlanificacion({
                                             const prevMatch = arr[idx - 1];
                                             const nextMatch = arr[idx + 1];
                                             
-                                            // Agrupación visual por fecha
                                             const isNewDay = !prevMatch || match.date !== prevMatch.date;
                                             const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
                                             
-                                            // Lógica para el separador "Nuevo Día"
-                                            // Se muestra si es el último partido de un bloque de fecha
                                             const isLastOfDate = !nextMatch || nextMatch.date !== match.date;
 
                                             return (
@@ -256,9 +253,7 @@ export function JornadaPlanificacion({
                                                     match={match} 
                                                     groupLabel={groupLabel} 
                                                     isConfirmed={isConfirmed} 
-                                                    // Drop sobre la fila (Añadir a ESTE día)
                                                     onDropOnDate={(targetDate) => handleDrop({ preventDefault: ()=>{} }, targetDate)}
-                                                    
                                                     onUpdateDate={(val) => handleUpdateDate(match.id, val)}
                                                     onUpdateTime={(val) => {
                                                         const updated = scheduledMatches.map(m => m.id === match.id ? {...m, time: val, isModified: true} : m);
@@ -272,7 +267,6 @@ export function JornadaPlanificacion({
                                                     onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
                                                   />
                                                   
-                                                  {/* AQUÍ ESTÁ LA NUEVA FUNCIONALIDAD: DropZone para día siguiente */}
                                                   {isLastOfDate && (
                                                       <DaySeparatorDropZone 
                                                           baseDate={match.date}
@@ -309,80 +303,16 @@ export function JornadaPlanificacion({
 }
 
 // --- ESTILOS ---
-
-// Animación suave para el separador
 const fadeIn = keyframes` from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } `;
-
 const Spacer = styled.div` height: 10px; `;
-
 const SeparatorContainer = styled.div`
-    width: 100%;
-    margin-top: 5px;
-    margin-bottom: 5px;
-    min-height: 15px; /* Altura mínima para ser "droppable" sin molestar */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    cursor: default;
-
-    .content {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        opacity: 0; /* Invisible por defecto */
-        transform: scaleY(0.8);
-        transition: all 0.2s ease;
-    }
-
-    .line {
-        height: 1px;
-        flex: 1;
-        background: ${v.colorPrincipal};
-        opacity: 0.3;
-    }
-
-    .pill {
-        background: ${({theme}) => theme.bg3};
-        border: 1px dashed ${v.colorPrincipal};
-        border-radius: 20px;
-        padding: 4px 15px;
-        font-size: 0.8rem;
-        color: ${v.colorPrincipal};
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        white-space: nowrap;
-        
-        .hint { display: none; }
-    }
-
-    /* ESTADO DRAG OVER: Se expande y se hace visible */
-    ${({ $isOver }) => $isOver && css`
-        min-height: 50px;
-        .content { opacity: 1; transform: scaleY(1); }
-        .pill { 
-            background: ${v.colorPrincipal}20; 
-            border-style: solid;
-            transform: scale(1.05);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-    `}
-
-    /* Aunque no estemos "over", si estamos arrastrando algo cerca, podríamos mostrar una pista sutil (opcional) */
-    /* Para esto necesitaríamos saber si hay un drag global activo, pero con CSS puro :hover funciona para mouse */
-    &:hover {
-        /* Solo mostramos pista si no estamos en drag over activo (que ya lo maneja arriba) */
-        ${({ $isOver }) => !$isOver && css`
-            .content { opacity: 0.4; }
-            .pill { border-color: transparent; background: transparent; }
-            .hint { display: block; font-size: 0.7rem; }
-        `}
-    }
+    width: 100%; margin-top: 5px; margin-bottom: 5px; min-height: 15px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; cursor: default;
+    .content { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0; transform: scaleY(0.8); transition: all 0.2s ease; }
+    .line { height: 1px; flex: 1; background: ${v.colorPrincipal}; opacity: 0.3; }
+    .pill { background: ${({theme}) => theme.bg3}; border: 1px dashed ${v.colorPrincipal}; border-radius: 20px; padding: 4px 15px; font-size: 0.8rem; color: ${v.colorPrincipal}; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; .hint { display: none; } }
+    ${({ $isOver }) => $isOver && css` min-height: 50px; .content { opacity: 1; transform: scaleY(1); } .pill { background: ${v.colorPrincipal}20; border-style: solid; transform: scale(1.05); box-shadow: 0 4px 10px rgba(0,0,0,0.1); } `}
+    &:hover { ${({ $isOver }) => !$isOver && css` .content { opacity: 0.4; } .pill { border-color: transparent; background: transparent; } .hint { display: block; font-size: 0.7rem; } `} }
 `;
-
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
 const Workspace = styled.div` display: flex; gap: 20px; min-height: 75vh; @media(max-width:768px){ flex-direction:column; height:auto; min-height: auto; } `;

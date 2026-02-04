@@ -1,45 +1,43 @@
-import React, { useRef, memo } from "react";
+import React, { useRef, memo, useState, useEffect } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line } from "react-icons/ri";
+import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line, RiMagicLine, RiCheckLine } from "react-icons/ri";
 import { ViewToggle } from "../../../../../index"; 
-import { addDaysToDate } from "../../../../../utils/dateUtils";
 
 export const PlanningHeader = memo(({ 
-    jornadaIndex, status, onPrev, onNext, totalJornadas, 
-    weekStartDate, setWeekStartDate,
-    onConfig, viewMode, onToggleView,
+    jornadaIndex, 
+    jornadaData, 
+    status, 
+    onPrev, 
+    onNext, 
+    totalJornadas, 
+    onSaveDates, // <--- NUEVA PROP: Función para guardar cambios confirmados
+    onAutoFill,
+    onConfig, 
+    viewMode, 
+    onToggleView,
     onEditFixture, 
     isTournamentActive 
 }) => {
-    const dateInputRef = useRef(null);
-    
-    const formatCustomDate = (dateInput) => {
-        if (!dateInput) return "??/??/??";
-        if (typeof dateInput === 'string' && dateInput.includes('-')) {
-            const [y, m, d] = dateInput.split('-');
-            return `${d}/${m}/${y.slice(-2)}`;
-        }
-        if (dateInput instanceof Date) {
-            const d = String(dateInput.getDate()).padStart(2, '0');
-            const m = String(dateInput.getMonth() + 1).padStart(2, '0');
-            const y = String(dateInput.getFullYear()).slice(-2);
-            return `${d}/${m}/${y}`;
-        }
-        return "??/??/??";
-    };
-
-    const endDate = addDaysToDate(weekStartDate, 6);
     const isConfirmed = status === 'Confirmada';
+    const hasDates = jornadaData?.start_date && jornadaData?.end_date;
 
-    const triggerDatePicker = () => {
-        if(dateInputRef.current) {
-            if(dateInputRef.current.showPicker) {
-                dateInputRef.current.showPicker();
-            } else {
-                dateInputRef.current.focus();
-                dateInputRef.current.click(); 
-            }
+    // --- ESTADO LOCAL PARA EDICIÓN SIN GUARDADO INMEDIATO ---
+    const [localStart, setLocalStart] = useState('');
+    const [localEnd, setLocalEnd] = useState('');
+
+    // Sincronizar estado local cuando cambian las props (ej. al navegar entre jornadas)
+    useEffect(() => {
+        setLocalStart(jornadaData?.start_date || '');
+        setLocalEnd(jornadaData?.end_date || '');
+    }, [jornadaData]);
+
+    // Detectar si hay cambios pendientes
+    const hasChanges = (localStart !== (jornadaData?.start_date || '')) || (localEnd !== (jornadaData?.end_date || ''));
+
+    const handleConfirmChanges = () => {
+        if (onSaveDates) {
+            onSaveDates(localStart, localEnd);
         }
     };
 
@@ -51,7 +49,7 @@ export const PlanningHeader = memo(({
                         <RiArrowLeftSLine size={24}/>
                     </NavBtn>
                     <Title $status={status}>
-                        <span>Jornada {jornadaIndex + 1}</span>
+                        <span>{jornadaData?.name || `Jornada ${jornadaIndex + 1}`}</span>
                         <small>{status}</small>
                     </Title>
                     <NavBtn onClick={onNext} disabled={jornadaIndex === totalJornadas - 1}>
@@ -59,25 +57,40 @@ export const PlanningHeader = memo(({
                     </NavBtn>
                 </NavRow>
 
-                <DateRow>
+                <DateRow $hasChanges={hasChanges}>
                     <span className="label-text">Semana del</span>
                     
-                    {isConfirmed ? (
-                        <span className="static-date">{formatCustomDate(weekStartDate)}</span>
-                    ) : (
-                        <div className="input-wrapper" onClick={triggerDatePicker}>
-                            <span className="fake-input">{formatCustomDate(weekStartDate)}</span>
-                            <input 
-                                ref={dateInputRef}
-                                type="date" 
-                                value={weekStartDate || ''} 
-                                onChange={(e) => setWeekStartDate(e.target.value)}
-                            />
-                        </div>
-                    )}
+                    <input 
+                        type="date" 
+                        className="native-input"
+                        value={localStart}
+                        onChange={(e) => setLocalStart(e.target.value)}
+                        disabled={isConfirmed}
+                    />
 
                     <span className="label-text">al</span>
-                    <span className="static-date">{formatCustomDate(endDate)}</span>
+                    
+                    <input 
+                        type="date" 
+                        className="native-input"
+                        value={localEnd}
+                        onChange={(e) => setLocalEnd(e.target.value)}
+                        disabled={isConfirmed}
+                    />
+
+                    {/* Botón de Confirmar Cambios (Solo aparece si hay cambios y no está confirmada) */}
+                    {hasChanges && !isConfirmed && (
+                        <ConfirmBtn onClick={handleConfirmChanges} title="Guardar y actualizar jornadas siguientes">
+                            <RiCheckLine size={18} /> Confirmar
+                        </ConfirmBtn>
+                    )}
+                    
+                    {/* Botón Mágico: Aparece si faltan fechas y no hay cambios pendientes */}
+                    {!hasDates && !hasChanges && !isConfirmed && onAutoFill && (
+                        <AutoFillBtn onClick={onAutoFill} title="Auto-calcular fechas para todas las jornadas">
+                            <RiMagicLine /> Auto
+                        </AutoFillBtn>
+                    )}
                 </DateRow>
             </InfoGroup>
 
@@ -128,6 +141,7 @@ const NavRow = styled.div`
 
 const Title = styled.div`
   display: flex; flex-direction: column; align-items: center;
+  min-width: 120px;
   span { font-weight: 800; font-size: 1.1rem; color: ${({theme})=>theme.text}; }
   small { 
       font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
@@ -144,59 +158,68 @@ const NavBtn = styled.button`
 
 const DateRow = styled.div`
   display: flex; align-items: center; gap: 8px;
-  background: ${({theme})=>theme.bgcards};
+  background: ${({theme, $hasChanges})=> $hasChanges ? v.colorPrincipal + '10' : theme.bgcards}; /* Feedback visual si hay cambios */
   padding: 8px 15px;
   border-radius: 8px;
-  border: 1px solid ${({theme})=>theme.bg4};
+  border: 1px solid ${({theme, $hasChanges})=> $hasChanges ? v.colorPrincipal : theme.bg4};
   font-family: 'Nunito', sans-serif;
   flex-wrap: wrap;
+  transition: all 0.3s ease;
   
   .label-text { font-size: 0.9rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.8; }
-  .static-date { font-weight: 800; color: ${v.colorPrincipal}; font-size: 0.95rem; }
   
-  /* Estilo mejorado para el wrapper del input */
-  .input-wrapper {
-      position: relative; 
-      display: inline-flex; /* Flex para mejor alineación */
-      align-items: center;
-      justify-content: center;
-      min-width: 85px; 
-      /* Quitamos el height fijo para que se adapte al contenido */
-      padding: 0 4px; /* Un poco de padding horizontal extra */
-      text-align: center; 
+  .native-input {
+      border: 1px solid ${({theme}) => theme.bg4};
+      background: ${({theme}) => theme.bg3};
+      color: ${({theme}) => theme.text};
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.9rem;
       cursor: pointer;
-      
-      /* Efecto hover para indicar que es clickeable */
-      transition: background 0.2s;
-      border-radius: 4px;
-      &:hover {
-          background: ${({theme}) => theme.bg4};
-      }
+      color-scheme: ${({theme}) => theme.mode === 'dark' ? 'dark' : 'light'};
 
-      .fake-input { 
-          font-weight: 800; 
-          color: ${v.colorPrincipal}; 
-          font-size: 0.95rem; 
-          border-bottom: 2px dashed ${v.colorPrincipal}; 
-          padding-bottom: 2px; 
-          display: block; 
-          width: 100%; 
-          pointer-events: none; /* Asegura que el click pase al wrapper */
+      &:focus {
+          outline: 2px solid ${v.colorPrincipal};
+          border-color: transparent;
       }
-      
-      input[type="date"] { 
-          position: absolute; 
-          top: 0; 
-          left: 0; 
-          width: 100%; 
-          height: 100%; 
-          opacity: 0; 
-          cursor: pointer; 
-          z-index: 10; 
+      &:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+          background: transparent;
+          border-color: transparent;
+          font-weight: bold;
       }
   }
   
   @media (max-width: 768px) { justify-content: center; width: 100%; }
+`;
+
+const ConfirmBtn = styled.button`
+    display: flex; align-items: center; gap: 5px;
+    background: ${v.colorPrincipal}; 
+    color: white;
+    border: none;
+    font-size: 0.85rem; font-weight: 700;
+    padding: 6px 12px; border-radius: 5px;
+    cursor: pointer;
+    margin-left: 5px;
+    animation: fadeIn 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+
+    &:hover { background: ${v.colorPrincipalDark || '#27ae60'}; transform: translateY(-1px); }
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+`;
+
+const AutoFillBtn = styled.button`
+    display: flex; align-items: center; gap: 4px;
+    background: transparent; border: 1px dashed ${v.colorPrincipal};
+    color: ${v.colorPrincipal};
+    font-size: 0.75rem; font-weight: 700;
+    padding: 4px 8px; border-radius: 4px;
+    cursor: pointer;
+    margin-left: 5px;
+    &:hover { background: ${v.colorPrincipal}15; }
 `;
 
 const BtnAction = styled.button`
