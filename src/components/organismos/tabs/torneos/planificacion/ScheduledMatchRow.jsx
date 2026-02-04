@@ -1,5 +1,5 @@
-import React, { memo, useMemo } from "react";
-import styled from "styled-components";
+import React, { memo, useMemo, useState } from "react";
+import styled, { css } from "styled-components";
 import { v } from "../../../../../index";
 import { RiDeleteBinLine, RiTrophyLine, RiTimeLine, RiEditLine } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
@@ -23,9 +23,13 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     onRemove, 
     onOpenResult, 
     onPostpone,
-    groupLabel 
+    groupLabel,
+    // Prop para manejar el drop en esta fecha específica (para agrupar)
+    onDropOnDate 
 }) {
   
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const penalties = useMemo(() => {
       if (isConfirmed && match.status === 'Finalizado') {
           return getPenaltyScore(match.observations);
@@ -33,8 +37,34 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       return null;
   }, [match.observations, match.status, isConfirmed]);
 
+  // --- MANEJADORES DE DRAG & DROP ---
+  const handleDragOver = (e) => {
+      e.preventDefault();
+      if (!isConfirmed) {
+          setIsDragOver(true);
+      }
+  };
+
+  const handleDragLeave = () => {
+      setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      if (!isConfirmed && onDropOnDate) {
+          // DETENEMOS LA PROPAGACIÓN para que no se active el drop del contenedor padre
+          e.stopPropagation();
+          onDropOnDate(match.date);
+      }
+  };
+
   return (
-    <Wrapper>
+    <Wrapper 
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+    >
         {groupLabel && (
             <DateDivider>
                 <span>{groupLabel}</span>
@@ -42,7 +72,10 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             </DateDivider>
         )}
 
-        <Container $isConfirmed={isConfirmed}>
+        <Container $isConfirmed={isConfirmed} $isDragOver={isDragOver}>
+            {/* Indicador visual de Drop */}
+            {isDragOver && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
+
             <div className="info">
                 {/* EQUIPO LOCAL */}
                 <div className="team local">
@@ -119,6 +152,7 @@ const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
     gap: 10px;
+    position: relative; /* Necesario para el contexto de apilamiento */
 `;
 
 const DateDivider = styled.div`
@@ -152,10 +186,34 @@ const ScoreWrapper = styled.div`
     }
 `;
 
+const DropOverlay = styled.div`
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: ${v.colorPrincipal}20;
+    border: 2px dashed ${v.colorPrincipal};
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: ${v.colorPrincipal};
+    z-index: 10;
+    backdrop-filter: blur(2px);
+    pointer-events: none;
+`;
+
 const Container = styled.div`
     display: flex; flex-direction: column; gap: 12px;
     background: ${({theme})=>theme.bgtotal}; padding: 12px; border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
+    position: relative;
+    transition: all 0.2s ease;
+
+    ${({ $isDragOver, theme }) => $isDragOver && css`
+        border-color: ${v.colorPrincipal};
+        transform: scale(1.01);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    `}
     
     @media ${Device.tablet} {
         display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 10px;
@@ -167,7 +225,6 @@ const Container = styled.div`
         .team { display: flex; align-items: center; gap: 8px; flex:1; overflow: hidden; }
         .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem;}
         
-        /* Ajustes específicos para alineación */
         .local { justify-content: flex-start; text-align: left; order: 1; }
         .visit { justify-content: flex-end; text-align: right; order: 3; }
         .vs { order: 2; font-size: 0.8rem; opacity: 0.6; }
