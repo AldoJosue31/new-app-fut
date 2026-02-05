@@ -511,3 +511,14 @@ export const bulkUpdateJornadaFechas = async (jornadasConFechas) => {
   if (error) throw error;
   return data;
 };
+
+// --- NUEVO: Servicio específico para actualizar resultado y fecha de un partido ---
+export const updateMatchResultService = async (matchId, payload) => {
+    const { error } = await supabase
+        .from('matches')
+        .update(payload)
+        .eq('id', matchId);
+    
+    if (error) throw error;
+    return { success: true };
+};

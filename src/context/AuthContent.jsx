@@ -14,7 +14,7 @@ export function AuthContextProvider({ children }) {
   const presenceRef = useRef(null);
 
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
-  const validateProfile = async (sessionUser) => {
+const validateProfile = async (sessionUser) => {
     if (!sessionUser) return;
 
     try {
@@ -24,8 +24,17 @@ export function AuthContextProvider({ children }) {
         .eq('id', sessionUser.id)
         .single();
 
-      if (error || !data) {
-        console.warn("AuthContext: Perfil no encontrado o cuenta no vinculada. Cerrando sesión...");
+      if (error) {
+        // SOLUCIÓN: Si es un error de conexión o fetch, NO cerramos sesión.
+        // Solo logueamos el error y permitimos que la sesión continúe.
+        // El usuario podrá seguir navegando y se reintentará luego.
+        console.error("Error temporal validando perfil (No se cerrará sesión):", error.message);
+        return; 
+      }
+
+      if (!data) {
+        // Solo cerramos sesión si NO hay error técnico pero tampoco hay datos (perfil borrado)
+        console.warn("AuthContext: Perfil no encontrado en BD. Cerrando sesión...");
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
@@ -44,8 +53,9 @@ export function AuthContextProvider({ children }) {
       setProfile(data);
       useAuthStore.setState({ profile: data });
     } catch (err) {
-      console.error("Error validando perfil:", err);
-      await supabase.auth.signOut();
+      console.error("Error crítico validando perfil:", err);
+      // Opcional: Decidir si cerrar sesión aquí o no. 
+      // Generalmente mejor no cerrar por un error de catch.
     }
   };
 
