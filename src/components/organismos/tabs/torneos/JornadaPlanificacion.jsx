@@ -14,6 +14,7 @@ import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
 import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
+import { ConflictModal } from "./subcomponents/ConflictModal";
 
 // --- COMPONENTE INTERNO PARA ZONA DE NUEVO DÍA ---
 const DaySeparatorDropZone = ({ baseDate, onDropAction, isConfirmed }) => {
@@ -72,9 +73,7 @@ export function JornadaPlanificacion({
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
   jornadaData, onConfirm, onChangeJornada, totalJornadas, onMatchUpdate, canConfirm, onSaveConfig,
   onEditFixture, isTournamentActive, dataVersion, jornadas = [],
-  // NUEVOS PROPS
-  onUpdateDates, 
-  onAutoFill
+  onUpdateDates, onAutoFill
 }) {
   const {
     scheduledMatches, setScheduledMatches,
@@ -84,7 +83,8 @@ export function JornadaPlanificacion({
     durationMatch, autoAdjustTimes, 
     clearDraft,
     showExternalMatches, toggleExternalMatches,
-    externalMatches, loadingExternal
+    externalMatches, loadingExternal,
+    fetchExternalMatches 
   } = usePlanificacionMatches(
       activeTournament, 
       jornadaIndex, 
@@ -104,6 +104,9 @@ export function JornadaPlanificacion({
   const [toast, setToast] = useState({ show: false, msg: '', type: '' });
   
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictsFound, setConflictsFound] = useState([]);
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
@@ -112,12 +115,10 @@ export function JornadaPlanificacion({
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
 
-  // EFECTO PRINCIPAL: Sincronizar weekStartDate con la base de datos
   useEffect(() => {
     if (jornadaData?.start_date) {
         setWeekStartDate(jornadaData.start_date);
     } else {
-        // Fallback visual si no hay fecha en BD (usa lógica antigua de +7 días por jornada)
         if (activeTournament?.start_date) {
             setWeekStartDate(addDaysToDate(activeTournament.start_date, jornadaIndex * 7));
         }
@@ -167,12 +168,69 @@ export function JornadaPlanificacion({
   };
 
   const handleConfirmJornada = async () => {
-      clearDraft();
-      onConfirm({ 
-          jornada_numero: jornadaIndex + 1, 
-          matches: scheduledMatches, 
-          allPendingMatches: allPendingMatches 
-      });
+      setIsCheckingConflicts(true);
+      
+      try {
+        const externalData = await fetchExternalMatches(weekStartDate);
+        
+        const detectedConflicts = [];
+        const getMinutes = (timeStr) => {
+            if(!timeStr) return 0;
+            const [h, m] = timeStr.split(':').map(Number);
+            return (h * 60) + m;
+        };
+
+        // 2. Verificar conflictos
+        scheduledMatches.forEach(internalMatch => {
+            if (!internalMatch.date || !internalMatch.time) return;
+
+            const internalStart = getMinutes(internalMatch.time);
+            const internalEnd = internalStart + durationMatch;
+
+            externalData.forEach(extMatch => {
+                // --- CAMBIO CLAVE: IGNORAR SI ES EL MISMO PARTIDO ---
+                // Si el ID del partido interno coincide con el original_id del externo,
+                // significa que es el mismo partido ya guardado en la BD. Lo ignoramos.
+                if (extMatch.original_id && String(internalMatch.id) === String(extMatch.original_id)) {
+                    return; 
+                }
+
+                if (extMatch.date !== internalMatch.date) return;
+
+                const extStart = getMinutes(extMatch.time);
+                const extDuration = extMatch.duration || durationMatch; 
+                const extEnd = extStart + extDuration;
+
+                if (internalStart < extEnd && extStart < internalEnd) {
+                    detectedConflicts.push({
+                        internal: internalMatch,
+                        external: extMatch,
+                        duration: durationMatch 
+                    });
+                }
+            });
+        });
+
+        if (detectedConflicts.length > 0) {
+            setConflictsFound(detectedConflicts);
+            setConflictModalOpen(true);
+            setIsCheckingConflicts(false);
+            return;
+        }
+
+        clearDraft();
+        onConfirm({ 
+            jornada_numero: jornadaIndex + 1, 
+            matches: scheduledMatches, 
+            allPendingMatches: allPendingMatches 
+        });
+
+      } catch (err) {
+        console.error(err);
+        setToast({ show: true, msg: 'Error verificando horarios', type: 'error' });
+      } finally {
+        setIsCheckingConflicts(false);
+      }
   };
 
   const sortedMatches = [...scheduledMatches].sort((a,b) => {
@@ -192,16 +250,13 @@ export function JornadaPlanificacion({
         
         <PlanningHeader 
             jornadaIndex={jornadaIndex} 
-            jornadaData={jornadaData} // Pasamos el objeto completo
+            jornadaData={jornadaData} 
             status={jornadaData?.status || 'Pendiente'} 
             onPrev={() => onChangeJornada(Math.max(0, jornadaIndex-1))}
             onNext={() => onChangeJornada(Math.min(totalJornadas-1, jornadaIndex+1))}
             totalJornadas={totalJornadas} 
-            
-            // Pasamos funciones de fecha: Ahora usamos onSaveDates
             onSaveDates={onUpdateDates} 
             onAutoFill={handleAutoFillWrapper}
-
             onConfig={() => setConfigModalOpen(true)} viewMode={viewMode} onToggleView={setViewMode}
             onEditFixture={onEditFixture} isTournamentActive={isTournamentActive}
         />
@@ -210,7 +265,7 @@ export function JornadaPlanificacion({
             <ControlsBar>
                 <GhostButton onClick={toggleExternalMatches} $active={showExternalMatches}>
                     {showExternalMatches ? <RiEyeOffLine/> : <RiEyeLine/>}
-                    {showExternalMatches ? 'Ocultar otras divisiones' : 'Ver otras divisiones'}
+                    {showExternalMatches ? 'Ocultar partidos de otras divisiones' : 'Ver partidos de otras divisiones'}
                     {loadingExternal && <span className="spinner">...</span>}
                 </GhostButton>
                 <span className="info-text">
@@ -293,11 +348,20 @@ export function JornadaPlanificacion({
             </Workspace>
         </TransitionWrapper>
         <Footer>
-            <div className="note">Duración Estimada: {durationMatch} min</div>
-            {!isConfirmed && ( <Btnsave titulo="Confirmar Jornada" funcion={handleConfirmJornada} icono={<RiCheckDoubleLine/>} bgcolor={canConfirm ? v.colorPrincipal : '#95a5a6'} /> )}
+            <div className="note">Duración Estimada: {durationMatch} min (Partido + Descanso)</div>
+            {!isConfirmed && ( 
+                <Btnsave 
+                    titulo={isCheckingConflicts ? "Verificando..." : "Confirmar Jornada"} 
+                    funcion={handleConfirmJornada} 
+                    icono={!isCheckingConflicts && <RiCheckDoubleLine/>} 
+                    bgcolor={canConfirm && !isCheckingConflicts ? v.colorPrincipal : '#95a5a6'} 
+                /> 
+            )}
         </Footer>
+
         <TournamentConfigModal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} activeTournament={activeTournament} onSave={onSaveConfig} isVueltasLocked={isVueltasLocked} isStartDateLocked={isFirstJornadaConfirmed} />
         <ResultModal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} match={selectedMatchResult} activeTournament={activeTournament} onSave={async (id, updates) => await onMatchUpdate?.(id, updates)} />
+        <ConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} conflicts={conflictsFound} />
     </Container>
   );
 }

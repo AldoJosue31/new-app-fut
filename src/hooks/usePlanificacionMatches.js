@@ -28,12 +28,9 @@ export const usePlanificacionMatches = (
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
-  // Calcular cuál es la jornada "objetivo" para los pendientes (La siguiente a la última confirmada)
   const targetJornadaIndex = useMemo(() => {
-      if (!jornadasList || jornadasList.length === 0) return 0; // Si no hay info, asumimos J1
-      
+      if (!jornadasList || jornadasList.length === 0) return 0;
       let lastConfirmedIdx = -1;
-      // Asumimos que jornadasList viene ordenada por el padre
       for (let i = 0; i < jornadasList.length; i++) {
           if (jornadasList[i].status === 'Confirmada' || jornadasList[i].status === 'Finalizada') {
               lastConfirmedIdx = i;
@@ -99,40 +96,73 @@ export const usePlanificacionMatches = (
       });
   };
 
+  // --- FUNCIÓN DE CARGA MANUAL (MEJORADA PARA LEER NOMBRES Y DURACIÓN) ---
+  const fetchExternalMatches = useCallback(async (startDateToCheck) => {
+      if (!activeTournament?.id) return [];
+      
+      const leagueId = activeTournament.division?.league_id;
+      if (!leagueId) return [];
+
+      const endDate = addDaysToDate(startDateToCheck, 8);
+      
+      try {
+          const data = await getPartidosExternosRango(startDateToCheck, endDate, activeTournament.id, leagueId);
+          
+          const processed = data.map(m => {
+              // 1. Procesar Fecha (extraer YYYY-MM-DD local si viene full ISO)
+              let localDateStr = m.date;
+              if (m.rawDate) {
+                  const d = new Date(m.rawDate);
+                  const year = d.getFullYear();
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const day = String(d.getDate()).padStart(2, '0');
+                  localDateStr = `${year}-${month}-${day}`;
+              }
+
+              // 2. Extracción de Nombres (Prioridad al objeto 'local' que trae el join)
+              const localName = m.local?.name || m.local_name || "Equipo Local";
+              const visitName = m.visitante?.name || m.visitante_name || "Equipo Visita";
+              const divisionName = m.division_name || m.division?.name || "Otra División";
+
+              // 3. Calcular Duración Real del partido externo
+              // Usamos la config del torneo externo para saber cuánto dura realmente.
+              let realDuration = null;
+              if (m.config?.minutosPorTiempo) {
+                  const tiempo = parseInt(m.config.minutosPorTiempo) || 45;
+                  const descanso = parseInt(m.config.minutosDescanso) || 15;
+                  realDuration = (tiempo * 2) + descanso;
+              }
+
+              // 4. Limpieza de hora (por si viene con segundos o milisegundos)
+              const cleanTime = m.time && m.time.length > 5 ? m.time.substring(0, 5) : m.time;
+
+              return { 
+                  ...m, 
+                  date: localDateStr,
+                  time: cleanTime,
+                  local_name: localName,
+                  visitante_name: visitName,
+                  division_name: divisionName,
+                  duration: realDuration // null indica "usar default"
+              };
+          });
+          return processed;
+      } catch (err) {
+          console.error("Error fetching external matches:", err);
+          return [];
+      }
+  }, [activeTournament]);
+
   useEffect(() => {
-    if (showExternalMatches && weekStartDate && activeTournament?.id) {
+    if (showExternalMatches && weekStartDate) {
         setLoadingExternal(true);
-        const endDate = addDaysToDate(weekStartDate, 8); 
-
-        // CORRECCIÓN: Extraemos el league_id para filtrar
-        const leagueId = activeTournament.division?.league_id;
-
-        if (leagueId) {
-            getPartidosExternosRango(weekStartDate, endDate, activeTournament.id, leagueId)
-            .then(data => {
-                const processed = data.map(m => {
-                    if (!m.rawDate) return m;
-                    const d = new Date(m.rawDate);
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    const localDateStr = `${year}-${month}-${day}`;
-                    return { ...m, date: localDateStr };
-                });
-                setExternalMatches(processed);
-            })
-            .catch(err => console.error(err))
+        fetchExternalMatches(weekStartDate)
+            .then(data => setExternalMatches(data))
             .finally(() => setLoadingExternal(false));
-        } else {
-            console.warn("No se pudo identificar la liga del torneo activo para filtrar externos.");
-            setExternalMatches([]);
-            setLoadingExternal(false);
-        }
-        
     } else if (!showExternalMatches) {
         setExternalMatches([]);
     }
-  }, [showExternalMatches, weekStartDate, activeTournament?.id, activeTournament?.division?.league_id]);
+  }, [showExternalMatches, weekStartDate, fetchExternalMatches]);
 
   const toggleExternalMatches = () => setShowExternalMatches(prev => !prev);
   
@@ -244,19 +274,13 @@ export const usePlanificacionMatches = (
         const gmId = String(gm.id);
         const gmOriginName = (gm.jornadas?.name || gm.originJornada || "").trim();
 
-        // 1. Si ya está programado en esta jornada, lo saltamos (usamos la versión de DB)
         if (officialJornadaIds.has(gmId)) return acc;
-        
-        // 2. Si pertenece originalmente a esta jornada, lo saltamos (se tratará como local)
         if (gmOriginName === currentJornadaName) return acc;
 
-        // 3. LOGICA ESTRICTA: Solo mostrar si estamos en la jornada "objetivo"
         if (jornadaIndex !== targetJornadaIndex) {
             return acc;
         }
 
-        // Si pasó el filtro anterior, significa que estamos en la jornada correcta.
-        // Ahora solo verificamos que no sea un partido del "futuro" (por seguridad)
         const originNum = getJornadaNum(gmOriginName);
         const currentNum = jornadaIndex + 1;
 
@@ -293,13 +317,11 @@ export const usePlanificacionMatches = (
     
     const currentPending = mergedMatches.filter(m => {
         if (m.date || m.status === 'Finalizado') return false;
-        // Si no tiene fecha, es candidato. Verificamos que no sea "futuro"
-        if (!m.originJornada) return true; // Asumimos actual si no tiene info
+        if (!m.originJornada) return true; 
         
         const mNum = getJornadaNum(m.originJornada);
         const cNum = jornadaIndex + 1;
         
-        // Mostrar si es de esta jornada o anterior
         return mNum <= cNum;
     });
 
@@ -307,13 +329,11 @@ export const usePlanificacionMatches = (
     if (teams.length % 2 !== 0) {
         const teamsPlaying = new Set();
         
-        // Recolectar equipos ocupados en programados
         currentScheduled.forEach(m => {
              if (m.local?.id) teamsPlaying.add(m.local.id);
              if (m.visitante?.id && !m.isByeMatch) teamsPlaying.add(m.visitante.id);
         });
 
-        // Recolectar equipos ocupados en pendientes DE ESTA JORNADA SOLAMENTE
         currentPending.forEach(m => {
             if (m.originJornada === currentJornadaName) {
                  if (m.local?.id) teamsPlaying.add(m.local.id);
@@ -362,6 +382,8 @@ export const usePlanificacionMatches = (
     weekStartDate, setWeekStartDate: handleSetWeekStartDate,
     durationMatch, autoAdjustTimes, currentJornadaName,
     clearDraft,
-    showExternalMatches, toggleExternalMatches, externalMatches, loadingExternal
+    showExternalMatches, toggleExternalMatches, 
+    externalMatches, loadingExternal,
+    fetchExternalMatches
   };
 };

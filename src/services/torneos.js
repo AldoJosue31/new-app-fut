@@ -1,6 +1,6 @@
 import { supabase } from '../supabase/supabase.config';
 import { TOURNAMENT_STATUS } from '../utils/constants';
-import { addDaysToDate } from '../utils/dateUtils'; // <--- IMPORTANTE: Importar utilidad de fechas
+import { addDaysToDate } from '../utils/dateUtils'; 
 
 // --- SERVICIOS DE LECTURA (Queries) ---
 
@@ -53,6 +53,7 @@ export const getEquiposDivision = async (divisionId) => {
   }
 };
 
+// --- FUNCIÓN CORREGIDA Y BLINDADA ---
 export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId, leagueId) => {
     try {
         if (!startDate || !endDate || !currentTournamentId || !leagueId) return [];
@@ -63,39 +64,76 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
                 id,
                 date,
                 status,
-                team1:teams!team1_id(name),
-                team2:teams!team2_id(name),
-                jornadas!inner(
+                team1:teams!team1_id ( name, logo_url ),
+                team2:teams!team2_id ( name, logo_url ),
+                jornadas!inner (
                     tournament_id,
-                    tournaments!inner(
-                        division_id,
-                        divisions!inner(
-                            name,
-                            league_id
-                        )
+                    tournaments!inner (
+                        status, 
+                        config, 
+                        divisions!inner ( name, league_id )
                     )
                 )
             `)
             .gte('date', `${startDate} 00:00:00`)
             .lte('date', `${endDate} 23:59:59`)
-            .neq('jornadas.tournament_id', currentTournamentId) 
             .eq('jornadas.tournaments.divisions.league_id', leagueId)
             .neq('status', 'Pendiente') 
+            .neq('status', 'Finalizado') 
+            .neq('status', 'Cancelado')
             .order('date', { ascending: true });
 
         if (error) throw error;
 
-        return data.map(m => {
-            const [datePart, fullTimePart] = m.date.split('T');
-            const timePart = fullTimePart ? fullTimePart.substring(0, 5) : '00:00';
+        // FILTRO JS: Seguridad extra para eliminar partidos del mismo torneo si se colaron
+        const matchesFiltrados = data.filter(m => {
+            if (String(m.jornadas.tournament_id) === String(currentTournamentId)) return false;
+            
+            const statusTorneo = m.jornadas.tournaments.status;
+            if (statusTorneo === 'Finalizado' || statusTorneo === 'Cancelado') return false;
+
+            return true;
+        });
+
+        return matchesFiltrados.map(m => {
+            // LECTURA DE FECHA/HORA EXACTA (Sin restar zona horaria)
+            let datePart = "";
+            let timePart = "00:00";
+
+            if (m.date && typeof m.date === 'string') {
+                const cleanDate = m.date.replace('Z', '').split('+')[0];
+                if (cleanDate.includes('T')) {
+                    const parts = cleanDate.split('T');
+                    datePart = parts[0]; 
+                    timePart = parts[1] ? parts[1].substring(0, 5) : '00:00';
+                } else if (cleanDate.includes(' ')) {
+                    const parts = cleanDate.split(' ');
+                    datePart = parts[0];
+                    timePart = parts[1] ? parts[1].substring(0, 5) : '00:00';
+                } else {
+                    datePart = cleanDate;
+                }
+            }
 
             return {
-                id: `ext-${m.id}`, 
+                id: `ext-${m.id}`,
+                original_id: m.id, // <--- ESTO ES LO VITAL. EL ID REAL DE LA DB.
                 rawDate: datePart,
-                time: timePart,
+                date: datePart, 
+                time: timePart, 
+                
                 local: m.team1?.name || 'Por definir',
                 visitante: m.team2?.name || 'Por definir',
+                
+                local_name: m.team1?.name || 'Por definir',
+                visitante_name: m.team2?.name || 'Por definir',
+                
+                local_logo: m.team1?.logo_url,
+                visitante_logo: m.team2?.logo_url,
+                
                 divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
+                division_name: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
+                config: m.jornadas?.tournaments?.config,
                 status: m.status,
                 isExternal: true
             };
@@ -210,12 +248,10 @@ export const iniciarTorneoService = async ({
     
     if (tError) throw tError;
 
-    // --- AQUÍ ESTÁ LA LÓGICA DE FECHAS AUTOMÁTICAS ---
     const jornadasToInsert = fixtureGenerado 
         ? fixtureGenerado.map((f, index) => {
-            // Calculamos inicio y fin semanal para cada jornada
-            const fechaInicio = addDaysToDate(startDate, index * 7); // Jornada 1 = +0, J2 = +7, etc.
-            const fechaFin = addDaysToDate(fechaInicio, 6); // Domingo = Lunes + 6
+            const fechaInicio = addDaysToDate(startDate, index * 7); 
+            const fechaFin = addDaysToDate(fechaInicio, 6); 
 
             return { 
                 tournament_id: torneo.id, 
@@ -371,10 +407,10 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
        const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
 
        const payload = {
-          jornada_id: targetJornadaId,
-          team1_id: t1Id,
-          team2_id: t2Id,
-          status: status
+         jornada_id: targetJornadaId,
+         team1_id: t1Id,
+         team2_id: t2Id,
+         status: status
        };
 
        if (status === 'Programado') {
@@ -512,7 +548,6 @@ export const bulkUpdateJornadaFechas = async (jornadasConFechas) => {
   return data;
 };
 
-// --- NUEVO: Servicio específico para actualizar resultado y fecha de un partido ---
 export const updateMatchResultService = async (matchId, payload) => {
     const { error } = await supabase
         .from('matches')
