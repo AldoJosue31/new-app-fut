@@ -56,7 +56,7 @@ export const getEquiposDivision = async (divisionId) => {
 // --- FUNCIÓN CORREGIDA Y BLINDADA ---
 export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId, leagueId) => {
     try {
-        if (!startDate || !endDate || !currentTournamentId || !leagueId) return [];
+        if (!startDate || !endDate || !leagueId) return [];
 
         const { data, error } = await supabase
             .from('matches')
@@ -70,70 +70,70 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
                     tournament_id,
                     tournaments!inner (
                         status, 
-                        config, 
-                        divisions!inner ( name, league_id )
+                        divisions!inner ( name, league_id, id )
                     )
                 )
             `)
             .gte('date', `${startDate} 00:00:00`)
             .lte('date', `${endDate} 23:59:59`)
-            .eq('jornadas.tournaments.divisions.league_id', leagueId)
             .neq('status', 'Pendiente') 
-            .neq('status', 'Finalizado') 
             .neq('status', 'Cancelado')
             .order('date', { ascending: true });
 
         if (error) throw error;
 
-        // FILTRO JS: Seguridad extra para eliminar partidos del mismo torneo si se colaron
+        // FILTRO ROBUSTO EN MEMORIA
         const matchesFiltrados = data.filter(m => {
-            if (String(m.jornadas.tournament_id) === String(currentTournamentId)) return false;
-            
-            const statusTorneo = m.jornadas.tournaments.status;
-            if (statusTorneo === 'Finalizado' || statusTorneo === 'Cancelado') return false;
+            const matchTournId = m.jornadas?.tournament_id;
+            const matchLeagueId = m.jornadas?.tournaments?.divisions?.league_id;
 
+            // 1. Descartar partidos del mismo torneo
+            if (currentTournamentId && String(matchTournId) === String(currentTournamentId)) {
+                return false;
+            }
+
+            // 2. Asegurar que sean de la misma liga
+            if (String(matchLeagueId) !== String(leagueId)) {
+                return false;
+            }
+            
             return true;
         });
 
         return matchesFiltrados.map(m => {
-            // LECTURA DE FECHA/HORA EXACTA (Sin restar zona horaria)
+            // NORMALIZACIÓN DE FECHA Y HORA DESDE TIMESTAMP
             let datePart = "";
             let timePart = "00:00";
 
-            if (m.date && typeof m.date === 'string') {
-                const cleanDate = m.date.replace('Z', '').split('+')[0];
-                if (cleanDate.includes('T')) {
-                    const parts = cleanDate.split('T');
-                    datePart = parts[0]; 
-                    timePart = parts[1] ? parts[1].substring(0, 5) : '00:00';
-                } else if (cleanDate.includes(' ')) {
-                    const parts = cleanDate.split(' ');
+            if (m.date) {
+                const raw = m.date.toString();
+                // raw suele ser "YYYY-MM-DDTHH:MM:SS+TZ" o similar
+                if (raw.includes('T')) {
+                    const parts = raw.split('T');
                     datePart = parts[0];
-                    timePart = parts[1] ? parts[1].substring(0, 5) : '00:00';
+                    if (parts[1]) timePart = parts[1].substring(0, 5);
+                } else if (raw.includes(' ')) {
+                    const parts = raw.split(' ');
+                    datePart = parts[0];
+                    if (parts[1]) timePart = parts[1].substring(0, 5);
                 } else {
-                    datePart = cleanDate;
+                    datePart = raw;
                 }
             }
 
             return {
                 id: `ext-${m.id}`,
-                original_id: m.id, // <--- ESTO ES LO VITAL. EL ID REAL DE LA DB.
-                rawDate: datePart,
+                original_id: m.id,
+                rawDate: datePart, 
                 date: datePart, 
                 time: timePart, 
                 
-                local: m.team1?.name || 'Por definir',
-                visitante: m.team2?.name || 'Por definir',
-                
-                local_name: m.team1?.name || 'Por definir',
-                visitante_name: m.team2?.name || 'Por definir',
-                
+                local_name: m.team1?.name || 'Equipo Local',
+                visitante_name: m.team2?.name || 'Equipo Visita',
                 local_logo: m.team1?.logo_url,
                 visitante_logo: m.team2?.logo_url,
                 
-                divisionName: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
                 division_name: m.jornadas?.tournaments?.divisions?.name || 'Otra División',
-                config: m.jornadas?.tournaments?.config,
                 status: m.status,
                 isExternal: true
             };

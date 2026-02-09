@@ -15,6 +15,7 @@ import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal";
+import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 
 // --- COMPONENTE INTERNO PARA ZONA DE NUEVO DÍA ---
 const DaySeparatorDropZone = ({ baseDate, onDropAction, isConfirmed }) => {
@@ -110,20 +111,9 @@ export function JornadaPlanificacion({
 
   const isConfirmed = jornadaData?.status === 'Confirmada';
   const isVueltasLocked = (jornadaIndex + 1) > Math.ceil(totalJornadas / 2);
-
   const isFirstJornadaConfirmed = activeTournament?.jornadas?.some(
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
-
-  useEffect(() => {
-    if (jornadaData?.start_date) {
-        setWeekStartDate(jornadaData.start_date);
-    } else {
-        if (activeTournament?.start_date) {
-            setWeekStartDate(addDaysToDate(activeTournament.start_date, jornadaIndex * 7));
-        }
-    }
-  }, [jornadaData, jornadaIndex, activeTournament]); 
 
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
@@ -133,7 +123,6 @@ export function JornadaPlanificacion({
     if (!draggedMatch || isConfirmed) return;
 
     const finalDate = targetDate || weekStartDate;
-
     const matchesOfTargetDate = scheduledMatches.filter(m => m.date === finalDate);
     const configStartHour = activeTournament?.config?.horaInicio || "10:00";
     let nextTime = configStartHour;
@@ -167,49 +156,32 @@ export function JornadaPlanificacion({
       setScheduledMatches(autoAdjustTimes(updatedList, newDate));
   };
 
+  const parseDateTimeFromServerMessage = (msg) => {
+    if (!msg) return null;
+    const re = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/;
+    const m = String(msg).match(re);
+    if (!m) return null;
+    return { date: m[1], time: m[2].slice(0,5) };
+  };
+
   const handleConfirmJornada = async () => {
       setIsCheckingConflicts(true);
-      
       try {
-        const externalData = await fetchExternalMatches(weekStartDate);
+        const rawExternalData = await fetchExternalMatches(weekStartDate);
         
-        const detectedConflicts = [];
-        const getMinutes = (timeStr) => {
-            if(!timeStr) return 0;
-            const [h, m] = timeStr.split(':').map(Number);
-            return (h * 60) + m;
-        };
+        // Filtro local adicional de conflictos
+        const currentJornadaId = jornadaData?.id;
+        const currentTournamentId = activeTournament?.id;
 
-        // 2. Verificar conflictos
-        scheduledMatches.forEach(internalMatch => {
-            if (!internalMatch.date || !internalMatch.time) return;
-
-            const internalStart = getMinutes(internalMatch.time);
-            const internalEnd = internalStart + durationMatch;
-
-            externalData.forEach(extMatch => {
-                // --- CAMBIO CLAVE: IGNORAR SI ES EL MISMO PARTIDO ---
-                // Si el ID del partido interno coincide con el original_id del externo,
-                // significa que es el mismo partido ya guardado en la BD. Lo ignoramos.
-                if (extMatch.original_id && String(internalMatch.id) === String(extMatch.original_id)) {
-                    return; 
-                }
-
-                if (extMatch.date !== internalMatch.date) return;
-
-                const extStart = getMinutes(extMatch.time);
-                const extDuration = extMatch.duration || durationMatch; 
-                const extEnd = extStart + extDuration;
-
-                if (internalStart < extEnd && extStart < internalEnd) {
-                    detectedConflicts.push({
-                        internal: internalMatch,
-                        external: extMatch,
-                        duration: durationMatch 
-                    });
-                }
-            });
+        const filteredExternalData = rawExternalData.filter(ext => {
+             // Ignorar la propia jornada si ya viene
+             if (currentJornadaId && String(ext.jornada_id) === String(currentJornadaId)) return false;
+             // Ignorar el propio torneo (doble verificación)
+             if (currentTournamentId && String(ext.original_id).includes(currentTournamentId)) return false;
+             return true;
         });
+
+        const detectedConflicts = findScheduleConflicts(scheduledMatches, filteredExternalData, durationMatch);
 
         if (detectedConflicts.length > 0) {
             setConflictsFound(detectedConflicts);
@@ -218,12 +190,39 @@ export function JornadaPlanificacion({
             return;
         }
 
-        clearDraft();
-        onConfirm({ 
-            jornada_numero: jornadaIndex + 1, 
-            matches: scheduledMatches, 
-            allPendingMatches: allPendingMatches 
-        });
+        try {
+            await Promise.resolve(onConfirm({ 
+                jornada_numero: jornadaIndex + 1, 
+                matches: scheduledMatches, 
+                allPendingMatches: allPendingMatches 
+            }));
+
+            clearDraft();
+            setToast({ show: true, msg: 'Jornada confirmada correctamente', type: 'success' });
+        } catch (serverErr) {
+            console.error("Error guardando:", serverErr);
+            const serverMessage = serverErr?.message || serverErr?.error || String(serverErr);
+            const dt = parseDateTimeFromServerMessage(serverMessage);
+            if (dt) {
+                const syntheticConflicts = scheduledMatches
+                    .filter(internal => checkOverlap(internal, { date: dt.date, time: dt.time, duration: durationMatch }, durationMatch))
+                    .map(internal => ({
+                        internal,
+                        external: { date: dt.date, time: dt.time, local_name: 'Partido en BD', visitante_name: '', division_name: 'Otra División' },
+                        duration: durationMatch
+                    }));
+
+                if (syntheticConflicts.length > 0) {
+                    setConflictsFound(syntheticConflicts);
+                    setConflictModalOpen(true);
+                } else {
+                    setToast({ show: true, msg: serverMessage, type: 'error' });
+                }
+            } else {
+                setToast({ show: true, msg: serverMessage, type: 'error' });
+            }
+            return;
+        }
 
       } catch (err) {
         console.error(err);
@@ -239,7 +238,7 @@ export function JornadaPlanificacion({
   });
 
   const handleAutoFillWrapper = () => {
-    if(window.confirm("¿Calcular automáticamente las fechas de todas las jornadas basándose en el inicio del torneo?")) {
+    if(window.confirm("¿Calcular fechas automáticamente?")) {
         onAutoFill(activeTournament.id, activeTournament.start_date);
     }
   };
@@ -296,10 +295,8 @@ export function JornadaPlanificacion({
                                     {sortedMatches.map((match, idx, arr) => {
                                             const prevMatch = arr[idx - 1];
                                             const nextMatch = arr[idx + 1];
-                                            
                                             const isNewDay = !prevMatch || match.date !== prevMatch.date;
                                             const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
-                                            
                                             const isLastOfDate = !nextMatch || nextMatch.date !== match.date;
 
                                             return (
@@ -321,7 +318,6 @@ export function JornadaPlanificacion({
                                                     onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
                                                     onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
                                                   />
-                                                  
                                                   {isLastOfDate && (
                                                       <DaySeparatorDropZone 
                                                           baseDate={match.date}
@@ -340,7 +336,7 @@ export function JornadaPlanificacion({
                             weekStartDate={weekStartDate} 
                             scheduledMatches={scheduledMatches} 
                             externalMatches={externalMatches} 
-                            divisionActual={activeTournament?.division?.name} 
+                            divisionActual={activeTournament?.division?.name || activeTournament?.divisions?.name} 
                             isConfirmed={isConfirmed} 
                         /> 
                     )}
