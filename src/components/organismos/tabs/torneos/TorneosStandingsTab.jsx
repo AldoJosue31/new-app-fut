@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect } from 'react';
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom'; // 1. IMPORTAR NAVIGATE
 import { v } from '../../../../styles/variables'; 
 import { Device } from '../../../../styles/breakpoints'; 
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
@@ -11,6 +12,8 @@ export const TorneosStandingsTab = ({
   reglas = {},
   onRefresh 
 }) => {
+  
+  const navigate = useNavigate(); // 2. INICIALIZAR NAVIGATE
 
   useEffect(() => {
     if (onRefresh && typeof onRefresh === 'function') {
@@ -29,9 +32,6 @@ export const TorneosStandingsTab = ({
     };
   }, [torneo?.config, reglas]);
 
-  // --- CORRECCIÓN DE DUPLICADOS ---
-  // Filtramos la lista de equipos para asegurar que cada ID sea único.
-  // Esto previene que si la BD devuelve el equipo "Golden Boys" dos veces, se renderice dos filas.
   const uniqueEquipos = useMemo(() => {
     if (!equipos) return [];
     const map = new Map();
@@ -41,8 +41,6 @@ export const TorneosStandingsTab = ({
 
   const tablaGeneral = useMemo(() => {
     const data = uniqueEquipos.map((equipo) => {
-      // Usamos .find() que solo devuelve la primera coincidencia, lo cual es correcto.
-      // Si estadisticas tiene duplicados, esto ignora los extra.
       const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
       
       return {
@@ -64,7 +62,6 @@ export const TorneosStandingsTab = ({
         if (b.pts !== a.pts) return b.pts - a.pts;
         if (b.dg !== a.dg) return b.dg - a.dg;
         if (b.gf !== a.gf) return b.gf - a.gf;
-        // Si todo es igual, menor partidos jugados va primero (mejor rendimiento)
         return a.pj - b.pj;
     });
 
@@ -76,25 +73,13 @@ export const TorneosStandingsTab = ({
 
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
-    
-    if (rank <= config.ascensos) {
-      return { color: '#22c55e', label: 'Ascenso Directo' };
-    }
-
+    if (rank <= config.ascensos) return { color: '#22c55e', label: 'Ascenso Directo' };
     if (config.zonaLiguilla) {
-      if (rank > config.ascensos && rank <= config.clasificados) {
-        return { color: '#3b82f6', label: 'Liguilla' };
-      }
+      if (rank > config.ascensos && rank <= config.clasificados) return { color: '#3b82f6', label: 'Liguilla' };
       const limitLiguilla = Math.max(config.clasificados, config.ascensos);
-      if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) {
-        return { color: '#f59e0b', label: 'Repechaje' };
-      }
+      if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return { color: '#f59e0b', label: 'Repechaje' };
     }
-
-    if (config.descensos > 0 && rank > (total - config.descensos)) {
-      return { color: '#ef4444', label: 'Descenso' };
-    }
-
+    if (config.descensos > 0 && rank > (total - config.descensos)) return { color: '#ef4444', label: 'Descenso' };
     return null;
   };
 
@@ -122,7 +107,12 @@ export const TorneosStandingsTab = ({
                 const zoneColor = status?.color;
                 
                 return (
-                  <Tr key={fila.id}>
+<Tr 
+                    key={fila.id}
+                    // ✅ AQUÍ ESTÁ LA MAGIA: Pasamos 'initialView: stats' en el estado
+                    onDoubleClick={() => navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } })}
+                    title="Doble click para ver estadísticas detalladas"
+                  >
                     <Td className="team-col" $zoneColor={zoneColor}>
                       <TeamNameCell>
                         <span className="pos">{index + 1}</span>
@@ -275,6 +265,8 @@ const Td = styled.td`
 `;
 
 const Tr = styled.tr`
+  cursor: pointer; /* 4. Indica que es clickeable */
+  transition: background-color 0.2s;
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
 `;
 

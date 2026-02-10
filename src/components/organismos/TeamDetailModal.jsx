@@ -16,7 +16,7 @@ import {
     RiHashtag, RiFontSize, RiFocus2Line
 } from "react-icons/ri";
 
-export function TeamDetailModal({ isOpen, onClose, team, division }) {
+export function TeamDetailModal({ isOpen, onClose, team, division, initialView }) {
     // --- ESTADOS ---
     const [showPlayerList, setShowPlayerList] = useState(false);
     const [players, setPlayers] = useState([]);
@@ -53,17 +53,24 @@ export function TeamDetailModal({ isOpen, onClose, team, division }) {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    useEffect(() => {
+useEffect(() => {
         if (!isOpen) {
             setShowPlayerList(false);
             setShowStats(false);
             setPlayers([]);
             setStatsData(null);
             setHasActiveTournament(false);
-        } else if (team && division) {
-            checkTournamentStatus();
+        } else if (team) {
+            // Siempre intentamos cargar stats para tener la data lista
+            if (division) checkTournamentStatus();
+
+            // Si se pidió vista inicial "stats", la activamos
+            // La animación CSS (.internal-view) se encargará del efecto visual
+            if (initialView === 'stats') {
+                setShowStats(true);
+            }
         }
-    }, [isOpen, team, division]);
+    }, [isOpen, team, division, initialView]);
 
     const checkTournamentStatus = async () => {
         setLoadingStats(true);
