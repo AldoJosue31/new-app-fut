@@ -1,25 +1,39 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom'; // 1. IMPORTAR NAVIGATE
-import { v } from '../../../../styles/variables'; 
-import { Device } from '../../../../styles/breakpoints'; 
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../../../supabase/supabase.config'; // Asegúrate de importar supabase
+import { v } from '../../../../styles/variables';
+import { Device } from '../../../../styles/breakpoints';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
+import { BiShareAlt, BiCheck, BiLockAlt, BiWorld } from "react-icons/bi";
+import { motion } from 'framer-motion';
 
-export const TorneosStandingsTab = ({ 
-  torneo = {}, 
-  equipos = [], 
+export const TorneosStandingsTab = ({
+  torneo = {},
+  equipos = [],
   estadisticas = [],
   reglas = {},
-  onRefresh 
+  onRefresh,
+  isPublic = false
 }) => {
+
+  const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
   
-  const navigate = useNavigate(); // 2. INICIALIZAR NAVIGATE
+  // Estado local para el switch, inicializado con el valor del torneo
+  const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     if (onRefresh && typeof onRefresh === 'function') {
         onRefresh();
     }
   }, []);
+
+  // Sincronizar estado si cambia la prop torneo
+  useEffect(() => {
+    setIsPublicEnabled(torneo?.is_public || false);
+  }, [torneo?.is_public]);
 
   const config = useMemo(() => {
     const c = torneo?.config || reglas || {};
@@ -42,11 +56,11 @@ export const TorneosStandingsTab = ({
   const tablaGeneral = useMemo(() => {
     const data = uniqueEquipos.map((equipo) => {
       const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
-      
+
       return {
         id: equipo.id,
         nombre: equipo.name || equipo.nombre,
-        logo: equipo.logo_url || equipo.img, 
+        logo: equipo.logo_url || equipo.img,
         pj: stats.pj || 0,
         g:  stats.pg || 0,
         e:  stats.pe || 0,
@@ -71,6 +85,40 @@ export const TorneosStandingsTab = ({
     return tablaGeneral.some(team => team.logo && team.logo.trim() !== '');
   }, [tablaGeneral]);
 
+  // --- LÓGICA DEL TOGGLE ---
+  const handleTogglePublic = async () => {
+    if (updating) return;
+    setUpdating(true);
+    const newState = !isPublicEnabled;
+
+    try {
+        const { error } = await supabase
+            .from('tournaments')
+            .update({ is_public: newState })
+            .eq('id', torneo.id);
+
+        if (error) throw error;
+        
+        setIsPublicEnabled(newState);
+        // Opcional: Llamar a onRefresh si quieres actualizar todo el árbol
+        if (onRefresh) onRefresh(); 
+        
+    } catch (error) {
+        console.error("Error updating public status:", error);
+        alert("No se pudo actualizar el estado del enlace.");
+    } finally {
+        setUpdating(false);
+    }
+  };
+
+  const handleShare = () => {
+    const link = `${window.location.origin}/share/standings/${torneo.id}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
     if (rank <= config.ascensos) return { color: '#22c55e', label: 'Ascenso Directo' };
@@ -83,8 +131,42 @@ export const TorneosStandingsTab = ({
     return null;
   };
 
+  const rowVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.05, duration: 0.3, ease: "easeOut" }
+    })
+  };
+
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+
+      {/* HEADER DE ACCIONES (SOLO ADMIN) */}
+      {!isPublic && (
+        <ControlPanel>
+            
+            {/* TOGGLE SWITCH */}
+            <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
+                <div className="track">
+                    <div className="thumb" />
+                </div>
+                <span className="label">
+                    {updating ? "Guardando..." : (isPublicEnabled ? "Enlace Público: ACTIVO" : "Enlace Público: INACTIVO")}
+                </span>
+            </ToggleContainer>
+
+            {/* BOTÓN DE COMPARTIR (Solo visible si está activo) */}
+            {isPublicEnabled && (
+                <ShareButton onClick={handleShare} $copied={copied}>
+                    {copied ? <BiCheck /> : <BiShareAlt />}
+                    {copied ? "Link Copiado" : "Copiar Enlace"}
+                </ShareButton>
+            )}
+        </ControlPanel>
+      )}
+
       <TableCard>
         <TableScrollWrapper $height="auto">
           <StyledTable>
@@ -105,21 +187,30 @@ export const TorneosStandingsTab = ({
               {tablaGeneral.map((fila, index) => {
                 const status = getZoneStatus(index, tablaGeneral.length);
                 const zoneColor = status?.color;
-                
+                const RowComponent = isPublic ? MotionTr : Tr;
+
                 return (
-<Tr 
+                  <RowComponent
                     key={fila.id}
-                    // ✅ AQUÍ ESTÁ LA MAGIA: Pasamos 'initialView: stats' en el estado
-                    onDoubleClick={() => navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } })}
-                    title="Doble click para ver estadísticas detalladas"
+                    $isPublic={isPublic}
+                    onDoubleClick={() => {
+                        if (!isPublic) {
+                            navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
+                        }
+                    }}
+                    title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
+                    variants={isPublic ? rowVariants : {}}
+                    initial={isPublic ? "hidden" : undefined}
+                    animate={isPublic ? "visible" : undefined}
+                    custom={index}
                   >
                     <Td className="team-col" $zoneColor={zoneColor}>
                       <TeamNameCell>
                         <span className="pos">{index + 1}</span>
                         {hasAnyLogo ? (
-                           <img 
-                             src={fila.logo || v.logoGenerico} 
-                             alt={fila.nombre} 
+                           <img
+                             src={fila.logo || v.logoGenerico}
+                             alt={fila.nombre}
                              onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
                            />
                         ) : null}
@@ -132,14 +223,14 @@ export const TorneosStandingsTab = ({
                     <TdHideOnMobile className="stat-col">{fila.p}</TdHideOnMobile>
                     <TdHideOnMobile className="stat-col">{fila.gf}</TdHideOnMobile>
                     <TdHideOnMobile className="stat-col">{fila.gc}</TdHideOnMobile>
-                    <Td className="stat-col" style={{ 
-                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit', 
-                        fontWeight: 'bold' 
+                    <Td className="stat-col" style={{
+                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
+                        fontWeight: 'bold'
                     }}>
                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                     </Td>
                     <Td className="stat-col points-cell">{fila.pts}</Td>
-                  </Tr>
+                  </RowComponent>
                 );
               })}
               {tablaGeneral.length === 0 && (
@@ -166,7 +257,81 @@ export const TorneosStandingsTab = ({
   );
 };
 
-// --- STYLED COMPONENTS ---
+// --- STYLED COMPONENTS NUEVOS Y MEJORADOS ---
+
+const ControlPanel = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 98%;
+  max-width: 900px;
+  margin: 0 auto 15px auto;
+  background: ${({ theme }) => theme.bg};
+  padding: 10px 15px;
+  border-radius: 12px;
+  border: 1px solid ${({ theme }) => theme.color2};
+  box-shadow: ${v.boxshadowGray};
+  flex-wrap: wrap;
+  gap: 10px;
+`;
+
+const ToggleContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+
+    .track {
+        width: 44px;
+        height: 24px;
+        background-color: ${({ $active, theme }) => $active ? v.verde : theme.bg3};
+        border-radius: 20px;
+        position: relative;
+        transition: background-color 0.3s ease;
+        border: 1px solid ${({ theme }) => theme.color2};
+    }
+
+    .thumb {
+        width: 20px;
+        height: 20px;
+        background-color: #fff;
+        border-radius: 50%;
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        transform: ${({ $active }) => $active ? 'translateX(20px)' : 'translateX(0)'};
+        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'};
+    }
+`;
+
+const ShareButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: ${({ $copied, theme }) => $copied ? v.verde : theme.bg2};
+  color: ${({ $copied, theme }) => $copied ? '#fff' : theme.text};
+  border: 1px solid ${({ theme }) => theme.color2};
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    background-color: ${({ $copied, theme }) => $copied ? v.verde : theme.bg3};
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+`;
 
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg};
@@ -264,11 +429,14 @@ const Td = styled.td`
   }
 `;
 
-const Tr = styled.tr`
-  cursor: pointer; /* 4. Indica que es clickeable */
+const TrBase = styled.tr`
+  cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
 `;
+
+const Tr = TrBase;
+const MotionTr = motion(TrBase);
 
 const TdHideOnMobile = styled(Td)`
   display: none;

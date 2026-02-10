@@ -13,6 +13,7 @@ import {
 } from "../index";
 import { UserAuth } from "../context/AuthContent";
 import { ROLES } from "../utils/constants";
+import { PublicStandings } from '../pages/PublicStandings';
 
 // --- 1. RECUPERAMOS EL LAZY LOADING DEL ADMIN ---
 const AdminManagersLazy = React.lazy(() => 
@@ -40,6 +41,9 @@ export function MyRoutes() {
 
   return (
     <Routes>
+      {/* RUTA PÚBLICA PARA VER LA TABLA */}
+      <Route path="/share/standings/:torneoId" element={<PublicStandings />} />
+
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
 
       {/* --- RUTAS PROTEGIDAS GENERALES --- */}
