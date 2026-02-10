@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import styled, { ThemeProvider } from "styled-components";
 import { useLocation } from "react-router-dom";
-import { supabase } from "./supabase/supabase.config";
+// Se eliminó la importación de supabase, ya no es necesaria aquí
 
 // Imports de Componentes y Contextos
 import {
@@ -34,9 +34,6 @@ function AppContent() {
 
   const [loaderDone, setLoaderDone] = useState(!isLoading);
 
-  // Ref para mantener el canal de presencia y evitar recrearlo
-  const presenceRef = useRef(null);
-
   // --- 1. EFECTO REACTIVO (ORQUESTADOR DE LIMPIEZA) ---
   useEffect(() => {
     if (!isLoading && !user) {
@@ -58,89 +55,8 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // --- NUEVO: EFECTO DE SEGUIMIENTO DE PRESENCIA (TRACKER ROBUSTO) ---
-  useEffect(() => {
-    // Solo rastreamos si hay un usuario logueado
-    if (!user?.id) {
-      // Si no hay usuario y existe un canal, limpiamos
-      if (presenceRef.current) {
-        try {
-          presenceRef.current.untrack?.().catch(()=>{});
-        } catch(e) {}
-        try { presenceRef.current.unsubscribe(); } catch(e) {}
-        presenceRef.current = null;
-      }
-      return;
-    }
-
-    // Si ya hay canal para este cliente, no lo recreamos
-    if (presenceRef.current) {
-      console.log('[TRACKER] already tracking ->', user.id);
-      return;
-    }
-
-    // Creamos el canal (sin config.presence.key para evitar problemas)
-    const channel = supabase.channel('online-managers');
-    presenceRef.current = channel;
-
-    const handleSubscribeStatus = async (status) => {
-      console.log('[TRACKER] subscribe status', status);
-      // debug: mostrar session para verificar token/expiración
-      try {
-        const { data: sess } = await supabase.auth.getSession();
-        console.log('[TRACKER] session', sess);
-      } catch (e) {
-        console.warn('[TRACKER] getSession err', e);
-      }
-
-      if (status === 'SUBSCRIBED') {
-        try {
-await channel.track({
-  user_id: user.id, // Se registra con su ID de Supabase Auth
-  online_at: new Date().toISOString(),
-});
-          console.log('[TRACKER] tracked presence for', user.id);
-        } catch (err) {
-          console.error('[TRACKER] track error', err);
-        }
-      } else if (status === 'CLOSED' || status === 'TIMED_OUT') {
-        console.warn('[TRACKER] channel status', status);
-        // no forzamos reconexión automática aquí; Supabase client hará reintentos.
-      }
-    };
-
-    // subscribe acepta callback con status
-    channel.subscribe(handleSubscribeStatus);
-
-    // Reconectar / re-track cuando vuelva visibilidad
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        try {
-          channel.track({ user_id: user.id, online_at: new Date().toISOString() })
-            .then(() => console.log('[TRACKER] re-tracked on visible', user.id))
-            .catch(e => console.error('[TRACKER] re-track err', e));
-        } catch (e) {
-          console.error('[TRACKER] re-track thrown', e);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    // Limpieza al desmontar o cambiar usuario
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      try {
-        channel.untrack?.().catch(()=>{});
-      } catch (e) {}
-      try {
-        channel.unsubscribe();
-      } catch (e) {
-        try { supabase.removeChannel(channel); } catch (err) {}
-      } finally {
-        presenceRef.current = null;
-      }
-    };
-  }, [user?.id]);
+  // NOTA: Se eliminó el useEffect del "TRACKER" aquí para evitar duplicidad 
+  // con AuthContent.jsx.
 
   // --- 3. RENDERIZADO DE PANTALLA DE CARGA ---
   if (!loaderDone) {
@@ -193,14 +109,14 @@ const Container = styled.main`
   transition: 0.1s ease-in-out;
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
-  min-height: 100vh; /* Asegura que ocupe al menos toda la pantalla */
+  min-height: 100vh;
   
   .contentSidebar {
     display: block;
     background-color: ${({ theme }) => theme.bgtgderecha};
     position: absolute; 
     z-index: 50;
-    height: 100%; /* Asegura que el sidebar cubra la altura */
+    height: 100%;
     @media ${Device.tablet} {
        display: initial;
        position: relative;

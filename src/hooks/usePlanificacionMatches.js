@@ -28,12 +28,9 @@ export const usePlanificacionMatches = (
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
-  // Calcular cuál es la jornada "objetivo" para los pendientes (La siguiente a la última confirmada)
   const targetJornadaIndex = useMemo(() => {
-      if (!jornadasList || jornadasList.length === 0) return 0; // Si no hay info, asumimos J1
-      
+      if (!jornadasList || jornadasList.length === 0) return 0;
       let lastConfirmedIdx = -1;
-      // Asumimos que jornadasList viene ordenada por el padre
       for (let i = 0; i < jornadasList.length; i++) {
           if (jornadasList[i].status === 'Confirmada' || jornadasList[i].status === 'Finalizada') {
               lastConfirmedIdx = i;
@@ -52,18 +49,20 @@ export const usePlanificacionMatches = (
       return `tournament_dates_${activeTournament.id}`;
   }, [activeTournament?.id]);
 
+  // Recuperar fechas guardadas
   useEffect(() => {
       if (datesStorageKey) {
           const savedDates = localStorage.getItem(datesStorageKey);
           if (savedDates) {
               setJornadaDates(JSON.parse(savedDates));
           } else {
-              const initialDate = activeTournament?.startDate || new Date().toISOString().split('T')[0];
+              const initialDate = activeTournament?.start_date || new Date().toISOString().split('T')[0];
               setJornadaDates({ 0: initialDate });
           }
       }
   }, [datesStorageKey, activeTournament]);
 
+  // Sincronizar fecha de la semana
   useEffect(() => {
       if (Object.keys(jornadaDates).length === 0) return;
       const storedDate = jornadaDates[jornadaIndex];
@@ -72,23 +71,16 @@ export const usePlanificacionMatches = (
           setWeekStartDate(storedDate);
       } else {
           let referenceDate = new Date().toISOString().split('T')[0];
-          let diffWeeks = 1;
-
           if (jornadaIndex > 0) {
               const prevDate = jornadaDates[jornadaIndex - 1];
               if (prevDate) referenceDate = prevDate;
+              const newCalculatedDate = addDaysToDate(referenceDate, 7);
+              setWeekStartDate(newCalculatedDate);
+          } else {
+              setWeekStartDate(referenceDate);
           }
-
-          const newCalculatedDate = addDaysToDate(referenceDate, 7 * diffWeeks);
-          setWeekStartDate(newCalculatedDate);
-          
-          setJornadaDates(prev => {
-              const newMap = { ...prev, [jornadaIndex]: newCalculatedDate };
-              localStorage.setItem(datesStorageKey, JSON.stringify(newMap));
-              return newMap;
-          });
       }
-  }, [jornadaIndex, jornadaDates, datesStorageKey]);
+  }, [jornadaIndex, jornadaDates]);
 
   const handleSetWeekStartDate = (newDate) => {
       setWeekStartDate(newDate);
@@ -99,40 +91,44 @@ export const usePlanificacionMatches = (
       });
   };
 
+  // --- CARGA EXTERNA ---
+  const fetchExternalMatches = useCallback(async (startDateToCheck) => {
+      if (!activeTournament?.id) return [];
+      
+      const leagueId = activeTournament.division?.league_id || activeTournament.divisions?.league_id;
+      
+      if (!leagueId) {
+          console.warn("No se encontró league_id en activeTournament");
+          return [];
+      }
+
+      const endDate = addDaysToDate(startDateToCheck, 7);
+      
+      setLoadingExternal(true);
+      try {
+          const data = await getPartidosExternosRango(
+              startDateToCheck, 
+              endDate, 
+              activeTournament.id, 
+              leagueId
+          );
+          setExternalMatches(data);
+          return data;
+      } catch (err) {
+          console.error("Error fetching external matches:", err);
+          return [];
+      } finally {
+          setLoadingExternal(false);
+      }
+  }, [activeTournament]);
+
   useEffect(() => {
-    if (showExternalMatches && weekStartDate && activeTournament?.id) {
-        setLoadingExternal(true);
-        const endDate = addDaysToDate(weekStartDate, 8); 
-
-        // CORRECCIÓN: Extraemos el league_id para filtrar
-        const leagueId = activeTournament.division?.league_id;
-
-        if (leagueId) {
-            getPartidosExternosRango(weekStartDate, endDate, activeTournament.id, leagueId)
-            .then(data => {
-                const processed = data.map(m => {
-                    if (!m.rawDate) return m;
-                    const d = new Date(m.rawDate);
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    const localDateStr = `${year}-${month}-${day}`;
-                    return { ...m, date: localDateStr };
-                });
-                setExternalMatches(processed);
-            })
-            .catch(err => console.error(err))
-            .finally(() => setLoadingExternal(false));
-        } else {
-            console.warn("No se pudo identificar la liga del torneo activo para filtrar externos.");
-            setExternalMatches([]);
-            setLoadingExternal(false);
-        }
-        
+    if (showExternalMatches && weekStartDate) {
+        fetchExternalMatches(weekStartDate);
     } else if (!showExternalMatches) {
         setExternalMatches([]);
     }
-  }, [showExternalMatches, weekStartDate, activeTournament?.id, activeTournament?.division?.league_id]);
+  }, [showExternalMatches, weekStartDate, fetchExternalMatches]);
 
   const toggleExternalMatches = () => setShowExternalMatches(prev => !prev);
   
@@ -212,11 +208,12 @@ export const usePlanificacionMatches = (
         jornada_id: m.jornada_id,
         originJornada: rawOrigin, 
         isModified: Boolean(m.isModified) || false,
-        isByeMatch: isByeMatch
+        isByeMatch: isByeMatch,
+        isExternal: false 
       };
   }, [teams, byeTeam, currentJornadaName, activeTournament]);
 
-  // --- CARGA Y PROCESAMIENTO ---
+  // --- CARGA DATOS LOCALES ---
   useEffect(() => {
     if (!teams || teams.length < 2) return;
 
@@ -244,22 +241,12 @@ export const usePlanificacionMatches = (
         const gmId = String(gm.id);
         const gmOriginName = (gm.jornadas?.name || gm.originJornada || "").trim();
 
-        // 1. Si ya está programado en esta jornada, lo saltamos (usamos la versión de DB)
         if (officialJornadaIds.has(gmId)) return acc;
-        
-        // 2. Si pertenece originalmente a esta jornada, lo saltamos (se tratará como local)
         if (gmOriginName === currentJornadaName) return acc;
+        if (jornadaIndex !== targetJornadaIndex) return acc;
 
-        // 3. LOGICA ESTRICTA: Solo mostrar si estamos en la jornada "objetivo"
-        if (jornadaIndex !== targetJornadaIndex) {
-            return acc;
-        }
-
-        // Si pasó el filtro anterior, significa que estamos en la jornada correcta.
-        // Ahora solo verificamos que no sea un partido del "futuro" (por seguridad)
         const originNum = getJornadaNum(gmOriginName);
         const currentNum = jornadaIndex + 1;
-
         if (originNum > currentNum) return acc;
 
         acc.push({ ...gm, _source: 'global' });
@@ -290,37 +277,27 @@ export const usePlanificacionMatches = (
     });
 
     const currentScheduled = mergedMatches.filter(m => m.date);
-    
     const currentPending = mergedMatches.filter(m => {
         if (m.date || m.status === 'Finalizado') return false;
-        // Si no tiene fecha, es candidato. Verificamos que no sea "futuro"
-        if (!m.originJornada) return true; // Asumimos actual si no tiene info
-        
+        if (!m.originJornada) return true; 
         const mNum = getJornadaNum(m.originJornada);
         const cNum = jornadaIndex + 1;
-        
-        // Mostrar si es de esta jornada o anterior
         return mNum <= cNum;
     });
 
     let currentSuggestions = [];
     if (teams.length % 2 !== 0) {
         const teamsPlaying = new Set();
-        
-        // Recolectar equipos ocupados en programados
         currentScheduled.forEach(m => {
              if (m.local?.id) teamsPlaying.add(m.local.id);
              if (m.visitante?.id && !m.isByeMatch) teamsPlaying.add(m.visitante.id);
         });
-
-        // Recolectar equipos ocupados en pendientes DE ESTA JORNADA SOLAMENTE
         currentPending.forEach(m => {
             if (m.originJornada === currentJornadaName) {
                  if (m.local?.id) teamsPlaying.add(m.local.id);
                  if (m.visitante?.id) teamsPlaying.add(m.visitante.id);
             }
         });
-
         const resting = teams.filter(t => !teamsPlaying.has(t.id));
         resting.forEach(team => {
             currentSuggestions.push({
@@ -340,7 +317,7 @@ export const usePlanificacionMatches = (
       teams, matchesDB, globalPendingMatches, 
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
-      targetJornadaIndex 
+      targetJornadaIndex
   ]); 
 
   useEffect(() => {
@@ -362,6 +339,8 @@ export const usePlanificacionMatches = (
     weekStartDate, setWeekStartDate: handleSetWeekStartDate,
     durationMatch, autoAdjustTimes, currentJornadaName,
     clearDraft,
-    showExternalMatches, toggleExternalMatches, externalMatches, loadingExternal
+    showExternalMatches, toggleExternalMatches, 
+    externalMatches, loadingExternal,
+    fetchExternalMatches
   };
 };

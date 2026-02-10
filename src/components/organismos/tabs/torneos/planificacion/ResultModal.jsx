@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { 
   v, Modal, BtnNormal, Btnsave, InputNumber, Toast, TabsNavigation
@@ -6,12 +6,13 @@ import {
 import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { 
-  RiErrorWarningLine, RiCheckDoubleLine, RiUserStarFill, RiUserAddLine, RiFileList3Line, RiNumbersLine
+  RiErrorWarningLine, RiCheckDoubleLine, RiUserStarFill, RiUserAddLine, 
+  RiFileList3Line, RiNumbersLine, RiCalendarEventLine, RiTimeLine 
 } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 
 // ==========================================
-// SUB-COMPONENTES (Modularización)
+// SUB-COMPONENTES (Modularización Interna)
 // ==========================================
 
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
@@ -41,24 +42,27 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                 value={slot.goals} 
                 onChange={(e) => onUpdate(team, idx, 'goals', e.target.value)} 
                 disabled={!slot.playerId || isWalkover} 
+                placeholder="Goles"
             />
             
             <CardCheck 
                 $color="#f1c40f" 
                 $active={slot.yellow} 
                 onClick={() => slot.playerId && !isWalkover && onUpdate(team, idx, 'yellow', !slot.yellow)} 
+                title="Tarjeta Amarilla"
             />
             
             <CardCheck 
                 $color="#e74c3c" 
                 $active={slot.red} 
                 onClick={() => slot.playerId && !isWalkover && onUpdate(team, idx, 'red', !slot.red)} 
+                title="Tarjeta Roja"
             />
         </div>
     );
 });
 
-const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName }) => (
+const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate, displayTime }) => (
     <ScoreHeaderContainer>
         <TeamInfo>
             <img src={match.local?.logo_url || v.iconofotovacia} alt="L" />
@@ -69,10 +73,10 @@ const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName }) => (
             <span className="vs">VS</span>
             <div className="match-data">
                 <span>{divisionName}</span>
-                <span>{match.time}</span>
+                <span>{displayDate} {displayTime}</span>
             </div>
         </div>
-        <TeamInfo>
+        <TeamInfo $alignRight>
             <span className="score">{goalsVisit}</span>
             <h3>{match.visitante?.name}</h3>
             <img src={match.visitante?.logo_url || v.iconofotovacia} alt="V" />
@@ -89,7 +93,7 @@ const RosterSection = ({ roster, teamKey, players, isWalkover, minPlayers, onUpd
         ))}
         <div className="section-title subs"><RiUserAddLine/> Suplentes</div>
         {roster.map((slot, idx) => !slot.isStarter && (
-                <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team={teamKey} players={players} globalRoster={roster} isWalkover={isWalkover} onUpdate={onUpdate} />
+            <PlayerRow key={slot.idTemp} slot={slot} idx={idx} team={teamKey} players={players} globalRoster={roster} isWalkover={isWalkover} onUpdate={onUpdate} />
         ))}
     </RosterGrid>
 );
@@ -122,14 +126,23 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const [showConfirm, setShowConfirm] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
+  // Refs para evitar doble submit
+  const isSavingRef = useRef(false);
+
+  // Estados de datos
   const [referees, setReferees] = useState([]);
   const [localPlayers, setLocalPlayers] = useState([]);
   const [visitPlayers, setVisitPlayers] = useState([]);
   
+  // Estados del formulario
   const [selectedReferee, setSelectedReferee] = useState("");
   const [isWalkover, setIsWalkover] = useState(false);
   const [woWinnerId, setWoWinnerId] = useState(null);
   const [penalties, setPenalties] = useState({ local: 0, visit: 0 });
+  
+  // Nuevo: Edición de fecha y hora
+  const [matchDate, setMatchDate] = useState("");
+  const [matchTime, setMatchTime] = useState("");
 
   const [rosterLocal, setRosterLocal] = useState([]);
   const [rosterVisit, setRosterVisit] = useState([]);
@@ -197,6 +210,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setActiveTab('general');
       setShowConfirm(false);
       setLoading(true);
+      isSavingRef.current = false;
       fetchAllData();
     }
   }, [isOpen, match?.id]);
@@ -204,7 +218,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   // --- CARGA DE DATOS ---
   const fetchAllData = async () => {
     try {
-      // Usar Number() para asegurar que el ID es numérico y evitar errores de tipo
       const matchId = Number(match.id);
       if(isNaN(matchId)) throw new Error("ID de partido inválido");
 
@@ -215,6 +228,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         .single();
         
       if (matchError) throw matchError;
+
+      // Inicializar Fecha y Hora para edición
+      if (freshMatch.date) {
+        const [d, t] = freshMatch.date.split('T');
+        setMatchDate(d);
+        // Cortar segundos si vienen
+        setMatchTime(t ? t.substring(0, 5) : "00:00");
+      } else {
+        setMatchDate(new Date().toISOString().split('T')[0]);
+        setMatchTime("10:00");
+      }
 
       let leagueId = activeTournament?.division?.league_id || activeTournament?.league_id;
       if (!leagueId && activeTournament?.division_id) {
@@ -228,8 +252,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       const localPlayersPromise = supabase.from('players').select('*').eq('team_id', match.local.id).eq('is_suspended', false).order('first_name');
       const visitPlayersPromise = supabase.from('players').select('*').eq('team_id', match.visitante.id).eq('is_suspended', false).order('first_name');
-      
-      // Obtener eventos asociados a este ID de partido
       const eventsPromise = supabase.from('match_events').select('*').eq('match_id', matchId);
 
       const [refsRes, localRes, visitRes, eventsRes] = await Promise.all([
@@ -239,7 +261,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setReferees(refsRes.data || []);
       setLocalPlayers(localRes.data || []);
       setVisitPlayers(visitRes.data || []);
-
       setSelectedReferee(freshMatch.referee_id || "");
       
       const obs = freshMatch.observations || "";
@@ -369,7 +390,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const handleSaveAttempt = () => {
     if (!selectedReferee) return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
     if (isWalkover && !woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
-    
+    if (!matchDate || !matchTime) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
+
     if (!isWalkover) {
         const countLocal = rosterLocal.filter(p => p.playerId).length;
         const countVisit = rosterVisit.filter(p => p.playerId).length;
@@ -387,13 +409,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   };
 
   const handleFinalSave = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setLoading(true);
+
     try {
       const matchId = Number(match.id);
       
-      // 1. ELIMINAR EVENTOS ANTERIORES
-      // Usamos delete().eq('match_id', matchId) asegurando el tipo numérico.
-      // Esto es crucial para evitar el bug de "doble registro" si el ID venía como string y no hacía match.
+      // 1. ELIMINAR EVENTOS ANTERIORES (Limpieza estricta para evitar duplicados)
       const { error: delError } = await supabase.from('match_events').delete().eq('match_id', matchId);
       if(delError) throw delError;
 
@@ -402,14 +425,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const processRoster = (r) => {
         r.forEach(p => {
           if (!p.playerId) return;
-          // Evento de participación (1 por jugador)
-          events.push({ match_id: matchId, player_id: p.playerId, event_type: 'participation' });
+          const pid = p.playerId;
+          
+          // Evento de participación (siempre 1)
+          events.push({ match_id: matchId, player_id: pid, event_type: 'participation' });
 
-          if (p.goals > 0) {
-            for(let i=0; i < p.goals; i++) events.push({ match_id: matchId, player_id: p.playerId, event_type: 'goal' });
+          const goals = parseInt(p.goals) || 0;
+          if (goals > 0) {
+            for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
           }
-          if (p.yellow) events.push({ match_id: matchId, player_id: p.playerId, event_type: 'yellow_card' });
-          if (p.red) events.push({ match_id: matchId, player_id: p.playerId, event_type: 'red_card' });
+          if (p.yellow) events.push({ match_id: matchId, player_id: pid, event_type: 'yellow_card' });
+          if (p.red) events.push({ match_id: matchId, player_id: pid, event_type: 'red_card' });
         });
       };
 
@@ -447,7 +473,10 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         }
       }
 
-      // Llamamos a onSave con el ID numérico
+      // 4. GUARDAR PARTIDO (Incluyendo nueva fecha y hora)
+      // Formateamos la fecha completa para Supabase (timestampz o timestamp)
+      const fullDate = `${matchDate} ${matchTime}:00`;
+
       await onSave(matchId, {
         goals1: totalGoalsLocal,
         goals2: totalGoalsVisit,
@@ -455,13 +484,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         puntos2: p2,
         referee_id: selectedReferee,
         status: 'Finalizado',
-        observations: obs
+        observations: obs,
+        date: fullDate // <--- Aquí enviamos la fecha editada
       });
+      
       onClose();
     } catch (e) {
+      console.error(e);
       setToastConfig({ show: true, message: "Error al guardar: " + e.message, type: "error" });
     } finally {
       setLoading(false);
+      isSavingRef.current = false;
     }
   };
 
@@ -475,10 +508,12 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             goalsLocal={totalGoalsLocal} 
             goalsVisit={totalGoalsVisit} 
             divisionName={activeTournament?.division?.name}
+            displayDate={matchDate}
+            displayTime={matchTime}
         />
 
         {loading ? (
-            <LoadingState>Cargando datos...</LoadingState>
+            <LoadingState>Procesando datos...</LoadingState>
         ) : (
             <>
                 <TabsWrapper>
@@ -488,13 +523,32 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                 <ContentBody>
                 {activeTab === 'general' && (
                     <TabContent>
-                    <InputGroup>
-                        <label><RiUserStarFill/> Árbitro Principal *</label>
-                        <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
-                        <option value="">Seleccione un árbitro...</option>
-                        {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
-                        </select>
-                    </InputGroup>
+                    <GridInputs>
+                        <InputGroup>
+                            <label><RiUserStarFill/> Árbitro Principal *</label>
+                            <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
+                            <option value="">Seleccione un árbitro...</option>
+                            {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                            </select>
+                        </InputGroup>
+                        <InputGroup>
+                            <label><RiCalendarEventLine/> Fecha del Partido</label>
+                            <input 
+                                type="date" 
+                                value={matchDate} 
+                                onChange={(e) => setMatchDate(e.target.value)}
+                            />
+                        </InputGroup>
+                        <InputGroup>
+                            <label><RiTimeLine/> Hora de Inicio</label>
+                            <input 
+                                type="time" 
+                                value={matchTime} 
+                                onChange={(e) => setMatchTime(e.target.value)}
+                            />
+                        </InputGroup>
+                    </GridInputs>
+                    
                     <WalkoverBox $active={isWalkover}>
                         <div className="wo-header" onClick={() => { setIsWalkover(!isWalkover); if (!isWalkover) setWoWinnerId(null); }}>
                         <RiErrorWarningLine size={24}/><span>Victoria por Default (W.O.)</span>
@@ -534,7 +588,13 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
         <Footer>
           <BtnNormal titulo="Cancelar" funcion={onClose} />
-          <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading} />
+          <Btnsave 
+            titulo="Guardar Marcador" 
+            bgcolor={v.colorPrincipal} 
+            icono={<RiCheckDoubleLine/>} 
+            funcion={handleSaveAttempt} 
+            loading={loading} 
+          />
         </Footer>
       </Container>
 
@@ -547,6 +607,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             {totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover && (
                 <div className="pen-score">Penales: {penalties.local} - {penalties.visit}</div>
             )}
+             <div className="match-datetime-confirm">
+                {matchDate} {matchTime}
+            </div>
             <div className="confirm-btns">
               <BtnNormal titulo="Revisar" funcion={() => setShowConfirm(false)} />
               <Btnsave titulo="Si, Guardar" funcion={handleFinalSave} loading={loading} />
@@ -565,15 +628,25 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 // --- ESTILOS ---
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; `;
 const TabsWrapper = styled.div` width: 100%; `;
-const InputGroup = styled.div` display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; label { font-weight: 700; display: flex; align-items: center; gap: 8px; color: ${({theme})=>theme.text}; } select { padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; &:focus { border-color: ${v.colorPrincipal}; } } `;
-const ScoreHeaderContainer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; } } `;
-const TeamInfo = styled.div` display: flex; align-items: center; gap: 15px; width: 35%; img { width: 45px; height: 45px; object-fit: contain; } h3 { font-size: 0.9rem; flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .score { font-size: 2.2rem; font-weight: 800; color: ${v.colorPrincipal}; } `;
+const GridInputs = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+`;
+const InputGroup = styled.div` 
+    display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; 
+    label { font-weight: 700; display: flex; align-items: center; gap: 8px; color: ${({theme})=>theme.text}; font-size: 0.9rem;} 
+    select, input { padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; width: 100%; &:focus { border-color: ${v.colorPrincipal}; } } 
+`;
+const ScoreHeaderContainer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; margin-top: 5px; span { display:block; } } } `;
+const TeamInfo = styled.div` display: flex; align-items: center; gap: 15px; width: 35%; flex-direction: ${({$alignRight}) => $alignRight ? 'row-reverse' : 'row'}; img { width: 45px; height: 45px; object-fit: contain; } h3 { font-size: 0.9rem; flex: 1; text-align: ${({$alignRight}) => $alignRight ? 'right' : 'left'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .score { font-size: 2.2rem; font-weight: 800; color: ${v.colorPrincipal}; } `;
 const ContentBody = styled.div` min-height: 350px; `;
 const RosterGrid = styled.div` display: flex; flex-direction: column; gap: 8px; .section-title { font-size: 0.85rem; font-weight: 700; color: ${v.colorPrincipal}; display: flex; align-items: center; gap: 8px; margin-top: 10px; &.subs { color: ${({theme})=>theme.text}; opacity: 0.7; } } .header-row { display: grid; grid-template-columns: 1fr 80px 50px 50px; padding: 0 10px; font-size: 0.7rem; opacity: 0.5; text-transform: uppercase; } .player-row { display: grid; grid-template-columns: 1fr 80px 50px 50px; gap: 10px; align-items: center; padding: 8px; background: ${({theme})=>theme.bgtotal}; border-radius: 8px; border: 1px solid ${({theme})=>theme.bg4}; select, input { background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; padding: 5px; border-radius: 5px; width: 100%; outline: none; } } `;
 const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; `;
 const CardCheck = styled.div` width: 20px; height: 28px; border-radius: 3px; cursor: pointer; border: 2px solid ${({$active, $color}) => $active ? $color : 'transparent'}; background: ${({$color, $active}) => $active ? $color : $color + '33'}; transition: 0.2s; `;
 const WalkoverBox = styled.div` border: 1px solid ${({$active}) => $active ? '#e74c3c' : 'transparent'}; background: ${({theme, $active}) => $active ? '#e74c3c15' : theme.bg3}; border-radius: 12px; .wo-header { padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; span { font-weight: 700; flex: 1; } } .wo-content { padding: 0 15px 15px 15px; .wo-btns { display: flex; gap: 10px; } } `;
 const PenaltiesContainer = styled.div` text-align: center; padding: 20px; h3 { margin-bottom: 20px; font-size: 1rem; opacity: 0.8; } .pen-inputs { display: flex; justify-content: center; gap: 40px; .team { display: flex; flex-direction: column; gap: 10px; span { font-weight: 600; } } } `;
-const ConfirmOverlay = styled.div` position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; .confirm-card { background: ${({theme})=>theme.bgtotal}; padding: 40px; border-radius: 20px; text-align: center; max-width: 450px; .final-score { font-size: 1.5rem; font-weight: 800; margin: 20px 0; span { color: ${v.colorPrincipal}; font-size: 2.2rem; } } .pen-score { font-weight: 700; margin-bottom: 20px; color: ${({theme})=>theme.text}; opacity: 0.8; } .confirm-btns { display: flex; gap: 15px; justify-content: center; } } `;
+const ConfirmOverlay = styled.div` position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; .confirm-card { background: ${({theme})=>theme.bgtotal}; padding: 40px; border-radius: 20px; text-align: center; max-width: 450px; .final-score { font-size: 1.5rem; font-weight: 800; margin: 20px 0; span { color: ${v.colorPrincipal}; font-size: 2.2rem; } } .pen-score { font-weight: 700; margin-bottom: 20px; color: ${({theme})=>theme.text}; opacity: 0.8; } .match-datetime-confirm { margin-bottom: 20px; opacity: 0.7; font-size: 0.9rem; font-family: monospace; } .confirm-btns { display: flex; gap: 15px; justify-content: center; } } `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
 const LoadingState = styled.div` display: flex; justify-content: center; align-items: center; height: 300px; color: ${({theme})=>theme.text}; opacity: 0.7; `;

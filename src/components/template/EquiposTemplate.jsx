@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
+import { useParams, useNavigate, useLocation } from "react-router-dom"; // ✅ IMPORTANTE: Hooks de Router
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
 import { BtnNormal } from "../moleculas/BtnNormal";
@@ -19,13 +20,38 @@ import { IoMdFootball } from "react-icons/io";
 
 export const EquiposTemplate = ({ 
   equipos, division, loading, isUploading, form, preview, file,
-  isFormOpen, setIsFormOpen, teamToEdit, isDetailOpen, setIsDetailOpen,
-  teamToView, isDeleteModalOpen, setIsDeleteModalOpen,
+  isFormOpen, setIsFormOpen, teamToEdit, 
+  // isDetailOpen, setIsDetailOpen, teamToView, // ❌ YA NO USAMOS ESTOS PROPS DE ESTADO
+  isDeleteModalOpen, setIsDeleteModalOpen,
   onFormChange, onFileChange, onClearImage, onGenerateLogo,
-  onRemoveBg, onSave, onDelete, onCreate, onEdit, onView, onConfirmDelete,
+  onRemoveBg, onSave, onDelete, onCreate, onEdit, 
+  // onView, // ❌ YA NO USAMOS EL HANDLER DE VISTA QUE VIENE DE FUERA
+  onConfirmDelete,
   tabs,
-  participatingIds = [] // <--- RECIBIMOS LA NUEVA PROP
+  participatingIds = [] 
 }) => {
+    // ✅ 1. LEER URL Y NAVEGACIÓN
+    const { teamId } = useParams();
+    const navigate = useNavigate();
+
+    const location = useLocation();
+    const initialView = location.state?.initialView; // 'stats' o undefined
+
+    // ✅ 2. BUSCAR EQUIPO BASADO EN URL
+    // Si hay un teamId en la URL y los equipos ya cargaron, buscamos el objeto team
+    const teamFromUrl = equipos?.find(t => String(t.id) === String(teamId));
+    
+    // ✅ 3. HANDLERS DE NAVEGACIÓN
+    const handleViewTeam = (team) => {
+        // Al hacer click en la card, cambiamos la URL
+        navigate(`/equipos/${team.id}`);
+    };
+
+    const handleCloseDetail = () => {
+        // Al cerrar el modal, volvemos a la ruta base
+        navigate('/equipos');
+    };
+
     const modalTabs = [
       { id: "info", label: "Datos del Equipo", icon: <RiFileList3Line/> },
       { id: "players", label: "Jugadores", icon: <RiGroupLine/> }
@@ -78,7 +104,6 @@ export const EquiposTemplate = ({
                   ) : (
                       <>
                           {Array.isArray(equipos) && equipos.map((team) => {
-                              // Verificación segura de participación (convierte a string para evitar errores de tipo)
                               const isParticipating = participatingIds.some(pid => String(pid) === String(team.id));
 
                               return (
@@ -86,10 +111,10 @@ export const EquiposTemplate = ({
                                   key={team.id} 
                                   team={team} 
                                   onEdit={onEdit} 
-                                  onView={onView}
+                                  onView={handleViewTeam} // ✅ Pasamos nuestro nuevo handler
                                   onDelete={onDelete} 
                                   onTransfer={(t) => { setTeamToTransfer(t); setIsTransferModalOpen(true); }}
-                                  isParticipating={isParticipating} // <--- PASAMOS EL ESTADO
+                                  isParticipating={isParticipating} 
                                 />
                               );
                           })}
@@ -123,7 +148,15 @@ export const EquiposTemplate = ({
         {activeTab === "players" && teamToEdit && (<TabContent><PlayerManager teamId={teamToEdit.id} showToast={showToast} /></TabContent>)}
       </Modal>
 
-      <TeamDetailModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} team={teamToView} division={division} />
+      {/* ✅ MODAL CONECTADO A LA URL */}
+<TeamDetailModal 
+        isOpen={!!teamFromUrl}  
+        onClose={handleCloseDetail} 
+        team={teamFromUrl} 
+        division={division}
+        initialView={initialView}
+      />
+
       <TeamTransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} team={teamToTransfer} divisiones={divisiones} currentDivision={division} onConfirm={handleTransferSubmit} />
       <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={() => onConfirmDelete().then(() => showToast("Eliminado", "success"))} title="Eliminar Equipo" message="¿Deseas eliminar este equipo?" />
       <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
@@ -131,7 +164,7 @@ export const EquiposTemplate = ({
   );
 };
 
-// Limpio: Animación eliminada (ya viene del ContentContainer)
+// ... (El resto de tus Styled Components se mantienen igual)
 const MainContainer = styled.div`
   width: 100%;
   max-width: ${(props) => props.$maxWidth || '1400px'};
