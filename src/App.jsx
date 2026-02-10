@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import styled, { ThemeProvider } from "styled-components";
 import { useLocation } from "react-router-dom";
-// Se eliminó la importación de supabase, ya no es necesaria aquí
 
 // Imports de Componentes y Contextos
 import {
@@ -55,9 +54,6 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // NOTA: Se eliminó el useEffect del "TRACKER" aquí para evitar duplicidad 
-  // con AuthContent.jsx.
-
   // --- 3. RENDERIZADO DE PANTALLA DE CARGA ---
   if (!loaderDone) {
     return (
@@ -69,7 +65,11 @@ function AppContent() {
   }
 
   // --- 4. LÓGICA DE INTERFAZ (SIDEBAR vs FULLSCREEN) ---
-  const isStandAlonePage = pathname === "/login" || pathname.startsWith("/invitation");
+  // AQUI AGREGAMOS LA CONDICIÓN "/share"
+  const isStandAlonePage = 
+    pathname === "/login" || 
+    pathname.startsWith("/invitation") || 
+    pathname.startsWith("/share"); // ✅ Nueva condición para vista pública
 
   return (
     <ThemeProvider theme={themeStyle}>
