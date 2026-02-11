@@ -1,12 +1,15 @@
 import { supabase } from '../supabase/supabase.config';
 
 export const getTablaPosicionesService = async (division) => {
+  // Nota: Asegúrate de que tu vista 'view_clasificacion' tenga la columna correcta para la división.
+  // Si usas un esquema estándar, usualmente es 'division' o 'division_name'.
+  // Asumiremos que para clasificacion usas 'division'.
   const { data, error } = await supabase
     .from('view_clasificacion')
     .select('*')
     .eq('division', division)
     .order('pts', { ascending: false })
-    .order('pj', { ascending: false }) // AGREGADO: Más jerarquía a más partidos jugados
+    .order('pj', { ascending: false }) 
     .order('dg', { ascending: false });
 
   if (error) throw error;
@@ -20,11 +23,19 @@ export const getTopScorersService = async ({ division = null, tournamentId = nul
     .order('goals', { ascending: false })
     .limit(limit);
 
-  if (division) query = query.eq('division', division);
-  if (tournamentId) query = query.eq('tournament_id', tournamentId);
+  if (division) query = query.eq('division_name', division);
+
+  if (tournamentId) {
+    const tid = Number(tournamentId);
+    query = query.eq('tournament_id', tid);
+  }
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error("getTopScorersService error:", error);
+    throw error;
+  }
+  console.log("getTopScorersService result count:", (data && data.length) || 0);
   return data || [];
 };
 
@@ -96,12 +107,10 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
 
     if (eError) throw eError;
 
-    // Mapa para acumular estadísticas
     const statsMap = {};
 
     events.forEach(evt => {
       const pid = evt.player_id;
-      // Normalizamos a minúsculas para comparar seguro
       const type = (evt.event_type || '').toLowerCase().trim(); 
 
       if (!statsMap[pid]) {
@@ -113,34 +122,16 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
           goals: 0,
           yellow: 0,
           red: 0,
-          matches: 0 // Asistencias a partido
+          matches: 0
         };
       }
 
-      // Lógica de conteo flexible (Soporta Inglés y Español)
-      // GOLES
-      if (type === 'goal' || type === 'gol' || (type.includes('gol') && !type.includes('auto'))) {
-          statsMap[pid].goals++;
-      }
-      
-      // AMARILLAS
-      if (type === 'yellow_card' || type === 'amarilla' || type.includes('amarilla')) {
-          statsMap[pid].yellow++;
-      }
-      
-      // ROJAS
-      if (type === 'red_card' || type === 'roja' || type.includes('roja')) {
-          statsMap[pid].red++;
-      }
-
-      // ASISTENCIAS A PARTIDO (Matches Played)
-      // Buscamos 'participation', 'asistencia' o si el evento indica que jugó
-      if (type === 'participation' || type === 'asistencia' || type === 'participacion') {
-          statsMap[pid].matches++;
-      }
+      if (type.includes('gol') && !type.includes('auto')) statsMap[pid].goals++;
+      if (type.includes('amarilla') || type.includes('yellow')) statsMap[pid].yellow++;
+      if (type.includes('roja') || type.includes('red')) statsMap[pid].red++;
+      if (type.includes('particip') || type.includes('asist')) statsMap[pid].matches++;
     });
 
-    // Convertir a array y ordenar por Goles descendente
     const playerStats = Object.values(statsMap).sort((a, b) => b.goals - a.goals);
 
     return {

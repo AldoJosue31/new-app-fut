@@ -3,11 +3,12 @@ import { useParams } from "react-router-dom";
 import styled, { ThemeProvider } from "styled-components";
 import { supabase } from "../supabase/supabase.config"; 
 import { TorneosStandingsTab } from "../components/organismos/tabs/torneos/TorneosStandingsTab";
+import { GoleadoresTab } from "../components/organismos/tabs/torneos/GoleadoresTab";
 import { PantallaCarga } from "../components/organismos/PantallaCarga";
 import { useThemeStore } from "../store/ThemeStore";
 import { GlobalStyles } from "../styles/GlobalStyles";
 import { v } from "../styles/variables";
-import { BiLockAlt, BiErrorCircle } from "react-icons/bi"; // Iconos para el bloqueo
+import { BiLockAlt, BiErrorCircle, BiTrophy, BiFootball } from "react-icons/bi"; 
 
 export const PublicStandings = () => {
   const { torneoId } = useParams();
@@ -15,10 +16,13 @@ export const PublicStandings = () => {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('tabla'); // 'tabla' | 'goleadores'
   
+  // Data
   const [torneo, setTorneo] = useState(null);
   const [estadisticas, setEstadisticas] = useState([]);
   const [equipos, setEquipos] = useState([]);
+  const [goleadores, setGoleadores] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,10 +40,9 @@ export const PublicStandings = () => {
 
         if (torneoError) throw torneoError;
 
-        // --- VERIFICACIÓN DE SEGURIDAD ---
-        // Si el torneo no es público, detenemos la carga y lanzamos error manual
+        // VERIFICACIÓN DE SEGURIDAD (ENLACE PRINCIPAL)
         if (!torneoData.is_public) {
-            setError("LOCKED"); // Marcador especial
+            setError("LOCKED");
             setLoading(false);
             return;
         }
@@ -50,26 +53,31 @@ export const PublicStandings = () => {
         };
         setTorneo(torneoProcesado);
 
-        // 2. Obtener Estadísticas
-        const { data: statsData, error: statsError } = await supabase
+        // 2. Obtener Estadísticas (Tabla)
+        const { data: statsData } = await supabase
           .from('estadisticas')
           .select('*')
           .eq('torneo_id', torneoId);
-
-        if (statsError) throw statsError;
-        setEstadisticas(statsData);
+        setEstadisticas(statsData || []);
 
         // 3. Obtener Equipos
-        const teamIds = statsData.map(s => s.team_id);
-        
+        const teamIds = statsData?.map(s => s.team_id) || [];
         if (teamIds.length > 0) {
-            const { data: equiposData, error: equiposError } = await supabase
+            const { data: equiposData } = await supabase
             .from('teams')
             .select('*')
             .in('id', teamIds);
-            
-            if (equiposError) throw equiposError;
-            setEquipos(equiposData);
+            setEquipos(equiposData || []);
+        }
+
+        // 4. Obtener Goleadores (Solo si está activado en BD)
+        if (torneoData.is_goleadores_public) {
+            const { data: goalsData } = await supabase
+                .from('view_goleadores')
+                .select('*')
+                .eq('tournament_id', torneoId)
+                .limit(20); // Top 20
+            setGoleadores(goalsData || []);
         }
 
       } catch (err) {
@@ -92,7 +100,6 @@ export const PublicStandings = () => {
      );
   }
 
-  // --- MANEJO DE ERRORES VISUAL ---
   if (error) {
     return (
         <ThemeProvider theme={themeStyle}>
@@ -102,13 +109,13 @@ export const PublicStandings = () => {
                     <>
                         <BiLockAlt className="icon lock" />
                         <h2>Enlace Privado</h2>
-                        <p>El administrador ha desactivado el acceso público a esta tabla.</p>
+                        <p>El administrador ha desactivado el acceso público.</p>
                     </>
                 ) : (
                     <>
                         <BiErrorCircle className="icon error" />
                         <h2>Algo salió mal</h2>
-                        <p>No pudimos encontrar la tabla o el enlace es incorrecto.</p>
+                        <p>No pudimos encontrar el torneo.</p>
                     </>
                 )}
             </ErrorContainer>
@@ -125,17 +132,47 @@ export const PublicStandings = () => {
                 <v.iconocorona />
                 <h1>{torneo?.season ? `Temporada ${torneo.season}` : "Torneo"}</h1>
             </TitleContainer>
-            <Subtitle>{torneo?.division_nombre || torneo?.category || "Tabla General"}</Subtitle>
+            <Subtitle>{torneo?.division_nombre || "Tabla General"}</Subtitle>
         </Header>
+
+        {/* --- NAVEGACIÓN TABS --- */}
+        <TabNavigation>
+            <TabButton 
+                $active={activeTab === 'tabla'} 
+                onClick={() => setActiveTab('tabla')}
+            >
+                <BiTrophy /> Tabla General
+            </TabButton>
+            
+            {/* Solo mostramos el botón si la configuración lo permite */}
+            {torneo?.is_goleadores_public && (
+                <TabButton 
+                    $active={activeTab === 'goleadores'} 
+                    onClick={() => setActiveTab('goleadores')}
+                >
+                    <BiFootball /> Goleadores
+                </TabButton>
+            )}
+        </TabNavigation>
         
         <Content>
-            <TorneosStandingsTab 
-                torneo={torneo}
-                estadisticas={estadisticas}
-                equipos={equipos}
-                reglas={torneo?.config}
-                isPublic={true} 
-            />
+            {activeTab === 'tabla' && (
+                <TorneosStandingsTab 
+                    torneo={torneo}
+                    estadisticas={estadisticas}
+                    equipos={equipos}
+                    reglas={torneo?.config}
+                    isPublic={true} 
+                />
+            )}
+
+            {activeTab === 'goleadores' && torneo?.is_goleadores_public && (
+                <GoleadoresTab 
+                    torneo={torneo}
+                    goleadores={goleadores}
+                    isPublic={true}
+                />
+            )}
         </Content>
         
         <Footer>
@@ -160,7 +197,7 @@ const PublicContainer = styled.div`
 
 const Header = styled.header`
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     margin-top: 20px;
 `;
 
@@ -171,11 +208,7 @@ const TitleContainer = styled.div`
     gap: 10px;
     font-size: 1.5rem;
     color: ${({ theme }) => theme.primary};
-    
-    h1 {
-        font-size: 24px;
-        margin: 0;
-    }
+    h1 { font-size: 24px; margin: 0; }
 `;
 
 const Subtitle = styled.p`
@@ -184,6 +217,42 @@ const Subtitle = styled.p`
     margin-top: 5px;
     font-size: 1.1rem;
     font-weight: 500;
+`;
+
+// --- ESTILOS DE TABS ---
+const TabNavigation = styled.div`
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    background: ${({ theme }) => theme.bg};
+    padding: 5px;
+    border-radius: 30px;
+    border: 1px solid ${({ theme }) => theme.color2};
+`;
+
+const TabButton = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    
+    background-color: ${({ $active, theme }) => $active ? theme.primary : 'transparent'};
+    color: ${({ $active }) => $active ? '#fff' : 'inherit'};
+    opacity: ${({ $active }) => $active ? 1 : 0.6};
+
+    &:hover {
+        opacity: 1;
+        background-color: ${({ $active, theme }) => $active ? theme.primary : theme.bgAlpha};
+    }
+
+    svg { font-size: 1.1rem; }
 `;
 
 const Content = styled.main`
@@ -210,14 +279,9 @@ const ErrorContainer = styled.div`
     text-align: center;
     padding: 20px;
     
-    .icon {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        opacity: 0.8;
-    }
+    .icon { font-size: 4rem; margin-bottom: 20px; opacity: 0.8; }
     .lock { color: ${v.naranja}; }
     .error { color: ${v.rojo}; }
-
     h2 { font-size: 2rem; margin-bottom: 10px; }
     p { opacity: 0.6; font-size: 1.1rem; }
 `;
