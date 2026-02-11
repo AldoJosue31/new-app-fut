@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { useNavigate, useParams } from "react-router-dom";
@@ -13,10 +13,13 @@ import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab";
 import { TabContent } from "../moleculas/TabsNavigation";
 import { Device } from "../../styles/breakpoints"; 
 
+// <-- IMPORT DEL SERVICIO DE GOLEADORES
+import { getTopScorersService } from "../../services/estadisticas";
+
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
-  isLoadingData, standings, reglas, setReglas, refreshStandings, // 1. Recibimos la función aquí
+  isLoadingData, standings, reglas, setReglas, refreshStandings,
   onTournamentReset 
 }) {
   const navigate = useNavigate();
@@ -38,6 +41,39 @@ export function TorneosTemplate({
   };
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
+
+  // --- NUEVO: estado y fetch de goleadores ---
+  const [goleadores, setGoleadores] = useState([]);
+  const [loadingGoleadores, setLoadingGoleadores] = useState(false);
+
+  const fetchGoleadores = async () => {
+    if (!activeTournament?.id) {
+      setGoleadores([]);
+      return;
+    }
+    try {
+      setLoadingGoleadores(true);
+      const data = await getTopScorersService({ tournamentId: activeTournament.id, limit: 50 });
+      setGoleadores(data || []);
+    } catch (err) {
+      console.error("Error fetchGoleadores:", err);
+      setGoleadores([]);
+    } finally {
+      setLoadingGoleadores(false);
+    }
+  };
+
+  // Obtener goleadores cuando cambie el torneo activo
+  useEffect(() => {
+    fetchGoleadores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTournament?.id]);
+
+  // cuando refreshStandings sea llamado (por ejemplo al actualizar tabla), refrescamos goleadores también
+  useEffect(() => {
+    // Si refreshStandings cambia (o se llama), opcionalmente re-fetch
+    // No hacemos nada aquí por defecto; onRefresh se pasa abajo
+  }, [refreshStandings]);
 
   return (
     <ContentContainer>
@@ -65,7 +101,7 @@ export function TorneosTemplate({
                <TorneoJornadasTab 
                   activeTournament={activeTournament} 
                   participatingTeams={participatingTeamsObj} 
-                  refreshStandings={refreshStandings} // Ya estaba aquí, correcto.
+                  refreshStandings={refreshStandings}
                />
             ) : (
                <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
@@ -76,14 +112,17 @@ export function TorneosTemplate({
         {activeTab === "standings" && (
           <FullWidthTab>
             {activeTournament ? (
-              // 2. AQUÍ ESTABA EL CAMBIO NECESARIO:
               <TorneosStandingsTab 
                   division={{ name: divisionName }} 
                   torneo={activeTournament} 
                   equipos={participatingTeamsObj} 
                   estadisticas={standings} 
                   reglas={reglas}
-                  onRefresh={refreshStandings} // <--- ¡Conectamos la prop nueva aquí!
+                  onRefresh={() => {
+                    if (refreshStandings) refreshStandings();
+                    // refrescar goleadores al actualizar la tabla
+                    fetchGoleadores();
+                  }}
               />
             ) : (
                <EmptyState icon={<v.iconocorona size={40}/>} title="Sin Datos" description="No hay un torneo activo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
@@ -94,7 +133,17 @@ export function TorneosTemplate({
         {activeTab === "goleadores" && (
           <FullWidthTab>
             {activeTournament ? (
-              <GoleadoresTab divisionName={divisionName} tournamentId={activeTournament?.id} limit={20} />
+              // Ahora le pasamos los goleadores precargados y el torneo completo
+              <GoleadoresTab
+                 torneo={activeTournament}
+                 goleadores={goleadores}
+                 isPublic={false}
+                 onRefresh={() => {
+                   // refrescar tabla y goleadores cuando se haga toggle
+                   if (refreshStandings) refreshStandings();
+                   fetchGoleadores();
+                 }}
+              />
             ) : (
                 <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}
