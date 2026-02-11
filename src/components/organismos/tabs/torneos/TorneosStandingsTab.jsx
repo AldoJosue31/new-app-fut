@@ -170,73 +170,84 @@ export const TorneosStandingsTab = ({
       <TableCard>
         <TableScrollWrapper $height="auto">
           <StyledTable>
-            <thead>
-              <tr>
-                <Th>Equipo</Th>
-                <Th className="stat-col">PJ</Th>
-                <ThHideOnMobile className="stat-col">G</ThHideOnMobile>
-                <ThHideOnMobile className="stat-col">E</ThHideOnMobile>
-                <ThHideOnMobile className="stat-col">P</ThHideOnMobile>
-                <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
-                <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
-                <Th className="stat-col">DG</Th>
-                <Th className="stat-col">PTS</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {tablaGeneral.map((fila, index) => {
-                const status = getZoneStatus(index, tablaGeneral.length);
-                const zoneColor = status?.color;
-                const RowComponent = isPublic ? MotionTr : Tr;
+<thead>
+  <tr>
+    <Th>Equipo</Th>
+    <Th className="stat-col">PJ</Th>
 
-                return (
-                  <RowComponent
-                    key={fila.id}
-                    $isPublic={isPublic}
-                    onDoubleClick={() => {
-                        if (!isPublic) {
-                            navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
-                        }
-                    }}
-                    title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
-                    variants={isPublic ? rowVariants : {}}
-                    initial={isPublic ? "hidden" : undefined}
-                    animate={isPublic ? "visible" : undefined}
-                    custom={index}
-                  >
-                    <Td className="team-col" $zoneColor={zoneColor}>
-                      <TeamNameCell>
-                        <span className="pos">{index + 1}</span>
-                        {hasAnyLogo ? (
-                           <img
-                             src={fila.logo || v.logoGenerico}
-                             alt={fila.nombre}
-                             onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
-                           />
-                        ) : null}
-                        <span className="team-name">{fila.nombre}</span>
-                      </TeamNameCell>
-                    </Td>
-                    <Td className="stat-col" style={{ fontWeight: 'bold', color: v.text }}>{fila.pj}</Td>
-                    <TdHideOnMobile className="stat-col">{fila.g}</TdHideOnMobile>
-                    <TdHideOnMobile className="stat-col">{fila.e}</TdHideOnMobile>
-                    <TdHideOnMobile className="stat-col">{fila.p}</TdHideOnMobile>
-                    <TdHideOnMobile className="stat-col">{fila.gf}</TdHideOnMobile>
-                    <TdHideOnMobile className="stat-col">{fila.gc}</TdHideOnMobile>
-                    <Td className="stat-col" style={{
-                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
-                        fontWeight: 'bold'
-                    }}>
-                        {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
-                    </Td>
-                    <Td className="stat-col points-cell">{fila.pts}</Td>
-                  </RowComponent>
-                );
-              })}
-              {tablaGeneral.length === 0 && (
-                <tr><td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>No hay datos disponibles</td></tr>
-              )}
-            </tbody>
+    {/* Mostrar G/E/P siempre */}
+    <Th className="stat-col">G</Th>
+    <Th className="stat-col">E</Th>
+    <Th className="stat-col">P</Th>
+
+    {/* Ocultar GF/GC solo en pantallas muy pequeñas */}
+    <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
+    <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
+
+    <Th className="stat-col">DG</Th>
+    <Th className="stat-col">PTS</Th>
+  </tr>
+</thead>
+<tbody>
+  {tablaGeneral.map((fila, index) => {
+    const status = getZoneStatus(index, tablaGeneral.length);
+    const zoneColor = status?.color;
+    const RowComponent = isPublic ? MotionTr : Tr;
+
+    return (
+      <RowComponent
+        key={fila.id}
+        $isPublic={isPublic}
+        onDoubleClick={() => {
+            if (!isPublic) {
+                navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
+            }
+        }}
+        title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
+        variants={isPublic ? rowVariants : {}}
+        initial={isPublic ? "hidden" : undefined}
+        animate={isPublic ? "visible" : undefined}
+        custom={index}
+      >
+        <Td className="team-col" $zoneColor={zoneColor}>
+          <TeamNameCell>
+            <span className="pos">{index + 1}</span>
+            {hasAnyLogo ? (
+               <img
+                 src={fila.logo || v.logoGenerico}
+                 alt={fila.nombre}
+                 onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
+               />
+            ) : null}
+            <span className="team-name">{fila.nombre}</span>
+          </TeamNameCell>
+        </Td>
+
+        <Td className="stat-col" style={{ fontWeight: 'bold', color: v.text }}>{fila.pj}</Td>
+
+        {/* Mostrar G/E/P siempre */}
+        <Td className="stat-col">{fila.g}</Td>
+        <Td className="stat-col">{fila.e}</Td>
+        <Td className="stat-col">{fila.p}</Td>
+
+        {/* GF/GC: usar utilidad que oculta en pantallas muy pequeñas */}
+        <TdHideOnMobile className="stat-col">{fila.gf}</TdHideOnMobile>
+        <TdHideOnMobile className="stat-col">{fila.gc}</TdHideOnMobile>
+
+        <Td className="stat-col" style={{
+            color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
+            fontWeight: 'bold'
+        }}>
+            {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
+        </Td>
+        <Td className="stat-col points-cell">{fila.pts}</Td>
+      </RowComponent>
+    );
+  })}
+  {tablaGeneral.length === 0 && (
+    <tr><td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>No hay datos disponibles</td></tr>
+  )}
+</tbody>
           </StyledTable>
         </TableScrollWrapper>
       </TableCard>
@@ -256,9 +267,6 @@ export const TorneosStandingsTab = ({
     </div>
   );
 };
-
-// --- STYLED COMPONENTS NUEVOS Y MEJORADOS ---
-
 const ControlPanel = styled.div`
   display: flex;
   justify-content: space-between;
@@ -333,6 +341,9 @@ const ShareButton = styled.button`
   }
 `;
 
+/* -------------------------
+   CONTENEDOR DE LA TABLA
+   ------------------------- */
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg};
   border-radius: 16px;
@@ -346,17 +357,37 @@ const TableCard = styled.div`
   align-self: center;
 `;
 
+/* -------------------------
+   SCROLL WRAPPER (mejoras)
+   - reservamos gutter para evitar reflow cuando aparece scrollbar
+   - soporte smooth/kinetic scrolling en iOS
+   ------------------------- */
 const TableScrollWrapper = styled(ContainerScroll)`
-  overflow-x: auto; 
-  padding-bottom: 2px;
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Evita el cambio de layout cuando aparece/desaparece la barra de scroll */
+  scrollbar-gutter: stable;
+  /* Pequeño padding derecho para que el thumb no tape contenido al hacer scroll */
+  padding-right: 6px;
 `;
 
+/* -------------------------
+   TABLA (forzar capa de composición)
+   ------------------------- */
 const StyledTable = styled.table`
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  /* Hint para que la tabla se transforme en una capa propia y las animaciones no forcen reflow */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 `;
 
+/* -------------------------
+   CABECERAS
+   ------------------------- */
 const Th = styled.th`
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
@@ -389,6 +420,9 @@ const Th = styled.th`
   }
 `;
 
+/* -------------------------
+   CELDAS
+   ------------------------- */
 const Td = styled.td`
   padding: 6px 4px;
   text-align: center;
@@ -429,25 +463,50 @@ const Td = styled.td`
   }
 `;
 
+/* -------------------------
+   FILAS - base optimizada
+   - will-change para avisar al navegador qué propiedades animaremos
+   - transform: translateZ(0) para promover a capa de composición
+   ------------------------- */
 const TrBase = styled.tr`
   cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
+
+  /* Optimización para animaciones: evita que el navegador recalculen layout repetidamente */
+  will-change: transform, opacity;
+  transform: translateZ(0);
 `;
 
+/* Motion wrapper */
 const Tr = TrBase;
 const MotionTr = motion(TrBase);
 
+/* -------------------------
+   UTILS: ocultar en mobile
+   ------------------------- */
 const TdHideOnMobile = styled(Td)`
-  display: none;
-  @media ${Device.tablet} { display: table-cell; }
+  display: table-cell;
+
+  @media (max-width: 420px) {
+    /* aquí asumimos que solo algunas columnas (p. ej. GF/GC) usarán este componente
+       si quieres mostrar G/E/P asegúrate de no usar este componente para ellas */
+    display: none;
+  }
 `;
 
 const ThHideOnMobile = styled(Th)`
-  display: none;
-  @media ${Device.tablet} { display: table-cell; }
+  display: table-cell;
+
+  @media (max-width: 420px) {
+    display: none;
+  }
 `;
 
+
+/* -------------------------
+   CELDA NOMBRE + LOGO
+   ------------------------- */
 const TeamNameCell = styled.div`
   display: flex; align-items: center; gap: 6px;
   @media ${Device.tablet} { gap: 10px; }
@@ -468,6 +527,9 @@ const TeamNameCell = styled.div`
   }
 `;
 
+/* -------------------------
+   LEYENDA / BADGE
+   ------------------------- */
 const LeyendaContainer = styled.div`
     display: flex; 
     gap: 8px; 
