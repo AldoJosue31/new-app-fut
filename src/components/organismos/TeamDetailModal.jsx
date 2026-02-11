@@ -72,20 +72,81 @@ useEffect(() => {
         }
     }, [isOpen, team, division, initialView]);
 
-    const checkTournamentStatus = async () => {
-        setLoadingStats(true);
-        try {
-            const data = await getTeamTournamentStats(team.id, division.id);
-            if (data && data.hasTournament) {
-                setHasActiveTournament(true);
-                setStatsData(data);
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoadingStats(false);
+const checkTournamentStatus = async () => {
+    setLoadingStats(true);
+    try {
+        // 1) Buscar torneo ACTIVO para la división (mismo criterio que usa getTeamTournamentStats)
+        const { data: torneoSel, error: tErr } = await supabase
+            .from('tournaments')
+            .select('id')
+            .eq('division_id', division.id)
+            .eq('status', 'Activo')
+            .single();
+
+        if (tErr || !torneoSel) {
+            console.warn("TeamDetailModal.checkTournamentStatus: No hay torneo activo para la division", { error: tErr });
+            setHasActiveTournament(false);
+            setStatsData(null);
+            return;
         }
-    };
+
+        const tournamentId = torneoSel.id;
+        // 2) Obtener stats "originales" (historial y playerStats) desde el servicio existente
+        const data = await getTeamTournamentStats(team.id, division.id);
+
+        if (!data || !data.hasTournament) {
+            setHasActiveTournament(false);
+            setStatsData(null);
+            return;
+        }
+
+        // 3) Obtener goles agregados desde view_goleadores (la fuente "nueva" y agregada)
+        //    Filtramos por tournamentId y team_id para sólo traer los jugadores de este equipo en ese torneo
+        const { data: golesView, error: gErr } = await supabase
+            .from('view_goleadores')
+            .select('player_id, goals')
+            .eq('tournament_id', Number(tournamentId))
+            .eq('team_id', Number(team.id));
+
+        if (gErr) {
+            console.warn("TeamDetailModal.checkTournamentStatus: error reading view_goleadores", gErr);
+            // no abortamos; seguimos con los datos originales (aunque goles podrían estar incompletos)
+        }
+
+        // 4) Construir mapa player_id -> goals desde la vista
+        const goalsMap = (golesView || []).reduce((acc, row) => {
+            const pid = row.player_id ?? row.playerId ?? null;
+            if (pid != null) acc[String(pid)] = Number(row.goals ?? 0);
+            return acc;
+        }, {});
+
+        // 5) Fusionar goles en playerStats
+        const mergedPlayerStats = (data.playerStats || []).map(p => {
+            const pidKey = String(p.id);
+            const viewGoals = (pidKey in goalsMap) ? goalsMap[pidKey] : undefined;
+            return {
+                ...p,
+                // si view_goleadores tiene valor, lo usamos; si no, dejamos el cálculo previo
+                goals: (typeof viewGoals === 'number') ? viewGoals : (p.goals || 0)
+            };
+        });
+
+        // 6) Guardar el resultado en el estado
+        setHasActiveTournament(true);
+        setStatsData({
+            ...data,
+            tournamentId,
+            playerStats: mergedPlayerStats
+        });
+
+    } catch (error) {
+        console.error("TeamDetailModal.checkTournamentStatus - unexpected error:", error);
+        setHasActiveTournament(false);
+        setStatsData(null);
+    } finally {
+        setLoadingStats(false);
+    }
+};
 
     const handleShowPlayers = async () => {
         if (!team) return;
