@@ -8,6 +8,9 @@ import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 
+// IMPORTAMOS EL NUEVO SKELETON
+import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
+
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
@@ -40,8 +43,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   }, [currentJornadaIndex, jornadas]);
 
   const loadTournamentData = async () => {
+      // Indicamos loading al cargar todo inicialmente
+      if (jornadas.length === 0) setLoading(true); 
       await fetchJornadas();
       await fetchGlobalPendingMatches();
+      setLoading(false);
   };
 
   const fetchJornadas = async () => {
@@ -69,7 +75,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   };
 
   const fetchCurrentJornadaMatches = async (jornadaId) => {
-    setLoading(true);
+    // No ponemos setLoading(true) global aquí para no desmontar toda la UI en cambios menores,
+    // pero si jornadas está vacía, el return de abajo manejará el skeleton.
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -79,9 +86,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setCurrentMatches(data);
     } catch (e) { 
         console.error(e);
-    } finally { 
-        setLoading(false); 
-    }
+    } 
   };
 
   const fetchGlobalPendingMatches = async () => {
@@ -245,7 +250,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   };
 
-  // --- LÓGICA CLAVE DE CONFIGURACIÓN ---
   const handleSaveConfig = async (newConfig) => {
     setLoading(true);
     try {
@@ -253,21 +257,17 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             ? participatingTeams.length - 1 
             : participatingTeams.length;
 
-        // 1. Detectar si la fecha de inicio cambió
         if (newConfig.startDate && newConfig.startDate !== activeTournament.start_date) {
-            
-            // 2. Solo aplicamos cambios masivos si la Jornada 1 NO está confirmada
             const isFirstConfirmed = jornadas.some(j => j.name === 'Jornada 1' && j.status === 'Confirmada');
             
             if (!isFirstConfirmed) {
-                // 3. Recalculamos matemáticamente todas las fechas: J1=Inicio, J2=Inicio+7, etc.
                 const updates = jornadas.map((j) => {
                     const num = parseInt(j.name.replace(/\D/g, '')) || 0;
                     if (num === 0) return null;
 
                     const weeksOffset = (num - 1) * 7;
                     const newStart = addDaysToDate(newConfig.startDate, weeksOffset);
-                    const newEnd = addDaysToDate(newStart, 6); // Lunes -> Domingo
+                    const newEnd = addDaysToDate(newStart, 6); 
 
                     return {
                         id: j.id,
@@ -294,7 +294,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             start_date: newConfig.startDate || prev.start_date 
         }));
         
-        if (!toastConfig.show) { // Evitar sobrescribir el toast de fechas si ya salió
+        if (!toastConfig.show) { 
             setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
         }
         
@@ -315,8 +315,19 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     } catch (e) { throw e; }
   };
 
+  // --- RENDERIZADO ---
+
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
-  if (jornadas.length === 0) return <EmptyState>Cargando estructura...</EmptyState>;
+  
+  // AQUI OCURRE LA MAGIA DEL SKELETON
+  // Si no hay jornadas cargadas o si estamos en estado loading (ej. guardando o inicializando), mostramos el Skeleton
+  if (jornadas.length === 0 || (loading && !isEditorOpen)) {
+      return (
+        <TabContainer>
+             <JornadaPlanificacionSkeleton />
+        </TabContainer>
+      );
+  }
 
   const currentJornada = jornadas[currentJornadaIndex];
   const isPhaseAssignment = currentJornada.status !== 'Finalizada'; 
@@ -337,44 +348,41 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         existingData={editorData} 
       />
 
-      {loading && !isEditorOpen ? ( <LoadingBox>Sincronizando datos...</LoadingBox> ) : (
-        <>
-           {isPhaseAssignment ? (
-              <JornadaPlanificacion 
-                key={`plan-${currentJornada.id}-${dataVersion}`} 
-                matchesDB={currentMatches} 
-                globalPendingMatches={globalPendingMatches}
-                teams={participatingTeams} 
-                jornadaIndex={currentJornadaIndex} 
-                activeTournament={activeTournament} 
-                jornadaData={currentJornada}
-                onConfirm={handleConfirmJornada} 
-                onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
-                totalJornadas={jornadas.length} 
-                onMatchUpdate={handleMatchUpdate}
-                canConfirm={canConfirm} 
-                onSaveConfig={handleSaveConfig}
-                onEditFixture={handleOpenFixtureEditor}
-                isTournamentActive={true} 
-                dataVersion={dataVersion}
-                jornadas={jornadas} 
-                onUpdateDates={handleCascadingDateUpdate}
-              />
-           ) : (
-            <JornadaResultados 
-                key={`res-${currentJornada.id}-${dataVersion}`}
-                matches={currentMatches} 
-                teams={participatingTeams} 
-                jornadaId={currentJornada.id} 
-                activeTournament={activeTournament}
-                refreshMatches={() => {
-                    fetchCurrentJornadaMatches(currentJornada.id);
-                    if(refreshStandings) refreshStandings(); 
-                }} 
-            />
-           )}
-        </>
-      )}
+      {/* Como manejamos el loading principal arriba con Skeleton, aquí renderizamos el contenido directo */}
+       {isPhaseAssignment ? (
+          <JornadaPlanificacion 
+            key={`plan-${currentJornada.id}-${dataVersion}`} 
+            matchesDB={currentMatches} 
+            globalPendingMatches={globalPendingMatches}
+            teams={participatingTeams} 
+            jornadaIndex={currentJornadaIndex} 
+            activeTournament={activeTournament} 
+            jornadaData={currentJornada}
+            onConfirm={handleConfirmJornada} 
+            onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
+            totalJornadas={jornadas.length} 
+            onMatchUpdate={handleMatchUpdate}
+            canConfirm={canConfirm} 
+            onSaveConfig={handleSaveConfig}
+            onEditFixture={handleOpenFixtureEditor}
+            isTournamentActive={true} 
+            dataVersion={dataVersion}
+            jornadas={jornadas} 
+            onUpdateDates={handleCascadingDateUpdate}
+          />
+       ) : (
+        <JornadaResultados 
+            key={`res-${currentJornada.id}-${dataVersion}`}
+            matches={currentMatches} 
+            teams={participatingTeams} 
+            jornadaId={currentJornada.id} 
+            activeTournament={activeTournament}
+            refreshMatches={() => {
+                fetchCurrentJornadaMatches(currentJornada.id);
+                if(refreshStandings) refreshStandings(); 
+            }} 
+        />
+       )}
     </TabContainer>
   );
 }
@@ -382,4 +390,3 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 const fadeIn = keyframes` from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } `;
 const TabContainer = styled.div`display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 100vw; box-sizing: border-box; animation: ${fadeIn} 0.5s ease-out;`;
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;
-const LoadingBox = styled.div` padding: 50px; text-align: center; font-weight:600; color: #7f8c8d; `;

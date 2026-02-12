@@ -7,7 +7,7 @@ import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { 
   RiErrorWarningLine, RiCheckDoubleLine, RiUserStarFill, RiUserAddLine, 
-  RiFileList3Line, RiNumbersLine, RiCalendarEventLine, RiTimeLine 
+  RiFileList3Line, RiNumbersLine, RiCalendarEventLine, RiTimeLine, RiStickyNoteLine
 } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 
@@ -76,10 +76,11 @@ const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate,
                 <span>{displayDate} {displayTime}</span>
             </div>
         </div>
+        {/* CORRECCIÓN AQUÍ: Orden igual al local, el CSS row-reverse hace la magia */}
         <TeamInfo $alignRight>
-            <span className="score">{goalsVisit}</span>
-            <h3>{match.visitante?.name}</h3>
             <img src={match.visitante?.logo_url || v.iconofotovacia} alt="V" />
+            <h3>{match.visitante?.name}</h3>
+            <span className="score">{goalsVisit}</span>
         </TeamInfo>
     </ScoreHeaderContainer>
 );
@@ -143,6 +144,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   // Nuevo: Edición de fecha y hora
   const [matchDate, setMatchDate] = useState("");
   const [matchTime, setMatchTime] = useState("");
+
+  // NUEVO: Observaciones manuales (texto editado por usuario)
+  const [manualObservations, setManualObservations] = useState("");
 
   const [rosterLocal, setRosterLocal] = useState([]);
   const [rosterVisit, setRosterVisit] = useState([]);
@@ -267,24 +271,35 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const isWO = obs.includes('W.O.');
       setIsWalkover(isWO);
       
-      if(isWO) {
+      // Separamos observaciones manuales de las de sistema (W.O. y Pen)
+      let cleanObs = obs;
+      if (isWO) {
+        // Determinar ganador W.O. según goles guardados en freshMatch (si aplica)
         setWoWinnerId(freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id);
+        // eliminar la marca W.O. del texto que se mostrará para edición
+        cleanObs = cleanObs.replace(/W\.O\./gi, '');
       } else {
         setWoWinnerId(null);
       }
 
-      if (obs.includes('Pen')) {
+      if (/Pen/i.test(obs)) {
         try {
             const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
             if (matchPen) {
                 setPenalties({ local: parseInt(matchPen[1]), visit: parseInt(matchPen[2]) });
+                // remover la parte de penales del texto editable
+                cleanObs = cleanObs.replace(matchPen[0], '');
             } else {
                 setPenalties({ local: 0, visit: 0 });
             }
-        } catch(e) { setPenalties({ local: 0, visit: 0 }); }
+        } catch(e) { 
+            setPenalties({ local: 0, visit: 0 }); 
+        }
       } else {
         setPenalties({ local: 0, visit: 0 });
       }
+
+      setManualObservations(cleanObs.trim()); // Establecer solo el texto del usuario
 
       const existingEvents = eventsRes.data || [];
       const isEditMode = freshMatch.status === 'Finalizado';
@@ -294,7 +309,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
     } catch (error) {
       console.error("Error loading result data:", error);
-      setToastConfig({ show: true, message: "Error cargando datos: " + error.message, type: "error" });
+      setToastConfig({ show: true, message: "Error cargando datos: " + (error?.message || error), type: "error" });
     } finally {
       setLoading(false);
     }
@@ -452,14 +467,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         if (eventError) throw eventError;
       }
 
-      // 3. CALCULAR PUNTOS
+      // 3. CALCULAR PUNTOS y OBSERVACIONES FINALES
       let p1 = 0, p2 = 0;
-      let obs = "";
+      const finalObsParts = [];
 
       if (isWalkover) {
         if (woWinnerId === match?.local?.id) { p1 = winPoints; p2 = lossPoints; }
         else { p1 = lossPoints; p2 = winPoints; }
-        obs = "W.O.";
+        finalObsParts.push("W.O.");
       } else if (totalGoalsLocal > totalGoalsVisit) {
         p1 = winPoints; p2 = lossPoints;
       } else if (totalGoalsVisit > totalGoalsLocal) {
@@ -469,9 +484,15 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         if (isExtraPointEnabled) {
           if (parseInt(penalties.local) > parseInt(penalties.visit)) p1 += 1;
           else p2 += 1;
-          obs = `Pen: ${penalties.local}-${penalties.visit}`;
+          finalObsParts.push(`Pen: ${penalties.local}-${penalties.visit}`);
         }
       }
+
+      if (manualObservations && manualObservations.trim() !== "") {
+        finalObsParts.push(manualObservations.trim());
+      }
+
+      const finalObsString = finalObsParts.join(" | ");
 
       // 4. GUARDAR PARTIDO (Incluyendo nueva fecha y hora)
       // Formateamos la fecha completa para Supabase (timestampz o timestamp)
@@ -484,14 +505,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         puntos2: p2,
         referee_id: selectedReferee,
         status: 'Finalizado',
-        observations: obs,
+        observations: finalObsString,
         date: fullDate // <--- Aquí enviamos la fecha editada
       });
       
       onClose();
     } catch (e) {
       console.error(e);
-      setToastConfig({ show: true, message: "Error al guardar: " + e.message, type: "error" });
+      setToastConfig({ show: true, message: "Error al guardar: " + (e?.message || e), type: "error" });
     } finally {
       setLoading(false);
       isSavingRef.current = false;
@@ -532,7 +553,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                             </select>
                         </InputGroup>
                         <InputGroup>
-                            <label><RiCalendarEventLine/> Fecha del Partido</label>
+                            <label><RiCalendarEventLine/> Fecha</label>
                             <input 
                                 type="date" 
                                 value={matchDate} 
@@ -540,7 +561,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                             />
                         </InputGroup>
                         <InputGroup>
-                            <label><RiTimeLine/> Hora de Inicio</label>
+                            <label><RiTimeLine/> Hora</label>
                             <input 
                                 type="time" 
                                 value={matchTime} 
@@ -549,6 +570,19 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                         </InputGroup>
                     </GridInputs>
                     
+                    {/* SECCIÓN OBSERVACIONES NUEVA */}
+                    <InputGroup>
+                        <label><RiStickyNoteLine/> Observaciones del Partido (Opcional)</label>
+                        <TextArea 
+                            placeholder="Ingrese incidentes, retrasos, estado de cancha u otros detalles..."
+                            value={manualObservations}
+                            onChange={(e) => {
+                                if(e.target.value.length <= 500) setManualObservations(e.target.value);
+                            }}
+                        />
+                        <CharCount>{manualObservations.length}/500</CharCount>
+                    </InputGroup>
+
                     <WalkoverBox $active={isWalkover}>
                         <div className="wo-header" onClick={() => { setIsWalkover(!isWalkover); if (!isWalkover) setWoWinnerId(null); }}>
                         <RiErrorWarningLine size={24}/><span>Victoria por Default (W.O.)</span>
@@ -639,6 +673,8 @@ const InputGroup = styled.div`
     label { font-weight: 700; display: flex; align-items: center; gap: 8px; color: ${({theme})=>theme.text}; font-size: 0.9rem;} 
     select, input { padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; width: 100%; &:focus { border-color: ${v.colorPrincipal}; } } 
 `;
+const TextArea = styled.textarea` padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; width: 100%; min-height: 100px; resize: vertical; font-family: inherit; &:focus { border-color: ${v.colorPrincipal}; } `;
+const CharCount = styled.div` text-align: right; font-size: 0.75rem; color: ${({theme})=>theme.text}; opacity: 0.6; margin-top: -5px; `;
 const ScoreHeaderContainer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; margin-top: 5px; span { display:block; } } } `;
 const TeamInfo = styled.div` display: flex; align-items: center; gap: 15px; width: 35%; flex-direction: ${({$alignRight}) => $alignRight ? 'row-reverse' : 'row'}; img { width: 45px; height: 45px; object-fit: contain; } h3 { font-size: 0.9rem; flex: 1; text-align: ${({$alignRight}) => $alignRight ? 'right' : 'left'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .score { font-size: 2.2rem; font-weight: 800; color: ${v.colorPrincipal}; } `;
 const ContentBody = styled.div` min-height: 350px; `;
