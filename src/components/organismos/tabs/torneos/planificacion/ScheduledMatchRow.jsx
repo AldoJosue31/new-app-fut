@@ -1,11 +1,19 @@
 import React, { memo, useMemo, useState } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../../../../index";
-import { RiDeleteBinLine, RiTrophyLine, RiTimeLine, RiEditLine, RiFileTextLine } from "react-icons/ri";
+import { 
+  RiDeleteBinLine, 
+  RiTrophyLine, 
+  RiTimeLine, 
+  RiEditLine, 
+  RiFileTextLine,
+  RiPrinterLine // <-- NUEVO ICONO
+} from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
-// Importar el nuevo modal de Cédula
+// Importar los modales
 import MatchSheetModal from "./MatchSheetModal";
+import { PreMatchSheetModal } from "./PreMatchSheetModal"; // <-- IMPORTAR NUEVO MODAL
 
 const getPenaltyScore = (observations) => {
     if (!observations) return null;
@@ -30,8 +38,10 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
-  // Estado para controlar la apertura de la Cédula
+  // Estado para controlar la apertura de la Cédula final
   const [showSheet, setShowSheet] = useState(false);
+  // NUEVO: estado para controlar la apertura de la Pre-Cédula (impresión)
+  const [showPreSheet, setShowPreSheet] = useState(false);
 
   const penalties = useMemo(() => {
       if (isConfirmed && match.status === 'Finalizado') {
@@ -124,10 +134,22 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                         Ver Cédula
                                     </button>
                                 ) : (
-                                    <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
-                                        <RiTimeLine />
-                                        Aplazar
-                                    </button>
+                                    <>
+                                        {/* NUEVO BOTÓN: PRE-CÉDULA */}
+                                        <button 
+                                            className="action-btn print" 
+                                            onClick={() => setShowPreSheet(true)}
+                                            title="Imprimir Hoja de Alineación para Árbitro"
+                                        >
+                                            <RiPrinterLine />
+                                            Pre-Cédula
+                                        </button>
+
+                                        <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
+                                            <RiTimeLine />
+                                            Aplazar
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -154,10 +176,17 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             </Container>
         </Wrapper>
 
-        {/* Renderizar Modal de Cédula */}
+        {/* Renderizar Modal de Cédula Final */}
         <MatchSheetModal 
             isOpen={showSheet} 
             onClose={() => setShowSheet(false)} 
+            matchId={match.id}
+        />
+
+        {/* NUEVO: Renderizar Modal de Pre-Cédula (impresión) */}
+        <PreMatchSheetModal 
+            isOpen={showPreSheet}
+            onClose={() => setShowPreSheet(false)}
             matchId={match.id}
         />
     </>
@@ -261,8 +290,10 @@ const Container = styled.div`
                 @media ${Device.tablet} { padding: 6px 12px; flex: none; }
                 &.result { background: ${v.colorPrincipal}; color: white; &:hover{ filter: brightness(1.1); } }
                 &.postpone { background: #f1c40f20; color: #f1c40f; &:hover{ background: #f1c40f; color: black; } }
-                /* Nuevo estilo para el botón de Cédula */
                 &.sheet { background: #3498db20; color: #3498db; &:hover{ background: #3498db; color: white; } }
+                
+                /* Estilo del botón nuevo de imprimir */
+                &.print { background: #95a5a620; color: #7f8c8d; &:hover{ background: #95a5a6; color: white; } }
             }
         }
     }

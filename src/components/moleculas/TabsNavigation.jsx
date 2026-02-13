@@ -71,7 +71,10 @@ const Container = styled.div`
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  
+  /* CAMBIO: Eliminado el margin-bottom: 20px fijo para que el padre controle el espacio */
+  margin-bottom: 0; 
+  
   width: 100%;
   min-width: 0;
   
@@ -122,7 +125,6 @@ const TabButton = styled.button`
   z-index: 1;
 
   /* --- ESTILOS GENERALES (MÓVIL Y DESKTOP) --- */
-  /* CAMBIO PRINCIPAL: flex: 1 siempre, para ocupar todo el ancho disponible */
   flex: 1; 
   padding: 12px 0; 
   
@@ -139,7 +141,6 @@ const TabButton = styled.button`
 
   /* --- AJUSTES ESPECÍFICOS DESKTOP --- */
   @media ${Device.tablet} {
-    /* Ya no sobreescribimos flex, se mantiene en 1 */
     padding: 10px 16px; 
     
     .label {

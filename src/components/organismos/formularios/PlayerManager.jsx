@@ -7,29 +7,37 @@ import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { supabase } from "../../../supabase/supabase.config";
 import { 
     RiEditLine, RiDeleteBinLine, RiUserAddLine, 
-    RiArrowLeftLine, RiErrorWarningLine 
-    // RiCheckboxCircleLine eliminado ya que no usamos el modal de éxito viejo
+    RiArrowLeftLine, RiErrorWarningLine, RiArchiveLine,
+    RiEyeLine, RiEyeOffLine, RiRefreshLine
 } from "react-icons/ri";
 import { compressImage } from "../../../utils/imageProcessor";
 
-  // DEFINICIÓN DE ORDEN DE POSICIONES (Puede ir en constants.js idealmente, pero aquí funciona)
 const POSITION_RANK = {
-    'Portero': 1,
-    'Defensa': 2,
-    'Medio': 3,
-    'Delantero': 4
+    'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4
 };
 
-// 1. Recibimos showToast como prop
 export function PlayerManager({ teamId, showToast }) {
-  const { jugadores, fetchJugadores, addJugador, updateJugador, deleteJugador, isLoading } = useJugadoresStore();
+  const { 
+      jugadores, fetchJugadores, addJugador, updateJugador, 
+      deleteJugador, archivarJugador, restaurarJugador, isLoading 
+  } = useJugadoresStore();
+
   const [view, setView] = useState("list"); 
   const [editingPlayer, setEditingPlayer] = useState(null);
-  // const [isSuccess, setIsSuccess] = useState(false); // Estado eliminado
   
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [playerToDelete, setPlayerToDelete] = useState(null);
+  // NUEVO: Estado para alternar entre Activos e Inhabilitados
+  const [showArchived, setShowArchived] = useState(false);
 
+  // Modales
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isManualArchiveOpen, setIsManualArchiveOpen] = useState(false); // Modal para inhabilitar manualmente
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  
+  // Modal Conflicto (409)
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictPlayer, setConflictPlayer] = useState(null);
+
+  // Form States
   const [photoFile, setPhotoFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [croppedFile, setCroppedFile] = useState(null);
@@ -43,132 +51,155 @@ export function PlayerManager({ teamId, showToast }) {
   const [dorsalError, setDorsalError] = useState("");
   const [shakeError, setShakeError] = useState(false);
 
-
-
-// 1. Configuramos el hook useSort pasando los jugadores crudos
   const { items: sortedPlayers, requestSort, sortConfig } = useSort(jugadores, { 
-      key: 'dorsal', 
-      direction: 'ascending' // Orden por defecto: Dorsal
+      key: 'dorsal', direction: 'ascending' 
   });
 
-  // 2. Definimos las opciones para el componente visual
   const sortOptions = [
-      { label: "Dorsal", key: "dorsal" }, // Orden numérico natural
-      { label: "Nombre", key: "first_name" }, // Orden alfabético
-      { label: "Posición", key: "position", customOrder: POSITION_RANK } // Orden personalizado
+      { label: "Dorsal", key: "dorsal" },
+      { label: "Nombre", key: "first_name" },
+      { label: "Posición", key: "position", customOrder: POSITION_RANK }
   ];
 
+  // Fetch cuando cambia equipo O cuando cambia el toggle showArchived
   useEffect(() => {
-    if (!form.dorsal || !jugadores.length) {
-      setDorsalError("");
-      return;
+    if (teamId) {
+        // Si showArchived es true, pasamos false a isActive (y viceversa)
+        fetchJugadores(teamId, !showArchived);
+    }
+  }, [teamId, showArchived]);
+
+  // Validación de Dorsal (Solo si no estamos viendo archivados)
+  useEffect(() => {
+    if (!form.dorsal || !jugadores.length || showArchived) {
+      setDorsalError(""); return;
     }
     const duplicado = jugadores.find(p => 
-      p.dorsal == form.dorsal && 
-      (editingPlayer ? p.id !== editingPlayer.id : true)
+      p.dorsal == form.dorsal && (editingPlayer ? p.id !== editingPlayer.id : true)
     );
     if (duplicado) {
-      setDorsalError(`⚠️ Ocupado por ${duplicado.first_name} ${duplicado.last_name}`);
+      setDorsalError(`⚠️ Ocupado por ${duplicado.first_name}`);
     } else {
       setDorsalError("");
     }
   }, [form.dorsal, jugadores, editingPlayer]);
 
-  useEffect(() => {
-    if (teamId) fetchJugadores(teamId);
-  }, [teamId]);
-
+  // --- HANDLERS ---
+  const handleToggleView = () => setShowArchived(!showArchived);
   const handleInputChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   
   const handleImageSelect = (cropFile, originalFile, previewUrl) => {
-    setCroppedFile(cropFile);
-    setOriginalFile(originalFile);
-    setPreview(previewUrl);
+    setCroppedFile(cropFile); setOriginalFile(originalFile); setPreview(previewUrl);
   };
 
   const handleEdit = (player) => {
-    setEditingPlayer(player);
-    setForm(player);
-    setPreview(player.photo_url);
-    setView("form");
+    setEditingPlayer(player); setForm(player); setPreview(player.photo_url); setView("form");
   };
 
   const handleNew = () => {
-    setEditingPlayer(null);
-    setForm(initialForm);
-    setPreview(null);
-    setPhotoFile(null);
-    setView("form");
+    setEditingPlayer(null); setForm(initialForm); setPreview(null); setPhotoFile(null); setView("form");
   };
 
+  // --- ACTIONS ---
+
   const openDeleteModal = (player) => {
-      setPlayerToDelete(player);
+      setSelectedPlayer(player);
       setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-      if(playerToDelete) {
-          try {
-             await deleteJugador(playerToDelete.id);
-             setIsDeleteModalOpen(false);
-             setPlayerToDelete(null);
-             // 2. Usar showToast en éxito de eliminación
-             if(showToast) showToast("Jugador eliminado correctamente", "success");
-          } catch (error) {
-             if(showToast) showToast("Error al eliminar jugador", "error");
+  const openArchiveModal = (player) => {
+      setSelectedPlayer(player);
+      setIsManualArchiveOpen(true);
+  };
+
+  // Confirmar Inhabilitación Manual
+  const confirmManualArchive = async () => {
+      if(selectedPlayer) {
+          const result = await archivarJugador(selectedPlayer.id);
+          if(result.success) {
+              setIsManualArchiveOpen(false);
+              setSelectedPlayer(null);
+              if(showToast) showToast("Jugador inhabilitado correctamente", "success");
+          } else {
+              if(showToast) showToast("Error: " + result.message, "error");
           }
       }
   };
 
+  // Restaurar Jugador
+  const handleRestore = async (player) => {
+      const result = await restaurarJugador(player.id);
+      if(result.success) {
+          if(showToast) showToast("Jugador restaurado a la plantilla activa", "success");
+      } else {
+          if(showToast) showToast("Error: " + result.message, "error");
+      }
+  };
+
+  // Borrar Jugador (o sugerir archivo)
+  const confirmDelete = async () => {
+      if(selectedPlayer) {
+          const result = await deleteJugador(selectedPlayer.id);
+
+          if(result.success) {
+              setIsDeleteModalOpen(false);
+              setSelectedPlayer(null);
+              if(showToast) showToast("Jugador eliminado correctamente", "success");
+          } else if (result.error === 'CONFLICT') {
+              // ERROR 409: Cambiamos al modal de conflicto
+              setIsDeleteModalOpen(false);
+              setConflictPlayer(selectedPlayer);
+              setConflictModalOpen(true);
+          } else {
+              if(showToast) showToast("Error: " + result.message, "error");
+          }
+      }
+  };
+
+  // Archivar desde Conflicto
+  const handleConflictArchive = async () => {
+      if (conflictPlayer) {
+          const result = await archivarJugador(conflictPlayer.id);
+          if (result.success) {
+              setConflictModalOpen(false);
+              setConflictPlayer(null);
+              setSelectedPlayer(null);
+              if(showToast) showToast("Jugador archivado. Historial guardado.", "success");
+          } else {
+              if(showToast) showToast("Error al archivar: " + result.message, "error");
+          }
+      }
+  };
+
+  // --- SUBMIT FORM ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (dorsalError) {
-      setShakeError(true);
-      setTimeout(() => setShakeError(false), 500);
-      return;
-    }
+    if (dorsalError) { setShakeError(true); setTimeout(() => setShakeError(false), 500); return; }
     try {
       let finalPhotoUrl = form.photo_url;
-      
       if (croppedFile) {
         const fileId = editingPlayer ? editingPlayer.id : Date.now(); 
         const pathCrop = `players/${fileId}_crop.png`;
-        const pathOriginal = `players/${fileId}_original.png`;
-
         const { error: errCrop } = await supabase.storage.from('logos').upload(pathCrop, croppedFile, { upsert: true });
         if (errCrop) throw errCrop;
-
-        if (originalFile) {
-            const compressedOriginal = await compressImage(originalFile, 1000, 0.8);
-            await supabase.storage.from('logos').upload(pathOriginal, compressedOriginal, { upsert: true });
-        }
 
         const { data: publicData } = supabase.storage.from('logos').getPublicUrl(pathCrop);
         finalPhotoUrl = `${publicData.publicUrl}?t=${Date.now()}`;
       }
 
-      const birthDateToSend = form.birth_date === "" ? null : form.birth_date;
-
       const payload = { 
-          ...form, 
-          birth_date: birthDateToSend,
-          team_id: teamId, 
-          photo_url: finalPhotoUrl
+          ...form, birth_date: form.birth_date || null, team_id: teamId, photo_url: finalPhotoUrl
       };
 
       if (editingPlayer) {
         await updateJugador(editingPlayer.id, payload);
-        // 3. Toast edición
-        if(showToast) showToast("Jugador actualizado correctamente", "success");
+        if(showToast) showToast("Jugador actualizado", "success");
       } else {
         await addJugador(payload);
-        // 4. Toast creación
-        if(showToast) showToast("Jugador creado correctamente", "success");
+        if(showToast) showToast("Jugador creado", "success");
       }
       setView("list");
-      
     } catch (err) {
-      // 5. Toast error
       if(showToast) showToast("Error: " + err.message, "error");
     }
   };
@@ -179,23 +210,32 @@ export function PlayerManager({ teamId, showToast }) {
       return url; 
   };
 
+  // --- RENDER LIST ---
   if (view === "list") {
     return (
       <Container>
         <div className="header-actions">
-          <h3>Plantilla ({isLoading ? "..." : jugadores.length})</h3>
-          <BtnSmall onClick={handleNew}>
-             <RiUserAddLine /> 
-             <span>Agregar</span>
-          </BtnSmall>
+          <h3>
+             {showArchived ? "Inhabilitados" : `Plantilla (${jugadores.length})`}
+          </h3>
+          
+          <div style={{display: 'flex', gap: '10px'}}>
+              {/* BOTÓN TOGGLE */}
+              <BtnToggle onClick={handleToggleView} $active={showArchived}>
+                  {showArchived ? <RiEyeLine /> : <RiEyeOffLine />}
+                  <span>{showArchived ? "Ver Activos" : "Ver Inhabilitados"}</span>
+              </BtnToggle>
+
+              {!showArchived && (
+                  <BtnSmall onClick={handleNew}>
+                     <RiUserAddLine /> <span>Agregar</span>
+                  </BtnSmall>
+              )}
+          </div>
         </div>
 
-{!isLoading && jugadores.length > 0 && (
-            <SortControl 
-                options={sortOptions} 
-                currentSort={sortConfig} 
-                onSortChange={requestSort} 
-            />
+        {!isLoading && jugadores.length > 0 && (
+            <SortControl options={sortOptions} currentSort={sortConfig} onSortChange={requestSort} />
         )}
 
         <ContainerScroll $maxHeight="400px">
@@ -205,14 +245,13 @@ export function PlayerManager({ teamId, showToast }) {
             <div key={i} style={{ padding: 10, display: 'flex', gap: 15, alignItems: 'center' }}>
                <Skeleton type="circle" width="40px" height="40px" />
                <div style={{flex: 1, display:'flex', flexDirection:'column', gap: 5}}>
-                  <Skeleton width="60%" height="14px" />
-                  <Skeleton width="40%" height="10px" />
+                  <Skeleton width="60%" height="14px" /> <Skeleton width="40%" height="10px" />
                </div>
             </div>
           ))
-          ) : (
-sortedPlayers.map((p) => (
-              <PlayerRow key={p.id}>
+        ) : (
+            sortedPlayers.map((p) => (
+              <PlayerRow key={p.id} $isArchived={showArchived}>
                 <div className="info">
                   <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="foto" />
                   <div>
@@ -221,40 +260,77 @@ sortedPlayers.map((p) => (
                   </div>
                 </div>
                 <div className="actions">
-                  <button className="btn-icon edit" onClick={() => handleEdit(p)}><RiEditLine /></button>
-                  <button className="btn-icon delete" onClick={() => openDeleteModal(p)}><RiDeleteBinLine /></button>
+                  {showArchived ? (
+                      /* ACCIONES MODO ARCHIVADO */
+                      <button className="btn-icon restore" onClick={() => handleRestore(p)} title="Restaurar">
+                          <RiRefreshLine />
+                      </button>
+                  ) : (
+                      /* ACCIONES MODO ACTIVO */
+                      <>
+                          <button className="btn-icon edit" onClick={() => handleEdit(p)}><RiEditLine /></button>
+                          <button className="btn-icon archive" onClick={() => openArchiveModal(p)} title="Inhabilitar">
+                              <RiArchiveLine />
+                          </button>
+                          <button className="btn-icon delete" onClick={() => openDeleteModal(p)} title="Eliminar">
+                              <RiDeleteBinLine />
+                          </button>
+                      </>
+                  )}
                 </div>
               </PlayerRow>
             ))
-          )}
+        )}
           
-          {jugadores.length === 0 && !isLoading && <p className="empty">No hay jugadores registrados.</p>}
-        </ListContainer></ContainerScroll>
+          {jugadores.length === 0 && !isLoading && (
+              <p className="empty">No hay jugadores {showArchived ? "inhabilitados" : "activos"}.</p>
+          )}
+        </ListContainer>
+        </ContainerScroll>
 
-        <Modal 
-            isOpen={isDeleteModalOpen} 
-            onClose={() => setIsDeleteModalOpen(false)} 
-            title="Eliminar Jugador"
-            width="400px"
-            closeOnOverlayClick={false}
-        >
+        {/* MODAL 1: BORRAR */}
+        <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Eliminar Jugador" width="400px">
             <DeleteContent>
                 <div className="warning-icon"><RiErrorWarningLine /></div>
-                <p>
-                    ¿Seguro que deseas eliminar a <b>{playerToDelete?.first_name}</b>?
-                    <br/><span className="sub">Esta acción es irreversible.</span>
-                </p>
+                <p>¿Seguro que deseas eliminar a <b>{selectedPlayer?.first_name}</b>? <br/><span className="sub">Irreversible.</span></p>
                 <div className="modal-actions">
                     <button className="cancel" onClick={() => setIsDeleteModalOpen(false)}>Cancelar</button>
                     <button className="confirm" onClick={confirmDelete}>Eliminar</button>
                 </div>
             </DeleteContent>
         </Modal>
-        {/* Modal de isSuccess eliminado */}
+
+        {/* MODAL 2: ARCHIVAR MANUALMENTE */}
+        <Modal isOpen={isManualArchiveOpen} onClose={() => setIsManualArchiveOpen(false)} title="Inhabilitar Jugador" width="400px">
+            <DeleteContent>
+                <div className="warning-icon" style={{color: '#f39c12'}}><RiArchiveLine /></div>
+                <p>¿Inhabilitar a <b>{selectedPlayer?.first_name}</b>? <br/><span className="sub">Se ocultará, pero sus estadísticas se guardan.</span></p>
+                <div className="modal-actions">
+                    <button className="cancel" onClick={() => setIsManualArchiveOpen(false)}>Cancelar</button>
+                    <button className="archive" onClick={confirmManualArchive}>Inhabilitar</button>
+                </div>
+            </DeleteContent>
+        </Modal>
+
+        {/* MODAL 3: CONFLICTO (409) */}
+        <Modal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} title="¡No se puede eliminar!" width="450px">
+            <DeleteContent>
+                <div className="warning-icon" style={{color: '#e67e22'}}><RiErrorWarningLine /></div>
+                <p>El jugador <b>{conflictPlayer?.first_name}</b> tiene estadísticas registradas.</p>
+                <p style={{fontSize: '0.9rem', color: '#666', marginBottom: '20px'}}>Si lo eliminas, dañarás los registros del torneo. Te recomendamos <b>Archivar</b>.</p>
+                <div className="modal-actions">
+                    <button className="cancel" onClick={() => setConflictModalOpen(false)}>Cancelar</button>
+                    <button className="archive" onClick={handleConflictArchive}>
+                        <RiArchiveLine style={{marginRight: 5}}/> Archivar Jugador
+                    </button>
+                </div>
+            </DeleteContent>
+        </Modal>
       </Container>
     );
   }
 
+  // --- RENDER FORM ---
   return (
     <Container>
       <div className="header-actions">
@@ -265,28 +341,19 @@ sortedPlayers.map((p) => (
       </div>
 
       <Form onSubmit={handleSubmit}>
-        
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "25px" }}>
             <PhotoUploader 
                 previewUrl={preview} 
                 originalUrl={editingPlayer?.original_photo_url || getOriginalUrlFromPreview(preview)}
                 onImageSelect={handleImageSelect}
-                onClear={() => {
-                    setCroppedFile(null); setOriginalFile(null); setPreview(null);
-                    setForm(prev => ({ ...prev, photo_url: "" }));
-                }}
-                shape="circle"
-                width="130px" height="130px"
+                onClear={() => { setCroppedFile(null); setOriginalFile(null); setPreview(null); setForm(prev => ({ ...prev, photo_url: "" })); }}
+                shape="circle" width="130px" height="130px"
             />
         </div>
 
         <div className="grid-2">
-           <InputText2>
-              <input className="form__field" name="first_name" placeholder="Nombres" required value={form.first_name} onChange={handleInputChange}/>
-           </InputText2>
-           <InputText2>
-              <input className="form__field" name="last_name" placeholder="Apellidos" required value={form.last_name} onChange={handleInputChange}/>
-           </InputText2>
+           <InputText2><input className="form__field" name="first_name" placeholder="Nombres" required value={form.first_name} onChange={handleInputChange}/></InputText2>
+           <InputText2><input className="form__field" name="last_name" placeholder="Apellidos" required value={form.last_name} onChange={handleInputChange}/></InputText2>
         </div>
 
         <div className="grid-3">
@@ -296,20 +363,13 @@ sortedPlayers.map((p) => (
            </div>
            <div className="select-wrap">
               <select name="position" value={form.position} onChange={handleInputChange} className="custom-select">
-                  <option>Portero</option>
-                  <option>Defensa</option>
-                  <option>Medio</option>
-                  <option>Delantero</option>
+                  <option>Portero</option><option>Defensa</option><option>Medio</option><option>Delantero</option>
               </select>
            </div>
-           <InputText2>
-              <input className="form__field" type="date" name="birth_date" value={form.birth_date} onChange={handleInputChange}/>
-           </InputText2>
+           <InputText2><input className="form__field" type="date" name="birth_date" value={form.birth_date} onChange={handleInputChange}/></InputText2>
         </div>
 
-        <InputText2>
-            <input className="form__field" name="curp_dni" placeholder="CURP / DNI / ID" value={form.curp_dni} onChange={handleInputChange}/>
-        </InputText2>
+        <InputText2><input className="form__field" name="curp_dni" placeholder="CURP / DNI / ID" value={form.curp_dni} onChange={handleInputChange}/></InputText2>
 
         <Btnsave titulo="Guardar Jugador" bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} width="100%"/>
       </Form>
@@ -317,102 +377,65 @@ sortedPlayers.map((p) => (
   );
 }
 
-// --- STYLES & ANIMATIONS ---
-
-const shimmer = keyframes`
-  0% { background-position: -468px 0; }
-  100% { background-position: 468px 0; }
-`;
+// --- STYLES ---
 
 const Container = styled.div`
-  display: flex; flex-direction: column; gap: 15px; animation: fadeIn 0.3s ease;
-  margin-top: 10px; /* Separación extra para no chocar con los tabs */
-  
-  .header-actions { 
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; 
-      h3 { font-size: 1.1rem; margin:0; color: ${({theme})=>theme.text}; } 
-  }
+  display: flex; flex-direction: column; gap: 15px; animation: fadeIn 0.3s ease; margin-top: 10px; 
+  .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; h3 { font-size: 1.1rem; margin:0; color: ${({theme})=>theme.text}; } }
   .back-btn { background: none; border: none; color: ${v.colorPrincipal}; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: 600; }
   .empty { text-align: center; opacity: 0.6; margin-top: 20px; }
 `;
 
-// Botón "Agregar" más proporcional y estilizado
 const BtnSmall = styled.button`
-    background: ${({theme}) => theme.bgcards};
-    border: 1px solid ${({theme}) => theme.bg4};
-    color: ${({theme}) => theme.text};
-    padding: 6px 16px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    cursor: pointer;
-    display: flex; align-items: center; gap: 6px;
-    transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-
-    &:hover {
-        background: ${v.colorPrincipal};
-        color: white;
-        border-color: ${v.colorPrincipal};
-        transform: translateY(-2px);
-    }
+    background: ${({theme}) => theme.bgcards}; border: 1px solid ${({theme}) => theme.bg4}; color: ${({theme}) => theme.text};
+    padding: 6px 16px; border-radius: 12px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    &:hover { background: ${v.colorPrincipal}; color: white; border-color: ${v.colorPrincipal}; transform: translateY(-2px); }
     svg { font-size: 1.1rem; }
 `;
 
-const ListContainer = styled.div`
-  display: flex; 
-  flex-direction: column; 
-  gap: 10px;
+const BtnToggle = styled(BtnSmall)`
+    background: ${props => props.$active ? props.theme.bg3 : 'transparent'};
+    border-color: ${props => props.$active ? props.theme.text : props.theme.bg4};
+    opacity: ${props => props.$active ? 1 : 0.7};
 `;
+
+const ListContainer = styled.div` display: flex; flex-direction: column; gap: 10px; `;
 
 const PlayerRow = styled.div`
   background: ${({theme}) => theme.bgtotal}; padding: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;
-  border: 1px solid transparent;
-  &:hover { border-color: ${({theme})=>theme.bg4}; }
+  border: 1px solid transparent; 
+  opacity: ${props => props.$isArchived ? 0.75 : 1};
+  filter: ${props => props.$isArchived ? 'grayscale(0.1)' : 'none'};
+  &:hover { border-color: ${({theme})=>theme.bg4}; opacity: 1; }
   
   .info { display: flex; gap: 12px; align-items: center; 
     img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #eee; }
-    .name { font-weight: 600; display: block; font-size: 0.95rem; }
+    .name { font-weight: 600; display: block; font-size: 0.95rem; text-decoration: ${props => props.$isArchived ? 'line-through' : 'none'}; }
     .details { font-size: 0.8rem; opacity: 0.7; }
   }
   .actions { display: flex; gap: 5px; 
     .btn-icon { background: rgba(255,255,255,0.05); border: none; padding: 6px; border-radius: 6px; cursor: pointer; color: ${({theme})=>theme.text}; transition: 0.2s;
-        &:hover { background: ${v.colorPrincipal}; color: white; } 
+        &:hover { color: white; } 
+        &.edit:hover { background: ${v.colorPrincipal}; } 
+        &.archive:hover { background: #f39c12; }
         &.delete:hover { background: ${v.rojo}; } 
+        &.restore:hover { background: #27ae60; }
     }
   }
 `;
 
-/* CONTENIDO DEL MODAL DE ELIMINAR */
 const DeleteContent = styled.div`
     text-align: center; padding: 10px;
     .warning-icon { font-size: 3rem; color: #f1c40f; margin-bottom: 10px; }
     p { margin: 0 0 20px 0; font-size: 1rem; color: ${({theme})=>theme.text}; }
     .sub { font-size: 0.85rem; opacity: 0.7; display: block; margin-top: 5px; }
-    
-    .modal-actions {
-        display: flex; justify-content: center; gap: 15px;
-        button {
-            padding: 8px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s;
+    .modal-actions { display: flex; justify-content: center; gap: 15px;
+        button { padding: 8px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center;
             &.cancel { background: ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; &:hover { background: ${({theme})=>theme.bg3}; } }
             &.confirm { background: ${v.rojo}; color: white; &:hover { opacity: 0.9; transform: translateY(-2px); } }
+            &.archive { background: #f39c12; color: white; &:hover { opacity: 0.9; transform: translateY(-2px); } }
         }
     }
-`;
-
-const SkeletonRow = styled.div`
-  background: ${({ theme }) => theme.bgtotal};
-  padding: 10px; border-radius: 10px; display: flex; align-items: center; position: relative; overflow: hidden;
-  &::after {
-      content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: linear-gradient(to right, transparent 0%, ${({theme})=> theme.bg2 || 'rgba(255,255,255,0.1)'} 50%, transparent 100%);
-      background-size: 400% 100%; animation: ${shimmer} 1.2s infinite linear; opacity: 0.6;
-  }
-  .sk-info { display: flex; align-items: center; gap: 12px; width: 100%; }
-  .sk-avatar { width: 40px; height: 40px; border-radius: 50%; background: ${({ theme }) => theme.bg4}; flex-shrink: 0; }
-  .sk-text-group { display: flex; flex-direction: column; gap: 6px; width: 60%; }
-  .sk-line { height: 10px; background: ${({ theme }) => theme.bg4}; border-radius: 4px; width: 100%; }
-  .sk-line.short { width: 60%; }
 `;
 
 const Form = styled.form`
@@ -422,49 +445,10 @@ const Form = styled.form`
   .custom-select { width: 100%; padding: 12px; border-radius: 15px; background: ${({theme})=>theme.bgtotal}; color: ${({theme})=>theme.text}; border: 2px solid ${({theme})=>theme.color2}; outline: none; height: 100%; }
 `;
 
-const shakeAnimation = keyframes`
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  50% { transform: translateX(5px); }
-  75% { transform: translateX(-5px); }
-  100% { transform: translateX(0); }
-`;
-
+const shakeAnimation = keyframes` 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } `;
 const ErrorBadge = styled.span`
   position: absolute; top: -25px; left: 0; font-size: 0.75rem; font-weight: 700; color: #fff; background: #ff4b4b;
   padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none;
   ${({ $shake }) => $shake ? css`animation: ${shakeAnimation} 0.4s ease-in-out;` : css`animation: fadeIn 0.3s ease-out;`}
   &::after { content: ''; position: absolute; bottom: -4px; left: 10px; border-width: 4px 4px 0; border-style: solid; border-color: #ff4b4b transparent transparent transparent; }
-`;
-
-const SuccessContent = styled.div`
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center;
-  padding: 20px;
-  text-align: center;
-  
-  h3 {
-    margin: 10px 0 5px 0;
-    font-size: 1.2rem;
-    color: ${({theme}) => theme.text};
-  }
-  
-  p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: ${({theme}) => theme.text};
-    opacity: 0.7;
-  }
-  
-  /* Animación de entrada para el icono */
-  svg {
-    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  }
-  
-  @keyframes popIn {
-    0% { transform: scale(0); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-  }
 `;
