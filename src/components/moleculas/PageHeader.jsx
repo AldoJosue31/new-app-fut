@@ -6,7 +6,9 @@ const HeaderContainer = styled.div`
   display: flex;
   flex-direction: column;
   width: 100%;
-  margin-bottom: 30px;
+  /* CAMBIO: Margen dinámico. Si no se especifica, usa 30px (estándar). */
+  margin-bottom: ${(props) => props.$marginBottom || '30px'};
+  transition: margin-bottom 0.3s ease;
 `;
 
 // Nuevo contenedor interno para alinear todo al centro con el mismo ancho
@@ -38,9 +40,9 @@ const TabsContainer = styled.div`
   margin-top: 10px;
 `;
 
-export const PageHeader = ({ title, children, tabs, maxWidth }) => {
+export const PageHeader = ({ title, children, tabs, maxWidth, marginBottom }) => {
   return (
-    <HeaderContainer>
+    <HeaderContainer $marginBottom={marginBottom}>
       <ContentWrapper $maxWidth={maxWidth}>
         <TopRow>
           <Title>{title}</Title>
