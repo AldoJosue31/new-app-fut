@@ -4,13 +4,14 @@ import { v } from "../../styles/variables";
 import { useNavigate, useParams } from "react-router-dom";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
-import { TabsNavigation, EmptyState } from "../../index";
+// Asegúrate de que las rutas de importación coincidan con tu estructura
+import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation"; 
+import { EmptyState } from "../organismos/EmptyState"; // O desde el index si lo tienes ahí
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
-import { TabContent } from "../moleculas/TabsNavigation";
 import { Device } from "../../styles/breakpoints"; 
 
 // <-- IMPORT DEL SERVICIO DE GOLEADORES
@@ -77,7 +78,11 @@ export function TorneosTemplate({
 
   return (
     <ContentContainer>
-      <PageHeader title="Gestión de Torneos" maxWidth="1000px" 
+      {/* AQUÍ ESTÁ LA CLAVE: marginBottom muy pequeño (5px) */}
+      <PageHeader 
+        title="Gestión de Torneos" 
+        maxWidth="1000px" 
+        marginBottom="5px"
         tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
       />
 
@@ -145,7 +150,7 @@ export function TorneosTemplate({
                  }}
               />
             ) : (
-                <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
+               <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
             )}
           </FullWidthTab>
         )}
@@ -160,7 +165,8 @@ const ContentGrid = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  gap: 10px;
+  /* Gap reducido para que esté pegadito a los tabs */
+  gap: 5px; 
   transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
   @media ${Device.desktop} { max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")}; }

@@ -8,7 +8,7 @@ import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 
-// IMPORTAMOS EL NUEVO SKELETON
+// Importamos el Skeleton
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
@@ -35,6 +35,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   }, [activeTournament?.id]);
 
   useEffect(() => {
+    // Solo hacemos fetch si NO estamos cargando intencionalmente desde el handler
+    // Esto evita condiciones de carrera, aunque el handler ya limpia el estado.
     if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
       fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
     } else {
@@ -42,9 +44,22 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   }, [currentJornadaIndex, jornadas]);
 
+  // --- SOLUCIÓN DEL PARPADEO ---
+  // Esta función coordina la limpieza de datos ANTES de cambiar el índice visual.
+  const handleChangeJornada = (newIndex) => {
+      // 1. Limpiamos los partidos actuales inmediatamente.
+      // Esto evita que el componente hijo reciba "Jornada 2" con "Partidos de Jornada 1".
+      setCurrentMatches([]); 
+      
+      // 2. Activamos el loading para forzar la aparición del Skeleton.
+      setLoading(true);
+
+      // 3. Finalmente cambiamos el índice, lo que disparará el useEffect.
+      setCurrentJornadaIndex(newIndex);
+  };
+
   const loadTournamentData = async () => {
-      // Indicamos loading al cargar todo inicialmente
-      if (jornadas.length === 0) setLoading(true); 
+      if (jornadas.length === 0) setLoading(true);
       await fetchJornadas();
       await fetchGlobalPendingMatches();
       setLoading(false);
@@ -75,8 +90,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   };
 
   const fetchCurrentJornadaMatches = async (jornadaId) => {
-    // No ponemos setLoading(true) global aquí para no desmontar toda la UI en cambios menores,
-    // pero si jornadas está vacía, el return de abajo manejará el skeleton.
+    // Mantenemos setLoading(true) aquí por seguridad, aunque el handler ya lo activó.
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('matches')
@@ -86,7 +101,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setCurrentMatches(data);
     } catch (e) { 
         console.error(e);
-    } 
+    } finally { 
+        // Solo quitamos el loading cuando la data NUEVA ya llegó
+        setLoading(false); 
+    }
   };
 
   const fetchGlobalPendingMatches = async () => {
@@ -258,6 +276,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             : participatingTeams.length;
 
         if (newConfig.startDate && newConfig.startDate !== activeTournament.start_date) {
+            
             const isFirstConfirmed = jornadas.some(j => j.name === 'Jornada 1' && j.status === 'Confirmada');
             
             if (!isFirstConfirmed) {
@@ -315,12 +334,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     } catch (e) { throw e; }
   };
 
-  // --- RENDERIZADO ---
-
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
   
-  // AQUI OCURRE LA MAGIA DEL SKELETON
-  // Si no hay jornadas cargadas o si estamos en estado loading (ej. guardando o inicializando), mostramos el Skeleton
+  // VERIFICACIÓN DE ESTADO PARA MOSTRAR SKELETON
+  // Si loading es true (activado por handleChangeJornada o fetch), mostramos el Skeleton y DESMONTAMOS el componente real.
   if (jornadas.length === 0 || (loading && !isEditorOpen)) {
       return (
         <TabContainer>
@@ -348,7 +365,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         existingData={editorData} 
       />
 
-      {/* Como manejamos el loading principal arriba con Skeleton, aquí renderizamos el contenido directo */}
        {isPhaseAssignment ? (
           <JornadaPlanificacion 
             key={`plan-${currentJornada.id}-${dataVersion}`} 
@@ -359,7 +375,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             activeTournament={activeTournament} 
             jornadaData={currentJornada}
             onConfirm={handleConfirmJornada} 
-            onChangeJornada={(idx) => setCurrentJornadaIndex(idx)}
+            
+            // USAMOS EL NUEVO HANDLER AQUÍ
+            onChangeJornada={handleChangeJornada}
+            
             totalJornadas={jornadas.length} 
             onMatchUpdate={handleMatchUpdate}
             canConfirm={canConfirm} 
@@ -388,5 +407,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 }
 
 const fadeIn = keyframes` from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } `;
-const TabContainer = styled.div`display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 100vw; box-sizing: border-box; animation: ${fadeIn} 0.5s ease-out;`;
+const TabContainer = styled.div`
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+    width: 100%; 
+    max-width: 100vw; 
+    box-sizing: border-box; 
+    animation: ${fadeIn} 0.5s ease-out;
+    overflow-x: hidden; /* <--- AGREGA ESTO PARA PREVENIR EL DESPLAZAMIENTO LATERAL */
+`;
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;
