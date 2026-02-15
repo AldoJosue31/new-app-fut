@@ -380,9 +380,7 @@ const StyledTable = styled.table`
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  /* Hint para que la tabla se transforme en una capa propia y las animaciones no forcen reflow */
-  transform: translateZ(0);
-  backface-visibility: hidden;
+  /* Eliminado transform y backface-visibility */
 `;
 
 /* -------------------------
@@ -472,10 +470,8 @@ const TrBase = styled.tr`
   cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
-
-  /* Optimización para animaciones: evita que el navegador recalculen layout repetidamente */
-  will-change: transform, opacity;
-  transform: translateZ(0);
+  
+  /* Eliminamos will-change y transform */
 `;
 
 /* Motion wrapper */

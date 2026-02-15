@@ -13,7 +13,7 @@ import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 // Importar los modales
 import MatchSheetModal from "./MatchSheetModal";
-import { PreMatchSheetModal } from "./PreMatchSheetModal"; // <-- IMPORTAR NUEVO MODAL
+import { PreMatchSheetModal } from "./PreMatchSheetModal"; // <-- IMPORTAR NUEVO MODAL (Asegúrate de tener este archivo o comenta esta línea si aún no lo creas)
 
 const getPenaltyScore = (observations) => {
     if (!observations) return null;
@@ -71,6 +71,14 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       }
   };
 
+  // Función manejadora para cuando se guarda la cédula desde el modal
+  const handleSaveSheet = (sheetData) => {
+    console.log("Cédula guardada/actualizada:", sheetData);
+    // Aquí podrías llamar a una función prop (ej. onUpdateMatch) para persistir en BD
+    // Por ahora solo cerramos el modal
+    setShowSheet(false);
+  };
+
   return (
     <>
         <Wrapper 
@@ -91,10 +99,10 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                 <div className="info">
                     {/* EQUIPO LOCAL */}
                     <div className="team local">
-                        <span className="name">{match.local?.name || "Equipo Local"}</span>
+                        <span className="name">{match.homeTeam?.name || match.local?.name || "Equipo Local"}</span>
                         {isConfirmed && match.status === 'Finalizado' && (
                             <ScoreWrapper>
-                                <span className="main-score">{match.goals1}</span>
+                                <span className="main-score">{match.goals1 || match.homeScore || 0}</span>
                                 {penalties && <span className="pen-score">({penalties.local})</span>}
                             </ScoreWrapper>
                         )}
@@ -106,11 +114,11 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                     <div className="team visit">
                         {isConfirmed && match.status === 'Finalizado' && (
                             <ScoreWrapper>
-                                <span className="main-score">{match.goals2}</span>
+                                <span className="main-score">{match.goals2 || match.awayScore || 0}</span>
                                 {penalties && <span className="pen-score">({penalties.visit})</span>}
                             </ScoreWrapper>
                         )}
-                        <span className="name">{match.visitante?.name || "Equipo Visitante"}</span>
+                        <span className="name">{match.awayTeam?.name || match.visitante?.name || "Equipo Visitante"}</span>
                     </div>
                 </div>
 
@@ -177,18 +185,22 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
         </Wrapper>
 
         {/* Renderizar Modal de Cédula Final */}
+        {/* IMPORTANTE: Pasamos el objeto 'match' completo y 'onSaveSheet' para compatibilidad con el nuevo modal */}
         <MatchSheetModal 
             isOpen={showSheet} 
             onClose={() => setShowSheet(false)} 
-            matchId={match.id}
+            match={match}
+            onSaveSheet={handleSaveSheet}
         />
 
         {/* NUEVO: Renderizar Modal de Pre-Cédula (impresión) */}
-        <PreMatchSheetModal 
-            isOpen={showPreSheet}
-            onClose={() => setShowPreSheet(false)}
-            matchId={match.id}
-        />
+        {showPreSheet && (
+             <PreMatchSheetModal 
+                isOpen={showPreSheet}
+                onClose={() => setShowPreSheet(false)}
+                matchId={match.id}
+            />
+        )}
     </>
   );
 });
