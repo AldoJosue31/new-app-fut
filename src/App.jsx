@@ -25,25 +25,18 @@ function AppContent() {
   const { themeStyle } = useThemeStore();
   const { pathname } = useLocation();
 
-  // Obtenemos el usuario del Contexto (Fuente de verdad actual para la sesión)
   const { user, isLoading } = UserAuth();
-  
-  // Obtenemos la función de limpieza del Store de Divisiones
   const { resetStore: resetDivision } = useDivisionStore();
 
   const [loaderDone, setLoaderDone] = useState(!isLoading);
 
-  // --- 1. EFECTO REACTIVO (ORQUESTADOR DE LIMPIEZA) ---
   useEffect(() => {
     if (!isLoading && !user) {
-      // Usuario no logueado o sesión cerrada -> Limpiar Stores
       resetDivision();
-      // Aseguramos limpieza del persist en localStorage
       localStorage.removeItem('division-storage');
     }
   }, [user, isLoading, resetDivision]);
 
-  // --- 2. CONTROL DEL LOADER ---
   useEffect(() => {
     if (isLoading) {
       setLoaderDone(false);
@@ -54,7 +47,6 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // --- 3. RENDERIZADO DE PANTALLA DE CARGA ---
   if (!loaderDone) {
     return (
       <ThemeProvider theme={themeStyle}>
@@ -64,12 +56,10 @@ function AppContent() {
     );
   }
 
-  // --- 4. LÓGICA DE INTERFAZ (SIDEBAR vs FULLSCREEN) ---
-  // AQUI AGREGAMOS LA CONDICIÓN "/share"
   const isStandAlonePage = 
     pathname === "/login" || 
     pathname.startsWith("/invitation") || 
-    pathname.startsWith("/share"); // ✅ Nueva condición para vista pública
+    pathname.startsWith("/share");
 
   return (
     <ThemeProvider theme={themeStyle}>
@@ -80,11 +70,9 @@ function AppContent() {
           <section className="contentSidebar">
             <Sidebar state={sidebarOpen} setState={setSidebarOpen} />
           </section>
-          <section className="contentMenuambur" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <v.iconomenu />
-          </section>
+          
           <section className="contentRouters">
-            <MyRoutes />
+            <MyRoutes sidebarState={sidebarOpen} setSidebarState={setSidebarOpen} />
           </section>
         </Container>
       ) : (
@@ -102,7 +90,6 @@ function App() {
   );
 }
 
-// --- STYLED COMPONENTS ---
 const Container = styled.main`
   display: grid;
   grid-template-columns: 1fr;
@@ -115,21 +102,17 @@ const Container = styled.main`
     display: block;
     background-color: ${({ theme }) => theme.bgtgderecha};
     position: absolute; 
-    z-index: 50;
+    /* CORRECCIÓN: Aumentamos z-index a 2000 para superar al header (que tiene 100) */
+    z-index: 2000;
     height: 100%;
+    
     @media ${Device.tablet} {
        display: initial;
        position: relative;
+       z-index: auto; /* En tablet/desktop vuelve al flujo normal */
     }
   }
 
-  .contentMenuambur {
-    position: absolute; top: 20px; left: 20px; z-index: 1;
-    display: flex; align-items: center; justify-content: center; font-size: 30px; cursor: pointer;
-    background-color: ${({ theme }) => theme.bgtotal}; border-radius: 8px; padding: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    @media ${Device.tablet} { display: none; }
-  }
-  
   .contentRouters { grid-column: 1; width: 100%; }
   
   @media ${Device.tablet} {

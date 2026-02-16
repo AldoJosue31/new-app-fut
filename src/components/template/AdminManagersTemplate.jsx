@@ -1,13 +1,10 @@
 import React from "react";
 import styled from "styled-components";
-
-// --- CORRECCIÓN AQUÍ: Importaciones directas para romper el ciclo ---
 import { ContentContainer } from "../atomos/ContentContainer";
-import { Title } from "../atomos/Title";
+import { PageHeader } from "../moleculas/PageHeader"; 
 import { Toast } from "../atomos/Toast";
 import { Skeleton } from "../atomos/Skeleton";
 import { Btnsave } from "../moleculas/Btnsave";
-// ------------------------------------------------------------------
 
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { v } from "../../styles/variables";
@@ -19,7 +16,7 @@ import { ManagerCreateModal } from "../organismos/adminManagers/ManagerCreateMod
 
 export function AdminManagersTemplate({
   managers,
-  onlineUsers = {},      // <-- ahora lo recibe
+  onlineUsers = {},
   loading,
   form,
   createModalOpen,
@@ -35,7 +32,9 @@ export function AdminManagersTemplate({
   handleChange,
   handleCreate,
   toast,
-  closeToast
+  closeToast,
+  state, 
+  setState 
 }) {
 
   const deleteMessage = deleteModalState.divisionsAffected.length > 0
@@ -43,125 +42,127 @@ export function AdminManagersTemplate({
     : "Esta acción borrará su perfil, sus ligas y torneos permanentemente.";
 
   return (
-    <ContentContainer>
+    <>
       <Toast show={toast.show} message={toast.message} type={toast.type} onClose={closeToast} />
 
-      <HeaderSection>
-        <div className="title-area">
-          <Title>Gestión de Managers</Title>
-          <span className="subtitle">Administra los accesos y roles</span>
-        </div>
-        <div className="actions-area">
-          <Btnsave
-            titulo="Nuevo Manager"
-            bgcolor={v.colorPrincipal}
-            icono={<v.iconoagregar />}
-            funcion={() => setCreateModalOpen(true)}
-          />
-        </div>
-      </HeaderSection>
+      <PageHeader 
+        title="Managers" 
+        marginBottom="0"
+        state={state}
+        setState={setState}
+      >
+          {/* ELIMINADO: Ya no va aquí dentro */}
+      </PageHeader>
 
-      <GridContainer>
-        {/* --- LOADING SKELETONS --- */}
-        {loading && Array.from({ length: 6 }).map((_, i) => (
-           <SkeletonCard key={i}>
-             <Skeleton width="60px" height="60px" radius="50%" />
-             <div className="texts">
-               <Skeleton width="120px" height="20px" radius="4px" />
-               <Skeleton width="180px" height="15px" radius="4px" />
-             </div>
-           </SkeletonCard>
-        ))}
+      <StyledContentContainer>
+        {/* Contenedor principal con posición relativa para anclar el botón */}
+        <MainContainer>
+            
+            {/* BOTÓN FLOTANTE SATÉLITE */}
+            <FloatingBtnWrapper>
+                <Btnsave
+                    titulo="Nuevo Manager"
+                    bgcolor={v.colorPrincipal}
+                    icono={<v.iconoagregar />}
+                    funcion={() => setCreateModalOpen(true)}
+                />
+            </FloatingBtnWrapper>
 
-        {!loading && managers.length === 0 && (
-          <EmptyState>
-            <v.iconoemijivacio size={40}/>
-            <p>No hay managers registrados.</p>
-          </EmptyState>
-        )}
-        
-        {/* --- LISTA DE CARDS --- */}
-        {!loading && managers.map((manager) => (
-          // Le pasamos si está online como prop y también onlineUsers por si el card lo necesita
-          <ManagerCard 
-            key={manager.id} 
-            manager={manager}
-            online={!!onlineUsers[manager.id]}
-            onlineUsers={onlineUsers}
-            onClick={() => openDetailModal(manager)}
-            onDelete={openDeleteModal}
-          />
-        ))}
-      </GridContainer>
+            <GridContainer>
+            {loading && Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={i}>
+                <Skeleton width="60px" height="60px" radius="50%" />
+                <div className="texts">
+                    <Skeleton width="120px" height="20px" radius="4px" />
+                    <Skeleton width="180px" height="15px" radius="4px" />
+                </div>
+                </SkeletonCard>
+            ))}
 
-      {/* --- MODALES --- */}
-      <ManagerDetailModal 
-        isOpen={detailModalOpen}
-        onClose={() => setDetailModalOpen(false)}
-        manager={selectedManager}
-        onlineUsers={onlineUsers}   // <-- importante: pasamos aquí también
-      />
+            {!loading && managers.length === 0 && (
+                <EmptyState>
+                <v.iconoemijivacio size={40}/>
+                <p>No hay managers registrados.</p>
+                </EmptyState>
+            )}
+            
+            {!loading && managers.map((manager) => (
+                <ManagerCard 
+                key={manager.id} 
+                manager={manager}
+                online={!!onlineUsers[manager.id]}
+                onlineUsers={onlineUsers}
+                onClick={() => openDetailModal(manager)}
+                onDelete={openDeleteModal}
+                />
+            ))}
+            </GridContainer>
+        </MainContainer>
 
-      <ManagerCreateModal 
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        form={form}
-        handleChange={handleChange}
-        handleCreate={handleCreate}
-        loading={loading}
-      />
+        <ManagerDetailModal 
+          isOpen={detailModalOpen}
+          onClose={() => setDetailModalOpen(false)}
+          manager={selectedManager}
+          onlineUsers={onlineUsers}
+        />
 
-      <ConfirmModal 
-        isOpen={deleteModalState.isOpen} 
-        onClose={() => setDeleteModalState({ ...deleteModalState, isOpen: false })}
-        onConfirm={handleConfirmDelete}
-        title="¿Eliminar Usuario?"
-        message="Se eliminará el manager y sus datos."
-        subMessage={deleteMessage}
-        confirmText="Eliminar"
-        confirmColor={v.rojo}
-      />
-    </ContentContainer>
+        <ManagerCreateModal 
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          form={form}
+          handleChange={handleChange}
+          handleCreate={handleCreate}
+          loading={loading}
+        />
+
+        <ConfirmModal 
+          isOpen={deleteModalState.isOpen} 
+          onClose={() => setDeleteModalState({ ...deleteModalState, isOpen: false })}
+          onConfirm={handleConfirmDelete}
+          title="¿Eliminar Usuario?"
+          message="Se eliminará el manager y sus datos."
+          subMessage={deleteMessage}
+          confirmText="Eliminar"
+          confirmColor={v.rojo}
+        />
+      </StyledContentContainer>
+    </>
   );
 }
 
-// --- STYLED COMPONENTS DEL TEMPLATE ---
-// (Mantenemos los styled-components que ya tenías)
+const StyledContentContainer = styled(ContentContainer)`
+  && {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+`;
 
-const HeaderSection = styled.div`
-  display: flex; 
-  flex-direction: column;
-  gap: ${v.mdSpacing};
-  margin-bottom: ${v.lgSpacing};
+const MainContainer = styled.div`
   width: 100%;
+  margin-top: 60px; /* Espacio superior igual que en Equipos para que no choque con el Header */
+  position: relative; /* Necesario para que el botón absoluto se posicione respecto a esto */
+`;
 
-  .title-area {
-    display: flex;
-    flex-direction: column;
-    .subtitle {
-      color: ${({ theme }) => theme.text};
-      opacity: 0.7;
-      font-size: 14px;
-    }
-  }
+const FloatingBtnWrapper = styled.div`
+  position: absolute;
+  top: -50px; /* Lo subimos para que quede en el hueco entre el header y el contenido */
+  right: 0;
+  z-index: 10;
+  
+  /* Ajustes para el componente Btnsave interno si es necesario */
+  & > button {
+    margin: 0 !important; /* Reseteamos margenes que pueda traer el componente */
+    white-space: nowrap;
 
-  .actions-area {
-    width: 100%;
-    button {
-      width: 100%;
-    }
-  }
-
-  @media ${Device.tablet} {
-    flex-direction: row; 
-    justify-content: space-between; 
-    align-items: center;
-
-    .actions-area {
-      width: auto;
-      button {
-        width: auto;
-      }
+    /* En móvil, ajustamos para que sea solo icono o más compacto */
+    @media (max-width: 768px) {
+        padding: 8px 16px !important;
+        font-size: 13px !important;
+        
+        /* Si quieres ocultar texto en móvil como hicimos antes, descomenta esto: */
+        /* span { display: inline-block !important; font-size: 13px; }
+        svg { margin-right: 6px; } 
+        */
     }
   }
 `;
@@ -172,7 +173,8 @@ const GridContainer = styled.div`
   gap: ${v.mdSpacing};
   width: 100%;
   padding-bottom: ${v.xlSpacing};
-
+  /* Eliminamos margin-top extra aquí porque ya lo maneja MainContainer */
+  
   @media ${Device.tablet} {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: ${v.lgSpacing};

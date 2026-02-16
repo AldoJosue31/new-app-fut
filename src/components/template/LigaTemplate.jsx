@@ -15,7 +15,8 @@ export function LigaTemplate({
    division, season, loading, 
    leagueData, referees = [], allDivisions = [],
    onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
-   onAddReferee, onEditReferee, onDeleteReferee
+   onAddReferee, onEditReferee, onDeleteReferee,
+   state, setState
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -45,10 +46,13 @@ export function LigaTemplate({
   }
 
   return (
-    <ContentContainer>
+    <>
       <PageHeader 
         title="Mi Liga" 
-        maxWidth="1000px" // Alineación consistente
+        maxWidth="1000px" 
+        marginBottom="0"
+        state={state}
+        setState={setState}
         tabs={
             <TabsNavigation 
                 tabs={tabList} 
@@ -58,19 +62,34 @@ export function LigaTemplate({
         }
       />
 
-      <ContentGrid>
-        {activeTab === "general" && (
-            <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />
-        )}
-        {activeTab === "divisions" && (
-            <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />
-        )}
-        {activeTab === "referees" && (
-            <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />
-        )}
-      </ContentGrid>
-    </ContentContainer>
+      <StyledContentContainer>
+        <ContentGrid>
+            {activeTab === "general" && (
+                <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />
+            )}
+            {activeTab === "divisions" && (
+                <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />
+            )}
+            {activeTab === "referees" && (
+                <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />
+            )}
+        </ContentGrid>
+      </StyledContentContainer>
+    </>
   );
 }
 
-const ContentGrid = styled.div` display: flex; justify-content: center; width: 100%; gap: 20px; `;
+const StyledContentContainer = styled(ContentContainer)`
+  && {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+`;
+
+const ContentGrid = styled.div` 
+  display: flex; 
+  justify-content: center; 
+  width: 100%; 
+  gap: 20px; 
+  margin-top: 20px;
+`;

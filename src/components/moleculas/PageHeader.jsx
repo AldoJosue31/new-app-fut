@@ -1,52 +1,141 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Title } from '../atomos/Title'; 
+import { Title } from '../atomos/Title';
+import { v } from '../../styles/variables';
 
 const HeaderContainer = styled.div`
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* CAMBIO: Margen dinámico. Si no se especifica, usa 30px (estándar). */
   margin-bottom: ${(props) => props.$marginBottom || '30px'};
   transition: margin-bottom 0.3s ease;
+
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: ${({ theme }) => theme.bgtotal || '#fff'};
+  border-bottom: 1px solid ${({ theme }) => theme.bg3 || '#eee'};
+  
+  /* CAMBIO: Padding inferior a 0 para pegar los tabs al borde */
+  padding: 10px 20px 0 20px;
+
+  @media (max-width: 768px) {
+    /* En móvil también quitamos el padding inferior */
+    padding: 10px 15px 0 15px; 
+  }
 `;
 
-// Nuevo contenedor interno para alinear todo al centro con el mismo ancho
 const ContentWrapper = styled.div`
   width: 100%;
   max-width: ${(props) => props.$maxWidth || '100%'};
-  margin: 0 auto; /* Centrado horizontal */
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
+  /* Aseguramos que el wrapper ocupe altura completa si es necesario */
+  padding-bottom: 0;
 `;
 
 const TopRow = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  justify-content: space-between;
+  width: 100%;
+  position: relative;
+  min-height: 40px;
+  /* Añadimos un pequeño margen bottom si NO hay tabs, pero si hay tabs, el gap del wrapper lo maneja */
 `;
 
-const ActionsContainer = styled.div`
+const LeftArea = styled.div`
   display: flex;
-  gap: 10px;
   align-items: center;
+  z-index: 2;
+`;
+
+const CenterArea = styled.div`
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: auto;
+  max-width: 60%;
+  z-index: 1;
+  
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  & > h1, & > div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+    
+    @media (max-width: 768px) {
+      font-size: 18px;
+    }
+  }
+`;
+
+const RightArea = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 2;
+  margin-left: auto;
+`;
+
+const MenuButton = styled.div`
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  margin-left: -8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  color: ${({ theme }) => theme.text};
+
+  &:hover {
+    background-color: ${({ theme }) => theme.bg3 || 'rgba(0,0,0,0.05)'};
+  }
+
+  svg {
+    font-size: 24px;
+  }
+
+  @media (min-width: 768px) { 
+    display: none; 
+  }
 `;
 
 const TabsContainer = styled.div`
   width: 100%;
-  margin-top: 10px;
+  margin-top: 0px;
 `;
 
-export const PageHeader = ({ title, children, tabs, maxWidth, marginBottom }) => {
+export const PageHeader = ({ title, children, tabs, maxWidth, marginBottom, state, setState }) => {
   return (
     <HeaderContainer $marginBottom={marginBottom}>
       <ContentWrapper $maxWidth={maxWidth}>
         <TopRow>
-          <Title>{title}</Title>
-          {children && <ActionsContainer>{children}</ActionsContainer>}
+          <LeftArea>
+            {setState && (
+              <MenuButton onClick={() => setState(!state)}>
+                <v.iconomenu />
+              </MenuButton>
+            )}
+          </LeftArea>
+
+          <CenterArea>
+            <Title>{title}</Title>
+          </CenterArea>
+
+          {children && (
+            <RightArea>
+              {children}
+            </RightArea>
+          )}
         </TopRow>
         
         {tabs && (
