@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import { useParams, useNavigate, useLocation } from "react-router-dom"; // ✅ IMPORTANTE: Hooks de Router
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
 import { BtnNormal } from "../moleculas/BtnNormal";
@@ -21,34 +21,23 @@ import { IoMdFootball } from "react-icons/io";
 export const EquiposTemplate = ({ 
   equipos, division, loading, isUploading, form, preview, file,
   isFormOpen, setIsFormOpen, teamToEdit, 
-  // isDetailOpen, setIsDetailOpen, teamToView, // ❌ YA NO USAMOS ESTOS PROPS DE ESTADO
   isDeleteModalOpen, setIsDeleteModalOpen,
   onFormChange, onFileChange, onClearImage, onGenerateLogo,
   onRemoveBg, onSave, onDelete, onCreate, onEdit, 
-  // onView, // ❌ YA NO USAMOS EL HANDLER DE VISTA QUE VIENE DE FUERA
-  onConfirmDelete,
-  tabs,
-  participatingIds = [] 
+  onConfirmDelete, tabs, participatingIds = [],
+  state, setState
 }) => {
-    // ✅ 1. LEER URL Y NAVEGACIÓN
     const { teamId } = useParams();
     const navigate = useNavigate();
-
     const location = useLocation();
-    const initialView = location.state?.initialView; // 'stats' o undefined
-
-    // ✅ 2. BUSCAR EQUIPO BASADO EN URL
-    // Si hay un teamId en la URL y los equipos ya cargaron, buscamos el objeto team
+    const initialView = location.state?.initialView;
     const teamFromUrl = equipos?.find(t => String(t.id) === String(teamId));
     
-    // ✅ 3. HANDLERS DE NAVEGACIÓN
     const handleViewTeam = (team) => {
-        // Al hacer click en la card, cambiamos la URL
         navigate(`/equipos/${team.id}`);
     };
 
     const handleCloseDetail = () => {
-        // Al cerrar el modal, volvemos a la ruta base
         navigate('/equipos');
     };
 
@@ -81,96 +70,145 @@ export const EquiposTemplate = ({
 
     useEffect(() => { if (isFormOpen) setActiveTab("info"); }, [isFormOpen]);
 
-  const VIEW_MAX_WIDTH = "1400px";
+    const VIEW_MAX_WIDTH = "1400px";
 
   return (
-    <ContentContainer>
-      <PageHeader title="Gestión de Equipos" tabs={tabs} maxWidth={VIEW_MAX_WIDTH}>
-         <BtnGreen 
-            onClick={onCreate} 
-            disabled={!division} 
-            icono={<IoMdFootball/>}
-         >
-            Crear Equipo
-         </BtnGreen>
-      </PageHeader>
-      
-      <MainContainer $maxWidth={VIEW_MAX_WIDTH}>
-        <Card width="100%" maxWidth="100%">
-          <div style={{ width: '100%' }}>
-              <Grid>
-              {loading ? (
-                  Array.from({ length: 8 }).map((_, i) => <TeamCardSkeleton key={i} />)
-                  ) : (
-                      <>
-                          {Array.isArray(equipos) && equipos.map((team) => {
-                              const isParticipating = participatingIds.some(pid => String(pid) === String(team.id));
-
-                              return (
-                                <TeamCard 
-                                  key={team.id} 
-                                  team={team} 
-                                  onEdit={onEdit} 
-                                  onView={handleViewTeam} // ✅ Pasamos nuestro nuevo handler
-                                  onDelete={onDelete} 
-                                  onTransfer={(t) => { setTeamToTransfer(t); setIsTransferModalOpen(true); }}
-                                  isParticipating={isParticipating} 
-                                />
-                              );
-                          })}
-                          {(!equipos || equipos.length === 0) && (
-                            <div style={{ gridColumn: "1 / -1", width: "100%" }}>
-                              <EmptyState 
-                                  icon={<IoMdFootball size={48} />} 
-                                  title="Sin Equipos" 
-                                  description={division ? `No hay equipos en ${division.name}` : "Selecciona una división"} 
-                                  actionComponent={<BtnNormal onClick={onCreate} disabled={!division}>Crear Primer Equipo</BtnNormal>} 
-                              />
-                            </div>
-                          )}
-                      </>
-                  )}
-              </Grid>
-          </div>
-        </Card>
-      </MainContainer>
-
-      <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={teamToEdit ? `Editar: ${teamToEdit.name}` : "Nuevo Equipo"} closeOnOverlayClick={false}>
-        {teamToEdit && (<TabsWrapper><TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} /></TabsWrapper>)}
-        {activeTab === "info" && (
-            <TabContent>
-              <TeamForm form={form} onFormChange={onFormChange} onSave={handleSaveWrapper} isUploading={isUploading}
-                preview={preview} file={file} onFileChange={onFileChange} onClearImage={onClearImage}
-                onGenerateLogo={onGenerateLogo} onRemoveBg={onRemoveBg} showToast={showToast} teamToEdit={teamToEdit}
-              />
-            </TabContent>
-        )}
-        {activeTab === "players" && teamToEdit && (<TabContent><PlayerManager teamId={teamToEdit.id} showToast={showToast} /></TabContent>)}
-      </Modal>
-
-      {/* ✅ MODAL CONECTADO A LA URL */}
-<TeamDetailModal 
-        isOpen={!!teamFromUrl}  
-        onClose={handleCloseDetail} 
-        team={teamFromUrl} 
-        division={division}
-        initialView={initialView}
+    <>
+      <PageHeader 
+        title="Equipos" 
+        tabs={tabs} 
+        maxWidth={VIEW_MAX_WIDTH}
+        marginBottom="0"
+        state={state}
+        setState={setState}
       />
+      
+      <StyledContentContainer>
+        <MainContainer $maxWidth={VIEW_MAX_WIDTH}>
+          
+          <FloatingBtnWrapper>
+            <BtnGreen 
+                onClick={onCreate} 
+                disabled={!division} 
+                icono={<IoMdFootball size={18}/>}
+            >
+                Crear Equipo
+            </BtnGreen>
+          </FloatingBtnWrapper>
 
-      <TeamTransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} team={teamToTransfer} divisiones={divisiones} currentDivision={division} onConfirm={handleTransferSubmit} />
-      <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={() => onConfirmDelete().then(() => showToast("Eliminado", "success"))} title="Eliminar Equipo" message="¿Deseas eliminar este equipo?" />
-      <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
-    </ContentContainer>
+          <Card width="100%" maxWidth="100%">
+            <div style={{ width: '100%' }}>
+                <Grid>
+                {loading ? (
+                    Array.from({ length: 8 }).map((_, i) => <TeamCardSkeleton key={i} />)
+                    ) : (
+                        <>
+                            {Array.isArray(equipos) && equipos.map((team) => {
+                                const isParticipating = participatingIds.some(pid => String(pid) === String(team.id));
+                                return (
+                                  <TeamCard 
+                                    key={team.id} 
+                                    team={team} 
+                                    onEdit={onEdit} 
+                                    onView={handleViewTeam} 
+                                    onDelete={onDelete} 
+                                    onTransfer={(t) => { setTeamToTransfer(t); setIsTransferModalOpen(true); }}
+                                    isParticipating={isParticipating} 
+                                  />
+                                );
+                            })}
+                            {(!equipos || equipos.length === 0) && (
+                              <div style={{ gridColumn: "1 / -1", width: "100%" }}>
+                                <EmptyState 
+                                    icon={<IoMdFootball size={48} />} 
+                                    title="Sin Equipos" 
+                                    description={division ? `No hay equipos en ${division.name}` : "Selecciona una división"} 
+                                    actionComponent={<BtnNormal onClick={onCreate} disabled={!division}>Crear Primer Equipo</BtnNormal>} 
+                                />
+                              </div>
+                            )}
+                        </>
+                    )}
+                </Grid>
+            </div>
+          </Card>
+        </MainContainer>
+
+        <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={teamToEdit ? `Editar: ${teamToEdit.name}` : "Nuevo Equipo"} closeOnOverlayClick={false}>
+          {teamToEdit && (<TabsWrapper><TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} /></TabsWrapper>)}
+          {activeTab === "info" && (
+              <TabContent>
+                <TeamForm form={form} onFormChange={onFormChange} onSave={handleSaveWrapper} isUploading={isUploading}
+                  preview={preview} file={file} onFileChange={onFileChange} onClearImage={onClearImage}
+                  onGenerateLogo={onGenerateLogo} onRemoveBg={onRemoveBg} showToast={showToast} teamToEdit={teamToEdit}
+                />
+              </TabContent>
+          )}
+          {activeTab === "players" && teamToEdit && (<TabContent><PlayerManager teamId={teamToEdit.id} showToast={showToast} /></TabContent>)}
+        </Modal>
+
+        <TeamDetailModal 
+          isOpen={!!teamFromUrl}  
+          onClose={handleCloseDetail} 
+          team={teamFromUrl} 
+          division={division}
+          initialView={initialView}
+        />
+
+        <TeamTransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} team={teamToTransfer} divisiones={divisiones} currentDivision={division} onConfirm={handleTransferSubmit} />
+        <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={() => onConfirmDelete().then(() => showToast("Eliminado", "success"))} title="Eliminar Equipo" message="¿Deseas eliminar este equipo?" />
+        <Toast show={toast.show} message={toast.msg} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
+      </StyledContentContainer>
+    </>
   );
 };
 
-// ... (El resto de tus Styled Components se mantienen igual)
+const StyledContentContainer = styled(ContentContainer)`
+  && {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+`;
+
 const MainContainer = styled.div`
   width: 100%;
   max-width: ${(props) => props.$maxWidth || '1400px'};
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  margin-top: 60px; /* Espacio para el botón flotante */
+  position: relative;
+`;
+
+const FloatingBtnWrapper = styled.div`
+  position: absolute;
+  top: -50px;
+  right: 0;
+  z-index: 10;
+  
+  & > button {
+    margin: 0 !important;
+    width: auto !important;
+    white-space: nowrap;
+    /* Ajuste para móvil: Aseguramos que se vea el texto */
+    @media (max-width: 768px) {
+        /* Eliminamos las restricciones de ancho/alto fijo */
+        width: auto !important; 
+        height: auto !important;
+        padding: 8px 16px !important;
+        
+        /* Aseguramos que el texto (span) sea visible */
+        span {
+            display: inline-block !important;
+            font-size: 13px; /* Un poco más pequeño para que quepa bien */
+        }
+        
+        /* Ajuste del icono */
+        svg {
+            margin-right: 6px; /* Separación entre icono y texto */
+        }
+    }
+  }
 `;
 
 const Grid = styled.div`display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; width: 100%;`;

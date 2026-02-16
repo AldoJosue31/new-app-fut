@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { AdminManagersTemplate } from "../components/template/AdminManagersTemplate";
 import { supabase } from "../supabase/supabase.config";
 
-export function AdminManagers() {
+export function AdminManagers({ state, setState }) { // <--- Recibimos props
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState({});
@@ -194,6 +194,10 @@ export function AdminManagers() {
 
   return (
     <AdminManagersTemplate
+      // Pasamos control del Sidebar
+      state={state}
+      setState={setState}
+
       managers={managers}
       onlineUsers={onlineUsers}
       loading={loading}

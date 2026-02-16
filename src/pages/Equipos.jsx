@@ -3,7 +3,7 @@ import { preloadBackgroundRemoval } from "../utils/imageProcessor";
 import { EquiposTemplate } from "../components/template/EquiposTemplate";
 import { useEquiposLogic } from "../hooks/pages/useEquiposLogic";
 
-export function Equipos() {
+export function Equipos({ state, setState }) { // <--- Recibimos props
   // 1. Optimización: Precargamos el modelo de IA al entrar a la página
   useEffect(() => {
     preloadBackgroundRemoval();
@@ -14,13 +14,17 @@ export function Equipos() {
 
   return (
     <EquiposTemplate 
+      // Pasamos control del Sidebar
+      state={state}
+      setState={setState}
+
       {...logic}
       // --- DATOS ---
       equipos={data.equipos}
       division={data.selectedDivision}
       loading={data.loading}
       isUploading={data.uploading}
-      participatingIds={data.participatingIds} // <--- ¡AQUÍ ESTÁ LA CLAVE! Sin esto no se ve la insignia
+      participatingIds={data.participatingIds} // <--- ¡AQUÍ ESTÁ LA CLAVE!
       
       // --- FORMULARIO E IMÁGENES ---
       form={form.data}

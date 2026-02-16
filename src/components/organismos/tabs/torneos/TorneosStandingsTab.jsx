@@ -1,11 +1,11 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../../../supabase/supabase.config'; // Asegúrate de importar supabase
+import { supabase } from '../../../../supabase/supabase.config'; 
 import { v } from '../../../../styles/variables';
 import { Device } from '../../../../styles/breakpoints';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
-import { BiShareAlt, BiCheck, BiLockAlt, BiWorld } from "react-icons/bi";
+import { BiShareAlt, BiCheck } from "react-icons/bi"; // Eliminé iconos no usados si no los necesitas
 import { motion } from 'framer-motion';
 
 export const TorneosStandingsTab = ({
@@ -20,7 +20,6 @@ export const TorneosStandingsTab = ({
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   
-  // Estado local para el switch, inicializado con el valor del torneo
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
 
@@ -30,7 +29,6 @@ export const TorneosStandingsTab = ({
     }
   }, []);
 
-  // Sincronizar estado si cambia la prop torneo
   useEffect(() => {
     setIsPublicEnabled(torneo?.is_public || false);
   }, [torneo?.is_public]);
@@ -85,7 +83,6 @@ export const TorneosStandingsTab = ({
     return tablaGeneral.some(team => team.logo && team.logo.trim() !== '');
   }, [tablaGeneral]);
 
-  // --- LÓGICA DEL TOGGLE ---
   const handleTogglePublic = async () => {
     if (updating) return;
     setUpdating(true);
@@ -100,7 +97,6 @@ export const TorneosStandingsTab = ({
         if (error) throw error;
         
         setIsPublicEnabled(newState);
-        // Opcional: Llamar a onRefresh si quieres actualizar todo el árbol
         if (onRefresh) onRefresh(); 
         
     } catch (error) {
@@ -157,11 +153,12 @@ export const TorneosStandingsTab = ({
                 </span>
             </ToggleContainer>
 
-            {/* BOTÓN DE COMPARTIR (Solo visible si está activo) */}
+            {/* BOTÓN DE COMPARTIR MODIFICADO */}
             {isPublicEnabled && (
                 <ShareButton onClick={handleShare} $copied={copied}>
-                    {copied ? <BiCheck /> : <BiShareAlt />}
-                    {copied ? "Link Copiado" : "Copiar Enlace"}
+                    {copied ? <BiCheck size={20}/> : <BiShareAlt size={20}/>}
+                    {/* Envolvemos el texto en span para ocultarlo en móvil */}
+                    <span>{copied ? "Link Copiado" : "Copiar Enlace"}</span>
                 </ShareButton>
             )}
         </ControlPanel>
@@ -170,84 +167,74 @@ export const TorneosStandingsTab = ({
       <TableCard>
         <TableScrollWrapper $height="auto">
           <StyledTable>
-<thead>
-  <tr>
-    <Th>Equipo</Th>
-    <Th className="stat-col">PJ</Th>
+            <thead>
+              <tr>
+                <Th>Equipo</Th>
+                <Th className="stat-col">PJ</Th>
+                <Th className="stat-col">G</Th>
+                <Th className="stat-col">E</Th>
+                <Th className="stat-col">P</Th>
+                <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
+                <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
+                <Th className="stat-col">DG</Th>
+                <Th className="stat-col">PTS</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {tablaGeneral.map((fila, index) => {
+                const status = getZoneStatus(index, tablaGeneral.length);
+                const zoneColor = status?.color;
+                const RowComponent = isPublic ? MotionTr : Tr;
 
-    {/* Mostrar G/E/P siempre */}
-    <Th className="stat-col">G</Th>
-    <Th className="stat-col">E</Th>
-    <Th className="stat-col">P</Th>
+                return (
+                  <RowComponent
+                    key={fila.id}
+                    $isPublic={isPublic}
+                    onDoubleClick={() => {
+                        if (!isPublic) {
+                            navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
+                        }
+                    }}
+                    title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
+                    variants={isPublic ? rowVariants : {}}
+                    initial={isPublic ? "hidden" : undefined}
+                    animate={isPublic ? "visible" : undefined}
+                    custom={index}
+                  >
+                    <Td className="team-col" $zoneColor={zoneColor}>
+                      <TeamNameCell>
+                        <span className="pos">{index + 1}</span>
+                        {hasAnyLogo ? (
+                           <img
+                             src={fila.logo || v.logoGenerico}
+                             alt={fila.nombre}
+                             onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
+                           />
+                        ) : null}
+                        <span className="team-name">{fila.nombre}</span>
+                      </TeamNameCell>
+                    </Td>
 
-    {/* Ocultar GF/GC solo en pantallas muy pequeñas */}
-    <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
-    <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
-
-    <Th className="stat-col">DG</Th>
-    <Th className="stat-col">PTS</Th>
-  </tr>
-</thead>
-<tbody>
-  {tablaGeneral.map((fila, index) => {
-    const status = getZoneStatus(index, tablaGeneral.length);
-    const zoneColor = status?.color;
-    const RowComponent = isPublic ? MotionTr : Tr;
-
-    return (
-      <RowComponent
-        key={fila.id}
-        $isPublic={isPublic}
-        onDoubleClick={() => {
-            if (!isPublic) {
-                navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
-            }
-        }}
-        title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
-        variants={isPublic ? rowVariants : {}}
-        initial={isPublic ? "hidden" : undefined}
-        animate={isPublic ? "visible" : undefined}
-        custom={index}
-      >
-        <Td className="team-col" $zoneColor={zoneColor}>
-          <TeamNameCell>
-            <span className="pos">{index + 1}</span>
-            {hasAnyLogo ? (
-               <img
-                 src={fila.logo || v.logoGenerico}
-                 alt={fila.nombre}
-                 onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
-               />
-            ) : null}
-            <span className="team-name">{fila.nombre}</span>
-          </TeamNameCell>
-        </Td>
-
-        <Td className="stat-col" style={{ fontWeight: 'bold', color: v.text }}>{fila.pj}</Td>
-
-        {/* Mostrar G/E/P siempre */}
-        <Td className="stat-col">{fila.g}</Td>
-        <Td className="stat-col">{fila.e}</Td>
-        <Td className="stat-col">{fila.p}</Td>
-
-        {/* GF/GC: usar utilidad que oculta en pantallas muy pequeñas */}
-        <TdHideOnMobile className="stat-col">{fila.gf}</TdHideOnMobile>
-        <TdHideOnMobile className="stat-col">{fila.gc}</TdHideOnMobile>
-
-        <Td className="stat-col" style={{
-            color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
-            fontWeight: 'bold'
-        }}>
-            {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
-        </Td>
-        <Td className="stat-col points-cell">{fila.pts}</Td>
-      </RowComponent>
-    );
-  })}
-  {tablaGeneral.length === 0 && (
-    <tr><td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>No hay datos disponibles</td></tr>
-  )}
-</tbody>
+                    <Td className="stat-col" style={{ fontWeight: 'bold', color: v.text }}>{fila.pj}</Td>
+                    <Td className="stat-col">{fila.g}</Td>
+                    <Td className="stat-col">{fila.e}</Td>
+                    <Td className="stat-col">{fila.p}</Td>
+                    <TdHideOnMobile className="stat-col">{fila.gf}</TdHideOnMobile>
+                    <TdHideOnMobile className="stat-col">{fila.gc}</TdHideOnMobile>
+                    <Td className="stat-col" style={{
+                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
+                        fontWeight: 'bold'
+                    }}>
+                        {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
+                    </Td>
+                    <Td className="stat-col points-cell">{fila.pts}</Td>
+                  </RowComponent>
+                );
+              })}
+              {tablaGeneral.length === 0 && (
+                <tr><td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>No hay datos disponibles</td></tr>
+              )}
+            </tbody>
           </StyledTable>
         </TableScrollWrapper>
       </TableCard>
@@ -267,6 +254,9 @@ export const TorneosStandingsTab = ({
     </div>
   );
 };
+
+// --- STYLES ---
+
 const ControlPanel = styled.div`
   display: flex;
   justify-content: space-between;
@@ -279,7 +269,7 @@ const ControlPanel = styled.div`
   border-radius: 12px;
   border: 1px solid ${({ theme }) => theme.color2};
   box-shadow: ${v.boxshadowGray};
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Cambio: Evita que se rompa la línea */
   gap: 10px;
 `;
 
@@ -317,9 +307,11 @@ const ToggleContainer = styled.div`
         font-size: 0.85rem;
         font-weight: 600;
         color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'};
+        /* En móvil podemos acortar el texto del label si quieres, pero por ahora lo dejamos */
     }
 `;
 
+// --- BOTÓN DE COMPARTIR MODIFICADO ---
 const ShareButton = styled.button`
   display: flex;
   align-items: center;
@@ -333,17 +325,29 @@ const ShareButton = styled.button`
   font-size: 0.85rem;
   font-weight: 600;
   transition: all 0.3s ease;
+  white-space: nowrap;
   
   &:hover {
     transform: translateY(-2px);
     background-color: ${({ $copied, theme }) => $copied ? v.verde : theme.bg3};
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   }
+
+  /* MEDIA QUERY PARA MÓVIL (Menos de 768px) */
+  @media (max-width: 768px) {
+    padding: 0;           /* Quitamos padding */
+    width: 36px;          /* Ancho fijo */
+    height: 36px;         /* Alto fijo */
+    justify-content: center; /* Centrar icono */
+    border-radius: 50%;   /* Hacerlo circular */
+    
+    /* Ocultamos el texto */
+    span {
+        display: none;
+    }
+  }
 `;
 
-/* -------------------------
-   CONTENEDOR DE LA TABLA
-   ------------------------- */
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg};
   border-radius: 16px;
@@ -357,35 +361,21 @@ const TableCard = styled.div`
   align-self: center;
 `;
 
-/* -------------------------
-   SCROLL WRAPPER (mejoras)
-   - reservamos gutter para evitar reflow cuando aparece scrollbar
-   - soporte smooth/kinetic scrolling en iOS
-   ------------------------- */
 const TableScrollWrapper = styled(ContainerScroll)`
   max-height: 600px;
   overflow-y: auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  /* Evita el cambio de layout cuando aparece/desaparece la barra de scroll */
   scrollbar-gutter: stable;
-  /* Pequeño padding derecho para que el thumb no tape contenido al hacer scroll */
   padding-right: 6px;
 `;
 
-/* -------------------------
-   TABLA (forzar capa de composición)
-   ------------------------- */
 const StyledTable = styled.table`
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  /* Eliminado transform y backface-visibility */
 `;
 
-/* -------------------------
-   CABECERAS
-   ------------------------- */
 const Th = styled.th`
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
@@ -418,9 +408,6 @@ const Th = styled.th`
   }
 `;
 
-/* -------------------------
-   CELDAS
-   ------------------------- */
 const Td = styled.td`
   padding: 6px 4px;
   text-align: center;
@@ -461,48 +448,29 @@ const Td = styled.td`
   }
 `;
 
-/* -------------------------
-   FILAS - base optimizada
-   - will-change para avisar al navegador qué propiedades animaremos
-   - transform: translateZ(0) para promover a capa de composición
-   ------------------------- */
 const TrBase = styled.tr`
   cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
-  
-  /* Eliminamos will-change y transform */
 `;
 
-/* Motion wrapper */
 const Tr = TrBase;
 const MotionTr = motion(TrBase);
 
-/* -------------------------
-   UTILS: ocultar en mobile
-   ------------------------- */
 const TdHideOnMobile = styled(Td)`
   display: table-cell;
-
   @media (max-width: 420px) {
-    /* aquí asumimos que solo algunas columnas (p. ej. GF/GC) usarán este componente
-       si quieres mostrar G/E/P asegúrate de no usar este componente para ellas */
     display: none;
   }
 `;
 
 const ThHideOnMobile = styled(Th)`
   display: table-cell;
-
   @media (max-width: 420px) {
     display: none;
   }
 `;
 
-
-/* -------------------------
-   CELDA NOMBRE + LOGO
-   ------------------------- */
 const TeamNameCell = styled.div`
   display: flex; align-items: center; gap: 6px;
   @media ${Device.tablet} { gap: 10px; }
@@ -523,9 +491,6 @@ const TeamNameCell = styled.div`
   }
 `;
 
-/* -------------------------
-   LEYENDA / BADGE
-   ------------------------- */
 const LeyendaContainer = styled.div`
     display: flex; 
     gap: 8px; 

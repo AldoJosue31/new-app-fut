@@ -1,6 +1,5 @@
 import React, { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-// Tus importaciones normales
 import { 
   Home, 
   Login, 
@@ -15,14 +14,12 @@ import { UserAuth } from "../context/AuthContent";
 import { ROLES } from "../utils/constants";
 import { PublicStandings } from '../pages/PublicStandings';
 
-// --- 1. RECUPERAMOS EL LAZY LOADING DEL ADMIN ---
 const AdminManagersLazy = React.lazy(() => 
   import("../pages/AdminManagers").then(module => {
     return { default: module.AdminManagers || module.default };
   })
 );
 
-// --- 2. PROTECTED ROUTE MEJORADO (Con Roles) ---
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, profile, isLoading } = UserAuth();
 
@@ -36,37 +33,94 @@ function ProtectedRoute({ children, allowedRoles }) {
   return children;
 }
 
-export function MyRoutes() {
+// --- RECIBIMOS LAS PROPS DEL SIDEBAR AQUÍ ---
+export function MyRoutes({ sidebarState, setSidebarState }) {
   const { user } = UserAuth();
 
   return (
     <Routes>
-      {/* RUTA PÚBLICA PARA VER LA TABLA */}
       <Route path="/share/standings/:torneoId" element={<PublicStandings />} />
-
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
 
-      {/* --- RUTAS PROTEGIDAS GENERALES --- */}
-      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-      <Route path="/dashboard" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+      {/* --- RUTAS PROTEGIDAS --- */}
       
-      <Route path="/partidos" element={<ProtectedRoute><Partidos /></ProtectedRoute>} />
+      {/* 1. HOME: Agregamos props */}
+      <Route 
+        path="/" 
+        element={
+          <ProtectedRoute>
+            <Home state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Home state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* 2. PARTIDOS: Agregamos props */}
+      <Route 
+        path="/partidos" 
+        element={
+          <ProtectedRoute>
+            <Partidos state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* 3. EQUIPOS: Agregamos props */}
+      <Route 
+        path="/equipos/:teamId?" 
+        element={
+          <ProtectedRoute>
+            <Equipos state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
       
-      {/* ✅ CAMBIO AQUÍ: Agregamos /:teamId? para permitir sub-navegación al modal */}
-      <Route path="/equipos/:teamId?" element={<ProtectedRoute><Equipos /></ProtectedRoute>} />
+      {/* 4. TORNEOS (Ya estaba, lo mantenemos) */}
+      <Route 
+        path="/torneos/:tab?" 
+        element={
+          <ProtectedRoute>
+            <Torneos state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
       
-      <Route path="/torneos/:tab?" element={<ProtectedRoute><Torneos /></ProtectedRoute>} />
-      <Route path="/liga/:tab?" element={<ProtectedRoute><Liga /></ProtectedRoute>} />
-      <Route path="/configuracion" element={<ProtectedRoute><Configuracion /></ProtectedRoute>} />
+      {/* 5. LIGA: Agregamos props */}
+      <Route 
+        path="/liga/:tab?" 
+        element={
+          <ProtectedRoute>
+            <Liga state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* 6. CONFIGURACION: Agregamos props */}
+      <Route 
+        path="/configuracion" 
+        element={
+          <ProtectedRoute>
+            <Configuracion state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
+      />
+
       <Route path="/invitation/:token" element={<RegisterManager />} />
 
-      {/* --- RUTA DE ADMIN --- */}
+      {/* 7. ADMIN: Agregamos props al componente Lazy */}
       <Route 
         path="/admin/managers" 
         element={
           <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
             <Suspense fallback={<div>Cargando Panel Admin...</div>}>
-              <AdminManagersLazy />
+              <AdminManagersLazy state={sidebarState} setState={setSidebarState} />
             </Suspense>
           </ProtectedRoute>
         } 

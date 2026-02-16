@@ -1,4 +1,6 @@
-import { PartidosTemplate } from "../index";
-export function Partidos() {
-  return <PartidosTemplate />;
+import React from "react";
+import { PartidosTemplate } from "../components/template/PartidosTemplate";
+
+export function Partidos({ state, setState }) {
+  return <PartidosTemplate state={state} setState={setState} />;
 }
