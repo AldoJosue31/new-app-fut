@@ -54,7 +54,7 @@ export const EquiposTemplate = ({
 
     const handleSaveWrapper = async (e) => {
       try { await onSave(e); showToast(teamToEdit ? "Equipo actualizado" : "Equipo creado", "success"); } 
-      catch (error) { showToast("Error al guardar", "error"); }
+      catch (error) { showToast("Error al guardar: " + error.message, "error"); }
     };
 
     const handleTransferSubmit = async (targetId, team) => {
@@ -138,9 +138,19 @@ export const EquiposTemplate = ({
           {teamToEdit && (<TabsWrapper><TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} /></TabsWrapper>)}
           {activeTab === "info" && (
               <TabContent>
-                <TeamForm form={form} onFormChange={onFormChange} onSave={handleSaveWrapper} isUploading={isUploading}
-                  preview={preview} file={file} onFileChange={onFileChange} onClearImage={onClearImage}
-                  onGenerateLogo={onGenerateLogo} onRemoveBg={onRemoveBg} showToast={showToast} teamToEdit={teamToEdit}
+                <TeamForm 
+                  form={form} 
+                  onFormChange={onFormChange} 
+                  onSave={handleSaveWrapper} 
+                  isUploading={isUploading}
+                  preview={preview} 
+                  file={file} 
+                  onFileChange={onFileChange} 
+                  onClearImage={onClearImage}
+                  onGenerateLogo={onGenerateLogo} 
+                  onRemoveBg={onRemoveBg} 
+                  showToast={showToast} 
+                  teamToEdit={teamToEdit}
                 />
               </TabContent>
           )}
