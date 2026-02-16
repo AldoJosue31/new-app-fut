@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { BtnGreen } from '../../../moleculas/BtnGreen';
 import { BtnNormal } from '../../../moleculas/BtnNormal';
-import { InputText2 } from '../../formularios/InputText2'; // Asegúrate que la ruta sea correcta
-import { InputNumber } from '../../formularios/InputNumber'; // Asegúrate que la ruta sea correcta
+import { InputText2 } from '../../formularios/InputText2'; 
+import { InputNumber } from '../../formularios/InputNumber'; 
 import { PhotoUploader } from '../../../moleculas/PhotoUploader';
+// Importamos la utilidad
+import { uploadImageToSupabase } from '../../../../utils/uploadHandler'; 
 
 const FormGrid = styled.div`
   display: grid;
@@ -24,7 +26,7 @@ const ButtonGroup = styled.div`
   margin-top: 20px;
 `;
 
-export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving }) => {
+export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving: parentIsSaving }) => {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -32,9 +34,15 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving }
     position: 'Delantero',
     curp_dni: '',
     photo_url: null,
-    original_photo_url: null, // Para guardar la original si usas cropper
+    original_photo_url: null,
     team_id: teamId
   });
+
+  // Estados locales para subida
+  const [newImageFile, setNewImageFile] = useState(null);
+  const [newOriginalFile, setNewOriginalFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -42,6 +50,7 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving }
         ...initialData,
         dorsal: initialData.dorsal || '',
       });
+      setPreview(initialData.photo_url || null);
     }
   }, [initialData]);
 
@@ -49,28 +58,63 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
+  // Handler compatible con PhotoUploader
+  const handleImageSelect = (file, original, previewUrl) => {
+      setNewImageFile(file);
+      setNewOriginalFile(original);
+      setPreview(previewUrl);
   };
+
+  const handleClearImage = () => {
+      setNewImageFile(null); setNewOriginalFile(null); setPreview(null);
+      setFormData(prev => ({...prev, photo_url: null, original_photo_url: null}));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsUploading(true);
+    
+    try {
+        let finalPhotoUrl = formData.photo_url;
+        let finalOriginalUrl = formData.original_photo_url;
+
+        if (newImageFile) {
+            const { url, originalUrl } = await uploadImageToSupabase(
+                newImageFile, 
+                newOriginalFile, 
+                'logos', 
+                'players'
+            );
+            finalPhotoUrl = url;
+            finalOriginalUrl = originalUrl;
+        }
+
+        const dataToSave = {
+            ...formData,
+            photo_url: finalPhotoUrl,
+            original_photo_url: finalOriginalUrl
+        };
+
+        onSubmit(dataToSave);
+
+    } catch (error) {
+        console.error(error);
+    } finally {
+        setIsUploading(false);
+    }
+  };
+
+  const isBusy = isUploading || parentIsSaving;
 
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: 20, textAlign: 'center' }}>
         <PhotoUploader 
-          initialImage={formData.photo_url}
-          onImageUpload={(urls) => {
-             // Asumiendo que PhotoUploader devuelve { optimized, original } o solo la url string
-             if (typeof urls === 'object') {
-                 setFormData(prev => ({ 
-                    ...prev, 
-                    photo_url: urls.optimized || urls.url,
-                    original_photo_url: urls.original 
-                 }));
-             } else {
-                 setFormData(prev => ({ ...prev, photo_url: urls }));
-             }
-          }}
+          previewUrl={preview}
+          originalUrl={initialData?.original_photo_url || formData.original_photo_url}
+          onImageSelect={handleImageSelect}
+          onClear={handleClearImage}
+          shape="circle"
         />
       </div>
 
@@ -113,9 +157,9 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving }
       </FormGrid>
 
       <ButtonGroup>
-        <BtnNormal type="button" onClick={onCancel} bgcolor="#95a5a6">Cancelar</BtnNormal>
-        <BtnGreen type="submit" disabled={isSaving}>
-          {isSaving ? 'Guardando...' : (initialData ? 'Actualizar Jugador' : 'Registrar Jugador')}
+        <BtnNormal type="button" onClick={onCancel} bgcolor="#95a5a6" disabled={isBusy}>Cancelar</BtnNormal>
+        <BtnGreen type="submit" disabled={isBusy}>
+          {isBusy ? 'Guardando...' : (initialData ? 'Actualizar Jugador' : 'Registrar Jugador')}
         </BtnGreen>
       </ButtonGroup>
     </form>
