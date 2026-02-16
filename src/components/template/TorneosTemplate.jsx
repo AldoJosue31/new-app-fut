@@ -4,24 +4,21 @@ import { v } from "../../styles/variables";
 import { useNavigate, useParams } from "react-router-dom";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
-// Asegúrate de que las rutas de importación coincidan con tu estructura
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation"; 
-import { EmptyState } from "../organismos/EmptyState"; // O desde el index si lo tienes ahí
+import { EmptyState } from "../organismos/EmptyState"; 
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
 import { Device } from "../../styles/breakpoints"; 
-
-// <-- IMPORT DEL SERVICIO DE GOLEADORES
 import { getTopScorersService } from "../../services/estadisticas";
 
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
   isLoadingData, standings, reglas, setReglas, refreshStandings,
-  onTournamentReset 
+  onTournamentReset, state, setState 
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -43,7 +40,6 @@ export function TorneosTemplate({
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
 
-  // --- NUEVO: estado y fetch de goleadores ---
   const [goleadores, setGoleadores] = useState([]);
   const [loadingGoleadores, setLoadingGoleadores] = useState(false);
 
@@ -64,100 +60,108 @@ export function TorneosTemplate({
     }
   };
 
-  // Obtener goleadores cuando cambie el torneo activo
   useEffect(() => {
     fetchGoleadores();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTournament?.id]);
 
-  // cuando refreshStandings sea llamado (por ejemplo al actualizar tabla), refrescamos goleadores también
   useEffect(() => {
-    // Si refreshStandings cambia (o se llama), opcionalmente re-fetch
-    // No hacemos nada aquí por defecto; onRefresh se pasa abajo
   }, [refreshStandings]);
 
   return (
-    <ContentContainer>
-      {/* AQUÍ ESTÁ LA CLAVE: marginBottom muy pequeño (5px) */}
+    <>
       <PageHeader 
-        title="Gestión de Torneos" 
+        title="Torneos" 
         maxWidth="1000px" 
-        marginBottom="5px"
+        marginBottom="0"
+        state={state}
+        setState={setState}
         tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
       />
 
-      <ContentGrid $isWide={isWideView}>
-        {activeTab === "definir" && (
-          <FullWidthTab>
-            <TorneoDefinicionTab 
-                form={form} onChange={onChange} onSubmit={onSubmit} loading={loading}
-                divisionName={divisionName} activeTournament={activeTournament}
-                allTeams={allTeams} participatingIds={participatingIds}
-                onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
-                isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
-                onTournamentReset={onTournamentReset}
-            />
-          </FullWidthTab>
-        )}
-
-        {activeTab === "jornadas" && (
-          <FullWidthTab>
-            {activeTournament ? (
-               <TorneoJornadasTab 
-                  activeTournament={activeTournament} 
-                  participatingTeams={participatingTeamsObj} 
-                  refreshStandings={refreshStandings}
-               />
-            ) : (
-               <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
-            )}
-           </FullWidthTab>
-        )}
-
-        {activeTab === "standings" && (
-          <FullWidthTab>
-            {activeTournament ? (
-              <TorneosStandingsTab 
-                  division={{ name: divisionName }} 
-                  torneo={activeTournament} 
-                  equipos={participatingTeamsObj} 
-                  estadisticas={standings} 
-                  reglas={reglas}
-                  onRefresh={() => {
-                    if (refreshStandings) refreshStandings();
-                    // refrescar goleadores al actualizar la tabla
-                    fetchGoleadores();
-                  }}
+      {/* Usamos el componente estilizado que elimina el padding superior */}
+      <StyledContentContainer>
+        <ContentGrid $isWide={isWideView}>
+          {activeTab === "definir" && (
+            <FullWidthTab>
+              <TorneoDefinicionTab 
+                  form={form} onChange={onChange} onSubmit={onSubmit} loading={loading}
+                  divisionName={divisionName} activeTournament={activeTournament}
+                  allTeams={allTeams} participatingIds={participatingIds}
+                  onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
+                  isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
+                  onTournamentReset={onTournamentReset}
               />
-            ) : (
-               <EmptyState icon={<v.iconocorona size={40}/>} title="Sin Datos" description="No hay un torneo activo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
-            )}
-           </FullWidthTab>
-        )}
+            </FullWidthTab>
+          )}
 
-        {activeTab === "goleadores" && (
-          <FullWidthTab>
-            {activeTournament ? (
-              // Ahora le pasamos los goleadores precargados y el torneo completo
-              <GoleadoresTab
-                 torneo={activeTournament}
-                 goleadores={goleadores}
-                 isPublic={false}
-                 onRefresh={() => {
-                   // refrescar tabla y goleadores cuando se haga toggle
-                   if (refreshStandings) refreshStandings();
-                   fetchGoleadores();
-                 }}
-              />
-            ) : (
-               <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
-            )}
-          </FullWidthTab>
-        )}
-      </ContentGrid>
-    </ContentContainer>
+          {activeTab === "jornadas" && (
+            <FullWidthTab>
+              {activeTournament ? (
+                 <TorneoJornadasTab 
+                    activeTournament={activeTournament} 
+                    participatingTeams={participatingTeamsObj} 
+                    refreshStandings={refreshStandings}
+                 />
+              ) : (
+                 <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
+              )}
+             </FullWidthTab>
+          )}
+
+          {activeTab === "standings" && (
+            <FullWidthTab>
+              {activeTournament ? (
+                <TorneosStandingsTab 
+                    division={{ name: divisionName }} 
+                    torneo={activeTournament} 
+                    equipos={participatingTeamsObj} 
+                    estadisticas={standings} 
+                    reglas={reglas}
+                    onRefresh={() => {
+                      if (refreshStandings) refreshStandings();
+                      fetchGoleadores();
+                    }}
+                />
+              ) : (
+                 <EmptyState icon={<v.iconocorona size={40}/>} title="Sin Datos" description="No hay un torneo activo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
+              )}
+             </FullWidthTab>
+          )}
+
+          {activeTab === "goleadores" && (
+            <FullWidthTab>
+              {activeTournament ? (
+                <GoleadoresTab
+                   torneo={activeTournament}
+                   goleadores={goleadores}
+                   isPublic={false}
+                   onRefresh={() => {
+                     if (refreshStandings) refreshStandings();
+                     fetchGoleadores();
+                   }}
+                />
+              ) : (
+                 <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
+              )}
+            </FullWidthTab>
+          )}
+        </ContentGrid>
+      </StyledContentContainer>
+    </>
   );
 }
+
+// CORRECCIÓN: Sobrescribimos el padding-top del ContentContainer original
+const StyledContentContainer = styled(ContentContainer)`
+  && {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    
+    @media (max-width: 768px) {
+      padding-top: 0 !important;
+    }
+  }
+`;
 
 const ContentGrid = styled.div`
   display: flex;
@@ -165,8 +169,10 @@ const ContentGrid = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  /* Gap reducido para que esté pegadito a los tabs */
   gap: 5px; 
+  /* Aseguramos que no haya margen superior aquí tampoco */
+  margin-top: 0; 
+  
   transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
   @media ${Device.desktop} { max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")}; }

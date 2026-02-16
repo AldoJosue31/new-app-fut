@@ -8,7 +8,7 @@ import { PageHeader } from "../moleculas/PageHeader";
 import { useAuthStore } from "../../store/AuthStore";
 import { supabase } from "../../supabase/supabase.config";
 
-export function ConfiguracionTemplate() {
+export function ConfiguracionTemplate({ state, setState }) {
   const { user, profile, fetchProfile } = useAuthStore();
   const [nombre, setNombre] = useState("");
   const [leagueName, setLeagueName] = useState(null);
@@ -71,69 +71,83 @@ export function ConfiguracionTemplate() {
   };
 
   return (
-    <ContentContainer>
-      <PageHeader title="Configuración" maxWidth="600px" />
+    <>
+      <PageHeader 
+        title="Configuración" 
+        maxWidth="600px" 
+        marginBottom="0"
+        state={state}
+        setState={setState}
+      />
 
-      <MainContainer>
-          <Card maxWidth="600px">
-            <CardHeader Icono={v.iconoUser} titulo="Mi Información" />
-              {leagueName && (<Badge color={v.colorPrincipal}>Liga: {leagueName}</Badge>)}
-            
-            <form onSubmit={handleUpdateProfile}>
-              <Label>ID de Usuario</Label>
-              <InputText2><input className="form__field disabled" value={user?.id || ""} disabled type="text" /></InputText2>
+      <StyledContentContainer>
+        <MainContainer>
+            <Card maxWidth="600px">
+                <CardHeader Icono={v.iconoUser} titulo="Mi Información" />
+                {leagueName && (<Badge color={v.colorPrincipal}>Liga: {leagueName}</Badge>)}
+                
+                <form onSubmit={handleUpdateProfile}>
+                <Label>ID de Usuario</Label>
+                <InputText2><input className="form__field disabled" value={user?.id || ""} disabled type="text" /></InputText2>
 
-              <Label>Rol en la Liga</Label>
-              <RoleBadge $role={profile?.role || 'default'}>{!profile ? "Cargando..." : getRoleLabel(profile.role)}</RoleBadge>
-                        
-              <Label>Nombre Completo</Label>
-              <InputText2>
-                <input className="form__field" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" type="text" />
-              </InputText2>
+                <Label>Rol en la Liga</Label>
+                <RoleBadge $role={profile?.role || 'default'}>{!profile ? "Cargando..." : getRoleLabel(profile.role)}</RoleBadge>
+                            
+                <Label>Nombre Completo</Label>
+                <InputText2>
+                    <input className="form__field" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre completo" type="text" />
+                </InputText2>
 
-              <Label>Correo Electrónico</Label>
-              <InputText2><input className="form__field disabled" value={user?.email || ""} disabled type="text" /></InputText2>
+                <Label>Correo Electrónico</Label>
+                <InputText2><input className="form__field disabled" value={user?.email || ""} disabled type="text" /></InputText2>
 
-              <div className="actions">
-                <Btnsave titulo={loadingUpdate ? "Guardando..." : "Guardar Cambios"} bgcolor={v.colorPrincipal} color="#fff" icono={<v.iconoguardar />} disabled={loadingUpdate} />
-              </div>
-            </form>
-
-            <Divider />
-
-            <LinkedAccounts>
-              <h4>Cuentas Vinculadas</h4>
-              <div className="account-item">
-                <div className="left">
-                  {isGoogleLinked && googleAvatar ? (
-                    <img src={googleAvatar} alt="Avatar Google" className="google-avatar" />
-                  ) : (<span className="google-icon"><v.iconogoogle /></span>)}
-                  <div className="info">
-                    <span>{isGoogleLinked && googleEmail ? googleEmail : "Google"}</span>
-                    <small>{isGoogleLinked ? "Cuenta vinculada correctamente" : "Vincula tu cuenta"}</small>
-                  </div>
+                <div className="actions">
+                    <Btnsave titulo={loadingUpdate ? "Guardando..." : "Guardar Cambios"} bgcolor={v.colorPrincipal} color="#fff" icono={<v.iconoguardar />} disabled={loadingUpdate} />
                 </div>
+                </form>
 
-                <div className="right">
-                  {isGoogleLinked ? (
-                    <ActionsGroup>
-                      <StatusBadge $active={true}>Conectado</StatusBadge>
-                      <Btnsave funcion={handleUnlinkGoogle} titulo={loadingUnlink ? "..." : "Desvincular"} bgcolor={v.rojo} color="#fff" width="auto" disabled={loadingUnlink} />
-                    </ActionsGroup>
-                  ) : (
-                    <BtnNormal funcion={handleLinkGoogle} titulo={loadingLink ? "..." : "Vincular"} disabled={loadingLink} />
-                  )}
+                <Divider />
+
+                <LinkedAccounts>
+                <h4>Cuentas Vinculadas</h4>
+                <div className="account-item">
+                    <div className="left">
+                    {isGoogleLinked && googleAvatar ? (
+                        <img src={googleAvatar} alt="Avatar Google" className="google-avatar" />
+                    ) : (<span className="google-icon"><v.iconogoogle /></span>)}
+                    <div className="info">
+                        <span>{isGoogleLinked && googleEmail ? googleEmail : "Google"}</span>
+                        <small>{isGoogleLinked ? "Cuenta vinculada correctamente" : "Vincula tu cuenta"}</small>
+                    </div>
+                    </div>
+
+                    <div className="right">
+                    {isGoogleLinked ? (
+                        <ActionsGroup>
+                        <StatusBadge $active={true}>Conectado</StatusBadge>
+                        <Btnsave funcion={handleUnlinkGoogle} titulo={loadingUnlink ? "..." : "Desvincular"} bgcolor={v.rojo} color="#fff" width="auto" disabled={loadingUnlink} />
+                        </ActionsGroup>
+                    ) : (
+                        <BtnNormal funcion={handleLinkGoogle} titulo={loadingLink ? "..." : "Vincular"} disabled={loadingLink} />
+                    )}
+                    </div>
                 </div>
-              </div>
-            </LinkedAccounts>
-          </Card>
-      </MainContainer>
-    </ContentContainer>
+                </LinkedAccounts>
+            </Card>
+        </MainContainer>
+      </StyledContentContainer>
+    </>
   );
 }
 
-// Limpio: Sin animación
-const MainContainer = styled.div` width: 100%; display: flex; justify-content: center; `;
+const StyledContentContainer = styled(ContentContainer)`
+  && {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+`;
+
+const MainContainer = styled.div` width: 100%; display: flex; justify-content: center; margin-top: 20px; `;
 const Label = styled.label` display: block; margin-bottom: 6px; margin-top: 15px; font-size: 14px; font-weight: 600; opacity: 0.9; padding-left: 4px; `;
 const RoleBadge = styled.div` display: inline-block; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; margin-bottom: 10px; background: ${({ $role, theme }) => $role === 'admin' ? '#ff4757' : $role === 'manager' ? '#00913cff' : $role === 'user' ? '#1e90ff' : theme.bg4}; color: ${({ $role }) => ($role === 'admin' || $role === 'manager' || $role === 'user') ? '#fff' : 'inherit'}; `;
 const Divider = styled.div` height: 1px; background: ${({ theme }) => theme.bg4 || "#e1e1e1"}; margin: 30px 0; `;
