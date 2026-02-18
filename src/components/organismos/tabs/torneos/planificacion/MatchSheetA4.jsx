@@ -5,9 +5,9 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
     if (!matchData) return null;
 
     return (
-        <SheetContainer>
+        <SheetContainer className="match-sheet-a4">
             {/* 1. ENCABEZADO */}
-            <header className="header-section">
+            <div className="header-section">
                 <div className="header-top">
                     <div className="logo-box">LIGA</div>
                     <div className="titles">
@@ -38,9 +38,9 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                         <span className="value">{matchData.field_name || "__________________"}</span>
                     </div>
                 </div>
-            </header>
+            </div>
 
-            {/* 2. CUERPO (ROSTERS) */}
+            {/* 2. CUERPO (ROSTERS) - Esta sección crecerá para ocupar el espacio */}
             <div className="rosters-section">
                 
                 {/* LOCAL */}
@@ -116,9 +116,9 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
             </div>
 
             {/* 3. FOOTER */}
-            <footer className="sheet-footer">
+            <div className="sheet-footer">
                 
-                {/* MARCADOR PRINCIPAL */}
+                {/* MARCADOR */}
                 <div className="score-area">
                     <div className="score-title">RESULTADO</div>
                     <div className="score-content">
@@ -135,7 +135,7 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                     </div>
                 </div>
 
-                {/* PENALES / SHOOTOUTS - RENDERIZADO CONDICIONAL */}
+                {/* PENALES */}
                 {showPenalties && (
                     <div className="penalties-area">
                         <div className="penalties-label">PENALES / SHOOTOUTS:</div>
@@ -170,7 +170,7 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                         <span>CRONOMETRISTA / ASISTENTE</span>
                     </div>
                 </div>
-            </footer>
+            </div>
         </SheetContainer>
     );
 };
@@ -178,19 +178,29 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
 const SheetContainer = styled.div`
     background: white;
     color: black;
+    /* MEDIDAS RÍGIDAS A4 */
     width: 210mm;
-    height: 296mm; 
+    height: 297mm; 
     padding: 10mm;
-    font-family: 'Arial Narrow', 'Roboto Condensed', sans-serif;
     box-sizing: border-box;
+    
+    font-family: 'Arial Narrow', 'Roboto Condensed', sans-serif;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    /* justify-content: space-between; <-- Eliminamos esto para usar flex-grow en el cuerpo */
     margin: 0 auto;
     border: 1px solid #e0e0e0;
+    
+    /* SEGURIDAD: Corta cualquier exceso para forzar 1 hoja */
+    overflow: hidden; 
 
     @media print {
-        border: none; margin: 0; padding: 8mm; width: 100%; height: 100vh;
+        border: none;
+        margin: 0;
+        padding: 8mm; /* Un poco de margen interno seguro */
+        /* Aseguramos que ocupe el tamaño definido por el wrapper padre */
+        width: 100%;
+        height: 100%;
     }
 
     /* --- HEADER --- */
@@ -202,37 +212,66 @@ const SheetContainer = styled.div`
     .doc-title { margin: 0; font-size: 12px; font-weight: bold; letter-spacing: 3px; margin-top: 4px; }
     .season-info { text-align: right; min-width: 80px; }
     .season-txt { font-size: 11px; font-weight: bold; }
-    .div-tag { background: black; color: white; padding: 2px 8px; display: inline-block; margin-top: 2px; font-size: 10px; font-weight: bold; border-radius: 2px; }
+    .div-tag { background: black; color: white; padding: 2px 8px; display: inline-block; margin-top: 2px; font-size: 10px; font-weight: bold; border-radius: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
     .match-grid {
         display: flex; justify-content: space-between; background: #f2f2f2; padding: 5px 10px; border: 1px solid black;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
         .cell { display: flex; flex-direction: column; align-items: center; }
         .label { font-size: 8px; font-weight: bold; color: #444; }
         .value { font-size: 11px; font-weight: bold; text-transform: uppercase; }
     }
 
-    /* --- ROSTERS --- */
+    /* --- ROSTERS (CUERPO CENTRAL) --- */
     .rosters-section {
-        display: flex; flex: 1; gap: 3mm; margin-bottom: 5px; align-items: stretch; min-height: 0;
+        display: flex; 
+        flex: 1; /* CLAVE: Esto hace que ocupe todo el espacio disponible verticalmente */
+        gap: 3mm; 
+        margin-bottom: 5px; 
+        align-items: stretch; 
+        min-height: 0; /* Permite al flexbox calcular correctamente el overflow */
     }
     .team-wrapper { flex: 1; display: flex; flex-direction: column; height: 100%; }
-    .team-header {
-        background: black; color: white; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;
-        border: 1px solid black; -webkit-print-color-adjust: exact; flex-shrink: 0;
-    }
+    .team-header { background: black; color: white; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid black; -webkit-print-color-adjust: exact; print-color-adjust: exact; flex-shrink: 0; }
     .team-label { font-size: 9px; font-weight: bold; letter-spacing: 1px; }
     .team-name { font-weight: bold; font-size: 12px; text-transform: uppercase; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .table-container { flex: 1; display: flex; flex-direction: column; border: 1px solid black; border-top: none; }
+    .table-container { 
+        flex: 1; /* Ocupa el resto del wrapper del equipo */
+        display: flex; 
+        flex-direction: column; 
+        border: 1px solid black; 
+        border-top: none; 
+    }
 
     .roster-table {
-        width: 100%; border-collapse: collapse; font-size: 10px; flex: 1; display: flex; flex-direction: column; height: 100%;
+        width: 100%; 
+        border-collapse: collapse; 
+        font-size: 10px; 
+        flex: 1; /* Tabla ocupa todo el contenedor */
+        display: flex; 
+        flex-direction: column; 
+        height: 100%;
+        
         thead { flex-shrink: 0; }
-        tbody { flex: 1; display: flex; flex-direction: column; }
+        
+        tbody { 
+            flex: 1; /* El cuerpo de la tabla se estira */
+            display: flex; 
+            flex-direction: column; 
+        }
+        
         tr { display: flex; width: 100%; }
-        tbody tr { flex: 1; border-bottom: 1px solid #ccc; align-items: center; }
+        
+        /* FILAS ELÁSTICAS: Se estiran para llenar el espacio */
+        tbody tr { 
+            flex: 1; 
+            border-bottom: 1px solid #ccc; 
+            align-items: center; 
+        }
+        
         tbody tr:last-child { border-bottom: none; }
-        th { border-bottom: 1px solid black; border-right: 1px solid black; background: #ddd; padding: 2px; -webkit-print-color-adjust: exact; display: flex; align-items: center; justify-content: center; font-size: 8px; height: 18px; }
+        th { border-bottom: 1px solid black; border-right: 1px solid black; background: #ddd; padding: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: flex; align-items: center; justify-content: center; font-size: 8px; height: 18px; }
         th:last-child { border-right: none; }
         td { border-right: 1px solid black; padding: 0 4px; display: flex; align-items: center; height: 100%; }
         td:last-child { border-right: none; }
@@ -245,73 +284,42 @@ const SheetContainer = styled.div`
     .vs-text { font-weight: 900; font-size: 12px; color: #aaa; writing-mode: vertical-rl; }
     .vs-line { flex: 1; width: 1px; background: #ddd; }
 
-    .captain-sign { border: 1px solid black; padding: 4px; text-align: center; font-size: 8px; margin-top: 4px; flex-shrink: 0; background: #f9f9f9; }
+    .captain-sign { border: 1px solid black; padding: 4px; text-align: center; font-size: 8px; margin-top: 4px; flex-shrink: 0; background: #f9f9f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
     /* --- FOOTER --- */
-    .sheet-footer { border-top: 2px solid black; padding-top: 5px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
-
-    /* MARCADOR */
-    .score-area { display: flex; border: 1px solid black; align-items: stretch; height: 38px; }
-    .score-title { background: black; color: white; width: 24px; font-size: 10px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; -webkit-print-color-adjust: exact; font-weight: bold; }
-    
-    .score-content { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
-    
-    .score-team { 
-        flex: 1; 
-        width: 0; 
-        font-weight: bold; font-size: 13px; 
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    .sheet-footer { 
+        border-top: 2px solid black; 
+        padding-top: 5px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 4px; 
+        flex-shrink: 0; 
+        margin-top: auto; /* Empuja hacia abajo si sobra espacio (seguridad extra) */
     }
+
+    .score-area { display: flex; border: 1px solid black; align-items: stretch; height: 38px; }
+    .score-title { background: black; color: white; width: 24px; font-size: 10px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; }
+    .score-content { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+    .score-team { flex: 1; width: 0; font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .team-local { text-align: right; margin-right: 15px; }
     .team-visit { text-align: left; margin-left: 15px; }
-
     .center-block { display: flex; align-items: center; gap: 10px; justify-content: center; min-width: 90px; }
     .score-input { width: 35px; height: 28px; border: 2px solid black; background: #fff; }
     .hyphen { font-weight: 900; font-size: 14px; }
-
     .wo-check { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: bold; margin-right: 10px; border-left: 1px solid black; padding-left: 10px; }
     .box-sm { width: 15px; height: 15px; border: 1px solid black; }
-
-    /* PENALES - CENTRADO CORREGIDO CON ETIQUETA FLOTANTE */
-    .penalties-area { 
-        display: flex; align-items: center; border: 1px solid #999; height: 26px; background: #f9f9f9; padding: 0 5px;
-        position: relative; /* Clave para el absolute */
-    }
-    
-    /* Etiqueta absoluta para que no empuje el contenido */
-    .penalties-label { 
-        position: absolute; 
-        left: 5px; 
-        top: 0; 
-        bottom: 0;
-        display: flex;
-        align-items: center;
-        font-size: 8px; /* Un poco más pequeña para evitar solapamiento */
-        font-weight: bold; 
-        color: #555; 
-        z-index: 1; /* Por encima si fuera necesario, pero el texto del equipo la evitará visualmente */
-    }
-    
-    /* Contenido full width */
+    .penalties-area { display: flex; align-items: center; border: 1px solid #999; height: 26px; background: #f9f9f9; padding: 0 5px; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .penalties-label { position: absolute; left: 5px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 8px; font-weight: bold; color: #555; z-index: 1; }
     .penalties-content { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; }
-    
-    .p-team { 
-        flex: 1; 
-        width: 0; 
-        font-size: 10px; font-weight: bold; color: #333; 
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-    }
+    .p-team { flex: 1; width: 0; font-size: 10px; font-weight: bold; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .p-local { text-align: right; margin-right: 10px; }
     .p-visit { text-align: left; margin-left: 10px; }
-    
     .center-block-sm { display: flex; align-items: center; gap: 8px; justify-content: center; min-width: 70px; }
     .p-input { width: 25px; height: 18px; border: 1px solid black; background: white; }
     .p-hyphen { font-weight: bold; font-size: 12px; }
-
     .obs-area { border: 1px solid black; padding: 5px; flex: 1; min-height: 50px; }
     .obs-title { font-size: 9px; font-weight: bold; margin-bottom: 5px; text-decoration: underline; }
     .obs-lines { border-bottom: 1px solid #999; height: 15px; width: 100%; margin-bottom: 2px; }
-
     .signatures-area { display: flex; justify-content: space-around; margin-top: 10px; padding-bottom: 2px; }
     .sig-block { text-align: center; width: 35%; }
     .line { border-bottom: 1px solid black; margin-bottom: 4px; height: 1px; }

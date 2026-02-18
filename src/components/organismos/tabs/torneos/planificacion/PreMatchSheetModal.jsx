@@ -10,20 +10,47 @@ const PrintStyles = createGlobalStyle`
   #print-portal-root { display: none; }
 
   @media print {
-    #root, .modal-root, .ReactModal__Overlay {
+    #root, .modal-root, .ReactModal__Overlay, header, footer, nav {
       display: none !important;
-      height: 0 !important; width: 0 !important; overflow: hidden !important;
+      height: 0 !important; width: 0 !important; overflow: hidden !important; visibility: hidden !important;
     }
-    @page { size: A4 portrait; margin: 0; }
+    
+    @page { 
+        size: A4 portrait; 
+        margin: 0; 
+    }
+    
     html, body {
-      margin: 0 !important; padding: 0 !important; height: 100% !important;
-      overflow: hidden !important; background: white !important;
+      margin: 0 !important; padding: 0 !important; 
+      width: 100% !important; height: 100% !important;
+      background: white !important;
+      -webkit-print-color-adjust: exact !important; 
+      print-color-adjust: exact !important;
+      overflow: visible !important;
     }
+
     #print-portal-root {
-      display: block !important; position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%; z-index: 9999; background: white;
+      display: flex !important;
+      position: fixed; 
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 99999; 
+      background: white;
+      visibility: visible !important;
+      justify-content: center;
+      align-items: flex-start; 
     }
+
     #print-portal-root * { visibility: visible !important; }
+
+    /* Wrapper de Escalado */
+    .print-wrapper {
+        width: 210mm;
+        height: 297mm; /* Altura explícita para que el flex interno funcione */
+        transform: scale(0.96); 
+        transform-origin: top center;
+        margin-top: 2mm;
+    }
   }
 `;
 
@@ -65,14 +92,11 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
             if (matchError) throw matchError;
             setMatchData(match);
 
-            // Extraer configuración del JSONB
             let tournamentConfig = match.jornada?.tournament?.config || {};
             if (typeof tournamentConfig === 'string') {
                 try { tournamentConfig = JSON.parse(tournamentConfig); } catch (e) { console.error("Error parsing config", e); }
             }
 
-            // CORRECCIÓN DE LÓGICA DE PENALES
-            // Buscamos 'penalties' (como está en tu BD), 'penales' o 'shootout'
             const tieBreak = (tournamentConfig.tieBreakType || '').toLowerCase();
             const showPenalties = 
                 tieBreak.includes('penalties') || 
@@ -81,7 +105,6 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
             
             setConfig({ showPenalties });
 
-            // Relleno de filas dinámico según maxPlayers de la config
             const maxRows = parseInt(tournamentConfig.maxPlayers) || 18;
 
             const { data: allPlayers, error: playersError } = await supabase
@@ -120,7 +143,9 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
 
     const formatDate = (dateStr) => {
         if(!dateStr) return "___________";
-        return new Date(dateStr).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).toUpperCase();
+        const d = new Date(dateStr);
+        const utcDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+        return utcDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
     };
 
     const formatTime = (dateStr) => {
@@ -132,13 +157,15 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
 
     const printContent = (
         <div id="print-portal-root">
-             <MatchSheetA4 
-                matchData={matchData} 
-                players={players} 
-                formatDate={formatDate}
-                formatTime={formatTime}
-                showPenalties={config.showPenalties} 
-            />
+             <div className="print-wrapper">
+                <MatchSheetA4 
+                    matchData={matchData} 
+                    players={players} 
+                    formatDate={formatDate}
+                    formatTime={formatTime}
+                    showPenalties={config.showPenalties} 
+                />
+            </div>
         </div>
     );
 
@@ -203,6 +230,7 @@ const ModalContentWrapper = styled.div`
     .preview-scale {
         transform: scale(0.65); transform-origin: top center;
         box-shadow: 0 20px 50px rgba(0,0,0,0.5); background: white;
+        width: 210mm; height: 297mm;
     }
     .loading { color: white; padding: 40px; text-align: center; }
 `;
