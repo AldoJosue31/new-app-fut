@@ -31,7 +31,7 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                     </div>
                     <div className="cell">
                         <span className="label">HORA</span>
-                        <span className="value">{formatTime(matchData.date)}</span>
+                        <span className="value">{formatTime(matchData.time || matchData.date)}</span>
                     </div>
                     <div className="cell">
                         <span className="label">CAMPO</span>
@@ -40,7 +40,7 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                 </div>
             </div>
 
-            {/* 2. CUERPO (ROSTERS) - Esta sección crecerá para ocupar el espacio */}
+            {/* 2. CUERPO (ROSTERS) */}
             <div className="rosters-section">
                 
                 {/* LOCAL */}
@@ -68,6 +68,10 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                                         <td className="name">{p.last_name} {p.first_name}</td>
                                         <td></td><td></td><td></td><td></td>
                                     </tr>
+                                ))}
+                                {/* Relleno para estética */}
+                                {Array.from({ length: Math.max(0, 12 - players.local.length) }).map((_, i) => (
+                                     <tr key={`empty-${i}`}><td className="center num"></td><td className="name"></td><td></td><td></td><td></td><td></td></tr>
                                 ))}
                             </tbody>
                         </table>
@@ -107,6 +111,9 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                                         <td className="name">{p.last_name} {p.first_name}</td>
                                         <td></td><td></td><td></td><td></td>
                                     </tr>
+                                ))}
+                                {Array.from({ length: Math.max(0, 12 - players.visit.length) }).map((_, i) => (
+                                     <tr key={`empty-${i}`}><td className="center num"></td><td className="name"></td><td></td><td></td><td></td><td></td></tr>
                                 ))}
                             </tbody>
                         </table>
@@ -178,32 +185,51 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
 const SheetContainer = styled.div`
     background: white;
     color: black;
-    /* MEDIDAS RÍGIDAS A4 */
-    width: 210mm;
-    height: 297mm; 
-    padding: 10mm;
-    box-sizing: border-box;
     
+    /* VISTA EN PANTALLA (Modal) */
+    width: 210mm;
+    height: 297mm; /* Fijo, simulando exactamente una hoja */
+    padding: 10mm; 
+    
+    box-sizing: border-box;
     font-family: 'Arial Narrow', 'Roboto Condensed', sans-serif;
     display: flex;
     flex-direction: column;
-    /* justify-content: space-between; <-- Eliminamos esto para usar flex-grow en el cuerpo */
     margin: 0 auto;
     border: 1px solid #e0e0e0;
     
-    /* SEGURIDAD: Corta cualquier exceso para forzar 1 hoja */
-    overflow: hidden; 
+    /* Forzar impresión de fondos */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 
+    /* REGLAS ESTRICTAS DE IMPRESIÓN */
     @media print {
-        border: none;
-        margin: 0;
-        padding: 8mm; /* Un poco de margen interno seguro */
-        /* Aseguramos que ocupe el tamaño definido por el wrapper padre */
-        width: 100%;
-        height: 100%;
+        /* Define el tamaño físico del papel en la impresora y quita los márgenes del navegador */
+        @page {
+            size: A4 portrait;
+            margin: 0 !important; 
+        }
+
+        border: none !important;
+        margin: 0 !important;
+        
+        /* MEDIDAS CLAVADAS PARA A4 */
+        width: 210mm !important; 
+        height: 297mm !important;
+        max-height: 297mm !important; /* Bloquea el crecimiento */
+        padding: 8mm !important; /* Margen interno para que no se pegue al borde de la hoja física */
+        
+        /* Evita que cualquier elemento interno provoque un salto de página por desbordamiento */
+        overflow: hidden !important; 
+        
+        /* Salto de página seguro: cada componente es una hoja nueva */
+        page-break-after: always !important;
+        break-after: page !important; 
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
 
-    /* --- HEADER --- */
+    /* ESTILOS INTERNOS */
     .header-section { border-bottom: 2px solid black; padding-bottom: 5px; margin-bottom: 5px; flex-shrink: 0; }
     .header-top { display: flex; align-items: center; border-bottom: 1px solid black; padding-bottom: 5px; margin-bottom: 5px; }
     .logo-box { font-weight: 900; font-size: 18px; border: 2px solid black; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 10px; }
@@ -212,66 +238,34 @@ const SheetContainer = styled.div`
     .doc-title { margin: 0; font-size: 12px; font-weight: bold; letter-spacing: 3px; margin-top: 4px; }
     .season-info { text-align: right; min-width: 80px; }
     .season-txt { font-size: 11px; font-weight: bold; }
-    .div-tag { background: black; color: white; padding: 2px 8px; display: inline-block; margin-top: 2px; font-size: 10px; font-weight: bold; border-radius: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .div-tag { background: black; color: white; padding: 2px 8px; display: inline-block; margin-top: 2px; font-size: 10px; font-weight: bold; border-radius: 2px; }
 
     .match-grid {
         display: flex; justify-content: space-between; background: #f2f2f2; padding: 5px 10px; border: 1px solid black;
-        -webkit-print-color-adjust: exact; print-color-adjust: exact;
         .cell { display: flex; flex-direction: column; align-items: center; }
         .label { font-size: 8px; font-weight: bold; color: #444; }
         .value { font-size: 11px; font-weight: bold; text-transform: uppercase; }
     }
 
-    /* --- ROSTERS (CUERPO CENTRAL) --- */
+    /* CLAVE: min-height: 0 ayuda a flexbox a no desbordarse en Chrome */
     .rosters-section {
-        display: flex; 
-        flex: 1; /* CLAVE: Esto hace que ocupe todo el espacio disponible verticalmente */
-        gap: 3mm; 
-        margin-bottom: 5px; 
-        align-items: stretch; 
-        min-height: 0; /* Permite al flexbox calcular correctamente el overflow */
+        display: flex; flex: 1; gap: 3mm; margin-bottom: 5px; align-items: stretch; min-height: 0;
     }
-    .team-wrapper { flex: 1; display: flex; flex-direction: column; height: 100%; }
-    .team-header { background: black; color: white; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid black; -webkit-print-color-adjust: exact; print-color-adjust: exact; flex-shrink: 0; }
+    .team-wrapper { flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .team-header { background: black; color: white; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid black; flex-shrink: 0; }
     .team-label { font-size: 9px; font-weight: bold; letter-spacing: 1px; }
     .team-name { font-weight: bold; font-size: 12px; text-transform: uppercase; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .table-container { 
-        flex: 1; /* Ocupa el resto del wrapper del equipo */
-        display: flex; 
-        flex-direction: column; 
-        border: 1px solid black; 
-        border-top: none; 
-    }
-
+    .table-container { flex: 1; display: flex; flex-direction: column; border: 1px solid black; border-top: none; min-height: 0; }
     .roster-table {
-        width: 100%; 
-        border-collapse: collapse; 
-        font-size: 10px; 
-        flex: 1; /* Tabla ocupa todo el contenedor */
-        display: flex; 
-        flex-direction: column; 
-        height: 100%;
-        
+        width: 100%; border-collapse: collapse; font-size: 10px; flex: 1; display: flex; flex-direction: column; height: 100%;
         thead { flex-shrink: 0; }
-        
-        tbody { 
-            flex: 1; /* El cuerpo de la tabla se estira */
-            display: flex; 
-            flex-direction: column; 
-        }
-        
+        tbody { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         tr { display: flex; width: 100%; }
-        
-        /* FILAS ELÁSTICAS: Se estiran para llenar el espacio */
-        tbody tr { 
-            flex: 1; 
-            border-bottom: 1px solid #ccc; 
-            align-items: center; 
-        }
-        
+        /* Las filas absorben el espacio sobrante equitativamente */
+        tbody tr { flex: 1; border-bottom: 1px solid #ccc; align-items: center; min-height: 0; }
         tbody tr:last-child { border-bottom: none; }
-        th { border-bottom: 1px solid black; border-right: 1px solid black; background: #ddd; padding: 2px; -webkit-print-color-adjust: exact; print-color-adjust: exact; display: flex; align-items: center; justify-content: center; font-size: 8px; height: 18px; }
+        th { border-bottom: 1px solid black; border-right: 1px solid black; background: #ddd; padding: 2px; display: flex; align-items: center; justify-content: center; font-size: 8px; height: 18px; }
         th:last-child { border-right: none; }
         td { border-right: 1px solid black; padding: 0 4px; display: flex; align-items: center; height: 100%; }
         td:last-child { border-right: none; }
@@ -283,22 +277,11 @@ const SheetContainer = styled.div`
     .vs-bar { width: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; }
     .vs-text { font-weight: 900; font-size: 12px; color: #aaa; writing-mode: vertical-rl; }
     .vs-line { flex: 1; width: 1px; background: #ddd; }
+    .captain-sign { border: 1px solid black; padding: 4px; text-align: center; font-size: 8px; margin-top: 4px; flex-shrink: 0; background: #f9f9f9; }
 
-    .captain-sign { border: 1px solid black; padding: 4px; text-align: center; font-size: 8px; margin-top: 4px; flex-shrink: 0; background: #f9f9f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-    /* --- FOOTER --- */
-    .sheet-footer { 
-        border-top: 2px solid black; 
-        padding-top: 5px; 
-        display: flex; 
-        flex-direction: column; 
-        gap: 4px; 
-        flex-shrink: 0; 
-        margin-top: auto; /* Empuja hacia abajo si sobra espacio (seguridad extra) */
-    }
-
+    .sheet-footer { border-top: 2px solid black; padding-top: 5px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; margin-top: auto; }
     .score-area { display: flex; border: 1px solid black; align-items: stretch; height: 38px; }
-    .score-title { background: black; color: white; width: 24px; font-size: 10px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; }
+    .score-title { background: black; color: white; width: 24px; font-size: 10px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-weight: bold; }
     .score-content { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
     .score-team { flex: 1; width: 0; font-weight: bold; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .team-local { text-align: right; margin-right: 15px; }
@@ -308,7 +291,7 @@ const SheetContainer = styled.div`
     .hyphen { font-weight: 900; font-size: 14px; }
     .wo-check { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: bold; margin-right: 10px; border-left: 1px solid black; padding-left: 10px; }
     .box-sm { width: 15px; height: 15px; border: 1px solid black; }
-    .penalties-area { display: flex; align-items: center; border: 1px solid #999; height: 26px; background: #f9f9f9; padding: 0 5px; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .penalties-area { display: flex; align-items: center; border: 1px solid #999; height: 26px; background: #f9f9f9; padding: 0 5px; position: relative; }
     .penalties-label { position: absolute; left: 5px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 8px; font-weight: bold; color: #555; z-index: 1; }
     .penalties-content { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; }
     .p-team { flex: 1; width: 0; font-size: 10px; font-weight: bold; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
