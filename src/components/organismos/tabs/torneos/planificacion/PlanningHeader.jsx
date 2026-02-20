@@ -1,7 +1,10 @@
-import React, { useRef, memo, useState, useEffect } from "react";
+import React, { memo, useState, useEffect } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, RiEdit2Line, RiMagicLine, RiCheckLine } from "react-icons/ri";
+import { 
+    RiArrowLeftSLine, RiArrowRightSLine, RiSettings4Line, 
+    RiEdit2Line, RiMagicLine, RiCheckLine, RiPrinterLine 
+} from "react-icons/ri";
 import { ViewToggle } from "../../../../../index"; 
 
 export const PlanningHeader = memo(({ 
@@ -11,13 +14,15 @@ export const PlanningHeader = memo(({
     onPrev, 
     onNext, 
     totalJornadas, 
-    onSaveDates, // <--- NUEVA PROP: Función para guardar cambios confirmados
+    onSaveDates, 
     onAutoFill,
     onConfig, 
     viewMode, 
     onToggleView,
     onEditFixture, 
-    isTournamentActive 
+    isTournamentActive,
+    onPrintBatch, // <--- Nueva prop
+    matchesWithoutResultCount = 0 // <--- Cantidad de partidos pendientes
 }) => {
     const isConfirmed = status === 'Confirmada';
     const hasDates = jornadaData?.start_date && jornadaData?.end_date;
@@ -26,13 +31,11 @@ export const PlanningHeader = memo(({
     const [localStart, setLocalStart] = useState('');
     const [localEnd, setLocalEnd] = useState('');
 
-    // Sincronizar estado local cuando cambian las props (ej. al navegar entre jornadas)
     useEffect(() => {
         setLocalStart(jornadaData?.start_date || '');
         setLocalEnd(jornadaData?.end_date || '');
     }, [jornadaData]);
 
-    // Detectar si hay cambios pendientes
     const hasChanges = (localStart !== (jornadaData?.start_date || '')) || (localEnd !== (jornadaData?.end_date || ''));
 
     const handleConfirmChanges = () => {
@@ -40,6 +43,11 @@ export const PlanningHeader = memo(({
             onSaveDates(localStart, localEnd);
         }
     };
+
+    // Lógica para mostrar botón de imprimir:
+    // 1. Jornada confirmada.
+    // 2. Al menos 1 partido sin resultado.
+    const showPrintButton = isConfirmed && matchesWithoutResultCount > 0;
 
     return (
         <Container>
@@ -78,14 +86,12 @@ export const PlanningHeader = memo(({
                         disabled={isConfirmed}
                     />
 
-                    {/* Botón de Confirmar Cambios (Solo aparece si hay cambios y no está confirmada) */}
                     {hasChanges && !isConfirmed && (
                         <ConfirmBtn onClick={handleConfirmChanges} title="Guardar y actualizar jornadas siguientes">
                             <RiCheckLine size={18} /> Confirmar
                         </ConfirmBtn>
                     )}
                     
-                    {/* Botón Mágico: Aparece si faltan fechas y no hay cambios pendientes */}
                     {!hasDates && !hasChanges && !isConfirmed && onAutoFill && (
                         <AutoFillBtn onClick={onAutoFill} title="Auto-calcular fechas para todas las jornadas">
                             <RiMagicLine /> Auto
@@ -95,6 +101,14 @@ export const PlanningHeader = memo(({
             </InfoGroup>
 
             <ActionsGroup>
+                {/* Botón Imprimir Lote con Notificación */}
+                {showPrintButton && (
+                     <BtnAction onClick={onPrintBatch} title={`Imprimir ${matchesWithoutResultCount} cédulas pendientes`}>
+                        <RiPrinterLine size={20}/>
+                        <NotificationBadge>{matchesWithoutResultCount}</NotificationBadge>
+                     </BtnAction>
+                )}
+
                 {isTournamentActive && (
                     <BtnAction onClick={onEditFixture} title="Reorganizar partidos futuros">
                         <RiEdit2Line size={20}/>
@@ -158,7 +172,7 @@ const NavBtn = styled.button`
 
 const DateRow = styled.div`
   display: flex; align-items: center; gap: 8px;
-  background: ${({theme, $hasChanges})=> $hasChanges ? v.colorPrincipal + '10' : theme.bgcards}; /* Feedback visual si hay cambios */
+  background: ${({theme, $hasChanges})=> $hasChanges ? v.colorPrincipal + '10' : theme.bgcards};
   padding: 8px 15px;
   border-radius: 8px;
   border: 1px solid ${({theme, $hasChanges})=> $hasChanges ? v.colorPrincipal : theme.bg4};
@@ -179,19 +193,9 @@ const DateRow = styled.div`
       cursor: pointer;
       color-scheme: ${({theme}) => theme.mode === 'dark' ? 'dark' : 'light'};
 
-      &:focus {
-          outline: 2px solid ${v.colorPrincipal};
-          border-color: transparent;
-      }
-      &:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          background: transparent;
-          border-color: transparent;
-          font-weight: bold;
-      }
+      &:focus { outline: 2px solid ${v.colorPrincipal}; border-color: transparent; }
+      &:disabled { opacity: 0.7; cursor: not-allowed; background: transparent; border-color: transparent; font-weight: bold; }
   }
-  
   @media (max-width: 768px) { justify-content: center; width: 100%; }
 `;
 
@@ -206,7 +210,6 @@ const ConfirmBtn = styled.button`
     margin-left: 5px;
     animation: fadeIn 0.3s ease;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-
     &:hover { background: ${v.colorPrincipalDark || '#27ae60'}; transform: translateY(-1px); }
     @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
 `;
@@ -223,7 +226,41 @@ const AutoFillBtn = styled.button`
 `;
 
 const BtnAction = styled.button`
-  background: ${({theme})=>theme.bg4}; border: none; border-radius: 8px; width: 42px; height: 42px;
-  display: flex; align-items: center; justify-content: center; cursor: pointer; color: ${({theme})=>theme.text}; transition: all 0.2s;
-  &:hover { background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; transform: translateY(-2px); }
+  background: ${({theme})=>theme.bg4}; 
+  border: none; 
+  border-radius: 8px; 
+  width: 42px; 
+  height: 42px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  cursor: pointer; 
+  color: ${({theme})=>theme.text}; 
+  transition: all 0.2s;
+  position: relative; /* Necesario para posicionar el badge */
+  
+  &:hover { 
+      background: ${v.colorPrincipal}20; 
+      color: ${v.colorPrincipal}; 
+      transform: translateY(-2px); 
+  }
+`;
+
+const NotificationBadge = styled.span`
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #e74c3c; /* Rojo de notificación, o puedes usar v.colorPrincipal */
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid ${({theme})=>theme.bg3}; /* Borde para que resalte sobre el botón */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  pointer-events: none; /* Para que no interfiera si le dan clic justo al número */
 `;

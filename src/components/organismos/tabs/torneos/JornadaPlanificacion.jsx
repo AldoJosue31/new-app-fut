@@ -15,6 +15,7 @@ import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal";
+import { BatchPrintModal } from "./planificacion/BatchPrintModal"; // <--- Importamos el nuevo modal
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 
 // --- COMPONENTE INTERNO PARA ZONA DE NUEVO DÍA ---
@@ -106,6 +107,8 @@ export function JornadaPlanificacion({
   
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [batchPrintOpen, setBatchPrintOpen] = useState(false); // <--- Estado para modal de impresión
+
   const [conflictsFound, setConflictsFound] = useState([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
@@ -114,6 +117,16 @@ export function JornadaPlanificacion({
   const isFirstJornadaConfirmed = activeTournament?.jornadas?.some(
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
+
+  // --- LÓGICA PARA BOTÓN DE IMPRESIÓN ---
+  // Filtramos partidos de esta jornada que ya están en DB (no en memoria/draft) y no tienen resultado
+  const matchesWithoutResult = scheduledMatches.filter(m => {
+      // Asumimos que si tiene ID numérico o UUID es de DB. Si es temporal (new_...) no debería estar confirmado.
+      const isSaved = m.id && !String(m.id).startsWith('temp');
+      const isPendingResult = m.status !== 'Finalizado'; 
+      // Opcional: checar m.home_score === null si tu lógica de status no es estricta
+      return isSaved && isPendingResult;
+  });
 
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
@@ -168,15 +181,11 @@ export function JornadaPlanificacion({
       setIsCheckingConflicts(true);
       try {
         const rawExternalData = await fetchExternalMatches(weekStartDate);
-        
-        // Filtro local adicional de conflictos
         const currentJornadaId = jornadaData?.id;
         const currentTournamentId = activeTournament?.id;
 
         const filteredExternalData = rawExternalData.filter(ext => {
-             // Ignorar la propia jornada si ya viene
              if (currentJornadaId && String(ext.jornada_id) === String(currentJornadaId)) return false;
-             // Ignorar el propio torneo (doble verificación)
              if (currentTournamentId && String(ext.original_id).includes(currentTournamentId)) return false;
              return true;
         });
@@ -258,6 +267,9 @@ export function JornadaPlanificacion({
             onAutoFill={handleAutoFillWrapper}
             onConfig={() => setConfigModalOpen(true)} viewMode={viewMode} onToggleView={setViewMode}
             onEditFixture={onEditFixture} isTournamentActive={isTournamentActive}
+            // --- Props nuevas para impresión ---
+            onPrintBatch={() => setBatchPrintOpen(true)}
+            matchesWithoutResultCount={matchesWithoutResult.length}
         />
         
         {viewMode === 'grid' && (
@@ -358,6 +370,13 @@ export function JornadaPlanificacion({
         <TournamentConfigModal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} activeTournament={activeTournament} onSave={onSaveConfig} isVueltasLocked={isVueltasLocked} isStartDateLocked={isFirstJornadaConfirmed} />
         <ResultModal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} match={selectedMatchResult} activeTournament={activeTournament} onSave={async (id, updates) => await onMatchUpdate?.(id, updates)} />
         <ConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} conflicts={conflictsFound} />
+        
+        {/* --- Modal de Impresión Masiva --- */}
+        <BatchPrintModal 
+            isOpen={batchPrintOpen} 
+            onClose={() => setBatchPrintOpen(false)} 
+            matchesToPrint={matchesWithoutResult}
+        />
     </Container>
   );
 }

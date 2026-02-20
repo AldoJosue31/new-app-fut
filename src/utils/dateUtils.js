@@ -13,17 +13,38 @@ export const formatTimeTo12Hour = (time24) => {
 };
 
 /**
- * Convierte una fecha "YYYY-MM-DD" a "Día DD/MM/YY"
- * Ejemplo: "2026-01-30" -> "Viernes 30/01/26"
+ * Convierte una fecha "YYYY-MM-DD" o Timestamp a "Día DD/MM/YY"
+ * Ejemplo: "2026-01-30T10:00:00" -> "Viernes 30/01/26"
  */
 export const formatDateWithWeekday = (dateStr) => {
   if (!dateStr) return "";
-  const [year, month, day] = dateStr.split('-');
-  // Usamos el constructor (y, m-1, d) para evitar problemas de zona horaria UTC
+  // Nos quedamos solo con la parte de la fecha ignorando la T o el espacio
+  const datePart = dateStr.split('T')[0].split(' ')[0]; 
+  const [year, month, day] = datePart.split('-');
   const date = new Date(year, month - 1, day);
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const dayName = days[date.getDay()];
   return `${dayName} ${day}/${month}/${year.slice(-2)}`;
+};
+
+/**
+ * Formato corto de fecha "DD/MM" o "DD/MM/YY"
+ * Extrae correctamente la fecha incluso si viene como Timestamp de la BD.
+ */
+export const formatShortDate = (dateStr) => {
+  if (!dateStr) return "";
+  
+  // Limpiamos el string para quitar la hora (ej: "2026-05-23T10:00:00" o "2026-05-23 10:00:00" -> "2026-05-23")
+  const datePart = dateStr.split('T')[0].split(' ')[0]; 
+  
+  const [year, month, day] = datePart.split('-');
+  const currentYear = new Date().getFullYear().toString();
+  
+  if (year === currentYear) {
+    return `${day}/${month}`;
+  } else {
+    return `${day}/${month}/${year.slice(-2)}`;
+  }
 };
 
 /**
@@ -32,7 +53,8 @@ export const formatDateWithWeekday = (dateStr) => {
 export const addDaysToDate = (dateStr, days) => {
     if (!dateStr) return new Date().toISOString().split('T')[0];
     
-    const [y, m, d] = dateStr.split('-').map(Number);
+    const datePart = dateStr.split('T')[0].split(' ')[0]; 
+    const [y, m, d] = datePart.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     
     date.setDate(date.getDate() + days);
@@ -45,12 +67,13 @@ export const addDaysToDate = (dateStr, days) => {
 };
 
 /**
- * Verifica si un string es una fecha válida (YYYY-MM-DD)
+ * Verifica si un string es una fecha válida
  */
 export const isValidDate = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string') return false;
+    const datePart = dateStr.split('T')[0].split(' ')[0]; 
     const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(dateStr)) return false;
-    const date = new Date(dateStr + 'T00:00:00'); // T00:00:00 ayuda al parsing en ciertos navegadores
+    if (!regex.test(datePart)) return false;
+    const date = new Date(datePart + 'T00:00:00'); 
     return !isNaN(date.getTime());
 };

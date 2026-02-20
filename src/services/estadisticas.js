@@ -1,9 +1,6 @@
 import { supabase } from '../supabase/supabase.config';
 
 export const getTablaPosicionesService = async (division) => {
-  // Nota: Asegúrate de que tu vista 'view_clasificacion' tenga la columna correcta para la división.
-  // Si usas un esquema estándar, usualmente es 'division' o 'division_name'.
-  // Asumiremos que para clasificacion usas 'division'.
   const { data, error } = await supabase
     .from('view_clasificacion')
     .select('*')
@@ -35,7 +32,6 @@ export const getTopScorersService = async ({ division = null, tournamentId = nul
     console.error("getTopScorersService error:", error);
     throw error;
   }
-  console.log("getTopScorersService result count:", (data && data.length) || 0);
   return data || [];
 };
 
@@ -54,10 +50,11 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
     const tournamentId = torneo.id;
 
     // 2. Obtener Historial de Partidos (Solo FINALIZADOS)
+    // Se pide 'observations' en lugar de columnas de penales inexistentes
     const { data: matches, error: mError } = await supabase
       .from('matches')
       .select(`
-        id, goals1, goals2, date, status,
+        id, goals1, goals2, date, status, observations,
         team1:teams!team1_id(id, name, logo_url),
         team2:teams!team2_id(id, name, logo_url),
         jornadas!inner(name, tournament_id)
@@ -75,16 +72,39 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
       const rivalGoals = isLocal ? m.goals2 : m.goals1;
       const rival = isLocal ? m.team2 : m.team1;
       
+      // EXTRAER PENALES DE LAS OBSERVACIONES (Ej. "Pen: 4-3")
+      let myPenalties = null;
+      let rivalPenalties = null;
+
+      if (m.observations && /Pen/i.test(m.observations)) {
+        const matchPen = m.observations.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
+        if (matchPen) {
+            const penLocal = parseInt(matchPen[1]);
+            const penVisit = parseInt(matchPen[2]);
+            myPenalties = isLocal ? penLocal : penVisit;
+            rivalPenalties = isLocal ? penVisit : penLocal;
+        }
+      }
+
       let result = 'E';
       if (myGoals > rivalGoals) result = 'V';
       if (myGoals < rivalGoals) result = 'D';
 
+      // Reevaluar resultado final si hubo tanda de penales
+      if (myGoals === rivalGoals && myPenalties !== null && rivalPenalties !== null) {
+          if (myPenalties > rivalPenalties) result = 'V';
+          if (myPenalties < rivalPenalties) result = 'D';
+      }
+
       return {
         id: m.id,
         jornada: m.jornadas.name,
+        date: m.date,
         rival,
         myGoals,
         rivalGoals,
+        myPenalties,
+        rivalPenalties,
         result
       };
     });

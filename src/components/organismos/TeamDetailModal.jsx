@@ -10,6 +10,7 @@ import {
 } from "../../index";
 import { supabase } from "../../supabase/supabase.config";
 import { getTeamTournamentStats } from "../../services/estadisticas"; 
+import { formatShortDate } from "../../utils/dateUtils";
 import { 
     RiShieldUserLine, RiUserFollowLine, RiSmartphoneLine, 
     RiArrowLeftLine, RiTrophyLine, RiFootballLine, RiUserSmileLine,
@@ -53,7 +54,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-useEffect(() => {
+    useEffect(() => {
         if (!isOpen) {
             setShowPlayerList(false);
             setShowStats(false);
@@ -61,92 +62,77 @@ useEffect(() => {
             setStatsData(null);
             setHasActiveTournament(false);
         } else if (team) {
-            // Siempre intentamos cargar stats para tener la data lista
             if (division) checkTournamentStatus();
-
-            // Si se pidió vista inicial "stats", la activamos
-            // La animación CSS (.internal-view) se encargará del efecto visual
             if (initialView === 'stats') {
                 setShowStats(true);
             }
         }
     }, [isOpen, team, division, initialView]);
 
-const checkTournamentStatus = async () => {
-    setLoadingStats(true);
-    try {
-        // 1) Buscar torneo ACTIVO para la división (mismo criterio que usa getTeamTournamentStats)
-        const { data: torneoSel, error: tErr } = await supabase
-            .from('tournaments')
-            .select('id')
-            .eq('division_id', division.id)
-            .eq('status', 'Activo')
-            .single();
+    const checkTournamentStatus = async () => {
+        setLoadingStats(true);
+        try {
+            const { data: torneoSel, error: tErr } = await supabase
+                .from('tournaments')
+                .select('id')
+                .eq('division_id', division.id)
+                .eq('status', 'Activo')
+                .single();
 
-        if (tErr || !torneoSel) {
-            console.warn("TeamDetailModal.checkTournamentStatus: No hay torneo activo para la division", { error: tErr });
+            if (tErr || !torneoSel) {
+                console.warn("TeamDetailModal.checkTournamentStatus: No hay torneo activo para la division", { error: tErr });
+                setHasActiveTournament(false);
+                setStatsData(null);
+                return;
+            }
+
+            const tournamentId = torneoSel.id;
+            const data = await getTeamTournamentStats(team.id, division.id);
+
+            if (!data || !data.hasTournament) {
+                setHasActiveTournament(false);
+                setStatsData(null);
+                return;
+            }
+
+            const { data: golesView, error: gErr } = await supabase
+                .from('view_goleadores')
+                .select('player_id, goals')
+                .eq('tournament_id', Number(tournamentId))
+                .eq('team_id', Number(team.id));
+
+            if (gErr) console.warn("TeamDetailModal.checkTournamentStatus: error reading view_goleadores", gErr);
+
+            const goalsMap = (golesView || []).reduce((acc, row) => {
+                const pid = row.player_id ?? row.playerId ?? null;
+                if (pid != null) acc[String(pid)] = Number(row.goals ?? 0);
+                return acc;
+            }, {});
+
+            const mergedPlayerStats = (data.playerStats || []).map(p => {
+                const pidKey = String(p.id);
+                const viewGoals = (pidKey in goalsMap) ? goalsMap[pidKey] : undefined;
+                return {
+                    ...p,
+                    goals: (typeof viewGoals === 'number') ? viewGoals : (p.goals || 0)
+                };
+            });
+
+            setHasActiveTournament(true);
+            setStatsData({
+                ...data,
+                tournamentId,
+                playerStats: mergedPlayerStats
+            });
+
+        } catch (error) {
+            console.error("TeamDetailModal.checkTournamentStatus - unexpected error:", error);
             setHasActiveTournament(false);
             setStatsData(null);
-            return;
+        } finally {
+            setLoadingStats(false);
         }
-
-        const tournamentId = torneoSel.id;
-        // 2) Obtener stats "originales" (historial y playerStats) desde el servicio existente
-        const data = await getTeamTournamentStats(team.id, division.id);
-
-        if (!data || !data.hasTournament) {
-            setHasActiveTournament(false);
-            setStatsData(null);
-            return;
-        }
-
-        // 3) Obtener goles agregados desde view_goleadores (la fuente "nueva" y agregada)
-        //    Filtramos por tournamentId y team_id para sólo traer los jugadores de este equipo en ese torneo
-        const { data: golesView, error: gErr } = await supabase
-            .from('view_goleadores')
-            .select('player_id, goals')
-            .eq('tournament_id', Number(tournamentId))
-            .eq('team_id', Number(team.id));
-
-        if (gErr) {
-            console.warn("TeamDetailModal.checkTournamentStatus: error reading view_goleadores", gErr);
-            // no abortamos; seguimos con los datos originales (aunque goles podrían estar incompletos)
-        }
-
-        // 4) Construir mapa player_id -> goals desde la vista
-        const goalsMap = (golesView || []).reduce((acc, row) => {
-            const pid = row.player_id ?? row.playerId ?? null;
-            if (pid != null) acc[String(pid)] = Number(row.goals ?? 0);
-            return acc;
-        }, {});
-
-        // 5) Fusionar goles en playerStats
-        const mergedPlayerStats = (data.playerStats || []).map(p => {
-            const pidKey = String(p.id);
-            const viewGoals = (pidKey in goalsMap) ? goalsMap[pidKey] : undefined;
-            return {
-                ...p,
-                // si view_goleadores tiene valor, lo usamos; si no, dejamos el cálculo previo
-                goals: (typeof viewGoals === 'number') ? viewGoals : (p.goals || 0)
-            };
-        });
-
-        // 6) Guardar el resultado en el estado
-        setHasActiveTournament(true);
-        setStatsData({
-            ...data,
-            tournamentId,
-            playerStats: mergedPlayerStats
-        });
-
-    } catch (error) {
-        console.error("TeamDetailModal.checkTournamentStatus - unexpected error:", error);
-        setHasActiveTournament(false);
-        setStatsData(null);
-    } finally {
-        setLoadingStats(false);
-    }
-};
+    };
 
     const handleShowPlayers = async () => {
         if (!team) return;
@@ -237,23 +223,59 @@ const checkTournamentStatus = async () => {
                                     <SectionLabel>Últimos Resultados</SectionLabel>
                                     <MatchesRow>
                                         {statsData?.matchHistory?.length > 0 ? (
-                                            statsData.matchHistory.map(m => (
-                                                <MatchCard key={m.id} $result={m.result}>
-                                                    <div className="match-header">
-                                                        <span className="date">{m.jornada}</span>
-                                                        <ResultBadge $result={m.result}>{m.result === 'V' ? 'G' : m.result === 'E' ? 'E' : 'P'}</ResultBadge>
-                                                    </div>
-                                                    <div className="match-score">
-                                                        <span className="score-num my-team">{m.myGoals}</span>
-                                                        <span className="divider">-</span>
-                                                        <span className="score-num">{m.rivalGoals}</span>
-                                                    </div>
-                                                    <div className="rival-container">
-                                                        <img src={m.rival.logo_url || "/logo_gen.png"} alt="R" />
-                                                        <span>{m.rival.name}</span>
-                                                    </div>
-                                                </MatchCard>
-                                            ))
+                                            statsData.matchHistory.map(m => {
+                                                // EVALUACIÓN DE EMPATE EN TIEMPO REGULAR Y PENALES
+                                                const isTieRegular = m.myGoals === m.rivalGoals;
+                                                const hasPenalties = m.myPenalties !== null && m.rivalPenalties !== null;
+                                                
+                                                let badgeLetter = m.result === 'V' ? 'G' : m.result === 'E' ? 'E' : 'P';
+                                                let badgeColor = m.result; 
+                                                let penaltyStatus = null;
+
+                                                // Si empataron en el marcador regular, mostramos 'E' (Gris)
+                                                // Y calculamos quién ganó para colorear solo el borde de ese 'E'
+                                                if (isTieRegular) {
+                                                    badgeLetter = 'E';
+                                                    badgeColor = 'E'; 
+                                                    if (hasPenalties) {
+                                                        penaltyStatus = m.myPenalties > m.rivalPenalties ? 'win' : 'loss';
+                                                    }
+                                                }
+
+                                                return (
+                                                    <MatchCard key={m.id}>
+                                                        <div className="match-header">
+                                                            <span className="jornada-tag" title={m.jornada}>{m.jornada}</span>
+                                                            <ResultBadge $result={badgeColor} $penaltyStatus={penaltyStatus}>
+                                                                {badgeLetter}
+                                                            </ResultBadge>
+                                                        </div>
+
+                                                        {/* Fecha simple justo arriba del marcador */}
+                                                        <div className="match-date-simple">
+                                                            {formatShortDate(m.date)}
+                                                        </div>
+
+                                                        <div className="match-score">
+                                                            <span className="score-num my-team">{m.myGoals}</span>
+                                                            <span className="divider">-</span>
+                                                            <span className="score-num">{m.rivalGoals}</span>
+                                                        </div>
+                                                        
+                                                        {/* Mostrar Tanda de Penales */}
+                                                        {hasPenalties && (
+                                                            <div className="penalties-score">
+                                                                (P: {m.myPenalties} - {m.rivalPenalties})
+                                                            </div>
+                                                        )}
+
+                                                        <div className="rival-container">
+                                                            <img src={m.rival.logo_url || "/logo_gen.png"} alt="R" />
+                                                            <span>{m.rival.name}</span>
+                                                        </div>
+                                                    </MatchCard>
+                                                );
+                                            })
                                         ) : (
                                             <EmptyBox>Sin resultados aún.</EmptyBox>
                                         )}
@@ -405,14 +427,13 @@ const DetailContainer = styled.div`
         animation: ${slideInLeft} 0.3s cubic-bezier(0.25, 1, 0.5, 1); 
     }
 
-    /* CORRECCIÓN DE ESPACIADO EN CABECERA */
     .header-list-actions { 
         display: flex; 
         justify-content: space-between; 
         align-items: center; 
         margin-bottom: 15px; 
-        gap: 15px; /* Espacio mínimo entre botón volver y controles */
-        flex-wrap: wrap; /* Importante para que no se peguen en móviles */
+        gap: 15px; 
+        flex-wrap: wrap; 
 
         @media (max-width: 480px) { 
             margin-bottom: 10px; 
@@ -425,7 +446,7 @@ const DetailContainer = styled.div`
         background: ${({theme}) => theme.bgtotal}; border: 1px solid ${({theme}) => theme.bg4}; color: ${({theme}) => theme.text}; 
         cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 8px 14px; border-radius: 20px; transition: 0.2s;
         font-size: 0.85rem;
-        flex-shrink: 0; /* Evita que el botón se aplaste */
+        flex-shrink: 0; 
         &:hover { background: ${({theme}) => theme.bgcards}; border-color: ${v.colorPrincipal}; }
     }
     
@@ -481,19 +502,67 @@ const MatchesRow = styled.div`
     display: flex; gap: 10px; overflow-x: auto; padding: 2px 5px; -webkit-overflow-scrolling: touch;
     scrollbar-width: none; -ms-overflow-style: none; &::-webkit-scrollbar { display: none; }
 `;
+
 const MatchCard = styled.div`
-    flex: 0 0 120px; background: ${({theme}) => theme.bgtotal}; border: 1px solid ${({theme}) => theme.bg4}; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; 
-    .match-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-    .date { font-size: 0.6rem; opacity: 0.6; text-transform: uppercase; }
+    flex: 0 0 120px; 
+    background: ${({theme}) => theme.bgtotal}; 
+    border: 1px solid ${({theme}) => theme.bg4}; 
+    border-radius: 12px; 
+    padding: 10px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 4px;
+    position: relative; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+
+    .match-header { 
+        width: 100%; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        margin-bottom: 2px;
+    }
+    .jornada-tag { 
+        font-size: 0.6rem; 
+        font-weight: 800; 
+        text-transform: uppercase; 
+        opacity: 0.6;
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+        max-width: 80px; 
+    }
+    .match-date-simple {
+        font-size: 0.65rem;
+        font-weight: 600;
+        opacity: 0.5;
+        margin-bottom: -2px; 
+    }
     .match-score { font-weight: 800; font-size: 1.3rem; color: ${({theme})=>theme.text}; display:flex; align-items: center; gap: 5px; line-height: 1; }
     .score-num { &.my-team { color: ${v.colorPrincipal}; } }
     .divider { opacity: 0.3; font-size: 0.9rem; }
+    .penalties-score { font-size: 0.65rem; color: #f39c12; font-weight: 700; margin-top: -3px; margin-bottom: 1px; letter-spacing: 0.5px; }
     .rival-container { display: flex; flex-direction: column; align-items: center; gap: 2px; img { width: 28px; height: 28px; object-fit: contain; } span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 `;
+
+/* ESTILOS DE LA ETIQUETA (G / E / P) ACTUALIZADOS CON BORDE DINÁMICO */
 const ResultBadge = styled.span`
-    font-size: 0.55rem; padding: 2px 5px; border-radius: 4px; color: white; font-weight: 700;
+    font-size: 0.55rem; 
+    padding: 2px 5px; 
+    border-radius: 4px; 
+    color: white; 
+    font-weight: 700;
     background: ${props => props.$result === 'V' ? '#2ecc71' : props.$result === 'D' ? '#e74c3c' : '#95a5a6'};
+    
+    /* Borde del badge si hubo penales */
+    border: ${props => 
+        props.$penaltyStatus === 'win' ? '1.5px solid #2ecc71' : 
+        props.$penaltyStatus === 'loss' ? '1.5px solid #e74c3c' : 
+        '1.5px solid transparent'
+    };
 `;
+
 const EmptyBox = styled.div` background: ${({theme})=>theme.bgcards}; padding: 15px; border-radius: 8px; width: 100%; text-align: center; font-size: 0.8rem; opacity: 0.7; border: 1px dashed ${({theme})=>theme.bg4}; margin: 0 5px; `;
 
 const TableWrapper = styled.div`

@@ -7,13 +7,13 @@ import {
   RiTimeLine, 
   RiEditLine, 
   RiFileTextLine,
-  RiPrinterLine // <-- NUEVO ICONO
+  RiPrinterLine 
 } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 // Importar los modales
 import MatchSheetModal from "./MatchSheetModal";
-import { PreMatchSheetModal } from "./PreMatchSheetModal"; // <-- IMPORTAR NUEVO MODAL (Asegúrate de tener este archivo o comenta esta línea si aún no lo creas)
+import { PreMatchSheetModal } from "./PreMatchSheetModal"; 
 
 const getPenaltyScore = (observations) => {
     if (!observations) return null;
@@ -38,9 +38,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
-  // Estado para controlar la apertura de la Cédula final
   const [showSheet, setShowSheet] = useState(false);
-  // NUEVO: estado para controlar la apertura de la Pre-Cédula (impresión)
   const [showPreSheet, setShowPreSheet] = useState(false);
 
   const penalties = useMemo(() => {
@@ -71,11 +69,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       }
   };
 
-  // Función manejadora para cuando se guarda la cédula desde el modal
   const handleSaveSheet = (sheetData) => {
     console.log("Cédula guardada/actualizada:", sheetData);
-    // Aquí podrías llamar a una función prop (ej. onUpdateMatch) para persistir en BD
-    // Por ahora solo cerramos el modal
     setShowSheet(false);
   };
 
@@ -135,7 +130,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
                                 </button>
                                 
-                                {/* LOGICA DE BOTÓN CONDICIONAL */}
                                 {match.status === 'Finalizado' ? (
                                     <button className="action-btn sheet" onClick={() => setShowSheet(true)}>
                                         <RiFileTextLine />
@@ -143,7 +137,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     </button>
                                 ) : (
                                     <>
-                                        {/* NUEVO BOTÓN: PRE-CÉDULA */}
                                         <button 
                                             className="action-btn print" 
                                             onClick={() => setShowPreSheet(true)}
@@ -184,8 +177,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             </Container>
         </Wrapper>
 
-        {/* Renderizar Modal de Cédula Final */}
-        {/* IMPORTANTE: Pasamos el objeto 'match' completo y 'onSaveSheet' para compatibilidad con el nuevo modal */}
+        {/* Modal de Cédula Final */}
         <MatchSheetModal 
             isOpen={showSheet} 
             onClose={() => setShowSheet(false)} 
@@ -193,7 +185,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             onSaveSheet={handleSaveSheet}
         />
 
-        {/* NUEVO: Renderizar Modal de Pre-Cédula (impresión) */}
+        {/* Modal de Pre-Cédula */}
         {showPreSheet && (
              <PreMatchSheetModal 
                 isOpen={showPreSheet}
@@ -206,13 +198,9 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 });
 
 // --- ESTILOS ---
-
 const Wrapper = styled.div`
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    position: relative; 
+    display: flex; flex-direction: column; gap: 10px; position: relative; 
 `;
 
 const DateDivider = styled.div`
@@ -222,15 +210,8 @@ const DateDivider = styled.div`
 `;
 
 const ScoreWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: ${({theme})=>theme.bg3};
-    padding: 2px 8px;
-    border-radius: 4px;
-    min-width: 30px;
-
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: ${({theme})=>theme.bg3}; padding: 2px 8px; border-radius: 4px; min-width: 30px;
     .main-score { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
     .pen-score { font-size: 0.75rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.7; margin-top: -2px; }
 `;
@@ -303,8 +284,6 @@ const Container = styled.div`
                 &.result { background: ${v.colorPrincipal}; color: white; &:hover{ filter: brightness(1.1); } }
                 &.postpone { background: #f1c40f20; color: #f1c40f; &:hover{ background: #f1c40f; color: black; } }
                 &.sheet { background: #3498db20; color: #3498db; &:hover{ background: #3498db; color: white; } }
-                
-                /* Estilo del botón nuevo de imprimir */
                 &.print { background: #95a5a620; color: #7f8c8d; &:hover{ background: #95a5a6; color: white; } }
             }
         }
