@@ -101,10 +101,11 @@ export const PlanningHeader = memo(({
             </InfoGroup>
 
             <ActionsGroup>
-                {/* Botón Imprimir Lote (Nuevo) */}
+                {/* Botón Imprimir Lote con Notificación */}
                 {showPrintButton && (
                      <BtnAction onClick={onPrintBatch} title={`Imprimir ${matchesWithoutResultCount} cédulas pendientes`}>
                         <RiPrinterLine size={20}/>
+                        <NotificationBadge>{matchesWithoutResultCount}</NotificationBadge>
                      </BtnAction>
                 )}
 
@@ -225,7 +226,41 @@ const AutoFillBtn = styled.button`
 `;
 
 const BtnAction = styled.button`
-  background: ${({theme})=>theme.bg4}; border: none; border-radius: 8px; width: 42px; height: 42px;
-  display: flex; align-items: center; justify-content: center; cursor: pointer; color: ${({theme})=>theme.text}; transition: all 0.2s;
-  &:hover { background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; transform: translateY(-2px); }
+  background: ${({theme})=>theme.bg4}; 
+  border: none; 
+  border-radius: 8px; 
+  width: 42px; 
+  height: 42px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  cursor: pointer; 
+  color: ${({theme})=>theme.text}; 
+  transition: all 0.2s;
+  position: relative; /* Necesario para posicionar el badge */
+  
+  &:hover { 
+      background: ${v.colorPrincipal}20; 
+      color: ${v.colorPrincipal}; 
+      transform: translateY(-2px); 
+  }
+`;
+
+const NotificationBadge = styled.span`
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #e74c3c; /* Rojo de notificación, o puedes usar v.colorPrincipal */
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid ${({theme})=>theme.bg3}; /* Borde para que resalte sobre el botón */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  pointer-events: none; /* Para que no interfiera si le dan clic justo al número */
 `;
