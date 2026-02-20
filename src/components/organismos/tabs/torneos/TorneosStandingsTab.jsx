@@ -5,8 +5,12 @@ import { supabase } from '../../../../supabase/supabase.config';
 import { v } from '../../../../styles/variables';
 import { Device } from '../../../../styles/breakpoints';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
-import { BiShareAlt, BiCheck } from "react-icons/bi"; // Eliminé iconos no usados si no los necesitas
+import { BiShareAlt, BiCheck } from "react-icons/bi"; 
+import { RiImageLine } from "react-icons/ri"; // <- NUEVO ICONO
 import { motion } from 'framer-motion';
+
+// NUEVO MODAL IMPORTADO
+import StandingsExportModal from './subcomponents/StandingsExportModal';
 
 export const TorneosStandingsTab = ({
   torneo = {},
@@ -19,9 +23,11 @@ export const TorneosStandingsTab = ({
 
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
+  
+  // NUEVO ESTADO PARA EL MODAL DE EXPORTACIÓN
+  const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
     if (onRefresh && typeof onRefresh === 'function') {
@@ -142,25 +148,29 @@ export const TorneosStandingsTab = ({
       {/* HEADER DE ACCIONES (SOLO ADMIN) */}
       {!isPublic && (
         <ControlPanel>
-            
-            {/* TOGGLE SWITCH */}
             <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
                 <div className="track">
                     <div className="thumb" />
                 </div>
                 <span className="label">
-                    {updating ? "Guardando..." : (isPublicEnabled ? "Enlace Público: ACTIVO" : "Enlace Público: INACTIVO")}
+                    {updating ? "Guardando..." : (isPublicEnabled ? "Público: ACTIVO" : "Público: INACTIVO")}
                 </span>
             </ToggleContainer>
 
-            {/* BOTÓN DE COMPARTIR MODIFICADO */}
-            {isPublicEnabled && (
-                <ShareButton onClick={handleShare} $copied={copied}>
-                    {copied ? <BiCheck size={20}/> : <BiShareAlt size={20}/>}
-                    {/* Envolvemos el texto en span para ocultarlo en móvil */}
-                    <span>{copied ? "Link Copiado" : "Copiar Enlace"}</span>
+            {/* BOTONES AGRUPADOS */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+                <ShareButton onClick={() => setShowExportModal(true)} title="Exportar Tabla">
+                    <RiImageLine size={20}/>
+                    <span>Exportar</span>
                 </ShareButton>
-            )}
+
+                {isPublicEnabled && (
+                    <ShareButton onClick={handleShare} $copied={copied} title="Copiar Enlace">
+                        {copied ? <BiCheck size={20}/> : <BiShareAlt size={20}/>}
+                        <span>{copied ? "Copiado" : "Link"}</span>
+                    </ShareButton>
+                )}
+            </div>
         </ControlPanel>
       )}
 
@@ -251,6 +261,15 @@ export const TorneosStandingsTab = ({
              {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
         </LeyendaContainer>
       )}
+
+      {/* RENDERIZADO DEL NUEVO MODAL */}
+      <StandingsExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        tablaGeneral={tablaGeneral}
+        torneo={torneo}
+        config={config}
+      />
     </div>
   );
 };
@@ -269,63 +288,32 @@ const ControlPanel = styled.div`
   border-radius: 12px;
   border: 1px solid ${({ theme }) => theme.color2};
   box-shadow: ${v.boxshadowGray};
-  flex-wrap: nowrap; /* Cambio: Evita que se rompa la línea */
+  flex-wrap: nowrap;
   gap: 10px;
 `;
 
 const ToggleContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    user-select: none;
-
+    display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
     .track {
-        width: 44px;
-        height: 24px;
-        background-color: ${({ $active, theme }) => $active ? v.verde : theme.bg3};
-        border-radius: 20px;
-        position: relative;
-        transition: background-color 0.3s ease;
-        border: 1px solid ${({ theme }) => theme.color2};
+        width: 44px; height: 24px; background-color: ${({ $active, theme }) => $active ? v.verde : theme.bg3};
+        border-radius: 20px; position: relative; transition: background-color 0.3s ease; border: 1px solid ${({ theme }) => theme.color2};
     }
-
     .thumb {
-        width: 20px;
-        height: 20px;
-        background-color: #fff;
-        border-radius: 50%;
-        position: absolute;
-        top: 1px;
-        left: 1px;
+        width: 20px; height: 20px; background-color: #fff; border-radius: 50%; position: absolute; top: 1px; left: 1px;
         transform: ${({ $active }) => $active ? 'translateX(20px)' : 'translateX(0)'};
-        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-
-    .label {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'};
-        /* En móvil podemos acortar el texto del label si quieres, pero por ahora lo dejamos */
-    }
+    .label { font-size: 0.85rem; font-weight: 600; color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'}; }
+    @media (max-width: 480px) { .label { display: none; } }
 `;
 
-// --- BOTÓN DE COMPARTIR MODIFICADO ---
 const ShareButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: flex; align-items: center; gap: 8px;
   background-color: ${({ $copied, theme }) => $copied ? v.verde : theme.bg2};
   color: ${({ $copied, theme }) => $copied ? '#fff' : theme.text};
   border: 1px solid ${({ theme }) => theme.color2};
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  white-space: nowrap;
+  padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  transition: all 0.3s ease; white-space: nowrap;
   
   &:hover {
     transform: translateY(-2px);
@@ -333,185 +321,74 @@ const ShareButton = styled.button`
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   }
 
-  /* MEDIA QUERY PARA MÓVIL (Menos de 768px) */
   @media (max-width: 768px) {
-    padding: 0;           /* Quitamos padding */
-    width: 36px;          /* Ancho fijo */
-    height: 36px;         /* Alto fijo */
-    justify-content: center; /* Centrar icono */
-    border-radius: 50%;   /* Hacerlo circular */
-    
-    /* Ocultamos el texto */
-    span {
-        display: none;
-    }
+    padding: 0; width: 36px; height: 36px; justify-content: center; border-radius: 50%;
+    span { display: none; }
   }
 `;
 
 const TableCard = styled.div`
-  background-color: ${({ theme }) => theme.bg};
-  border-radius: 16px;
-  box-shadow: ${v.boxshadowGray};
-  margin: 0 auto 10px auto; 
-  border: 1px solid ${({ theme }) => theme.color2}; 
-  width: 98%; 
-  max-width: 900px; 
-  overflow: hidden; 
-  flex-shrink: 0;
-  align-self: center;
+  background-color: ${({ theme }) => theme.bg}; border-radius: 16px; box-shadow: ${v.boxshadowGray};
+  margin: 0 auto 10px auto; border: 1px solid ${({ theme }) => theme.color2}; width: 98%; max-width: 900px; 
+  overflow: hidden; flex-shrink: 0; align-self: center;
 `;
 
 const TableScrollWrapper = styled(ContainerScroll)`
-  max-height: 600px;
-  overflow-y: auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
-  padding-right: 6px;
+  max-height: 600px; overflow-y: auto; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-gutter: stable; padding-right: 6px;
 `;
 
 const StyledTable = styled.table`
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  width: 100%; border-collapse: separate; border-spacing: 0;
 `;
 
 const Th = styled.th`
-  background-color: ${({ theme }) => theme.bgtotal};
-  color: ${({ theme }) => theme.text};
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.65rem;
-  padding: 8px 4px;
-  text-align: center;
-  border-bottom: 2px solid ${({ theme }) => theme.color2};
+  background-color: ${({ theme }) => theme.bgtotal}; color: ${({ theme }) => theme.text}; font-weight: 700;
+  text-transform: uppercase; font-size: 0.65rem; padding: 8px 4px; text-align: center; border-bottom: 2px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
-
-  @media ${Device.tablet} {
-    font-size: 0.75rem;
-    padding: 12px 8px;
-  }
-
-  &:first-child {
-    text-align: left;
-    padding-left: 10px;
-    position: sticky;
-    left: 0;
-    z-index: 10;
-    background-color: ${({ theme }) => theme.bgtotal};
-  }
-
-  &.stat-col {
-    width: 1%;
-    min-width: 30px;
-    @media ${Device.tablet} { min-width: 40px; }
-  }
+  @media ${Device.tablet} { font-size: 0.75rem; padding: 12px 8px; }
+  &:first-child { text-align: left; padding-left: 10px; position: sticky; left: 0; z-index: 10; background-color: ${({ theme }) => theme.bgtotal}; }
+  &.stat-col { width: 1%; min-width: 30px; @media ${Device.tablet} { min-width: 40px; } }
 `;
 
 const Td = styled.td`
-  padding: 6px 4px;
-  text-align: center;
-  font-size: 0.8rem;
-  color: ${({ theme }) => theme.text};
-  border-bottom: 1px solid ${({ theme }) => theme.color2};
-  white-space: nowrap;
-
-  @media ${Device.tablet} {
-    padding: 10px 8px;
-    font-size: 0.95rem;
-  }
-
+  padding: 6px 4px; text-align: center; font-size: 0.8rem; color: ${({ theme }) => theme.text};
+  border-bottom: 1px solid ${({ theme }) => theme.color2}; white-space: nowrap;
+  @media ${Device.tablet} { padding: 10px 8px; font-size: 0.95rem; }
   &.team-col {
-    text-align: left;
-    padding-left: 10px;
-    position: sticky;
-    left: 0;
-    z-index: 5;
-    background-color: ${({ theme }) => theme.bg};
+    text-align: left; padding-left: 10px; position: sticky; left: 0; z-index: 5; background-color: ${({ theme }) => theme.bg};
     box-shadow: inset 4px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'};
-    max-width: 130px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: box-shadow 0.3s ease;
-
-    @media ${Device.tablet} {
-        max-width: 250px;
-        box-shadow: inset 5px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'};
-    }
+    max-width: 130px; overflow: hidden; text-overflow: ellipsis; transition: box-shadow 0.3s ease;
+    @media ${Device.tablet} { max-width: 250px; box-shadow: inset 5px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'}; }
   }
-
-  &.points-cell {
-    font-weight: 800;
-    color: ${({ theme }) => theme.primary};
-    font-size: 0.9rem;
-    @media ${Device.tablet} { font-size: 1.05rem; }
-  }
+  &.points-cell { font-weight: 800; color: ${({ theme }) => theme.primary}; font-size: 0.9rem; @media ${Device.tablet} { font-size: 1.05rem; } }
 `;
 
 const TrBase = styled.tr`
-  cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
-  transition: background-color 0.2s;
+  cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; transition: background-color 0.2s;
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
 `;
 
 const Tr = TrBase;
 const MotionTr = motion(TrBase);
 
-const TdHideOnMobile = styled(Td)`
-  display: table-cell;
-  @media (max-width: 420px) {
-    display: none;
-  }
-`;
-
-const ThHideOnMobile = styled(Th)`
-  display: table-cell;
-  @media (max-width: 420px) {
-    display: none;
-  }
-`;
+const TdHideOnMobile = styled(Td)` display: table-cell; @media (max-width: 420px) { display: none; } `;
+const ThHideOnMobile = styled(Th)` display: table-cell; @media (max-width: 420px) { display: none; } `;
 
 const TeamNameCell = styled.div`
-  display: flex; align-items: center; gap: 6px;
-  @media ${Device.tablet} { gap: 10px; }
-
-  img {
-    width: 20px; height: 20px; object-fit: contain;
-    @media ${Device.tablet} { width: 28px; height: 28px; }
-    border-radius: 4px; 
-  }
-
-  .pos {
-    font-weight: 700; min-width: 12px; font-size: 0.75rem; opacity: 0.5;
-  }
-
-  .team-name {
-    font-weight: 600; font-size: 0.8rem;
-    @media ${Device.tablet} { font-size: 0.9rem; }
-  }
+  display: flex; align-items: center; gap: 6px; @media ${Device.tablet} { gap: 10px; }
+  img { width: 20px; height: 20px; object-fit: contain; @media ${Device.tablet} { width: 28px; height: 28px; } border-radius: 4px; }
+  .pos { font-weight: 700; min-width: 12px; font-size: 0.75rem; opacity: 0.5; }
+  .team-name { font-weight: 600; font-size: 0.8rem; @media ${Device.tablet} { font-size: 0.9rem; } }
 `;
 
 const LeyendaContainer = styled.div`
-    display: flex; 
-    gap: 8px; 
-    flex-wrap: wrap; 
-    justify-content: flex-end; 
-    max-width: 900px;
-    margin: 0 auto 10px auto; 
-    padding: 0 10px;
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 900px;
+    margin: 0 auto 10px auto; padding: 0 10px;
 `;
 
 const Badge = styled.span`
-    font-size: 0.65rem; 
-    font-weight: 700; 
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: ${({$color}) => `${$color}15`};
-    color: ${({$color}) => $color};
-    border: 1px solid ${({$color}) => $color};
-    
-    @media ${Device.tablet} {
-        font-size: 0.75rem;
-        padding: 4px 10px;
-    }
+    font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    background: ${({$color}) => `${$color}15`}; color: ${({$color}) => $color}; border: 1px solid ${({$color}) => $color};
+    @media ${Device.tablet} { font-size: 0.75rem; padding: 4px 10px; }
 `;
