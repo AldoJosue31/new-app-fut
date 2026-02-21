@@ -8,7 +8,7 @@ export const usePlanificacionMatches = (
     teams, 
     matchesDB, 
     globalPendingMatches,
-    jornadaStatus,
+    jornadaData, // Cambiado: Ahora recibe el objeto jornadaData completo
     dataVersion = 0,
     jornadasList = [] 
 ) => {
@@ -25,6 +25,7 @@ export const usePlanificacionMatches = (
   const [externalMatches, setExternalMatches] = useState([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
 
+  const jornadaStatus = jornadaData?.status;
   const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
@@ -62,25 +63,27 @@ export const usePlanificacionMatches = (
       }
   }, [datesStorageKey, activeTournament]);
 
-  // Sincronizar fecha de la semana
+  // Sincronizar fecha de la semana: PRIMERO busca en jornadaData, LUEGO en local
   useEffect(() => {
-      if (Object.keys(jornadaDates).length === 0) return;
-      const storedDate = jornadaDates[jornadaIndex];
-
-      if (storedDate) {
-          setWeekStartDate(storedDate);
-      } else {
-          let referenceDate = new Date().toISOString().split('T')[0];
-          if (jornadaIndex > 0) {
-              const prevDate = jornadaDates[jornadaIndex - 1];
-              if (prevDate) referenceDate = prevDate;
-              const newCalculatedDate = addDaysToDate(referenceDate, 7);
-              setWeekStartDate(newCalculatedDate);
+      if (jornadaData?.start_date) {
+          setWeekStartDate(jornadaData.start_date);
+      } else if (Object.keys(jornadaDates).length > 0) {
+          const storedDate = jornadaDates[jornadaIndex];
+          if (storedDate) {
+              setWeekStartDate(storedDate);
           } else {
-              setWeekStartDate(referenceDate);
+              let referenceDate = activeTournament?.start_date || new Date().toISOString().split('T')[0];
+              if (jornadaIndex > 0) {
+                  const prevDate = jornadaDates[jornadaIndex - 1];
+                  if (prevDate) referenceDate = prevDate;
+                  const newCalculatedDate = addDaysToDate(referenceDate, 7);
+                  setWeekStartDate(newCalculatedDate);
+              } else {
+                  setWeekStartDate(referenceDate);
+              }
           }
       }
-  }, [jornadaIndex, jornadaDates]);
+  }, [jornadaIndex, jornadaDates, jornadaData, activeTournament]);
 
   const handleSetWeekStartDate = (newDate) => {
       setWeekStartDate(newDate);

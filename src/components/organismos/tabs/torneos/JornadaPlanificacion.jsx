@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import styled, { keyframes, css } from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import { 
-    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiAddCircleLine
+    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine
 } from "react-icons/ri";
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
-import { formatDateWithWeekday, addDaysToDate } from "../../../../utils/dateUtils";
+import { formatDateWithWeekday } from "../../../../utils/dateUtils";
 
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
@@ -15,61 +15,9 @@ import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal";
-import { BatchPrintModal } from "./planificacion/BatchPrintModal"; // <--- Importamos el nuevo modal
+import { BatchPrintModal } from "./planificacion/BatchPrintModal";
+import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone"; // <-- Nuevo componente importado
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
-
-// --- COMPONENTE INTERNO PARA ZONA DE NUEVO DÍA ---
-const DaySeparatorDropZone = ({ baseDate, onDropAction, isConfirmed }) => {
-    const [isOver, setIsOver] = useState(false);
-    const nextDate = addDaysToDate(baseDate, 1);
-    const label = formatDateWithWeekday(nextDate);
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.stopPropagation(); 
-        if (!isConfirmed) setIsOver(true);
-    };
-
-    const handleDragLeave = (e) => {
-        e.preventDefault();
-        setIsOver(false);
-    };
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsOver(false);
-        if (!isConfirmed) {
-            onDropAction(nextDate);
-        }
-    };
-
-    if (isConfirmed) return <Spacer />;
-
-    return (
-        <SeparatorContainer
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            $isOver={isOver}
-        >
-            <div className="content">
-                <div className="line"></div>
-                <div className="pill">
-                    {isOver ? (
-                        <>
-                            <RiAddCircleLine size={18} />
-                            <span>Crear nuevo grupo: {label}</span>
-                        </>
-                    ) : (
-                        <span className="hint">Arrastra aquí para {label}</span>
-                    )}
-                </div>
-                <div className="line"></div>
-            </div>
-        </SeparatorContainer>
-    );
-};
 
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
@@ -93,7 +41,7 @@ export function JornadaPlanificacion({
       teams, 
       matchesDB, 
       globalPendingMatches, 
-      jornadaData?.status,
+      jornadaData, // <-- Cambiado: Se manda el objeto completo
       dataVersion,
       jornadas 
   );
@@ -107,7 +55,7 @@ export function JornadaPlanificacion({
   
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
-  const [batchPrintOpen, setBatchPrintOpen] = useState(false); // <--- Estado para modal de impresión
+  const [batchPrintOpen, setBatchPrintOpen] = useState(false);
 
   const [conflictsFound, setConflictsFound] = useState([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
@@ -118,13 +66,9 @@ export function JornadaPlanificacion({
       j => j.name === 'Jornada 1' && j.status === 'Confirmada'
   );
 
-  // --- LÓGICA PARA BOTÓN DE IMPRESIÓN ---
-  // Filtramos partidos de esta jornada que ya están en DB (no en memoria/draft) y no tienen resultado
   const matchesWithoutResult = scheduledMatches.filter(m => {
-      // Asumimos que si tiene ID numérico o UUID es de DB. Si es temporal (new_...) no debería estar confirmado.
       const isSaved = m.id && !String(m.id).startsWith('temp');
       const isPendingResult = m.status !== 'Finalizado'; 
-      // Opcional: checar m.home_score === null si tu lógica de status no es estricta
       return isSaved && isPendingResult;
   });
 
@@ -135,7 +79,10 @@ export function JornadaPlanificacion({
     setIsDragOver(false);
     if (!draggedMatch || isConfirmed) return;
 
-    const finalDate = targetDate || weekStartDate;
+    // AQUI ESTA LA MAGIA: Forzamos primero la fecha configurada de la jornada, sino la que tengamos en estado
+    const baseStartDate = jornadaData?.start_date || weekStartDate;
+    const finalDate = targetDate || baseStartDate;
+    
     const matchesOfTargetDate = scheduledMatches.filter(m => m.date === finalDate);
     const configStartHour = activeTournament?.config?.horaInicio || "10:00";
     let nextTime = configStartHour;
@@ -267,7 +214,6 @@ export function JornadaPlanificacion({
             onAutoFill={handleAutoFillWrapper}
             onConfig={() => setConfigModalOpen(true)} viewMode={viewMode} onToggleView={setViewMode}
             onEditFixture={onEditFixture} isTournamentActive={isTournamentActive}
-            // --- Props nuevas para impresión ---
             onPrintBatch={() => setBatchPrintOpen(true)}
             matchesWithoutResultCount={matchesWithoutResult.length}
         />
@@ -371,7 +317,6 @@ export function JornadaPlanificacion({
         <ResultModal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} match={selectedMatchResult} activeTournament={activeTournament} onSave={async (id, updates) => await onMatchUpdate?.(id, updates)} />
         <ConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} conflicts={conflictsFound} />
         
-        {/* --- Modal de Impresión Masiva --- */}
         <BatchPrintModal 
             isOpen={batchPrintOpen} 
             onClose={() => setBatchPrintOpen(false)} 
@@ -382,16 +327,6 @@ export function JornadaPlanificacion({
 }
 
 // --- ESTILOS ---
-const fadeIn = keyframes` from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } `;
-const Spacer = styled.div` height: 10px; `;
-const SeparatorContainer = styled.div`
-    width: 100%; margin-top: 5px; margin-bottom: 5px; min-height: 15px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; cursor: default;
-    .content { width: 100%; display: flex; align-items: center; gap: 10px; opacity: 0; transform: scaleY(0.8); transition: all 0.2s ease; }
-    .line { height: 1px; flex: 1; background: ${v.colorPrincipal}; opacity: 0.3; }
-    .pill { background: ${({theme}) => theme.bg3}; border: 1px dashed ${v.colorPrincipal}; border-radius: 20px; padding: 4px 15px; font-size: 0.8rem; color: ${v.colorPrincipal}; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; .hint { display: none; } }
-    ${({ $isOver }) => $isOver && css` min-height: 50px; .content { opacity: 1; transform: scaleY(1); } .pill { background: ${v.colorPrincipal}20; border-style: solid; transform: scale(1.05); box-shadow: 0 4px 10px rgba(0,0,0,0.1); } `}
-    &:hover { ${({ $isOver }) => !$isOver && css` .content { opacity: 0.4; } .pill { border-color: transparent; background: transparent; } .hint { display: block; font-size: 0.7rem; } `} }
-`;
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
 const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
 const Workspace = styled.div` display: flex; gap: 20px; min-height: 75vh; @media(max-width:768px){ flex-direction:column; height:auto; min-height: auto; } `;
