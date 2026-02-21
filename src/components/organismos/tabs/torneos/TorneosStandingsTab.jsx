@@ -153,7 +153,7 @@ export const TorneosStandingsTab = ({
                     <div className="thumb" />
                 </div>
                 <span className="label">
-                    {updating ? "Guardando..." : (isPublicEnabled ? "Público: ACTIVO" : "Público: INACTIVO")}
+                    {updating ? "Guardando..." : (isPublicEnabled ? "Enlace Público: ACTIVO" : "Enlace Público: INACTIVO")}
                 </span>
             </ToggleContainer>
 

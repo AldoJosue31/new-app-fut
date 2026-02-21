@@ -1,24 +1,23 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 import { ContainerScroll } from "../../../../../index";
 import { PendingMatchCard } from "./PendingMatchCard";
 import { v } from "../../../../../styles/variables";
+import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";
 
 export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornadaIndex }) {
-  
+  // Estado para controlar si los partidos pendientes están expandidos. Empieza en false (contraído)
+  const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
+
   const { delayed, current } = useMemo(() => {
-    // La jornada actual es index + 1
     const currentNum = jornadaIndex + 1;
     
     const result = matches.reduce((acc, m) => {
-        // Validación de robustez
         if (!m.originJornada) {
-             // Si no tiene origen, asumimos actual para que no se pierda
              acc.current.push(m);
              return acc;
         }
 
-        // Extraer numero: "Jornada 4" -> 4
         const parts = m.originJornada.split(' ');
         const mNum = parts.length > 1 ? parseInt(parts[1]) : 999;
         
@@ -30,7 +29,6 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
         return acc;
     }, { delayed: [], current: [] });
 
-    // Ordenar actuales: Descansos primero para mejor UX
     result.current.sort((a, b) => {
         if (a.isByeMatch && !b.isByeMatch) return -1;
         if (!a.isByeMatch && b.isByeMatch) return 1;
@@ -49,24 +47,47 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
         <ContainerScroll>
           <div className="list-content">
             
-            {/* Sección de Atrasados - CRÍTICO PARA FUNCIONALIDAD SOLICITADA */}
+            {/* Sección de Pendientes con efecto de Hojas Encimadas y Transición Suave */}
             {delayed.length > 0 && (
-                <div className="section-group">
-                    <span className="section-title warning">Pendientes Atrasados ({delayed.length})</span>
-                    {delayed.map((match) => (
-                        <PendingMatchCard
-                            key={match.id}
-                            match={match}
-                            isConfirmed={isConfirmed}
-                            onDragStart={(e) => {
-                                if (!isConfirmed) {
-                                    setDraggedMatch(match);
-                                    e.dataTransfer.setData("text", match.id);
-                                }
-                            }}
-                            currentJornadaIndex={jornadaIndex}
-                        />
-                    ))}
+                <div className="section-group delayed-group">
+                    <StackedHeader 
+                        $isOpen={isDelayedExpanded} 
+                        onClick={() => setIsDelayedExpanded(!isDelayedExpanded)}
+                    >
+                        {/* Hojas de fondo: Se renderizan si hay volumen y se ocultan suavemente al abrir */}
+                        {delayed.length >= 3 && <div className="stacked-bg-2"></div>}
+                        {delayed.length >= 2 && <div className="stacked-bg-1"></div>}
+                        
+                        <div className="stacked-card">
+                            <div className="warning-text">
+                                <RiStackLine size={18} />
+                                <span>Partidos Pendientes ({delayed.length})</span>
+                            </div>
+                            <div className="icon-wrapper">
+                                {isDelayedExpanded ? <RiArrowUpSLine /> : <RiArrowDownSLine />}
+                            </div>
+                        </div>
+                    </StackedHeader>
+
+                    {/* Contenedor expandible con transición CSS Grid */}
+                    <ExpandedContent $isOpen={isDelayedExpanded}>
+                        <div className="content-inner">
+                            {delayed.map((match) => (
+                                <PendingMatchCard
+                                    key={match.id}
+                                    match={match}
+                                    isConfirmed={isConfirmed}
+                                    onDragStart={(e) => {
+                                        if (!isConfirmed) {
+                                            setDraggedMatch(match);
+                                            e.dataTransfer.setData("text", match.id);
+                                        }
+                                    }}
+                                    currentJornadaIndex={jornadaIndex}
+                                />
+                            ))}
+                        </div>
+                    </ExpandedContent>
                 </div>
             )}
 
@@ -120,13 +141,115 @@ const SidebarContainer = styled.div`
   background: ${({ theme }) => theme.bgcards}; 
   border: 1px solid ${({ theme }) => theme.bg4}; 
   border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; height: 100%;
+  
   .sb-header { padding: 10px; border-bottom: 1px solid ${({ theme }) => theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; }
   .scroll-wrapper { flex: 1; height: 100%; overflow: hidden; }
   .list-content { padding: 10px; display: flex; flex-direction: column; gap: 15px; }
+  
   .section-group { display: flex; flex-direction: column; gap: 8px; }
-  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: ${({theme}) => theme.text2}; margin-bottom: 2px; &.warning { color: #e74c3c; } }
+  .delayed-group { margin-bottom: 5px; }
+  
+  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: ${({theme}) => theme.text2}; margin-bottom: 2px; }
+  
   .empty { text-align: center; opacity: 0.5; margin-top: 20px; font-size: 0.8rem; }
   @media (max-width: 768px) { width: 100%; height: 300px; }
+`;
+
+// Cabecera que simula las hojas encimadas
+const StackedHeader = styled.div`
+  position: relative;
+  cursor: pointer;
+  margin-bottom: ${({ $isOpen }) => ($isOpen ? '0px' : '12px')};
+  transition: all 0.3s ease-in-out;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Hoja más profunda */
+  .stacked-bg-2 {
+    position: absolute;
+    bottom: -8px;
+    left: 6%;
+    width: 88%;
+    height: 100%;
+    background: ${({ theme }) => theme.bg4};
+    border: 1px solid #e74c3c60;
+    border-radius: 6px;
+    z-index: 1;
+    opacity: ${({ $isOpen }) => ($isOpen ? '0' : '0.5')};
+    transform: ${({ $isOpen }) => ($isOpen ? 'translateY(-10px)' : 'translateY(0)')};
+    transition: all 0.3s ease-in-out;
+    pointer-events: none;
+  }
+
+  /* Hoja intermedia */
+  .stacked-bg-1 {
+    position: absolute;
+    bottom: -4px;
+    left: 3%;
+    width: 94%;
+    height: 100%;
+    background: ${({ theme }) => theme.bg4};
+    border: 1px solid #e74c3c90;
+    border-radius: 6px;
+    z-index: 2;
+    opacity: ${({ $isOpen }) => ($isOpen ? '0' : '0.8')};
+    transform: ${({ $isOpen }) => ($isOpen ? 'translateY(-5px)' : 'translateY(0)')};
+    transition: all 0.3s ease-in-out;
+    pointer-events: none;
+  }
+
+  /* Hoja Principal frontal */
+  .stacked-card {
+    position: relative;
+    z-index: 3;
+    background: ${({ theme, $isOpen }) => ($isOpen ? theme.bg4 + '30' : theme.bg2)};
+    border: 1px solid ${({ $isOpen }) => ($isOpen ? '#e74c3c50' : '#e74c3c')};
+    border-left: 4px solid #e74c3c;
+    padding: 12px 15px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: ${({ $isOpen }) => ($isOpen ? 'none' : '0 4px 8px rgba(0,0,0,0.1)')};
+    transition: all 0.3s ease-in-out;
+
+    .warning-text {
+      color: #e74c3c;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-wrapper {
+      color: #e74c3c;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease-in-out;
+    }
+  }
+`;
+
+// Contenedor del contenido que se expande suavemente
+const ExpandedContent = styled.div`
+  display: grid;
+  grid-template-rows: ${({ $isOpen }) => ($isOpen ? '1fr' : '0fr')};
+  opacity: ${({ $isOpen }) => ($isOpen ? '1' : '0')};
+  margin-top: ${({ $isOpen }) => ($isOpen ? '8px' : '0')};
+  transition: grid-template-rows 0.3s ease-in-out, opacity 0.3s ease-in-out, margin-top 0.3s ease-in-out;
+
+  .content-inner {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: ${({ $isOpen }) => ($isOpen ? '4px' : '0')};
+  }
 `;
 
 const RestingCard = styled.div`

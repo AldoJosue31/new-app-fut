@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useMemo, useState, useRef } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../../../../index";
 import { 
@@ -40,6 +40,9 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   const [isDragOver, setIsDragOver] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
   const [showPreSheet, setShowPreSheet] = useState(false);
+  
+  // Referencia para evitar parpadeos en DnD
+  const dragCounter = useRef(0);
 
   const penalties = useMemo(() => {
       if (isConfirmed && match.status === 'Finalizado') {
@@ -48,21 +51,32 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       return null;
   }, [match.observations, match.status, isConfirmed]);
 
-  // --- MANEJADORES DE DRAG & DROP ---
-  const handleDragOver = (e) => {
+  // --- MANEJADORES DE DRAG & DROP SIN PARPADEOS ---
+  const handleDragEnter = (e) => {
       e.preventDefault();
       if (!isConfirmed) {
-          setIsDragOver(true);
+          dragCounter.current += 1;
+          if (dragCounter.current === 1) setIsDragOver(true);
       }
   };
 
-  const handleDragLeave = () => {
-      setIsDragOver(false);
+  const handleDragOver = (e) => {
+      e.preventDefault(); // Indispensable para que funcione el onDrop en HTML5
+  };
+
+  const handleDragLeave = (e) => {
+      e.preventDefault();
+      if (!isConfirmed) {
+          dragCounter.current -= 1;
+          if (dragCounter.current === 0) setIsDragOver(false);
+      }
   };
 
   const handleDrop = (e) => {
       e.preventDefault();
+      dragCounter.current = 0; // Reiniciar contador
       setIsDragOver(false);
+      
       if (!isConfirmed && onDropOnDate) {
           e.stopPropagation();
           onDropOnDate(match.date);
@@ -77,6 +91,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   return (
     <>
         <Wrapper 
+            onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -201,6 +216,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 const Wrapper = styled.div`
     width: 100%;
     display: flex; flex-direction: column; gap: 10px; position: relative; 
+    flex-shrink: 0; /* <-- AÑADE ESTA LÍNEA */
 `;
 
 const DateDivider = styled.div`
@@ -220,12 +236,15 @@ const DropOverlay = styled.div`
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     background: ${v.colorPrincipal}20; border: 2px dashed ${v.colorPrincipal}; border-radius: 8px;
     display: flex; align-items: center; justify-content: center; font-weight: 800; color: ${v.colorPrincipal};
-    z-index: 10; backdrop-filter: blur(2px); pointer-events: none;
+    z-index: 10; backdrop-filter: blur(2px); pointer-events: none; /* Pointer events none ayuda a evitar flickers */
 `;
 
 const Container = styled.div`
-    display: flex; flex-direction: column; gap: 12px;
-    background: ${({theme})=>theme.bgtotal}; padding: 12px; border-radius: 8px; 
+    display: flex; flex-direction: column; 
+    gap: 8px; /* Era 12px, se reduce para compactar */
+    background: ${({theme})=>theme.bgtotal}; 
+    padding: 10px; /* Era 12px */
+    border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease;
 

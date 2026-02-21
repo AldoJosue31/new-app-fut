@@ -16,7 +16,8 @@ import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal";
 import { BatchPrintModal } from "./planificacion/BatchPrintModal";
-import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone"; // <-- Nuevo componente importado
+import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
+import { EmptyDropZone } from "./planificacion/EmptyDropZone"; // <-- Nuevo componente importado
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 
 export function JornadaPlanificacion({ 
@@ -246,10 +247,11 @@ export function JornadaPlanificacion({
                             onDrop={(e) => handleDrop(e, null)} 
                             $isOver={isDragOver}
                         >
-                            {sortedMatches.length === 0 ? ( 
-                                <div className="placeholder"><RiCalendarLine size={40}/> <p>{isConfirmed ? "No hay partidos programados." : "Arrastra los partidos aquí"}</p></div> 
+{sortedMatches.length === 0 ? ( 
+                                /* AQUÍ LE PASAMOS isDragOver */
+                                <EmptyDropZone isConfirmed={isConfirmed} isDragOver={isDragOver} />
                             ) : (
-                                <GridList>
+    <GridList>
                                     {sortedMatches.map((match, idx, arr) => {
                                             const prevMatch = arr[idx - 1];
                                             const nextMatch = arr[idx + 1];
@@ -327,12 +329,71 @@ export function JornadaPlanificacion({
 }
 
 // --- ESTILOS ---
-const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
-const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; `;
-const Workspace = styled.div` display: flex; gap: 20px; min-height: 75vh; @media(max-width:768px){ flex-direction:column; height:auto; min-height: auto; } `;
-const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; `;
-const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 20px; overflow-y: auto; position: relative; transition: all 0.3s ease; .placeholder { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; opacity:0.4; p { margin-top: 10px; font-size: 0.9rem; } } `;
-const GridList = styled.div` display: flex; flex-direction: column; gap: 10px; padding-bottom: 50px; `;
-const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 5px; .note { font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; } `;
+const Container = styled.div` 
+    display: flex; flex-direction: column; gap: 10px; width: 100%; 
+    /* Usamos 'dvh' (Dynamic Viewport Height) para adaptar el alto exacto de la pantalla del celular 
+       incluso cuando la barra de direcciones del navegador aparece o desaparece. */
+    height: calc(100dvh - 100px); 
+    max-height: 100%;
+    
+    @supports not (height: 100dvh) {
+        height: calc(100vh - 100px);
+    }
+`;
+
+const TransitionWrapper = styled.div` 
+    animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; 
+    width: 100%; flex: 1; display: flex; flex-direction: column; 
+    min-height: 0; /* Obliga a flexbox a permitir scroll interno en lugar de estirarse al infinito */
+`;
+
+const Workspace = styled.div` 
+    display: flex; gap: 15px; flex: 1; min-height: 0; 
+    @media(max-width: 768px){ 
+        flex-direction: column; 
+        /* Eliminamos el height estático para que flex: 1 haga su magia */
+    } 
+`;
+
+const MainZone = styled.div` 
+    flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; 
+`;
+
+const DropZone = styled.div` 
+    flex: 1; 
+    background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; 
+    border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; 
+    border-radius: 10px; 
+    /* Reducimos el padding en móvil para regalarle más espacio a las tarjetas de los partidos */
+    padding: 10px; 
+    overflow-y: auto; 
+    position: relative; transition: all 0.3s ease; 
+    
+    @media (min-width: 768px) { padding: 15px; }
+`;
+
+const GridList = styled.div` 
+    display: flex; flex-direction: column; gap: 8px; padding-bottom: 15px; 
+`;
+
+const Footer = styled.div` 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 5px 0; 
+    flex-shrink: 0; /* CRÍTICO: Garantiza que el footer jamás sea empujado fuera de la pantalla */
+    gap: 10px;
+    
+    @media(max-width: 768px){
+        /* En móvil lo ponemos en columna para que los botones aprovechen el 100% del ancho */
+        flex-direction: column;
+        align-items: stretch;
+        .note { text-align: center; }
+    }
+    
+    .note { 
+        font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; 
+        background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; 
+    } 
+`;
+
 const ControlsBar = styled.div` display: flex; align-items: center; gap: 15px; padding: 0 5px; animation: ${keyframes`from{opacity:0}to{opacity:1}`} 0.3s ease; .info-text { font-size: 0.85rem; color: ${({theme})=>theme.text}; opacity: 0.7; font-style: italic; } `;
 const GhostButton = styled.button` display: flex; align-items: center; gap: 8px; background: ${({ $active, theme }) => $active ? theme.bgtotal : theme.bgcards}; color: ${({ $active, theme }) => $active ? v.colorPrincipal : theme.text}; border: 1px solid ${({ $active, theme }) => $active ? v.colorPrincipal : theme.bg4}; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); &:hover { transform: translateY(-1px); border-color: ${v.colorPrincipal}; color: ${v.colorPrincipal}; } .spinner { animation: ${keyframes`0%{opacity:0} 50%{opacity:1} 100%{opacity:0}`} 1s infinite; }`;

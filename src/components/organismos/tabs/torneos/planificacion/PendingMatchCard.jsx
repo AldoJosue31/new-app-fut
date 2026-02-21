@@ -4,7 +4,7 @@ import { Badge } from "../../../../../index";
 import { RiDragMove2Line } from "react-icons/ri";
 
 export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJornadaIndex }) => {
-  // Detectar si es atrasado
+  // Detectar si es de una jornada anterior a la actual
   const matchJornadaNum = match.originJornada ? parseInt(match.originJornada.split(' ')[1]) : 999;
   const isDelayed = matchJornadaNum < (currentJornadaIndex + 1);
 
@@ -28,9 +28,9 @@ export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJorna
         
         {isDelayed && (
             <div className="meta">
-                         <Badge color="#e74c3c" >
-                                    Pendiente {match.originJornada}
-                         </Badge>
+                 <Badge color="#e74c3c" >
+                    Pendiente {match.originJornada}
+                 </Badge>
             </div>
         )}
       </div>
