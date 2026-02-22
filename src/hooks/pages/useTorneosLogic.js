@@ -4,7 +4,8 @@ import {
     getEquiposDivision, 
     iniciarTorneoService, 
     updateJornadaFechas, 
-    bulkUpdateJornadaFechas 
+    bulkUpdateJornadaFechas,
+    getAllMatchesByTournament
 } from "../../services/torneos"; 
 import { getTablaPosicionesService } from "../../services/estadisticas";
 import { useDivisionStore } from "../../store/DivisionStore";
@@ -26,6 +27,7 @@ export const useTorneosLogic = () => {
   const [allTeams, setAllTeams] = useState([]);
   const [participatingIds, setParticipatingIds] = useState([]); 
   const [standings, setStandings] = useState([]);
+  const [partidos, setPartidos] = useState([]);
 
   // --- CONFIGURACIÓN DE REGLAS ---
   const [reglas, setReglas] = useState(() => {
@@ -132,12 +134,17 @@ export const useTorneosLogic = () => {
           }
         }
 
-        try {
+try {
             const dataStats = await getTablaPosicionesService(selectedDivision.name);
             setStandings(dataStats || []);
+
+            // NUEVO: Traer todos los partidos para el histórico de la tabla
+            const dataMatches = await getAllMatchesByTournament(torneo.id);
+            setPartidos(dataMatches || []);
         } catch (err) {
-            console.error("Error posiciones:", err);
+            console.error("Error posiciones/partidos:", err);
             setStandings([]);
+            setPartidos([]);
         }
 
       } else {
@@ -314,6 +321,7 @@ export const useTorneosLogic = () => {
       allTeams,
       participatingIds,
       standings,
+      partidos,
       divisionName: selectedDivision?.name
     },
     actions: {

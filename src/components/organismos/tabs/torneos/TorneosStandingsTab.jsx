@@ -3,31 +3,28 @@ import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../../supabase/supabase.config'; 
 import { v } from '../../../../styles/variables';
-import { Device } from '../../../../styles/breakpoints';
-import { ContainerScroll } from '../../../atomos/ContainerScroll';
 import { BiShareAlt, BiCheck } from "react-icons/bi"; 
-import { RiImageLine } from "react-icons/ri"; // <- NUEVO ICONO
-import { motion } from 'framer-motion';
+import { RiImageLine } from "react-icons/ri"; 
 
-// NUEVO MODAL IMPORTADO
 import StandingsExportModal from './subcomponents/StandingsExportModal';
+import StandingsTable from './subcomponents/StandingsTable';
 
 export const TorneosStandingsTab = ({
   torneo = {},
   equipos = [],
   estadisticas = [],
+  partidos = [],
   reglas = {},
   onRefresh,
   isPublic = false
 }) => {
 
-  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
-  
-  // NUEVO ESTADO PARA EL MODAL DE EXPORTACIÓN
   const [showExportModal, setShowExportModal] = useState(false);
+  
+  const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
 
   useEffect(() => {
     if (onRefresh && typeof onRefresh === 'function') {
@@ -46,7 +43,10 @@ export const TorneosStandingsTab = ({
       descensos: parseInt(c.descensos) || 0,
       zonaLiguilla: c.zonaLiguilla || false,
       clasificados: parseInt(c.clasificados) || 0,
-      repechaje: parseInt(c.repechajeTeams) || 0
+      repechaje: parseInt(c.repechajeTeams) || 0,
+      winPoints: parseInt(c.winPoints) || 3,
+      drawPoints: parseInt(c.drawPoints) || 1,
+      lossPoints: parseInt(c.lossPoints) || 0,
     };
   }, [torneo?.config, reglas]);
 
@@ -57,37 +57,246 @@ export const TorneosStandingsTab = ({
     return Array.from(map.values());
   }, [equipos]);
 
-  const tablaGeneral = useMemo(() => {
-    const data = uniqueEquipos.map((equipo) => {
-      const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
+  // 1. OBTENER HISTORIAL DE OPCIONES 
+  const historialJornadas = useMemo(() => {
+    if (!partidos || partidos.length === 0) return [];
 
-      return {
+    const matchesByJornada = {};
+    partidos.forEach(p => {
+      const num = p.jornadas ? parseInt(p.jornadas.name.replace(/\D/g, ''), 10) : 0;
+      if (num > 0) {
+        if (!matchesByJornada[num]) matchesByJornada[num] = [];
+        matchesByJornada[num].push(p);
+      }
+    });
+
+    const opciones = [];
+
+    Object.entries(matchesByJornada).forEach(([jNumStr, matches]) => {
+      const jNum = parseInt(jNumStr, 10);
+      const realMatches = matches.filter(m => m.team1_id && m.team2_id);
+      
+      if (realMatches.length > 0) {
+        let playedCount = 0;
+        let pendingCount = 0;
+        let unconfirmedCount = 0; 
+        
+        realMatches.forEach(m => {
+          const statusLower = (m.status || '').toLowerCase();
+          const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+          const isPendiente = statusLower === 'pendiente'; 
+          const hasResult = m.goals1 != null && m.goals2 != null; 
+          
+          if (isFinished && hasResult) {
+            playedCount++;
+          } else if (isPendiente) {
+            pendingCount++;
+          } else {
+            unconfirmedCount++;
+          }
+        });
+
+        if (unconfirmedCount === 0 && playedCount > 0) {
+          opciones.push({
+            num: jNum,
+            pendingCount: pendingCount
+          });
+        }
+      }
+    });
+
+    return opciones.sort((a, b) => a.num - b.num);
+  }, [partidos]);
+
+  // 2. ENCONTRAR LA JORNADA EFECTIVA DE FORMA GLOBAL
+  const effectiveJornada = useMemo(() => {
+    if (selectedJornadaView === 'recent') {
+      let maxJornadaIniciada = 0;
+      partidos.forEach(m => {
+         if (!m.team1_id || !m.team2_id) return;
+         const statusLower = (m.status || '').toLowerCase();
+         const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+         const hasResult = m.goals1 != null && m.goals2 != null;
+         
+         if (isFinished && hasResult) {
+             const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
+             if (jNum > maxJornadaIniciada) maxJornadaIniciada = jNum;
+         }
+      });
+      return maxJornadaIniciada;
+    }
+    return parseInt(selectedJornadaView, 10) || 0;
+  }, [selectedJornadaView, partidos]);
+
+
+  // 3. CÁLCULO DE TABLA DOBLE CON DIFERENCIA DE PUESTOS
+  const tablaGeneral = useMemo(() => {
+
+    const getGoles = (partido, keys) => {
+      for (const key of keys) {
+        const val = partido[key];
+        if (val !== undefined && val !== null && val !== '') {
+          const num = parseInt(val, 10);
+          if (!isNaN(num)) return num;
+        }
+      }
+      return 0; 
+    };
+
+    const buildTableUpTo = (limitJornada) => {
+      const statsMap = {};
+      uniqueEquipos.forEach(eq => {
+        statsMap[eq.id] = { pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0 };
+      });
+
+      partidos.forEach(partido => {
+        const jNum = partido.jornadas ? parseInt(partido.jornadas.name.replace(/\D/g, ''), 10) : 0;
+        
+        if (jNum <= 0 || jNum > limitJornada) return;
+
+        const statusLower = (partido.status || '').toLowerCase();
+        const isPlayed = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+        if (!isPlayed) return;
+
+        const localId = partido.team1_id;
+        const visitanteId = partido.team2_id;
+        if (!localId || !visitanteId) return;
+
+        const local = statsMap[localId];
+        const visitante = statsMap[visitanteId];
+        if (!local || !visitante) return;
+
+        const golesLocal = getGoles(partido, ['goals1']);
+        const golesVisitante = getGoles(partido, ['goals2']);
+
+        local.pj += 1; visitante.pj += 1;
+        local.gf += golesLocal; visitante.gf += golesVisitante;
+        local.gc += golesVisitante; visitante.gc += golesLocal;
+
+        if (golesLocal > golesVisitante) {
+          local.g += 1; local.pts += config.winPoints; 
+          visitante.p += 1; visitante.pts += config.lossPoints;
+        } else if (golesLocal < golesVisitante) {
+          visitante.g += 1; visitante.pts += config.winPoints; 
+          local.p += 1; local.pts += config.lossPoints;
+        } else {
+          local.e += 1; visitante.e += 1;
+          local.pts += config.drawPoints; visitante.pts += config.drawPoints;
+        }
+      });
+
+      const data = uniqueEquipos.map((equipo) => ({
         id: equipo.id,
         nombre: equipo.name || equipo.nombre,
         logo: equipo.logo_url || equipo.img,
-        pj: stats.pj || 0,
-        g:  stats.pg || 0,
-        e:  stats.pe || 0,
-        p:  stats.pp || 0,
-        gf: stats.gf || 0,
-        gc: stats.gc || 0,
-        dg: stats.dg || 0,
-        pts: stats.pts || 0,
-      };
+        ...statsMap[equipo.id],
+      }));
+
+      return data.sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          if (b.dg !== a.dg) return b.dg - a.dg;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.pj - b.pj;
+      });
+    };
+
+    const prevTable = buildTableUpTo(effectiveJornada - 1);
+    const prevRanks = {};
+    prevTable.forEach((eq, index) => {
+      prevRanks[eq.id] = index + 1; 
     });
 
-    return data.sort((a, b) => {
-        if (b.pts !== a.pts) return b.pts - a.pts;
-        if (b.dg !== a.dg) return b.dg - a.dg;
-        if (b.gf !== a.gf) return b.gf - a.gf;
-        return a.pj - b.pj;
+    let currentTable = [];
+    if (selectedJornadaView === 'recent') {
+      const data = uniqueEquipos.map((equipo) => {
+        const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
+        return {
+          id: equipo.id,
+          nombre: equipo.name || equipo.nombre,
+          logo: equipo.logo_url || equipo.img,
+          pj: stats.pj || 0, g: stats.pg || 0, e: stats.pe || 0, p: stats.pp || 0,
+          gf: stats.gf || 0, gc: stats.gc || 0, dg: stats.dg || 0, pts: stats.pts || 0,
+        };
+      });
+      currentTable = data.sort((a, b) => {
+          if (b.pts !== a.pts) return b.pts - a.pts;
+          if (b.dg !== a.dg) return b.dg - a.dg;
+          if (b.gf !== a.gf) return b.gf - a.gf;
+          return a.pj - b.pj;
+      });
+    } else {
+      currentTable = buildTableUpTo(effectiveJornada);
+    }
+
+    return currentTable.map((eq, index) => {
+      const currentRank = index + 1;
+      const prevRank = prevRanks[eq.id];
+
+      let tendencia = 'same';
+      let posDiff = 0; // NUEVO: Extraemos la cantidad de puestos que se movió
+      
+      if (effectiveJornada <= 1 || !prevRank) {
+        tendencia = 'same'; 
+      } else if (prevRank > currentRank) {
+        tendencia = 'up';
+        posDiff = prevRank - currentRank; // Ej: Pasó del 5 al 2 -> Movió 3 puestos
+      } else if (prevRank < currentRank) {
+        tendencia = 'down';
+        posDiff = currentRank - prevRank; // Ej: Pasó del 1 al 2 -> Perdió 1 puesto
+      }
+
+      // Devolvemos el equipo con su tendencia y la diferencia exacta de puestos
+      return { ...eq, tendencia, posDiff };
     });
 
-  }, [uniqueEquipos, estadisticas]);
+  }, [uniqueEquipos, estadisticas, selectedJornadaView, effectiveJornada, partidos, config]);
 
-  const hasAnyLogo = useMemo(() => {
-    return tablaGeneral.some(team => team.logo && team.logo.trim() !== '');
-  }, [tablaGeneral]);
+  // 4. TEXTO INTELIGENTE DE LA JORNADA ACTIVA
+  const activeJornadaName = useMemo(() => {
+    if (!partidos || partidos.length === 0) return 'Sin iniciar';
+    
+    if (selectedJornadaView === 'recent') {
+      if (effectiveJornada === 0) return 'Vista Actual';
+
+      let totalPendientes = 0;
+      let totalPorConfirmar = 0;
+
+      partidos.forEach(m => {
+        if (!m.team1_id || !m.team2_id) return; 
+        const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
+        
+        if (jNum > 0 && jNum <= effectiveJornada) {
+          const statusLower = (m.status || '').toLowerCase();
+          const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+          const isPendiente = statusLower === 'pendiente';
+          const hasResult = m.goals1 != null && m.goals2 != null;
+
+          if (isPendiente) {
+            totalPendientes++;
+          } else if (!isFinished || !hasResult) {
+            totalPorConfirmar++;
+          }
+        }
+      });
+
+      let extras = [];
+      if (totalPendientes > 0) extras.push(`${totalPendientes} pendiente${totalPendientes !== 1 ? 's' : ''}`);
+      if (totalPorConfirmar > 0) extras.push(`${totalPorConfirmar} por confirmar`);
+
+      const suffix = extras.length > 0 ? ` (${extras.join(', ')})` : '';
+      return `Jornada ${effectiveJornada}${suffix}`; 
+
+    } else {
+      const targetJornada = historialJornadas.find(j => String(j.num) === String(selectedJornadaView));
+      if (targetJornada) {
+        const suffix = targetJornada.pendingCount > 0 
+          ? ` (con ${targetJornada.pendingCount} pendiente${targetJornada.pendingCount > 1 ? 's' : ''})` 
+          : '';
+        return `Jornada ${targetJornada.num}${suffix}`;
+      }
+      return 'Vista Actual';
+    }
+  }, [selectedJornadaView, historialJornadas, partidos, effectiveJornada]);
 
   const handleTogglePublic = async () => {
     if (updating) return;
@@ -101,7 +310,6 @@ export const TorneosStandingsTab = ({
             .eq('id', torneo.id);
 
         if (error) throw error;
-        
         setIsPublicEnabled(newState);
         if (onRefresh) onRefresh(); 
         
@@ -121,43 +329,38 @@ export const TorneosStandingsTab = ({
     });
   };
 
-  const getZoneStatus = (index, total) => {
-    const rank = index + 1;
-    if (rank <= config.ascensos) return { color: '#22c55e', label: 'Ascenso Directo' };
-    if (config.zonaLiguilla) {
-      if (rank > config.ascensos && rank <= config.clasificados) return { color: '#3b82f6', label: 'Liguilla' };
-      const limitLiguilla = Math.max(config.clasificados, config.ascensos);
-      if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return { color: '#f59e0b', label: 'Repechaje' };
-    }
-    if (config.descensos > 0 && rank > (total - config.descensos)) return { color: '#ef4444', label: 'Descenso' };
-    return null;
-  };
-
-  const rowVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.05, duration: 0.3, ease: "easeOut" }
-    })
-  };
-
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-
-      {/* HEADER DE ACCIONES (SOLO ADMIN) */}
       {!isPublic && (
         <ControlPanel>
             <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
-                <div className="track">
-                    <div className="thumb" />
-                </div>
+                <div className="track"><div className="thumb" /></div>
                 <span className="label">
-                    {updating ? "Guardando..." : (isPublicEnabled ? "Público: ACTIVO" : "Público: INACTIVO")}
+                    {updating ? "Guardando..." : (isPublicEnabled ? "Enlace Público: ACTIVO" : "Enlace Público: INACTIVO")}
                 </span>
             </ToggleContainer>
 
-            {/* BOTONES AGRUPADOS */}
+            {historialJornadas.length > 0 && (
+                <SelectJornada
+                  value={selectedJornadaView}
+                  onChange={(e) => setSelectedJornadaView(e.target.value)}
+                >
+                  <option value="recent">Vista Actual</option>
+                  <optgroup label="Historial de Jornadas">
+                    {historialJornadas.map(j => {
+                      const suffix = j.pendingCount > 0 
+                        ? ` (con ${j.pendingCount} pendiente${j.pendingCount > 1 ? 's' : ''})` 
+                        : '';
+                      return (
+                        <option key={j.num} value={j.num}>
+                          Jornada {j.num}{suffix}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                </SelectJornada>
+            )}
+
             <div style={{ display: 'flex', gap: '8px' }}>
                 <ShareButton onClick={() => setShowExportModal(true)} title="Exportar Tabla">
                     <RiImageLine size={20}/>
@@ -174,107 +377,47 @@ export const TorneosStandingsTab = ({
         </ControlPanel>
       )}
 
-      <TableCard>
-        <TableScrollWrapper $height="auto">
-          <StyledTable>
-            <thead>
-              <tr>
-                <Th>Equipo</Th>
-                <Th className="stat-col">PJ</Th>
-                <Th className="stat-col">G</Th>
-                <Th className="stat-col">E</Th>
-                <Th className="stat-col">P</Th>
-                <ThHideOnMobile className="stat-col">GF</ThHideOnMobile>
-                <ThHideOnMobile className="stat-col">GC</ThHideOnMobile>
-                <Th className="stat-col">DG</Th>
-                <Th className="stat-col">PTS</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {tablaGeneral.map((fila, index) => {
-                const status = getZoneStatus(index, tablaGeneral.length);
-                const zoneColor = status?.color;
-                const RowComponent = isPublic ? MotionTr : Tr;
+      <StandingsTable 
+        tablaGeneral={tablaGeneral} 
+        config={config} 
+        isPublic={isPublic} 
+      />
 
-                return (
-                  <RowComponent
-                    key={fila.id}
-                    $isPublic={isPublic}
-                    onDoubleClick={() => {
-                        if (!isPublic) {
-                            navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
-                        }
-                    }}
-                    title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
-                    variants={isPublic ? rowVariants : {}}
-                    initial={isPublic ? "hidden" : undefined}
-                    animate={isPublic ? "visible" : undefined}
-                    custom={index}
-                  >
-                    <Td className="team-col" $zoneColor={zoneColor}>
-                      <TeamNameCell>
-                        <span className="pos">{index + 1}</span>
-                        {hasAnyLogo ? (
-                           <img
-                             src={fila.logo || v.logoGenerico}
-                             alt={fila.nombre}
-                             onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
-                           />
-                        ) : null}
-                        <span className="team-name">{fila.nombre}</span>
-                      </TeamNameCell>
-                    </Td>
-
-                    <Td className="stat-col" style={{ fontWeight: 'bold', color: v.text }}>{fila.pj}</Td>
-                    <Td className="stat-col">{fila.g}</Td>
-                    <Td className="stat-col">{fila.e}</Td>
-                    <Td className="stat-col">{fila.p}</Td>
-                    <TdHideOnMobile className="stat-col">{fila.gf}</TdHideOnMobile>
-                    <TdHideOnMobile className="stat-col">{fila.gc}</TdHideOnMobile>
-                    <Td className="stat-col" style={{
-                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit',
-                        fontWeight: 'bold'
-                    }}>
-                        {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
-                    </Td>
-                    <Td className="stat-col points-cell">{fila.pts}</Td>
-                  </RowComponent>
-                );
-              })}
-              {tablaGeneral.length === 0 && (
-                <tr><td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>No hay datos disponibles</td></tr>
-              )}
-            </tbody>
-          </StyledTable>
-        </TableScrollWrapper>
-      </TableCard>
-
-      {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
-        <LeyendaContainer>
-             {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
-             {config.zonaLiguilla && (
-                <>
-                    <Badge $color="#3b82f6">Liguilla</Badge>
-                    {config.repechaje > 0 && <Badge $color="#f59e0b">Repechaje</Badge>}
-                </>
-             )}
-             {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
-        </LeyendaContainer>
-      )}
-
-      {/* RENDERIZADO DEL NUEVO MODAL */}
       <StandingsExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         tablaGeneral={tablaGeneral}
         torneo={torneo}
         config={config}
+        activeJornadaName={activeJornadaName} 
       />
     </div>
   );
 };
 
-// --- STYLES ---
+// --- STYLES EXCLUSIVOS DE LOS CONTROLES Y SELECTORES ---
+const SelectJornada = styled.select`
+  background-color: ${({ theme }) => theme.bg2};
+  color: ${({ theme }) => theme.text};
+  border: 1px solid ${({ theme }) => theme.color2};
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 1;
+  max-width: 250px;
+  transition: all 0.3s ease;
+  text-overflow: ellipsis;
+
+  &:focus { border-color: ${v.primary}; }
+  
+  @media (max-width: 600px) {
+    max-width: 140px;
+    font-size: 0.75rem;
+  }
+`;
 
 const ControlPanel = styled.div`
   display: flex;
@@ -288,7 +431,7 @@ const ControlPanel = styled.div`
   border-radius: 12px;
   border: 1px solid ${({ theme }) => theme.color2};
   box-shadow: ${v.boxshadowGray};
-  flex-wrap: nowrap;
+  flex-wrap: wrap; 
   gap: 10px;
 `;
 
@@ -304,7 +447,7 @@ const ToggleContainer = styled.div`
         transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     .label { font-size: 0.85rem; font-weight: 600; color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'}; }
-    @media (max-width: 480px) { .label { display: none; } }
+    @media (max-width: 600px) { .label { display: none; } }
 `;
 
 const ShareButton = styled.button`
@@ -325,70 +468,4 @@ const ShareButton = styled.button`
     padding: 0; width: 36px; height: 36px; justify-content: center; border-radius: 50%;
     span { display: none; }
   }
-`;
-
-const TableCard = styled.div`
-  background-color: ${({ theme }) => theme.bg}; border-radius: 16px; box-shadow: ${v.boxshadowGray};
-  margin: 0 auto 10px auto; border: 1px solid ${({ theme }) => theme.color2}; width: 98%; max-width: 900px; 
-  overflow: hidden; flex-shrink: 0; align-self: center;
-`;
-
-const TableScrollWrapper = styled(ContainerScroll)`
-  max-height: 600px; overflow-y: auto; overflow-x: auto;
-  -webkit-overflow-scrolling: touch; scrollbar-gutter: stable; padding-right: 6px;
-`;
-
-const StyledTable = styled.table`
-  width: 100%; border-collapse: separate; border-spacing: 0;
-`;
-
-const Th = styled.th`
-  background-color: ${({ theme }) => theme.bgtotal}; color: ${({ theme }) => theme.text}; font-weight: 700;
-  text-transform: uppercase; font-size: 0.65rem; padding: 8px 4px; text-align: center; border-bottom: 2px solid ${({ theme }) => theme.color2};
-  white-space: nowrap;
-  @media ${Device.tablet} { font-size: 0.75rem; padding: 12px 8px; }
-  &:first-child { text-align: left; padding-left: 10px; position: sticky; left: 0; z-index: 10; background-color: ${({ theme }) => theme.bgtotal}; }
-  &.stat-col { width: 1%; min-width: 30px; @media ${Device.tablet} { min-width: 40px; } }
-`;
-
-const Td = styled.td`
-  padding: 6px 4px; text-align: center; font-size: 0.8rem; color: ${({ theme }) => theme.text};
-  border-bottom: 1px solid ${({ theme }) => theme.color2}; white-space: nowrap;
-  @media ${Device.tablet} { padding: 10px 8px; font-size: 0.95rem; }
-  &.team-col {
-    text-align: left; padding-left: 10px; position: sticky; left: 0; z-index: 5; background-color: ${({ theme }) => theme.bg};
-    box-shadow: inset 4px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'};
-    max-width: 130px; overflow: hidden; text-overflow: ellipsis; transition: box-shadow 0.3s ease;
-    @media ${Device.tablet} { max-width: 250px; box-shadow: inset 5px 0 0 0 ${({ $zoneColor }) => $zoneColor || 'transparent'}; }
-  }
-  &.points-cell { font-weight: 800; color: ${({ theme }) => theme.primary}; font-size: 0.9rem; @media ${Device.tablet} { font-size: 1.05rem; } }
-`;
-
-const TrBase = styled.tr`
-  cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; transition: background-color 0.2s;
-  &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
-`;
-
-const Tr = TrBase;
-const MotionTr = motion(TrBase);
-
-const TdHideOnMobile = styled(Td)` display: table-cell; @media (max-width: 420px) { display: none; } `;
-const ThHideOnMobile = styled(Th)` display: table-cell; @media (max-width: 420px) { display: none; } `;
-
-const TeamNameCell = styled.div`
-  display: flex; align-items: center; gap: 6px; @media ${Device.tablet} { gap: 10px; }
-  img { width: 20px; height: 20px; object-fit: contain; @media ${Device.tablet} { width: 28px; height: 28px; } border-radius: 4px; }
-  .pos { font-weight: 700; min-width: 12px; font-size: 0.75rem; opacity: 0.5; }
-  .team-name { font-weight: 600; font-size: 0.8rem; @media ${Device.tablet} { font-size: 0.9rem; } }
-`;
-
-const LeyendaContainer = styled.div`
-    display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 900px;
-    margin: 0 auto 10px auto; padding: 0 10px;
-`;
-
-const Badge = styled.span`
-    font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
-    background: ${({$color}) => `${$color}15`}; color: ${({$color}) => $color}; border: 1px solid ${({$color}) => $color};
-    @media ${Device.tablet} { font-size: 0.75rem; padding: 4px 10px; }
 `;

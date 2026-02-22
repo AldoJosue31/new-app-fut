@@ -53,6 +53,21 @@ export const getEquiposDivision = async (divisionId) => {
   }
 };
 
+export const getAllMatchesByTournament = async (tournamentId) => {
+  try {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('*, jornadas!inner(id, name, tournament_id)')
+      .eq('jornadas.tournament_id', tournamentId);
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error en getAllMatchesByTournament:", error);
+    return [];
+  }
+};
+
 // --- FUNCIÓN CORREGIDA Y BLINDADA ---
 export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId, leagueId) => {
     try {
