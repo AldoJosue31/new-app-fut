@@ -18,7 +18,7 @@ export function TorneosTemplate({
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
   isLoadingData, standings, reglas, setReglas, refreshStandings,
-  onTournamentReset, state, setState 
+  onTournamentReset, state, setState, partidos
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -117,6 +117,7 @@ export function TorneosTemplate({
                     equipos={participatingTeamsObj} 
                     estadisticas={standings} 
                     reglas={reglas}
+                    partidos={partidos}
                     onRefresh={() => {
                       if (refreshStandings) refreshStandings();
                       fetchGoleadores();

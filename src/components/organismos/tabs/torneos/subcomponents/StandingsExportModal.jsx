@@ -6,7 +6,7 @@ import { exportElementAsPNG } from "../../../../../utils/imageExporter";
 import { supabase } from "../../../../../supabase/supabase.config"; 
 import StandingsExportLayout from "./StandingsExportLayout";
 
-export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, torneo, config }) {
+export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, torneo, config, activeJornadaName }) {
     const theme = useTheme(); 
     
     // Controles de Exportación
@@ -17,7 +17,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
     // ESTADO PARA EVITAR DOBLE DESCARGA
     const [isExporting, setIsExporting] = useState(false);
     
-    // ESTADO PARA LA INFORMACIÓN EXTRA (Liga, División, Última Jornada)
+    // ESTADO PARA LA INFORMACIÓN EXTRA
     const [metaInfo, setMetaInfo] = useState({ league: '', division: '', lastJornada: '' });
     
     const exportComponentRef = useRef(null);
@@ -33,7 +33,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                 fetchMetaInfo();
             }
         }
-    }, [isOpen, theme, torneo]);
+    }, [isOpen, theme, torneo, activeJornadaName]); // <-- Actualiza si cambia la jornada seleccionada
 
     const fetchMetaInfo = async () => {
         try {
@@ -53,36 +53,11 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
             const leagueName = torData?.division?.league?.name || 'Liga Local';
             const divisionName = torData?.division?.name || 'División Única';
 
-            // 2. Obtener la Última Jornada con partidos "Finalizado"
-            const { data: jornadas } = await supabase
-                .from('jornadas')
-                .select('id, name')
-                .eq('tournament_id', torneo.id);
-            
-            let lastJornadaName = 'Sin iniciar';
-            
-            if (jornadas && jornadas.length > 0) {
-                const jIds = jornadas.map(j => j.id);
-                const { data: matches } = await supabase
-                    .from('matches')
-                    .select('jornada_id, date')
-                    .in('jornada_id', jIds)
-                    .eq('status', 'Finalizado')
-                    .order('date', { ascending: false })
-                    .limit(1);
-                
-                if (matches && matches.length > 0) {
-                    const matchedJornada = jornadas.find(j => j.id === matches[0].jornada_id);
-                    if (matchedJornada) {
-                        lastJornadaName = matchedJornada.name;
-                    }
-                }
-            }
-
+            // 2. Usamos directamente el nombre de la jornada que viene de la tabla (trae sus "pendientes" si aplica)
             setMetaInfo({
                 league: leagueName,
                 division: divisionName,
-                lastJornada: lastJornadaName
+                lastJornada: activeJornadaName || 'Sin iniciar'
             });
 
         } catch (error) {
@@ -111,13 +86,16 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
         return () => window.removeEventListener('resize', calculateScale);
     }, [isOpen, isMobileLayout]);
 
-    // MODIFICADO: Agregamos lógica asíncrona y bloqueos
     const handleExportPNG = async () => {
         if (exportComponentRef.current && !isExporting) {
             setIsExporting(true); // Bloqueamos el botón
             try {
                 const cleanTorneoName = torneo?.name?.replace(/[^a-z0-9_]/gi, '') || 'Torneo';
-                const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${isMobileLayout ? 'Movil' : 'Desktop'}`;
+                
+                // Limpiamos el texto de los paréntesis (con pendientes) para que el archivo sea limpio: "Tabla_Liga_Div_Torneo_Jornada_2_Desktop.png"
+                const cleanJornadaName = (activeJornadaName || 'Jornada').split(' (')[0].replace(/\s+/g, '_');
+                
+                const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${cleanJornadaName}_${isMobileLayout ? 'Movil' : 'Desktop'}`;
                 const bgColor = isDarkExport ? '#121212' : '#ffffff';
                 
                 // Esperamos a que la imagen se exporte
@@ -158,7 +136,6 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                         
                         <div className="separator"></div>
                         
-                        {/* BOTÓN DESCARGAR ACTUALIZADO */}
                         <div style={{ opacity: isExporting ? 0.6 : 1, pointerEvents: isExporting ? 'none' : 'auto', transition: 'all 0.3s' }}>
                             <Btnsave 
                                 titulo={isExporting ? "Exportando..." : "Descargar"} 

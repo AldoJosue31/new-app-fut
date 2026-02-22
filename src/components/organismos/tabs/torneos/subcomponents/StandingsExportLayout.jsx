@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
-import { v } from "../../../../../index"; // Ajustado para v.logoGenerico
+import { v } from "../../../../../index"; 
+import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
 
 const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
     const isDark = themeMode === 'dark';
@@ -83,7 +84,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
                     <thead>
                         <tr style={{ backgroundColor: colors.headerBg }}>
-                            <th style={{ padding: '12px 10px', textAlign: 'left', fontSize: isMobile ? '11px' : '13px', color: colors.subtext, textTransform: 'uppercase', borderBottom: `2px solid ${colors.border}` }}>Pos / Equipo</th>
+                            <th style={{ padding: '12px 10px', textAlign: 'left', fontSize: isMobile ? '11px' : '13px', color: colors.subtext, textTransform: 'uppercase', borderBottom: `2px solid ${colors.border}` }}>Equipo</th>
                             <th style={{ padding: '12px 5px', fontSize: isMobile ? '11px' : '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>PJ</th>
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>G</th>}
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>E</th>}
@@ -99,37 +100,62 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                             const zoneColor = getZoneColor(index, tablaGeneral.length);
                             const isLast = index === tablaGeneral.length - 1;
                             
+                            // Lógica de flechas para la exportación
+                            const flechasToShow = Math.min(fila.posDiff || 0, 3);
+                            
+                            // Lógica de borde difuminado para que coincida con StandingsTable
+                            const rowBorderColor = (zoneColor !== 'transparent') ? `${zoneColor}60` : colors.border;
+                            
                             return (
-                                <tr key={fila.id} style={{ borderBottom: isLast ? 'none' : `1px solid ${colors.border}` }}>
+                                <tr key={fila.id} style={{ borderBottom: isLast ? 'none' : `1px solid ${rowBorderColor}` }}>
                                     
-                                    {/* EQUIPO */}
+                                    {/* COLUMNA EQUIPO */}
                                     <td style={{ padding: isMobile ? '10px' : '12px 15px', textAlign: 'left', borderLeft: `6px solid ${zoneColor}` }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span style={{ fontWeight: '800', fontSize: isMobile ? '12px' : '14px', width: '20px', color: colors.subtext }}>{index + 1}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px' }}>
+                                            
+                                            {/* RANGO Y FLECHAS DE TENDENCIA */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: isMobile ? '35px' : '45px', justifyContent: 'flex-end' }}>
+                                                <span style={{ fontWeight: '800', fontSize: isMobile ? '12px' : '14px', color: colors.subtext }}>{index + 1}</span>
+                                                
+                                                {/* FLECHAS IDÉNTICAS AL DISEÑO WEB (-5px de margen) */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {fila.tendencia === 'same' && (
+                                                        <RiSubtractLine style={{ color: colors.subtext, opacity: 0.5, fontSize: isMobile ? '14px' : '16px', marginLeft: '2px' }} />
+                                                    )}
+                                                    {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => (
+                                                        <RiArrowUpSFill key={i} style={{ color: '#22c55e', fontSize: isMobile ? '16px' : '18px', marginTop: '-5px', marginBottom: '-5px' }} />
+                                                    ))}
+                                                    {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => (
+                                                        <RiArrowDownSFill key={i} style={{ color: '#ef4444', fontSize: isMobile ? '16px' : '18px', marginTop: '-5px', marginBottom: '-5px' }} />
+                                                    ))}
+                                                </div>
+                                            </div>
+
                                             <img 
                                                 src={fila.logo || v.logoGenerico} 
                                                 alt="" 
                                                 style={{ width: isMobile ? '24px' : '30px', height: isMobile ? '24px' : '30px', objectFit: 'contain', borderRadius: '4px' }}
                                                 onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
                                             />
+                                            {/* Texto cortado */}
                                             <span style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '15px', color: colors.text }}>
-                                                {fila.nombre.length > (isMobile ? 18 : 30) ? fila.nombre.substring(0, isMobile ? 16 : 28) + '...' : fila.nombre}
+                                                {fila.nombre.length > (isMobile ? 15 : 28) ? fila.nombre.substring(0, isMobile ? 13 : 26) + '...' : fila.nombre}
                                             </span>
                                         </div>
                                     </td>
 
                                     {/* ESTADÍSTICAS */}
                                     <td style={{ padding: '10px 5px', fontSize: isMobile ? '13px' : '15px', fontWeight: '600' }}>{fila.pj}</td>
-                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px' }}>{fila.g}</td>}
-                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px' }}>{fila.e}</td>}
-                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px' }}>{fila.p}</td>}
-                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px' }}>{fila.gf}</td>}
-                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px' }}>{fila.gc}</td>}
+                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.g}</td>}
+                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.e}</td>}
+                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.p}</td>}
+                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.gf}</td>}
+                                    {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.gc}</td>}
                                     
                                     <td style={{ 
                                         padding: '10px 5px', 
                                         fontSize: isMobile ? '13px' : '15px', 
-                                        fontWeight: '700',
+                                        fontWeight: '800',
                                         color: fila.dg > 0 ? '#22c55e' : fila.dg < 0 ? '#ef4444' : colors.text
                                     }}>
                                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}

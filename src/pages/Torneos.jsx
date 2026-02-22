@@ -29,6 +29,8 @@ export function Torneos({ state: sidebarState, setState: setSidebarState }) {
         divisionName={state.divisionName}
         activeTournament={state.activeTournament}
         standings={state.standings}
+
+        partidos={state.partidos}
         
         // Datos de equipos
         allTeams={state.allTeams}

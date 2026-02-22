@@ -327,31 +327,24 @@ export function JornadaPlanificacion({
     </Container>
   );
 }
-
-// --- ESTILOS ---
 const Container = styled.div` 
     display: flex; flex-direction: column; gap: 10px; width: 100%; 
-    /* Usamos 'dvh' (Dynamic Viewport Height) para adaptar el alto exacto de la pantalla del celular 
-       incluso cuando la barra de direcciones del navegador aparece o desaparece. */
-    height: calc(100dvh - 100px); 
-    max-height: 100%;
-    
-    @supports not (height: 100dvh) {
-        height: calc(100vh - 100px);
-    }
+    /* Quitamos el calc() y dejamos que flexbox tome todo el alto disponible del padre */
+    flex: 1;
+    height: 100%;
+    min-height: 0;
 `;
 
 const TransitionWrapper = styled.div` 
     animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; 
     width: 100%; flex: 1; display: flex; flex-direction: column; 
-    min-height: 0; /* Obliga a flexbox a permitir scroll interno en lugar de estirarse al infinito */
+    min-height: 0; 
 `;
 
 const Workspace = styled.div` 
     display: flex; gap: 15px; flex: 1; min-height: 0; 
     @media(max-width: 768px){ 
         flex-direction: column; 
-        /* Eliminamos el height estático para que flex: 1 haga su magia */
     } 
 `;
 
@@ -364,7 +357,6 @@ const DropZone = styled.div`
     background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; 
     border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; 
     border-radius: 10px; 
-    /* Reducimos el padding en móvil para regalarle más espacio a las tarjetas de los partidos */
     padding: 10px; 
     overflow-y: auto; 
     position: relative; transition: all 0.3s ease; 
@@ -373,17 +365,19 @@ const DropZone = styled.div`
 `;
 
 const GridList = styled.div` 
-    display: flex; flex-direction: column; gap: 8px; padding-bottom: 15px; 
+    display: flex; flex-direction: column; gap: 8px; 
+    /* Reducimos este padding para que el último partido no deje tanto hueco al hacer scroll */
+    padding-bottom: 5px; 
 `;
 
 const Footer = styled.div` 
     display: flex; justify-content: space-between; align-items: center; 
-    padding: 5px 0; 
-    flex-shrink: 0; /* CRÍTICO: Garantiza que el footer jamás sea empujado fuera de la pantalla */
+    /* Quitamos padding extra abajo para que quede al ras del contenedor */
+    padding: 5px 0 0 0; 
+    flex-shrink: 0; 
     gap: 10px;
     
     @media(max-width: 768px){
-        /* En móvil lo ponemos en columna para que los botones aprovechen el 100% del ancho */
         flex-direction: column;
         align-items: stretch;
         .note { text-align: center; }
