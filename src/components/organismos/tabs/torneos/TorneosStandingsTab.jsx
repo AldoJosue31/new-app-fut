@@ -50,7 +50,6 @@ export const TorneosStandingsTab = ({
       zonaLiguilla: c.zonaLiguilla || false,
       clasificados: parseInt(c.clasificados) || 0,
       repechaje: parseInt(c.repechajeTeams) || 0,
-      // Validación segura para configuración de puntos dinámica
       winPoints: c.winPoints !== undefined ? Number(c.winPoints) : 3,
       drawPoints: c.drawPoints !== undefined ? Number(c.drawPoints) : 1,
       lossPoints: c.lossPoints !== undefined ? Number(c.lossPoints) : 0,
@@ -116,7 +115,7 @@ export const TorneosStandingsTab = ({
     return opciones.sort((a, b) => a.num - b.num);
   }, [partidos]);
 
-  // 2. ENCONTRAR LA JORNADA ACTUAL EFECTIVA (Frontera en el tiempo)
+  // 2. ENCONTRAR LA JORNADA ACTUAL EFECTIVA
   const effectiveJornada = useMemo(() => {
     let maxJornadaIniciada = 0;
     partidos.forEach(m => {
@@ -146,7 +145,6 @@ export const TorneosStandingsTab = ({
       partidos.forEach(partido => {
         const jNum = partido.jornadas ? parseInt(partido.jornadas.name.replace(/\D/g, ''), 10) : 0;
         
-        // Bloqueo estricto: Ignorar partidos jugados en jornadas posteriores al límite
         if (jNum <= 0 || jNum > limitJornada) return;
 
         const localId = partido.team1_id;
@@ -163,14 +161,13 @@ export const TorneosStandingsTab = ({
         
         const hasResult = partido.goals1 != null && partido.goals2 != null;
 
-        // PENDIENTES VERDADEROS (Solo hasta la frontera temporal permitida)
+        // PENDIENTES VERDADEROS
         if (isPendiente && jNum <= limitPendientes) {
           local.partidosPendientes += 1;
           visitante.partidosPendientes += 1;
           return;
         }
 
-        // Si no está finalizado y con goles, no cuenta
         if (!isPlayed || !hasResult) return;
 
         const golesLocal = parseInt(partido.goals1, 10);
@@ -182,7 +179,6 @@ export const TorneosStandingsTab = ({
         local.gf += golesLocal; visitante.gf += golesVisitante;
         local.gc += golesVisitante; visitante.gc += golesLocal;
 
-        // Determinar G, E, P lógicamente por goles
         if (golesLocal > golesVisitante) {
           local.g += 1; visitante.p += 1;
         } else if (golesLocal < golesVisitante) {
@@ -191,19 +187,16 @@ export const TorneosStandingsTab = ({
           local.e += 1; visitante.e += 1;
         }
 
-        // LÓGICA MAESTRA DE PUNTOS: Extraer `puntos1` y `puntos2` REALES de la BD
+        // LÓGICA MAESTRA DE PUNTOS
         let ptsL = parseInt(partido.puntos1, 10);
         let ptsV = parseInt(partido.puntos2, 10);
         
         if (isNaN(ptsL)) ptsL = 0;
         if (isNaN(ptsV)) ptsV = 0;
 
-        // Fallback: Si la BD tiene 0 y 0 pero NO es un escenario donde 0-0 de puntos sea válido, calculamos.
-        // PERO si la BD tiene puntos (ej: 2 y 1 por penales, o 3 y 0), respeta la BD ciegamente.
         const isZeroZeroLegit = (ptsL === 0 && ptsV === 0 && golesLocal === golesVisitante && config.drawPoints === 0);
         
         if (ptsL === 0 && ptsV === 0 && !isZeroZeroLegit) {
-            // Solo calcula si la base de datos realmente no guardó los puntos
             if (golesLocal > golesVisitante) {
                 ptsL = config.winPoints;
                 ptsV = config.lossPoints;
@@ -220,12 +213,17 @@ export const TorneosStandingsTab = ({
         visitante.pts += ptsV;
       });
 
-      const data = uniqueEquipos.map((equipo) => ({
-        id: equipo.id,
-        nombre: equipo.name || equipo.nombre,
-        logo: equipo.logo_url || equipo.img,
-        ...statsMap[equipo.id],
-      }));
+      // CÁLCULO DE DIFERENCIA DE GOLES RESTAURADO AQUI
+      const data = uniqueEquipos.map((equipo) => {
+        const stats = statsMap[equipo.id];
+        return {
+          id: equipo.id,
+          nombre: equipo.name || equipo.nombre,
+          logo: equipo.logo_url || equipo.img,
+          ...stats,
+          dg: stats.gf - stats.gc // <-- Aquí está el cálculo correcto de la Diferencia
+        };
+      });
 
       return data.sort((a, b) => {
           if (b.pts !== a.pts) return b.pts - a.pts;
@@ -240,11 +238,11 @@ export const TorneosStandingsTab = ({
     let limitPendientes = 0;
 
     if (selectedJornadaView === 'recent') {
-      limitCurrent = 9999; // Toma TODOS los partidos finalizados (incluso si adelantaron la J8)
-      limitPendientes = effectiveJornada; // Pero solo cuenta los pendientes hasta la J Actual
+      limitCurrent = 9999; 
+      limitPendientes = effectiveJornada; 
     } else {
       limitCurrent = parseInt(selectedJornadaView, 10);
-      limitPendientes = limitCurrent; // Si veo el pasado, los pendientes se cortan en ese pasado
+      limitPendientes = limitCurrent; 
     }
 
     const prevLimit = limitCurrent === 9999 ? (effectiveJornada - 1) : (limitCurrent - 1);
