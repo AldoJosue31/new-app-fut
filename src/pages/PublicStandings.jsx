@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import styled, { ThemeProvider } from "styled-components";
 import { supabase } from "../supabase/supabase.config"; 
@@ -20,7 +20,7 @@ export const PublicStandings = () => {
   
   // Data
   const [torneo, setTorneo] = useState(null);
-  const [estadisticas, setEstadisticas] = useState([]);
+  const [partidos, setPartidos] = useState([]);
   const [equipos, setEquipos] = useState([]);
   const [goleadores, setGoleadores] = useState([]);
 
@@ -53,22 +53,38 @@ export const PublicStandings = () => {
         };
         setTorneo(torneoProcesado);
 
-        // 2. Obtener Estadísticas (Tabla)
-        const { data: statsData } = await supabase
-          .from('estadisticas')
-          .select('*')
-          .eq('torneo_id', torneoId);
-        setEstadisticas(statsData || []);
+        // 2. Obtener Partidos
+        const { data: matchesData, error: matchesError } = await supabase
+          .from('matches')
+          .select('*, jornadas!inner(id, name, tournament_id, status)')
+          .eq('jornadas.tournament_id', torneoId);
+          
+        if (matchesError) throw matchesError;
+        setPartidos(matchesData || []);
 
         // 3. Obtener Equipos
-        const teamIds = statsData?.map(s => s.team_id) || [];
-        if (teamIds.length > 0) {
-            const { data: equiposData } = await supabase
-            .from('teams')
-            .select('*')
-            .in('id', teamIds);
-            setEquipos(equiposData || []);
+        let equiposData = [];
+        if (torneoData.division_id) {
+            const { data: divEquipos } = await supabase
+              .from('teams')
+              .select('*')
+              .eq('division_id', torneoData.division_id);
+            equiposData = divEquipos || [];
+        } else {
+            const teamIds = new Set();
+            (matchesData || []).forEach(m => {
+                if (m.team1_id) teamIds.add(m.team1_id);
+                if (m.team2_id) teamIds.add(m.team2_id);
+            });
+            if (teamIds.size > 0) {
+                const { data: eqData } = await supabase
+                  .from('teams')
+                  .select('*')
+                  .in('id', Array.from(teamIds));
+                equiposData = eqData || [];
+            }
         }
+        setEquipos(equiposData);
 
         // 4. Obtener Goleadores (Solo si está activado en BD)
         if (torneoData.is_goleadores_public) {
@@ -90,6 +106,26 @@ export const PublicStandings = () => {
 
     fetchData();
   }, [torneoId]);
+
+  // CALCULAR LA JORNADA ACTUAL PARA EL TÍTULO
+  const textoJornadaActual = useMemo(() => {
+    if (!partidos || partidos.length === 0) return "Torneo sin iniciar";
+    
+    let maxJornadaIniciada = 0;
+    partidos.forEach(m => {
+       if (!m.team1_id || !m.team2_id) return;
+       const statusLower = (m.status || '').toLowerCase();
+       const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+       const hasResult = m.goals1 != null && m.goals2 != null;
+       
+       if (isFinished && hasResult) {
+           const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
+           if (jNum > maxJornadaIniciada) maxJornadaIniciada = jNum;
+       }
+    });
+
+    return maxJornadaIniciada > 0 ? `Hasta la Jornada ${maxJornadaIniciada}` : "Torneo sin iniciar";
+  }, [partidos]);
 
   if (loading) {
      return (
@@ -132,7 +168,9 @@ export const PublicStandings = () => {
                 <v.iconocorona />
                 <h1>{torneo?.season ? `Temporada ${torneo.season}` : "Torneo"}</h1>
             </TitleContainer>
-            <Subtitle>{torneo?.division_nombre || "Tabla General"}</Subtitle>
+            <Subtitle>
+                {torneo?.division_nombre || "Tabla General"} | {textoJornadaActual}
+            </Subtitle>
         </Header>
 
         {/* --- NAVEGACIÓN TABS --- */}
@@ -159,7 +197,7 @@ export const PublicStandings = () => {
             {activeTab === 'tabla' && (
                 <TorneosStandingsTab 
                     torneo={torneo}
-                    estadisticas={estadisticas}
+                    partidos={partidos} 
                     equipos={equipos}
                     reglas={torneo?.config}
                     isPublic={true} 
