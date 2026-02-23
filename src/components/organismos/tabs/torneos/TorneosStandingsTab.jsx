@@ -57,7 +57,6 @@ export const TorneosStandingsTab = ({
     return Array.from(map.values());
   }, [equipos]);
 
-  // 1. OBTENER HISTORIAL DE OPCIONES 
   const historialJornadas = useMemo(() => {
     if (!partidos || partidos.length === 0) return [];
 
@@ -108,7 +107,6 @@ export const TorneosStandingsTab = ({
     return opciones.sort((a, b) => a.num - b.num);
   }, [partidos]);
 
-  // 2. ENCONTRAR LA JORNADA EFECTIVA DE FORMA GLOBAL
   const effectiveJornada = useMemo(() => {
     if (selectedJornadaView === 'recent') {
       let maxJornadaIniciada = 0;
@@ -129,7 +127,6 @@ export const TorneosStandingsTab = ({
   }, [selectedJornadaView, partidos]);
 
 
-  // 3. CÁLCULO DE TABLA DOBLE CON DIFERENCIA DE PUESTOS
   const tablaGeneral = useMemo(() => {
 
     const getGoles = (partido, keys) => {
@@ -146,17 +143,15 @@ export const TorneosStandingsTab = ({
     const buildTableUpTo = (limitJornada) => {
       const statsMap = {};
       uniqueEquipos.forEach(eq => {
-        statsMap[eq.id] = { pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0 };
+        // Añadimos el contador de partidosPendientes
+        statsMap[eq.id] = { pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0, partidosPendientes: 0 };
       });
 
       partidos.forEach(partido => {
         const jNum = partido.jornadas ? parseInt(partido.jornadas.name.replace(/\D/g, ''), 10) : 0;
         
+        // Bloqueo: Solo consideramos partidos que debieron jugarse HASTA esta jornada.
         if (jNum <= 0 || jNum > limitJornada) return;
-
-        const statusLower = (partido.status || '').toLowerCase();
-        const isPlayed = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
-        if (!isPlayed) return;
 
         const localId = partido.team1_id;
         const visitanteId = partido.team2_id;
@@ -165,6 +160,19 @@ export const TorneosStandingsTab = ({
         const local = statsMap[localId];
         const visitante = statsMap[visitanteId];
         if (!local || !visitante) return;
+
+        const statusLower = (partido.status || '').toLowerCase();
+        const isPlayed = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+        const isPendiente = statusLower === 'pendiente';
+        
+        // Si el partido está literalmente Pendiente, sumamos 1 a los adeudos de cada equipo
+        if (isPendiente) {
+          local.partidosPendientes += 1;
+          visitante.partidosPendientes += 1;
+          return;
+        }
+
+        if (!isPlayed) return;
 
         const golesLocal = getGoles(partido, ['goals1']);
         const golesVisitante = getGoles(partido, ['goals2']);
@@ -208,22 +216,8 @@ export const TorneosStandingsTab = ({
 
     let currentTable = [];
     if (selectedJornadaView === 'recent') {
-      const data = uniqueEquipos.map((equipo) => {
-        const stats = estadisticas.find(s => s.team_id === equipo.id) || {};
-        return {
-          id: equipo.id,
-          nombre: equipo.name || equipo.nombre,
-          logo: equipo.logo_url || equipo.img,
-          pj: stats.pj || 0, g: stats.pg || 0, e: stats.pe || 0, p: stats.pp || 0,
-          gf: stats.gf || 0, gc: stats.gc || 0, dg: stats.dg || 0, pts: stats.pts || 0,
-        };
-      });
-      currentTable = data.sort((a, b) => {
-          if (b.pts !== a.pts) return b.pts - a.pts;
-          if (b.dg !== a.dg) return b.dg - a.dg;
-          if (b.gf !== a.gf) return b.gf - a.gf;
-          return a.pj - b.pj;
-      });
+      // Usamos el builder en lugar de las estadísticas estáticas para que la columna Pendientes esté perfecta siempre.
+      currentTable = buildTableUpTo(effectiveJornada);
     } else {
       currentTable = buildTableUpTo(effectiveJornada);
     }
@@ -233,25 +227,23 @@ export const TorneosStandingsTab = ({
       const prevRank = prevRanks[eq.id];
 
       let tendencia = 'same';
-      let posDiff = 0; // NUEVO: Extraemos la cantidad de puestos que se movió
+      let posDiff = 0; 
       
       if (effectiveJornada <= 1 || !prevRank) {
         tendencia = 'same'; 
       } else if (prevRank > currentRank) {
         tendencia = 'up';
-        posDiff = prevRank - currentRank; // Ej: Pasó del 5 al 2 -> Movió 3 puestos
+        posDiff = prevRank - currentRank; 
       } else if (prevRank < currentRank) {
         tendencia = 'down';
-        posDiff = currentRank - prevRank; // Ej: Pasó del 1 al 2 -> Perdió 1 puesto
+        posDiff = currentRank - prevRank; 
       }
 
-      // Devolvemos el equipo con su tendencia y la diferencia exacta de puestos
       return { ...eq, tendencia, posDiff };
     });
 
   }, [uniqueEquipos, estadisticas, selectedJornadaView, effectiveJornada, partidos, config]);
 
-  // 4. TEXTO INTELIGENTE DE LA JORNADA ACTIVA
   const activeJornadaName = useMemo(() => {
     if (!partidos || partidos.length === 0) return 'Sin iniciar';
     
@@ -395,7 +387,6 @@ export const TorneosStandingsTab = ({
   );
 };
 
-// --- STYLES EXCLUSIVOS DE LOS CONTROLES Y SELECTORES ---
 const SelectJornada = styled.select`
   background-color: ${({ theme }) => theme.bg2};
   color: ${({ theme }) => theme.text};
