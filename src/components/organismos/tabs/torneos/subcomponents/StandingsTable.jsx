@@ -47,8 +47,6 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                 <Th className="stat-col hide-mobile">GF</Th>
                 <Th className="stat-col hide-mobile">GC</Th>
                 <Th className="stat-col dif-col">DIF</Th>
-                {/* NUEVA COLUMNA DE PENDIENTES */}
-                <Th className="stat-col pend-col hide-mobile" title="Partidos Pendientes">Pnd</Th>
                 <Th className="stat-col pts-col">PTS</Th>
               </tr>
             </thead>
@@ -58,6 +56,7 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                 const zoneColor = status?.color;
                 const RowComponent = isPublic ? MotionTr : Tr;
 
+                // Lógica visual: Topamos las flechas a mostrar en 3
                 const flechasToShow = Math.min(fila.posDiff || 0, 3);
                 const hoverText = fila.posDiff 
                     ? (fila.tendencia === 'up' ? `Subió ${fila.posDiff} puesto(s)` : `Bajó ${fila.posDiff} puesto(s)`) 
@@ -86,12 +85,13 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                            <span className="tendencia">
                               {fila.tendencia === 'same' && <RiSubtractLine className="icon-same" />}
                               
+                              {/* FLECHAS APILADAS NATURALMENTE (Con margen ajustado) */}
                               {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => (
-                                 <RiArrowUpSFill key={i} className="icon-up" style={{ marginTop: i > 0 ? '-5px' : '0' }} />
+                                 <RiArrowUpSFill key={i} className="icon-up" />
                               ))}
                               
                               {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => (
-                                 <RiArrowDownSFill key={i} className="icon-down" style={{ marginTop: i > 0 ? '-5px' : '0' }} />
+                                 <RiArrowDownSFill key={i} className="icon-down" />
                               ))}
                            </span>
                         </div>
@@ -118,20 +118,13 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                     }}>
                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                     </Td>
-                    {/* CELDA DE PENDIENTES */}
-                    <Td className="stat-col hide-mobile val-pend" style={{
-                         color: fila.partidosPendientes > 0 ? '#f59e0b' : 'inherit',
-                         opacity: fila.partidosPendientes > 0 ? 1 : 0.3
-                    }}>
-                        {fila.partidosPendientes}
-                    </Td>
                     <Td className="stat-col val-pts">{fila.pts}</Td>
                   </RowComponent>
                 );
               })}
               {tablaGeneral.length === 0 && (
                 <tr>
-                  <td colSpan="10" style={{textAlign:'center', padding:'20px', opacity:0.5}}>
+                  <td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>
                     No hay datos disponibles
                   </td>
                 </tr>
@@ -210,10 +203,6 @@ const Th = styled.th`
   
   &.stat-col { width: 1%; min-width: 25px; }
   
-  &.pend-col {
-    color: #f59e0b; /* Naranja sutil para diferenciar de las stats normales */
-  }
-
   &.pts-col {
     color: ${v.colorPrincipal};
     opacity: 1;
@@ -252,7 +241,6 @@ const Td = styled.td`
   &.val-pj { font-weight: 700; }
   &.val-stat { color: ${({ theme }) => theme.text}CC; }
   &.val-dif { font-weight: 800; }
-  &.val-pend { font-weight: 700; }
   
   &.val-pts { 
     font-weight: 900; 
@@ -289,9 +277,9 @@ const TeamNameCell = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
-    min-width: 32px; 
+    min-width: 28px; 
     justify-content: flex-end;
-    @media ${Device.tablet} { min-width: 40px; gap: 6px; }
+    @media ${Device.tablet} { min-width: 36px; gap: 6px; }
   }
 
   .pos { 
@@ -310,7 +298,10 @@ const TeamNameCell = styled.div`
     justify-content: center;
     
     .icon-up, .icon-down {
-       margin-bottom: -5px; /* Empuja el siguiente icono hacia arriba */
+       /* Ajuste intermedio: Se juntan lo suficiente para verse como un solo bloque 
+          sin llegar a solaparse de manera extrema como antes */
+       margin-top: -5px;
+       margin-bottom: -5px;
     }
 
     .icon-up { color: #22c55e; font-size: 16px; @media ${Device.tablet} { font-size: 18px; } }
