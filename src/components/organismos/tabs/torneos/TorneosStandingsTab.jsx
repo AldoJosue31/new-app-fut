@@ -17,7 +17,7 @@ export const TorneosStandingsTab = ({
   reglas = {},
   onRefresh,
   isPublic = false,
-  isLoading = false // <-- NUEVA PROP AÑADIDA
+  isLoading = false 
 }) => {
 
   const [copied, setCopied] = useState(false);
@@ -218,6 +218,7 @@ export const TorneosStandingsTab = ({
           id: equipo.id,
           nombre: equipo.name || equipo.nombre,
           logo: equipo.logo_url || equipo.img,
+          color: equipo.color, // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA!
           ...stats,
           dg: stats.gf - stats.gc
         };
@@ -398,7 +399,6 @@ export const TorneosStandingsTab = ({
         </ControlPanel>
       )}
 
-      {/* AQUÍ SE PASA LA PROP ISLOADING HACIA LA TABLA */}
       <StandingsTable 
         tablaGeneral={tablaGeneral} 
         config={config} 

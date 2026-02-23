@@ -16,6 +16,7 @@ import {
     RiArrowLeftLine, RiTrophyLine, RiFootballLine, RiUserSmileLine,
     RiHashtag, RiFontSize, RiFocus2Line
 } from "react-icons/ri";
+import { DynamicTeamLogo } from "./equipos/DynamicTeamLogo"; // IMPORTACIÓN DEL LOGO DINÁMICO
 
 export function TeamDetailModal({ isOpen, onClose, team, division, initialView }) {
     // --- ESTADOS ---
@@ -270,7 +271,12 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                                         )}
 
                                                         <div className="rival-container">
-                                                            <img src={m.rival.logo_url || "/logo_gen.png"} alt="R" />
+                                                            {/* LOGO DINÁMICO DEL RIVAL */}
+                                                            {m.rival.logo_url ? (
+                                                                <img src={m.rival.logo_url} alt="R" />
+                                                            ) : (
+                                                                <DynamicTeamLogo name={m.rival.name || "Rival"} color={m.rival.color || "#000000"} size="28px" />
+                                                            )}
                                                             <span>{m.rival.name}</span>
                                                         </div>
                                                     </MatchCard>
@@ -345,7 +351,12 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                             <div className="division-badge">{division?.name || "Liga"}</div>
                         </div>
                         <div className="logo-wrapper">
-                            <img src={team.logo_url || "/logo_gen.png"} alt={team.name} />
+                            {/* LOGO DINÁMICO DEL EQUIPO PRINCIPAL */}
+                            {team.logo_url ? (
+                                <img src={team.logo_url} alt={team.name} />
+                            ) : (
+                                <DynamicTeamLogo name={team.name} color={team.color || "#000000"} size="130px" />
+                            )}
                         </div>
                         <h2 className="team-title">{team.name}</h2>
                         
@@ -579,7 +590,12 @@ const MatchCard = styled.div`
     .score-num { &.my-team { color: ${v.colorPrincipal}; } }
     .divider { opacity: 0.3; font-size: 0.9rem; }
     .penalties-score { font-size: 0.65rem; color: #f39c12; font-weight: 700; margin-top: -3px; margin-bottom: 1px; letter-spacing: 0.5px; }
-    .rival-container { display: flex; flex-direction: column; align-items: center; gap: 2px; img { width: 28px; height: 28px; object-fit: contain; } span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+    
+    .rival-container { 
+        display: flex; flex-direction: column; align-items: center; gap: 2px; 
+        img, svg { width: 28px; height: 28px; object-fit: contain; } 
+        span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } 
+    }
 `;
 
 /* ESTILOS DE LA ETIQUETA (G / E / P) ACTUALIZADOS CON BORDE DINÁMICO */

@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { v } from "../../../../../index"; 
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
+import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
 
 const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
     const isDark = themeMode === 'dark';
@@ -113,12 +114,24 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                                 </div>
                                             </div>
 
-                                            <img 
-                                                src={fila.logo || v.logoGenerico} 
-                                                alt="" 
-                                                style={{ width: isMobile ? '24px' : '30px', height: isMobile ? '24px' : '30px', objectFit: 'contain', borderRadius: '4px' }}
-                                                onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
-                                            />
+                                            {/* CONTENEDOR DE LOGO DINÁMICO */}
+                                            <div style={{ width: isMobile ? '24px' : '30px', height: isMobile ? '24px' : '30px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {fila.logo ? (
+                                                    <img 
+                                                        src={fila.logo} 
+                                                        alt="" 
+                                                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '4px' }}
+                                                        onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
+                                                    />
+                                                ) : (
+                                                    <DynamicTeamLogo 
+                                                        name={fila.nombre} 
+                                                        color={fila.color || "#000000"} 
+                                                        size="100%" 
+                                                    />
+                                                )}
+                                            </div>
+                                            
                                             {/* Texto cortado */}
                                             <span style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '15px', color: colors.text }}>
                                                 {fila.nombre.length > (isMobile ? 15 : 28) ? fila.nombre.substring(0, isMobile ? 13 : 26) + '...' : fila.nombre}

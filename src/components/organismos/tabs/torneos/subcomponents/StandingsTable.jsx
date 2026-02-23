@@ -5,15 +5,14 @@ import { motion } from 'framer-motion';
 import { v } from '../../../../../styles/variables';
 import { Device } from '../../../../../styles/breakpoints';
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
-// Importamos el átomo Skeleton
 import { Skeleton } from '../../../../atomos/Skeleton';
+import { DynamicTeamLogo } from '../../../../organismos/equipos/DynamicTeamLogo'; // IMPORTACIÓN DEL LOGO DINÁMICO
 
 export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false }) {
   const navigate = useNavigate();
 
-  const hasAnyLogo = useMemo(() => {
-    return tablaGeneral.some(team => team.logo && team.logo.trim() !== '');
-  }, [tablaGeneral]);
+  // Ya no necesitamos validación estricta porque o hay logo real, o hay SVG
+  const hasAnyLogo = true;
 
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
@@ -34,7 +33,6 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
     })
   };
 
-  // Nombres simulados con anchos variados para un Skeleton más natural
   const skeletonWidths = ['100px', '140px', '120px', '90px', '110px', '130px', '95px', '105px'];
 
   return (
@@ -58,7 +56,6 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
             </thead>
             <tbody>
               {isLoading ? (
-                // RENDERIZADO DE SKELETONS CUANDO ESTÁ CARGANDO
                 Array.from({ length: 8 }).map((_, index) => (
                   <TrBase key={`skeleton-${index}`} $isPublic={isPublic}>
                     <Td className="team-col">
@@ -82,7 +79,6 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                   </TrBase>
                 ))
               ) : (
-                // RENDERIZADO NORMAL DE LOS DATOS
                 tablaGeneral.map((fila, index) => {
                   const status = getZoneStatus(index, tablaGeneral.length);
                   const zoneColor = status?.color;
@@ -124,13 +120,22 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                              </span>
                           </div>
 
-                          {hasAnyLogo ? (
-                             <img
-                               src={fila.logo || v.logoGenerico}
-                               alt={fila.nombre}
-                               onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
-                             />
-                          ) : null}
+                          {/* CONTENEDOR DE LOGO UNIFICADO */}
+                          <div className="logo-container">
+                              {fila.logo ? (
+                                  <img 
+                                    src={fila.logo} 
+                                    alt={fila.nombre} 
+                                  />
+                              ) : (
+                                  <DynamicTeamLogo 
+                                    name={fila.nombre} 
+                                    color={fila.color || "#000000"} 
+                                    size="100%" 
+                                  />
+                              )}
+                          </div>
+                          
                           <span className="team-name" title={fila.nombre}>{fila.nombre}</span>
                         </TeamNameCell>
                       </Td>
@@ -158,7 +163,6 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                 })
               )}
 
-              {/* ESTADO VACÍO CUANDO NO ESTÁ CARGANDO Y NO HAY DATOS */}
               {!isLoading && tablaGeneral.length === 0 && (
                 <tr>
                   <td colSpan="10" style={{textAlign:'center', padding:'20px', opacity:0.5}}>
@@ -316,9 +320,13 @@ const TeamNameCell = styled.div`
     .icon-same { color: ${({ theme }) => theme.text}40; font-size: 14px; margin-left: 2px; @media ${Device.tablet} { font-size: 16px; } }
   }
   
-  img { 
-    width: 20px; height: 20px; object-fit: contain; border-radius: 4px; flex-shrink: 0;
+  .logo-container {
+    width: 20px; height: 20px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
     @media ${Device.tablet} { width: 26px; height: 26px; } 
+    
+    img { width: 100%; height: 100%; object-fit: contain; border-radius: 4px; }
+    svg { width: 100%; height: 100%; }
   }
   
   .team-name { 

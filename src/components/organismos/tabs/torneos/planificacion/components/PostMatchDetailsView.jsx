@@ -1,4 +1,5 @@
 import React from 'react';
+import { DynamicTeamLogo } from '../../../../equipos/DynamicTeamLogo'; 
 
 // ==========================================
 // HELPERS VISUALES
@@ -55,21 +56,36 @@ const BadgeCard = ({ color }) => (
 // TABLA DE ALINEACIÓN
 // ==========================================
 
-const LineupTable = ({ title, players = [], colors }) => {
+const LineupTable = ({ teamName, teamLogo, teamColor, players = [], colors }) => {
     return (
         <div style={{ marginBottom: 0, width: '100%' }}>
-            <h4 style={{
-                fontWeight: '800',
-                color: colors.text,
-                fontSize: '15px',
-                marginBottom: '15px',
-                borderBottom: `2px solid ${colors.border}`,
-                paddingBottom: '8px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+            {/* ENCABEZADO CON LOGO DINÁMICO */}
+            <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                marginBottom: '15px', 
+                borderBottom: `2px solid ${colors.border}`, 
+                paddingBottom: '8px' 
             }}>
-                {title}
-            </h4>
+                <div style={{ width: '28px', height: '28px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {teamLogo ? (
+                        <img src={teamLogo} alt={teamName} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                        <DynamicTeamLogo name={teamName} color={teamColor || '#000000'} size="100%" />
+                    )}
+                </div>
+                <h4 style={{
+                    fontWeight: '800',
+                    color: colors.textStrong,
+                    fontSize: '15px',
+                    margin: 0,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                }}>
+                    {teamName}
+                </h4>
+            </div>
 
             {players.length > 0 ? (
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -180,13 +196,25 @@ const PostMatchDetailsView = ({ match = {}, referees = {}, homeLineup = [], away
             {/* Alineaciones (2 Columnas) */}
             <div style={{ display: 'flex', gap: '40px', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                    <LineupTable title={match.homeTeam?.name || 'Local'} players={homeLineup} colors={colors} />
+                    <LineupTable 
+                        teamName={match.homeTeam?.name || 'Local'} 
+                        teamLogo={match.homeTeam?.logo}
+                        teamColor={match.homeTeam?.color}
+                        players={homeLineup} 
+                        colors={colors} 
+                    />
                 </div>
                 
                 <div style={{ width: '1px', backgroundColor: colors.border, alignSelf: 'stretch' }}></div>
                 
                 <div style={{ flex: 1 }}>
-                    <LineupTable title={match.awayTeam?.name || 'Visita'} players={awayLineup} colors={colors} />
+                    <LineupTable 
+                        teamName={match.awayTeam?.name || 'Visita'} 
+                        teamLogo={match.awayTeam?.logo}
+                        teamColor={match.awayTeam?.color}
+                        players={awayLineup} 
+                        colors={colors} 
+                    />
                 </div>
             </div>
 
