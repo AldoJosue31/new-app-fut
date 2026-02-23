@@ -47,6 +47,8 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                 <Th className="stat-col hide-mobile">GF</Th>
                 <Th className="stat-col hide-mobile">GC</Th>
                 <Th className="stat-col dif-col">DIF</Th>
+                {/* COLUMNA PENDIENTES */}
+                <Th className="stat-col pend-col hide-mobile" title="Partidos Pendientes">Pnd</Th>
                 <Th className="stat-col pts-col">PTS</Th>
               </tr>
             </thead>
@@ -118,6 +120,13 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                     }}>
                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                     </Td>
+                    {/* VALOR PENDIENTES */}
+                    <Td className="stat-col hide-mobile val-pend" style={{
+                         color: fila.partidosPendientes > 0 ? '#f59e0b' : 'inherit',
+                         opacity: fila.partidosPendientes > 0 ? 1 : 0.3
+                    }}>
+                        {fila.partidosPendientes}
+                    </Td>
                     <Td className="stat-col val-pts">{fila.pts}</Td>
                   </RowComponent>
                 );
@@ -151,7 +160,6 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
 }
 
 // --- ESTILOS MODERNIZADOS Y COMPACTOS ---
-
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg}; 
   border-radius: 12px; 
@@ -169,7 +177,6 @@ const ResponsiveTableWrapper = styled.div`
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  
   &::-webkit-scrollbar { height: 6px; }
   &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.color2}; border-radius: 4px; }
 `;
@@ -191,27 +198,13 @@ const Th = styled.th`
   border-bottom: 2px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
   
-  @media ${Device.tablet} { 
-    font-size: 0.75rem; 
-    padding: 12px 10px; 
-  }
-  
-  &.team-col-header { 
-    text-align: left; 
-    padding-left: 20px; 
-  }
-  
+  @media ${Device.tablet} { font-size: 0.75rem; padding: 12px 10px; }
+  &.team-col-header { text-align: left; padding-left: 20px; }
   &.stat-col { width: 1%; min-width: 25px; }
   
-  &.pts-col {
-    color: ${v.colorPrincipal};
-    opacity: 1;
-    font-weight: 900;
-  }
-
-  &.hide-mobile {
-    @media (max-width: 500px) { display: none; }
-  }
+  &.pend-col { color: #f59e0b; }
+  &.pts-col { color: ${v.colorPrincipal}; opacity: 1; font-weight: 900; }
+  &.hide-mobile { @media (max-width: 500px) { display: none; } }
 `;
 
 const Td = styled.td`
@@ -220,10 +213,7 @@ const Td = styled.td`
   color: ${({ theme }) => theme.text};
   white-space: nowrap;
   
-  @media ${Device.tablet} { 
-    padding: 10px 10px; 
-    font-size: 0.95rem; 
-  }
+  @media ${Device.tablet} { padding: 10px 10px; font-size: 0.95rem; }
   
   &.team-col {
     text-align: left; 
@@ -231,11 +221,7 @@ const Td = styled.td`
     background-color: ${({ theme }) => theme.bg};
     border-left: 4px solid ${({ $zoneColor }) => $zoneColor || 'transparent'};
     transition: background-color 0.3s ease;
-    
-    @media ${Device.tablet} { 
-      padding-left: 15px;
-      border-left: 5px solid ${({ $zoneColor }) => $zoneColor || 'transparent'};
-    }
+    @media ${Device.tablet} { padding-left: 15px; border-left: 5px solid ${({ $zoneColor }) => $zoneColor || 'transparent'}; }
   }
 
   &.val-pj { font-weight: 700; }
@@ -243,25 +229,16 @@ const Td = styled.td`
   &.val-dif { font-weight: 800; }
   
   &.val-pts { 
-    font-weight: 900; 
-    color: ${v.colorPrincipal}; 
-    font-size: 1rem; 
+    font-weight: 900; color: ${v.colorPrincipal}; font-size: 1rem; 
     @media ${Device.tablet} { font-size: 1.15rem; } 
   }
-
-  &.hide-mobile {
-    @media (max-width: 500px) { display: none; }
-  }
+  &.hide-mobile { @media (max-width: 500px) { display: none; } }
 `;
 
 const TrBase = styled.tr`
   cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
-  
-  td {
-    border-bottom: 1px solid ${({ $zoneColor, theme }) => $zoneColor ? `${$zoneColor}60` : theme.color2};
-  }
-  
+  td { border-bottom: 1px solid ${({ $zoneColor, theme }) => $zoneColor ? `${$zoneColor}60` : theme.color2}; }
   &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
   &:last-child td { border-bottom: none; }
 `;
@@ -274,65 +251,37 @@ const TeamNameCell = styled.div`
   @media ${Device.tablet} { gap: 14px; }
   
   .rank-container {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 28px; 
-    justify-content: flex-end;
+    display: flex; align-items: center; gap: 4px; min-width: 28px; justify-content: flex-end;
     @media ${Device.tablet} { min-width: 36px; gap: 6px; }
   }
 
   .pos { 
-    font-weight: 800; 
-    font-size: 0.75rem; 
-    opacity: 0.5; 
-    text-align: right;
-    flex-shrink: 0;
+    font-weight: 800; font-size: 0.75rem; opacity: 0.5; text-align: right; flex-shrink: 0;
     @media ${Device.tablet} { font-size: 0.9rem; }
   }
 
   .tendencia {
-    display: flex;
-    flex-direction: column; 
-    align-items: center;
-    justify-content: center;
-    
-    .icon-up, .icon-down {
-       /* Ajuste intermedio: Se juntan lo suficiente para verse como un solo bloque 
-          sin llegar a solaparse de manera extrema como antes */
-       margin-top: -5px;
-       margin-bottom: -5px;
-    }
-
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    .icon-up, .icon-down { margin-bottom: -5px; }
     .icon-up { color: #22c55e; font-size: 16px; @media ${Device.tablet} { font-size: 18px; } }
     .icon-down { color: #ef4444; font-size: 16px; @media ${Device.tablet} { font-size: 18px; } }
     .icon-same { color: ${({ theme }) => theme.text}40; font-size: 14px; margin-left: 2px; @media ${Device.tablet} { font-size: 16px; } }
   }
   
   img { 
-    width: 20px; 
-    height: 20px; 
-    object-fit: contain; 
-    border-radius: 4px;
-    flex-shrink: 0;
+    width: 20px; height: 20px; object-fit: contain; border-radius: 4px; flex-shrink: 0;
     @media ${Device.tablet} { width: 26px; height: 26px; } 
   }
   
   .team-name { 
-    font-weight: 700; 
-    font-size: 0.85rem; 
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100px; 
+    font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; 
     @media (min-width: 400px) { max-width: 140px; } 
     @media ${Device.tablet} { font-size: 0.95rem; max-width: 300px; } 
   }
 `;
 
 const LeyendaContainer = styled.div`
-  display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 1000px;
-  margin: 0 auto 10px auto; padding: 0 10px;
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 1000px; margin: 0 auto 10px auto; padding: 0 10px;
 `;
 
 const Badge = styled.span`

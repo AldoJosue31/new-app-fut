@@ -13,6 +13,8 @@ import { Device } from "../../styles/breakpoints";
 import { ManagerCard } from "../organismos/adminManagers/ManagerCard";
 import { ManagerDetailModal } from "../organismos/adminManagers/ManagerDetailModal";
 import { ManagerCreateModal } from "../organismos/adminManagers/ManagerCreateModal";
+// NUEVO: Importamos el modal de edición
+import { ManagerEditAuthModal } from "../organismos/adminManagers/ManagerEditAuthModal";
 
 export function AdminManagersTemplate({
   managers,
@@ -25,6 +27,14 @@ export function AdminManagersTemplate({
   setDetailModalOpen,
   selectedManager,
   openDetailModal,
+  
+  // NUEVAS PROPS
+  editAuthModalOpen,
+  setEditAuthModalOpen,
+  managerToEditAuth,
+  openEditAuthModal,
+  handleUpdateCredentials,
+
   deleteModalState,
   setDeleteModalState,
   handleConfirmDelete,
@@ -51,14 +61,11 @@ export function AdminManagersTemplate({
         state={state}
         setState={setState}
       >
-          {/* ELIMINADO: Ya no va aquí dentro */}
       </PageHeader>
 
       <StyledContentContainer>
-        {/* Contenedor principal con posición relativa para anclar el botón */}
         <MainContainer>
             
-            {/* BOTÓN FLOTANTE SATÉLITE */}
             <FloatingBtnWrapper>
                 <Btnsave
                     titulo="Nuevo Manager"
@@ -88,12 +95,13 @@ export function AdminManagersTemplate({
             
             {!loading && managers.map((manager) => (
                 <ManagerCard 
-                key={manager.id} 
-                manager={manager}
-                online={!!onlineUsers[manager.id]}
-                onlineUsers={onlineUsers}
-                onClick={() => openDetailModal(manager)}
-                onDelete={openDeleteModal}
+                  key={manager.id} 
+                  manager={manager}
+                  online={!!onlineUsers[manager.id]}
+                  onlineUsers={onlineUsers}
+                  onClick={() => openDetailModal(manager)}
+                  onDelete={openDeleteModal}
+                  onEditAuth={() => openEditAuthModal(manager)} // NUEVO EVENTO
                 />
             ))}
             </GridContainer>
@@ -113,6 +121,14 @@ export function AdminManagersTemplate({
           handleChange={handleChange}
           handleCreate={handleCreate}
           loading={loading}
+        />
+
+        {/* NUEVO MODAL DE EDICIÓN */}
+        <ManagerEditAuthModal
+          isOpen={editAuthModalOpen}
+          onClose={() => setEditAuthModalOpen(false)}
+          manager={managerToEditAuth}
+          onUpdate={handleUpdateCredentials}
         />
 
         <ConfirmModal 
@@ -139,30 +155,23 @@ const StyledContentContainer = styled(ContentContainer)`
 
 const MainContainer = styled.div`
   width: 100%;
-  margin-top: 60px; /* Espacio superior igual que en Equipos para que no choque con el Header */
-  position: relative; /* Necesario para que el botón absoluto se posicione respecto a esto */
+  margin-top: 60px; 
+  position: relative; 
 `;
 
 const FloatingBtnWrapper = styled.div`
   position: absolute;
-  top: -50px; /* Lo subimos para que quede en el hueco entre el header y el contenido */
+  top: -50px; 
   right: 0;
   z-index: 10;
   
-  /* Ajustes para el componente Btnsave interno si es necesario */
   & > button {
-    margin: 0 !important; /* Reseteamos margenes que pueda traer el componente */
+    margin: 0 !important; 
     white-space: nowrap;
 
-    /* En móvil, ajustamos para que sea solo icono o más compacto */
     @media (max-width: 768px) {
         padding: 8px 16px !important;
         font-size: 13px !important;
-        
-        /* Si quieres ocultar texto en móvil como hicimos antes, descomenta esto: */
-        /* span { display: inline-block !important; font-size: 13px; }
-        svg { margin-right: 6px; } 
-        */
     }
   }
 `;
@@ -173,7 +182,6 @@ const GridContainer = styled.div`
   gap: ${v.mdSpacing};
   width: 100%;
   padding-bottom: ${v.xlSpacing};
-  /* Eliminamos margin-top extra aquí porque ya lo maneja MainContainer */
   
   @media ${Device.tablet} {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
