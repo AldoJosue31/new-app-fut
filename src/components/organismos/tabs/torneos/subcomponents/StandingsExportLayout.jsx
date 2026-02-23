@@ -6,7 +6,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const isDark = themeMode === 'dark';
     const isMobile = layoutMode === 'mobile';
     
-    // Paleta de colores
+    // Paleta de colores robusta
     const colors = {
         bg: isDark ? '#121212' : '#ffffff',
         card: isDark ? '#1e1e1e' : '#ffffff',
@@ -14,8 +14,8 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
         subtext: isDark ? '#94a3b8' : '#64748b',
         border: isDark ? '#334155' : '#e2e8f0',
         headerBg: isDark ? '#0f172a' : '#f8fafc',
-        primary: '#10b981', // Verde
-        pending: '#f59e0b', // Naranja para pendientes
+        primary: '#10b981', 
+        pending: '#f59e0b', 
     };
 
     const getZoneColor = (index, total) => {
@@ -39,26 +39,12 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
             padding: isMobile ? '20px' : '40px',
             boxSizing: 'border-box'
         }}>
-            {/* ENCABEZADO */}
-            <div style={{
-                textAlign: 'center',
-                paddingBottom: '20px',
-                borderBottom: `2px solid ${colors.border}`,
-                marginBottom: '20px'
-            }}>
+            <div style={{ textAlign: 'center', paddingBottom: '20px', borderBottom: `2px solid ${colors.border}`, marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                    <span style={{ 
-                        fontSize: isMobile ? '10px' : '12px', fontWeight: '800', 
-                        backgroundColor: colors.primary + '20', color: colors.primary, 
-                        padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' 
-                    }}>
+                    <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '800', backgroundColor: colors.primary + '20', color: colors.primary, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {metaInfo?.league || 'Liga'}
                     </span>
-                    <span style={{ 
-                        fontSize: isMobile ? '10px' : '12px', fontWeight: '800', 
-                        backgroundColor: colors.border, color: colors.text, 
-                        padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' 
-                    }}>
+                    <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '800', backgroundColor: colors.border, color: colors.text, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {metaInfo?.division || 'División'}
                     </span>
                 </div>
@@ -73,13 +59,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 </p>
             </div>
 
-            {/* TABLA DE POSICIONES */}
-            <div style={{
-                backgroundColor: colors.card,
-                borderRadius: '12px',
-                border: `1px solid ${colors.border}`,
-                overflow: 'hidden'
-            }}>
+            <div style={{ backgroundColor: colors.card, borderRadius: '12px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
                     <thead>
                         <tr style={{ backgroundColor: colors.headerBg }}>
@@ -91,7 +71,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>GF</th>}
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>GC</th>}
                             <th style={{ padding: '12px 5px', fontSize: isMobile ? '11px' : '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>DIF</th>
-                            {/* NUEVA COLUMNA DE PENDIENTES */}
+                            {/* COLUMNA PND */}
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.pending, borderBottom: `2px solid ${colors.border}` }}>Pnd</th>}
                             <th style={{ padding: '12px 10px', fontSize: isMobile ? '12px' : '14px', color: colors.primary, borderBottom: `2px solid ${colors.border}` }}>PTS</th>
                         </tr>
@@ -154,7 +134,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                                     </td>
                                     
-                                    {/* CELDA DE PENDIENTES */}
+                                    {/* CELDA PND */}
                                     {!isMobile && (
                                         <td style={{ 
                                             padding: '10px 5px', 
@@ -177,15 +157,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 </table>
             </div>
 
-            {/* LEYENDAS Y FOOTER */}
-            <div style={{ 
-                marginTop: '25px', 
-                display: 'flex', 
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '15px'
-            }}>
+            <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {config.ascensos > 0 && <span style={{ fontSize: '11px', fontWeight: '700', color: '#22c55e' }}>🟩 Ascenso</span>}
                     {config.zonaLiguilla && <span style={{ fontSize: '11px', fontWeight: '700', color: '#3b82f6' }}>🟦 Liguilla</span>}

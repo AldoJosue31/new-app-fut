@@ -37,16 +37,24 @@ export const TorneosStandingsTab = ({
   }, [torneo?.is_public]);
 
   const config = useMemo(() => {
-    const c = torneo?.config || reglas || {};
+    let c = {};
+    if (typeof torneo?.config === 'string') {
+        try { c = JSON.parse(torneo.config); } catch(e){}
+    } else {
+        c = torneo?.config || reglas || {};
+    }
+
     return {
       ascensos: parseInt(c.ascensos) || 0,
       descensos: parseInt(c.descensos) || 0,
       zonaLiguilla: c.zonaLiguilla || false,
       clasificados: parseInt(c.clasificados) || 0,
       repechaje: parseInt(c.repechajeTeams) || 0,
-      winPoints: parseInt(c.winPoints) || 3,
-      drawPoints: parseInt(c.drawPoints) || 1,
-      lossPoints: parseInt(c.lossPoints) || 0,
+      // Validación segura para configuración de puntos dinámica
+      winPoints: c.winPoints !== undefined ? Number(c.winPoints) : 3,
+      drawPoints: c.drawPoints !== undefined ? Number(c.drawPoints) : 1,
+      lossPoints: c.lossPoints !== undefined ? Number(c.lossPoints) : 0,
+      tieBreakType: c.tieBreakType || 'normal'
     };
   }, [torneo?.config, reglas]);
 
@@ -57,6 +65,7 @@ export const TorneosStandingsTab = ({
     return Array.from(map.values());
   }, [equipos]);
 
+  // 1. OBTENER HISTORIAL DE JORNADAS SELECTAS
   const historialJornadas = useMemo(() => {
     if (!partidos || partidos.length === 0) return [];
 
@@ -107,50 +116,37 @@ export const TorneosStandingsTab = ({
     return opciones.sort((a, b) => a.num - b.num);
   }, [partidos]);
 
+  // 2. ENCONTRAR LA JORNADA ACTUAL EFECTIVA (Frontera en el tiempo)
   const effectiveJornada = useMemo(() => {
-    if (selectedJornadaView === 'recent') {
-      let maxJornadaIniciada = 0;
-      partidos.forEach(m => {
-         if (!m.team1_id || !m.team2_id) return;
-         const statusLower = (m.status || '').toLowerCase();
-         const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
-         const hasResult = m.goals1 != null && m.goals2 != null;
-         
-         if (isFinished && hasResult) {
-             const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
-             if (jNum > maxJornadaIniciada) maxJornadaIniciada = jNum;
-         }
-      });
-      return maxJornadaIniciada;
-    }
-    return parseInt(selectedJornadaView, 10) || 0;
-  }, [selectedJornadaView, partidos]);
+    let maxJornadaIniciada = 0;
+    partidos.forEach(m => {
+       if (!m.team1_id || !m.team2_id) return;
+       const statusLower = (m.status || '').toLowerCase();
+       const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+       const hasResult = m.goals1 != null && m.goals2 != null;
+       
+       if (isFinished && hasResult) {
+           const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
+           if (jNum > maxJornadaIniciada) maxJornadaIniciada = jNum;
+       }
+    });
+    return maxJornadaIniciada;
+  }, [partidos]);
 
 
+  // 3. CÁLCULO DE TABLA DOBLE (MATEMÁTICA REAL CON PUNTOS DE LA BASE DE DATOS)
   const tablaGeneral = useMemo(() => {
 
-    const getGoles = (partido, keys) => {
-      for (const key of keys) {
-        const val = partido[key];
-        if (val !== undefined && val !== null && val !== '') {
-          const num = parseInt(val, 10);
-          if (!isNaN(num)) return num;
-        }
-      }
-      return 0; 
-    };
-
-    const buildTableUpTo = (limitJornada) => {
+    const buildTableUpTo = (limitJornada, limitPendientes) => {
       const statsMap = {};
       uniqueEquipos.forEach(eq => {
-        // Añadimos el contador de partidosPendientes
         statsMap[eq.id] = { pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0, partidosPendientes: 0 };
       });
 
       partidos.forEach(partido => {
         const jNum = partido.jornadas ? parseInt(partido.jornadas.name.replace(/\D/g, ''), 10) : 0;
         
-        // Bloqueo: Solo consideramos partidos que debieron jugarse HASTA esta jornada.
+        // Bloqueo estricto: Ignorar partidos jugados en jornadas posteriores al límite
         if (jNum <= 0 || jNum > limitJornada) return;
 
         const localId = partido.team1_id;
@@ -165,32 +161,63 @@ export const TorneosStandingsTab = ({
         const isPlayed = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
         const isPendiente = statusLower === 'pendiente';
         
-        // Si el partido está literalmente Pendiente, sumamos 1 a los adeudos de cada equipo
-        if (isPendiente) {
+        const hasResult = partido.goals1 != null && partido.goals2 != null;
+
+        // PENDIENTES VERDADEROS (Solo hasta la frontera temporal permitida)
+        if (isPendiente && jNum <= limitPendientes) {
           local.partidosPendientes += 1;
           visitante.partidosPendientes += 1;
           return;
         }
 
-        if (!isPlayed) return;
+        // Si no está finalizado y con goles, no cuenta
+        if (!isPlayed || !hasResult) return;
 
-        const golesLocal = getGoles(partido, ['goals1']);
-        const golesVisitante = getGoles(partido, ['goals2']);
+        const golesLocal = parseInt(partido.goals1, 10);
+        const golesVisitante = parseInt(partido.goals2, 10);
+
+        if (isNaN(golesLocal) || isNaN(golesVisitante)) return;
 
         local.pj += 1; visitante.pj += 1;
         local.gf += golesLocal; visitante.gf += golesVisitante;
         local.gc += golesVisitante; visitante.gc += golesLocal;
 
+        // Determinar G, E, P lógicamente por goles
         if (golesLocal > golesVisitante) {
-          local.g += 1; local.pts += config.winPoints; 
-          visitante.p += 1; visitante.pts += config.lossPoints;
+          local.g += 1; visitante.p += 1;
         } else if (golesLocal < golesVisitante) {
-          visitante.g += 1; visitante.pts += config.winPoints; 
-          local.p += 1; local.pts += config.lossPoints;
+          visitante.g += 1; local.p += 1;
         } else {
           local.e += 1; visitante.e += 1;
-          local.pts += config.drawPoints; visitante.pts += config.drawPoints;
         }
+
+        // LÓGICA MAESTRA DE PUNTOS: Extraer `puntos1` y `puntos2` REALES de la BD
+        let ptsL = parseInt(partido.puntos1, 10);
+        let ptsV = parseInt(partido.puntos2, 10);
+        
+        if (isNaN(ptsL)) ptsL = 0;
+        if (isNaN(ptsV)) ptsV = 0;
+
+        // Fallback: Si la BD tiene 0 y 0 pero NO es un escenario donde 0-0 de puntos sea válido, calculamos.
+        // PERO si la BD tiene puntos (ej: 2 y 1 por penales, o 3 y 0), respeta la BD ciegamente.
+        const isZeroZeroLegit = (ptsL === 0 && ptsV === 0 && golesLocal === golesVisitante && config.drawPoints === 0);
+        
+        if (ptsL === 0 && ptsV === 0 && !isZeroZeroLegit) {
+            // Solo calcula si la base de datos realmente no guardó los puntos
+            if (golesLocal > golesVisitante) {
+                ptsL = config.winPoints;
+                ptsV = config.lossPoints;
+            } else if (golesLocal < golesVisitante) {
+                ptsL = config.lossPoints;
+                ptsV = config.winPoints;
+            } else {
+                ptsL = config.drawPoints;
+                ptsV = config.drawPoints;
+            }
+        }
+
+        local.pts += ptsL;
+        visitante.pts += ptsV;
       });
 
       const data = uniqueEquipos.map((equipo) => ({
@@ -208,20 +235,29 @@ export const TorneosStandingsTab = ({
       });
     };
 
-    const prevTable = buildTableUpTo(effectiveJornada - 1);
-    const prevRanks = {};
-    prevTable.forEach((eq, index) => {
-      prevRanks[eq.id] = index + 1; 
-    });
+    // A. LÍMITES INTELIGENTES DEPENDIENDO LA VISTA
+    let limitCurrent = 0;
+    let limitPendientes = 0;
 
-    let currentTable = [];
     if (selectedJornadaView === 'recent') {
-      // Usamos el builder en lugar de las estadísticas estáticas para que la columna Pendientes esté perfecta siempre.
-      currentTable = buildTableUpTo(effectiveJornada);
+      limitCurrent = 9999; // Toma TODOS los partidos finalizados (incluso si adelantaron la J8)
+      limitPendientes = effectiveJornada; // Pero solo cuenta los pendientes hasta la J Actual
     } else {
-      currentTable = buildTableUpTo(effectiveJornada);
+      limitCurrent = parseInt(selectedJornadaView, 10);
+      limitPendientes = limitCurrent; // Si veo el pasado, los pendientes se cortan en ese pasado
     }
 
+    const prevLimit = limitCurrent === 9999 ? (effectiveJornada - 1) : (limitCurrent - 1);
+
+    // B. Tabla de la jornada anterior (Para las flechas)
+    const prevTable = buildTableUpTo(prevLimit, prevLimit);
+    const prevRanks = {};
+    prevTable.forEach((eq, index) => { prevRanks[eq.id] = index + 1; });
+
+    // C. Tabla actual 
+    const currentTable = buildTableUpTo(limitCurrent, limitPendientes);
+
+    // D. Cruce de datos para flechas
     return currentTable.map((eq, index) => {
       const currentRank = index + 1;
       const prevRank = prevRanks[eq.id];
@@ -229,7 +265,7 @@ export const TorneosStandingsTab = ({
       let tendencia = 'same';
       let posDiff = 0; 
       
-      if (effectiveJornada <= 1 || !prevRank) {
+      if (prevLimit <= 0 || !prevRank) {
         tendencia = 'same'; 
       } else if (prevRank > currentRank) {
         tendencia = 'up';
@@ -242,8 +278,9 @@ export const TorneosStandingsTab = ({
       return { ...eq, tendencia, posDiff };
     });
 
-  }, [uniqueEquipos, estadisticas, selectedJornadaView, effectiveJornada, partidos, config]);
+  }, [uniqueEquipos, selectedJornadaView, effectiveJornada, partidos, config]);
 
+  // 4. TEXTO INTELIGENTE DE LA JORNADA ACTIVA
   const activeJornadaName = useMemo(() => {
     if (!partidos || partidos.length === 0) return 'Sin iniciar';
     
