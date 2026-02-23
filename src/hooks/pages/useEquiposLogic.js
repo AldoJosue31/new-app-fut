@@ -6,8 +6,18 @@ import { generateTeamLogo } from "../../utils/logoGenerator";
 import { removeBackground } from "../../utils/imageProcessor";
 import { TEAM_STATUS } from "../../utils/constants";
 import { getTorneoActivo } from "../../services/torneos";
-// IMPORTANTE: Importamos la utilidad de subida
 import { uploadImageToSupabase } from "../../utils/uploadHandler";
+
+// Utilidad infalible para extraer la ruta exacta del archivo desde la URL pública
+const getStoragePathFromUrl = (url) => {
+  if (!url) return null;
+  // Buscamos a partir de '/logos/' para obtener la ruta interna (ej: 'teams/mi-logo.png' o 'logo.png')
+  if (url.includes('/logos/')) {
+    return decodeURIComponent(url.split('/logos/')[1]);
+  }
+  // Fallback por si la URL tiene un formato inesperado
+  return decodeURIComponent(url.split('/').pop());
+};
 
 export const useEquiposLogic = () => {
   const { selectedDivision } = useDivisionStore();
@@ -39,14 +49,14 @@ export const useEquiposLogic = () => {
     contact_phone: "",
     status: TEAM_STATUS?.ACTIVE || "Activo",
     logo_url: null,
-    original_logo_url: null // Agregamos el campo para la original
+    original_logo_url: null 
   };
 
   const [form, setForm] = useState(initialForm);
   
   // ESTADOS DE IMAGEN
-  const [file, setFile] = useState(null); // El crop
-  const [originalFile, setOriginalFile] = useState(null); // El original
+  const [file, setFile] = useState(null); 
+  const [originalFile, setOriginalFile] = useState(null); 
   const [preview, setPreview] = useState(null);
 
   // Carga de equipos
@@ -114,23 +124,17 @@ export const useEquiposLogic = () => {
     });
   };
 
-  /**
-   * MANEJO DE ARCHIVOS ACTUALIZADO
-   * Ahora recibe el evento estándar O un objeto personalizado desde PhotoUploader
-   */
   const handleFileChange = async (eOrData) => {
     let selectedFile = null;
     let selectedOriginal = null;
 
-    // Caso 1: Viene desde PhotoUploader personalizado { target: { files: [...] }, original: File }
     if (eOrData?.original) {
         selectedFile = eOrData.target.files[0];
         selectedOriginal = eOrData.original;
     } 
-    // Caso 2: Viene de un input file normal (event)
     else if (eOrData?.target?.files) {
         selectedFile = eOrData.target.files[0];
-        selectedOriginal = eOrData.target.files[0]; // Si es directo, el original es el mismo
+        selectedOriginal = eOrData.target.files[0]; 
     }
 
     if (selectedFile) {
@@ -139,12 +143,11 @@ export const useEquiposLogic = () => {
       }
       
       setFile(selectedFile);
-      setOriginalFile(selectedOriginal); // Guardamos el original
+      setOriginalFile(selectedOriginal); 
       
       const newPreview = URL.createObjectURL(selectedFile);
       setPreview(newPreview);
 
-      // Extraer color si es nuevo
       if (!teamToEdit) {
         try {
           const dominantColor = await getDominantColor(selectedFile);
@@ -181,7 +184,7 @@ export const useEquiposLogic = () => {
         try { URL.revokeObjectURL(preview); } catch (e) {}
       }
       setFile(genFile);
-      setOriginalFile(genFile); // El generado es su propio original
+      setOriginalFile(genFile); 
       setPreview(genPreview);
     } catch (error) {
       console.error("Error generando logo:", error);
@@ -195,7 +198,6 @@ export const useEquiposLogic = () => {
       return;
     }
     try {
-      // Usamos el original si existe para mejor calidad, si no el file actual
       const sourceFile = originalFile || file;
       const { file: cleanFile, preview: cleanPreview } = await removeBackground(sourceFile);
       
@@ -204,7 +206,6 @@ export const useEquiposLogic = () => {
       }
       
       setFile(cleanFile);
-      // No cambiamos el originalFile, mantenemos el original con fondo
       setPreview(cleanPreview);
     } catch (error) {
       console.error("Error en removeBackground:", error);
@@ -224,22 +225,50 @@ export const useEquiposLogic = () => {
       let logoUrl = form.logo_url;
       let originalLogoUrl = form.original_logo_url || teamToEdit?.original_logo_url;
 
-      // 1. Subida de imágenes usando la utilidad centralizada
+      // 1. Si hay un archivo nuevo, lo subimos
       if (file) {
+        // MEJORA: Borrar los viejos del Storage si estamos reemplazando
+        if (teamToEdit && teamToEdit.logo_url) {
+           const path1 = getStoragePathFromUrl(teamToEdit.logo_url);
+           const path2 = getStoragePathFromUrl(teamToEdit.original_logo_url);
+           
+           const oldFilesToRemove = [];
+           if (path1) oldFilesToRemove.push(path1);
+           if (path2 && path2 !== path1) oldFilesToRemove.push(path2);
+           
+           if (oldFilesToRemove.length > 0) {
+              await supabase.storage.from("logos").remove(oldFilesToRemove);
+           }
+        }
+
         const uploadResult = await uploadImageToSupabase(
             file, 
             originalFile, 
-            'logos', // Bucket
-            'teams'  // Carpeta
+            'logos', 
+            'teams'  
         );
         logoUrl = uploadResult.url;
         originalLogoUrl = uploadResult.originalUrl;
       }
 
-      // Si se limpió la imagen
+      // 2. LÓGICA DE BORRADO: Si el usuario le dio a la X y no subió nada nuevo
       if (!file && !preview && !form.logo_url) {
           logoUrl = null;
           originalLogoUrl = null;
+
+          // Borrado físico exacto gracias a la nueva función
+          if (teamToEdit && teamToEdit.logo_url) {
+             const path1 = getStoragePathFromUrl(teamToEdit.logo_url);
+             const path2 = getStoragePathFromUrl(teamToEdit.original_logo_url);
+             
+             const filesToRemove = [];
+             if (path1) filesToRemove.push(path1);
+             if (path2 && path2 !== path1) filesToRemove.push(path2);
+             
+             if (filesToRemove.length > 0) {
+                 await supabase.storage.from("logos").remove(filesToRemove);
+             }
+          }
       }
 
       const teamData = {
@@ -249,7 +278,7 @@ export const useEquiposLogic = () => {
         contact_phone: form.contact_phone,
         status: form.status,
         logo_url: logoUrl,
-        original_logo_url: originalLogoUrl, // Guardamos la URL original
+        original_logo_url: originalLogoUrl, 
         division_id: selectedDivision.id
       };
 
@@ -282,12 +311,17 @@ export const useEquiposLogic = () => {
     try {
       const team = equipos?.find((t) => t.id === deleteId);
       
-      // Intentar borrar imágenes (opcional, supabase no siempre permite borrar si hay politicas estrictas)
+      // Intentar borrar imágenes (Corregido también aquí para evitar basura al eliminar equipo)
       if (team?.logo_url) {
-        const fileName = team.logo_url.split("/").pop();
-        if (fileName) {
-            await supabase.storage.from("logos").remove([`teams/${fileName}`]);
-            await supabase.storage.from("logos").remove([`teams/originals/${fileName}`]);
+        const path1 = getStoragePathFromUrl(team.logo_url);
+        const path2 = getStoragePathFromUrl(team.original_logo_url);
+        
+        const filesToRemove = [];
+        if (path1) filesToRemove.push(path1);
+        if (path2 && path2 !== path1) filesToRemove.push(path2);
+        
+        if (filesToRemove.length > 0) {
+            await supabase.storage.from("logos").remove(filesToRemove);
         }
       }
 
@@ -328,7 +362,7 @@ export const useEquiposLogic = () => {
       original_logo_url: team.original_logo_url || null
     });
     setFile(null);
-    setOriginalFile(null); // No tenemos el File object, solo la URL
+    setOriginalFile(null); 
     setPreview(team.logo_url || null);
     setIsFormOpen(true);
   };
@@ -354,7 +388,7 @@ export const useEquiposLogic = () => {
     form: {
       data: form,
       file,
-      originalFile, // Exportamos esto
+      originalFile, 
       preview,
       handleChange: handleFormChange,
       handleFileChange,

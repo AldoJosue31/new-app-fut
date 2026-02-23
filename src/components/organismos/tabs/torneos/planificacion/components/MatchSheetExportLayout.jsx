@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import PostMatchDetailsView from './PostMatchDetailsView';
+import { DynamicTeamLogo } from '../../../../equipos/DynamicTeamLogo'; 
 
 const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -34,17 +35,15 @@ const formatTime = (timeString) => {
     }
 };
 
-// ACEPTAMOS PROP themeMode
 const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLineup, matchEvents, themeMode = 'light' }, ref) => {
   const isDark = themeMode === 'dark';
   
-  // PALETA DINÁMICA
   const colors = {
       bg: isDark ? '#121212' : '#ffffff',
       text: isDark ? '#f1f5f9' : '#0f172a',
       secondaryBg: isDark ? '#1e1e1e' : '#f8fafc',
       border: isDark ? '#333333' : '#e2e8f0',
-      badgeBg: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)', // El header es azul siempre
+      badgeBg: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)',
   };
 
   const homeScore = matchEvents.goals.filter(g => g.team === 'home').length;
@@ -54,13 +53,13 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
   const containerStyle = {
       width: '1240px', 
       minHeight: '800px', 
-      backgroundColor: colors.bg, // BG DINÁMICO
+      backgroundColor: colors.bg, 
       padding: '40px',
       boxSizing: 'border-box',
       display: 'flex',
       gap: '30px',
       fontFamily: 'Arial, sans-serif',
-      color: colors.text, // TEXTO DINÁMICO
+      color: colors.text, 
       position: 'relative' 
   };
 
@@ -83,7 +82,7 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
         {/* --- COLUMNA IZQUIERDA (35%) --- */}
         <div style={{width: '35%', display: 'flex', flexDirection: 'column'}}>
             <div style={{
-                background: 'linear-gradient(145deg, #1e40af, #3b82f6)', // Mantenemos azul corporativo
+                background: 'linear-gradient(145deg, #1e40af, #3b82f6)',
                 borderRadius: '24px',
                 overflow: 'hidden', 
                 color: 'white',
@@ -128,20 +127,31 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                     {/* Score Board */}
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', flexGrow: 1, justifyContent: 'center', padding: '20px 0'}}>
                         <div style={{display:'flex', justifyContent:'space-between', width:'100%', alignItems:'flex-start'}}>
+                             
                              {/* Local */}
                              <div style={{display:'flex', flexDirection:'column', alignItems:'center', width:'45%'}}>
                                 <div style={{width:'100px', height:'100px', background:'white', borderRadius:'50%', padding:'15px', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'15px', boxShadow:'0 10px 15px rgba(0,0,0,0.1)'}}>
-                                    <img src={match.homeTeam.logo} alt="" style={{width:'100%', height:'100%', objectFit:'contain'}} />
+                                    {match.homeTeam?.logo ? (
+                                        <img src={match.homeTeam.logo} alt="" style={{width:'100%', height:'100%', objectFit:'contain'}} />
+                                    ) : (
+                                        <DynamicTeamLogo name={match.homeTeam?.name || 'Local'} color={match.homeTeam?.color || '#000000'} size="100%" />
+                                    )}
                                 </div>
-                                <h3 style={teamNameStyle}>{match.homeTeam.name}</h3>
+                                <h3 style={teamNameStyle}>{match.homeTeam?.name || 'Local'}</h3>
                              </div>
+                             
                              <div style={{marginTop:'35px', fontWeight:900, fontSize:'24px', color:'rgba(255,255,255,0.5)'}}>VS</div>
+                             
                              {/* Visita */}
                              <div style={{display:'flex', flexDirection:'column', alignItems:'center', width:'45%'}}>
                                 <div style={{width:'100px', height:'100px', background:'white', borderRadius:'50%', padding:'15px', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'15px', boxShadow:'0 10px 15px rgba(0,0,0,0.1)'}}>
-                                    <img src={match.awayTeam.logo} alt="" style={{width:'100%', height:'100%', objectFit:'contain'}} />
+                                    {match.awayTeam?.logo ? (
+                                        <img src={match.awayTeam.logo} alt="" style={{width:'100%', height:'100%', objectFit:'contain'}} />
+                                    ) : (
+                                        <DynamicTeamLogo name={match.awayTeam?.name || 'Visita'} color={match.awayTeam?.color || '#000000'} size="100%" />
+                                    )}
                                 </div>
-                                <h3 style={teamNameStyle}>{match.awayTeam.name}</h3>
+                                <h3 style={teamNameStyle}>{match.awayTeam?.name || 'Visita'}</h3>
                              </div>
                         </div>
 
@@ -170,10 +180,10 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
         {/* --- COLUMNA DERECHA (65%) --- */}
         <div style={{
             width: '65%', 
-            backgroundColor: colors.secondaryBg, // COLOR DINÁMICO
+            backgroundColor: colors.secondaryBg, 
             borderRadius: '24px', 
             padding: '35px', 
-            border: `1px solid ${colors.border}`, // BORDE DINÁMICO
+            border: `1px solid ${colors.border}`, 
             display: 'flex',
             flexDirection: 'column',
             height: 'auto' 
@@ -183,8 +193,7 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                 referees={referees}
                 homeLineup={homeLineup}
                 awayLineup={awayLineup}
-                matchEvents={matchEvents}
-                themeMode={themeMode} // PASAMOS EL TEMA
+                themeMode={themeMode} 
             />
         </div>
 

@@ -16,7 +16,8 @@ export const TorneosStandingsTab = ({
   partidos = [],
   reglas = {},
   onRefresh,
-  isPublic = false
+  isPublic = false,
+  isLoading = false 
 }) => {
 
   const [copied, setCopied] = useState(false);
@@ -133,7 +134,7 @@ export const TorneosStandingsTab = ({
   }, [partidos]);
 
 
-  // 3. CÁLCULO DE TABLA DOBLE (MATEMÁTICA REAL CON PUNTOS DE LA BASE DE DATOS)
+  // 3. CÁLCULO DE TABLA DOBLE
   const tablaGeneral = useMemo(() => {
 
     const buildTableUpTo = (limitJornada, limitPendientes) => {
@@ -161,7 +162,6 @@ export const TorneosStandingsTab = ({
         
         const hasResult = partido.goals1 != null && partido.goals2 != null;
 
-        // PENDIENTES VERDADEROS
         if (isPendiente && jNum <= limitPendientes) {
           local.partidosPendientes += 1;
           visitante.partidosPendientes += 1;
@@ -187,7 +187,6 @@ export const TorneosStandingsTab = ({
           local.e += 1; visitante.e += 1;
         }
 
-        // LÓGICA MAESTRA DE PUNTOS
         let ptsL = parseInt(partido.puntos1, 10);
         let ptsV = parseInt(partido.puntos2, 10);
         
@@ -213,15 +212,15 @@ export const TorneosStandingsTab = ({
         visitante.pts += ptsV;
       });
 
-      // CÁLCULO DE DIFERENCIA DE GOLES RESTAURADO AQUI
       const data = uniqueEquipos.map((equipo) => {
         const stats = statsMap[equipo.id];
         return {
           id: equipo.id,
           nombre: equipo.name || equipo.nombre,
           logo: equipo.logo_url || equipo.img,
+          color: equipo.color, // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA!
           ...stats,
-          dg: stats.gf - stats.gc // <-- Aquí está el cálculo correcto de la Diferencia
+          dg: stats.gf - stats.gc
         };
       });
 
@@ -233,7 +232,6 @@ export const TorneosStandingsTab = ({
       });
     };
 
-    // A. LÍMITES INTELIGENTES DEPENDIENDO LA VISTA
     let limitCurrent = 0;
     let limitPendientes = 0;
 
@@ -247,15 +245,12 @@ export const TorneosStandingsTab = ({
 
     const prevLimit = limitCurrent === 9999 ? (effectiveJornada - 1) : (limitCurrent - 1);
 
-    // B. Tabla de la jornada anterior (Para las flechas)
     const prevTable = buildTableUpTo(prevLimit, prevLimit);
     const prevRanks = {};
     prevTable.forEach((eq, index) => { prevRanks[eq.id] = index + 1; });
 
-    // C. Tabla actual 
     const currentTable = buildTableUpTo(limitCurrent, limitPendientes);
 
-    // D. Cruce de datos para flechas
     return currentTable.map((eq, index) => {
       const currentRank = index + 1;
       const prevRank = prevRanks[eq.id];
@@ -408,6 +403,7 @@ export const TorneosStandingsTab = ({
         tablaGeneral={tablaGeneral} 
         config={config} 
         isPublic={isPublic} 
+        isLoading={isLoading} 
       />
 
       <StandingsExportModal

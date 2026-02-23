@@ -1,8 +1,6 @@
-// ... Imports iguales ...
 import React, { useEffect, useRef } from "react";
 import styled from "styled-components";
 import { PhotoUploader, InputText2, Btnsave, v } from "../../../index";
-import { RiMagicLine } from "react-icons/ri";
 
 export function TeamForm({ 
   form, 
@@ -13,7 +11,6 @@ export function TeamForm({
   file, 
   onFileChange, 
   onClearImage, 
-  onGenerateLogo, 
   showToast, 
   teamToEdit 
 }) {
@@ -48,12 +45,10 @@ export function TeamForm({
         <div className="preview-container">
           <PhotoUploader 
             previewUrl={preview}
-            originalUrl={teamToEdit?.original_logo_url || teamToEdit?.logo_url} // Preferimos el original si existe
-            originalFile={file} // Ojo: Aquí pasamos lo que tengamos en memoria
+            originalUrl={teamToEdit?.original_logo_url || teamToEdit?.logo_url} 
+            originalFile={file} 
             
-            // FUNCIÓN ACTUALIZADA: Recibimos (crop, original, preview)
             onImageSelect={(croppedFile, originalFile, newPreviewUrl) => { 
-                // Simulamos un evento de input file pero adjuntamos el original
                 onFileChange({ 
                     target: { files: [croppedFile] }, 
                     original: originalFile 
@@ -68,12 +63,10 @@ export function TeamForm({
           />
         </div>
         <div className="actions-column">
-          <p className="hint">El color del uniforme se usará si activas el borde en el editor de logo.</p>
-          {!preview && <button type="button" className="btn-magic" onClick={onGenerateLogo}><RiMagicLine /> Generar Logo Auto</button>}
+          <p className="hint">Si no subes un logo, el sistema mostrará dinámicamente un escudo vectorial con las iniciales y el color de tu equipo para optimizar el rendimiento y el almacenamiento.</p>
         </div>
       </div>
 
-      {/* ... Resto de los inputs iguales ... */}
       <div className="grid-inputs">
         <div className="full-width">
           <span className="label">Nombre del Equipo *</span>
@@ -116,7 +109,90 @@ export function TeamForm({
     </FormContainer>
   );
 }
-// ... Estilos styled-components iguales ...
-const FormContainer = styled.form`display: flex; flex-direction: column; gap: 20px; .label { font-weight: 600; font-size: 13px; margin-bottom: 5px; display: block; opacity: 0.8; color: ${({theme})=>theme.text}; } .logo-section { display: flex; gap: 20px; align-items: flex-start; padding: 15px; background: color-mix(in srgb, var(--team-color), transparent 85%); border-radius: 12px; border: 1px dashed var(--team-color); transition: background 0.1s, border-color 0.1s; .preview-container { position: relative; width: fit-content; } .actions-column { display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; flex: 1; .hint { font-size: 10px; opacity: 0.7; text-align: center; max-width: 150px; color: ${({theme})=>theme.text}; } } .btn-magic { border: none; padding: 8px 12px; border-radius: 8px; color: white; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); } } .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; .full-width { grid-column: span 2; } } .actions { margin-top: 10px; }`;
-const ColorInputContainer = styled.div`display: flex; align-items: center; gap: 10px; background: ${({theme}) => theme.bgtotal}; padding: 8px; border-radius: 12px; border: 1px solid ${({theme}) => theme.bg4}; span { color: ${({theme})=>theme.text}; font-size: 13px; font-weight: 600; } input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; }`;
-const SelectStyled = styled.select`width: 100%; padding: 12px; border-radius: 15px; border: 2px solid ${({ theme }) => theme.color2}; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; font-family: inherit; outline: none;`;
+
+const FormContainer = styled.form`
+  display: flex; 
+  flex-direction: column; 
+  gap: 20px; 
+  .label { 
+    font-weight: 600; 
+    font-size: 13px; 
+    margin-bottom: 5px; 
+    display: block; 
+    opacity: 0.8; 
+    color: ${({theme})=>theme.text}; 
+  } 
+  .logo-section { 
+    display: flex; 
+    gap: 20px; 
+    align-items: flex-start; 
+    padding: 15px; 
+    background: color-mix(in srgb, var(--team-color), transparent 85%); 
+    border-radius: 12px; 
+    border: 1px dashed var(--team-color); 
+    transition: background 0.1s, border-color 0.1s; 
+    .preview-container { 
+      position: relative; 
+      width: fit-content; 
+    } 
+    .actions-column { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 10px; 
+      justify-content: center; 
+      align-items: flex-start; 
+      flex: 1; 
+      .hint { 
+        font-size: 12px; 
+        opacity: 0.8; 
+        text-align: left; 
+        color: ${({theme})=>theme.text};
+        line-height: 1.4;
+      } 
+    } 
+  } 
+  .grid-inputs { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 15px; 
+    .full-width { 
+      grid-column: span 2; 
+    } 
+  } 
+  .actions { 
+    margin-top: 10px; 
+  }
+`;
+
+const ColorInputContainer = styled.div`
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+  background: ${({theme}) => theme.bgtotal}; 
+  padding: 8px; 
+  border-radius: 12px; 
+  border: 1px solid ${({theme}) => theme.bg4}; 
+  span { 
+    color: ${({theme})=>theme.text}; 
+    font-size: 13px; 
+    font-weight: 600; 
+  } 
+  input[type="color"] { 
+    border: none; 
+    width: 30px; 
+    height: 30px; 
+    cursor: pointer; 
+    background: none; 
+  }
+`;
+
+const SelectStyled = styled.select`
+  width: 100%; 
+  padding: 12px; 
+  border-radius: 15px; 
+  border: 2px solid ${({ theme }) => theme.color2}; 
+  background: ${({theme}) => theme.bgtotal}; 
+  color: ${({theme}) => theme.text}; 
+  font-family: inherit; 
+  outline: none;
+`;

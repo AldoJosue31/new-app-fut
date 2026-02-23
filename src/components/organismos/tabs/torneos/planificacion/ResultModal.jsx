@@ -76,7 +76,6 @@ const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate,
                 <span>{displayDate} {displayTime}</span>
             </div>
         </div>
-        {/* CORRECCIÓN AQUÍ: Orden igual al local, el CSS row-reverse hace la magia */}
         <TeamInfo $alignRight>
             <img src={match.visitante?.logo_url || v.iconofotovacia} alt="V" />
             <h3>{match.visitante?.name}</h3>
@@ -141,11 +140,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const [woWinnerId, setWoWinnerId] = useState(null);
   const [penalties, setPenalties] = useState({ local: 0, visit: 0 });
   
-  // Nuevo: Edición de fecha y hora
+  // Edición de fecha y hora
   const [matchDate, setMatchDate] = useState("");
   const [matchTime, setMatchTime] = useState("");
 
-  // NUEVO: Observaciones manuales (texto editado por usuario)
+  // Observaciones manuales (texto editado por usuario)
   const [manualObservations, setManualObservations] = useState("");
 
   const [rosterLocal, setRosterLocal] = useState([]);
@@ -274,9 +273,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       // Separamos observaciones manuales de las de sistema (W.O. y Pen)
       let cleanObs = obs;
       if (isWO) {
-        // Determinar ganador W.O. según goles guardados en freshMatch (si aplica)
         setWoWinnerId(freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id);
-        // eliminar la marca W.O. del texto que se mostrará para edición
         cleanObs = cleanObs.replace(/W\.O\./gi, '');
       } else {
         setWoWinnerId(null);
@@ -287,7 +284,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
             if (matchPen) {
                 setPenalties({ local: parseInt(matchPen[1]), visit: parseInt(matchPen[2]) });
-                // remover la parte de penales del texto editable
                 cleanObs = cleanObs.replace(matchPen[0], '');
             } else {
                 setPenalties({ local: 0, visit: 0 });
@@ -299,7 +295,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         setPenalties({ local: 0, visit: 0 });
       }
 
-      setManualObservations(cleanObs.trim()); // Establecer solo el texto del usuario
+      setManualObservations(cleanObs.trim());
 
       const existingEvents = eventsRes.data || [];
       const isEditMode = freshMatch.status === 'Finalizado';
@@ -381,7 +377,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setter(prevRoster => {
         const newRoster = [...prevRoster];
         newRoster[index] = { ...newRoster[index], [field]: value };
-        // Auto-add row logic
         if (field === 'playerId' && value !== "" && index === newRoster.length - 1 && newRoster.length < (minPlayers + maxSubs)) {
             newRoster.push({ 
                 idTemp: `${isLocal ? 'l' : 'v'}-${Date.now()}`, 
@@ -403,23 +398,33 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   };
 
   const handleSaveAttempt = () => {
-    if (!selectedReferee) return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
-    if (isWalkover && !woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
-    if (!matchDate || !matchTime) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
+    const countLocal = rosterLocal.filter(p => p.playerId).length;
+    const countVisit = rosterVisit.filter(p => p.playerId).length;
+    
+    // Detectamos si solo se está actualizando fecha/hora sin datos de resultado
+    const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
 
-    if (!isWalkover) {
-        const countLocal = rosterLocal.filter(p => p.playerId).length;
-        const countVisit = rosterVisit.filter(p => p.playerId).length;
-        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) {
-             return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
+    // Solo validamos si hay intención de guardar un resultado real
+    if (!isOnlyDateUpdate) {
+        if (!selectedReferee) return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
+        if (isWalkover && !woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
+
+        if (!isWalkover) {
+            if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) {
+                 return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
+            }
+        }
+        
+        if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
+          if (parseInt(penalties.local) === parseInt(penalties.visit)) {
+            return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
+          }
         }
     }
-    
-    if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
-      if (parseInt(penalties.local) === parseInt(penalties.visit)) {
-        return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
-      }
-    }
+
+    // Esta validación sí la mantenemos porque queremos asegurar que la fecha esté bien
+    if (!matchDate || !matchTime) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
+
     setShowConfirm(true);
   };
 
@@ -431,7 +436,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     try {
       const matchId = Number(match.id);
       
-      // 1. ELIMINAR EVENTOS ANTERIORES (Limpieza estricta para evitar duplicados)
+      // 1. ELIMINAR EVENTOS ANTERIORES
       const { error: delError } = await supabase.from('match_events').delete().eq('match_id', matchId);
       if(delError) throw delError;
 
@@ -442,7 +447,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           if (!p.playerId) return;
           const pid = p.playerId;
           
-          // Evento de participación (siempre 1)
           events.push({ match_id: matchId, player_id: pid, event_type: 'participation' });
 
           const goals = parseInt(p.goals) || 0;
@@ -495,16 +499,19 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const finalObsString = finalObsParts.join(" | ");
 
       // 4. GUARDAR PARTIDO (Incluyendo nueva fecha y hora)
-      // Formateamos la fecha completa para Supabase (timestampz o timestamp)
       const fullDate = `${matchDate} ${matchTime}:00`;
+
+      const countLocal = rosterLocal.filter(p => p.playerId).length;
+      const countVisit = rosterVisit.filter(p => p.playerId).length;
+      const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
 
       await onSave(matchId, {
         goals1: totalGoalsLocal,
         goals2: totalGoalsVisit,
         puntos1: p1,
         puntos2: p2,
-        referee_id: selectedReferee,
-        status: 'Finalizado',
+        referee_id: selectedReferee || null, // Se envía null en vez de "" para evitar error de FK
+        status: isOnlyDateUpdate ? (match.status || 'Pendiente') : 'Finalizado', // Mantiene el estado si es solo fecha
         observations: finalObsString,
         date: fullDate // <--- Aquí enviamos la fecha editada
       });
@@ -632,25 +639,37 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         </Footer>
       </Container>
 
-      {showConfirm && (
-        <ConfirmOverlay>
-          <div className="confirm-card">
-            <RiCheckDoubleLine size={50} color={v.colorPrincipal} />
-            <h2>¿Confirmar Marcador?</h2>
-            <div className="final-score"><span>{totalGoalsLocal}</span> - <span>{totalGoalsVisit}</span></div>
-            {totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover && (
-                <div className="pen-score">Penales: {penalties.local} - {penalties.visit}</div>
-            )}
-             <div className="match-datetime-confirm">
-                {matchDate} {matchTime}
+      {showConfirm && (() => {
+        const countLocal = rosterLocal.filter(p => p.playerId).length;
+        const countVisit = rosterVisit.filter(p => p.playerId).length;
+        const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
+
+        return (
+          <ConfirmOverlay>
+            <div className="confirm-card">
+              <RiCheckDoubleLine size={50} color={v.colorPrincipal} />
+              
+              <h2>{isOnlyDateUpdate ? '¿Confirmar Fecha y Hora?' : '¿Confirmar Marcador?'}</h2>
+              
+              {!isOnlyDateUpdate && (
+                  <div className="final-score"><span>{totalGoalsLocal}</span> - <span>{totalGoalsVisit}</span></div>
+              )}
+              
+              {!isOnlyDateUpdate && totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover && (
+                  <div className="pen-score">Penales: {penalties.local} - {penalties.visit}</div>
+              )}
+              
+               <div className="match-datetime-confirm">
+                  {matchDate} {matchTime}
+              </div>
+              <div className="confirm-btns">
+                <BtnNormal titulo="Revisar" funcion={() => setShowConfirm(false)} />
+                <Btnsave titulo="Si, Guardar" funcion={handleFinalSave} loading={loading} />
+              </div>
             </div>
-            <div className="confirm-btns">
-              <BtnNormal titulo="Revisar" funcion={() => setShowConfirm(false)} />
-              <Btnsave titulo="Si, Guardar" funcion={handleFinalSave} loading={loading} />
-            </div>
-          </div>
-        </ConfirmOverlay>
-      )}
+          </ConfirmOverlay>
+        );
+      })()}
 
       <ToastContainerFix>
         <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({...toastConfig, show: false})} />

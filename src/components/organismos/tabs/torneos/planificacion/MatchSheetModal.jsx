@@ -9,26 +9,22 @@ import { exportElementAsPNG } from "../../../../../utils/imageExporter";
 import MatchSheetExportLayout from "./components/MatchSheetExportLayout";
 
 export default function MatchSheetModal({ isOpen, onClose, match }) {
-    const theme = useTheme(); // Accedemos al tema actual de la app
+    const theme = useTheme(); 
     const matchId = match?.id || match;
 
     const [loading, setLoading] = useState(true);
     const [fullMatch, setFullMatch] = useState(null);
     const [players, setPlayers] = useState({ local: [], visit: [] });
     
-    // Estado para el tema de la exportación (inicia igual que la app)
-    // Asumimos que si el bg es oscuro, es dark mode. Ajusta la condición según tu ThemeStore.
     const [isDarkExport, setIsDarkExport] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
-            // Detectar tema inicial simple basado en el color de fondo del tema actual
             const isAppDark = theme.bgtotal && theme.bgtotal.toLowerCase() !== '#ffffff' && theme.bgtotal.toLowerCase() !== '#f3f4f6';
             setIsDarkExport(isAppDark);
         }
     }, [isOpen, theme]);
 
-    // Estado para el escalado
     const [previewScale, setPreviewScale] = useState(0.5); 
     const previewContainerRef = useRef(null);
     const exportComponentRef = useRef(null);
@@ -39,12 +35,11 @@ export default function MatchSheetModal({ isOpen, onClose, match }) {
         }
     }, [isOpen, matchId]);
 
-    // Lógica de escalado
     useEffect(() => {
         const calculateScale = () => {
             const CONTENT_WIDTH = 1240;
             const SCREEN_PADDING = 80; 
-            const HEADER_HEIGHT = 100; // Ajustado para header más compacto
+            const HEADER_HEIGHT = 100; 
 
             const availableWidth = window.innerWidth - SCREEN_PADDING;
             const availableHeight = window.innerHeight - HEADER_HEIGHT;
@@ -69,12 +64,13 @@ export default function MatchSheetModal({ isOpen, onClose, match }) {
     const fetchSheetData = async () => {
         setLoading(true);
         try {
+            // CORRECCIÓN: Agregar color a la consulta de equipos
             const { data: matchData, error: matchError } = await supabase
                 .from('matches')
                 .select(`
                     *,
-                    local:team1_id (name, logo_url),
-                    visitante:team2_id (name, logo_url),
+                    local:team1_id (name, logo_url, color),
+                    visitante:team2_id (name, logo_url, color),
                     referee:referee_id (full_name),
                     jornada:jornada_id (
                         name,
@@ -152,15 +148,29 @@ export default function MatchSheetModal({ isOpen, onClose, match }) {
         processEvents(players.local, 'home'); processEvents(players.visit, 'away');
         goals.sort((a, b) => a.minute - b.minute); cards.sort((a, b) => a.minute - b.minute);
 
+        // CORRECCIÓN: Enviar logo nulo (sin v.iconofotovacia) y enviar color.
         return {
             match: {
-                id: fullMatch.id, date: fullMatch.date, time: fullMatch.time, status: fullMatch.status === 'Finalizado' ? 'completed' : 'scheduled',
-                homeTeam: { name: fullMatch.local?.name || 'Local', logo: fullMatch.local?.logo_url || v.iconofotovacia },
-                awayTeam: { name: fullMatch.visitante?.name || 'Visita', logo: fullMatch.visitante?.logo_url || v.iconofotovacia },
-                competitionName: fullMatch.jornada?.tournament?.division?.league?.name || 'Torneo', stadium: fullMatch.field_name || 'Campo Principal'
+                id: fullMatch.id, 
+                date: fullMatch.date, 
+                time: fullMatch.time, 
+                status: fullMatch.status === 'Finalizado' ? 'completed' : 'scheduled',
+                homeTeam: { 
+                    name: fullMatch.local?.name || 'Local', 
+                    logo: fullMatch.local?.logo_url || null, 
+                    color: fullMatch.local?.color || '#000000' 
+                },
+                awayTeam: { 
+                    name: fullMatch.visitante?.name || 'Visita', 
+                    logo: fullMatch.visitante?.logo_url || null, 
+                    color: fullMatch.visitante?.color || '#000000' 
+                },
+                competitionName: fullMatch.jornada?.tournament?.division?.league?.name || 'Torneo', 
+                stadium: fullMatch.field_name || 'Campo Principal'
             },
             referees: { main: fullMatch.referee?.full_name || 'Por asignar' },
-            homeLineup: mapLineup(players.local), awayLineup: mapLineup(players.visit),
+            homeLineup: mapLineup(players.local), 
+            awayLineup: mapLineup(players.visit),
             matchEvents: { goals, cards }
         };
     }, [fullMatch, players]);
@@ -168,7 +178,6 @@ export default function MatchSheetModal({ isOpen, onClose, match }) {
     const handleExportPNG = () => {
         if (exportComponentRef.current) {
             const safeName = `Cedula_${fullMatch?.local?.name}_vs_${fullMatch?.visitante?.name}_${fullMatch?.id}`;
-            // Pasamos el color de fondo correcto (Blanco o Gris Oscuro)
             const bgColor = isDarkExport ? '#121212' : '#ffffff';
             exportElementAsPNG(exportComponentRef, safeName.replace(/[^a-z0-9_]/gi, ''), bgColor);
         }
@@ -191,7 +200,6 @@ export default function MatchSheetModal({ isOpen, onClose, match }) {
                         </div>
                         
                         <div className="right-group">
-                            {/* Botón Toggle Tema */}
                             <ThemeToggleBtn onClick={() => setIsDarkExport(!isDarkExport)} title="Cambiar tema de la imagen">
                                 {isDarkExport ? <RiSunLine /> : <RiMoonLine />}
                             </ThemeToggleBtn>
@@ -277,7 +285,7 @@ const PreviewWrapper = styled.div`
         display: flex; 
         align-items: center; 
         justify-content: space-between; 
-        padding: 8px 20px; /* BANNER MÁS COMPACTO */
+        padding: 8px 20px; 
         background: ${({theme}) => theme.bg}; 
         border-bottom: 1px solid ${({theme}) => theme.bg3};
         min-height: 50px;
@@ -310,6 +318,6 @@ const PreviewWrapper = styled.div`
     .scale-box {
         box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
         border-radius: 4px;
-        background: transparent; /* El fondo lo pone el layout */
+        background: transparent; 
     }
 `;

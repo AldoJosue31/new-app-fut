@@ -1,6 +1,6 @@
 import React from "react";
-import styled, { keyframes, css } from "styled-components";
-// Asumo que v viene de tus variables, si no, usa colores hardcodeados o theme
+import styled, { keyframes } from "styled-components";
+// Asegúrate de que la ruta a variables coincida con tu proyecto
 import { v } from "../../styles/variables"; 
 
 const shimmer = keyframes`
@@ -27,8 +27,7 @@ export const Skeleton = ({ width, height, radius, style, className }) => {
   return <Base width={width} height={height} radius={radius} style={style} className={className} />;
 };
 
-// --- AQUI ESTA EL ARREGLO DEL ROW ---
-// Creamos un contenedor igual al "TeamItem" de tu archivo principal para que mida lo mismo
+// Contenedor general para listas (opcional, ya lo tenías)
 const SkeletonRowWrapper = styled.div`
   display: flex; 
   align-items: center; 
@@ -43,18 +42,11 @@ const SkeletonRowWrapper = styled.div`
 export const TableRowSkeleton = () => {
   return (
     <SkeletonRowWrapper>
-       {/* Simula Número */}
        <Skeleton width="20px" height="15px" />
-       
-       {/* Simula Logo (Círculo) */}
        <Skeleton width="28px" height="28px" radius="50%" />
-       
-       {/* Simula Nombre (Barra larga) */}
        <div style={{ flex: 1 }}>
          <Skeleton width="60%" height="16px" />
        </div>
-
-       {/* Simula Botón borrar (Cuadrado pequeño) */}
        <Skeleton width="20px" height="20px" />
     </SkeletonRowWrapper>
   );

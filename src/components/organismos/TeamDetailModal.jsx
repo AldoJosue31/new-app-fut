@@ -16,6 +16,7 @@ import {
     RiArrowLeftLine, RiTrophyLine, RiFootballLine, RiUserSmileLine,
     RiHashtag, RiFontSize, RiFocus2Line
 } from "react-icons/ri";
+import { DynamicTeamLogo } from "./equipos/DynamicTeamLogo"; // IMPORTACIÓN DEL LOGO DINÁMICO
 
 export function TeamDetailModal({ isOpen, onClose, team, division, initialView }) {
     // --- ESTADOS ---
@@ -156,7 +157,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
 
     let modalTitle = "Ficha del Equipo";
     if (showPlayerList) modalTitle = "Plantilla";
-    if (showStats) modalTitle = "Estadísticas";
+    if (showStats) modalTitle = `Estadísticas: ${team.name ? ` ${team.name}` : ''}`;
 
     const getModalWidth = () => {
         const isMobile = windowWidth < 768;
@@ -222,7 +223,9 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                 <SectionContainer>
                                     <SectionLabel>Últimos Resultados</SectionLabel>
                                     <MatchesRow>
-                                        {statsData?.matchHistory?.length > 0 ? (
+                                        {loadingStats ? (
+                                            Array.from({ length: 4 }).map((_, i) => <MatchCardSkeleton key={i} />)
+                                        ) : statsData?.matchHistory?.length > 0 ? (
                                             statsData.matchHistory.map(m => {
                                                 // EVALUACIÓN DE EMPATE EN TIEMPO REGULAR Y PENALES
                                                 const isTieRegular = m.myGoals === m.rivalGoals;
@@ -232,8 +235,6 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                                 let badgeColor = m.result; 
                                                 let penaltyStatus = null;
 
-                                                // Si empataron en el marcador regular, mostramos 'E' (Gris)
-                                                // Y calculamos quién ganó para colorear solo el borde de ese 'E'
                                                 if (isTieRegular) {
                                                     badgeLetter = 'E';
                                                     badgeColor = 'E'; 
@@ -270,7 +271,12 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                                         )}
 
                                                         <div className="rival-container">
-                                                            <img src={m.rival.logo_url || "/logo_gen.png"} alt="R" />
+                                                            {/* LOGO DINÁMICO DEL RIVAL */}
+                                                            {m.rival.logo_url ? (
+                                                                <img src={m.rival.logo_url} alt="R" />
+                                                            ) : (
+                                                                <DynamicTeamLogo name={m.rival.name || "Rival"} color={m.rival.color || "#000000"} size="28px" />
+                                                            )}
                                                             <span>{m.rival.name}</span>
                                                         </div>
                                                     </MatchCard>
@@ -306,7 +312,9 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {sortedStats.length > 0 ? (
+                                                {loadingStats ? (
+                                                    Array.from({ length: 5 }).map((_, i) => <StatTableRowSkeleton key={i} />)
+                                                ) : sortedStats.length > 0 ? (
                                                     sortedStats.map(p => (
                                                         <tr key={p.id}>
                                                             <td className="col-player">
@@ -343,7 +351,12 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                             <div className="division-badge">{division?.name || "Liga"}</div>
                         </div>
                         <div className="logo-wrapper">
-                            <img src={team.logo_url || "/logo_gen.png"} alt={team.name} />
+                            {/* LOGO DINÁMICO DEL EQUIPO PRINCIPAL */}
+                            {team.logo_url ? (
+                                <img src={team.logo_url} alt={team.name} />
+                            ) : (
+                                <DynamicTeamLogo name={team.name} color={team.color || "#000000"} size="130px" />
+                            )}
                         </div>
                         <h2 className="team-title">{team.name}</h2>
                         
@@ -408,6 +421,40 @@ const PlayerSkeleton = () => (
         <Skeleton type="circle" width="60px" height="60px" />
         <div className="info-sk"><Skeleton width="70%" height="14px" /><Skeleton width="40%" height="10px" /></div>
     </PlayerSkeletonWrapper>
+);
+
+// Nuevos Skeletons para Estadísticas (VISTA 2)
+const MatchCardSkeleton = () => (
+    <MatchCard>
+        <div className="match-header">
+            <Skeleton width="40px" height="12px" radius="4px" />
+            <Skeleton width="18px" height="18px" radius="4px" />
+        </div>
+        <Skeleton width="50px" height="10px" style={{ margin: '4px 0' }} />
+        <Skeleton width="70px" height="24px" radius="6px" />
+        <div className="rival-container" style={{ marginTop: '8px' }}>
+            <Skeleton width="28px" height="28px" radius="50%" />
+            <Skeleton width="60px" height="10px" />
+        </div>
+    </MatchCard>
+);
+
+const StatTableRowSkeleton = () => (
+    <tr>
+        <td className="col-player">
+            <PlayerCell>
+                <Skeleton width="24px" height="24px" radius="50%" />
+                <div className="p-info" style={{ gap: '4px', flex: 1 }}>
+                    <Skeleton width="60%" height="12px" />
+                    <Skeleton width="30%" height="10px" />
+                </div>
+            </PlayerCell>
+        </td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+    </tr>
 );
 
 const slideInRight = keyframes` from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; }`;
@@ -543,7 +590,12 @@ const MatchCard = styled.div`
     .score-num { &.my-team { color: ${v.colorPrincipal}; } }
     .divider { opacity: 0.3; font-size: 0.9rem; }
     .penalties-score { font-size: 0.65rem; color: #f39c12; font-weight: 700; margin-top: -3px; margin-bottom: 1px; letter-spacing: 0.5px; }
-    .rival-container { display: flex; flex-direction: column; align-items: center; gap: 2px; img { width: 28px; height: 28px; object-fit: contain; } span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+    
+    .rival-container { 
+        display: flex; flex-direction: column; align-items: center; gap: 2px; 
+        img, svg { width: 28px; height: 28px; object-fit: contain; } 
+        span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } 
+    }
 `;
 
 /* ESTILOS DE LA ETIQUETA (G / E / P) ACTUALIZADOS CON BORDE DINÁMICO */

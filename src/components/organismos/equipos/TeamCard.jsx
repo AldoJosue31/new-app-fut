@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { RiPencilLine, RiDeleteBinLine, RiExchangeDollarLine, RiTrophyLine, RiCheckboxCircleLine, RiCloseCircleLine } from "react-icons/ri";
 import { v } from "../../../styles/variables";
+import { DynamicTeamLogo } from "./DynamicTeamLogo";
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
@@ -58,8 +59,20 @@ export function TeamCard({ team, onEdit, onDelete, onTransfer, onView, isPartici
             </BadgeStack>
         </BadgePosition>
 
-        <LogoImg src={team.logo_url || "/logo_gen.png"} alt={team.name} />
+        {/* CONTENEDOR DE LOGO DINÁMICO */}
+        <LogoWrapper>
+          {team.logo_url ? (
+            <img src={team.logo_url} alt={team.name} />
+          ) : (
+            <DynamicTeamLogo 
+              name={team.name} 
+              color={team.color || "#000000"} 
+              size="85px" 
+            />
+          )}
+        </LogoWrapper>
       </div>
+      
       <div className="card-body">
         <h3>{team.name}</h3>
         <div className="info-row"><v.iconoUser className="icon"/><span>{team.delegate_name || "Sin delegado"}</span></div>
@@ -82,10 +95,21 @@ const CardContainer = styled.div`
         .info-row { display: flex; align-items: center; justify-content: center; gap: 6px; color: ${({theme})=> theme.text}; opacity: 0.7; font-size: 0.85rem; margin-bottom: 6px; } }
 `;
 
-const LogoImg = styled.img`
-    width: 85px; height: 85px; object-fit: contain; background-color: transparent; border: none;
-    position: absolute; bottom: -25px; filter: drop-shadow(0 6px 6px rgba(0,0,0,0.3));
-    transition: transform 0.3s; ${CardContainer}:hover & { transform: scale(1.1); }
+// NUEVO: Un contenedor genérico para que tanto la imagen como el SVG tengan las mismas dimensiones y efectos
+const LogoWrapper = styled.div`
+    width: 85px; height: 85px; 
+    position: absolute; bottom: -25px; 
+    filter: drop-shadow(0 6px 6px rgba(0,0,0,0.3));
+    transition: transform 0.3s; 
+    
+    ${CardContainer}:hover & { transform: scale(1.1); }
+
+    img {
+        width: 100%; height: 100%;
+        object-fit: contain;
+        background-color: transparent;
+        border: none;
+    }
 `;
 
 const ActionButtons = styled.div`
