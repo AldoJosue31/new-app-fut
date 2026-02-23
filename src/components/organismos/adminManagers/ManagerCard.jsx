@@ -2,10 +2,10 @@ import React from "react";
 import styled from "styled-components";
 import { Card } from "../../../index";
 import { v } from "../../../styles/variables";
-import { Device } from "../../../styles/breakpoints"; // Importamos los breakpoints
-import { BiTrash } from "react-icons/bi";
+import { Device } from "../../../styles/breakpoints"; 
+import { BiTrash, BiEditAlt } from "react-icons/bi"; // Añadido BiEditAlt
 
-export const ManagerCard = ({ manager, onClick, onDelete }) => {
+export const ManagerCard = ({ manager, onClick, onDelete, onEditAuth }) => {
   return (
     <StyledCard onClick={onClick}>
       <CardContainer>
@@ -33,7 +33,20 @@ export const ManagerCard = ({ manager, onClick, onDelete }) => {
         </InfoGroup>
 
         <Actions>
-          <DeleteButton
+          {/* NUEVO BOTÓN DE EDICIÓN */}
+          <ActionButton
+            className="edit"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditAuth();
+            }}
+            title="Editar Credenciales (Correo/Contraseña)"
+          >
+            <BiEditAlt />
+          </ActionButton>
+
+          <ActionButton
+            className="delete"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(manager.email);
@@ -41,14 +54,14 @@ export const ManagerCard = ({ manager, onClick, onDelete }) => {
             title="Eliminar"
           >
             <BiTrash />
-          </DeleteButton>
+          </ActionButton>
         </Actions>
       </CardContainer>
     </StyledCard>
   );
 };
 
-// --- STYLED COMPONENTS MEJORADOS ---
+// --- STYLED COMPONENTS ---
 
 const StyledCard = styled(Card)`
   cursor: pointer;
@@ -61,7 +74,7 @@ const StyledCard = styled(Card)`
   &:hover {
     transform: translateY(-5px);
     box-shadow: ${v.boxshadowGray};
-    border-color: ${({ theme }) => theme.bg4}; // Borde sutil al hacer hover
+    border-color: ${({ theme }) => theme.bg4}; 
     background-color: ${({ theme }) => theme.bg2};
   }
 `;
@@ -74,7 +87,6 @@ const CardContainer = styled.div`
   gap: ${v.mdSpacing};
   position: relative;
 
-  // En pantallas Tablet o superiores, cambiamos a fila
   @media ${Device.tablet} {
     flex-direction: row;
     justify-content: space-between;
@@ -99,7 +111,7 @@ const InfoGroup = styled.div`
 const AvatarContainer = styled.div`
   width: 60px;
   height: 60px;
-  min-width: 60px; // Evita que se aplaste
+  min-width: 60px; 
   border-radius: 50%;
   background: ${({ theme }) => theme.bg3};
   display: flex;
@@ -142,15 +154,15 @@ const Name = styled.h3`
 
 const Email = styled.span`
   font-size: 13px;
-  color: ${({ theme }) => theme.colorSubtitle}; // Usando variable del theme
-  word-break: break-all; // Evita desbordes si el email es largo
+  color: ${({ theme }) => theme.colorSubtitle}; 
+  word-break: break-all; 
 `;
 
 const LeagueBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: ${v.rgbafondos}; // Fondo suave usando variable
+  background-color: ${v.rgbafondos}; 
   color: ${v.colorselector};
   padding: 4px 10px;
   border-radius: 12px;
@@ -173,14 +185,14 @@ const NoLeagueBadge = styled.span`
 const Actions = styled.div`
   display: flex;
   align-items: center;
+  gap: 8px;
   
-  // Posicionamiento absoluto en mobile para ahorrar espacio o relativo en desktop
   @media ${Device.tablet} {
     margin-left: auto;
   }
 `;
 
-const DeleteButton = styled.button`
+const ActionButton = styled.button`
   background: transparent;
   border: none;
   color: ${({ theme }) => theme.text};
@@ -194,8 +206,15 @@ const DeleteButton = styled.button`
   align-items: center;
   justify-content: center;
 
-  &:hover {
-    background: ${v.rojo}20; // Rojo con transparencia
+  &.edit:hover {
+    background: ${v.colorPrincipal}20; 
+    color: ${v.colorPrincipal};
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  &.delete:hover {
+    background: ${v.rojo}20; 
     color: ${v.rojo};
     opacity: 1;
     transform: scale(1.1);

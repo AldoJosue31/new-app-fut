@@ -1,4 +1,4 @@
-// src/supabase/supabase.config.js
+// src/supabase/supabase.config.jsx
 import { createClient } from '@supabase/supabase-js';
 
 export const supabase = createClient(
@@ -17,5 +17,21 @@ export const supabase = createClient(
         removeItem: (k) => { try { localStorage.removeItem(k); } catch {} },
       },
     },
+  }
+);
+
+// NUEVO: Cliente de Administrador (Cuidado: Solo para uso administrativo)
+// REQUIERE: VITE_APP_SUPABASE_SERVICE_ROLE_KEY en tu archivo .env
+// Se usa un string vacío por defecto temporal para evitar que crashee la app si aún no pones la variable en el .env
+const serviceRoleKey = import.meta.env.VITE_APP_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.dummy";
+
+export const supabaseAdmin = createClient(
+  import.meta.env.VITE_APP_SUPABASE_URL,
+  serviceRoleKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    }
   }
 );

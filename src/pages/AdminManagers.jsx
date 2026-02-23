@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { AdminManagersTemplate } from "../components/template/AdminManagersTemplate";
-import { supabase } from "../supabase/supabase.config";
+import { supabase, supabaseAdmin } from "../supabase/supabase.config";
 
-export function AdminManagers({ state, setState }) { // <--- Recibimos props
+export function AdminManagers({ state, setState }) { 
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState({});
@@ -11,6 +11,10 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedManager, setSelectedManager] = useState(null);
+
+  // --- NUEVO: Estado para Modal de Edición Auth ---
+  const [editAuthModalOpen, setEditAuthModalOpen] = useState(false);
+  const [managerToEditAuth, setManagerToEditAuth] = useState(null);
 
   // --- Estado de Borrado ---
   const [deleteModalState, setDeleteModalState] = useState({
@@ -22,16 +26,11 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
   const [form, setForm] = useState({ email: "", nombre: "", nombreLiga: "" });
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
-  // 🔴 REF para mantener el canal vivo (CLAVE)
   const presenceRef = useRef(null);
 
-  // ------------------------------------------------------------------
-  // 🔵 PRESENCIA REALTIME (ADMIN LISTENER)
-  // ------------------------------------------------------------------
   useEffect(() => {
     fetchManagers();
 
-    // ⛔ Evita crear múltiples canales
     if (presenceRef.current) {
       console.log("[ADMIN] presence channel already active");
       return;
@@ -55,11 +54,9 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
     channel
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
-        console.log("[ADMIN] presence sync →", state);
         setOnlineUsers(mapPresenceStateToOnline(state));
       })
       .on("presence", { event: "join" }, ({ newPresences }) => {
-        console.log("[ADMIN] join →", newPresences);
         setOnlineUsers(prev => {
           const next = { ...prev };
           newPresences.forEach(meta => {
@@ -70,20 +67,11 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
       })
       .on("presence", { event: "leave" }, () => {
         const state = channel.presenceState();
-        console.log("[ADMIN] leave → recompute");
         setOnlineUsers(mapPresenceStateToOnline(state));
       })
-      .subscribe(async (status) => {
-        console.log("[ADMIN] subscribe status:", status);
+      .subscribe();
 
-        // Debug sesión (muy importante)
-        const { data } = await supabase.auth.getSession();
-        console.log("[ADMIN] session:", data);
-      });
-
-    // 🧹 Limpieza segura
     return () => {
-      console.log("[ADMIN] cleaning presence channel");
       try {
         channel.unsubscribe();
       } catch (e) {
@@ -93,10 +81,6 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
       }
     };
   }, []);
-
-  // ------------------------------------------------------------------
-  // RESTO DE TU LÓGICA (SIN CAMBIOS)
-  // ------------------------------------------------------------------
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -158,6 +142,30 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
     }
   };
 
+  // --- NUEVA FUNCIÓN: Actualizar Credenciales con supabaseAdmin ---
+  const handleUpdateCredentials = async (userId, newEmail, newPassword) => {
+    try {
+      if (import.meta.env.VITE_APP_SUPABASE_SERVICE_ROLE_KEY === undefined) {
+        throw new Error("Falta VITE_APP_SUPABASE_SERVICE_ROLE_KEY en el .env");
+      }
+
+      const updates = {};
+      if (newEmail) updates.email = newEmail;
+      if (newPassword) updates.password = newPassword;
+
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, updates);
+      if (error) throw error;
+
+      showToast("Credenciales actualizadas correctamente", "success");
+      fetchManagers(); // Para actualizar el email en la UI
+      return true;
+    } catch (error) {
+      console.error("Error actualizando credenciales:", error);
+      showToast("Error: " + error.message, "error");
+      return false;
+    }
+  };
+
   const openDetailModal = (manager) => {
     setSelectedManager(manager);
     setDetailModalOpen(true);
@@ -171,6 +179,11 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
       emailToDelete: email,
       divisionsAffected: divisionsNames
     });
+  };
+
+  const openEditAuthModal = (manager) => {
+    setManagerToEditAuth(manager);
+    setEditAuthModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -194,7 +207,6 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
 
   return (
     <AdminManagersTemplate
-      // Pasamos control del Sidebar
       state={state}
       setState={setState}
 
@@ -202,12 +214,21 @@ export function AdminManagers({ state, setState }) { // <--- Recibimos props
       onlineUsers={onlineUsers}
       loading={loading}
       form={form}
+      
       createModalOpen={createModalOpen}
       setCreateModalOpen={setCreateModalOpen}
       detailModalOpen={detailModalOpen}
       setDetailModalOpen={setDetailModalOpen}
       selectedManager={selectedManager}
       openDetailModal={openDetailModal}
+      
+      // Pasamos los nuevos estados del modal de edición
+      editAuthModalOpen={editAuthModalOpen}
+      setEditAuthModalOpen={setEditAuthModalOpen}
+      managerToEditAuth={managerToEditAuth}
+      openEditAuthModal={openEditAuthModal}
+      handleUpdateCredentials={handleUpdateCredentials}
+
       deleteModalState={deleteModalState}
       setDeleteModalState={setDeleteModalState}
       handleConfirmDelete={handleConfirmDelete}
