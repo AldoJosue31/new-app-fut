@@ -5,8 +5,10 @@ import { motion } from 'framer-motion';
 import { v } from '../../../../../styles/variables';
 import { Device } from '../../../../../styles/breakpoints';
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
+// Importamos el átomo Skeleton
+import { Skeleton } from '../../../../atomos/Skeleton';
 
-export default function StandingsTable({ tablaGeneral, config, isPublic }) {
+export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false }) {
   const navigate = useNavigate();
 
   const hasAnyLogo = useMemo(() => {
@@ -32,6 +34,9 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
     })
   };
 
+  // Nombres simulados con anchos variados para un Skeleton más natural
+  const skeletonWidths = ['100px', '140px', '120px', '90px', '110px', '130px', '95px', '105px'];
+
   return (
     <>
       <TableCard>
@@ -47,93 +52,116 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
                 <Th className="stat-col hide-mobile">GF</Th>
                 <Th className="stat-col hide-mobile">GC</Th>
                 <Th className="stat-col dif-col">DIF</Th>
-                {/* COLUMNA PENDIENTES */}
                 <Th className="stat-col pend-col hide-mobile" title="Partidos Pendientes">Pnd</Th>
                 <Th className="stat-col pts-col">PTS</Th>
               </tr>
             </thead>
             <tbody>
-              {tablaGeneral.map((fila, index) => {
-                const status = getZoneStatus(index, tablaGeneral.length);
-                const zoneColor = status?.color;
-                const RowComponent = isPublic ? MotionTr : Tr;
-
-                // Lógica visual: Topamos las flechas a mostrar en 3
-                const flechasToShow = Math.min(fila.posDiff || 0, 3);
-                const hoverText = fila.posDiff 
-                    ? (fila.tendencia === 'up' ? `Subió ${fila.posDiff} puesto(s)` : `Bajó ${fila.posDiff} puesto(s)`) 
-                    : 'Mantuvo posición';
-
-                return (
-                  <RowComponent
-                    key={fila.id}
-                    $isPublic={isPublic}
-                    $zoneColor={zoneColor} 
-                    onDoubleClick={() => {
-                        if (!isPublic) {
-                            navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
-                        }
-                    }}
-                    title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
-                    variants={isPublic ? rowVariants : {}}
-                    initial={isPublic ? "hidden" : undefined}
-                    animate={isPublic ? "visible" : undefined}
-                    custom={index}
-                  >
-                    <Td className="team-col" $zoneColor={zoneColor}>
+              {isLoading ? (
+                // RENDERIZADO DE SKELETONS CUANDO ESTÁ CARGANDO
+                Array.from({ length: 8 }).map((_, index) => (
+                  <TrBase key={`skeleton-${index}`} $isPublic={isPublic}>
+                    <Td className="team-col">
                       <TeamNameCell>
-                        <div className="rank-container" title={hoverText}>
-                           <span className="pos">{index + 1}</span>
-                           <span className="tendencia">
-                              {fila.tendencia === 'same' && <RiSubtractLine className="icon-same" />}
-                              
-                              {/* FLECHAS APILADAS NATURALMENTE (Con margen ajustado) */}
-                              {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => (
-                                 <RiArrowUpSFill key={i} className="icon-up" />
-                              ))}
-                              
-                              {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => (
-                                 <RiArrowDownSFill key={i} className="icon-down" />
-                              ))}
-                           </span>
+                        <div className="rank-container">
+                          <Skeleton width="16px" height="16px" radius="2px" />
                         </div>
-
-                        {hasAnyLogo ? (
-                           <img
-                             src={fila.logo || v.logoGenerico}
-                             alt={fila.nombre}
-                             onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
-                           />
-                        ) : null}
-                        <span className="team-name" title={fila.nombre}>{fila.nombre}</span>
+                        <Skeleton width="26px" height="26px" radius="4px" />
+                        <Skeleton width={skeletonWidths[index % 8]} height="16px" />
                       </TeamNameCell>
                     </Td>
+                    <Td className="stat-col"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col"><Skeleton width="20px" height="20px" style={{ margin: '0 auto' }} /></Td>
+                  </TrBase>
+                ))
+              ) : (
+                // RENDERIZADO NORMAL DE LOS DATOS
+                tablaGeneral.map((fila, index) => {
+                  const status = getZoneStatus(index, tablaGeneral.length);
+                  const zoneColor = status?.color;
+                  const RowComponent = isPublic ? MotionTr : Tr;
 
-                    <Td className="stat-col val-pj">{fila.pj}</Td>
-                    <Td className="stat-col hide-mobile val-stat">{fila.g}</Td>
-                    <Td className="stat-col hide-mobile val-stat">{fila.e}</Td>
-                    <Td className="stat-col hide-mobile val-stat">{fila.p}</Td>
-                    <Td className="stat-col hide-mobile val-stat">{fila.gf}</Td>
-                    <Td className="stat-col hide-mobile val-stat">{fila.gc}</Td>
-                    <Td className="stat-col val-dif" style={{
-                        color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit'
-                    }}>
-                        {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
-                    </Td>
-                    {/* VALOR PENDIENTES */}
-                    <Td className="stat-col hide-mobile val-pend" style={{
-                         color: fila.partidosPendientes > 0 ? '#f59e0b' : 'inherit',
-                         opacity: fila.partidosPendientes > 0 ? 1 : 0.3
-                    }}>
-                        {fila.partidosPendientes}
-                    </Td>
-                    <Td className="stat-col val-pts">{fila.pts}</Td>
-                  </RowComponent>
-                );
-              })}
-              {tablaGeneral.length === 0 && (
+                  const flechasToShow = Math.min(fila.posDiff || 0, 3);
+                  const hoverText = fila.posDiff 
+                      ? (fila.tendencia === 'up' ? `Subió ${fila.posDiff} puesto(s)` : `Bajó ${fila.posDiff} puesto(s)`) 
+                      : 'Mantuvo posición';
+
+                  return (
+                    <RowComponent
+                      key={fila.id}
+                      $isPublic={isPublic}
+                      $zoneColor={zoneColor} 
+                      onDoubleClick={() => {
+                          if (!isPublic) {
+                              navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
+                          }
+                      }}
+                      title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
+                      variants={isPublic ? rowVariants : {}}
+                      initial={isPublic ? "hidden" : undefined}
+                      animate={isPublic ? "visible" : undefined}
+                      custom={index}
+                    >
+                      <Td className="team-col" $zoneColor={zoneColor}>
+                        <TeamNameCell>
+                          <div className="rank-container" title={hoverText}>
+                             <span className="pos">{index + 1}</span>
+                             <span className="tendencia">
+                                {fila.tendencia === 'same' && <RiSubtractLine className="icon-same" />}
+                                {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => (
+                                   <RiArrowUpSFill key={`up-${i}`} className="icon-up" />
+                                ))}
+                                {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => (
+                                   <RiArrowDownSFill key={`down-${i}`} className="icon-down" />
+                                ))}
+                             </span>
+                          </div>
+
+                          {hasAnyLogo ? (
+                             <img
+                               src={fila.logo || v.logoGenerico}
+                               alt={fila.nombre}
+                               onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
+                             />
+                          ) : null}
+                          <span className="team-name" title={fila.nombre}>{fila.nombre}</span>
+                        </TeamNameCell>
+                      </Td>
+
+                      <Td className="stat-col val-pj">{fila.pj}</Td>
+                      <Td className="stat-col hide-mobile val-stat">{fila.g}</Td>
+                      <Td className="stat-col hide-mobile val-stat">{fila.e}</Td>
+                      <Td className="stat-col hide-mobile val-stat">{fila.p}</Td>
+                      <Td className="stat-col hide-mobile val-stat">{fila.gf}</Td>
+                      <Td className="stat-col hide-mobile val-stat">{fila.gc}</Td>
+                      <Td className="stat-col val-dif" style={{
+                          color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit'
+                      }}>
+                          {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
+                      </Td>
+                      <Td className="stat-col hide-mobile val-pend" style={{
+                           color: fila.partidosPendientes > 0 ? '#f59e0b' : 'inherit',
+                           opacity: fila.partidosPendientes > 0 ? 1 : 0.3
+                      }}>
+                          {fila.partidosPendientes}
+                      </Td>
+                      <Td className="stat-col val-pts">{fila.pts}</Td>
+                    </RowComponent>
+                  );
+                })
+              )}
+
+              {/* ESTADO VACÍO CUANDO NO ESTÁ CARGANDO Y NO HAY DATOS */}
+              {!isLoading && tablaGeneral.length === 0 && (
                 <tr>
-                  <td colSpan="9" style={{textAlign:'center', padding:'20px', opacity:0.5}}>
+                  <td colSpan="10" style={{textAlign:'center', padding:'20px', opacity:0.5}}>
                     No hay datos disponibles
                   </td>
                 </tr>
@@ -159,7 +187,7 @@ export default function StandingsTable({ tablaGeneral, config, isPublic }) {
   );
 }
 
-// --- ESTILOS MODERNIZADOS Y COMPACTOS ---
+// --- ESTILOS MODERNIZADOS, COMPACTOS Y SIMÉTRICOS ---
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg}; 
   border-radius: 12px; 
@@ -194,11 +222,11 @@ const Th = styled.th`
   font-weight: 700;
   text-transform: uppercase; 
   font-size: 0.65rem; 
-  padding: 8px 6px; 
+  padding: 6px 4px; 
   border-bottom: 2px solid ${({ theme }) => theme.color2};
   white-space: nowrap;
   
-  @media ${Device.tablet} { font-size: 0.75rem; padding: 12px 10px; }
+  @media ${Device.tablet} { font-size: 0.75rem; padding: 8px 8px; }
   &.team-col-header { text-align: left; padding-left: 20px; }
   &.stat-col { width: 1%; min-width: 25px; }
   
@@ -208,12 +236,12 @@ const Th = styled.th`
 `;
 
 const Td = styled.td`
-  padding: 6px 4px; 
+  padding: 4px 4px; 
   font-size: 0.8rem; 
   color: ${({ theme }) => theme.text};
   white-space: nowrap;
   
-  @media ${Device.tablet} { padding: 10px 10px; font-size: 0.95rem; }
+  @media ${Device.tablet} { padding: 6px 8px; font-size: 0.9rem; }
   
   &.team-col {
     text-align: left; 
@@ -251,20 +279,40 @@ const TeamNameCell = styled.div`
   @media ${Device.tablet} { gap: 14px; }
   
   .rank-container {
-    display: flex; align-items: center; gap: 4px; min-width: 28px; justify-content: flex-end;
-    @media ${Device.tablet} { min-width: 36px; gap: 6px; }
+    display: flex; align-items: center; gap: 4px; 
+    min-width: 32px; 
+    justify-content: flex-end;
+    @media ${Device.tablet} { min-width: 38px; gap: 6px; }
   }
 
   .pos { 
-    font-weight: 800; font-size: 0.75rem; opacity: 0.5; text-align: right; flex-shrink: 0;
-    @media ${Device.tablet} { font-size: 0.9rem; }
+    font-weight: 800; 
+    font-size: 0.75rem; 
+    opacity: 0.5; 
+    flex-shrink: 0;
+    
+    width: 16px; 
+    text-align: center; 
+    display: inline-block;
+
+    @media ${Device.tablet} { 
+      font-size: 0.9rem; 
+      width: 20px; 
+    }
   }
 
   .tendencia {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    .icon-up, .icon-down { margin-bottom: -5px; }
-    .icon-up { color: #22c55e; font-size: 16px; @media ${Device.tablet} { font-size: 18px; } }
-    .icon-down { color: #ef4444; font-size: 16px; @media ${Device.tablet} { font-size: 18px; } }
+    
+    .icon-up, .icon-down {
+      margin: -3px 0; 
+      line-height: 1; 
+      font-size: 14px; 
+      @media ${Device.tablet} { font-size: 18px; margin: -5px 0; }
+    }
+
+    .icon-up { color: #22c55e; }
+    .icon-down { color: #ef4444; }
     .icon-same { color: ${({ theme }) => theme.text}40; font-size: 14px; margin-left: 2px; @media ${Device.tablet} { font-size: 16px; } }
   }
   

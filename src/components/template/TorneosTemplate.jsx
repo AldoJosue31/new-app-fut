@@ -78,7 +78,6 @@ export function TorneosTemplate({
         tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
       />
 
-      {/* Usamos el componente estilizado que elimina el padding superior */}
       <StyledContentContainer>
         <ContentGrid $isWide={isWideView}>
           {activeTab === "definir" && (
@@ -118,6 +117,7 @@ export function TorneosTemplate({
                     estadisticas={standings} 
                     reglas={reglas}
                     partidos={partidos}
+                    isLoading={isLoadingData} /* <-- AQUÍ ESTÁ LA SOLUCIÓN */
                     onRefresh={() => {
                       if (refreshStandings) refreshStandings();
                       fetchGoleadores();
@@ -152,7 +152,6 @@ export function TorneosTemplate({
   );
 }
 
-// CORRECCIÓN: Sobrescribimos el padding-top del ContentContainer original
 const StyledContentContainer = styled(ContentContainer)`
   && {
     padding-top: 0 !important;
@@ -171,7 +170,6 @@ const ContentGrid = styled.div`
   width: 100%;
   margin: 0 auto;
   gap: 5px; 
-  /* Aseguramos que no haya margen superior aquí tampoco */
   margin-top: 0; 
   
   transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);

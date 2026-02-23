@@ -156,7 +156,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
 
     let modalTitle = "Ficha del Equipo";
     if (showPlayerList) modalTitle = "Plantilla";
-    if (showStats) modalTitle = "Estadísticas";
+    if (showStats) modalTitle = `Estadísticas: ${team.name ? ` ${team.name}` : ''}`;
 
     const getModalWidth = () => {
         const isMobile = windowWidth < 768;
@@ -222,7 +222,9 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                 <SectionContainer>
                                     <SectionLabel>Últimos Resultados</SectionLabel>
                                     <MatchesRow>
-                                        {statsData?.matchHistory?.length > 0 ? (
+                                        {loadingStats ? (
+                                            Array.from({ length: 4 }).map((_, i) => <MatchCardSkeleton key={i} />)
+                                        ) : statsData?.matchHistory?.length > 0 ? (
                                             statsData.matchHistory.map(m => {
                                                 // EVALUACIÓN DE EMPATE EN TIEMPO REGULAR Y PENALES
                                                 const isTieRegular = m.myGoals === m.rivalGoals;
@@ -232,8 +234,6 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                                 let badgeColor = m.result; 
                                                 let penaltyStatus = null;
 
-                                                // Si empataron en el marcador regular, mostramos 'E' (Gris)
-                                                // Y calculamos quién ganó para colorear solo el borde de ese 'E'
                                                 if (isTieRegular) {
                                                     badgeLetter = 'E';
                                                     badgeColor = 'E'; 
@@ -306,7 +306,9 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {sortedStats.length > 0 ? (
+                                                {loadingStats ? (
+                                                    Array.from({ length: 5 }).map((_, i) => <StatTableRowSkeleton key={i} />)
+                                                ) : sortedStats.length > 0 ? (
                                                     sortedStats.map(p => (
                                                         <tr key={p.id}>
                                                             <td className="col-player">
@@ -408,6 +410,40 @@ const PlayerSkeleton = () => (
         <Skeleton type="circle" width="60px" height="60px" />
         <div className="info-sk"><Skeleton width="70%" height="14px" /><Skeleton width="40%" height="10px" /></div>
     </PlayerSkeletonWrapper>
+);
+
+// Nuevos Skeletons para Estadísticas (VISTA 2)
+const MatchCardSkeleton = () => (
+    <MatchCard>
+        <div className="match-header">
+            <Skeleton width="40px" height="12px" radius="4px" />
+            <Skeleton width="18px" height="18px" radius="4px" />
+        </div>
+        <Skeleton width="50px" height="10px" style={{ margin: '4px 0' }} />
+        <Skeleton width="70px" height="24px" radius="6px" />
+        <div className="rival-container" style={{ marginTop: '8px' }}>
+            <Skeleton width="28px" height="28px" radius="50%" />
+            <Skeleton width="60px" height="10px" />
+        </div>
+    </MatchCard>
+);
+
+const StatTableRowSkeleton = () => (
+    <tr>
+        <td className="col-player">
+            <PlayerCell>
+                <Skeleton width="24px" height="24px" radius="50%" />
+                <div className="p-info" style={{ gap: '4px', flex: 1 }}>
+                    <Skeleton width="60%" height="12px" />
+                    <Skeleton width="30%" height="10px" />
+                </div>
+            </PlayerCell>
+        </td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
+    </tr>
 );
 
 const slideInRight = keyframes` from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; }`;
