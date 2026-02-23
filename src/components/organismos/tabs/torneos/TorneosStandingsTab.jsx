@@ -147,6 +147,10 @@ export const TorneosStandingsTab = ({
         
         if (jNum <= 0 || jNum > limitJornada) return;
 
+        const statusLower = (partido.status || '').toLowerCase();
+        const isPlayed = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
+        if (!isPlayed) return;
+
         const localId = partido.team1_id;
         const visitanteId = partido.team2_id;
         if (!localId || !visitanteId) return;
@@ -261,18 +265,19 @@ export const TorneosStandingsTab = ({
       const prevRank = prevRanks[eq.id];
 
       let tendencia = 'same';
-      let posDiff = 0; 
+      let posDiff = 0; // NUEVO: Extraemos la cantidad de puestos que se movió
       
       if (prevLimit <= 0 || !prevRank) {
         tendencia = 'same'; 
       } else if (prevRank > currentRank) {
         tendencia = 'up';
-        posDiff = prevRank - currentRank; 
+        posDiff = prevRank - currentRank; // Ej: Pasó del 5 al 2 -> Movió 3 puestos
       } else if (prevRank < currentRank) {
         tendencia = 'down';
-        posDiff = currentRank - prevRank; 
+        posDiff = currentRank - prevRank; // Ej: Pasó del 1 al 2 -> Perdió 1 puesto
       }
 
+      // Devolvemos el equipo con su tendencia y la diferencia exacta de puestos
       return { ...eq, tendencia, posDiff };
     });
 
@@ -422,6 +427,7 @@ export const TorneosStandingsTab = ({
   );
 };
 
+// --- STYLES EXCLUSIVOS DE LOS CONTROLES Y SELECTORES ---
 const SelectJornada = styled.select`
   background-color: ${({ theme }) => theme.bg2};
   color: ${({ theme }) => theme.text};
