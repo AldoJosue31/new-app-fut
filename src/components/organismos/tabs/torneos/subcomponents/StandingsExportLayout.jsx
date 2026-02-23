@@ -18,15 +18,16 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
         pending: '#f59e0b', 
     };
 
+    // Funciones Helper de Zona
     const getZoneColor = (index, total) => {
         const rank = index + 1;
-        if (rank <= config.ascensos) return '#22c55e'; 
+        if (rank <= config.ascensos) return '#22c55e'; // Verde Ascenso
         if (config.zonaLiguilla) {
-            if (rank > config.ascensos && rank <= config.clasificados) return '#3b82f6'; 
+            if (rank > config.ascensos && rank <= config.clasificados) return '#3b82f6'; // Azul Liguilla
             const limitLiguilla = Math.max(config.clasificados, config.ascensos);
-            if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return '#f59e0b'; 
+            if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return '#f59e0b'; // Naranja Repechaje
         }
-        if (config.descensos > 0 && rank > (total - config.descensos)) return '#ef4444'; 
+        if (config.descensos > 0 && rank > (total - config.descensos)) return '#ef4444'; // Rojo Descenso
         return 'transparent';
     };
 
@@ -81,27 +82,33 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                             const zoneColor = getZoneColor(index, tablaGeneral.length);
                             const isLast = index === tablaGeneral.length - 1;
                             
+                            // Lógica de flechas para la exportación
                             const flechasToShow = Math.min(fila.posDiff || 0, 3);
+                            
+                            // Lógica de borde difuminado para que coincida con StandingsTable
                             const rowBorderColor = (zoneColor !== 'transparent') ? `${zoneColor}60` : colors.border;
                             
                             return (
                                 <tr key={fila.id} style={{ borderBottom: isLast ? 'none' : `1px solid ${rowBorderColor}` }}>
                                     
+                                    {/* COLUMNA EQUIPO */}
                                     <td style={{ padding: isMobile ? '10px' : '12px 15px', textAlign: 'left', borderLeft: `6px solid ${zoneColor}` }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px' }}>
                                             
+                                            {/* RANGO Y FLECHAS DE TENDENCIA */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: isMobile ? '35px' : '45px', justifyContent: 'flex-end' }}>
                                                 <span style={{ fontWeight: '800', fontSize: isMobile ? '12px' : '14px', color: colors.subtext }}>{index + 1}</span>
                                                 
+                                                {/* FLECHAS IDÉNTICAS AL DISEÑO WEB (-5px de margen) */}
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                                     {fila.tendencia === 'same' && (
                                                         <RiSubtractLine style={{ color: colors.subtext, opacity: 0.5, fontSize: isMobile ? '14px' : '16px', marginLeft: '2px' }} />
                                                     )}
                                                     {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => (
-                                                        <RiArrowUpSFill key={i} style={{ color: '#22c55e', fontSize: isMobile ? '16px' : '18px', marginTop: i > 0 ? '-5px' : '0' }} />
+                                                        <RiArrowUpSFill key={i} style={{ color: '#22c55e', fontSize: isMobile ? '16px' : '18px', marginTop: '-5px', marginBottom: '-5px' }} />
                                                     ))}
                                                     {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => (
-                                                        <RiArrowDownSFill key={i} style={{ color: '#ef4444', fontSize: isMobile ? '16px' : '18px', marginTop: i > 0 ? '-5px' : '0' }} />
+                                                        <RiArrowDownSFill key={i} style={{ color: '#ef4444', fontSize: isMobile ? '16px' : '18px', marginTop: '-5px', marginBottom: '-5px' }} />
                                                     ))}
                                                 </div>
                                             </div>
@@ -112,12 +119,14 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                                 style={{ width: isMobile ? '24px' : '30px', height: isMobile ? '24px' : '30px', objectFit: 'contain', borderRadius: '4px' }}
                                                 onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
                                             />
+                                            {/* Texto cortado */}
                                             <span style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '15px', color: colors.text }}>
                                                 {fila.nombre.length > (isMobile ? 15 : 28) ? fila.nombre.substring(0, isMobile ? 13 : 26) + '...' : fila.nombre}
                                             </span>
                                         </div>
                                     </td>
 
+                                    {/* ESTADÍSTICAS */}
                                     <td style={{ padding: '10px 5px', fontSize: isMobile ? '13px' : '15px', fontWeight: '600' }}>{fila.pj}</td>
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.g}</td>}
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.e}</td>}
