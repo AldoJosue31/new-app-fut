@@ -35,7 +35,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                             season,
                             division:division_id (
                                 name,
-                                league:league_id (name)
+                                league:league_id (name, logo_url)
                             )
                         )
                     )
@@ -183,7 +183,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
             </Container>
             
             {/* CSS GLOBAL DE IMPRESIÓN */}
-<style>{`
+            <style>{`
                 /* Ocultar portal en pantalla */
                 #print-portal-root {
                     display: none;

@@ -19,7 +19,6 @@ export const useLigaLogic = () => {
       setLoading(true);
       if (!user) return;
 
-      // A) Obtener la Liga del usuario
       const { data: league, error: leagueError } = await supabase
         .from("leagues")
         .select("*")
@@ -35,7 +34,6 @@ export const useLigaLogic = () => {
 
       setLeagueData(league);
 
-      // B) Cargar Divisiones
       const { data: divisions, error: divError } = await supabase
         .from("divisions")
         .select("*")
@@ -45,7 +43,6 @@ export const useLigaLogic = () => {
       if (divError) throw divError;
       setAllDivisions(divisions || []);
 
-      // C) Cargar Árbitros
       const { data: refs, error: refError } = await supabase
         .from("referees")
         .select("*")
@@ -54,10 +51,6 @@ export const useLigaLogic = () => {
 
       if (refError) throw refError;
       setReferees(refs || []);
-
-      // D) Standings (simulado por ahora)
-      // const stats = await fetchStandings(league.id); 
-      // setStandings(stats);
 
     } catch (err) {
       console.error("Error cargando datos:", err);
@@ -72,20 +65,33 @@ export const useLigaLogic = () => {
   }, [fetchData]);
 
   // --- HANDLERS ---
-
-  const handleUpdateLeague = async (name) => {
+  const handleUpdateLeague = async (updates) => {
+    console.log("-> [BD] Intentando actualizar tabla 'leagues' con:", updates);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("leagues")
-        .update({ name })
-        .eq("id", leagueData.id);
+        .update(updates)
+        .eq("id", leagueData.id)
+        .select(); 
 
-      if (error) throw error;
-      setLeagueData({ ...leagueData, name });
-      alert("Nombre actualizado correctamente");
+      if (error) {
+        console.error("-> [BD] Error de Supabase al actualizar:", error);
+        throw error;
+      }
+      
+      console.log("-> [BD] Update exitoso en tabla leagues:", data);
+      setLeagueData({ ...leagueData, ...updates });
+      return true; 
     } catch (err) {
-      console.error(err);
-      alert("Error al actualizar la liga");
+      console.error("-> [BD] Error capturado en handleUpdateLeague:", err);
+      
+      // Código de error 42703 de PostgreSQL significa "Undefined Column" (Columna no existe)
+      if (err.code === '42703') {
+         alert("❌ ERROR CRÍTICO BD: La columna 'logo_url' NO existe en tu tabla 'leagues'. Ve a tu SQL Editor en Supabase y ejecuta: ALTER TABLE public.leagues ADD COLUMN logo_url text, ADD COLUMN original_logo_url text;");
+      } else {
+         alert(`❌ Error en Base de Datos: ${err.message || "Error desconocido"}`);
+      }
+      return false;
     }
   };
 
@@ -182,22 +188,7 @@ export const useLigaLogic = () => {
   };
 
   return {
-    state: {
-      loading,
-      leagueData,
-      allDivisions,
-      referees,
-      standings,
-      season
-    },
-    actions: {
-      handleUpdateLeague,
-      handleAddDivision,
-      handleEditDivision,
-      handleDeleteDivision,
-      handleAddReferee,
-      handleEditReferee,
-      handleDeleteReferee
-    }
+    state: { loading, leagueData, allDivisions, referees, standings, season },
+    actions: { handleUpdateLeague, handleAddDivision, handleEditDivision, handleDeleteDivision, handleAddReferee, handleEditReferee, handleDeleteReferee }
   };
 };

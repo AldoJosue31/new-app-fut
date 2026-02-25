@@ -1,7 +1,73 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 
+// CACHÉ GLOBAL: Evita recalcular la transparencia si se imprimen múltiples cédulas por lote.
+const transparencyCache = new Map();
+
 export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showPenalties }) => {
+    const [isLogoTransparent, setIsLogoTransparent] = useState(false);
+    const [logoLoaded, setLogoLoaded] = useState(false);
+
+    const leagueName = matchData?.jornada?.tournament?.division?.league?.name || "LIGA DE FÚTBOL";
+    const leagueLogoUrl = matchData?.jornada?.tournament?.division?.league?.logo_url;
+
+    // --- ALGORITMO DE DETECCIÓN DE TRANSPARENCIA ---
+    useEffect(() => {
+        if (!leagueLogoUrl) {
+            setLogoLoaded(true);
+            return;
+        }
+
+        if (transparencyCache.has(leagueLogoUrl)) {
+            setIsLogoTransparent(transparencyCache.get(leagueLogoUrl));
+            setLogoLoaded(true);
+            return;
+        }
+
+        const checkTransparency = async () => {
+            try {
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; 
+                
+                img.src = leagueLogoUrl + (leagueLogoUrl.includes("?") ? "&" : "?") + "cors_check=" + Date.now();
+                
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                });
+
+                const canvas = document.createElement("canvas");
+                const size = 50; 
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, size, size);
+                
+                const imageData = ctx.getImageData(0, 0, size, size).data;
+                let transparentCount = 0;
+                
+                for (let i = 3; i < imageData.length; i += 4) {
+                    if (imageData[i] < 250) { 
+                        transparentCount++;
+                    }
+                }
+                
+                const isTransparent = transparentCount > (size * size * 0.03);
+                
+                transparencyCache.set(leagueLogoUrl, isTransparent);
+                setIsLogoTransparent(isTransparent);
+                setLogoLoaded(true);
+            } catch (error) {
+                console.warn("No se pudo analizar la transparencia del logo:", error);
+                transparencyCache.set(leagueLogoUrl, false);
+                setIsLogoTransparent(false);
+                setLogoLoaded(true);
+            }
+        };
+
+        checkTransparency();
+    }, [leagueLogoUrl]);
+
     if (!matchData) return null;
 
     return (
@@ -9,11 +75,24 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
             {/* 1. ENCABEZADO */}
             <div className="header-section">
                 <div className="header-top">
-                    <div className="logo-box">LIGA</div>
+                    {/* CONTENEDOR INTELIGENTE PARA CENTRADO PERFECTO */}
+                    <div className="logo-container">
+                        {leagueLogoUrl ? (
+                            <img 
+                                src={leagueLogoUrl} 
+                                alt="Logo Liga" 
+                                className={`league-logo-img ${isLogoTransparent ? 'large' : 'normal'} ${logoLoaded ? 'loaded' : ''}`} 
+                            />
+                        ) : (
+                            <div className="logo-box">LIGA</div>
+                        )}
+                    </div>
+
                     <div className="titles">
-                        <h1 className="league-name">{matchData.jornada?.tournament?.division?.league?.name || "LIGA DE FÚTBOL"}</h1>
+                        <h1 className="league-name">{leagueName}</h1>
                         <h2 className="doc-title">INFORME DEL ARBITRO</h2>
                     </div>
+                    
                     <div className="season-info">
                         <div className="season-txt">{matchData.jornada?.tournament?.season}</div>
                         <div className="div-tag">{matchData.jornada?.tournament?.division?.name}</div>
@@ -204,7 +283,6 @@ const SheetContainer = styled.div`
 
     /* REGLAS ESTRICTAS DE IMPRESIÓN */
     @media print {
-        /* Define el tamaño físico del papel en la impresora y quita los márgenes del navegador */
         @page {
             size: A4 portrait;
             margin: 0 !important; 
@@ -213,30 +291,109 @@ const SheetContainer = styled.div`
         border: none !important;
         margin: 0 !important;
         
-        /* MEDIDAS CLAVADAS PARA A4 */
         width: 210mm !important; 
         height: 297mm !important;
-        max-height: 297mm !important; /* Bloquea el crecimiento */
-        padding: 8mm !important; /* Margen interno para que no se pegue al borde de la hoja física */
+        max-height: 297mm !important; 
+        padding: 8mm !important; 
         
-        /* Evita que cualquier elemento interno provoque un salto de página por desbordamiento */
         overflow: hidden !important; 
         
-        /* Salto de página seguro: cada componente es una hoja nueva */
         page-break-after: always !important;
         break-after: page !important; 
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+
+        /* Forzar escala de grises y alta calidad de imagen en impresión para el logo */
+        .league-logo-img {
+            opacity: 1 !important; 
+            filter: grayscale(100%) !important;
+            -webkit-filter: grayscale(100%) !important;
+            image-rendering: -webkit-optimize-contrast !important;
+            image-rendering: crisp-edges !important;
+        }
     }
 
     /* ESTILOS INTERNOS */
     .header-section { border-bottom: 2px solid black; padding-bottom: 5px; margin-bottom: 5px; flex-shrink: 0; }
-    .header-top { display: flex; align-items: center; border-bottom: 1px solid black; padding-bottom: 5px; margin-bottom: 5px; }
-    .logo-box { font-weight: 900; font-size: 18px; border: 2px solid black; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 10px; }
-    .titles { text-align: center; flex: 1; }
+    
+    .header-top { 
+        display: flex; 
+        align-items: center; 
+        justify-content: space-between;
+        border-bottom: 1px solid black; 
+        padding-bottom: 5px; 
+        margin-bottom: 5px; 
+        min-height: 95px; 
+    }
+
+    /* CONTENEDOR DEL LOGO (Equilibrado con la caja derecha) */
+    .logo-container {
+        width: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-shrink: 0;
+    }
+    
+    .logo-box { 
+        font-weight: 900; 
+        font-size: 18px; 
+        border: 2px solid black; 
+        width: 60px; 
+        height: 60px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        border-radius: 50%; 
+    }
+
+    /* CONFIGURACIÓN BASE DEL LOGO */
+    .league-logo-img { 
+        object-fit: contain; 
+        filter: grayscale(100%); 
+        -webkit-filter: grayscale(100%); 
+        image-rendering: -webkit-optimize-contrast; 
+        image-rendering: crisp-edges; 
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .league-logo-img.loaded {
+        opacity: 1;
+    }
+
+    /* ESTILO: LOGO SIN FONDO (GRANDE) */
+    .league-logo-img.large {
+        width: 95px; 
+        height: 95px;
+    }
+
+    /* ESTILO: LOGO CON FONDO SÓLIDO (MÁS PEQUEÑO Y DISCRETO) */
+    .league-logo-img.normal {
+        width: 55px; 
+        height: 55px;
+        border-radius: 6px;
+        box-shadow: 0 0 0 1px #ccc; 
+    }
+    
+    /* CONTENEDOR CENTRAL DE TÍTULOS */
+    .titles { 
+        text-align: center; 
+        flex: 1; 
+    }
     .league-name { margin: 0; font-size: 20px; font-weight: 900; text-transform: uppercase; line-height: 1; }
     .doc-title { margin: 0; font-size: 12px; font-weight: bold; letter-spacing: 3px; margin-top: 4px; }
-    .season-info { text-align: right; min-width: 80px; }
+    
+    /* CONTENEDOR DERECHO (Equilibrado con el contenedor del logo) */
+    .season-info { 
+        width: 120px; 
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        text-align: right; 
+        flex-shrink: 0;
+    }
     .season-txt { font-size: 11px; font-weight: bold; }
     .div-tag { background: black; color: white; padding: 2px 8px; display: inline-block; margin-top: 2px; font-size: 10px; font-weight: bold; border-radius: 2px; }
 
@@ -247,10 +404,7 @@ const SheetContainer = styled.div`
         .value { font-size: 11px; font-weight: bold; text-transform: uppercase; }
     }
 
-    /* CLAVE: min-height: 0 ayuda a flexbox a no desbordarse en Chrome */
-    .rosters-section {
-        display: flex; flex: 1; gap: 3mm; margin-bottom: 5px; align-items: stretch; min-height: 0;
-    }
+    .rosters-section { display: flex; flex: 1; gap: 3mm; margin-bottom: 5px; align-items: stretch; min-height: 0; }
     .team-wrapper { flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; }
     .team-header { background: black; color: white; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid black; flex-shrink: 0; }
     .team-label { font-size: 9px; font-weight: bold; letter-spacing: 1px; }
@@ -262,7 +416,6 @@ const SheetContainer = styled.div`
         thead { flex-shrink: 0; }
         tbody { flex: 1; display: flex; flex-direction: column; min-height: 0; }
         tr { display: flex; width: 100%; }
-        /* Las filas absorben el espacio sobrante equitativamente */
         tbody tr { flex: 1; border-bottom: 1px solid #ccc; align-items: center; min-height: 0; }
         tbody tr:last-child { border-bottom: none; }
         th { border-bottom: 1px solid black; border-right: 1px solid black; background: #ddd; padding: 2px; display: flex; align-items: center; justify-content: center; font-size: 8px; height: 18px; }
