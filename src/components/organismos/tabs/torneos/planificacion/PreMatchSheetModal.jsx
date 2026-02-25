@@ -81,7 +81,7 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
                         name,
                         tournament:tournament_id (
                             season,
-                            division:division_id ( name, league:league_id ( name ) ),
+                            division:division_id ( name, league:league_id ( name, logo_url ) ),
                             config
                         )
                     )

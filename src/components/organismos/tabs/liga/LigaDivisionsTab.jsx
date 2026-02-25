@@ -3,8 +3,9 @@ import styled from "styled-components";
 import { v } from "../../../../styles/variables";
 import { RiBuilding2Line, RiAddLine, RiPencilLine, RiDeleteBinLine } from "react-icons/ri";
 import { Card, CardHeader, BtnGreen, Modal, InputText2, Btnsave, ConfirmModal } from "../../../../index";
+import { Skeleton } from "../../../atomos/Skeleton";
 
-export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
+export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete, loading }) {
   const [modal, setModal] = useState({ open: false, type: 'add', data: null });
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null, name: '' });
   const [formValue, setFormValue] = useState("");
@@ -26,9 +27,37 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
     setDeleteModal({ ...deleteModal, open: false });
   };
 
+  // --- MODO SKELETON MIENTRAS CARGA ---
+  if (loading) {
+    return (
+      <Card maxWidth="800px">
+        <HeaderContainer>
+            <CardHeader Icono={RiBuilding2Line} titulo="Mis Divisiones" subtitulo="Categorías activas" />
+            <div className="action-area">
+                <Skeleton width="160px" height="40px" radius="12px" />
+            </div>
+        </HeaderContainer>
+        
+        <ListGrid>
+            {[1, 2, 3].map((i) => (
+                <ListItem key={i}>
+                    <div className="info" style={{ width: '100%', gap: '6px' }}>
+                        <Skeleton width="40%" height="18px" />
+                        <Skeleton width="20%" height="12px" />
+                    </div>
+                    <div className="actions">
+                        <Skeleton width="32px" height="32px" radius="8px" />
+                        <Skeleton width="32px" height="32px" radius="8px" />
+                    </div>
+                </ListItem>
+            ))}
+        </ListGrid>
+      </Card>
+    );
+  }
+
   return (
     <Card maxWidth="800px">
-        {/* Usamos el nuevo contenedor responsive */}
         <HeaderContainer>
             <CardHeader Icono={RiBuilding2Line} titulo="Mis Divisiones" subtitulo="Categorías activas" />
             <div className="action-area">
@@ -41,7 +70,7 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
         </HeaderContainer>
         
         <ListGrid>
-            {divisions.map((div) => (
+            {divisions && divisions.map((div) => (
                 <ListItem key={div.id}>
                     <div className="info">
                         <span className="name">{div.name}</span>
@@ -53,7 +82,7 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
                     </div>
                 </ListItem>
             ))}
-            {divisions.length === 0 && <EmptyMsg>No hay divisiones creadas.</EmptyMsg>}
+            {(!divisions || divisions.length === 0) && <EmptyMsg>No hay divisiones creadas.</EmptyMsg>}
         </ListGrid>
 
         <Modal isOpen={modal.open} onClose={() => setModal({...modal, open:false})} title={modal.type === 'add' ? "Crear División" : "Editar"}>
@@ -79,11 +108,10 @@ export function LigaDivisionsTab({ divisions, onAdd, onEdit, onDelete }) {
 // --- STYLES RESPONSIVE ---
 const HeaderContainer = styled.div`
   display: flex;
-  flex-direction: column; /* Mobile First: Uno debajo del otro */
+  flex-direction: column;
   gap: 15px;
   margin-bottom: 25px;
 
-  /* Tablet y Desktop: Uno al lado del otro */
   @media (min-width: 768px) {
     flex-direction: row;
     justify-content: space-between;
@@ -92,9 +120,9 @@ const HeaderContainer = styled.div`
 
   .action-area {
       display: flex;
-      justify-content: flex-start; /* En movil alineado a la izq */
+      justify-content: flex-start; 
       @media (min-width: 768px) {
-          justify-content: flex-end; /* En PC alineado a la derecha */
+          justify-content: flex-end; 
       }
   }
 `;

@@ -34,6 +34,7 @@ export function LigaTemplate({
     navigate(`/liga/${newTabId}`);
   };
 
+  // Se muestra EmptyState SOLO si terminó de cargar y no trajo la data.
   if (!loading && !leagueData) {
       return (
         <ContentContainer>
@@ -64,14 +65,15 @@ export function LigaTemplate({
 
       <StyledContentContainer>
         <ContentGrid>
+            {/* Pasamos la prop loading a cada TAB para que ellas manejen su propio skeleton */}
             {activeTab === "general" && (
-                <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} />
+                <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
             )}
             {activeTab === "divisions" && (
-                <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} />
+                <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} loading={loading} />
             )}
             {activeTab === "referees" && (
-                <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} />
+                <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} loading={loading} />
             )}
         </ContentGrid>
       </StyledContentContainer>

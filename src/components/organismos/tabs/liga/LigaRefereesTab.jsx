@@ -4,16 +4,15 @@ import { v } from "../../../../styles/variables";
 import { GiWhistle } from "react-icons/gi";
 import { RiAddLine, RiShieldUserLine, RiPhoneLine, RiPencilLine, RiDeleteBinLine } from "react-icons/ri";
 import { Card, CardHeader, BtnGreen, Modal, InputText2, Btnsave, ConfirmModal } from "../../../../index";
+import { Skeleton } from "../../../atomos/Skeleton";
 
-export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete }) {
+export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete, loading }) {
   const [modal, setModal] = useState({ open: false, type: 'add', data: null });
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null, name: '' });
-  // Restauramos el objeto form completo para manejar nombre y teléfono
   const [form, setForm] = useState({ full_name: "", phone: "" });
 
   const handleOpen = (type, data = null) => {
     setModal({ open: true, type, data });
-    // Mapeo correcto de datos según tu versión original
     setForm(data ? { full_name: data.full_name, phone: data.phone } : { full_name: "", phone: "" });
   };
 
@@ -29,9 +28,42 @@ export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete }) {
     setDeleteModal({ ...deleteModal, open: false });
   };
 
+  // --- MODO SKELETON MIENTRAS CARGA ---
+  if (loading) {
+    return (
+      <Card maxWidth="800px">
+        <HeaderContainer>
+            <CardHeader Icono={GiWhistle} titulo="Cuerpo Arbitral" subtitulo="Registro oficial" />
+            <div className="action-area">
+                <Skeleton width="160px" height="40px" radius="12px" />
+            </div>
+        </HeaderContainer>
+        
+        <ListGrid>
+            {[1, 2, 3].map((i) => (
+                <ListItem key={i}>
+                    <div className="icon-avatar" style={{ background: 'transparent' }}>
+                        <Skeleton width="40px" height="40px" radius="50%" />
+                    </div>
+                    
+                    <div className="info" style={{ width: '100%', gap: '6px' }}>
+                        <Skeleton width="45%" height="18px" />
+                        <Skeleton width="25%" height="12px" />
+                    </div>
+                    
+                    <div className="actions">
+                        <Skeleton width="32px" height="32px" radius="8px" />
+                        <Skeleton width="32px" height="32px" radius="8px" />
+                    </div>
+                </ListItem>
+            ))}
+        </ListGrid>
+      </Card>
+    );
+  }
+
   return (
     <Card maxWidth="800px">
-        {/* Header Responsive con BtnGreen a la derecha */}
         <HeaderContainer>
             <CardHeader Icono={GiWhistle} titulo="Cuerpo Arbitral" subtitulo="Registro oficial" />
             <div className="action-area">
@@ -46,11 +78,9 @@ export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete }) {
         <ListGrid>
             {referees && referees.map((ref) => (
                 <ListItem key={ref.id}>
-                    {/* Estilo original con Avatar */}
                     <div className="icon-avatar"><RiShieldUserLine /></div>
                     
                     <div className="info">
-                        {/* Lectura correcta de propiedades: full_name y phone */}
                         <span className="name">{ref.full_name}</span>
                         <span className="meta">
                             <RiPhoneLine className="mini-icon"/> 
@@ -67,7 +97,6 @@ export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete }) {
             {(!referees || referees.length === 0) && <EmptyMsg>No hay árbitros registrados.</EmptyMsg>}
         </ListGrid>
 
-        {/* Modal con campos para Nombre y Teléfono */}
         <Modal isOpen={modal.open} onClose={() => setModal({...modal, open:false})} title={modal.type === 'add' ? "Registrar Árbitro" : "Editar Árbitro"}>
            <ModalContent>
                <label>Nombre Completo</label>
@@ -108,8 +137,7 @@ export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete }) {
   );
 }
 
-// --- ESTILOS (Mezcla del Responsive + Tu diseño original de items) ---
-
+// --- ESTILOS ---
 const HeaderContainer = styled.div`
   display: flex;
   flex-direction: column;
