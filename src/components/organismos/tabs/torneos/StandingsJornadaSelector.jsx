@@ -6,9 +6,8 @@ export const StandingsJornadaSelector = ({
   selected, 
   onChange, 
   effectiveJornada,
-  jornadasOptions = [] // [{ num: 1, pendientes: 0 }, ...]
+  jornadasOptions = [] 
 }) => {
-  // Si no hay jornadas para dropdown, solo muestra la vista actual
   const options = Array.isArray(jornadasOptions) ? jornadasOptions : [];
 
   return (
@@ -21,12 +20,19 @@ export const StandingsJornadaSelector = ({
           <option value="recent">Vista Actual (J. {effectiveJornada})</option>
 
           {options.length > 0 && (
-            <optgroup label="Historial (Confirmadas)">
-              {options.map(j => (
-                <option key={j.num} value={j.num}>
-                  {`Jornada ${j.num}${j.pendientes && j.pendientes > 0 ? ` (con ${j.pendientes} pendientes)` : ''}`}
-                </option>
-              ))}
+            <optgroup label="Historial de Jornadas">
+              {options.map(j => {
+                // Formato exacto solicitado: "Jornada X (Con Y partidos pendientes)"
+                const textoPendientes = j.pendientes > 0 
+                  ? ` (Con ${j.pendientes} partido${j.pendientes > 1 ? 's' : ''} pendiente${j.pendientes > 1 ? 's' : ''})` 
+                  : '';
+
+                return (
+                  <option key={j.num} value={j.num}>
+                    {`Jornada ${j.num}${textoPendientes}`}
+                  </option>
+                );
+              })}
             </optgroup>
           )}
         </StyledSelect>

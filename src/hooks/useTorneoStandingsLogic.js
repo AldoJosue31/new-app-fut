@@ -12,7 +12,6 @@ export const useTorneoStandingsLogic = ({
   const [fetchedJornadas, setFetchedJornadas] = useState([]);
   const [fetchingJornadas, setFetchingJornadas] = useState(false);
 
-  // TRUCO DE RENDIMIENTO: Evita ciclos infinitos si el padre pasa un array de jornadas nuevo sin memorizar
   const jornadasStr = JSON.stringify(jornadasProp || []);
 
   // 1. Obtener jornadas si no vienen por props
@@ -114,7 +113,6 @@ export const useTorneoStandingsLogic = ({
     };
 
     const matchesByJornada = {};
-    const pendings = {};
     let maxJFromMatches = 0;
 
     relevantMatches.forEach(p => {
@@ -123,9 +121,7 @@ export const useTorneoStandingsLogic = ({
 
       if ((!jNum || jNum === 0) && p.jornada_id && Array.isArray(mergedJornadas)) {
         const jObj = mergedJornadas.find(x => Number(x.id) === Number(p.jornada_id));
-        if (jObj) {
-          jNum = parseJNum(jObj.name);
-        }
+        if (jObj) jNum = parseJNum(jObj.name);
       }
 
       if (jNum <= 0) return;
@@ -134,12 +130,6 @@ export const useTorneoStandingsLogic = ({
       matchesByJornada[jNum].push(p);
 
       if (jNum > maxJFromMatches) maxJFromMatches = jNum;
-
-      const st = (p.status || '').toLowerCase();
-      const validTeams = p.team1_id && p.team2_id;
-      if (st === 'pendiente' && validTeams) {
-        pendings[jNum] = (pendings[jNum] || 0) + 1;
-      }
     });
 
     let maxConfirmed = 0;
@@ -166,11 +156,16 @@ export const useTorneoStandingsLogic = ({
             if (!['finalizado', 'completado', 'jugado', 'terminado'].includes(st)) {
               allFinished = false;
             }
-            if (st === 'pendiente' && m.team1_id && m.team2_id) {
+
+            // REGLA ESTRICTA DEL CONTADOR DE PENDIENTES
+            const isPendiente = st === 'pendiente';
+            if (isPendiente && m.team1_id !== null && m.team2_id !== null) {
               pendingCount++;
             }
           });
 
+          // Si es la última jornada confirmada y no ha terminado, se muestra en la "Vista Actual",
+          // así que la excluimos del historial para no duplicarla
           if (jNum === lastConfirmedNum && !allFinished) return;
 
           confirmedList.push({ num: jNum, pendientes: pendingCount });
@@ -179,7 +174,7 @@ export const useTorneoStandingsLogic = ({
     }
 
     confirmedList.sort((a, b) => a.num - b.num);
-    const effective = (maxConfirmed && maxConfirmed > 0) ? maxConfirmed : (maxJFromMatches || 1);
+    const effective = maxConfirmed > 0 ? maxConfirmed : (maxJFromMatches || 1);
 
     return {
       effectiveJornada: effective,
@@ -222,7 +217,9 @@ export const useTorneoStandingsLogic = ({
         const isCancelled = ['cancelado', 'anulado'].includes(statusLower);
         const isDescanso = ['descanso'].includes(statusLower);
 
-        if (statusLower === 'pendiente' && jNum <= limitPendientes && !isCancelled && !isDescanso) {
+        // Validar estrictamente pendiente para el contador de la columna PND de la tabla
+        const isPendiente = statusLower === 'pendiente';
+        if (isPendiente && jNum <= limitPendientes && !isCancelled && !isDescanso) {
           local.partidosPendientes += 1;
           visitante.partidosPendientes += 1;
           return;
@@ -317,17 +314,31 @@ export const useTorneoStandingsLogic = ({
         let totalPendientes = 0;
         relevantMatches.forEach(m => {
             let jNum = parseInt(('' + (m.jornadas?.name || m.jornada?.name || '')).match(/\d+/)?.[0] || 0, 10);
-            if (jNum > 0 && jNum <= effectiveJornada && m.team1_id && m.team2_id && (m.status || '').toLowerCase() === 'pendiente') {
+            const st = (m.status || '').toLowerCase();
+            const isPendiente = st === 'pendiente';
+            
+            if (jNum > 0 && jNum <= effectiveJornada && m.team1_id && m.team2_id && isPendiente) {
                 totalPendientes++;
             }
         });
-        const suffix = totalPendientes > 0 ? ` (con ${totalPendientes} pendiente${totalPendientes > 1 ? 's' : ''})` : '';
+        const suffix = totalPendientes > 0 
+          ? ` (Con ${totalPendientes} partido${totalPendientes > 1 ? 's' : ''} pendiente${totalPendientes > 1 ? 's' : ''})` 
+          : '';
         return `Jornada ${effectiveJornada}${suffix}`; 
     } else {
         const sel = parseInt(selectedJornadaView, 10);
         if (isNaN(sel)) return `Jornada ${effectiveJornada}`;
-        let pend = relevantMatches.filter(m => parseInt(('' + (m.jornadas?.name || '')).match(/\d+/)?.[0] || 0, 10) === sel && (m.status || '').toLowerCase() === 'pendiente').length;
-        return `Jornada ${sel}${pend > 0 ? ` (con ${pend} pendiente${pend>1?'s':''})` : ' (Completada)'}`;
+        
+        let pend = relevantMatches.filter(m => {
+          const st = (m.status || '').toLowerCase();
+          const jNum = parseInt(('' + (m.jornadas?.name || '')).match(/\d+/)?.[0] || 0, 10);
+          return jNum === sel && st === 'pendiente' && m.team1_id && m.team2_id;
+        }).length;
+
+        const suffix = pend > 0 
+          ? ` (Con ${pend} partido${pend > 1 ? 's' : ''} pendiente${pend > 1 ? 's' : ''})` 
+          : ' (Completada)';
+        return `Jornada ${sel}${suffix}`;
     }
   }, [selectedJornadaView, effectiveJornada, relevantMatches, mergedJornadas]);
 
@@ -337,6 +348,6 @@ export const useTorneoStandingsLogic = ({
     jornadasConfirmadasForDropdown,
     tablaGeneral,
     activeJornadaName,
-    isCalculating: fetchingJornadas // Exponemos el estado de carga
+    isCalculating: fetchingJornadas 
   };
 };
