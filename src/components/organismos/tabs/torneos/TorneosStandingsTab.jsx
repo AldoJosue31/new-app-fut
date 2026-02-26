@@ -1,6 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../../supabase/supabase.config'; 
 import { v } from '../../../../styles/variables';
 import { BiShareAlt, BiCheck } from "react-icons/bi"; 
@@ -8,12 +7,15 @@ import { RiImageLine } from "react-icons/ri";
 
 import StandingsExportModal from './subcomponents/StandingsExportModal';
 import StandingsTable from './subcomponents/StandingsTable';
+import { StandingsJornadaSelector } from './StandingsJornadaSelector';
+import { Skeleton } from '../../../atomos/Skeleton'; // ajusta ruta si la necesitas distinta
 
 export const TorneosStandingsTab = ({
   torneo = {},
   equipos = [],
   estadisticas = [],
   partidos = [],
+  jornadas: jornadasProp = [],
   reglas = {},
   onRefresh,
   isPublic = false,
@@ -27,15 +29,55 @@ export const TorneosStandingsTab = ({
   
   const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
 
-  useEffect(() => {
-    if (onRefresh && typeof onRefresh === 'function') {
-        onRefresh();
-    }
-  }, []);
+  // jornadas fetch por si el padre no las pasa
+  const [fetchedJornadas, setFetchedJornadas] = useState([]);
+  const [fetchingJornadas, setFetchingJornadas] = useState(false);
 
   useEffect(() => {
     setIsPublicEnabled(torneo?.is_public || false);
   }, [torneo?.is_public]);
+
+  useEffect(() => {
+    setSelectedJornadaView('recent');
+  }, [torneo?.id]);
+
+  // fetch jornadas SOLO si no se pasan por prop
+  useEffect(() => {
+    let mounted = true;
+    const loadJornadas = async () => {
+      if (!torneo?.id) {
+        if (mounted) setFetchedJornadas([]);
+        return;
+      }
+      if (Array.isArray(jornadasProp) && jornadasProp.length > 0) return;
+
+      try {
+        setFetchingJornadas(true);
+        const { data, error } = await supabase
+          .from('jornadas')
+          .select('*')
+          .eq('tournament_id', torneo.id)
+          .order('start_date', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching jornadas:', error);
+          if (mounted) setFetchedJornadas([]);
+        } else {
+          if (mounted) setFetchedJornadas(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Fetch jornadas unexpected error:', err);
+        if (mounted) setFetchedJornadas([]);
+      } finally {
+        if (mounted) setFetchingJornadas(false);
+      }
+    };
+
+    loadJornadas();
+    return () => { mounted = false; };
+  }, [torneo?.id, jornadasProp]);
+
+  const mergedJornadas = (Array.isArray(jornadasProp) && jornadasProp.length > 0) ? jornadasProp : fetchedJornadas;
 
   const config = useMemo(() => {
     let c = {};
@@ -65,87 +107,212 @@ export const TorneosStandingsTab = ({
     return Array.from(map.values());
   }, [equipos]);
 
-  // 1. OBTENER HISTORIAL DE JORNADAS SELECTAS
-  const historialJornadas = useMemo(() => {
+  // Filtrar partidos que correspondan al torneo actual (defensivo)
+  const relevantMatches = useMemo(() => {
     if (!partidos || partidos.length === 0) return [];
+    return partidos.filter(p => {
+      const torneoFromMatch =
+        (p.jornadas && (p.jornadas.tournament_id || p.jornadas.tournament)) ||
+        (p.jornada && (p.jornada.tournament_id || p.jornada.tournament)) ||
+        p.tournament_id ||
+        null;
+
+      if (!torneo?.id) return true;
+
+      if (!torneoFromMatch) {
+        if (p.jornada_id && Array.isArray(mergedJornadas) && mergedJornadas.length > 0) {
+          const j = mergedJornadas.find(x => Number(x.id) === Number(p.jornada_id));
+          if (j && (Number(j.tournament_id) === Number(torneo.id) || !j.tournament_id)) return true;
+        }
+        return false;
+      }
+      return Number(torneoFromMatch) === Number(torneo.id);
+    });
+  }, [partidos, torneo?.id, mergedJornadas]);
+
+  // ====== DETECCIÓN INMEDIATA + cálculo de pendientes por jornada ======
+  const {
+    effectiveJornada,
+    pendingsByJornada,
+    jornadasConfirmadasForDropdown,
+    allJornadasChronological
+  } = useMemo(() => {
+    const parseJNum = (name) => {
+      const m = ('' + (name || '')).match(/\d+/);
+      return m ? parseInt(m[0], 10) : 0;
+    };
 
     const matchesByJornada = {};
-    partidos.forEach(p => {
-      const num = p.jornadas ? parseInt(p.jornadas.name.replace(/\D/g, ''), 10) : 0;
-      if (num > 0) {
-        if (!matchesByJornada[num]) matchesByJornada[num] = [];
-        matchesByJornada[num].push(p);
-      }
-    });
+    const pendings = {};
+    let maxJFromMatches = 0;
 
-    const opciones = [];
+    // 1) Build matchesByJornada + pendings (pendings STRICT only status === 'pendiente' and both teams present)
+    relevantMatches.forEach(p => {
+      // prefer name in joined jornada object; fallback to join via jornada_id -> mergedJornadas later
+      let jName = p.jornadas?.name || p.jornada?.name || '';
+      let jNum = parseJNum(jName);
 
-    Object.entries(matchesByJornada).forEach(([jNumStr, matches]) => {
-      const jNum = parseInt(jNumStr, 10);
-      const realMatches = matches.filter(m => m.team1_id && m.team2_id);
-      
-      if (realMatches.length > 0) {
-        let playedCount = 0;
-        let pendingCount = 0;
-        let unconfirmedCount = 0; 
-        
-        realMatches.forEach(m => {
-          const statusLower = (m.status || '').toLowerCase();
-          const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
-          const isPendiente = statusLower === 'pendiente'; 
-          const hasResult = m.goals1 != null && m.goals2 != null; 
-          
-          if (isFinished && hasResult) {
-            playedCount++;
-          } else if (isPendiente) {
-            pendingCount++;
-          } else {
-            unconfirmedCount++;
-          }
-        });
-
-        if (unconfirmedCount === 0 && playedCount > 0) {
-          opciones.push({
-            num: jNum,
-            pendingCount: pendingCount
-          });
+      if ((!jNum || jNum === 0) && p.jornada_id && Array.isArray(mergedJornadas)) {
+        const jObj = mergedJornadas.find(x => Number(x.id) === Number(p.jornada_id));
+        if (jObj) {
+          jNum = parseJNum(jObj.name);
+          jName = jObj.name;
         }
       }
+
+      if (jNum <= 0) return;
+
+      if (!matchesByJornada[jNum]) matchesByJornada[jNum] = [];
+      matchesByJornada[jNum].push(p);
+
+      if (jNum > maxJFromMatches) maxJFromMatches = jNum;
+
+      const st = (p.status || '').toLowerCase();
+      const validTeams = p.team1_id && p.team2_id;
+      if (st === 'pendiente' && validTeams) {
+        pendings[jNum] = (pendings[jNum] || 0) + 1;
+      }
     });
 
-    return opciones.sort((a, b) => a.num - b.num);
-  }, [partidos]);
+    // 2) Obtener jornadas confirmadas de mergedJornadas (preferible)
+    const confirmedSet = new Set();
+    let maxConfirmed = 0;
 
-  // 2. ENCONTRAR LA JORNADA ACTUAL EFECTIVA
-  const effectiveJornada = useMemo(() => {
-    let maxJornadaIniciada = 0;
-    partidos.forEach(m => {
-       if (!m.team1_id || !m.team2_id) return;
-       const statusLower = (m.status || '').toLowerCase();
-       const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
-       const hasResult = m.goals1 != null && m.goals2 != null;
-       
-       if (isFinished && hasResult) {
-           const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
-           if (jNum > maxJornadaIniciada) maxJornadaIniciada = jNum;
-       }
+    if (Array.isArray(mergedJornadas) && mergedJornadas.length > 0) {
+      mergedJornadas.forEach(j => {
+        if (torneo?.id && j.tournament_id && Number(j.tournament_id) !== Number(torneo.id)) return;
+        const jNum = parseJNum(j.name);
+        const status = (j.status || '').toLowerCase();
+        const isConfirmed = ['confirmada', 'activa', 'en curso', 'publicada'].includes(status);
+        if (jNum > 0 && isConfirmed) {
+          confirmedSet.add(jNum);
+          if (jNum > maxConfirmed) maxConfirmed = jNum;
+        }
+      });
+    }
+
+    // 3) También buscar confirmadas directamente desde matches (si tienen join info p.jornadas?.status)
+    relevantMatches.forEach(p => {
+      const jStatus = (p.jornadas?.status || p.jornada?.status || '').toLowerCase();
+      if (!jStatus) return;
+      const isConfirmed = ['confirmada', 'activa', 'en curso', 'publicada'].includes(jStatus);
+      if (!isConfirmed) return;
+      const jName = p.jornadas?.name || p.jornada?.name || '';
+      const jNum = parseJNum(jName);
+      if (jNum > 0) {
+        confirmedSet.add(jNum);
+        if (jNum > maxConfirmed) maxConfirmed = jNum;
+      }
     });
-    return maxJornadaIniciada;
-  }, [partidos]);
+const confirmedList = [];
 
+if (Array.isArray(mergedJornadas)) {
 
-  // 3. CÁLCULO DE TABLA DOBLE
+  // 1️⃣ Obtener jornadas confirmadas ordenadas
+  const confirmedJornadas = mergedJornadas
+    .map(j => ({
+      num: parseJNum(j.name),
+      status: (j.status || '').toLowerCase()
+    }))
+    .filter(j => j.num > 0 && j.status.includes('confirmad'))
+    .sort((a, b) => a.num - b.num);
+
+  if (confirmedJornadas.length === 0) {
+    return {
+      effectiveJornada: maxJFromMatches || 1,
+      pendingsByJornada: pendings,
+      jornadasConfirmadasForDropdown: [],
+      allJornadasChronological: []
+    };
+  }
+
+  // 2️⃣ Detectar última jornada confirmada
+  const lastConfirmedNum = confirmedJornadas[confirmedJornadas.length - 1].num;
+
+  confirmedJornadas.forEach(j => {
+    const jNum = j.num;
+    const matches = matchesByJornada[jNum] || [];
+
+    // Contar pendientes (solo para mostrar en UI)
+    let pendingCount = 0;
+    let allFinished = true;
+
+    matches.forEach(m => {
+      const st = (m.status || '').toLowerCase();
+
+      if (st !== 'finalizado' && st !== 'completado' && st !== 'jugado' && st !== 'terminado') {
+        allFinished = false;
+      }
+
+      if (st === 'pendiente' && m.team1_id && m.team2_id) {
+        pendingCount++;
+      }
+    });
+
+    // 3️⃣ Si es la última confirmada pero NO todos finalizados → excluir
+    if (jNum === lastConfirmedNum && !allFinished) {
+      return;
+    }
+
+    confirmedList.push({
+      num: jNum,
+      pendientes: pendingCount
+    });
+  });
+}
+
+confirmedList.sort((a, b) => a.num - b.num);
+
+    // 5) Cronological list (ALL jornadas detected either from mergedJornadas or from matches)
+    const cronSet = new Set();
+    if (Array.isArray(mergedJornadas)) {
+      mergedJornadas.forEach(j => {
+        if (torneo?.id && j.tournament_id && Number(j.tournament_id) !== Number(torneo.id)) return;
+        const n = parseJNum(j.name);
+        if (n > 0) cronSet.add(n);
+      });
+    }
+    Object.keys(matchesByJornada).forEach(k => {
+      const n = Number(k);
+      if (n > 0) cronSet.add(n);
+    });
+    // create sorted array with pendings count
+    const chrono = Array.from(cronSet).map(n => ({ num: n, pendientes: pendings[n] || 0 })).sort((a,b)=>a.num-b.num);
+
+    // 6) Decide effective jornada:
+    // prefer maxConfirmed (from mergedJornadas or matches' joined jornada status)
+    // if none, fallback to maxJFromMatches (last jornada with any match)
+    // final fallback: 1
+    const effective = (maxConfirmed && maxConfirmed > 0) ? maxConfirmed : (maxJFromMatches || 1);
+
+    return {
+      effectiveJornada: effective,
+      pendingsByJornada: pendings,
+      jornadasConfirmadasForDropdown: confirmedList,
+      allJornadasChronological: chrono
+    };
+  }, [relevantMatches, mergedJornadas, torneo?.id]);
+
+  // 2. TABLA: construye tabla usando SOLO partidos con status 'pendiente' para contador PND
   const tablaGeneral = useMemo(() => {
-
     const buildTableUpTo = (limitJornada, limitPendientes) => {
       const statsMap = {};
       uniqueEquipos.forEach(eq => {
         statsMap[eq.id] = { pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0, partidosPendientes: 0 };
       });
 
-      partidos.forEach(partido => {
-        const jNum = partido.jornadas ? parseInt(partido.jornadas.name.replace(/\D/g, ''), 10) : 0;
-        
+      relevantMatches.forEach(partido => {
+        const name = partido.jornadas?.name || partido.jornada?.name || '';
+        let matchDigits = ('' + name).match(/\d+/);
+        let jNum = matchDigits ? parseInt(matchDigits[0], 10) : 0;
+
+        if (jNum === 0 && partido.jornada_id && Array.isArray(mergedJornadas)) {
+          const jObj = mergedJornadas.find(x => Number(x.id) === Number(partido.jornada_id));
+          if (jObj) {
+            const jm = ('' + (jObj.name || '')).match(/\d+/);
+            if (jm) jNum = parseInt(jm[0], 10);
+          }
+        }
         if (jNum <= 0 || jNum > limitJornada) return;
 
         const localId = partido.team1_id;
@@ -157,23 +324,25 @@ export const TorneosStandingsTab = ({
         if (!local || !visitante) return;
 
         const statusLower = (partido.status || '').toLowerCase();
-        const isPlayed = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
-        const isPendiente = statusLower === 'pendiente';
+        const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
         
-        const hasResult = partido.goals1 != null && partido.goals2 != null;
+        const golesLocal = parseInt(partido.goals1, 10);
+        const golesVisitante = parseInt(partido.goals2, 10);
+        const hasValidResult = !isNaN(golesLocal) && !isNaN(golesVisitante);
+        
+        const isCancelled = ['cancelado', 'anulado'].includes(statusLower);
+        const isDescanso = ['descanso'].includes(statusLower);
 
-        if (isPendiente && jNum <= limitPendientes) {
+        const isPlayed = isFinished && hasValidResult;
+
+        // PND: SOLO cuenta si status === 'pendiente' (y jornada dentro del límite)
+        if (statusLower === 'pendiente' && jNum <= limitPendientes && !isCancelled && !isDescanso) {
           local.partidosPendientes += 1;
           visitante.partidosPendientes += 1;
           return;
         }
 
-        if (!isPlayed || !hasResult) return;
-
-        const golesLocal = parseInt(partido.goals1, 10);
-        const golesVisitante = parseInt(partido.goals2, 10);
-
-        if (isNaN(golesLocal) || isNaN(golesVisitante)) return;
+        if (!isPlayed) return;
 
         local.pj += 1; visitante.pj += 1;
         local.gf += golesLocal; visitante.gf += golesVisitante;
@@ -213,14 +382,14 @@ export const TorneosStandingsTab = ({
       });
 
       const data = uniqueEquipos.map((equipo) => {
-        const stats = statsMap[equipo.id];
+        const stats = statsMap[equipo.id] || { pj:0, g:0, e:0, p:0, gf:0, gc:0, dg:0, pts:0, partidosPendientes:0 };
         return {
           id: equipo.id,
           nombre: equipo.name || equipo.nombre,
           logo: equipo.logo_url || equipo.img,
-          color: equipo.color, // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA!
+          color: equipo.color, 
           ...stats,
-          dg: stats.gf - stats.gc
+          dg: (stats.gf || 0) - (stats.gc || 0)
         };
       });
 
@@ -236,14 +405,14 @@ export const TorneosStandingsTab = ({
     let limitPendientes = 0;
 
     if (selectedJornadaView === 'recent') {
-      limitCurrent = 9999; 
+      limitCurrent = effectiveJornada; 
       limitPendientes = effectiveJornada; 
     } else {
       limitCurrent = parseInt(selectedJornadaView, 10);
       limitPendientes = limitCurrent; 
     }
 
-    const prevLimit = limitCurrent === 9999 ? (effectiveJornada - 1) : (limitCurrent - 1);
+    const prevLimit = limitCurrent - 1;
 
     const prevTable = buildTableUpTo(prevLimit, prevLimit);
     const prevRanks = {};
@@ -271,54 +440,44 @@ export const TorneosStandingsTab = ({
       return { ...eq, tendencia, posDiff };
     });
 
-  }, [uniqueEquipos, selectedJornadaView, effectiveJornada, partidos, config]);
+  }, [uniqueEquipos, selectedJornadaView, effectiveJornada, relevantMatches, config, mergedJornadas]);
 
-  // 4. TEXTO INTELIGENTE DE LA JORNADA ACTIVA
+  // Texto de la jornada (usa solo pendientes con status 'Pendiente')
   const activeJornadaName = useMemo(() => {
-    if (!partidos || partidos.length === 0) return 'Sin iniciar';
+    if ((!relevantMatches || relevantMatches.length === 0) && (!mergedJornadas || mergedJornadas.length === 0)) return 'Sin iniciar';
+    if (effectiveJornada === 0) return 'Sin iniciar';
     
     if (selectedJornadaView === 'recent') {
-      if (effectiveJornada === 0) return 'Vista Actual';
+        let totalPendientes = 0;
+        relevantMatches.forEach(m => {
+            const name = m.jornadas?.name || m.jornada?.name || '';
+            const matchDigits = ('' + name).match(/\d+/);
+            const jNum = matchDigits ? parseInt(matchDigits[0], 10) : 0;
 
-      let totalPendientes = 0;
-      let totalPorConfirmar = 0;
+            if (jNum > 0 && jNum <= effectiveJornada && m.team1_id && m.team2_id) {
+                const statusLower = (m.status || '').toLowerCase();
+                if (statusLower === 'pendiente') totalPendientes++;
+            }
+        });
 
-      partidos.forEach(m => {
-        if (!m.team1_id || !m.team2_id) return; 
-        const jNum = m.jornadas ? parseInt(m.jornadas.name.replace(/\D/g, ''), 10) : 0;
-        
-        if (jNum > 0 && jNum <= effectiveJornada) {
-          const statusLower = (m.status || '').toLowerCase();
-          const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
-          const isPendiente = statusLower === 'pendiente';
-          const hasResult = m.goals1 != null && m.goals2 != null;
-
-          if (isPendiente) {
-            totalPendientes++;
-          } else if (!isFinished || !hasResult) {
-            totalPorConfirmar++;
-          }
-        }
-      });
-
-      let extras = [];
-      if (totalPendientes > 0) extras.push(`${totalPendientes} pendiente${totalPendientes !== 1 ? 's' : ''}`);
-      if (totalPorConfirmar > 0) extras.push(`${totalPorConfirmar} por confirmar`);
-
-      const suffix = extras.length > 0 ? ` (${extras.join(', ')})` : '';
-      return `Jornada ${effectiveJornada}${suffix}`; 
-
-    } else {
-      const targetJornada = historialJornadas.find(j => String(j.num) === String(selectedJornadaView));
-      if (targetJornada) {
-        const suffix = targetJornada.pendingCount > 0 
-          ? ` (con ${targetJornada.pendingCount} pendiente${targetJornada.pendingCount > 1 ? 's' : ''})` 
+        const suffix = totalPendientes > 0 
+          ? ` (con ${totalPendientes} pendiente${totalPendientes > 1 ? 's' : ''})` 
           : '';
-        return `Jornada ${targetJornada.num}${suffix}`;
-      }
-      return 'Vista Actual';
+        return `Jornada ${effectiveJornada}${suffix}`; 
+    } else {
+        const sel = parseInt(selectedJornadaView, 10);
+        if (isNaN(sel)) return `Jornada ${effectiveJornada}`;
+        let pend = 0;
+        relevantMatches.forEach(m => {
+          const name = m.jornadas?.name || m.jornada?.name || '';
+          const matchDigits = ('' + name).match(/\d+/);
+          const jNum = matchDigits ? parseInt(matchDigits[0], 10) : 0;
+          if (jNum === sel && (m.status || '').toLowerCase() === 'pendiente') pend++;
+        });
+        const suffix = pend > 0 ? ` (con ${pend} pendiente${pend>1?'s':''})` : ' (Completada)';
+        return `Jornada ${sel}${suffix}`;
     }
-  }, [selectedJornadaView, historialJornadas, partidos, effectiveJornada]);
+  }, [selectedJornadaView, effectiveJornada, relevantMatches, mergedJornadas]);
 
   const handleTogglePublic = async () => {
     if (updating) return;
@@ -351,6 +510,34 @@ export const TorneosStandingsTab = ({
     });
   };
 
+// ===== SKELETON ESTABLE DEFINITIVO =====
+const [showSkeleton, setShowSkeleton] = useState(true);
+const skeletonLockedRef = React.useRef(false);
+
+useEffect(() => {
+
+  // Si ya se ocultó una vez, nunca volver a mostrar
+  if (skeletonLockedRef.current) return;
+
+  // Esperar hasta que exista jornada válida
+  const jornadaLista =
+    effectiveJornada &&
+    effectiveJornada > 0 &&
+    tablaGeneral &&
+    tablaGeneral.length > 0;
+
+  if (!jornadaLista) return;
+
+  // Anti-flicker (oculta suave)
+  const t = setTimeout(() => {
+    setShowSkeleton(false);
+    skeletonLockedRef.current = true; // 🔒 nunca vuelve
+  }, 220);
+
+  return () => clearTimeout(t);
+
+}, [effectiveJornada, tablaGeneral]);
+
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
       {!isPublic && (
@@ -362,26 +549,20 @@ export const TorneosStandingsTab = ({
                 </span>
             </ToggleContainer>
 
-            {historialJornadas.length > 0 && (
-                <SelectJornada
-                  value={selectedJornadaView}
-                  onChange={(e) => setSelectedJornadaView(e.target.value)}
-                >
-                  <option value="recent">Vista Actual</option>
-                  <optgroup label="Historial de Jornadas">
-                    {historialJornadas.map(j => {
-                      const suffix = j.pendingCount > 0 
-                        ? ` (con ${j.pendingCount} pendiente${j.pendingCount > 1 ? 's' : ''})` 
-                        : '';
-                      return (
-                        <option key={j.num} value={j.num}>
-                          Jornada {j.num}{suffix}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-                </SelectJornada>
-            )}
+            <div style={{ width: '280px' }}>
+              {showSkeleton ? (
+                <Skeleton width="100%" height="36px" radius="8px" />
+              ) : (
+                <SelectorWrapper>
+                  <StandingsJornadaSelector 
+                    selected={selectedJornadaView}
+                    onChange={setSelectedJornadaView}
+                    effectiveJornada={effectiveJornada}
+                    jornadasOptions={jornadasConfirmadasForDropdown}
+                  />
+                </SelectorWrapper>
+              )}
+            </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
                 <ShareButton onClick={() => setShowExportModal(true)} title="Exportar Tabla">
@@ -403,7 +584,7 @@ export const TorneosStandingsTab = ({
         tablaGeneral={tablaGeneral} 
         config={config} 
         isPublic={isPublic} 
-        isLoading={isLoading} 
+        isLoading={showSkeleton} 
       />
 
       <StandingsExportModal
@@ -418,29 +599,7 @@ export const TorneosStandingsTab = ({
   );
 };
 
-const SelectJornada = styled.select`
-  background-color: ${({ theme }) => theme.bg2};
-  color: ${({ theme }) => theme.text};
-  border: 1px solid ${({ theme }) => theme.color2};
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  outline: none;
-  cursor: pointer;
-  flex-shrink: 1;
-  max-width: 250px;
-  transition: all 0.3s ease;
-  text-overflow: ellipsis;
-
-  &:focus { border-color: ${v.primary}; }
-  
-  @media (max-width: 600px) {
-    max-width: 140px;
-    font-size: 0.75rem;
-  }
-`;
-
+/* ---------- estilos (sin cambios relevantes) ---------- */
 const ControlPanel = styled.div`
   display: flex;
   justify-content: space-between;
@@ -455,6 +614,11 @@ const ControlPanel = styled.div`
   box-shadow: ${v.boxshadowGray};
   flex-wrap: wrap; 
   gap: 10px;
+`;
+
+const SelectorWrapper = styled.div`
+  max-width: 320px;
+  width: 100%;
 `;
 
 const ToggleContainer = styled.div`

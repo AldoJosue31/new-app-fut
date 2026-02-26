@@ -5,33 +5,30 @@ import { v } from '../../../../styles/variables';
 export const StandingsJornadaSelector = ({ 
   selected, 
   onChange, 
-  current, 
-  lastConfirmed, 
-  jornadas 
+  effectiveJornada,
+  jornadasOptions = [] // [{ num: 1, pendientes: 0 }, ...]
 }) => {
-  if (!jornadas || jornadas.length === 0) return null;
+  // Si no hay jornadas para dropdown, solo muestra la vista actual
+  const options = Array.isArray(jornadasOptions) ? jornadasOptions : [];
 
   return (
     <SelectorContainer>
-      <TitleBlock>
-        <h4>Tabla General</h4>
-        <p>Filtrar por jornada</p>
-      </TitleBlock>
-      
       <SelectWrapper>
         <StyledSelect
           value={selected}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="recent">Lo más reciente (Jornada {current})</option>
-          {lastConfirmed && (
-             <option value="confirmed">Última confirmada (Jornada {lastConfirmed})</option>
+          <option value="recent">Vista Actual (J. {effectiveJornada})</option>
+
+          {options.length > 0 && (
+            <optgroup label="Historial (Confirmadas)">
+              {options.map(j => (
+                <option key={j.num} value={j.num}>
+                  {`Jornada ${j.num}${j.pendientes && j.pendientes > 0 ? ` (con ${j.pendientes} pendientes)` : ''}`}
+                </option>
+              ))}
+            </optgroup>
           )}
-          <optgroup label="Histórico de Jornadas">
-            {jornadas.map(j => (
-              <option key={j} value={j}>Jornada {j}</option>
-            ))}
-          </optgroup>
         </StyledSelect>
       </SelectWrapper>
     </SelectorContainer>
@@ -40,29 +37,15 @@ export const StandingsJornadaSelector = ({
 
 const SelectorContainer = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 98%;
-  max-width: 900px;
-  margin: 0 auto 15px auto;
-  background: ${({ theme }) => theme.bg};
-  padding: 12px 20px;
-  border-radius: 12px;
-  border: 1px solid ${({ theme }) => theme.color2};
-  box-shadow: ${v.boxshadowGray};
-  gap: 10px;
-  flex-wrap: wrap;
-`;
-
-const TitleBlock = styled.div`
-  h4 { margin: 0; font-size: 1rem; color: ${({ theme }) => theme.text}; font-weight: 700; }
-  p { margin: 0; font-size: 0.75rem; color: ${({ theme }) => theme.text}80; }
+  flex-grow: 1;
+  justify-content: center;
 `;
 
 const SelectWrapper = styled.div`
-  flex-grow: 1;
-  max-width: 300px;
-  min-width: 200px;
+  max-width: 280px;
+  min-width: 150px;
+  width: 100%;
 `;
 
 const StyledSelect = styled.select`
@@ -72,9 +55,17 @@ const StyledSelect = styled.select`
   border: 1px solid ${({ theme }) => theme.color2};
   background-color: ${({ theme }) => theme.bg2};
   color: ${({ theme }) => theme.text};
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
+  transition: all 0.3s ease;
+  text-overflow: ellipsis;
+
   &:focus { border-color: ${v.primary}; }
+
+  @media (max-width: 600px) {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+  }
 `;
