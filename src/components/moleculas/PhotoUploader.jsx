@@ -68,18 +68,15 @@ export const PhotoUploader = memo(function PhotoUploader({
     setIsCropping(true); 
   };
 
-  // --- CORRECCIÓN CRÍTICA AQUÍ ---
   const handleManualAdjust = async (e) => {
     e.preventDefault(); 
     e.stopPropagation();
 
-    // 1. Si ya tenemos el archivo en memoria (recién subido), úsalo
     if (originalFile) {
       startCropper(URL.createObjectURL(originalFile));
       return;
     }
 
-    // 2. Intentar descargar la original desde la URL
     if (originalUrl) {
       try {
         setIsLoadingOriginal(true);
@@ -94,7 +91,6 @@ export const PhotoUploader = memo(function PhotoUploader({
       } catch (error) {
         console.warn("Fallo carga de original, intentando preview...", error);
         
-        // Fallback: Si falla la original, intentamos con la previewUrl
         if (previewUrl) {
             try {
                 const resPreview = await fetch(previewUrl);
@@ -119,9 +115,7 @@ export const PhotoUploader = memo(function PhotoUploader({
       return;
     }
     
-    // 3. Fallback final si solo hay previewUrl y no originalUrl
     if (previewUrl) {
-         // (Misma lógica de fallback que arriba)
          try {
             setIsLoadingOriginal(true);
             const res = await fetch(previewUrl);
@@ -147,6 +141,7 @@ export const PhotoUploader = memo(function PhotoUploader({
     const canvas = canvasRef.current;
     
     canvas.toBlob((blob) => {
+      // Exportamos siempre como PNG para asegurar canal Alpha (Transparencia)
       const newCroppedFile = new File([blob], "crop.png", { type: "image/png" });
       const newPreviewUrl = URL.createObjectURL(blob);
       
@@ -156,7 +151,7 @@ export const PhotoUploader = memo(function PhotoUploader({
       
       setIsCropping(false);
       setTempImgSrc(null);
-    }, 'image/png', 0.95);
+    }, 'image/png', 1.0); // Calidad 1.0 ya que de la compresión se encarga uploadHandler
   };
 
   const handleRemoveBgInside = async () => {
@@ -201,15 +196,9 @@ export const PhotoUploader = memo(function PhotoUploader({
                const canvas = canvasRef.current;
                const ctx = canvas.getContext("2d");
                const size = 400; canvas.width = size; canvas.height = size;
-               ctx.clearRect(0,0,size,size);
                
-               const gridSize = 20;
-               for(let i=0; i<size; i+=gridSize) {
-                  for(let j=0; j<size; j+=gridSize) {
-                      ctx.fillStyle = (i/gridSize + j/gridSize) % 2 === 0 ? '#eee' : '#fff';
-                      ctx.fillRect(i,j,gridSize,gridSize);
-                  }
-               }
+               // Limpiamos el canvas dejándolo 100% transparente
+               ctx.clearRect(0, 0, size, size);
   
                const scaleBase = Math.max(size/img.width, size/img.height);
                const currentScale = scaleBase * zoom;
@@ -416,10 +405,21 @@ const CropModalOverlay = styled.div`
     width: 300px;
     height: 300px;
     position: relative;
-    background: #333;
     border-radius: 8px;
     overflow: hidden;
     cursor: grab;
+    
+    /* SOLUCIÓN: El fondo cuadriculado se aplica aquí en CSS, de modo que 
+       visualmente sirve de guía pero el Canvas encima es verdaderamente transparente */
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #eee 25%, transparent 25%),
+      linear-gradient(-45deg, #eee 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #eee 75%),
+      linear-gradient(-45deg, transparent 75%, #eee 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+
     &:active { cursor: grabbing; }
     canvas { width: 100%; height: 100%; }
     .mask { position: absolute; inset: 0; pointer-events: none; border: 2px solid rgba(255,255,255,0.5); &.circle { border-radius: 50%; } }

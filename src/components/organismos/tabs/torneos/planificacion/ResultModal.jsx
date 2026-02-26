@@ -10,6 +10,8 @@ import {
   RiFileList3Line, RiNumbersLine, RiCalendarEventLine, RiTimeLine, RiStickyNoteLine
 } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
+// Importación del logo dinámico
+import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
 
 // ==========================================
 // SUB-COMPONENTES (Modularización Interna)
@@ -62,10 +64,19 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
     );
 });
 
+// ScoreHeader actualizado con DynamicTeamLogo y colores de equipo
 const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate, displayTime }) => (
     <ScoreHeaderContainer>
         <TeamInfo>
-            <img src={match.local?.logo_url || v.iconofotovacia} alt="L" />
+            {match.local?.logo_url ? (
+                <img src={match.local.logo_url} alt="L" />
+            ) : (
+                <DynamicTeamLogo 
+                    name={match.local?.name || "Local"} 
+                    color={match.local?.color || "#000000"} 
+                    size="45px" 
+                />
+            )}
             <h3>{match.local?.name}</h3>
             <span className="score">{goalsLocal}</span>
         </TeamInfo>
@@ -77,7 +88,15 @@ const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate,
             </div>
         </div>
         <TeamInfo $alignRight>
-            <img src={match.visitante?.logo_url || v.iconofotovacia} alt="V" />
+            {match.visitante?.logo_url ? (
+                <img src={match.visitante.logo_url} alt="V" />
+            ) : (
+                <DynamicTeamLogo 
+                    name={match.visitante?.name || "Visitante"} 
+                    color={match.visitante?.color || "#000000"} 
+                    size="45px" 
+                />
+            )}
             <h3>{match.visitante?.name}</h3>
             <span className="score">{goalsVisit}</span>
         </TeamInfo>
