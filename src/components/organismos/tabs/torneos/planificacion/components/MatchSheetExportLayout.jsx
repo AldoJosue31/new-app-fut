@@ -3,6 +3,7 @@ import PostMatchDetailsView from './PostMatchDetailsView';
 import { DynamicTeamLogo } from '../../../../equipos/DynamicTeamLogo'; 
 import { useAuthStore } from '../../../../../../store/AuthStore';
 
+// Helpers de formato idénticos a los originales
 const formatDate = (dateString) => {
     if (!dateString) return '';
     try {
@@ -24,11 +25,11 @@ const formatTime = (timeString) => {
     } catch (e) { return timePart; }
 };
 
-const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLineup, matchEvents, themeMode = 'light' }, ref) => {
+const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLineup, matchEvents, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
   const isDark = themeMode === 'dark';
+  const isMobile = layoutMode === 'mobile';
   const { user } = useAuthStore();
   
-  // LOGO DE LA LIGA (Cargado por el usuario)
   const leagueLogo = user?.logo_liga || user?.perfil?.logo_liga || null;
   
   const colors = {
@@ -36,19 +37,19 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
       text: isDark ? '#f1f5f9' : '#0f172a',
       secondaryBg: isDark ? '#1e293b' : '#f8fafc',
       border: isDark ? '#334155' : '#e2e8f0',
-      badgeBg: 'rgba(255, 255, 255, 0.15)',
   };
 
   const homeScore = matchEvents?.goals?.filter(g => g.team === 'home').length || 0;
   const awayScore = matchEvents?.goals?.filter(g => g.team === 'away').length || 0;
   
   const containerStyle = {
-      width: '1240px', 
-      height: '800px', // Altura fija para evitar desbordes en exportación
+      width: isMobile ? '480px' : '1240px', 
+      height: isMobile ? 'auto' : '800px', 
       backgroundColor: colors.bg, 
-      padding: '40px',
+      padding: isMobile ? '20px' : '40px',
       boxSizing: 'border-box',
       display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
       gap: '30px',
       fontFamily: '"Inter", sans-serif',
       color: colors.text, 
@@ -56,10 +57,8 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
 
   return (
     <div ref={ref} style={containerStyle}>
-      <div style={{display: 'flex', gap: '30px', width: '100%', height: '100%'}}>
-
-        {/* --- PANEL IZQUIERDO (MARCADOR) --- */}
-        <div style={{width: '35%', display: 'flex', flexDirection: 'column'}}>
+        {/* --- PANEL IZQUIERDO (MARCADOR ORIGINAL) --- */}
+        <div style={{ width: isMobile ? '100%' : '35%', display: 'flex', flexDirection: 'column' }}>
             <div style={{
                 background: 'linear-gradient(145deg, #1e40af, #3b82f6)',
                 borderRadius: '30px',
@@ -70,7 +69,7 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                 flexDirection: 'column',
                 boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
                 position: 'relative',
-                padding: '40px 30px'
+                padding: isMobile ? '30px 20px' : '40px 30px'
             }}>
                 {/* Logo de la Liga */}
                 {leagueLogo && (
@@ -79,46 +78,50 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                     </div>
                 )}
 
-                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', margin: 0 }}>{match.competitionName || 'Torneo'}</h2>
+                <div style={{ textAlign: 'center', marginBottom: isMobile ? '25px' : '40px' }}>
+                    <h2 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 900, textTransform: 'uppercase', margin: 0 }}>{match.competitionName}</h2>
                     <p style={{ color: '#bfdbfe', fontSize: '14px', marginTop: '5px' }}>{formatDate(match.date)}</p>
                 </div>
 
                 <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        {/* LOCAL */}
                         <div style={{ textAlign: 'center', width: '40%' }}>
-                            <div style={{ width: '90px', height: '90px', background: 'white', borderRadius: '50%', margin: '0 auto 15px', padding: '12px' }}>
+                            <div style={{ width: isMobile ? '70px' : '90px', height: isMobile ? '70px' : '90px', background: 'white', borderRadius: '50%', margin: '0 auto 15px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {match.homeTeam?.logo ? <img src={match.homeTeam.logo} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={match.homeTeam?.name} color={match.homeTeam?.color} size="100%" />}
                             </div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, textTransform: 'uppercase' }}>{match.homeTeam?.name}</h3>
+                            <h3 style={{ fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 800, textTransform: 'uppercase' }}>{match.homeTeam?.name}</h3>
                         </div>
+
                         <div style={{ fontSize: '24px', fontWeight: 900, opacity: 0.5 }}>VS</div>
+
+                        {/* VISITANTE */}
                         <div style={{ textAlign: 'center', width: '40%' }}>
-                            <div style={{ width: '90px', height: '90px', background: 'white', borderRadius: '50%', margin: '0 auto 15px', padding: '12px' }}>
+                            <div style={{ width: isMobile ? '70px' : '90px', height: isMobile ? '70px' : '90px', background: 'white', borderRadius: '50%', margin: '0 auto 15px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {match.awayTeam?.logo ? <img src={match.awayTeam.logo} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={match.awayTeam?.name} color={match.awayTeam?.color} size="100%" />}
                             </div>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, textTransform: 'uppercase' }}>{match.awayTeam?.name}</h3>
+                            <h3 style={{ fontSize: isMobile ? '0.9rem' : '1.1rem', fontWeight: 800, textTransform: 'uppercase' }}>{match.awayTeam?.name}</h3>
                         </div>
                     </div>
 
-                    <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '20px', padding: '20px 40px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '72px', fontWeight: 900, lineHeight: 1 }}>{homeScore} - {awayScore}</div>
+                    <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '20px', padding: isMobile ? '15px 30px' : '20px 40px', textAlign: 'center' }}>
+                        <div style={{ fontSize: isMobile ? '56px' : '72px', fontWeight: 900, lineHeight: 1 }}>{homeScore} - {awayScore}</div>
                         <div style={{ marginTop: '10px', fontSize: '16px', fontWeight: 700 }}>{formatTime(match.time || match.date)}</div>
                     </div>
                 </div>
 
-                <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>📍 {match.stadium || 'Campo Principal'}</span>
+                <div style={{ textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', marginTop: '20px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600 }}>📍 {match.stadium}</span>
                 </div>
             </div>
         </div>
 
         {/* --- PANEL DERECHO (ESTADÍSTICAS) --- */}
         <div style={{
-            width: '65%', 
+            width: isMobile ? '100%' : '65%', 
             backgroundColor: colors.secondaryBg, 
             borderRadius: '30px', 
-            padding: '35px', 
+            padding: isMobile ? '20px' : '35px', 
             border: `1px solid ${colors.border}`, 
             display: 'flex',
             flexDirection: 'column'
@@ -131,7 +134,6 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                 themeMode={themeMode} 
             />
         </div>
-      </div>
     </div>
   );
 });
