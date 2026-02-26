@@ -5,6 +5,8 @@ import { v } from '../../../../styles/variables';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
 import { motion } from 'framer-motion';
 import { BiLock, BiLockOpen } from "react-icons/bi";
+// Importación del logo dinámico
+import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
 
 export const GoleadoresTab = ({
   torneo = {},
@@ -58,7 +60,6 @@ export const GoleadoresTab = ({
     })
   };
 
-  // Motion row wrapped after Tr declaration (ver más abajo)
   return (
     <Container>
       {!isPublic && (
@@ -125,11 +126,20 @@ export const GoleadoresTab = ({
 
                     <Td>
                       <TeamCell>
-                        <img
-                          src={jugador.team_logo || v.logoGenerico}
-                          onError={(e) => { e.currentTarget.src = v.logoGenerico; }}
-                          alt={jugador.team_name}
-                        />
+                        {/* Uso de DynamicTeamLogo con color de equipo extraído del jugador/vista */}
+                        {jugador.team_logo ? (
+                          <img
+                            src={jugador.team_logo}
+                            onError={(e) => { e.currentTarget.src = v.logoGenerico; }}
+                            alt={jugador.team_name}
+                          />
+                        ) : (
+                          <DynamicTeamLogo 
+                            name={jugador.team_name || "Equipo"} 
+                            color={jugador.team_color || "#cccccc"} 
+                            size="24px" 
+                          />
+                        )}
                         <span className="tname">{jugador.team_name}</span>
                       </TeamCell>
                     </Td>
