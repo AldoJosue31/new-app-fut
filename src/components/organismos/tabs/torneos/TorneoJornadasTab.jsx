@@ -94,17 +94,23 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   };
 
-  // AQUÍ VUELVE A SER ESTRICTAMENTE 'Pendiente'
   const fetchGlobalPendingMatches = async () => {
       try {
           const { data, error } = await supabase
             .from('matches')
             .select('*, jornadas!inner(id, name, tournament_id)') 
             .eq('jornadas.tournament_id', activeTournament.id)
-            .eq('status', 'Pendiente'); 
+            .in('status', ['Pendiente', 'Programado']); 
             
           if(error) throw error;
-          setGlobalPendingMatches(data);
+
+          // Se mantiene la busqueda de Programados sin fecha para que la UI 
+          // los detecte de tu base de datos y no se vuelvan invisibles.
+          const realPendingMatches = data.filter(m => 
+              m.status === 'Pendiente' || (m.status === 'Programado' && !m.date)
+          );
+
+          setGlobalPendingMatches(realPendingMatches);
       } catch (error) { console.error("Error fetchGlobalPending:", error); }
   };
 

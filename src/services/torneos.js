@@ -304,7 +304,7 @@ export const iniciarTorneoService = async ({
                         jornada_id: jornadaDB.id,
                         team1_id: match.local.id,
                         team2_id: team2Id,
-                        status: 'Pendiente', // REGLA ESTRICTA APLICADA: Nace como Pendiente en BD
+                        status: 'Programado', // VUELVEN A NACER COMO PROGRAMADO (PERO CON DATE NULL)
                         date: null 
                     });
                 }
@@ -359,7 +359,7 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       jornada_id: idJornadaFutura,
       team1_id: getTeamId(matchHoy.local),
       team2_id: getTeamId(matchHoy.visitante),
-      status: 'Pendiente', // Mantiene la regla estricta
+      status: 'Programado', // TAMBIÉN REGRESA A PROGRAMADO
       date: null 
     };
 
@@ -415,9 +415,9 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const matchesToUpdate = [];
 
     // --- GRUPO 1: PARTIDOS ASIGNADOS (Los que se arrastraron a un horario) ---
-    // A estos SI se les asigna fecha y se guardan como "Programado".
     (jornadaData.matches || []).forEach(m => {
-        const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
+        const originName = m.jornadas?.name || m.originJornada;
+        const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
         const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
         const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
 
@@ -441,27 +441,31 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     });
 
     // --- GRUPO 2: PARTIDOS NO ASIGNADOS (Los que se quedaron en el Sidebar) ---
-    // REGLA ESTRICTA: Sin importar su estado anterior, se SOBREESCRIBEN como 'Pendiente' en BD.
     (jornadaData.allPendingMatches || []).forEach(m => {
-        const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
-        const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
-        const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
+        const originName = m.jornadas?.name || m.originJornada;
+        const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
+        
+        // CONDICIÓN ESTRICTA: Solo tocamos los partidos que pertenecen a ESTA jornada.
+        // Ignoramos completamente los partidos de jornadas futuras o pasadas para no corromper la DB.
+        if (targetJornadaId === currentJornadaId) {
+            const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
+            const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
 
-        const payload = {
-            jornada_id: targetJornadaId,
-            team1_id: t1Id,
-            team2_id: t2Id,
-            status: 'Pendiente', // <--- SOBREESCRITURA FORZADA EN BASE DE DATOS
-            date: null
-        };
+            const payload = {
+                jornada_id: targetJornadaId,
+                team1_id: t1Id,
+                team2_id: t2Id,
+                status: 'Pendiente', // AQUÍ SUCEDE LA MAGIA. Solo estos son "castigados" con Pendiente.
+                date: null
+            };
 
-        const numericId = Number(m.id);
-        if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
-            // Mandamos ACTUALIZAR todos los ID reales que sigan pendientes
-            payload.id = numericId;
-            matchesToUpdate.push(payload);
-        } else if (m.isModified || m.status !== 'Pendiente') {
-            matchesToInsert.push(payload);
+            const numericId = Number(m.id);
+            if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
+                payload.id = numericId;
+                matchesToUpdate.push(payload);
+            } else {
+                matchesToInsert.push(payload);
+            }
         }
     });
 
