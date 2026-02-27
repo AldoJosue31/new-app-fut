@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import { 
-    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine
+    RiCalendarLine, RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiTimeLine
 } from "react-icons/ri";
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
@@ -14,11 +14,12 @@ import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
 import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
-import { ConflictModal } from "./subcomponents/ConflictModal";
+import { ConflictModal } from "./subcomponents/ConflictModal"; 
 import { BatchPrintModal } from "./planificacion/BatchPrintModal";
 import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
-import { EmptyDropZone } from "./planificacion/EmptyDropZone"; // <-- Nuevo componente importado
+import { EmptyDropZone } from "./planificacion/EmptyDropZone"; 
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
+import { ConfirmModal } from "../../ConfirmModal"; 
 
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
@@ -42,7 +43,7 @@ export function JornadaPlanificacion({
       teams, 
       matchesDB, 
       globalPendingMatches, 
-      jornadaData, // <-- Cambiado: Se manda el objeto completo
+      jornadaData, 
       dataVersion,
       jornadas 
   );
@@ -57,6 +58,9 @@ export function JornadaPlanificacion({
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [batchPrintOpen, setBatchPrintOpen] = useState(false);
+
+  const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
+  const [matchToPostpone, setMatchToPostpone] = useState(null); 
 
   const [conflictsFound, setConflictsFound] = useState([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
@@ -80,7 +84,6 @@ export function JornadaPlanificacion({
     setIsDragOver(false);
     if (!draggedMatch || isConfirmed) return;
 
-    // AQUI ESTA LA MAGIA: Forzamos primero la fecha configurada de la jornada, sino la que tengamos en estado
     const baseStartDate = jornadaData?.start_date || weekStartDate;
     const finalDate = targetDate || baseStartDate;
     
@@ -97,13 +100,7 @@ export function JornadaPlanificacion({
         }
     } 
 
-    const newMatch = { 
-        ...draggedMatch, 
-        time: nextTime, 
-        date: finalDate, 
-        status: 'Programado', 
-        isModified: true 
-    };
+    const newMatch = { ...draggedMatch, time: nextTime, date: finalDate, status: 'Programado', isModified: true };
 
     const newList = [...scheduledMatches, newMatch];
     setScheduledMatches(autoAdjustTimes(newList, finalDate));
@@ -153,7 +150,6 @@ export function JornadaPlanificacion({
                 matches: scheduledMatches, 
                 allPendingMatches: allPendingMatches 
             }));
-
             clearDraft();
             setToast({ show: true, msg: 'Jornada confirmada correctamente', type: 'success' });
         } catch (serverErr) {
@@ -247,11 +243,10 @@ export function JornadaPlanificacion({
                             onDrop={(e) => handleDrop(e, null)} 
                             $isOver={isDragOver}
                         >
-{sortedMatches.length === 0 ? ( 
-                                /* AQUÍ LE PASAMOS isDragOver */
+                            {sortedMatches.length === 0 ? ( 
                                 <EmptyDropZone isConfirmed={isConfirmed} isDragOver={isDragOver} />
                             ) : (
-    <GridList>
+                                <GridList>
                                     {sortedMatches.map((match, idx, arr) => {
                                             const prevMatch = arr[idx - 1];
                                             const nextMatch = arr[idx + 1];
@@ -276,7 +271,7 @@ export function JornadaPlanificacion({
                                                         setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
                                                     }} 
                                                     onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
-                                                    onPostpone={(m) => onMatchUpdate?.(m.id, { status: 'Pendiente', date: null })} 
+                                                    onPostpone={(m) => setMatchToPostpone(m)} 
                                                   />
                                                   {isLastOfDate && (
                                                       <DaySeparatorDropZone 
@@ -292,13 +287,7 @@ export function JornadaPlanificacion({
                             )}
                         </DropZone>
                     ) : ( 
-                        <WeeklyGridView 
-                            weekStartDate={weekStartDate} 
-                            scheduledMatches={scheduledMatches} 
-                            externalMatches={externalMatches} 
-                            divisionActual={activeTournament?.division?.name || activeTournament?.divisions?.name} 
-                            isConfirmed={isConfirmed} 
-                        /> 
+                        <WeeklyGridView weekStartDate={weekStartDate} scheduledMatches={scheduledMatches} externalMatches={externalMatches} divisionActual={activeTournament?.division?.name || activeTournament?.divisions?.name} isConfirmed={isConfirmed} /> 
                     )}
                 </MainZone>
             </Workspace>
@@ -308,7 +297,7 @@ export function JornadaPlanificacion({
             {!isConfirmed && ( 
                 <Btnsave 
                     titulo={isCheckingConflicts ? "Verificando..." : "Confirmar Jornada"} 
-                    funcion={handleConfirmJornada} 
+                    funcion={() => setConfirmJornadaModalOpen(true)} 
                     icono={!isCheckingConflicts && <RiCheckDoubleLine/>} 
                     bgcolor={canConfirm && !isCheckingConflicts ? v.colorPrincipal : '#95a5a6'} 
                 /> 
@@ -318,76 +307,101 @@ export function JornadaPlanificacion({
         <TournamentConfigModal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} activeTournament={activeTournament} onSave={onSaveConfig} isVueltasLocked={isVueltasLocked} isStartDateLocked={isFirstJornadaConfirmed} />
         <ResultModal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} match={selectedMatchResult} activeTournament={activeTournament} onSave={async (id, updates) => await onMatchUpdate?.(id, updates)} />
         <ConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} conflicts={conflictsFound} />
-        
-        <BatchPrintModal 
-            isOpen={batchPrintOpen} 
-            onClose={() => setBatchPrintOpen(false)} 
-            matchesToPrint={matchesWithoutResult}
+        <BatchPrintModal isOpen={batchPrintOpen} onClose={() => setBatchPrintOpen(false)} matchesToPrint={matchesWithoutResult} />
+
+        {/* MODAL DE CONFIRMAR JORNADA CON ESTADÍSTICAS */}
+        <ConfirmModal 
+            isOpen={confirmJornadaModalOpen}
+            onClose={() => setConfirmJornadaModalOpen(false)}
+            onConfirm={() => {
+                setConfirmJornadaModalOpen(false);
+                handleConfirmJornada(); 
+            }}
+            title="Confirmar Jornada"
+            message="¿Estás seguro de confirmar y publicar esta jornada?"
+            confirmText="Publicar Jornada"
+            confirmColor={v.colorPrincipal}
+            confirmIcon={<RiCheckDoubleLine />}
+            thinButtons={true} 
+        >
+            <StatsContainer>
+                <StatBox $color="#2ecc71">
+                    <span className="num">{scheduledMatches.length}</span>
+                    <span className="lbl">A Confirmar</span>
+                </StatBox>
+                <StatBox $color="#95a5a6">
+                    <span className="num">{sidebarMatches.length}</span>
+                    <span className="lbl">Pendientes</span>
+                </StatBox>
+            </StatsContainer>
+        </ConfirmModal>
+
+        {/* MODAL DE APLAZAR PARTIDO */}
+        <ConfirmModal 
+            isOpen={!!matchToPostpone}
+            onClose={() => setMatchToPostpone(null)}
+            onConfirm={async () => {
+                if (matchToPostpone) {
+                    await onMatchUpdate?.(matchToPostpone.id, { status: 'Pendiente', date: null });
+                    setMatchToPostpone(null);
+                }
+            }}
+            title="Aplazar Partido"
+            message="¿Deseas aplazar este partido?"
+            subMessage={matchToPostpone ? `${matchToPostpone.local?.name || 'Local'} VS ${matchToPostpone.visitante?.name || 'Visitante'} regresará a la lista de pendientes.` : ''}
+            confirmText="Aplazar"
+            confirmColor="#f1c40f"
+            confirmIcon={<RiTimeLine />}
+            thinButtons={true} 
         />
     </Container>
   );
 }
-const Container = styled.div` 
-    display: flex; flex-direction: column; gap: 10px; width: 100%; 
-    /* Quitamos el calc() y dejamos que flexbox tome todo el alto disponible del padre */
-    flex: 1;
-    height: 100%;
-    min-height: 0;
-`;
 
-const TransitionWrapper = styled.div` 
-    animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; 
-    width: 100%; flex: 1; display: flex; flex-direction: column; 
-    min-height: 0; 
-`;
-
-const Workspace = styled.div` 
-    display: flex; gap: 15px; flex: 1; min-height: 0; 
-    @media(max-width: 768px){ 
-        flex-direction: column; 
-    } 
-`;
-
-const MainZone = styled.div` 
-    flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; 
-`;
-
-const DropZone = styled.div` 
-    flex: 1; 
-    background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; 
-    border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; 
-    border-radius: 10px; 
-    padding: 10px; 
-    overflow-y: auto; 
-    position: relative; transition: all 0.3s ease; 
-    
-    @media (min-width: 768px) { padding: 15px; }
-`;
-
-const GridList = styled.div` 
-    display: flex; flex-direction: column; gap: 8px; 
-    /* Reducimos este padding para que el último partido no deje tanto hueco al hacer scroll */
-    padding-bottom: 5px; 
-`;
-
-const Footer = styled.div` 
-    display: flex; justify-content: space-between; align-items: center; 
-    /* Quitamos padding extra abajo para que quede al ras del contenedor */
-    padding: 5px 0 0 0; 
-    flex-shrink: 0; 
-    gap: 10px;
-    
-    @media(max-width: 768px){
-        flex-direction: column;
-        align-items: stretch;
-        .note { text-align: center; }
-    }
-    
-    .note { 
-        font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; 
-        background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; 
-    } 
-`;
-
+// --- ESTILOS PRINCIPALES ---
+const Container = styled.div` display: flex; flex-direction: column; gap: 10px; width: 100%; flex: 1; height: 100%; min-height: 0; `;
+const TransitionWrapper = styled.div` animation: ${keyframes` from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } `} 0.4s both; width: 100%; flex: 1; display: flex; flex-direction: column; min-height: 0; `;
+const Workspace = styled.div` display: flex; gap: 15px; flex: 1; min-height: 0; @media(max-width: 768px){ flex-direction: column; } `;
+const MainZone = styled.div` flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; `;
+const DropZone = styled.div` flex: 1; background: ${({theme, $isOver})=> $isOver ? theme.bg4+'40' : theme.bgcards}; border: 2px dashed ${({theme, $isOver})=> $isOver ? v.colorPrincipal : theme.bg4}; border-radius: 10px; padding: 10px; overflow-y: auto; position: relative; transition: all 0.3s ease; @media (min-width: 768px) { padding: 15px; }`;
+const GridList = styled.div` display: flex; flex-direction: column; gap: 8px; padding-bottom: 5px; `;
+const Footer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 5px 0 0 0; flex-shrink: 0; gap: 10px; @media(max-width: 768px){ flex-direction: column; align-items: stretch; .note { text-align: center; } } .note { font-size: 0.8rem; font-weight: 700; color: ${v.colorPrincipal}; background: ${v.colorPrincipal}15; padding: 8px 12px; border-radius: 8px; } `;
 const ControlsBar = styled.div` display: flex; align-items: center; gap: 15px; padding: 0 5px; animation: ${keyframes`from{opacity:0}to{opacity:1}`} 0.3s ease; .info-text { font-size: 0.85rem; color: ${({theme})=>theme.text}; opacity: 0.7; font-style: italic; } `;
 const GhostButton = styled.button` display: flex; align-items: center; gap: 8px; background: ${({ $active, theme }) => $active ? theme.bgtotal : theme.bgcards}; color: ${({ $active, theme }) => $active ? v.colorPrincipal : theme.text}; border: 1px solid ${({ $active, theme }) => $active ? v.colorPrincipal : theme.bg4}; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); &:hover { transform: translateY(-1px); border-color: ${v.colorPrincipal}; color: ${v.colorPrincipal}; } .spinner { animation: ${keyframes`0%{opacity:0} 50%{opacity:1} 100%{opacity:0}`} 1s infinite; }`;
+
+const StatsContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 10px;
+    width: 100%;
+`;
+
+const StatBox = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: ${({theme}) => theme.bg3};
+    padding: 15px 20px;
+    border-radius: 12px;
+    border: 2px solid ${({$color}) => $color}40;
+    min-width: 130px;
+
+    .num {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: ${({$color}) => $color};
+        line-height: 1;
+        margin-bottom: 5px;
+    }
+
+    .lbl {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: ${({theme}) => theme.text};
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.8;
+    }
+`;

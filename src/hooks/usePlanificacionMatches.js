@@ -8,7 +8,7 @@ export const usePlanificacionMatches = (
     teams, 
     matchesDB, 
     globalPendingMatches,
-    jornadaData, // Cambiado: Ahora recibe el objeto jornadaData completo
+    jornadaData, 
     dataVersion = 0,
     jornadasList = [] 
 ) => {
@@ -50,7 +50,6 @@ export const usePlanificacionMatches = (
       return `tournament_dates_${activeTournament.id}`;
   }, [activeTournament?.id]);
 
-  // Recuperar fechas guardadas
   useEffect(() => {
       if (datesStorageKey) {
           const savedDates = localStorage.getItem(datesStorageKey);
@@ -63,7 +62,6 @@ export const usePlanificacionMatches = (
       }
   }, [datesStorageKey, activeTournament]);
 
-  // Sincronizar fecha de la semana: PRIMERO busca en jornadaData, LUEGO en local
   useEffect(() => {
       if (jornadaData?.start_date) {
           setWeekStartDate(jornadaData.start_date);
@@ -94,7 +92,6 @@ export const usePlanificacionMatches = (
       });
   };
 
-  // --- CARGA EXTERNA ---
   const fetchExternalMatches = useCallback(async (startDateToCheck) => {
       if (!activeTournament?.id) return [];
       
@@ -203,7 +200,8 @@ export const usePlanificacionMatches = (
         visitante: visitTeam,
         date: m.date ? (hasT ? m.date.split('T')[0] : m.date) : null,
         time: m.date ? (hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || activeTournament?.config?.horaInicio || "08:00")) : null,
-        status: m.status,
+        // CORRECCIÓN: Si no tiene fecha, lo procesamos como Pendiente directamente
+        status: (!m.date && m.status === 'Programado') ? 'Pendiente' : m.status,
         goals1: m.goals1,
         goals2: m.goals2,
         referee_id: m.referee_id,

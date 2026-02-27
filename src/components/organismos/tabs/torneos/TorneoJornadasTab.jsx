@@ -8,7 +8,6 @@ import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 
-// Importamos el Skeleton
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
@@ -35,8 +34,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   }, [activeTournament?.id]);
 
   useEffect(() => {
-    // Solo hacemos fetch si NO estamos cargando intencionalmente desde el handler
-    // Esto evita condiciones de carrera, aunque el handler ya limpia el estado.
     if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
       fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
     } else {
@@ -44,17 +41,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   }, [currentJornadaIndex, jornadas]);
 
-  // --- SOLUCIÓN DEL PARPADEO ---
-  // Esta función coordina la limpieza de datos ANTES de cambiar el índice visual.
   const handleChangeJornada = (newIndex) => {
-      // 1. Limpiamos los partidos actuales inmediatamente.
-      // Esto evita que el componente hijo reciba "Jornada 2" con "Partidos de Jornada 1".
       setCurrentMatches([]); 
-      
-      // 2. Activamos el loading para forzar la aparición del Skeleton.
       setLoading(true);
-
-      // 3. Finalmente cambiamos el índice, lo que disparará el useEffect.
       setCurrentJornadaIndex(newIndex);
   };
 
@@ -90,7 +79,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   };
 
   const fetchCurrentJornadaMatches = async (jornadaId) => {
-    // Mantenemos setLoading(true) aquí por seguridad, aunque el handler ya lo activó.
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -102,11 +90,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     } catch (e) { 
         console.error(e);
     } finally { 
-        // Solo quitamos el loading cuando la data NUEVA ya llegó
         setLoading(false); 
     }
   };
 
+  // AQUÍ VUELVE A SER ESTRICTAMENTE 'Pendiente'
   const fetchGlobalPendingMatches = async () => {
       try {
           const { data, error } = await supabase
@@ -114,6 +102,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             .select('*, jornadas!inner(id, name, tournament_id)') 
             .eq('jornadas.tournament_id', activeTournament.id)
             .eq('status', 'Pendiente'); 
+            
           if(error) throw error;
           setGlobalPendingMatches(data);
       } catch (error) { console.error("Error fetchGlobalPending:", error); }
@@ -336,8 +325,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
   
-  // VERIFICACIÓN DE ESTADO PARA MOSTRAR SKELETON
-  // Si loading es true (activado por handleChangeJornada o fetch), mostramos el Skeleton y DESMONTAMOS el componente real.
   if (jornadas.length === 0 || (loading && !isEditorOpen)) {
       return (
         <TabContainer>
@@ -375,10 +362,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             activeTournament={activeTournament} 
             jornadaData={currentJornada}
             onConfirm={handleConfirmJornada} 
-            
-            // USAMOS EL NUEVO HANDLER AQUÍ
             onChangeJornada={handleChangeJornada}
-            
             totalJornadas={jornadas.length} 
             onMatchUpdate={handleMatchUpdate}
             canConfirm={canConfirm} 
@@ -415,6 +399,6 @@ const TabContainer = styled.div`
     max-width: 100vw; 
     box-sizing: border-box; 
     animation: ${fadeIn} 0.5s ease-out;
-    overflow-x: hidden; /* <--- AGREGA ESTO PARA PREVENIR EL DESPLAZAMIENTO LATERAL */
+    overflow-x: hidden; 
 `;
 const EmptyState = styled.div` padding: 40px; text-align: center; opacity: 0.6; `;

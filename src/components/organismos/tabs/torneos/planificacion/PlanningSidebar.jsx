@@ -6,7 +6,6 @@ import { v } from "../../../../../styles/variables";
 import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";
 
 export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornadaIndex }) {
-  // Estado para controlar si los partidos pendientes están expandidos. Empieza en false (contraído)
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
   const { delayed, current } = useMemo(() => {
@@ -47,14 +46,12 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
         <ContainerScroll>
           <div className="list-content">
             
-            {/* Sección de Pendientes con efecto de Hojas Encimadas y Transición Suave */}
             {delayed.length > 0 && (
                 <div className="section-group delayed-group">
                     <StackedHeader 
                         $isOpen={isDelayedExpanded} 
                         onClick={() => setIsDelayedExpanded(!isDelayedExpanded)}
                     >
-                        {/* Hojas de fondo: Se renderizan si hay volumen y se ocultan suavemente al abrir */}
                         {delayed.length >= 3 && <div className="stacked-bg-2"></div>}
                         {delayed.length >= 2 && <div className="stacked-bg-1"></div>}
                         
@@ -69,7 +66,6 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
                         </div>
                     </StackedHeader>
 
-                    {/* Contenedor expandible con transición CSS Grid */}
                     <ExpandedContent $isOpen={isDelayedExpanded}>
                         <div className="content-inner">
                             {delayed.map((match) => (
@@ -91,7 +87,6 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
                 </div>
             )}
 
-            {/* Sección de Jornada Actual */}
             <div className="section-group">
                 {(delayed.length > 0 && current.length > 0) && <span className="section-title">De esta Jornada</span>}
                 
@@ -155,7 +150,6 @@ const SidebarContainer = styled.div`
   @media (max-width: 768px) { width: 100%; height: 300px; }
 `;
 
-// Cabecera que simula las hojas encimadas
 const StackedHeader = styled.div`
   position: relative;
   cursor: pointer;
@@ -166,7 +160,6 @@ const StackedHeader = styled.div`
     transform: translateY(-2px);
   }
 
-  /* Hoja más profunda */
   .stacked-bg-2 {
     position: absolute;
     bottom: -8px;
@@ -183,7 +176,6 @@ const StackedHeader = styled.div`
     pointer-events: none;
   }
 
-  /* Hoja intermedia */
   .stacked-bg-1 {
     position: absolute;
     bottom: -4px;
@@ -200,7 +192,6 @@ const StackedHeader = styled.div`
     pointer-events: none;
   }
 
-  /* Hoja Principal frontal */
   .stacked-card {
     position: relative;
     z-index: 3;
@@ -235,7 +226,6 @@ const StackedHeader = styled.div`
   }
 `;
 
-// Contenedor del contenido que se expande suavemente
 const ExpandedContent = styled.div`
   display: grid;
   grid-template-rows: ${({ $isOpen }) => ($isOpen ? '1fr' : '0fr')};
