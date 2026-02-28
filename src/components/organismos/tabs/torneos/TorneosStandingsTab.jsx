@@ -10,7 +10,7 @@ import StandingsTable from './subcomponents/StandingsTable';
 import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { Skeleton } from '../../../atomos/Skeleton';
 
-// IMPORTAMOS NUESTRO NUEVO CUSTOM HOOK
+// IMPORTAMOS NUESTRO CUSTOM HOOK ACTUALIZADO
 import { useTorneoStandingsLogic } from '../../../../hooks/useTorneoStandingsLogic';
 
 export const TorneosStandingsTab = ({
@@ -61,14 +61,11 @@ export const TorneosStandingsTab = ({
   const [showSkeleton, setShowSkeleton] = useState(true);
 
   useEffect(() => {
-    // Si hay procesos de carga activos, mostramos el skeleton inmediatamente
     if (isDataLoading) {
       setShowSkeleton(true);
       return;
     }
 
-    // Al dejar de cargar, los cálculos ya se hicieron sincrónicamente gracias a useMemo.
-    // Solo dependemos de `isDataLoading`, evitando que los re-renders del padre cancelen esto.
     const timer = setTimeout(() => {
       setShowSkeleton(false);
     }, 300);

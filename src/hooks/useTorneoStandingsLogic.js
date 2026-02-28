@@ -152,20 +152,17 @@ export const useTorneoStandingsLogic = ({
           let allFinished = true;
 
           matches.forEach(m => {
-            const st = (m.status || '').toLowerCase();
+            const st = String(m.status || '').trim().toLowerCase();
             if (!['finalizado', 'completado', 'jugado', 'terminado'].includes(st)) {
               allFinished = false;
             }
 
-            // REGLA ESTRICTA DEL CONTADOR DE PENDIENTES
-            const isPendiente = st === 'pendiente';
-            if (isPendiente && m.team1_id !== null && m.team2_id !== null) {
+            // REGLA ESTRICTA DE PENDIENTES
+            if (st === 'pendiente') {
               pendingCount++;
             }
           });
 
-          // Si es la última jornada confirmada y no ha terminado, se muestra en la "Vista Actual",
-          // así que la excluimos del historial para no duplicarla
           if (jNum === lastConfirmedNum && !allFinished) return;
 
           confirmedList.push({ num: jNum, pendientes: pendingCount });
@@ -184,7 +181,7 @@ export const useTorneoStandingsLogic = ({
 
   // 5. Cálculo maestro de la Tabla General
   const tablaGeneral = useMemo(() => {
-    const buildTableUpTo = (limitJornada, limitPendientes) => {
+    const buildTableUpTo = (limitJornada) => {
       const statsMap = {};
       uniqueEquipos.forEach(eq => {
         statsMap[eq.id] = { pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0, partidosPendientes: 0 };
@@ -199,33 +196,36 @@ export const useTorneoStandingsLogic = ({
           if (jObj) jNum = parseInt(('' + (jObj.name || '')).match(/\d+/)?.[0] || 0, 10);
         }
         
+        // Si el partido pertenece a una jornada mayor al límite seleccionado, lo ignoramos
         if (jNum <= 0 || jNum > limitJornada) return;
 
+        const statusLower = String(partido.status || '').trim().toLowerCase();
         const localId = partido.team1_id;
         const visitanteId = partido.team2_id;
+
+        // --- REGLA ABSOLUTA DE PENDIENTES ---
+        // Si en la BD dice "Pendiente", sumamos a los equipos que existan y saltamos al siguiente.
+        if (statusLower === 'pendiente') {
+           if (localId && statsMap[localId]) statsMap[localId].partidosPendientes += 1;
+           if (visitanteId && statsMap[visitanteId]) statsMap[visitanteId].partidosPendientes += 1;
+           return; 
+        }
+
+        // --- PARTIDOS JUGADOS / FINALIZADOS ---
+        if (!['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower)) return;
+        
+        // Aquí SÍ exigimos que existan los dos equipos para sumar puntos
         if (!localId || !visitanteId) return;
 
         const local = statsMap[localId];
         const visitante = statsMap[visitanteId];
         if (!local || !visitante) return;
 
-        const statusLower = (partido.status || '').toLowerCase();
-        const isFinished = ['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower);
         const golesLocal = parseInt(partido.goals1, 10);
         const golesVisitante = parseInt(partido.goals2, 10);
         const hasValidResult = !isNaN(golesLocal) && !isNaN(golesVisitante);
-        const isCancelled = ['cancelado', 'anulado'].includes(statusLower);
-        const isDescanso = ['descanso'].includes(statusLower);
 
-        // Validar estrictamente pendiente para el contador de la columna PND de la tabla
-        const isPendiente = statusLower === 'pendiente';
-        if (isPendiente && jNum <= limitPendientes && !isCancelled && !isDescanso) {
-          local.partidosPendientes += 1;
-          visitante.partidosPendientes += 1;
-          return;
-        }
-
-        if (!isFinished || !hasValidResult) return;
+        if (!hasValidResult) return;
 
         local.pj += 1; visitante.pj += 1;
         local.gf += golesLocal; visitante.gf += golesVisitante;
@@ -283,11 +283,11 @@ export const useTorneoStandingsLogic = ({
     let limitCurrent = selectedJornadaView === 'recent' ? effectiveJornada : parseInt(selectedJornadaView, 10);
     const prevLimit = limitCurrent - 1;
 
-    const prevTable = buildTableUpTo(prevLimit, prevLimit);
+    const prevTable = buildTableUpTo(prevLimit);
     const prevRanks = {};
     prevTable.forEach((eq, index) => { prevRanks[eq.id] = index + 1; });
 
-    const currentTable = buildTableUpTo(limitCurrent, limitCurrent);
+    const currentTable = buildTableUpTo(limitCurrent);
 
     return currentTable.map((eq, index) => {
       const currentRank = index + 1;
@@ -313,11 +313,18 @@ export const useTorneoStandingsLogic = ({
     if (selectedJornadaView === 'recent') {
         let totalPendientes = 0;
         relevantMatches.forEach(m => {
-            let jNum = parseInt(('' + (m.jornadas?.name || m.jornada?.name || '')).match(/\d+/)?.[0] || 0, 10);
-            const st = (m.status || '').toLowerCase();
-            const isPendiente = st === 'pendiente';
+            let jNum = 0;
+            if (m.jornadas?.name) jNum = parseInt(m.jornadas.name.match(/\d+/)?.[0] || 0, 10);
+            else if (m.jornada?.name) jNum = parseInt(m.jornada.name.match(/\d+/)?.[0] || 0, 10);
+            else if (m.jornada_id && Array.isArray(mergedJornadas)) {
+                const jObj = mergedJornadas.find(x => Number(x.id) === Number(m.jornada_id));
+                if (jObj) jNum = parseInt(('' + (jObj.name || '')).match(/\d+/)?.[0] || 0, 10);
+            }
+
+            const st = String(m.status || '').trim().toLowerCase();
             
-            if (jNum > 0 && jNum <= effectiveJornada && m.team1_id && m.team2_id && isPendiente) {
+            // REGLA ESTRICTA DE PENDIENTES
+            if (jNum > 0 && jNum <= effectiveJornada && st === 'pendiente') {
                 totalPendientes++;
             }
         });
@@ -330,9 +337,18 @@ export const useTorneoStandingsLogic = ({
         if (isNaN(sel)) return `Jornada ${effectiveJornada}`;
         
         let pend = relevantMatches.filter(m => {
-          const st = (m.status || '').toLowerCase();
-          const jNum = parseInt(('' + (m.jornadas?.name || '')).match(/\d+/)?.[0] || 0, 10);
-          return jNum === sel && st === 'pendiente' && m.team1_id && m.team2_id;
+          const st = String(m.status || '').trim().toLowerCase();
+          
+          let jNum = 0;
+          if (m.jornadas?.name) jNum = parseInt(m.jornadas.name.match(/\d+/)?.[0] || 0, 10);
+          else if (m.jornada?.name) jNum = parseInt(m.jornada.name.match(/\d+/)?.[0] || 0, 10);
+          else if (m.jornada_id && Array.isArray(mergedJornadas)) {
+              const jObj = mergedJornadas.find(x => Number(x.id) === Number(m.jornada_id));
+              if (jObj) jNum = parseInt(('' + (jObj.name || '')).match(/\d+/)?.[0] || 0, 10);
+          }
+
+          // REGLA ESTRICTA DE PENDIENTES
+          return jNum === sel && st === 'pendiente';
         }).length;
 
         const suffix = pend > 0 
