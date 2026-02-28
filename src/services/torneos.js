@@ -68,7 +68,6 @@ export const getAllMatchesByTournament = async (tournamentId) => {
   }
 };
 
-// --- FUNCIÓN CORREGIDA Y BLINDADA ---
 export const getPartidosExternosRango = async (startDate, endDate, currentTournamentId, leagueId) => {
     try {
         if (!startDate || !endDate || !leagueId) return [];
@@ -102,12 +101,10 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
             const matchTournId = m.jornadas?.tournament_id;
             const matchLeagueId = m.jornadas?.tournaments?.divisions?.league_id;
 
-            // 1. Descartar partidos del mismo torneo
             if (currentTournamentId && String(matchTournId) === String(currentTournamentId)) {
                 return false;
             }
 
-            // 2. Asegurar que sean de la misma liga
             if (String(matchLeagueId) !== String(leagueId)) {
                 return false;
             }
@@ -116,13 +113,11 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
         });
 
         return matchesFiltrados.map(m => {
-            // NORMALIZACIÓN DE FECHA Y HORA DESDE TIMESTAMP
             let datePart = "";
             let timePart = "00:00";
 
             if (m.date) {
                 const raw = m.date.toString();
-                // raw suele ser "YYYY-MM-DDTHH:MM:SS+TZ" o similar
                 if (raw.includes('T')) {
                     const parts = raw.split('T');
                     datePart = parts[0];
@@ -309,7 +304,7 @@ export const iniciarTorneoService = async ({
                         jornada_id: jornadaDB.id,
                         team1_id: match.local.id,
                         team2_id: team2Id,
-                        status: 'Programado', 
+                        status: 'Programado', // VUELVEN A NACER COMO PROGRAMADO (PERO CON DATE NULL)
                         date: null 
                     });
                 }
@@ -364,7 +359,7 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       jornada_id: idJornadaFutura,
       team1_id: getTeamId(matchHoy.local),
       team2_id: getTeamId(matchHoy.visitante),
-      status: 'Pendiente',
+      status: 'Programado', // TAMBIÉN REGRESA A PROGRAMADO
       date: null 
     };
 
@@ -416,51 +411,61 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const currentJornadaId = jornadasMap[`Jornada ${jornadaData.jornada_numero}`];
     if (!currentJornadaId) throw new Error("Jornada no encontrada en la BD");
 
-    const createMatchObject = (m, status) => {
-       const targetJornadaId = m.jornada_id || jornadasMap[m.originJornada] || currentJornadaId;
-       const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
-       const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
-
-       const payload = {
-         jornada_id: targetJornadaId,
-         team1_id: t1Id,
-         team2_id: t2Id,
-         status: status
-       };
-
-       if (status === 'Programado') {
-          const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
-          payload.date = `${safeDate} ${m.time || "10:00"}:00`;
-       } else {
-          payload.date = null; 
-       }
-       return payload;
-    };
-
     const matchesToInsert = [];
     const matchesToUpdate = [];
 
-    const allMatchesToProcess = [
-        ...jornadaData.matches.map(m => ({ ...m, finalStatus: 'Programado' })),
-        ...(jornadaData.allPendingMatches || [])
-            .filter(m => {
-                const isTempId = !m.id || isNaN(Number(m.id));
-                return m.isModified || isTempId;
-            })
-            .map(m => ({ ...m, finalStatus: 'Pendiente' }))
-    ];
+    // --- GRUPO 1: PARTIDOS ASIGNADOS (Los que se arrastraron a un horario) ---
+    (jornadaData.matches || []).forEach(m => {
+        const originName = m.jornadas?.name || m.originJornada;
+        const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
+        const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
+        const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
 
-    allMatchesToProcess.forEach(m => {
-        const payload = createMatchObject(m, m.finalStatus);
+        const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
+        
+        const payload = {
+            jornada_id: targetJornadaId,
+            team1_id: t1Id,
+            team2_id: t2Id,
+            status: 'Programado',
+            date: `${safeDate} ${m.time || "10:00"}:00`
+        };
+
         const numericId = Number(m.id);
-        const isRealId = m.id && !isNaN(numericId) && numericId > 0;
-
-        if (isRealId) {
+        if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
             payload.id = numericId;
             matchesToUpdate.push(payload);
         } else {
-            delete payload.id; 
             matchesToInsert.push(payload);
+        }
+    });
+
+    // --- GRUPO 2: PARTIDOS NO ASIGNADOS (Los que se quedaron en el Sidebar) ---
+    (jornadaData.allPendingMatches || []).forEach(m => {
+        const originName = m.jornadas?.name || m.originJornada;
+        const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
+        
+        // CONDICIÓN ESTRICTA: Solo tocamos los partidos que pertenecen a ESTA jornada.
+        // Ignoramos completamente los partidos de jornadas futuras o pasadas para no corromper la DB.
+        if (targetJornadaId === currentJornadaId) {
+            const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
+            const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
+
+            const payload = {
+                jornada_id: targetJornadaId,
+                team1_id: t1Id,
+                team2_id: t2Id,
+                status: 'Pendiente', // AQUÍ SUCEDE LA MAGIA. Solo estos son "castigados" con Pendiente.
+                date: null
+            };
+
+            const numericId = Number(m.id);
+            if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
+                payload.id = numericId;
+                matchesToUpdate.push(payload);
+            } else {
+                matchesToInsert.push(payload);
+            }
         }
     });
 

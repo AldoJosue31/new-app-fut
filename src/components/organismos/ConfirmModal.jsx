@@ -1,5 +1,5 @@
 import React from "react";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { Modal } from "./Modal";
 import { Btnsave, BtnNormal } from "../../index";
 import { v } from "../../styles/variables";
@@ -14,14 +14,20 @@ export const ConfirmModal = ({
   subMessage, 
   confirmText = "Eliminar", 
   confirmColor = v.rojo,
-  confirmIcon
+  confirmIcon,
+  thinButtons = false, // <-- Nueva prop para hacer botones más delgados
+  children             // <-- Nueva prop para inyectar contenido extra (como los números grandes)
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} width="400px" closeOnOverlayClick={false}>
-      <Container>
+      <Container $thinButtons={thinButtons}>
         <div className="icon-warning"><RiErrorWarningLine /></div>
         <p className="message">{message}</p>
+        
         {subMessage && <span className="sub-message">{subMessage}</span>}
+        
+        {/* Renderizamos contenido extra personalizado si existe */}
+        {children}
         
         <div className="actions">
            <BtnNormal titulo="Cancelar" funcion={onClose} />
@@ -43,4 +49,14 @@ const Container = styled.div`
   .message { font-size: 1.1rem; color: ${({theme})=>theme.text}; font-weight: 600; margin: 0; }
   .sub-message { font-size: 0.9rem; color: ${({theme})=>theme.text}; opacity: 0.7; }
   .actions { display: flex; gap: 15px; width: 100%; justify-content: center; margin-top: 15px; }
+
+  /* Aplicamos estilos más delgados a los botones si la prop es true */
+  ${({ $thinButtons }) => $thinButtons && css`
+    .actions button {
+        padding: 8px 16px !important;
+        height: auto !important;
+        min-height: 38px !important;
+        font-size: 0.9rem !important;
+    }
+  `}
 `;
