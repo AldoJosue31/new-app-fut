@@ -22,15 +22,20 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     // Funciones Helper de Zona
     const getZoneColor = (index, total) => {
         const rank = index + 1;
-        if (rank <= config.ascensos) return '#22c55e'; // Verde Ascenso
+        if (rank <= config.ascensos) return '#22c55e'; 
         if (config.zonaLiguilla) {
-            if (rank > config.ascensos && rank <= config.clasificados) return '#3b82f6'; // Azul Liguilla
+            if (rank > config.ascensos && rank <= config.clasificados) return '#3b82f6'; 
             const limitLiguilla = Math.max(config.clasificados, config.ascensos);
-            if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return '#f59e0b'; // Naranja Repechaje
+            if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return '#f59e0b'; 
         }
-        if (config.descensos > 0 && rank > (total - config.descensos)) return '#ef4444'; // Rojo Descenso
+        if (config.descensos > 0 && rank > (total - config.descensos)) return '#ef4444'; 
         return 'transparent';
     };
+
+    // --- VARIABLES DE TAMAÑO AUMENTADAS ---
+    // Si quieres hacerlo aún más grande, solo sube estos números (ej. '200px')
+    const logoSize = isMobile ? '100px' : '180px'; 
+    const hasLogo = !!metaInfo?.leagueLogo;
 
     return (
         <div ref={ref} style={{
@@ -41,26 +46,80 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
             padding: isMobile ? '20px' : '40px',
             boxSizing: 'border-box'
         }}>
-            <div style={{ textAlign: 'center', paddingBottom: '20px', borderBottom: `2px solid ${colors.border}`, marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                    <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '800', backgroundColor: colors.primary + '20', color: colors.primary, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        {metaInfo?.league || 'Liga'}
-                    </span>
-                    <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '800', backgroundColor: colors.border, color: colors.text, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        {metaInfo?.division || 'División'}
-                    </span>
+            {/* ENCABEZADO CON FLEXBOX Y ESPACIADOR FANTASMA */}
+            <div style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: hasLogo ? 'space-between' : 'center',
+                paddingBottom: '25px', 
+                borderBottom: `2px solid ${colors.border}`, 
+                marginBottom: '20px', 
+                // Aumentamos el alto mínimo para que el logo gigante no se salga
+                minHeight: isMobile ? '120px' : '200px', 
+                width: '100%',
+                boxSizing: 'border-box'
+            }}>
+                
+                {/* 1. COLUMNA IZQUIERDA (LOGO GIGANTE) */}
+                {hasLogo && (
+                    <div style={{ 
+                        width: logoSize, 
+                        height: logoSize, 
+                        flexShrink: 0, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'flex-start' 
+                    }}>
+                        <img 
+                            src={metaInfo.leagueLogo} 
+                            alt="Logo Liga" 
+                            crossOrigin="anonymous" 
+                            style={{ 
+                                maxWidth: '100%', 
+                                maxHeight: '100%', 
+                                objectFit: 'contain', 
+                                filter: isDark ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.6))' : 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))'
+                            }} 
+                        />
+                    </div>
+                )}
+
+                {/* 2. COLUMNA CENTRAL (TEXTO PERFECTAMENTE CENTRADO) */}
+                <div style={{ 
+                    flex: 1, 
+                    textAlign: 'center', 
+                    padding: '0 15px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                        <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '800', backgroundColor: colors.primary + '20', color: colors.primary, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            {metaInfo?.league || 'Liga'}
+                        </span>
+                        <span style={{ fontSize: isMobile ? '10px' : '12px', fontWeight: '800', backgroundColor: colors.border, color: colors.text, padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            {metaInfo?.division || 'División'}
+                        </span>
+                    </div>
+
+                    <h1 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '900', textTransform: 'uppercase', margin: '0 0 5px 0', color: colors.text, lineHeight: '1.2' }}>
+                        {torneo?.name || 'Tabla General'}
+                    </h1>
+                    
+                    <p style={{ fontSize: '14px', color: colors.subtext, margin: 0, fontWeight: '600' }}>
+                        Clasificación Oficial 
+                        {metaInfo?.lastJornada && metaInfo.lastJornada !== 'Sin iniciar' ? ` • Hasta la ${metaInfo.lastJornada}` : ''}
+                    </p>
                 </div>
 
-                <h1 style={{ fontSize: isMobile ? '22px' : '28px', fontWeight: '900', textTransform: 'uppercase', margin: '0 0 5px 0', color: colors.text }}>
-                    {torneo?.name || 'Tabla General'}
-                </h1>
-                
-                <p style={{ fontSize: '14px', color: colors.subtext, margin: 0, fontWeight: '600' }}>
-                    Clasificación Oficial 
-                    {metaInfo?.lastJornada && metaInfo.lastJornada !== 'Sin iniciar' ? ` • Hasta la ${metaInfo.lastJornada}` : ''}
-                </p>
+                {/* 3. COLUMNA DERECHA (ESPACIADOR FANTASMA - EQUILIBRA EL LOGO) */}
+                {hasLogo && (
+                    <div style={{ width: logoSize, flexShrink: 0 }}></div>
+                )}
             </div>
 
+            {/* TABLA DE POSICIONES */}
             <div style={{ backgroundColor: colors.card, borderRadius: '12px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
                     <thead>
@@ -73,7 +132,6 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>GF</th>}
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>GC</th>}
                             <th style={{ padding: '12px 5px', fontSize: isMobile ? '11px' : '13px', color: colors.subtext, borderBottom: `2px solid ${colors.border}` }}>DIF</th>
-                            {/* COLUMNA PND */}
                             {!isMobile && <th style={{ padding: '12px 5px', fontSize: '13px', color: colors.pending, borderBottom: `2px solid ${colors.border}` }}>Pnd</th>}
                             <th style={{ padding: '12px 10px', fontSize: isMobile ? '12px' : '14px', color: colors.primary, borderBottom: `2px solid ${colors.border}` }}>PTS</th>
                         </tr>
@@ -82,25 +140,15 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                         {tablaGeneral.map((fila, index) => {
                             const zoneColor = getZoneColor(index, tablaGeneral.length);
                             const isLast = index === tablaGeneral.length - 1;
-                            
-                            // Lógica de flechas para la exportación
                             const flechasToShow = Math.min(fila.posDiff || 0, 3);
-                            
-                            // Lógica de borde difuminado para que coincida con StandingsTable
                             const rowBorderColor = (zoneColor !== 'transparent') ? `${zoneColor}60` : colors.border;
                             
                             return (
                                 <tr key={fila.id} style={{ borderBottom: isLast ? 'none' : `1px solid ${rowBorderColor}` }}>
-                                    
-                                    {/* COLUMNA EQUIPO */}
                                     <td style={{ padding: isMobile ? '10px' : '12px 15px', textAlign: 'left', borderLeft: `6px solid ${zoneColor}` }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px' }}>
-                                            
-                                            {/* RANGO Y FLECHAS DE TENDENCIA */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: isMobile ? '35px' : '45px', justifyContent: 'flex-end' }}>
                                                 <span style={{ fontWeight: '800', fontSize: isMobile ? '12px' : '14px', color: colors.subtext }}>{index + 1}</span>
-                                                
-                                                {/* FLECHAS IDÉNTICAS AL DISEÑO WEB (-5px de margen) */}
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                                     {fila.tendencia === 'same' && (
                                                         <RiSubtractLine style={{ color: colors.subtext, opacity: 0.5, fontSize: isMobile ? '14px' : '16px', marginLeft: '2px' }} />
@@ -113,62 +161,38 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                                     ))}
                                                 </div>
                                             </div>
-
-                                            {/* CONTENEDOR DE LOGO DINÁMICO */}
                                             <div style={{ width: isMobile ? '24px' : '30px', height: isMobile ? '24px' : '30px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 {fila.logo ? (
                                                     <img 
                                                         src={fila.logo} 
                                                         alt="" 
+                                                        crossOrigin="anonymous" 
                                                         style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '4px' }}
                                                         onError={(e) => { e.target.onerror = null; e.target.src = v.logoGenerico; }}
                                                     />
                                                 ) : (
-                                                    <DynamicTeamLogo 
-                                                        name={fila.nombre} 
-                                                        color={fila.color || "#000000"} 
-                                                        size="100%" 
-                                                    />
+                                                    <DynamicTeamLogo name={fila.nombre} color={fila.color || "#000000"} size="100%" />
                                                 )}
                                             </div>
-                                            
-                                            {/* Texto cortado */}
                                             <span style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '15px', color: colors.text }}>
                                                 {fila.nombre.length > (isMobile ? 15 : 28) ? fila.nombre.substring(0, isMobile ? 13 : 26) + '...' : fila.nombre}
                                             </span>
                                         </div>
                                     </td>
-
-                                    {/* ESTADÍSTICAS */}
                                     <td style={{ padding: '10px 5px', fontSize: isMobile ? '13px' : '15px', fontWeight: '600' }}>{fila.pj}</td>
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.g}</td>}
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.e}</td>}
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.p}</td>}
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.gf}</td>}
                                     {!isMobile && <td style={{ padding: '10px 5px', fontSize: '14px', color: colors.subtext }}>{fila.gc}</td>}
-                                    
-                                    <td style={{ 
-                                        padding: '10px 5px', 
-                                        fontSize: isMobile ? '13px' : '15px', 
-                                        fontWeight: '800',
-                                        color: fila.dg > 0 ? '#22c55e' : fila.dg < 0 ? '#ef4444' : colors.text
-                                    }}>
+                                    <td style={{ padding: '10px 5px', fontSize: isMobile ? '13px' : '15px', fontWeight: '800', color: fila.dg > 0 ? '#22c55e' : fila.dg < 0 ? '#ef4444' : colors.text }}>
                                         {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                                     </td>
-                                    
-                                    {/* CELDA PND */}
                                     {!isMobile && (
-                                        <td style={{ 
-                                            padding: '10px 5px', 
-                                            fontSize: '14px', 
-                                            fontWeight: '700',
-                                            color: fila.partidosPendientes > 0 ? colors.pending : colors.subtext,
-                                            opacity: fila.partidosPendientes > 0 ? 1 : 0.3
-                                        }}>
+                                        <td style={{ padding: '10px 5px', fontSize: '14px', fontWeight: '700', color: fila.partidosPendientes > 0 ? colors.pending : colors.subtext, opacity: fila.partidosPendientes > 0 ? 1 : 0.3 }}>
                                             {fila.partidosPendientes}
                                         </td>
                                     )}
-
                                     <td style={{ padding: '10px 10px', fontSize: isMobile ? '15px' : '18px', fontWeight: '900', color: colors.primary }}>
                                         {fila.pts}
                                     </td>
@@ -179,6 +203,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 </table>
             </div>
 
+            {/* LEYENDA */}
             <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {config.ascensos > 0 && <span style={{ fontSize: '11px', fontWeight: '700', color: '#22c55e' }}>🟩 Ascenso</span>}
