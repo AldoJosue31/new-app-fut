@@ -18,7 +18,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
     const [isExporting, setIsExporting] = useState(false);
     
     // ESTADO PARA LA INFORMACIÓN EXTRA
-    const [metaInfo, setMetaInfo] = useState({ league: '', division: '', lastJornada: '' });
+    const [metaInfo, setMetaInfo] = useState({ league: '', division: '', lastJornada: '', leagueLogo: null });
     
     const exportComponentRef = useRef(null);
 
@@ -33,18 +33,18 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                 fetchMetaInfo();
             }
         }
-    }, [isOpen, theme, torneo, activeJornadaName]); // <-- Actualiza si cambia la jornada seleccionada
+    }, [isOpen, theme, torneo, activeJornadaName]); 
 
     const fetchMetaInfo = async () => {
         try {
-            // 1. Obtener Liga y División
+            // 1. Obtener Liga, División y Logos (Priorizando original_logo_url para mejor calidad)
             const { data: torData } = await supabase
                 .from('tournaments')
                 .select(`
                     id,
                     division:division_id (
                         name,
-                        league:league_id (name)
+                        league:league_id (name, logo_url, original_logo_url)
                     )
                 `)
                 .eq('id', torneo.id)
@@ -52,12 +52,16 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
             
             const leagueName = torData?.division?.league?.name || 'Liga Local';
             const divisionName = torData?.division?.name || 'División Única';
+            
+            // Prioridad a la imagen original que no está comprimida para evitar pixelado al exportar
+            const logo = torData?.division?.league?.original_logo_url || torData?.division?.league?.logo_url || null;
 
-            // 2. Usamos directamente el nombre de la jornada que viene de la tabla (trae sus "pendientes" si aplica)
+            // 2. Usamos directamente el nombre de la jornada que viene de la tabla
             setMetaInfo({
                 league: leagueName,
                 division: divisionName,
-                lastJornada: activeJornadaName || 'Sin iniciar'
+                lastJornada: activeJornadaName || 'Sin iniciar',
+                leagueLogo: logo
             });
 
         } catch (error) {
@@ -91,19 +95,16 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
             setIsExporting(true); // Bloqueamos el botón
             try {
                 const cleanTorneoName = torneo?.name?.replace(/[^a-z0-9_]/gi, '') || 'Torneo';
-                
-                // Limpiamos el texto de los paréntesis (con pendientes) para que el archivo sea limpio: "Tabla_Liga_Div_Torneo_Jornada_2_Desktop.png"
                 const cleanJornadaName = (activeJornadaName || 'Jornada').split(' (')[0].replace(/\s+/g, '_');
                 
                 const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${cleanJornadaName}_${isMobileLayout ? 'Movil' : 'Desktop'}`;
                 const bgColor = isDarkExport ? '#121212' : '#ffffff';
                 
-                // Esperamos a que la imagen se exporte
                 await exportElementAsPNG(exportComponentRef, safeName.replace(/\s+/g, '_'), bgColor);
             } catch (error) {
                 console.error("Error al exportar:", error);
             } finally {
-                setIsExporting(false); // Liberamos el botón al finalizar (éxito o error)
+                setIsExporting(false); 
             }
         }
     };
@@ -221,7 +222,6 @@ const PreviewWrapper = styled.div`
             display: flex; align-items: center; gap: 12px;
             .separator { width: 1px; height: 20px; background: ${({theme}) => theme.bg3}; }
             
-            /* Animación para el icono de carga */
             .spinner-mini {
                 width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
                 border-top-color: #fff; animation: spin-export 1s ease-in-out infinite;

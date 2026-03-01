@@ -10,16 +10,13 @@ import { Device } from "../../styles/breakpoints";
 export const ContentContainer = ({ children, ...props }) => {
   
   useLayoutEffect(() => {
-    // 1. Bloquear el scroll vertical al montar el componente
     const originalStyle = window.getComputedStyle(document.body).overflowY;
     document.body.style.overflowY = "hidden";
 
-    // 2. Liberar el scroll exactamente cuando termina la animación (400ms)
     const timer = setTimeout(() => {
       document.body.style.overflowY = "auto"; 
     }, 400);
 
-    // 3. Cleanup: Asegurar que el scroll se reactiva si el componente se desmonta antes
     return () => {
       clearTimeout(timer);
       document.body.style.overflowY = "auto";
@@ -29,11 +26,11 @@ export const ContentContainer = ({ children, ...props }) => {
   return <StyledContainer {...props}>{children}</StyledContainer>;
 };
 
-// El estilo original se mantiene, pero ahora es un componente interno
 const StyledContainer = styled.div`
-  min-height: 100vh;
+  min-height: calc(100vh - 100px); /* FIX: Sustituido el 100vh directo que causaba huecos abajo y scrollbars forzados */
   padding: 20px;
   padding-top: 100px; 
+  padding-bottom: 30px; /* Reducción de margen en el inferior global */
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -44,7 +41,6 @@ const StyledContainer = styled.div`
 
   /* --- ANIMACIÓN DE ENTRADA GLOBAL --- */
   animation: fadeIn 0.4s ease-in-out;
-  /* 'fill-mode: backwards' asegura que el estilo inicial (opacity 0) se aplique antes de que empiece la animación */
   animation-fill-mode: backwards; 
 
   @keyframes fadeIn {
