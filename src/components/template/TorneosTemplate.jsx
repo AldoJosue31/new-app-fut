@@ -117,7 +117,7 @@ export function TorneosTemplate({
                     estadisticas={standings} 
                     reglas={reglas}
                     partidos={partidos}
-                    isLoading={isLoadingData} /* <-- AQUÍ ESTÁ LA SOLUCIÓN */
+                    isLoading={isLoadingData}
                     onRefresh={() => {
                       if (refreshStandings) refreshStandings();
                       fetchGoleadores();
@@ -155,10 +155,13 @@ export function TorneosTemplate({
 const StyledContentContainer = styled(ContentContainer)`
   && {
     padding-top: 0 !important;
+    padding-bottom: 20px !important; /* Ajuste crítico: evita exceso de espacio inferior */
     margin-top: 0 !important;
+    min-height: auto !important; /* Ajuste crítico: Anula la altura fija del layout que dejaba hueco sobrante */
     
     @media (max-width: 768px) {
       padding-top: 0 !important;
+      padding-bottom: 15px !important;
     }
   }
 `;
@@ -169,13 +172,23 @@ const ContentGrid = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  gap: 5px; 
+  gap: 0px; /* Ajustado para eliminar sumatorias de márgenes fantasma */
   margin-top: 0; 
+  margin-bottom: 0;
   
   transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
   @media ${Device.desktop} { max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")}; }
 `;
 
-const FullWidthTab = styled(TabContent)` width: 100%; display: flex; flex-direction: column; overflow: visible; `;
-const ActionButton = styled.button` padding: 10px 20px; cursor: pointer; border-radius: 8px; border: none; background: ${v.colorPrincipal}; color: #fff; font-weight: 600; transition: all 0.2s; &:hover { opacity: 0.9; transform: translateY(-2px); } `;
+const FullWidthTab = styled(TabContent)` 
+  width: 100%; 
+  display: flex; 
+  flex-direction: column; 
+  overflow: visible; 
+  margin-bottom: 0; 
+`;
+
+const ActionButton = styled.button` 
+  padding: 10px 20px; cursor: pointer; border-radius: 8px; border: none; background: ${v.colorPrincipal}; color: #fff; font-weight: 600; transition: all 0.2s; &:hover { opacity: 0.9; transform: translateY(-2px); } 
+`;
