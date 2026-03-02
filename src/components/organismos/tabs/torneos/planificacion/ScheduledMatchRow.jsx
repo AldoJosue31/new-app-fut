@@ -12,8 +12,8 @@ import {
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 // Importar los modales
-import MatchSheetModal from "./MatchSheetModal";
-import { PreMatchSheetModal } from "./PreMatchSheetModal"; 
+import MatchSheetModal from "../exports/match-sheets/MatchSheetModal";
+import { PreMatchSheetModal } from "../exports/match-sheets/PreMatchSheetModal";
 
 const getPenaltyScore = (observations) => {
     if (!observations) return null;

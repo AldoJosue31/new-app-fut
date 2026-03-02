@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { BiLock, BiLockOpen } from "react-icons/bi";
 import { RiImageLine } from "react-icons/ri"; 
 import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
-import GoleadoresExportModal from './subcomponents/GoleadoresExportModal';
+import GoleadoresExportModal from './exports/goleadores/GoleadoresExportModal';
 
 export const GoleadoresTab = ({
   torneo = {},

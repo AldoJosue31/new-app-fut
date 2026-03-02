@@ -15,7 +15,7 @@ import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal"; 
-import { BatchPrintModal } from "./planificacion/BatchPrintModal";
+import { BatchPrintModal } from "./exports/match-sheets/BatchPrintModal";
 import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
 import { EmptyDropZone } from "./planificacion/EmptyDropZone"; 
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";

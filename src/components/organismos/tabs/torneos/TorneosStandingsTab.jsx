@@ -5,7 +5,7 @@ import { v } from '../../../../styles/variables';
 import { BiShareAlt, BiCheck } from "react-icons/bi"; 
 import { RiImageLine } from "react-icons/ri"; 
 
-import StandingsExportModal from './subcomponents/StandingsExportModal';
+import StandingsExportModal from './exports/standings/StandingsExportModal';
 import StandingsTable from './subcomponents/StandingsTable';
 import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { Skeleton } from '../../../atomos/Skeleton';
