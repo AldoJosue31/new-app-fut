@@ -33,6 +33,7 @@ export function JornadaPlanificacion({
     sidebarMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes, 
+    currentJornadaName,
     clearDraft,
     showExternalMatches, toggleExternalMatches,
     externalMatches, loadingExternal,
@@ -76,6 +77,10 @@ export function JornadaPlanificacion({
       const isPendingResult = m.status !== 'Finalizado'; 
       return isSaved && isPendingResult;
   });
+
+  // --- LÓGICA DE CÁLCULO DE PENDIENTES CORREGIDA ---
+  // Filtramos la jornada actual y excluimos los equipos que descansan (!m.isByeMatch)
+  const pendientesEstaJornada = sidebarMatches.filter(m => m.originJornada === currentJornadaName && !m.isByeMatch);
 
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
@@ -329,9 +334,9 @@ export function JornadaPlanificacion({
                     <span className="num">{scheduledMatches.length}</span>
                     <span className="lbl">A Confirmar</span>
                 </StatBox>
-                <StatBox $color="#95a5a6">
-                    <span className="num">{sidebarMatches.length}</span>
-                    <span className="lbl">Pendientes</span>
+                <StatBox $color="#f39c12">
+                    <span className="num">{pendientesEstaJornada.length}</span>
+                    <span className="lbl" style={{textAlign: "center"}}>Sin Asignar<br/>(Esta Jornada)</span>
                 </StatBox>
             </StatsContainer>
         </ConfirmModal>
@@ -383,13 +388,13 @@ const StatBox = styled.div`
     align-items: center;
     justify-content: center;
     background: ${({theme}) => theme.bg3};
-    padding: 15px 20px;
+    padding: 15px 15px;
     border-radius: 12px;
     border: 2px solid ${({$color}) => $color}40;
-    min-width: 130px;
+    min-width: 120px;
 
     .num {
-        font-size: 2.8rem;
+        font-size: 2.5rem;
         font-weight: 800;
         color: ${({$color}) => $color};
         line-height: 1;
@@ -397,7 +402,7 @@ const StatBox = styled.div`
     }
 
     .lbl {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: ${({theme}) => theme.text};
         text-transform: uppercase;
