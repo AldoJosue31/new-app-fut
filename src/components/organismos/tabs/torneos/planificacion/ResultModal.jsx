@@ -64,8 +64,8 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
     );
 });
 
-// ScoreHeader actualizado con DynamicTeamLogo y colores de equipo
-const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate, displayTime }) => (
+// ScoreHeader actualizado con validación para defaults/fecha nula
+const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate, displayTime, isWalkover }) => (
     <ScoreHeaderContainer>
         <TeamInfo>
             {match.local?.logo_url ? (
@@ -84,7 +84,9 @@ const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate,
             <span className="vs">VS</span>
             <div className="match-data">
                 <span>{divisionName}</span>
-                <span>{displayDate} {displayTime}</span>
+                <span>
+                    {isWalkover ? 'Victoria Default' : (displayDate ? `${displayDate} ${displayTime}` : 'Sin Fecha')}
+                </span>
             </div>
         </div>
         <TeamInfo $alignRight>
@@ -251,15 +253,15 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         
       if (matchError) throw matchError;
 
-      // Inicializar Fecha y Hora para edición
+      // Inicializar Fecha y Hora para edición (si tiene)
       if (freshMatch.date) {
         const [d, t] = freshMatch.date.split('T');
         setMatchDate(d);
         // Cortar segundos si vienen
-        setMatchTime(t ? t.substring(0, 5) : "00:00");
+        setMatchTime(t ? t.substring(0, 5) : "10:00");
       } else {
-        setMatchDate(new Date().toISOString().split('T')[0]);
-        setMatchTime("10:00");
+        setMatchDate("");
+        setMatchTime("");
       }
 
       let leagueId = activeTournament?.division?.league_id || activeTournament?.league_id;
@@ -286,14 +288,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setSelectedReferee(freshMatch.referee_id || "");
       
       const obs = freshMatch.observations || "";
-      const isWO = obs.includes('W.O.');
+      const isWO = obs.includes('W.O.') || obs.includes('Victoria por default');
       setIsWalkover(isWO);
       
       // Separamos observaciones manuales de las de sistema (W.O. y Pen)
       let cleanObs = obs;
       if (isWO) {
         setWoWinnerId(freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id);
-        cleanObs = cleanObs.replace(/W\.O\./gi, '');
+        cleanObs = cleanObs.replace(/W\.O\./gi, '').replace(/Victoria por default/gi, '');
       } else {
         setWoWinnerId(null);
       }
@@ -423,26 +425,27 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     // Detectamos si solo se está actualizando fecha/hora sin datos de resultado
     const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
 
-    // Solo validamos si hay intención de guardar un resultado real
-    if (!isOnlyDateUpdate) {
+    if (isWalkover) {
+        if (!woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
+        // Si es victoria por default NO validamos ni arbitro ni fecha ni hora.
+    } else if (!isOnlyDateUpdate) {
         if (!selectedReferee) return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
-        if (isWalkover && !woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
 
-        if (!isWalkover) {
-            if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) {
-                 return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
-            }
+        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) {
+             return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
         }
         
-        if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover) {
+        if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
           if (parseInt(penalties.local) === parseInt(penalties.visit)) {
             return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
           }
         }
     }
 
-    // Esta validación sí la mantenemos porque queremos asegurar que la fecha esté bien
-    if (!matchDate || !matchTime) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
+    // Exigimos fecha/hora solo si NO es walkover
+    if (!isWalkover && (!matchDate || !matchTime)) {
+        return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
+    }
 
     setShowConfirm(true);
   };
@@ -497,7 +500,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       if (isWalkover) {
         if (woWinnerId === match?.local?.id) { p1 = winPoints; p2 = lossPoints; }
         else { p1 = lossPoints; p2 = winPoints; }
-        finalObsParts.push("W.O.");
+        finalObsParts.push("Victoria por default"); // Se estandariza el texto de victoria por default
       } else if (totalGoalsLocal > totalGoalsVisit) {
         p1 = winPoints; p2 = lossPoints;
       } else if (totalGoalsVisit > totalGoalsLocal) {
@@ -517,8 +520,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       const finalObsString = finalObsParts.join(" | ");
 
-      // 4. GUARDAR PARTIDO (Incluyendo nueva fecha y hora)
-      const fullDate = `${matchDate} ${matchTime}:00`;
+      // 4. GUARDAR PARTIDO
+      // Si es default/walkover forzamos a null, de lo contrario construimos la fecha normal
+      const fullDate = (!isWalkover && matchDate && matchTime) ? `${matchDate} ${matchTime}:00` : null;
 
       const countLocal = rosterLocal.filter(p => p.playerId).length;
       const countVisit = rosterVisit.filter(p => p.playerId).length;
@@ -529,10 +533,10 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         goals2: totalGoalsVisit,
         puntos1: p1,
         puntos2: p2,
-        referee_id: selectedReferee || null, // Se envía null en vez de "" para evitar error de FK
-        status: isOnlyDateUpdate ? (match.status || 'Pendiente') : 'Finalizado', // Mantiene el estado si es solo fecha
+        referee_id: isWalkover ? null : (selectedReferee || null), 
+        status: (isOnlyDateUpdate && !isWalkover) ? (match.status || 'Pendiente') : 'Finalizado',
         observations: finalObsString,
-        date: fullDate // <--- Aquí enviamos la fecha editada
+        date: fullDate // <--- Será null en caso de default
       });
       
       onClose();
@@ -557,6 +561,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             divisionName={activeTournament?.division?.name}
             displayDate={matchDate}
             displayTime={matchTime}
+            isWalkover={isWalkover}
         />
 
         {loading ? (
@@ -570,45 +575,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                 <ContentBody>
                 {activeTab === 'general' && (
                     <TabContent>
-                    <GridInputs>
-                        <InputGroup>
-                            <label><RiUserStarFill/> Árbitro Principal *</label>
-                            <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
-                            <option value="">Seleccione un árbitro...</option>
-                            {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
-                            </select>
-                        </InputGroup>
-                        <InputGroup>
-                            <label><RiCalendarEventLine/> Fecha</label>
-                            <input 
-                                type="date" 
-                                value={matchDate} 
-                                onChange={(e) => setMatchDate(e.target.value)}
-                            />
-                        </InputGroup>
-                        <InputGroup>
-                            <label><RiTimeLine/> Hora</label>
-                            <input 
-                                type="time" 
-                                value={matchTime} 
-                                onChange={(e) => setMatchTime(e.target.value)}
-                            />
-                        </InputGroup>
-                    </GridInputs>
                     
-                    {/* SECCIÓN OBSERVACIONES NUEVA */}
-                    <InputGroup>
-                        <label><RiStickyNoteLine/> Observaciones del Partido (Opcional)</label>
-                        <TextArea 
-                            placeholder="Ingrese incidentes, retrasos, estado de cancha u otros detalles..."
-                            value={manualObservations}
-                            onChange={(e) => {
-                                if(e.target.value.length <= 500) setManualObservations(e.target.value);
-                            }}
-                        />
-                        <CharCount>{manualObservations.length}/500</CharCount>
-                    </InputGroup>
-
+                    {/* CUADRO DE DEFAULT PASADO ARRIBA */}
                     <WalkoverBox $active={isWalkover}>
                         <div className="wo-header" onClick={() => { setIsWalkover(!isWalkover); if (!isWalkover) setWoWinnerId(null); }}>
                         <RiErrorWarningLine size={24}/><span>Victoria por Default (W.O.)</span>
@@ -622,6 +590,48 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                         </div>
                         )}
                     </WalkoverBox>
+                    
+                    {/* SI NO ES DEFAULT, EXIGIMOS ARBITRO, FECHA Y HORA */}
+                    {!isWalkover && (
+                        <GridInputs>
+                            <InputGroup>
+                                <label><RiUserStarFill/> Árbitro Principal *</label>
+                                <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
+                                <option value="">Seleccione un árbitro...</option>
+                                {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                                </select>
+                            </InputGroup>
+                            <InputGroup>
+                                <label><RiCalendarEventLine/> Fecha *</label>
+                                <input 
+                                    type="date" 
+                                    value={matchDate} 
+                                    onChange={(e) => setMatchDate(e.target.value)}
+                                />
+                            </InputGroup>
+                            <InputGroup>
+                                <label><RiTimeLine/> Hora *</label>
+                                <input 
+                                    type="time" 
+                                    value={matchTime} 
+                                    onChange={(e) => setMatchTime(e.target.value)}
+                                />
+                            </InputGroup>
+                        </GridInputs>
+                    )}
+                    
+                    <InputGroup style={{marginTop: "15px"}}>
+                        <label><RiStickyNoteLine/> Observaciones Adicionales (Opcional)</label>
+                        <TextArea 
+                            placeholder="Ingrese incidentes, retrasos, estado de cancha u otros detalles..."
+                            value={manualObservations}
+                            onChange={(e) => {
+                                if(e.target.value.length <= 500) setManualObservations(e.target.value);
+                            }}
+                        />
+                        <CharCount>{manualObservations.length}/500</CharCount>
+                    </InputGroup>
+
                     </TabContent>
                 )}
 
@@ -668,7 +678,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             <div className="confirm-card">
               <RiCheckDoubleLine size={50} color={v.colorPrincipal} />
               
-              <h2>{isOnlyDateUpdate ? '¿Confirmar Fecha y Hora?' : '¿Confirmar Marcador?'}</h2>
+              <h2>{isOnlyDateUpdate && !isWalkover ? '¿Confirmar Fecha y Hora?' : '¿Confirmar Marcador?'}</h2>
               
               {!isOnlyDateUpdate && (
                   <div className="final-score"><span>{totalGoalsLocal}</span> - <span>{totalGoalsVisit}</span></div>
@@ -679,7 +689,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
               )}
               
                <div className="match-datetime-confirm">
-                  {matchDate} {matchTime}
+                  {isWalkover ? 'Definido sin fecha' : `${matchDate} ${matchTime}`}
               </div>
               <div className="confirm-btns">
                 <BtnNormal titulo="Revisar" funcion={() => setShowConfirm(false)} />
@@ -713,13 +723,13 @@ const InputGroup = styled.div`
 `;
 const TextArea = styled.textarea` padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; width: 100%; min-height: 100px; resize: vertical; font-family: inherit; &:focus { border-color: ${v.colorPrincipal}; } `;
 const CharCount = styled.div` text-align: right; font-size: 0.75rem; color: ${({theme})=>theme.text}; opacity: 0.6; margin-top: -5px; `;
-const ScoreHeaderContainer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; margin-top: 5px; span { display:block; } } } `;
+const ScoreHeaderContainer = styled.div` display: flex; justify-content: space-between; align-items: center; padding: 20px; background: ${({theme})=>theme.bg3}; border-radius: 15px; border: 1px solid ${({theme})=>theme.bg4}; .center-info { text-align: center; .vs { font-weight: 900; opacity: 0.3; font-size: 1.5rem; } .match-data { display: flex; flex-direction: column; font-size: 0.8rem; opacity: 0.6; margin-top: 5px; span { display:block; font-weight: 800; color: ${v.colorPrincipal}; } } } `;
 const TeamInfo = styled.div` display: flex; align-items: center; gap: 15px; width: 35%; flex-direction: ${({$alignRight}) => $alignRight ? 'row-reverse' : 'row'}; img { width: 45px; height: 45px; object-fit: contain; } h3 { font-size: 0.9rem; flex: 1; text-align: ${({$alignRight}) => $alignRight ? 'right' : 'left'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .score { font-size: 2.2rem; font-weight: 800; color: ${v.colorPrincipal}; } `;
 const ContentBody = styled.div` min-height: 350px; `;
 const RosterGrid = styled.div` display: flex; flex-direction: column; gap: 8px; .section-title { font-size: 0.85rem; font-weight: 700; color: ${v.colorPrincipal}; display: flex; align-items: center; gap: 8px; margin-top: 10px; &.subs { color: ${({theme})=>theme.text}; opacity: 0.7; } } .header-row { display: grid; grid-template-columns: 1fr 80px 50px 50px; padding: 0 10px; font-size: 0.7rem; opacity: 0.5; text-transform: uppercase; } .player-row { display: grid; grid-template-columns: 1fr 80px 50px 50px; gap: 10px; align-items: center; padding: 8px; background: ${({theme})=>theme.bgtotal}; border-radius: 8px; border: 1px solid ${({theme})=>theme.bg4}; select, input { background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; padding: 5px; border-radius: 5px; width: 100%; outline: none; } } `;
 const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; `;
 const CardCheck = styled.div` width: 20px; height: 28px; border-radius: 3px; cursor: pointer; border: 2px solid ${({$active, $color}) => $active ? $color : 'transparent'}; background: ${({$color, $active}) => $active ? $color : $color + '33'}; transition: 0.2s; `;
-const WalkoverBox = styled.div` border: 1px solid ${({$active}) => $active ? '#e74c3c' : 'transparent'}; background: ${({theme, $active}) => $active ? '#e74c3c15' : theme.bg3}; border-radius: 12px; .wo-header { padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; span { font-weight: 700; flex: 1; } } .wo-content { padding: 0 15px 15px 15px; .wo-btns { display: flex; gap: 10px; } } `;
+const WalkoverBox = styled.div` border: 1px solid ${({$active}) => $active ? '#e74c3c' : 'transparent'}; background: ${({theme, $active}) => $active ? '#e74c3c15' : theme.bg3}; border-radius: 12px; margin-bottom: 20px; .wo-header { padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s; span { font-weight: 700; flex: 1; } &:hover { opacity: 0.8; } } .wo-content { padding: 0 15px 15px 15px; .wo-btns { display: flex; gap: 10px; } } `;
 const PenaltiesContainer = styled.div` text-align: center; padding: 20px; h3 { margin-bottom: 20px; font-size: 1rem; opacity: 0.8; } .pen-inputs { display: flex; justify-content: center; gap: 40px; .team { display: flex; flex-direction: column; gap: 10px; span { font-weight: 600; } } } `;
 const ConfirmOverlay = styled.div` position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; .confirm-card { background: ${({theme})=>theme.bgtotal}; padding: 40px; border-radius: 20px; text-align: center; max-width: 450px; .final-score { font-size: 1.5rem; font-weight: 800; margin: 20px 0; span { color: ${v.colorPrincipal}; font-size: 2.2rem; } } .pen-score { font-weight: 700; margin-bottom: 20px; color: ${({theme})=>theme.text}; opacity: 0.8; } .match-datetime-confirm { margin-bottom: 20px; opacity: 0.7; font-size: 0.9rem; font-family: monospace; } .confirm-btns { display: flex; gap: 15px; justify-content: center; } } `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
