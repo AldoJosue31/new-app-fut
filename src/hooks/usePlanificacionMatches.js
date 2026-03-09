@@ -200,7 +200,6 @@ export const usePlanificacionMatches = (
         visitante: visitTeam,
         date: m.date ? (hasT ? m.date.split('T')[0] : m.date) : null,
         time: m.date ? (hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || activeTournament?.config?.horaInicio || "08:00")) : null,
-        // CORRECCIÓN: Si no tiene fecha, lo procesamos como Pendiente directamente
         status: (!m.date && m.status === 'Programado') ? 'Pendiente' : m.status,
         goals1: m.goals1,
         goals2: m.goals2,
@@ -270,7 +269,8 @@ export const usePlanificacionMatches = (
                     time: draftMatch.time,
                     status: draftMatch.status || dbMatch.status,
                     isModified: draftMatch.isModified,
-                    originJornada: draftMatch.originJornada || dbMatch.originJornada
+                    originJornada: draftMatch.originJornada || dbMatch.originJornada,
+                    resolution: draftMatch.resolution // Persistimos la resolucion
                 };
             }
         }

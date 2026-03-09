@@ -1,3 +1,4 @@
+// src/services/torneos.js
 import { supabase } from '../supabase/supabase.config';
 import { TOURNAMENT_STATUS } from '../utils/constants';
 import { addDaysToDate } from '../utils/dateUtils'; 
@@ -96,7 +97,6 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
 
         if (error) throw error;
 
-        // FILTRO ROBUSTO EN MEMORIA
         const matchesFiltrados = data.filter(m => {
             const matchTournId = m.jornadas?.tournament_id;
             const matchLeagueId = m.jornadas?.tournaments?.divisions?.league_id;
@@ -304,7 +304,7 @@ export const iniciarTorneoService = async ({
                         jornada_id: jornadaDB.id,
                         team1_id: match.local.id,
                         team2_id: team2Id,
-                        status: 'Programado', // VUELVEN A NACER COMO PROGRAMADO (PERO CON DATE NULL)
+                        status: 'Programado', 
                         date: null 
                     });
                 }
@@ -359,7 +359,7 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       jornada_id: idJornadaFutura,
       team1_id: getTeamId(matchHoy.local),
       team2_id: getTeamId(matchHoy.visitante),
-      status: 'Programado', // TAMBIÉN REGRESA A PROGRAMADO
+      status: 'Programado', 
       date: null 
     };
 
@@ -414,7 +414,7 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const matchesToInsert = [];
     const matchesToUpdate = [];
 
-    // --- GRUPO 1: PARTIDOS ASIGNADOS (Los que se arrastraron a un horario) ---
+    // --- GRUPO 1: PARTIDOS ASIGNADOS ---
     (jornadaData.matches || []).forEach(m => {
         const originName = m.jornadas?.name || m.originJornada;
         const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
@@ -440,13 +440,11 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         }
     });
 
-    // --- GRUPO 2: PARTIDOS NO ASIGNADOS (Los que se quedaron en el Sidebar) ---
+    // --- GRUPO 2: PARTIDOS NO ASIGNADOS (Con lógica para resolver victorias defaults) ---
     (jornadaData.allPendingMatches || []).forEach(m => {
         const originName = m.jornadas?.name || m.originJornada;
         const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
         
-        // CONDICIÓN ESTRICTA: Solo tocamos los partidos que pertenecen a ESTA jornada.
-        // Ignoramos completamente los partidos de jornadas futuras o pasadas para no corromper la DB.
         if (targetJornadaId === currentJornadaId) {
             const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
             const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
@@ -455,9 +453,23 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
                 jornada_id: targetJornadaId,
                 team1_id: t1Id,
                 team2_id: t2Id,
-                status: 'Pendiente', // AQUÍ SUCEDE LA MAGIA. Solo estos son "castigados" con Pendiente.
+                status: 'Pendiente', 
                 date: null
             };
+
+            // AQUÍ ATRAVIESA LA RESOLUCIÓN DE VICTORIA DEFAULT O PENDIENTE
+            if (m.resolution && m.resolution.type === 'default') {
+                const safeDate = new Date().toISOString().split('T')[0];
+                payload.status = 'Finalizado';
+                payload.goals1 = m.resolution.goals1;
+                payload.goals2 = m.resolution.goals2;
+                payload.observations = 'Victoria por default';
+                // Requiere fecha técnica para que las estadísticas y tablas lo incorporen bien
+                payload.date = `${safeDate} 00:00:00`; 
+            } else if (m.resolution && m.resolution.type === 'pendiente') {
+                payload.status = 'Pendiente';
+                payload.date = null;
+            }
 
             const numericId = Number(m.id);
             if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {

@@ -1,3 +1,4 @@
+// src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
@@ -20,6 +21,7 @@ import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
 import { EmptyDropZone } from "./planificacion/EmptyDropZone"; 
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import { ConfirmModal } from "../../ConfirmModal"; 
+import { MatchResolutionModal } from "./planificacion/MatchResolutionModal"; // <- IMPORTADO EL NUEVO MODAL
 
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
@@ -63,6 +65,10 @@ export function JornadaPlanificacion({
   const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
   const [matchToPostpone, setMatchToPostpone] = useState(null); 
 
+  // --- NUEVOS ESTADOS PARA RESOLVER PARTIDOS DESDE EL SIDEBAR ---
+  const [resolutionModalOpen, setResolutionModalOpen] = useState(false);
+  const [matchToResolve, setMatchToResolve] = useState(null);
+
   const [conflictsFound, setConflictsFound] = useState([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
@@ -78,9 +84,30 @@ export function JornadaPlanificacion({
       return isSaved && isPendingResult;
   });
 
-  // --- LÓGICA DE CÁLCULO DE PENDIENTES CORREGIDA ---
-  // Filtramos la jornada actual y excluimos los equipos que descansan (!m.isByeMatch)
   const pendientesEstaJornada = sidebarMatches.filter(m => m.originJornada === currentJornadaName && !m.isByeMatch);
+
+  // --- MANEJADORES DE RESOLUCIÓN ---
+  const handleOpenResolution = (match) => {
+    setMatchToResolve(match);
+    setResolutionModalOpen(true);
+  };
+
+  const handleResolveMatch = (resolution) => {
+    if (!matchToResolve) return;
+    const updated = allPendingMatches.map(m =>
+      m.id === matchToResolve.id ? { ...m, resolution, isModified: true } : m
+    );
+    setAllPendingMatches(updated);
+  };
+
+  const handleClearResolution = (matchId) => {
+    const updated = allPendingMatches.map(m =>
+      m.id === matchId ? { ...m, resolution: null, isModified: true } : m
+    );
+    setAllPendingMatches(updated);
+  };
+
+  // ------------------------------------
 
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
@@ -238,7 +265,14 @@ export function JornadaPlanificacion({
         <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
                 {viewMode === 'list' && (
-                    <PlanningSidebar matches={sidebarMatches} isConfirmed={isConfirmed} setDraggedMatch={setDraggedMatch} jornadaIndex={jornadaIndex}/>
+                    <PlanningSidebar 
+                        matches={sidebarMatches} 
+                        isConfirmed={isConfirmed} 
+                        setDraggedMatch={setDraggedMatch} 
+                        jornadaIndex={jornadaIndex}
+                        onOpenResolution={handleOpenResolution}
+                        onClearResolution={handleClearResolution}
+                    />
                 )}
                 <MainZone>
                     {viewMode === 'list' ? (
@@ -273,7 +307,7 @@ export function JornadaPlanificacion({
                                                     }}
                                                     onRemove={() => { 
                                                         setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                                        setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
+                                                        setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true, resolution: null }]); 
                                                     }} 
                                                     onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
                                                     onPostpone={(m) => setMatchToPostpone(m)} 
@@ -314,7 +348,13 @@ export function JornadaPlanificacion({
         <ConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} conflicts={conflictsFound} />
         <BatchPrintModal isOpen={batchPrintOpen} onClose={() => setBatchPrintOpen(false)} matchesToPrint={matchesWithoutResult} />
 
-        {/* MODAL DE CONFIRMAR JORNADA CON ESTADÍSTICAS */}
+        <MatchResolutionModal 
+            isOpen={resolutionModalOpen} 
+            onClose={() => setResolutionModalOpen(false)} 
+            match={matchToResolve} 
+            onResolve={handleResolveMatch} 
+        />
+
         <ConfirmModal 
             isOpen={confirmJornadaModalOpen}
             onClose={() => setConfirmJornadaModalOpen(false)}
@@ -341,7 +381,6 @@ export function JornadaPlanificacion({
             </StatsContainer>
         </ConfirmModal>
 
-        {/* MODAL DE APLAZAR PARTIDO */}
         <ConfirmModal 
             isOpen={!!matchToPostpone}
             onClose={() => setMatchToPostpone(null)}
