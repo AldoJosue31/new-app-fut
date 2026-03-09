@@ -21,7 +21,7 @@ import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
 import { EmptyDropZone } from "./planificacion/EmptyDropZone"; 
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import { ConfirmModal } from "../../ConfirmModal"; 
-import { MatchResolutionModal } from "./planificacion/MatchResolutionModal"; // <- IMPORTADO EL NUEVO MODAL
+import { MatchResolutionModal } from "./planificacion/MatchResolutionModal"; 
 
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
@@ -65,7 +65,6 @@ export function JornadaPlanificacion({
   const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
   const [matchToPostpone, setMatchToPostpone] = useState(null); 
 
-  // --- NUEVOS ESTADOS PARA RESOLVER PARTIDOS DESDE EL SIDEBAR ---
   const [resolutionModalOpen, setResolutionModalOpen] = useState(false);
   const [matchToResolve, setMatchToResolve] = useState(null);
 
@@ -86,7 +85,6 @@ export function JornadaPlanificacion({
 
   const pendientesEstaJornada = sidebarMatches.filter(m => m.originJornada === currentJornadaName && !m.isByeMatch);
 
-  // --- MANEJADORES DE RESOLUCIÓN ---
   const handleOpenResolution = (match) => {
     setMatchToResolve(match);
     setResolutionModalOpen(true);
@@ -106,8 +104,6 @@ export function JornadaPlanificacion({
     );
     setAllPendingMatches(updated);
   };
-
-  // ------------------------------------
 
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
@@ -217,9 +213,17 @@ export function JornadaPlanificacion({
       }
   };
 
-  const sortedMatches = [...scheduledMatches].sort((a,b) => {
-      if(a.date !== b.date) return a.date.localeCompare(b.date);
-      return (a.time || "").localeCompare(b.time || "");
+  // --- CORRECCIÓN DEL ORDENAMIENTO (TOLERANTE A NULL) ---
+  const sortedMatches = [...scheduledMatches].sort((a, b) => {
+      // Si la fecha es null (ej: victoria por default), le damos un string lejano para mandarlo al final
+      const dateA = a.date || "9999-99-99";
+      const dateB = b.date || "9999-99-99";
+      
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      
+      const timeA = a.time || "99:99";
+      const timeB = b.time || "99:99";
+      return timeA.localeCompare(timeB);
   });
 
   const handleAutoFillWrapper = () => {
@@ -290,7 +294,13 @@ export function JornadaPlanificacion({
                                             const prevMatch = arr[idx - 1];
                                             const nextMatch = arr[idx + 1];
                                             const isNewDay = !prevMatch || match.date !== prevMatch.date;
-                                            const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
+                                            
+                                            // Corrección visual para agrupar partidos sin fecha
+                                            let groupLabel = null;
+                                            if (isNewDay) {
+                                                groupLabel = match.date ? formatDateWithWeekday(match.date) : "Partidos definidos sin fecha";
+                                            }
+
                                             const isLastOfDate = !nextMatch || nextMatch.date !== match.date;
 
                                             return (
@@ -312,7 +322,7 @@ export function JornadaPlanificacion({
                                                     onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
                                                     onPostpone={(m) => setMatchToPostpone(m)} 
                                                   />
-                                                  {isLastOfDate && (
+                                                  {isLastOfDate && match.date && (
                                                       <DaySeparatorDropZone 
                                                           baseDate={match.date}
                                                           onDropAction={(d) => handleDrop({ preventDefault: ()=>{} }, d)}

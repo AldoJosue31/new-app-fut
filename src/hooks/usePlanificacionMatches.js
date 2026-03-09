@@ -152,6 +152,9 @@ export const usePlanificacionMatches = (
   }, [storageKey]);
 
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
+    // CORRECCIÓN: Evitar intentar ajustar horarios a partidos sin fecha (null)
+    if (!dateToFix) return matches;
+
     let matchesOfDay = [...matches].filter(m => m.date === dateToFix).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
     if (matchesOfDay.length <= 1) return matches;
     
@@ -265,21 +268,30 @@ export const usePlanificacionMatches = (
             if (draftMatch) {
                 return {
                     ...dbMatch, 
-                    date: draftMatch.date, 
-                    time: draftMatch.time,
+                    // Se asegura de tomar el valor explícito guardado (incluso si es null)
+                    date: draftMatch.date !== undefined ? draftMatch.date : dbMatch.date, 
+                    time: draftMatch.time !== undefined ? draftMatch.time : dbMatch.time,
                     status: draftMatch.status || dbMatch.status,
                     isModified: draftMatch.isModified,
                     originJornada: draftMatch.originJornada || dbMatch.originJornada,
-                    resolution: draftMatch.resolution // Persistimos la resolucion
+                    resolution: draftMatch.resolution
                 };
             }
         }
         return dbMatch;
     });
 
-    const currentScheduled = mergedMatches.filter(m => m.date);
+    // CORRECCIÓN CLAVE AQUÍ: Permite pasar partidos sin fecha (null) 
+    // si ya están Finalizados o si tienen resolución por defecto
+    const currentScheduled = mergedMatches.filter(m => {
+        if (m.date) return true;
+        if (m.status === 'Finalizado') return true;
+        if (m.resolution && m.resolution.type === 'default') return true;
+        return false;
+    });
+
     const currentPending = mergedMatches.filter(m => {
-        if (m.date || m.status === 'Finalizado') return false;
+        if (m.date || m.status === 'Finalizado' || (m.resolution && m.resolution.type === 'default')) return false;
         if (!m.originJornada) return true; 
         const mNum = getJornadaNum(m.originJornada);
         const cNum = jornadaIndex + 1;
