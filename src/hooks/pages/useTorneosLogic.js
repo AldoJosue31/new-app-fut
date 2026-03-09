@@ -12,11 +12,10 @@ import { useDivisionStore } from "../../store/DivisionStore";
 import { 
   TOURNAMENT_STATUS, 
   TOURNAMENT_FORMAT, 
-  TIE_BREAK_TYPE,
   TEAM_STATUS 
 } from "../../utils/constants";
-// Usamos SOLO las utilidades locales, sin date-fns
 import { addDaysToDate, isValidDate } from "../../utils/dateUtils";
+import { supabase } from "../../supabase/supabase.config"; 
 
 export const useTorneosLogic = () => {
   const [loading, setLoading] = useState(false);
@@ -24,12 +23,12 @@ export const useTorneosLogic = () => {
   const { selectedDivision } = useDivisionStore();
   
   const [activeTournament, setActiveTournament] = useState(null);
+  const [leagueData, setLeagueData] = useState(null); 
   const [allTeams, setAllTeams] = useState([]);
   const [participatingIds, setParticipatingIds] = useState([]); 
   const [standings, setStandings] = useState([]);
   const [partidos, setPartidos] = useState([]);
 
-  // --- CONFIGURACIÓN DE REGLAS ---
   const [reglas, setReglas] = useState(() => {
     const savedData = localStorage.getItem("torneo_reglas_draft");
     if (savedData) {
@@ -45,16 +44,16 @@ export const useTorneosLogic = () => {
 
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
-  // --- CONFIGURACIÓN DEL FORMULARIO ---
   const [form, setForm] = useState(() => {
-    const savedRules = localStorage.getItem("torneo_reglas_draft");
-    return savedRules ? JSON.parse(savedRules) : {
+    const today = new Date().toISOString().split('T')[0];
+    const defaultForm = {
       season: "",
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: today,
       vueltas: "1",       
       minPlayers: 7,
+      maxPlayers: 25, 
       format: TOURNAMENT_FORMAT.LEAGUE,
-      tieBreakType: TIE_BREAK_TYPE.GOALS,
+      tieBreakType: "normal", // <-- CORREGIDO A NORMAL
       winPoints: 3,
       drawPoints: 1,
       lossPoints: 0,
@@ -66,6 +65,19 @@ export const useTorneosLogic = () => {
       ascensos: 0,
       descensos: 0
     };
+
+    const savedRules = localStorage.getItem("torneo_reglas_draft");
+    if (savedRules) {
+        const parsed = JSON.parse(savedRules);
+        return {
+            ...defaultForm,
+            ...parsed,
+            season: "", 
+            startDate: today
+        };
+    }
+    
+    return defaultForm;
   });
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
@@ -91,6 +103,15 @@ export const useTorneosLogic = () => {
     
     setIsLoadingData(true); 
     try {
+      if (selectedDivision.league_id) {
+          const { data: lData } = await supabase
+            .from('leagues')
+            .select('*')
+            .eq('id', selectedDivision.league_id)
+            .single();
+          setLeagueData(lData);
+      }
+
       const [torneo, teams] = await Promise.all([
         getTorneoActivo(selectedDivision.id),
         getEquiposDivision(selectedDivision.id)
@@ -112,6 +133,7 @@ export const useTorneosLogic = () => {
             format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
             maxTeams: torneo.config?.maxTeams || prev.maxTeams,
             minPlayers: torneo.config?.minPlayers || prev.minPlayers, 
+            maxPlayers: torneo.config?.maxPlayers || prev.maxPlayers, 
             winPoints: torneo.config?.winPoints ?? 3,
             drawPoints: torneo.config?.drawPoints ?? 1,
             lossPoints: torneo.config?.lossPoints ?? 0,
@@ -126,6 +148,7 @@ export const useTorneosLogic = () => {
         if (torneo.config) {
           setReglas({
             minutosPorTiempo: torneo.config.minutosPorTiempo || "45",
+            minutosDescanso: torneo.config.minutosDescanso || "15",
             cambios: torneo.config.cambios || "Ilimitados",
             observaciones: torneo.config.observaciones || ""
           });
@@ -134,11 +157,10 @@ export const useTorneosLogic = () => {
           }
         }
 
-try {
+        try {
             const dataStats = await getTablaPosicionesService(selectedDivision.name);
             setStandings(dataStats || []);
 
-            // NUEVO: Traer todos los partidos para el histórico de la tabla
             const dataMatches = await getAllMatchesByTournament(torneo.id);
             setPartidos(dataMatches || []);
         } catch (err) {
@@ -167,7 +189,6 @@ try {
     fetchData();
   }, [fetchData]);
 
-  // --- NUEVA LÓGICA DE FECHAS (Sin date-fns) ---
 
   const syncTournamentDates = async (tournamentId, startDateString) => {
     if (!tournamentId || !startDateString || !activeTournament?.jornadas) return;
@@ -176,7 +197,6 @@ try {
         setLoading(true);
         if (!isValidDate(startDateString)) throw new Error("Fecha de inicio inválida");
 
-        // Creamos las actualizaciones usando addDaysToDate que ya maneja strings
         const updates = activeTournament.jornadas.map((jornada, index) => {
             const weekStartStr = addDaysToDate(startDateString, index * 7);
             const weekEndStr = addDaysToDate(weekStartStr, 6);
@@ -189,7 +209,7 @@ try {
         });
 
         await bulkUpdateJornadaFechas(updates);
-        await fetchData(); // Recargar para ver los cambios
+        await fetchData(); 
         showToast("Fechas calculadas y guardadas automáticamente", "success");
     } catch (error) {
         console.error("Error sync dates:", error);
@@ -219,8 +239,6 @@ try {
         showToast("Error al actualizar fecha", "error");
     }
   };
-
-  // -----------------------------
 
   const moveTeamToParticipating = (teamId) => {
     if(activeTournament) return;
@@ -254,14 +272,9 @@ try {
         return;
     }
 
-    if (!selectedDivision || !form.season || !form.startDate) {
-      showToast("Faltan datos: División, Temporada o Fecha", "warning");
+    if (!selectedDivision || !form.startDate) {
+      showToast("Faltan datos: División o Fecha", "warning");
       return;
-    }
-
-    if (!reglas.minutosPorTiempo) {
-       showToast("Debes definir la duración de los tiempos.", "warning");
-       return;
     }
 
     setLoading(true);
@@ -287,6 +300,7 @@ try {
           tieBreakType: form.tieBreakType,
           participatingIds,
           minPlayers: parseInt(form.minPlayers) || 7, 
+          maxPlayers: parseInt(form.maxPlayers) || 25, 
           maxTeams: parseInt(form.maxTeams) || 16,
           winPoints: form.winPoints,
           drawPoints: form.drawPoints,
@@ -318,6 +332,7 @@ try {
       loading,
       isLoadingData,
       activeTournament,
+      leagueData, 
       allTeams,
       participatingIds,
       standings,
@@ -331,7 +346,6 @@ try {
       onExclude: moveTeamToExcluded,
       setReglas,
       refreshData: fetchData,
-      // Nuevas acciones exportadas
       syncTournamentDates,
       updateJornadaDatesLocal
     },

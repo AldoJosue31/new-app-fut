@@ -4,13 +4,13 @@ import { v } from "../../../../../styles/variables";
 import { InputNumber, InputText2 } from "../../../../../index";
 import { InputWithTooltip } from "../../../../atomos/InputWithTooltip";
 
-// --- CONFIGURACIÓN INICIAL (Referencia) ---
+// --- CONFIGURACIÓN INICIAL CORREGIDA ---
 export const INITIAL_TOURNAMENT_CONFIG = {
     // General
     season: "", startDate: "", 
-    minPlayers: 5, maxPlayers: 25, maxTeams: 20,
+    minPlayers: 7, maxPlayers: 25, maxTeams: 20,
     // Scoring
-    winPoints: 3, drawPoints: 1, lossPoints: 0, tieBreakType: "normal",
+    winPoints: 3, drawPoints: 1, lossPoints: 0, tieBreakType: "normal", // <-- REGRESADO A NORMAL
     // Format
     vueltas: "1", ascensos: 0, descensos: 0, zonaLiguilla: false, clasificados: 8, repechajeTeams: 0,
     // Rules
@@ -27,29 +27,15 @@ const SelectStyled = styled.select` width: 100%; border: 2px solid ${({ theme })
 const ControlBox = styled.div` border: 1px solid ${({theme, $isActive}) => $isActive ? theme.primary : theme.bg4}; border-radius: 12px; padding: 15px; background: ${({theme, $isActive}) => $isActive ? `${theme.primary}08` : 'transparent'}; transition: all 0.3s ease; .header-control { display: flex; justify-content: space-between; align-items: center; margin-bottom: ${({$isActive}) => $isActive ? '15px' : '0'}; } .checkbox-wrapper { display: flex; gap: 10px; align-items: center; cursor: pointer; width: 100%; input { accent-color: ${v.colorPrincipal}; transform: scale(1.1); } label { font-weight: 600; font-size: 14px; flex: 1; } }`;
 const TextAreaStyled = styled.textarea` width: 100%; border: 2px solid ${({ theme }) => theme.color2}; border-radius: 15px; padding: 12px; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; outline: none; font-size: 14px; resize: none; &:focus { border-color: ${v.colorPrincipal}; } `;
 
-// --- COMPONENTES ---
-
 export const TabGeneral = ({ form, onChange, isStarted }) => {
   const currentMinPlayers = parseInt(form.minPlayers) || 5;
-
   const handleGeneralChange = (e) => {
-    // Normalizamos el evento (soporte para inputs nativos o custom components)
     const target = e.target || e;
-    const name = target.name;
-    const value = target.value;
-    
-    // Notificamos el cambio al padre
     onChange(e);
-
-    // Lógica de Negocio: Min <= Max
-    if (name === "minPlayers") {
-        const newMin = parseInt(value) || 0;
+    if (target.name === "minPlayers") {
+        const newMin = parseInt(target.value) || 0;
         const currentMax = parseInt(form.maxPlayers) || 0;
-        
-        if (newMin > currentMax) {
-            // Forzamos la actualización de maxPlayers
-            onChange({ target: { name: "maxPlayers", value: newMin } });
-        }
+        if (newMin > currentMax) onChange({ target: { name: "maxPlayers", value: newMin } });
     }
   };
 
@@ -98,7 +84,14 @@ export const TabScoring = ({ form, onChange }) => {
                 <InputWithTooltip label="Derrota"><InputNumber name="lossPoints" value={form.lossPoints} onChange={onChange} disabled={!useCustom} /></InputWithTooltip>
             </Row3>
         </ControlBox>
-        <Divider /><InputWithTooltip label="Criterio de Desempate"><SelectStyled name="tieBreakType" value={form.tieBreakType || "normal"} onChange={onChange}><option value="normal">Tradicional (Empate directo)</option><option value="penalties">Penales/Shootouts (Punto Extra)</option></SelectStyled></InputWithTooltip>
+        <Divider />
+        {/* CORREGIDO A OPCIONES DE PARTIDO */}
+        <InputWithTooltip label="Criterio de Desempate">
+            <SelectStyled name="tieBreakType" value={form.tieBreakType || "normal"} onChange={onChange}>
+                <option value="normal">Tradicional (Empate directo)</option>
+                <option value="penalties">Penales/Shootouts (Punto Extra)</option>
+            </SelectStyled>
+        </InputWithTooltip>
       </TabContainer>
     );
 };
@@ -114,7 +107,6 @@ export const TabFormat = ({ form, onChange, vueltasDisabled }) => {
       setEnablePromotions(e.target.checked);
       if(!e.target.checked) { onChange({ target: { name: 'ascensos', value: 0 } }); onChange({ target: { name: 'descensos', value: 0 } }); }
   };
-  
   const currentClas = parseInt(form.clasificados) || 0;
   const currentRep = parseInt(form.repechajeTeams) || 0;
 
@@ -146,7 +138,6 @@ export const TabFormat = ({ form, onChange, vueltasDisabled }) => {
 };
 
 export const TabGameRules = ({ reglas, setReglas }) => {
-  // MANEJADOR ROBUSTO PARA NÚMEROS (Previene strings vacíos o NaN en el estado final)
   const handleChange = (e) => { 
       const target = e.target || e; 
       const name = target.name;
@@ -154,9 +145,8 @@ export const TabGameRules = ({ reglas, setReglas }) => {
       const numericFields = ["minutosPorTiempo", "minutosDescanso"];
       
       let finalValue = value;
-
       if (numericFields.includes(name)) {
-        if (value === "") finalValue = ""; // Permitir borrar todo
+        if (value === "") finalValue = ""; 
         else {
             const parsed = parseInt(value, 10);
             finalValue = isNaN(parsed) ? "" : parsed;
@@ -164,8 +154,6 @@ export const TabGameRules = ({ reglas, setReglas }) => {
       }
       setReglas(prev => ({ ...prev, [name]: finalValue })); 
   };
-  
-  // Helper para mostrar valor seguro en el input
   const safeValue = (val) => (val === null || val === undefined || Number.isNaN(val)) ? "" : val;
 
   return (
@@ -178,10 +166,7 @@ export const TabGameRules = ({ reglas, setReglas }) => {
       <SectionLabel>Duración y Cambios</SectionLabel>
       <Row3>
         <InputWithTooltip label="Minutos por Tiempo"><InputNumber name="minutosPorTiempo" value={safeValue(reglas?.minutosPorTiempo)} onChange={handleChange} placeholder="Ej: 45"/></InputWithTooltip>
-        
-        {/* Aquí estaba el error del Minutos Descanso - Ahora usa safeValue y handleChange corregido */}
         <InputWithTooltip label="Minutos Descanso"><InputNumber name="minutosDescanso" value={safeValue(reglas?.minutosDescanso)} onChange={handleChange} placeholder="Ej: 15"/></InputWithTooltip>
-        
         <InputWithTooltip label="Cambios">
             <SelectStyled name="cambios" value={reglas?.cambios || "Ilimitados"} onChange={handleChange}>
                 <option value="Ilimitados">Ilimitados</option><option value="Limitados">Limitados</option>
