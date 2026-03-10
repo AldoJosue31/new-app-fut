@@ -15,7 +15,10 @@ import { LigaRulesTab } from "../organismos/tabs/liga/LigaRulesTab";
 export function LigaTemplate({ 
    division, season, loading, 
    leagueData, referees = [], allDivisions = [],
-   onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
+   onUpdateLeague, 
+   // NUEVAS FUNCIONES DE CATEGORÍA QUE FALTABAN AQUÍ
+   onAddCategory, onEditCategory, onDeleteCategory,
+   onAddDivision, onEditDivision, onDeleteDivision,
    onAddReferee, onEditReferee, onDeleteReferee,
    state, setState
 }) {
@@ -73,7 +76,16 @@ export function LigaTemplate({
                 <LigaRulesTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
             )}
             {activeTab === "divisions" && (
-                <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} loading={loading} />
+                <LigaDivisionsTab 
+                  // PASANDO LAS FUNCIONES AL COMPONENTE HIJO
+                  onAddCategory={onAddCategory}
+                  onEditCategory={onEditCategory}
+                  onDeleteCategory={onDeleteCategory}
+                  onAddDivision={onAddDivision} 
+                  onEditDivision={onEditDivision} 
+                  onDeleteDivision={onDeleteDivision} 
+                  loading={loading} 
+                />
             )}
             {activeTab === "referees" && (
                 <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} loading={loading} />
