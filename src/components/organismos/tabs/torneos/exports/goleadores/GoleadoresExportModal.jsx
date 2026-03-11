@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import styled, { useTheme } from "styled-components";
-import { Modal } from "../../../../../index"; 
-import { exportElementAsPNG } from "../../../../../utils/imageExporter";
-import { supabase } from "../../../../../supabase/supabase.config"; 
-import { ExportPreviewHeader } from "./ExportPreviewHeader";
+import { Modal } from "../../../../../../index"; 
+import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
+import { supabase } from "../../../../../../supabase/supabase.config"; 
+import { ExportPreviewHeader } from '../shared/ExportPreviewHeader';
 import GoleadoresExportLayout from "./GoleadoresExportLayout";
 
 export default function GoleadoresExportModal({ isOpen, onClose, goleadores, torneo }) {

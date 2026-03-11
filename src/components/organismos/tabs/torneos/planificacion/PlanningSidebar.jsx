@@ -1,3 +1,4 @@
+// src/components/organismos/tabs/torneos/planificacion/PlanningSidebar.jsx
 import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 import { ContainerScroll } from "../../../../../index";
@@ -5,7 +6,7 @@ import { PendingMatchCard } from "./PendingMatchCard";
 import { v } from "../../../../../styles/variables";
 import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";
 
-export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornadaIndex }) {
+export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornadaIndex, onOpenResolution, onClearResolution }) {
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
   const { delayed, current } = useMemo(() => {
@@ -74,12 +75,14 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
                                     match={match}
                                     isConfirmed={isConfirmed}
                                     onDragStart={(e) => {
-                                        if (!isConfirmed) {
+                                        if (!isConfirmed && !match.resolution) {
                                             setDraggedMatch(match);
                                             e.dataTransfer.setData("text", match.id);
                                         }
                                     }}
                                     currentJornadaIndex={jornadaIndex}
+                                    onOpenResolution={onOpenResolution}
+                                    onClearResolution={onClearResolution}
                                 />
                             ))}
                         </div>
@@ -110,12 +113,14 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
                             match={match}
                             isConfirmed={isConfirmed}
                             onDragStart={(e) => {
-                                if (!isConfirmed) {
+                                if (!isConfirmed && !match.resolution) {
                                     setDraggedMatch(match);
                                     e.dataTransfer.setData("text", match.id);
                                 }
                             }}
                             currentJornadaIndex={jornadaIndex}
+                            onOpenResolution={onOpenResolution}
+                            onClearResolution={onClearResolution}
                         />
                     );
                 })}

@@ -1,3 +1,4 @@
+// src/services/torneos.js
 import { supabase } from '../supabase/supabase.config';
 import { TOURNAMENT_STATUS } from '../utils/constants';
 import { addDaysToDate } from '../utils/dateUtils'; 
@@ -96,7 +97,6 @@ export const getPartidosExternosRango = async (startDate, endDate, currentTourna
 
         if (error) throw error;
 
-        // FILTRO ROBUSTO EN MEMORIA
         const matchesFiltrados = data.filter(m => {
             const matchTournId = m.jornadas?.tournament_id;
             const matchLeagueId = m.jornadas?.tournaments?.divisions?.league_id;
@@ -304,7 +304,7 @@ export const iniciarTorneoService = async ({
                         jornada_id: jornadaDB.id,
                         team1_id: match.local.id,
                         team2_id: team2Id,
-                        status: 'Programado', // VUELVEN A NACER COMO PROGRAMADO (PERO CON DATE NULL)
+                        status: 'Programado', 
                         date: null 
                     });
                 }
@@ -359,7 +359,7 @@ export const intercambiarPartidosService = async (torneoId, matchHoy, matchFutur
       jornada_id: idJornadaFutura,
       team1_id: getTeamId(matchHoy.local),
       team2_id: getTeamId(matchHoy.visitante),
-      status: 'Programado', // TAMBIÉN REGRESA A PROGRAMADO
+      status: 'Programado', 
       date: null 
     };
 
@@ -414,22 +414,52 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     const matchesToInsert = [];
     const matchesToUpdate = [];
 
-    // --- GRUPO 1: PARTIDOS ASIGNADOS (Los que se arrastraron a un horario) ---
-    (jornadaData.matches || []).forEach(m => {
+    // --- FUNCIÓN UNIFICADA PARA PROCESAR PARTIDOS ---
+    const procesarPartido = (m) => {
         const originName = m.jornadas?.name || m.originJornada;
         const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
         const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
         const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
 
-        const safeDate = (m.date && m.date.trim() !== "") ? m.date : new Date().toISOString().split('T')[0];
-        
+        let finalStatus = m.status || 'Programado';
+        let finalDate = null;
+        let finalGoals1 = m.goals1;
+        let finalGoals2 = m.goals2;
+        let finalObs = m.observations;
+
+        // Procesamos la resolución primero (tiene prioridad si existe y se definió desde el modal)
+        if (m.resolution && m.resolution.type === 'default') {
+            finalStatus = 'Finalizado';
+            finalGoals1 = m.resolution.goals1;
+            finalGoals2 = m.resolution.goals2;
+            finalObs = 'Victoria por default';
+            finalDate = null; // AQUI ASEGURAMOS QUE SEA NULL SIEMPRE
+        } else if (m.resolution && m.resolution.type === 'pendiente') {
+            finalStatus = 'Pendiente';
+            finalDate = null;
+        } else {
+            // Comportamiento normal si no hay resolución pendiente
+            if (m.date && m.date.trim() !== "") {
+                finalDate = `${m.date} ${m.time || "10:00"}:00`;
+            } else if (finalStatus === 'Finalizado' && finalObs === 'Victoria por default') {
+                finalDate = null; // Si ya estaba guardado como default, se mantiene null
+            } else if (finalStatus === 'Programado') {
+                const safeDate = new Date().toISOString().split('T')[0];
+                finalDate = `${safeDate} ${m.time || "10:00"}:00`;
+            }
+        }
+
         const payload = {
             jornada_id: targetJornadaId,
             team1_id: t1Id,
             team2_id: t2Id,
-            status: 'Programado',
-            date: `${safeDate} ${m.time || "10:00"}:00`
+            status: finalStatus,
+            date: finalDate
         };
+        
+        if (finalGoals1 !== undefined) payload.goals1 = finalGoals1;
+        if (finalGoals2 !== undefined) payload.goals2 = finalGoals2;
+        if (finalObs !== undefined) payload.observations = finalObs;
 
         const numericId = Number(m.id);
         if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
@@ -438,35 +468,18 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         } else {
             matchesToInsert.push(payload);
         }
-    });
+    };
 
-    // --- GRUPO 2: PARTIDOS NO ASIGNADOS (Los que se quedaron en el Sidebar) ---
+    // Aplicar la función a ambos grupos para que sigan las mismas reglas
+    (jornadaData.matches || []).forEach(procesarPartido);
+
     (jornadaData.allPendingMatches || []).forEach(m => {
-        const originName = m.jornadas?.name || m.originJornada;
-        const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
-        
-        // CONDICIÓN ESTRICTA: Solo tocamos los partidos que pertenecen a ESTA jornada.
-        // Ignoramos completamente los partidos de jornadas futuras o pasadas para no corromper la DB.
-        if (targetJornadaId === currentJornadaId) {
-            const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
-            const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
-
-            const payload = {
-                jornada_id: targetJornadaId,
-                team1_id: t1Id,
-                team2_id: t2Id,
-                status: 'Pendiente', // AQUÍ SUCEDE LA MAGIA. Solo estos son "castigados" con Pendiente.
-                date: null
-            };
-
-            const numericId = Number(m.id);
-            if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
-                payload.id = numericId;
-                matchesToUpdate.push(payload);
-            } else {
-                matchesToInsert.push(payload);
-            }
-        }
+         const originName = m.jornadas?.name || m.originJornada;
+         const targetJornadaId = m.jornada_id || jornadasMap[originName] || currentJornadaId;
+         // Solo guardamos los pendientes que pertenezcan a la jornada que se está confirmando
+         if (targetJornadaId === currentJornadaId) {
+             procesarPartido(m);
+         }
     });
 
     if (matchesToInsert.length > 0) {

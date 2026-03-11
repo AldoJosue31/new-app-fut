@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react';
-import { v } from "../../../../../index"; 
+import { v } from "../../../../../../index"; 
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
-import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
+import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
 const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
     const isDark = themeMode === 'dark';

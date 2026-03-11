@@ -6,6 +6,7 @@ export const useDivisionStore = create(
   persist(
     (set, get) => ({
       // ESTADO
+      categorias: [],
       divisiones: [],
       selectedDivision: null,
       isLoading: false,
@@ -15,39 +16,45 @@ export const useDivisionStore = create(
         set({ isLoading: true });
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          
           if (!user) {
-             console.warn("No hay usuario autenticado");
-             set({ divisiones: [], selectedDivision: null, isLoading: false });
+             set({ categorias: [], divisiones: [], selectedDivision: null, isLoading: false });
              return;
           }
 
-          const { data, error } = await supabase
-            .from('divisions')
+          // 1. Traer Categorías
+          const { data: catData, error: catError } = await supabase
+            .from('categories')
             .select('*, leagues!inner(owner_id)')
             .eq('leagues.owner_id', user.id)
-            .order('id', { ascending: true });
+            .order('tier', { ascending: true });
 
-          if (error) throw error;
+          if (catError) throw catError;
 
-          set({ divisiones: data });
+          // 2. Traer Divisiones con el nombre de su Categoría anidado
+          const { data: divData, error: divError } = await supabase
+            .from('divisions')
+            .select('*, categories(name), leagues!inner(owner_id)')
+            .eq('leagues.owner_id', user.id)
+            .order('tier', { ascending: true });
 
-          // Lógica para mantener o resetear la selección
+          if (divError) throw divError;
+
+          set({ categorias: catData, divisiones: divData });
+
+          // Autoseleccionar si no hay nada seleccionado
           const state = get();
-          if (data && data.length > 0) {
+          if (divData && divData.length > 0) {
             const currentSelected = state.selectedDivision;
-            const stillExists = currentSelected && data.find(d => d.id === currentSelected.id);
-            
+            const stillExists = currentSelected && divData.find(d => d.id === currentSelected.id);
             if (!currentSelected || !stillExists) {
-              set({ selectedDivision: data[0] });
+              set({ selectedDivision: divData[0] });
             }
           } else {
             set({ selectedDivision: null });
           }
-
         } catch (error) {
-          console.error("Error cargando divisiones:", error.message);
-          set({ divisiones: [], selectedDivision: null });
+          console.error("Error cargando estructura:", error.message);
+          set({ categorias: [], divisiones: [], selectedDivision: null });
         } finally {
           set({ isLoading: false });
         }
@@ -57,9 +64,36 @@ export const useDivisionStore = create(
         set({ selectedDivision: divisionObject });
       },
 
-      // Esta es la función que llama App.jsx
+      // --- ESTA ES LA FUNCIÓN QUE FALTABA ---
+      // Reordenar jerarquías (Drag & Drop)
+      updateDivisionTiers: async (reorderedDivisions) => {
+        const previousDivisions = get().divisiones;
+        // Optimistic update para la vista
+        set({ divisiones: reorderedDivisions });
+
+        try {
+          const updates = reorderedDivisions.map((div) => ({
+            id: div.id,
+            league_id: div.league_id,
+            name: div.name,
+            category_id: div.category_id, // Apuntando a la nueva llave foránea
+            tier: div.tier 
+          }));
+
+          const { error } = await supabase
+            .from('divisions')
+            .upsert(updates, { onConflict: 'id' });
+
+          if (error) throw error;
+        } catch (error) {
+          console.error("Error actualizando jerarquías:", error);
+          // Revertir si hay error en base de datos
+          set({ divisiones: previousDivisions });
+        }
+      },
+
       resetStore: () => {
-        set({ divisiones: [], selectedDivision: null, isLoading: false });
+        set({ categorias: [], divisiones: [], selectedDivision: null, isLoading: false });
       }
     }),
     {

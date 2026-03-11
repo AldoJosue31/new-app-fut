@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
+import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
 const GoleadoresExportLayout = forwardRef(({ goleadores = [], torneo = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
     const isDark = themeMode === 'dark';

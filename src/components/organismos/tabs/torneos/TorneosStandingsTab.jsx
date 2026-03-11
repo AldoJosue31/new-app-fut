@@ -1,3 +1,4 @@
+// src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { supabase } from '../../../../supabase/supabase.config'; 
@@ -5,12 +6,11 @@ import { v } from '../../../../styles/variables';
 import { BiShareAlt, BiCheck } from "react-icons/bi"; 
 import { RiImageLine } from "react-icons/ri"; 
 
-import StandingsExportModal from './subcomponents/StandingsExportModal';
+import StandingsExportModal from './exports/standings/StandingsExportModal';
 import StandingsTable from './subcomponents/StandingsTable';
 import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { Skeleton } from '../../../atomos/Skeleton';
 
-// IMPORTAMOS NUESTRO CUSTOM HOOK ACTUALIZADO
 import { useTorneoStandingsLogic } from '../../../../hooks/useTorneoStandingsLogic';
 
 export const TorneosStandingsTab = ({
@@ -30,6 +30,16 @@ export const TorneosStandingsTab = ({
   const [updating, setUpdating] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
+
+  // === NUEVO: Refrescar datos automáticamente al entrar a la pestaña ===
+  useEffect(() => {
+    // Si existe la función onRefresh y no estamos en la vista pública, la ejecutamos
+    if (onRefresh && !isPublic) {
+      onRefresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+  // =====================================================================
 
   useEffect(() => {
     setIsPublicEnabled(torneo?.is_public || false);

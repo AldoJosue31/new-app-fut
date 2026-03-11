@@ -18,7 +18,8 @@ export function TorneosTemplate({
   form, onChange, onSubmit, loading, divisionName, activeTournament,
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
   isLoadingData, standings, reglas, setReglas, refreshStandings,
-  onTournamentReset, state, setState, partidos
+  onTournamentReset, state, setState, partidos,
+  leagueData // <-- AHORA RECIBE LA LIGA DESDE LA PÁGINA
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
@@ -89,6 +90,7 @@ export function TorneosTemplate({
                   onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                   isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
                   onTournamentReset={onTournamentReset}
+                  leagueData={leagueData} // <-- PASAMOS LA LIGA AL TAB DEFINITIVO
               />
             </FullWidthTab>
           )}
@@ -155,9 +157,9 @@ export function TorneosTemplate({
 const StyledContentContainer = styled(ContentContainer)`
   && {
     padding-top: 0 !important;
-    padding-bottom: 20px !important; /* Ajuste crítico: evita exceso de espacio inferior */
+    padding-bottom: 20px !important; 
     margin-top: 0 !important;
-    min-height: auto !important; /* Ajuste crítico: Anula la altura fija del layout que dejaba hueco sobrante */
+    min-height: auto !important; 
     
     @media (max-width: 768px) {
       padding-top: 0 !important;
@@ -172,7 +174,7 @@ const ContentGrid = styled.div`
   align-items: center;
   width: 100%;
   margin: 0 auto;
-  gap: 0px; /* Ajustado para eliminar sumatorias de márgenes fantasma */
+  gap: 0px; 
   margin-top: 0; 
   margin-bottom: 0;
   

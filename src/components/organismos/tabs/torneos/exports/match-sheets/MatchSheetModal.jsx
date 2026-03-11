@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import styled, { useTheme } from "styled-components";
-import { v, Modal } from "../../../../../index"; 
-import { supabase } from "../../../../../supabase/supabase.config";
-import { exportElementAsPNG } from "../../../../../utils/imageExporter";
-import { ExportPreviewHeader } from "../subcomponents/ExportPreviewHeader";
-import MatchSheetExportLayout from "./components/MatchSheetExportLayout";
+import { v, Modal } from "../../../../../../index"; 
+import { supabase } from "../../../../../../supabase/supabase.config";
+import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
+import { ExportPreviewHeader } from '../shared/ExportPreviewHeader';
+import MatchSheetExportLayout from "./MatchSheetExportLayout";
 
 const MatchSheetModal = ({ isOpen, onClose, match }) => {
     const theme = useTheme(); 

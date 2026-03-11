@@ -4,17 +4,21 @@ import styled from "styled-components";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
 import { TabsNavigation, EmptyState } from "../../index";
-import { RiSettings4Line, RiBuilding2Line } from "react-icons/ri";
+import { RiSettings4Line, RiBuilding2Line, RiBookLine } from "react-icons/ri";
 import { GiWhistle } from "react-icons/gi";
 
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
 import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
+import { LigaRulesTab } from "../organismos/tabs/liga/LigaRulesTab";
 
 export function LigaTemplate({ 
    division, season, loading, 
    leagueData, referees = [], allDivisions = [],
-   onUpdateLeague, onAddDivision, onEditDivision, onDeleteDivision,
+   onUpdateLeague, 
+   // NUEVAS FUNCIONES DE CATEGORÍA QUE FALTABAN AQUÍ
+   onAddCategory, onEditCategory, onDeleteCategory,
+   onAddDivision, onEditDivision, onDeleteDivision,
    onAddReferee, onEditReferee, onDeleteReferee,
    state, setState
 }) {
@@ -23,6 +27,7 @@ export function LigaTemplate({
 
   const tabList = [
     { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
+    { id: "rules", label: "Plantilla Reglas", icon: <RiBookLine /> },
     { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
   ];
@@ -34,7 +39,6 @@ export function LigaTemplate({
     navigate(`/liga/${newTabId}`);
   };
 
-  // Se muestra EmptyState SOLO si terminó de cargar y no trajo la data.
   if (!loading && !leagueData) {
       return (
         <ContentContainer>
@@ -65,12 +69,23 @@ export function LigaTemplate({
 
       <StyledContentContainer>
         <ContentGrid>
-            {/* Pasamos la prop loading a cada TAB para que ellas manejen su propio skeleton */}
             {activeTab === "general" && (
                 <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
             )}
+            {activeTab === "rules" && (
+                <LigaRulesTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
+            )}
             {activeTab === "divisions" && (
-                <LigaDivisionsTab divisions={allDivisions} onAdd={onAddDivision} onEdit={onEditDivision} onDelete={onDeleteDivision} loading={loading} />
+                <LigaDivisionsTab 
+                  // PASANDO LAS FUNCIONES AL COMPONENTE HIJO
+                  onAddCategory={onAddCategory}
+                  onEditCategory={onEditCategory}
+                  onDeleteCategory={onDeleteCategory}
+                  onAddDivision={onAddDivision} 
+                  onEditDivision={onEditDivision} 
+                  onDeleteDivision={onDeleteDivision} 
+                  loading={loading} 
+                />
             )}
             {activeTab === "referees" && (
                 <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} loading={loading} />
@@ -82,16 +97,9 @@ export function LigaTemplate({
 }
 
 const StyledContentContainer = styled(ContentContainer)`
-  && {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-  }
+  && { padding-top: 0 !important; margin-top: 0 !important; }
 `;
 
 const ContentGrid = styled.div` 
-  display: flex; 
-  justify-content: center; 
-  width: 100%; 
-  gap: 20px; 
-  margin-top: 20px;
+  display: flex; justify-content: center; width: 100%; gap: 20px; margin-top: 20px;
 `;

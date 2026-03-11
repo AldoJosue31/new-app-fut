@@ -1,3 +1,4 @@
+// src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx
 import React, { useState, useEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
@@ -15,11 +16,12 @@ import { ResultModal } from "./planificacion/ResultModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal"; 
-import { BatchPrintModal } from "./planificacion/BatchPrintModal";
+import { BatchPrintModal } from "./exports/match-sheets/BatchPrintModal";
 import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
 import { EmptyDropZone } from "./planificacion/EmptyDropZone"; 
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import { ConfirmModal } from "../../ConfirmModal"; 
+import { MatchResolutionModal } from "./planificacion/MatchResolutionModal"; 
 
 export function JornadaPlanificacion({ 
   matchesDB = [], globalPendingMatches = [], teams, jornadaIndex, activeTournament,
@@ -33,6 +35,7 @@ export function JornadaPlanificacion({
     sidebarMatches,
     weekStartDate, setWeekStartDate,
     durationMatch, autoAdjustTimes, 
+    currentJornadaName,
     clearDraft,
     showExternalMatches, toggleExternalMatches,
     externalMatches, loadingExternal,
@@ -62,6 +65,9 @@ export function JornadaPlanificacion({
   const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
   const [matchToPostpone, setMatchToPostpone] = useState(null); 
 
+  const [resolutionModalOpen, setResolutionModalOpen] = useState(false);
+  const [matchToResolve, setMatchToResolve] = useState(null);
+
   const [conflictsFound, setConflictsFound] = useState([]);
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
@@ -76,6 +82,28 @@ export function JornadaPlanificacion({
       const isPendingResult = m.status !== 'Finalizado'; 
       return isSaved && isPendingResult;
   });
+
+  const pendientesEstaJornada = sidebarMatches.filter(m => m.originJornada === currentJornadaName && !m.isByeMatch);
+
+  const handleOpenResolution = (match) => {
+    setMatchToResolve(match);
+    setResolutionModalOpen(true);
+  };
+
+  const handleResolveMatch = (resolution) => {
+    if (!matchToResolve) return;
+    const updated = allPendingMatches.map(m =>
+      m.id === matchToResolve.id ? { ...m, resolution, isModified: true } : m
+    );
+    setAllPendingMatches(updated);
+  };
+
+  const handleClearResolution = (matchId) => {
+    const updated = allPendingMatches.map(m =>
+      m.id === matchId ? { ...m, resolution: null, isModified: true } : m
+    );
+    setAllPendingMatches(updated);
+  };
 
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault(); 
@@ -185,9 +213,17 @@ export function JornadaPlanificacion({
       }
   };
 
-  const sortedMatches = [...scheduledMatches].sort((a,b) => {
-      if(a.date !== b.date) return a.date.localeCompare(b.date);
-      return (a.time || "").localeCompare(b.time || "");
+  // --- CORRECCIÓN DEL ORDENAMIENTO (TOLERANTE A NULL) ---
+  const sortedMatches = [...scheduledMatches].sort((a, b) => {
+      // Si la fecha es null (ej: victoria por default), le damos un string lejano para mandarlo al final
+      const dateA = a.date || "9999-99-99";
+      const dateB = b.date || "9999-99-99";
+      
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      
+      const timeA = a.time || "99:99";
+      const timeB = b.time || "99:99";
+      return timeA.localeCompare(timeB);
   });
 
   const handleAutoFillWrapper = () => {
@@ -233,7 +269,14 @@ export function JornadaPlanificacion({
         <TransitionWrapper key={jornadaIndex + viewMode}>
             <Workspace>
                 {viewMode === 'list' && (
-                    <PlanningSidebar matches={sidebarMatches} isConfirmed={isConfirmed} setDraggedMatch={setDraggedMatch} jornadaIndex={jornadaIndex}/>
+                    <PlanningSidebar 
+                        matches={sidebarMatches} 
+                        isConfirmed={isConfirmed} 
+                        setDraggedMatch={setDraggedMatch} 
+                        jornadaIndex={jornadaIndex}
+                        onOpenResolution={handleOpenResolution}
+                        onClearResolution={handleClearResolution}
+                    />
                 )}
                 <MainZone>
                     {viewMode === 'list' ? (
@@ -251,7 +294,13 @@ export function JornadaPlanificacion({
                                             const prevMatch = arr[idx - 1];
                                             const nextMatch = arr[idx + 1];
                                             const isNewDay = !prevMatch || match.date !== prevMatch.date;
-                                            const groupLabel = isNewDay ? formatDateWithWeekday(match.date) : null;
+                                            
+                                            // Corrección visual para agrupar partidos sin fecha
+                                            let groupLabel = null;
+                                            if (isNewDay) {
+                                                groupLabel = match.date ? formatDateWithWeekday(match.date) : "Partidos definidos sin fecha";
+                                            }
+
                                             const isLastOfDate = !nextMatch || nextMatch.date !== match.date;
 
                                             return (
@@ -268,12 +317,12 @@ export function JornadaPlanificacion({
                                                     }}
                                                     onRemove={() => { 
                                                         setScheduledMatches(scheduledMatches.filter(m => m.id !== match.id)); 
-                                                        setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true }]); 
+                                                        setAllPendingMatches([...allPendingMatches, { ...match, status: 'Pendiente', date: null, time: null, isModified: true, resolution: null }]); 
                                                     }} 
                                                     onOpenResult={(m) => { setSelectedMatchResult(m); setResultModalOpen(true); }} 
                                                     onPostpone={(m) => setMatchToPostpone(m)} 
                                                   />
-                                                  {isLastOfDate && (
+                                                  {isLastOfDate && match.date && (
                                                       <DaySeparatorDropZone 
                                                           baseDate={match.date}
                                                           onDropAction={(d) => handleDrop({ preventDefault: ()=>{} }, d)}
@@ -309,7 +358,13 @@ export function JornadaPlanificacion({
         <ConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} conflicts={conflictsFound} />
         <BatchPrintModal isOpen={batchPrintOpen} onClose={() => setBatchPrintOpen(false)} matchesToPrint={matchesWithoutResult} />
 
-        {/* MODAL DE CONFIRMAR JORNADA CON ESTADÍSTICAS */}
+        <MatchResolutionModal 
+            isOpen={resolutionModalOpen} 
+            onClose={() => setResolutionModalOpen(false)} 
+            match={matchToResolve} 
+            onResolve={handleResolveMatch} 
+        />
+
         <ConfirmModal 
             isOpen={confirmJornadaModalOpen}
             onClose={() => setConfirmJornadaModalOpen(false)}
@@ -329,14 +384,13 @@ export function JornadaPlanificacion({
                     <span className="num">{scheduledMatches.length}</span>
                     <span className="lbl">A Confirmar</span>
                 </StatBox>
-                <StatBox $color="#95a5a6">
-                    <span className="num">{sidebarMatches.length}</span>
-                    <span className="lbl">Pendientes</span>
+                <StatBox $color="#f39c12">
+                    <span className="num">{pendientesEstaJornada.length}</span>
+                    <span className="lbl" style={{textAlign: "center"}}>Sin Asignar<br/>(Esta Jornada)</span>
                 </StatBox>
             </StatsContainer>
         </ConfirmModal>
 
-        {/* MODAL DE APLAZAR PARTIDO */}
         <ConfirmModal 
             isOpen={!!matchToPostpone}
             onClose={() => setMatchToPostpone(null)}
@@ -383,13 +437,13 @@ const StatBox = styled.div`
     align-items: center;
     justify-content: center;
     background: ${({theme}) => theme.bg3};
-    padding: 15px 20px;
+    padding: 15px 15px;
     border-radius: 12px;
     border: 2px solid ${({$color}) => $color}40;
-    min-width: 130px;
+    min-width: 120px;
 
     .num {
-        font-size: 2.8rem;
+        font-size: 2.5rem;
         font-weight: 800;
         color: ${({$color}) => $color};
         line-height: 1;
@@ -397,7 +451,7 @@ const StatBox = styled.div`
     }
 
     .lbl {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: ${({theme}) => theme.text};
         text-transform: uppercase;

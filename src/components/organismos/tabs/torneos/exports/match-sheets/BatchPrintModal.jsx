@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom"; // IMPORTANTE: Para renderizar fuera del #root
 import styled from "styled-components";
-import { v, Modal, Btnsave } from "../../../../../index";
-import { supabase } from "../../../../../supabase/supabase.config";
+import { v, Modal, Btnsave } from "../../../../../../index";
+import { supabase } from "../../../../../../supabase/supabase.config";
 import { RiPrinterLine } from "react-icons/ri";
 import { MatchSheetA4 } from "./MatchSheetA4";
 
@@ -33,6 +33,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                         name,
                         tournament:tournament_id (
                             season,
+                            config, 
                             division:division_id (
                                 name,
                                 league:league_id (name, logo_url)
@@ -41,7 +42,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                     )
                 `)
                 .in('id', matchIds)
-                .order('date', { ascending: true }); // Orden por fecha, no por hora si da error
+                .order('date', { ascending: true }); 
 
             if (matchError) throw matchError;
 
@@ -77,8 +78,21 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                 const visitPlayers = playersByTeam[match.team2_id] || [];
                 const sortDorsal = (a, b) => (parseInt(a.dorsal) || 999) - (parseInt(b.dorsal) || 999);
                 
+                // Extraer configuración del torneo para saber si mostrar penales
+                let tournamentConfig = match.jornada?.tournament?.config || {};
+                if (typeof tournamentConfig === 'string') {
+                    try { tournamentConfig = JSON.parse(tournamentConfig); } catch (e) { console.error("Error parsing config", e); }
+                }
+
+                const tieBreak = (tournamentConfig.tieBreakType || '').toLowerCase();
+                const showPenalties = 
+                    tieBreak.includes('penalties') || 
+                    tieBreak.includes('penales') || 
+                    tieBreak.includes('shootout');
+
                 return {
                     matchData: match,
+                    showPenalties: showPenalties, // <-- SE AGREGA LA LECTURA CORRECTA
                     players: {
                         local: localPlayers.sort(sortDorsal),
                         visit: visitPlayers.sort(sortDorsal)
@@ -155,7 +169,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                                             players={item.players}
                                             formatDate={formatDate}
                                             formatTime={formatTime}
-                                            showPenalties={false} 
+                                            showPenalties={item.showPenalties} // <-- APLICADO CORRECTAMENTE AQUÍ
                                         />
                                     </div>
                                 ))}
@@ -172,7 +186,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                                         players={item.players}
                                         formatDate={formatDate}
                                         formatTime={formatTime}
-                                        showPenalties={false} 
+                                        showPenalties={item.showPenalties} // <-- APLICADO CORRECTAMENTE AQUÍ
                                     />
                                 ))}
                             </div>,

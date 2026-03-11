@@ -12,8 +12,8 @@ import {
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 // Importar los modales
-import MatchSheetModal from "./MatchSheetModal";
-import { PreMatchSheetModal } from "./PreMatchSheetModal"; 
+import MatchSheetModal from "../exports/match-sheets/MatchSheetModal";
+import { PreMatchSheetModal } from "../exports/match-sheets/PreMatchSheetModal";
 
 const getPenaltyScore = (observations) => {
     if (!observations) return null;
@@ -61,7 +61,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   };
 
   const handleDragOver = (e) => {
-      e.preventDefault(); // Indispensable para que funcione el onDrop en HTML5
+      e.preventDefault(); 
   };
 
   const handleDragLeave = (e) => {
@@ -74,10 +74,10 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 
   const handleDrop = (e) => {
       e.preventDefault();
-      dragCounter.current = 0; // Reiniciar contador
+      dragCounter.current = 0; 
       setIsDragOver(false);
       
-      if (!isConfirmed && onDropOnDate) {
+      if (!isConfirmed && onDropOnDate && match.date) {
           e.stopPropagation();
           onDropOnDate(match.date);
       }
@@ -87,6 +87,11 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     console.log("Cédula guardada/actualizada:", sheetData);
     setShowSheet(false);
   };
+
+  // Prevenir que intente mostrar 'Invalid Date' en el separador
+  const displayLabel = (!match.date || String(groupLabel).includes('Invalid') || String(groupLabel).includes('NaN')) 
+      ? 'Partidos definidos sin fecha (Default)' 
+      : groupLabel;
 
   return (
     <>
@@ -98,13 +103,13 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
         >
             {groupLabel && (
                 <DateDivider>
-                    <span>{groupLabel}</span>
+                    <span>{displayLabel}</span>
                     <div className="line"></div>
                 </DateDivider>
             )}
 
             <Container $isConfirmed={isConfirmed} $isDragOver={isDragOver}>
-                {isDragOver && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
+                {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
 
                 <div className="info">
                     {/* EQUIPO LOCAL */}
@@ -136,8 +141,16 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                     {isConfirmed ? (
                         <div className="confirmed-actions">
                             <div className="datetime-display">
-                                <span className="date-text mobile-only">{formatDateWithWeekday(match.date)}</span>
-                                <small>{formatTimeTo12Hour(match.time)}</small>
+                                {match.date ? (
+                                    <>
+                                        <span className="date-text mobile-only">{formatDateWithWeekday(match.date)}</span>
+                                        <small>{formatTimeTo12Hour(match.time)}</small>
+                                    </>
+                                ) : (
+                                    <span className="no-date-badge">
+                                        {match.observations === 'Victoria por default' ? 'Victoria Default' : 'Sin Fecha'}
+                                    </span>
+                                )}
                             </div>
                             <div className="btns-row">
                                 <button className="action-btn result" onClick={() => onOpenResult(match)}>
@@ -171,18 +184,26 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                         </div>
                     ) : (
                         <>
-                            <input 
-                                type="date" 
-                                className="input-date" 
-                                value={match.date || ''} 
-                                onChange={(e)=> onUpdateDate(e.target.value)} 
-                            />
-                            <input 
-                                type="time" 
-                                className="input-time" 
-                                value={match.time || ''} 
-                                onChange={(e)=> onUpdateTime(e.target.value)} 
-                            />
+                            {match.date ? (
+                                <>
+                                    <input 
+                                        type="date" 
+                                        className="input-date" 
+                                        value={match.date || ''} 
+                                        onChange={(e)=> onUpdateDate(e.target.value)} 
+                                    />
+                                    <input 
+                                        type="time" 
+                                        className="input-time" 
+                                        value={match.time || ''} 
+                                        onChange={(e)=> onUpdateTime(e.target.value)} 
+                                    />
+                                </>
+                            ) : (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                                    <span className="no-date-badge" style={{ margin: '0 auto' }}>Victoria Default</span>
+                                </div>
+                            )}
                             <button className="del" onClick={onRemove} title="Desagendar">
                                 <RiDeleteBinLine/>
                             </button>
@@ -216,7 +237,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 const Wrapper = styled.div`
     width: 100%;
     display: flex; flex-direction: column; gap: 10px; position: relative; 
-    flex-shrink: 0; /* <-- AÑADE ESTA LÍNEA */
+    flex-shrink: 0; 
 `;
 
 const DateDivider = styled.div`
@@ -236,14 +257,14 @@ const DropOverlay = styled.div`
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     background: ${v.colorPrincipal}20; border: 2px dashed ${v.colorPrincipal}; border-radius: 8px;
     display: flex; align-items: center; justify-content: center; font-weight: 800; color: ${v.colorPrincipal};
-    z-index: 10; backdrop-filter: blur(2px); pointer-events: none; /* Pointer events none ayuda a evitar flickers */
+    z-index: 10; backdrop-filter: blur(2px); pointer-events: none; 
 `;
 
 const Container = styled.div`
     display: flex; flex-direction: column; 
-    gap: 8px; /* Era 12px, se reduce para compactar */
+    gap: 8px; 
     background: ${({theme})=>theme.bgtotal}; 
-    padding: 10px; /* Era 12px */
+    padding: 10px; 
     border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease;
@@ -288,12 +309,18 @@ const Container = styled.div`
             display: flex; align-items: center; gap: 10px; width: 100%; flex-direction: column; 
             @media (min-width: 450px) { flex-direction: row; justify-content: space-between; }
             @media ${Device.tablet} { width: auto; gap: 15px; }
+            
             .datetime-display { 
                 display: flex; flex-direction: row; gap: 8px; align-items: center; font-size: 0.85rem; opacity: 0.9; width: 100%;
                 justify-content: center; background: ${({theme})=>theme.bg3}; padding: 5px 10px; border-radius: 6px;
                 @media ${Device.tablet} { background: transparent; padding: 0; flex-direction: column; align-items: flex-end; width: auto; gap: 2px; }
                 .date-text { font-weight: 500; text-transform: capitalize; &.mobile-only { @media ${Device.tablet} { display: none; } } }
                 small { font-weight: 700; color: ${v.colorPrincipal}; font-size: 0.95rem; } 
+                
+                .no-date-badge {
+                    font-weight: 800; color: #e74c3c; background: #e74c3c20; padding: 4px 10px; border-radius: 6px;
+                    font-size: 0.8rem; text-align: center; white-space: nowrap; border: 1px solid #e74c3c40;
+                }
             }
             .btns-row { display: flex; gap: 5px; width: 100%; @media ${Device.tablet} { width: auto; } }
             .action-btn { 

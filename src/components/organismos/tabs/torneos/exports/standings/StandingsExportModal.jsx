@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import styled, { useTheme } from "styled-components";
-import { v, Modal, Btnsave } from "../../../../../index"; 
+import { v, Modal, Btnsave } from "../../../../../../index"; 
 import { RiFileDownloadLine, RiImageLine, RiSunLine, RiMoonLine } from "react-icons/ri";
-import { exportElementAsPNG } from "../../../../../utils/imageExporter";
-import { supabase } from "../../../../../supabase/supabase.config"; 
+import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
+import { supabase } from "../../../../../../supabase/supabase.config"; 
 import StandingsExportLayout from "./StandingsExportLayout";
 
 export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, torneo, config, activeJornadaName }) {
