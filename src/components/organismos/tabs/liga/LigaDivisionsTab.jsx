@@ -14,6 +14,9 @@ import { Card, CardHeader, BtnGreen, Modal, InputText2, Btnsave, ConfirmModal } 
 import { Skeleton } from "../../../atomos/Skeleton";
 import { useDivisionStore } from "../../../../store/DivisionStore";
 
+// Opciones predefinidas para facilitar la creación de categorías
+const PRESET_CATEGORIES = ["Varonil", "Femenil", "Infantil", "Veteranos", "Libre"];
+
 export function LigaDivisionsTab({ 
   onAddCategory, 
   onEditCategory,
@@ -314,9 +317,34 @@ export function LigaDivisionsTab({
            <ModalContent>
                {(modal.type === 'addCategory' || modal.type === 'editCategory') && (
                    <>
-                       <label>Nombre de la Categoría</label>
+                       {modal.type === 'addCategory' && (
+                           <>
+                               <label>Opciones comunes</label>
+                               <PresetsContainer>
+                                   {PRESET_CATEGORIES.map(preset => (
+                                       <PresetChip
+                                           key={preset}
+                                           type="button"
+                                           $active={categoryName === preset}
+                                           onClick={() => setCategoryName(preset)}
+                                       >
+                                           {preset}
+                                       </PresetChip>
+                                   ))}
+                               </PresetsContainer>
+                               <label style={{ marginTop: '10px' }}>O escribe una personalizada</label>
+                           </>
+                       )}
+                       {modal.type === 'editCategory' && <label>Nombre de la Categoría</label>}
+                       
                        <InputText2>
-                          <input className="form__field" value={categoryName} onChange={(e)=>setCategoryName(e.target.value)} autoFocus />
+                          <input 
+                              className="form__field" 
+                              value={categoryName} 
+                              onChange={(e)=>setCategoryName(e.target.value)} 
+                              autoFocus 
+                              placeholder="Ej. Juvenil B" 
+                          />
                        </InputText2>
                    </>
                )}
@@ -330,7 +358,7 @@ export function LigaDivisionsTab({
                        <br/>
                        <label>Nombre de la División</label>
                        <InputText2>
-                          <input className="form__field" value={formValue} onChange={(e)=>setFormValue(e.target.value)} autoFocus />
+                          <input className="form__field" value={formValue} onChange={(e)=>setFormValue(e.target.value)} autoFocus placeholder="Ej. Primera División" />
                        </InputText2>
                    </>
                )}
@@ -452,3 +480,27 @@ const ListItem = styled.div`
 
 const EmptyMsg = styled.div` width: 100%; text-align: center; padding: 30px; opacity: 0.5; font-style: italic; background: ${({theme})=>theme.bgtotal}; border-radius: 12px; `;
 const ModalContent = styled.div` display: flex; flex-direction: column; gap: 5px; padding-top: 10px; .footer-modal { display: flex; justify-content: flex-end; margin-top: 15px; } label { font-size: 13px; font-weight: 600; margin-bottom: 2px; }`;
+
+// --- NUEVOS ESTILOS PARA LOS CHIPS (PRESETS) ---
+const PresetsContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+`;
+
+const PresetChip = styled.button`
+  background: ${({ $active, theme }) => $active ? theme.primary : 'transparent'};
+  color: ${({ $active, theme }) => $active ? '#fff' : theme.text};
+  border: 1px solid ${({ $active, theme }) => $active ? theme.primary : theme.bg4};
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    border-color: ${({ theme }) => theme.primary};
+    color: ${({ $active, theme }) => $active ? '#fff' : theme.primary};
+  }
+`;
