@@ -1,18 +1,16 @@
+// src/components/organismos/tabs/torneos/subcomponents/StandingsTable.jsx
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { v } from '../../../../../styles/variables';
 import { Device } from '../../../../../styles/breakpoints';
-import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
+import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine, RiInformationLine } from "react-icons/ri";
 import { Skeleton } from '../../../../atomos/Skeleton';
-import { DynamicTeamLogo } from '../../../../organismos/equipos/DynamicTeamLogo'; // IMPORTACIÓN DEL LOGO DINÁMICO
+import { DynamicTeamLogo } from '../../../../organismos/equipos/DynamicTeamLogo'; 
 
 export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false }) {
   const navigate = useNavigate();
-
-  // Ya no necesitamos validación estricta porque o hay logo real, o hay SVG
-  const hasAnyLogo = true;
 
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
@@ -26,6 +24,14 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
     return null;
   };
 
+  const getTieBreakerText = () => {
+    const type = config.tieBreakType || 'normal';
+    if (type === 'normal') {
+        return "Criterios de desempate: 1° Puntos ➔ 2° Diferencia de goles (DIF) ➔ 3° Goles a favor (GF) ➔ 4° Menos partidos jugados (PJ)";
+    }
+    return "Criterios de desempate: 1° Puntos ➔ 2° Diferencia de goles ➔ 3° Goles a favor ➔ 4° Menos partidos jugados";
+  };
+
   const rowVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: (i) => ({
@@ -37,7 +43,8 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
 
   return (
     <>
-      <TableCard>
+      {/* Añadimos un ID para facilitar la captura de la imagen si es necesario */}
+      <TableCard id="standings-table-card">
         <ResponsiveTableWrapper>
           <StyledTable>
             <thead>
@@ -57,7 +64,8 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
             <tbody>
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, index) => (
-                  <TrBase key={`skeleton-${index}`} $isPublic={isPublic}>
+                  // Pasamos $isEven explícitamente también en los skeletons
+                  <TrBase key={`skeleton-${index}`} $isPublic={isPublic} $isEven={index % 2 === 1}>
                     <Td className="team-col">
                       <TeamNameCell>
                         <div className="rank-container">
@@ -84,6 +92,10 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                   const zoneColor = status?.color;
                   const RowComponent = isPublic ? MotionTr : Tr;
 
+                  // Calculamos si la fila es par (efecto cebra)
+                  // Usamos index % 2 === 1 porque el índice 0 es la fila 1 (impar), índice 1 es fila 2 (par).
+                  const isEven = index % 2 === 1;
+
                   const flechasToShow = Math.min(fila.posDiff || 0, 3);
                   const hoverText = fila.posDiff 
                       ? (fila.tendencia === 'up' ? `Subió ${fila.posDiff} puesto(s)` : `Bajó ${fila.posDiff} puesto(s)`) 
@@ -93,7 +105,8 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                     <RowComponent
                       key={fila.id}
                       $isPublic={isPublic}
-                      $zoneColor={zoneColor} 
+                      $zoneColor={zoneColor}
+                      $isEven={isEven} // <-- PASAMOS LA PROP EXPLÍCITA AQUÍ
                       onDoubleClick={() => {
                           if (!isPublic) {
                               navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
@@ -120,12 +133,12 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                              </span>
                           </div>
 
-                          {/* CONTENEDOR DE LOGO UNIFICADO */}
                           <div className="logo-container">
                               {fila.logo ? (
                                   <img 
                                     src={fila.logo} 
                                     alt={fila.nombre} 
+                                    crossOrigin="anonymous" // Importante para exportar imágenes externas
                                   />
                               ) : (
                                   <DynamicTeamLogo 
@@ -175,23 +188,30 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
         </ResponsiveTableWrapper>
       </TableCard>
 
-      {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
-        <LeyendaContainer>
-             {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
-             {config.zonaLiguilla && (
-                <>
-                    <Badge $color="#3b82f6">Liguilla</Badge>
-                    {config.repechaje > 0 && <Badge $color="#f59e0b">Repechaje</Badge>}
-                </>
-             )}
-             {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
-        </LeyendaContainer>
-      )}
+      <BottomInfoContainer>
+        <TieBreakerContainer>
+           <RiInformationLine size={16} />
+           <span>{getTieBreakerText()}</span>
+        </TieBreakerContainer>
+
+        {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
+          <LeyendaContainer>
+               {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
+               {config.zonaLiguilla && (
+                  <>
+                      <Badge $color="#3b82f6">Liguilla</Badge>
+                      {config.repechaje > 0 && <Badge $color="#f59e0b">Repechaje</Badge>}
+                  </>
+               )}
+               {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
+          </LeyendaContainer>
+        )}
+      </BottomInfoContainer>
     </>
   );
 }
 
-// --- ESTILOS MODERNIZADOS, COMPACTOS Y SIMÉTRICOS ---
+// --- ESTILOS ---
 const TableCard = styled.div`
   background-color: ${({ theme }) => theme.bg}; 
   border-radius: 12px; 
@@ -250,7 +270,7 @@ const Td = styled.td`
   &.team-col {
     text-align: left; 
     padding-left: 10px; 
-    background-color: ${({ theme }) => theme.bg};
+    background-color: inherit; 
     border-left: 4px solid ${({ $zoneColor }) => $zoneColor || 'transparent'};
     transition: background-color 0.3s ease;
     @media ${Device.tablet} { padding-left: 15px; border-left: 5px solid ${({ $zoneColor }) => $zoneColor || 'transparent'}; }
@@ -270,8 +290,20 @@ const Td = styled.td`
 const TrBase = styled.tr`
   cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
+  
+  /* ELIMINADO EL USO DE :nth-child(even) CSS */
+  
+  /* AHORA USAMOS LA PROP $isEven PARA APLICAR EL FONDO EXPLICITAMENTE */
+  /* Esto asegura que la librería de captura de imagen detecte el estilo */
+  background-color: ${({ $isEven, theme }) => 
+    $isEven ? (theme.bg2 || 'rgba(128, 128, 128, 0.04)') : 'transparent'};
+
   td { border-bottom: 1px solid ${({ $zoneColor, theme }) => $zoneColor ? `${$zoneColor}60` : theme.color2}; }
-  &:hover td { background-color: ${({ theme }) => theme.bgAlpha}; }
+  
+  &:hover { 
+    background-color: ${({ theme }) => theme.bgAlpha}; 
+  }
+  
   &:last-child td { border-bottom: none; }
 `;
 
@@ -336,8 +368,36 @@ const TeamNameCell = styled.div`
   }
 `;
 
+const BottomInfoContainer = styled.div`
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 10px; 
+  max-width: 1000px; 
+  margin: 0 auto 15px auto; 
+  padding: 0 10px;
+`;
+
+const TieBreakerContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.7rem; 
+  color: ${({ theme }) => theme.text}70; 
+  text-align: center;
+  flex-wrap: wrap;
+
+  @media ${Device.tablet} { 
+    font-size: 0.75rem; 
+  }
+`;
+
 const LeyendaContainer = styled.div`
-  display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 1000px; margin: 0 auto 10px auto; padding: 0 10px;
+  display: flex; 
+  gap: 8px; 
+  flex-wrap: wrap; 
+  justify-content: center; 
 `;
 
 const Badge = styled.span`

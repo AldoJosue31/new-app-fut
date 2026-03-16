@@ -1,3 +1,4 @@
+// src/components/organismos/tabs/torneos/exports/standings/StandingsExportModal.jsx
 import React, { useEffect, useState, useRef } from "react";
 import styled, { useTheme } from "styled-components";
 import { v, Modal, Btnsave } from "../../../../../../index"; 
@@ -27,7 +28,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
         if (isOpen) {
             const isAppDark = theme.bgtotal && theme.bgtotal.toLowerCase() !== '#ffffff' && theme.bgtotal.toLowerCase() !== '#f3f4f6';
             setIsDarkExport(isAppDark);
-            setIsExporting(false); // Resetear estado al abrir
+            setIsExporting(false); 
             
             if (torneo?.id) {
                 fetchMetaInfo();
@@ -37,7 +38,6 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
 
     const fetchMetaInfo = async () => {
         try {
-            // 1. Obtener Liga, División y Logos (Priorizando original_logo_url para mejor calidad)
             const { data: torData } = await supabase
                 .from('tournaments')
                 .select(`
@@ -53,10 +53,8 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
             const leagueName = torData?.division?.league?.name || 'Liga Local';
             const divisionName = torData?.division?.name || 'División Única';
             
-            // Prioridad a la imagen original que no está comprimida para evitar pixelado al exportar
             const logo = torData?.division?.league?.original_logo_url || torData?.division?.league?.logo_url || null;
 
-            // 2. Usamos directamente el nombre de la jornada que viene de la tabla
             setMetaInfo({
                 league: leagueName,
                 division: divisionName,
@@ -72,11 +70,18 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
     // Calcular la escala de la vista previa dinámicamente
     useEffect(() => {
         const calculateScale = () => {
-            const CONTENT_WIDTH = isMobileLayout ? 480 : 1000;
-            const SCREEN_PADDING = 80; 
-            const availableWidth = window.innerWidth - SCREEN_PADDING;
+            const CONTENT_WIDTH = isMobileLayout ? 1080 : 1000;
+            const SCREEN_PADDING_X = 80; 
+            const SCREEN_PADDING_Y = 220; // Espacio para cabecera y pie del modal
+            
+            const availableWidth = window.innerWidth - SCREEN_PADDING_X;
+            const availableHeight = window.innerHeight - SCREEN_PADDING_Y;
 
-            let MathScale = availableWidth / CONTENT_WIDTH;
+            let scaleWidth = availableWidth / CONTENT_WIDTH;
+            // Si es móvil (1920 de alto), necesitamos asegurar que también quepa en altura
+            let scaleHeight = isMobileLayout ? (availableHeight / 1920) : scaleWidth; 
+
+            let MathScale = Math.min(scaleWidth, scaleHeight);
             if (MathScale > 1) MathScale = 1; 
             if (!isMobileLayout && MathScale > 0.8) MathScale = 0.85; 
             
@@ -92,12 +97,12 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
 
     const handleExportPNG = async () => {
         if (exportComponentRef.current && !isExporting) {
-            setIsExporting(true); // Bloqueamos el botón
+            setIsExporting(true); 
             try {
                 const cleanTorneoName = torneo?.name?.replace(/[^a-z0-9_]/gi, '') || 'Torneo';
                 const cleanJornadaName = (activeJornadaName || 'Jornada').split(' (')[0].replace(/\s+/g, '_');
                 
-                const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${cleanJornadaName}_${isMobileLayout ? 'Movil' : 'Desktop'}`;
+                const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${cleanJornadaName}_${isMobileLayout ? 'Story' : 'Desktop'}`;
                 const bgColor = isDarkExport ? '#121212' : '#ffffff';
                 
                 await exportElementAsPNG(exportComponentRef, safeName.replace(/\s+/g, '_'), bgColor);
@@ -111,7 +116,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
 
     if (!isOpen) return null;
 
-    const modalDynamicWidth = `${(isMobileLayout ? 480 : 1000) * previewScale + 60}px`;
+    const modalDynamicWidth = `${(isMobileLayout ? 1080 : 1000) * previewScale + 60}px`;
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Exportar Tabla General" width={modalDynamicWidth}>
@@ -126,7 +131,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                         <ToggleContainer onClick={() => !isExporting && setIsMobileLayout(!isMobileLayout)} $active={isMobileLayout} title="Cambiar formato de tamaño" style={{ opacity: isExporting ? 0.5 : 1, pointerEvents: isExporting ? 'none' : 'auto' }}>
                             <span className="label-side left">Desktop</span>
                             <div className="track"><div className="thumb" /></div>
-                            <span className="label-side right">Móvil</span>
+                            <span className="label-side right">Historia (1080x1920)</span>
                         </ToggleContainer>
 
                         <div className="separator"></div>
@@ -148,19 +153,21 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                     </div>
                 </div>
                 
-                <div className="preview-viewport">
+                <div className="preview-viewport" style={{ alignItems: isMobileLayout ? 'center' : 'flex-start' }}>
                     <div 
                         className="scale-box"
                         style={{ 
-                            width: (isMobileLayout ? 480 : 1000) * previewScale, 
-                            height: 'auto', 
+                            width: (isMobileLayout ? 1080 : 1000) * previewScale, 
+                            height: isMobileLayout ? 1920 * previewScale : 'auto', 
+                            overflow: 'hidden'
                         }}
                     >
                         <div 
                             style={{ 
                                 transform: `scale(${previewScale})`, 
                                 transformOrigin: 'top left',
-                                width: isMobileLayout ? '480px' : '1000px', 
+                                width: isMobileLayout ? '1080px' : '1000px', 
+                                height: isMobileLayout ? '1920px' : 'auto'
                             }}
                         >
                             <StandingsExportLayout 
