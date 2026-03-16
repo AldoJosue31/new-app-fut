@@ -1,5 +1,8 @@
-import styled from "styled-components";
+// src/components/moleculas/Btnsave.jsx
+import styled, { keyframes } from "styled-components";
 import { Icono } from "../../index";
+import { RiLoader4Line } from "react-icons/ri"; // Importamos un icono para el loading
+
 export function Btnsave({
     funcion,
     titulo,
@@ -7,29 +10,60 @@ export function Btnsave({
     icono,
     url,
     color,
-    disabled, width
+    disabled, 
+    width,
+    loading // <-- Recibimos la prop loading
 }) {
     return (
-        <Container $width={width}
-            disabled={disabled}
+        <Container 
+            $width={width}
+            disabled={disabled || loading} // Deshabilitamos el botón si está cargando
             $color={color}
             type="submit"
             $bgcolor={bgcolor}
             onClick={funcion}
         >
             <section className="content">
-                <Icono $color={color}>{icono}</Icono>
-                {titulo && (
-                    <span className="btn">
-                        <a href={url} target="_blank">
-                            {titulo}
-                        </a>
-                    </span>
+                {loading ? (
+                    <>
+                        <SpinnerIcon><RiLoader4Line /></SpinnerIcon>
+                        <span className="btn">Guardando...</span>
+                    </>
+                ) : (
+                    <>
+                        <Icono $color={color}>{icono}</Icono>
+                        {titulo && (
+                            <span className="btn">
+                                {url ? (
+                                    <a href={url} target="_blank" rel="noreferrer">
+                                        {titulo}
+                                    </a>
+                                ) : (
+                                    titulo
+                                )}
+                            </span>
+                        )}
+                    </>
                 )}
             </section>
         </Container>
     );
 }
+
+// Animación de giro para el loading
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const SpinnerIcon = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  animation: ${spin} 1s linear infinite; /* Aplica la animación */
+`;
+
 const Container = styled.button`
   font-weight: 700;
   display: flex;
@@ -46,18 +80,25 @@ const Container = styled.button`
   color: rgb(${(props) => props.$color});
   align-items: center;
   justify-content: center;
- width:${(props) => props.$width};
+  width: ${(props) => props.$width};
+  
   .content {
     display: flex;
     gap: 12px;
+    align-items: center;
   }
+  
   &:active {
     transform: translate(0, 0);
     border-bottom: 2px solid rgba(50, 50, 50, 0.5);
   }
+  
   &[disabled] {
     background-color: #646464;
-    cursor: no-drop;
+    cursor: not-allowed;
     box-shadow: none;
+    opacity: 0.8;
+    transform: translate(0, 0);
+    border-bottom: 2px solid rgba(50, 50, 50, 0.2);
   }
 `;
