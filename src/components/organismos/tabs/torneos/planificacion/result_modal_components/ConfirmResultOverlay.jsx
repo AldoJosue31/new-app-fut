@@ -37,13 +37,13 @@ export const ConfirmResultOverlay = ({
                 )}
                 
                 <div className="match-datetime-confirm">
-                    {isWalkover ? 'Definido sin fecha (W.O.)' : `${matchDate} ${matchTime}`}
+                    {/* Condicional para mostrar la fecha preservada en caso de W.O. */}
+                    {matchDate && matchTime ? `${matchDate} ${matchTime} ${isWalkover ? '(W.O.)' : ''}` : 'Definido sin fecha (W.O.)'}
                 </div>
                 
                 <div className="confirm-btns">
                     <BtnNormal titulo="Revisar" funcion={() => setShowConfirm(false)} disabled={loading} />
                     
-                    {/* Aquí le pasamos la prop "loading" al Btnsave */}
                     <Btnsave 
                         titulo="Si, Guardar" 
                         funcion={handleFinalSave} 

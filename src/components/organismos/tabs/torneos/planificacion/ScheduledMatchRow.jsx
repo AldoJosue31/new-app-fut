@@ -11,6 +11,7 @@ import {
 } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
+
 // Importar los modales
 import MatchSheetModal from "../exports/match-sheets/MatchSheetModal";
 import { PreMatchSheetModal } from "../exports/match-sheets/PreMatchSheetModal";
@@ -51,7 +52,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       return null;
   }, [match.observations, match.status, isConfirmed]);
 
-  // --- MANEJADORES DE DRAG & DROP SIN PARPADEOS ---
   const handleDragEnter = (e) => {
       e.preventDefault();
       if (!isConfirmed) {
@@ -88,7 +88,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     setShowSheet(false);
   };
 
-  // Prevenir que intente mostrar 'Invalid Date' en el separador
   const displayLabel = (!match.date || String(groupLabel).includes('Invalid') || String(groupLabel).includes('NaN')) 
       ? 'Partidos definidos sin fecha (Default)' 
       : groupLabel;
@@ -112,7 +111,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                 {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
 
                 <div className="info">
-                    {/* EQUIPO LOCAL */}
                     <div className="team local">
                         <span className="name">{match.homeTeam?.name || match.local?.name || "Equipo Local"}</span>
                         {isConfirmed && match.status === 'Finalizado' && (
@@ -125,7 +123,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 
                     <span className="vs">VS</span>
 
-                    {/* EQUIPO VISITANTE */}
                     <div className="team visit">
                         {isConfirmed && match.status === 'Finalizado' && (
                             <ScoreWrapper>
@@ -145,10 +142,15 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     <>
                                         <span className="date-text mobile-only">{formatDateWithWeekday(match.date)}</span>
                                         <small>{formatTimeTo12Hour(match.time)}</small>
+                                        {match.observations?.includes('Victoria por default') && (
+                                            <span className="wo-badge-small" style={{ fontSize: '0.7rem', background: '#e74c3c20', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px', fontWeight: 'bold' }}>
+                                                W.O.
+                                            </span>
+                                        )}
                                     </>
                                 ) : (
                                     <span className="no-date-badge">
-                                        {match.observations === 'Victoria por default' ? 'Victoria Default' : 'Sin Fecha'}
+                                        {match.observations?.includes('Victoria por default') ? 'Victoria Default' : 'Sin Fecha'}
                                     </span>
                                 )}
                             </div>
@@ -213,7 +215,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             </Container>
         </Wrapper>
 
-        {/* Modal de Cédula Final */}
         <MatchSheetModal 
             isOpen={showSheet} 
             onClose={() => setShowSheet(false)} 
@@ -221,7 +222,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             onSaveSheet={handleSaveSheet}
         />
 
-        {/* Modal de Pre-Cédula */}
         {showPreSheet && (
              <PreMatchSheetModal 
                 isOpen={showPreSheet}

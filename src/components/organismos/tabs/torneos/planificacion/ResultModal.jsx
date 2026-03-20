@@ -88,6 +88,26 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     return tabs;
   }, [match, isWalkover, woWinnerId, totalGoalsLocal, totalGoalsVisit, isExtraPointEnabled]);
 
+  // FUNCIÓN ROBUSTA PARA EVITAR QUE LA FECHA SE CORROMPA (Detecta espacio o T)
+  const parseDateTime = (dateStr) => {
+      if (!dateStr) return { d: "", t: "" };
+      let d = "", t = "";
+      const raw = String(dateStr).trim();
+      if (raw.includes('T')) {
+          const parts = raw.split('T');
+          d = parts[0];
+          t = parts[1].substring(0, 5);
+      } else if (raw.includes(' ')) {
+          const parts = raw.split(' ');
+          d = parts[0];
+          t = parts[1].substring(0, 5);
+      } else {
+          d = raw;
+      }
+      if (d.length > 10) d = d.substring(0, 10);
+      return { d, t };
+  };
+
   useEffect(() => {
     if (isOpen && match?.id) {
       setActiveTab('general');
@@ -106,10 +126,15 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const { data: freshMatch, error: matchError } = await supabase.from('matches').select('*').eq('id', matchId).single();
       if (matchError) throw matchError;
 
+      // USO DEL PARSEADOR SEGURO
       if (freshMatch.date) {
-        const [d, t] = freshMatch.date.split('T');
+        const { d, t } = parseDateTime(freshMatch.date);
         setMatchDate(d);
-        setMatchTime(t ? t.substring(0, 5) : "10:00");
+        setMatchTime(t || "10:00");
+      } else if (match.date) {
+        const { d, t } = parseDateTime(match.date);
+        setMatchDate(d);
+        setMatchTime(match.time || t || "10:00");
       } else {
         setMatchDate(""); setMatchTime("");
       }
@@ -216,6 +241,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           if (parseInt(penalties.local) === parseInt(penalties.visit)) return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
         }
     }
+    // Para partidos normales obligamos a fecha/hora. Si es W.O., se permite seguir aunque no tenga (por ej, si se metió default antes de programar).
     if (!isWalkover && (!matchDate || !matchTime)) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
 
     setShowConfirm(true);
@@ -267,7 +293,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       }
 
       if (manualObservations && manualObservations.trim() !== "") finalObsParts.push(manualObservations.trim());
-      const fullDate = (!isWalkover && matchDate && matchTime) ? `${matchDate} ${matchTime}:00` : null;
+      
+      // ESTE ES EL CORAZÓN DE LA CORRECCIÓN: Si hay fecha y hora se arma correctamente, esté o no en W.O.
+      const fullDate = (matchDate && matchTime) ? `${matchDate} ${matchTime}:00` : null;
 
       const countLocal = rosterLocal.filter(p => p.playerId).length;
       const countVisit = rosterVisit.filter(p => p.playerId).length;
@@ -277,7 +305,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         goals1: totalGoalsLocal, goals2: totalGoalsVisit, puntos1: p1, puntos2: p2,
         referee_id: isWalkover ? null : (selectedReferee || null), 
         status: (isOnlyDateUpdate && !isWalkover) ? (match.status || 'Pendiente') : 'Finalizado',
-        observations: finalObsParts.join(" | "), date: fullDate 
+        observations: finalObsParts.join(" | "), 
+        date: fullDate // Supabase lo recibe intacto y lo guarda perfectamente
       });
       
       onClose();
