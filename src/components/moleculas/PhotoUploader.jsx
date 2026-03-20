@@ -154,19 +154,25 @@ export const PhotoUploader = memo(function PhotoUploader({
     }, 'image/png', 1.0); // Calidad 1.0 ya que de la compresión se encarga uploadHandler
   };
 
-  const handleRemoveBgInside = async () => {
+const handleRemoveBgInside = async () => {
     if(!originalFile) return;
     setIsProcessingBg(true);
+    if(showToast) showToast("La IA está analizando la imagen...", "info");
+
     try {
         if (!backupImage) {
           setBackupImage({ file: originalFile, preview: tempImgSrc });
         }
-        const { file, preview } = await removeBackground(originalFile);
+        
+        // El motor evalúa automáticamente si es un equipo o un jugador
+        const bgType = isTeamLogo ? 'logo' : 'person';
+        const { file, preview } = await removeBackground(originalFile, bgType);
+        
         setOriginalFile(file);
         setTempImgSrc(preview); 
         if(showToast) showToast("Fondo eliminado con éxito", "success");
     } catch (error) {
-        if(showToast) showToast("Error al procesar la imagen", "error");
+        if(showToast) showToast("Error: " + error.message, "error");
     } finally {
         setIsProcessingBg(false);
     }
@@ -409,8 +415,6 @@ const CropModalOverlay = styled.div`
     overflow: hidden;
     cursor: grab;
     
-    /* SOLUCIÓN: El fondo cuadriculado se aplica aquí en CSS, de modo que 
-       visualmente sirve de guía pero el Canvas encima es verdaderamente transparente */
     background-color: #fff;
     background-image:
       linear-gradient(45deg, #eee 25%, transparent 25%),

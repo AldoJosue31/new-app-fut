@@ -152,7 +152,6 @@ export const usePlanificacionMatches = (
   }, [storageKey]);
 
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
-    // CORRECCIÓN: Evitar intentar ajustar horarios a partidos sin fecha (null)
     if (!dateToFix) return matches;
 
     let matchesOfDay = [...matches].filter(m => m.date === dateToFix).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
@@ -191,7 +190,26 @@ export const usePlanificacionMatches = (
 
       if (!localTeam || !visitTeam) return null;
 
-      const hasT = typeof m.date === 'string' && m.date.includes('T');
+      // PARSEO SEGURO DE FECHAS
+      let finalDate = null;
+      let finalTime = null;
+
+      if (m.date) {
+          const rawDate = m.date.toString().trim();
+          if (rawDate.includes('T')) {
+              const parts = rawDate.split('T');
+              finalDate = parts[0];
+              finalTime = parts[1].substring(0, 5);
+          } else if (rawDate.includes(' ')) {
+              const parts = rawDate.split(' ');
+              finalDate = parts[0];
+              finalTime = parts[1].substring(0, 5);
+          } else {
+              finalDate = rawDate;
+              finalTime = m.time || activeTournament?.config?.horaInicio || "08:00";
+          }
+      }
+
       let rawOrigin = m.jornadas?.name || m.originJornada;
       if (!rawOrigin && m._source === 'db') {
           rawOrigin = currentJornadaName;
@@ -201,8 +219,8 @@ export const usePlanificacionMatches = (
         id: m.id,
         local: localTeam,
         visitante: visitTeam,
-        date: m.date ? (hasT ? m.date.split('T')[0] : m.date) : null,
-        time: m.date ? (hasT ? m.date.split('T')[1].substring(0, 5) : (m.time || activeTournament?.config?.horaInicio || "08:00")) : null,
+        date: finalDate,
+        time: finalTime,
         status: (!m.date && m.status === 'Programado') ? 'Pendiente' : m.status,
         goals1: m.goals1,
         goals2: m.goals2,
@@ -268,7 +286,6 @@ export const usePlanificacionMatches = (
             if (draftMatch) {
                 return {
                     ...dbMatch, 
-                    // Se asegura de tomar el valor explícito guardado (incluso si es null)
                     date: draftMatch.date !== undefined ? draftMatch.date : dbMatch.date, 
                     time: draftMatch.time !== undefined ? draftMatch.time : dbMatch.time,
                     status: draftMatch.status || dbMatch.status,
@@ -281,8 +298,6 @@ export const usePlanificacionMatches = (
         return dbMatch;
     });
 
-    // CORRECCIÓN CLAVE AQUÍ: Permite pasar partidos sin fecha (null) 
-    // si ya están Finalizados o si tienen resolución por defecto
     const currentScheduled = mergedMatches.filter(m => {
         if (m.date) return true;
         if (m.status === 'Finalizado') return true;
