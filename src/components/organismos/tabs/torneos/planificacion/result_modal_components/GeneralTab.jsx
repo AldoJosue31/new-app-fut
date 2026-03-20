@@ -25,17 +25,15 @@ export const GeneralTab = ({
                 )}
             </WalkoverBox>
             
+            {/* Se removió la condición !isWalkover para que estos inputs siempre sean visibles */}
             <GridInputs>
-                {!isWalkover && (
-                    <InputGroup>
-                        <label><RiUserStarFill/> Árbitro Principal *</label>
-                        <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
-                            <option value="">Seleccione un árbitro...</option>
-                            {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
-                        </select>
-                    </InputGroup>
-                )}
-                {/* Ahora Fecha y Hora siempre se muestran. Si es W.O. son opcionales */}
+                <InputGroup>
+                    <label><RiUserStarFill/> Árbitro Principal *</label>
+                    <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
+                        <option value="">Seleccione un árbitro...</option>
+                        {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                    </select>
+                </InputGroup>
                 <InputGroup>
                     <label><RiCalendarEventLine/> Fecha {isWalkover ? '(Opcional)' : '*'}</label>
                     <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)} />

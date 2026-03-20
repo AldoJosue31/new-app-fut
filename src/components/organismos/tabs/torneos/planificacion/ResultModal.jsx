@@ -220,12 +220,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     });
   }, [minPlayers, maxSubs]);
 
-  // Maneja el toggle general de W.O. desde el header para evitar exploits
   const handleToggleWalkover = (newValue) => {
     setIsWalkover(newValue);
     if (!newValue) setWoWinnerId(null);
-    
-    // Al activar o desactivar, reiniciamos las listas
     setRosterLocal(reconstructRoster(localPlayers, [], 'l', false));
     setRosterVisit(reconstructRoster(visitPlayers, [], 'v', false));
   };
@@ -238,7 +235,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         setWoWinnerId(teamId); 
         setIsWalkover(true); 
     }
-    // Reinicia las listas al cambiar el equipo ganador
     setRosterLocal(reconstructRoster(localPlayers, [], 'l', false));
     setRosterVisit(reconstructRoster(visitPlayers, [], 'v', false));
   };
@@ -248,10 +244,15 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     const countVisit = rosterVisit.filter(p => p.playerId).length;
     const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
 
+    // Validación estricta del árbitro independientemente de si es o no W.O. 
+    // (A menos que sea únicamente una edición de fecha sin W.O. y sin rosters)
+    if (!isOnlyDateUpdate && !selectedReferee) {
+        return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
+    }
+
     if (isWalkover) {
         if (!woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
     } else if (!isOnlyDateUpdate) {
-        if (!selectedReferee) return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
         if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
         if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
           if (parseInt(penalties.local) === parseInt(penalties.visit)) return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
@@ -277,10 +278,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           if (!p.playerId) return;
           const pid = p.playerId;
           
-          // Participación SIEMPRE se guarda (incluso en W.O.)
           events.push({ match_id: matchId, player_id: pid, event_type: 'participation' });
           
-          // Goles y tarjetas SOLO se guardan si NO es W.O. (Evita exploits en base de datos)
           if (!isWalkover) {
               const goals = parseInt(p.goals) || 0;
               if (goals > 0) for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
@@ -323,7 +322,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       await onSave(matchId, {
         goals1: totalGoalsLocal, goals2: totalGoalsVisit, puntos1: p1, puntos2: p2,
-        referee_id: isWalkover ? null : (selectedReferee || null), 
+        // Al enviar el ref, ya no validamos si es Walkover o no, siempre lo manda
+        referee_id: selectedReferee || null, 
         status: (isOnlyDateUpdate && !isWalkover) ? (match.status || 'Pendiente') : 'Finalizado',
         observations: finalObsParts.join(" | "), 
         date: fullDate
