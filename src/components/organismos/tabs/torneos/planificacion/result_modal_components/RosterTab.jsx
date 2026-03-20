@@ -11,7 +11,7 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                 <select 
                     value={slot.playerId} 
                     onChange={(e) => onUpdate(team, idx, 'playerId', e.target.value)}
-                    disabled={isWalkover}
+                    // Se remueve el "disabled={isWalkover}" para permitir seleccionar al ganador en caso de W.O.
                 >
                     <option value="">Seleccionar jugador...</option>
                     {players.map(p => (
@@ -32,7 +32,8 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                     <input 
                         type="number" 
                         min="0" 
-                        value={slot.goals} 
+                        // Visualmente forzamos a 0 si es Walkover para que el usuario entienda que no valdrán
+                        value={isWalkover ? 0 : slot.goals} 
                         onChange={(e) => onUpdate(team, idx, 'goals', e.target.value)} 
                         disabled={!slot.playerId || isWalkover} 
                         className="number-input"
@@ -42,7 +43,7 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                 <div className="cards-wrapper">
                     <CardCheck 
                         $color="#f1c40f" 
-                        $active={slot.yellow} 
+                        $active={!isWalkover && slot.yellow} 
                         onClick={() => slot.playerId && !isWalkover && onUpdate(team, idx, 'yellow', !slot.yellow)} 
                         title="Tarjeta Amarilla" 
                     >
@@ -50,7 +51,7 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                     </CardCheck>
                     <CardCheck 
                         $color="#e74c3c" 
-                        $active={slot.red} 
+                        $active={!isWalkover && slot.red} 
                         onClick={() => slot.playerId && !isWalkover && onUpdate(team, idx, 'red', !slot.red)} 
                         title="Tarjeta Roja" 
                     >
@@ -94,7 +95,7 @@ const RosterGrid = styled.div`
         .stats-col { width: 140px; text-align: center; }
         
         @media (max-width: 500px) {
-            display: none; /* En móvil ocultamos las cabeceras porque los inputs ya son autodescriptivos */
+            display: none; 
         }
     } 
 `;
@@ -134,7 +135,6 @@ const RowContainer = styled.div`
         display: flex; gap: 8px; 
     }
 
-    /* ------- DISEÑO MÓVIL (COMPACTO Y EN UNA LÍNEA) ------- */
     @media (max-width: 500px) {
         flex-direction: column; 
         gap: 8px; 
@@ -142,23 +142,23 @@ const RowContainer = styled.div`
         
         .stats-actions {
             width: 100%;
-            justify-content: space-between; /* Goles a la izq, Tarjetas a la der */
-            background: ${({theme})=>theme.bg3}; /* Un fondo tenue para agrupar las acciones */
+            justify-content: space-between; 
+            background: ${({theme})=>theme.bg3}; 
             padding: 8px 12px;
             border-radius: 6px;
         }
 
         .mobile-label {
-            display: block; /* Mostramos la etiqueta "Goles:" */
+            display: block; 
         }
 
         .number-input {
-            background: ${({theme})=>theme.bgtotal}; /* Contraste dentro del panel de acciones */
+            background: ${({theme})=>theme.bgtotal}; 
             width: 65px; 
         }
 
         .cards-wrapper {
-            gap: 12px; /* Más espacio entre tarjetas para evitar toques accidentales */
+            gap: 12px; 
         }
     }
 `;

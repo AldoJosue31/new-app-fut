@@ -88,7 +88,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     return tabs;
   }, [match, isWalkover, woWinnerId, totalGoalsLocal, totalGoalsVisit, isExtraPointEnabled]);
 
-  // FUNCIÓN ROBUSTA PARA EVITAR QUE LA FECHA SE CORROMPA (Detecta espacio o T)
   const parseDateTime = (dateStr) => {
       if (!dateStr) return { d: "", t: "" };
       let d = "", t = "";
@@ -126,7 +125,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const { data: freshMatch, error: matchError } = await supabase.from('matches').select('*').eq('id', matchId).single();
       if (matchError) throw matchError;
 
-      // USO DEL PARSEADOR SEGURO
       if (freshMatch.date) {
         const { d, t } = parseDateTime(freshMatch.date);
         setMatchDate(d);
@@ -222,9 +220,27 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     });
   }, [minPlayers, maxSubs]);
 
+  // Maneja el toggle general de W.O. desde el header para evitar exploits
+  const handleToggleWalkover = (newValue) => {
+    setIsWalkover(newValue);
+    if (!newValue) setWoWinnerId(null);
+    
+    // Al activar o desactivar, reiniciamos las listas
+    setRosterLocal(reconstructRoster(localPlayers, [], 'l', false));
+    setRosterVisit(reconstructRoster(visitPlayers, [], 'v', false));
+  };
+
   const handleWalkoverSelect = (teamId) => {
-    if (woWinnerId === teamId) { setWoWinnerId(null); setIsWalkover(false); } 
-    else { setWoWinnerId(teamId); setIsWalkover(true); }
+    if (woWinnerId === teamId) { 
+        setWoWinnerId(null); 
+        setIsWalkover(false); 
+    } else { 
+        setWoWinnerId(teamId); 
+        setIsWalkover(true); 
+    }
+    // Reinicia las listas al cambiar el equipo ganador
+    setRosterLocal(reconstructRoster(localPlayers, [], 'l', false));
+    setRosterVisit(reconstructRoster(visitPlayers, [], 'v', false));
   };
 
   const handleSaveAttempt = () => {
@@ -241,7 +257,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           if (parseInt(penalties.local) === parseInt(penalties.visit)) return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
         }
     }
-    // Para partidos normales obligamos a fecha/hora. Si es W.O., se permite seguir aunque no tenga (por ej, si se metió default antes de programar).
     if (!isWalkover && (!matchDate || !matchTime)) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
 
     setShowConfirm(true);
@@ -261,11 +276,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         r.forEach(p => {
           if (!p.playerId) return;
           const pid = p.playerId;
+          
+          // Participación SIEMPRE se guarda (incluso en W.O.)
           events.push({ match_id: matchId, player_id: pid, event_type: 'participation' });
-          const goals = parseInt(p.goals) || 0;
-          if (goals > 0) for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
-          if (p.yellow) events.push({ match_id: matchId, player_id: pid, event_type: 'yellow_card' });
-          if (p.red) events.push({ match_id: matchId, player_id: pid, event_type: 'red_card' });
+          
+          // Goles y tarjetas SOLO se guardan si NO es W.O. (Evita exploits en base de datos)
+          if (!isWalkover) {
+              const goals = parseInt(p.goals) || 0;
+              if (goals > 0) for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
+              if (p.yellow) events.push({ match_id: matchId, player_id: pid, event_type: 'yellow_card' });
+              if (p.red) events.push({ match_id: matchId, player_id: pid, event_type: 'red_card' });
+          }
         });
       };
 
@@ -294,7 +315,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       if (manualObservations && manualObservations.trim() !== "") finalObsParts.push(manualObservations.trim());
       
-      // ESTE ES EL CORAZÓN DE LA CORRECCIÓN: Si hay fecha y hora se arma correctamente, esté o no en W.O.
       const fullDate = (matchDate && matchTime) ? `${matchDate} ${matchTime}:00` : null;
 
       const countLocal = rosterLocal.filter(p => p.playerId).length;
@@ -306,7 +326,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         referee_id: isWalkover ? null : (selectedReferee || null), 
         status: (isOnlyDateUpdate && !isWalkover) ? (match.status || 'Pendiente') : 'Finalizado',
         observations: finalObsParts.join(" | "), 
-        date: fullDate // Supabase lo recibe intacto y lo guarda perfectamente
+        date: fullDate
       });
       
       onClose();
@@ -330,7 +350,15 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                 <ContentBody>
                     {activeTab === 'general' && (
                         <TabContent>
-                            <GeneralTab isWalkover={isWalkover} setIsWalkover={setIsWalkover} woWinnerId={woWinnerId} setWoWinnerId={setWoWinnerId} match={match} handleWalkoverSelect={handleWalkoverSelect} selectedReferee={selectedReferee} setSelectedReferee={setSelectedReferee} referees={referees} matchDate={matchDate} setMatchDate={setMatchDate} matchTime={matchTime} setMatchTime={setMatchTime} manualObservations={manualObservations} setManualObservations={setManualObservations} />
+                            <GeneralTab 
+                                isWalkover={isWalkover} 
+                                setIsWalkover={handleToggleWalkover} 
+                                woWinnerId={woWinnerId} 
+                                setWoWinnerId={setWoWinnerId} 
+                                match={match} 
+                                handleWalkoverSelect={handleWalkoverSelect} 
+                                selectedReferee={selectedReferee} setSelectedReferee={setSelectedReferee} referees={referees} matchDate={matchDate} setMatchDate={setMatchDate} matchTime={matchTime} setMatchTime={setMatchTime} manualObservations={manualObservations} setManualObservations={setManualObservations} 
+                            />
                         </TabContent>
                     )}
                     {activeTab === 'local' && (
