@@ -15,15 +15,11 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
     const [isMobileLayout, setIsMobileLayout] = useState(false);
     const [previewScale, setPreviewScale] = useState(0.8); 
     
-    // ESTADO PARA EVITAR DOBLE DESCARGA
     const [isExporting, setIsExporting] = useState(false);
-    
-    // ESTADO PARA LA INFORMACIÓN EXTRA
     const [metaInfo, setMetaInfo] = useState({ league: '', division: '', lastJornada: '', leagueLogo: null });
     
     const exportComponentRef = useRef(null);
 
-    // Sincronizar tema con la app al abrir y buscar la info de la liga
     useEffect(() => {
         if (isOpen) {
             const isAppDark = theme.bgtotal && theme.bgtotal.toLowerCase() !== '#ffffff' && theme.bgtotal.toLowerCase() !== '#f3f4f6';
@@ -67,19 +63,19 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
         }
     };
 
-    // Calcular la escala de la vista previa dinámicamente
+    // Calcular la escala de la vista previa dinámicamente según la resolución 1350 vs 1920
     useEffect(() => {
         const calculateScale = () => {
-            const CONTENT_WIDTH = isMobileLayout ? 1080 : 1000;
+            const CONTENT_WIDTH = 1080; 
+            const CONTENT_HEIGHT = isMobileLayout ? 1920 : 1350; // Post = 1350px, Story = 1920px
             const SCREEN_PADDING_X = 80; 
-            const SCREEN_PADDING_Y = 220; // Espacio para cabecera y pie del modal
+            const SCREEN_PADDING_Y = 220; 
             
             const availableWidth = window.innerWidth - SCREEN_PADDING_X;
             const availableHeight = window.innerHeight - SCREEN_PADDING_Y;
 
             let scaleWidth = availableWidth / CONTENT_WIDTH;
-            // Si es móvil (1920 de alto), necesitamos asegurar que también quepa en altura
-            let scaleHeight = isMobileLayout ? (availableHeight / 1920) : scaleWidth; 
+            let scaleHeight = availableHeight / CONTENT_HEIGHT; 
 
             let MathScale = Math.min(scaleWidth, scaleHeight);
             if (MathScale > 1) MathScale = 1; 
@@ -102,7 +98,7 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                 const cleanTorneoName = torneo?.name?.replace(/[^a-z0-9_]/gi, '') || 'Torneo';
                 const cleanJornadaName = (activeJornadaName || 'Jornada').split(' (')[0].replace(/\s+/g, '_');
                 
-                const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${cleanJornadaName}_${isMobileLayout ? 'Story' : 'Desktop'}`;
+                const safeName = `Tabla_${metaInfo.league}_${metaInfo.division}_${cleanTorneoName}_${cleanJornadaName}_${isMobileLayout ? 'Story' : 'Post'}`;
                 const bgColor = isDarkExport ? '#121212' : '#ffffff';
                 
                 await exportElementAsPNG(exportComponentRef, safeName.replace(/\s+/g, '_'), bgColor);
@@ -116,7 +112,9 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
 
     if (!isOpen) return null;
 
-    const modalDynamicWidth = `${(isMobileLayout ? 1080 : 1000) * previewScale + 60}px`;
+    // El ancho siempre es la base 1080 escalada para caber en la pantalla
+    const modalDynamicWidth = `${(1080 * previewScale) + 60}px`;
+    const exportHeight = isMobileLayout ? 1920 : 1350;
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Exportar Tabla General" width={modalDynamicWidth}>
@@ -129,9 +127,9 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                     
                     <div className="right-group">
                         <ToggleContainer onClick={() => !isExporting && setIsMobileLayout(!isMobileLayout)} $active={isMobileLayout} title="Cambiar formato de tamaño" style={{ opacity: isExporting ? 0.5 : 1, pointerEvents: isExporting ? 'none' : 'auto' }}>
-                            <span className="label-side left">Desktop</span>
+                            <span className="label-side left">Post (4:5)</span>
                             <div className="track"><div className="thumb" /></div>
-                            <span className="label-side right">Historia (1080x1920)</span>
+                            <span className="label-side right">Historia (9:16)</span>
                         </ToggleContainer>
 
                         <div className="separator"></div>
@@ -153,12 +151,12 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                     </div>
                 </div>
                 
-                <div className="preview-viewport" style={{ alignItems: isMobileLayout ? 'center' : 'flex-start' }}>
+                <div className="preview-viewport" style={{ alignItems: 'center' }}>
                     <div 
                         className="scale-box"
                         style={{ 
-                            width: (isMobileLayout ? 1080 : 1000) * previewScale, 
-                            height: isMobileLayout ? 1920 * previewScale : 'auto', 
+                            width: 1080 * previewScale, 
+                            height: exportHeight * previewScale, 
                             overflow: 'hidden'
                         }}
                     >
@@ -166,8 +164,8 @@ export default function StandingsExportModal({ isOpen, onClose, tablaGeneral, to
                             style={{ 
                                 transform: `scale(${previewScale})`, 
                                 transformOrigin: 'top left',
-                                width: isMobileLayout ? '1080px' : '1000px', 
-                                height: isMobileLayout ? '1920px' : 'auto'
+                                width: '1080px', 
+                                height: `${exportHeight}px`
                             }}
                         >
                             <StandingsExportLayout 
@@ -198,11 +196,11 @@ const ThemeToggleBtn = styled.button`
 const ToggleContainer = styled.div`
     display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
     .track {
-        width: 36px; height: 20px; background-color: ${({ theme }) => theme.bg3};
+        width: 36px; height: 20px; background: ${({ theme }) => theme.bg3};
         border-radius: 20px; position: relative; transition: background-color 0.3s; border: 1px solid ${({ theme }) => theme.color2};
     }
     .thumb {
-        width: 16px; height: 16px; background-color: ${({ $active, theme }) => $active ? v.verde : theme.text}; border-radius: 50%; position: absolute; top: 1px; left: 1px;
+        width: 16px; height: 16px; background: ${({ $active, theme }) => $active ? v.verde : theme.text}; border-radius: 50%; position: absolute; top: 1px; left: 1px;
         transform: ${({ $active }) => $active ? 'translateX(16px)' : 'translateX(0)'}; transition: transform 0.3s ease;
     }
     .label-side { font-size: 0.75rem; font-weight: 700; color: ${({ theme }) => theme.text}; opacity: 0.6; transition: 0.3s;}
