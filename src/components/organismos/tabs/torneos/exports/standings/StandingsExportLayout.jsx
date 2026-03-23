@@ -239,6 +239,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                     
                     <p style={{ fontSize: fSub, color: colors.subtext, margin: 0, fontWeight: '700' }}>
                         Clasificación Oficial 
+                        {/* El texto de metaInfo.lastJornada ya viene del hook con el formato "Jornada 9 (X pendientes)" o "(Completada)" */}
                         {metaInfo?.lastJornada && metaInfo.lastJornada !== 'Sin iniciar' ? ` • Hasta la ${metaInfo.lastJornada}` : ''}
                     </p>
                 </div>

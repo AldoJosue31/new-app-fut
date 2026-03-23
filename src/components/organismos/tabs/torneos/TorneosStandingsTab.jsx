@@ -31,15 +31,12 @@ export const TorneosStandingsTab = ({
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
 
-  // === NUEVO: Refrescar datos automáticamente al entrar a la pestaña ===
   useEffect(() => {
-    // Si existe la función onRefresh y no estamos en la vista pública, la ejecutamos
     if (onRefresh && !isPublic) {
       onRefresh();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
-  // =====================================================================
 
   useEffect(() => {
     setIsPublicEnabled(torneo?.is_public || false);
@@ -49,7 +46,6 @@ export const TorneosStandingsTab = ({
     setSelectedJornadaView('recent');
   }, [torneo?.id]);
 
-  // Consumimos toda la lógica de cálculo pesada del Custom Hook
   const {
     config,
     effectiveJornada,
@@ -66,7 +62,6 @@ export const TorneosStandingsTab = ({
     selectedJornadaView
   });
 
-  // ====== SKELETON DINÁMICO BLINDADO ======
   const isDataLoading = isLoading || isCalculating;
   const [showSkeleton, setShowSkeleton] = useState(true);
 

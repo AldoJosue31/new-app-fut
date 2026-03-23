@@ -22,10 +22,13 @@ export const StandingsJornadaSelector = ({
           {options.length > 0 && (
             <optgroup label="Historial de Jornadas">
               {options.map(j => {
-                // Formato exacto solicitado: "Jornada X (Con Y partidos pendientes)"
-                const textoPendientes = j.pendientes > 0 
-                  ? ` (Con ${j.pendientes} partido${j.pendientes > 1 ? 's' : ''} pendiente${j.pendientes > 1 ? 's' : ''})` 
-                  : '';
+                // El valor "j.pendientes" ahora ya viene con la regla estricta aplicada desde el Hook
+                const pend = j.pendientes || 0;
+                
+                // Formato idéntico a PlanningSidebar usando paréntesis
+                const textoPendientes = pend > 0 
+                  ? ` (${pend} pendientes)` 
+                  : ' (Completada)';
 
                 return (
                   <option key={j.num} value={j.num}>
