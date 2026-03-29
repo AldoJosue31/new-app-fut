@@ -5,12 +5,22 @@ import { ContainerScroll } from "../../../../../index";
 import { PendingMatchCard } from "./PendingMatchCard";
 import { v } from "../../../../../styles/variables";
 import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";
+import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
 
-export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornadaIndex, onOpenResolution, onClearResolution }) {
+export function PlanningSidebar({
+  matches,
+  isConfirmed,
+  setDraggedMatch,
+  jornadaIndex,
+  currentJornadaNumber = jornadaIndex + 1,
+  onOpenResolution,
+  onClearResolution,
+  isRepositionMode = false,
+}) {
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
   const { delayed, current } = useMemo(() => {
-    const currentNum = jornadaIndex + 1;
+    const currentNum = currentJornadaNumber;
     
     const result = matches.reduce((acc, m) => {
         if (!m.originJornada) {
@@ -18,8 +28,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
              return acc;
         }
 
-        const parts = m.originJornada.split(' ');
-        const mNum = parts.length > 1 ? parseInt(parts[1]) : 999;
+        const mNum = parseJornadaNumber(m.originJornada, 999);
         
         if (mNum < currentNum) {
             acc.delayed.push(m);
@@ -36,7 +45,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
     });
 
     return result;
-  }, [matches, jornadaIndex]);
+  }, [matches, currentJornadaNumber]);
 
   return (
     <SidebarContainer>
@@ -46,6 +55,12 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
       <div className="scroll-wrapper">
         <ContainerScroll>
           <div className="list-content">
+            {isRepositionMode && (
+              <ModeHint>
+                Solo hay pendientes arrastrados de jornadas anteriores. Esta
+                confirmacion se tratara como jornada de reposicion.
+              </ModeHint>
+            )}
             
             {delayed.length > 0 && (
                 <div className="section-group delayed-group">
@@ -80,7 +95,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
                                             e.dataTransfer.setData("text", match.id);
                                         }
                                     }}
-                                    currentJornadaIndex={jornadaIndex}
+                                    currentJornadaNumber={currentJornadaNumber}
                                     onOpenResolution={onOpenResolution}
                                     onClearResolution={onClearResolution}
                                 />
@@ -118,7 +133,7 @@ export function PlanningSidebar({ matches, isConfirmed, setDraggedMatch, jornada
                                     e.dataTransfer.setData("text", match.id);
                                 }
                             }}
-                            currentJornadaIndex={jornadaIndex}
+                            currentJornadaNumber={currentJornadaNumber}
                             onOpenResolution={onOpenResolution}
                             onClearResolution={onClearResolution}
                         />
@@ -254,4 +269,15 @@ const RestingCard = styled.div`
     .resting-indicator { display: flex; align-items: center; span { font-size: 0.7rem; font-weight: 800; color: ${({ theme }) => theme.textFade}; text-transform: uppercase; letter-spacing: 0.5px; } }
     .match-content { flex: 1; display: flex; align-items: center; }
     .team-name { font-size: 0.95rem; font-weight: 600; color: ${({ theme }) => theme.text}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+`;
+
+const ModeHint = styled.div`
+  background: #f39c1218;
+  color: #f39c12;
+  border: 1px solid #f39c1240;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  font-weight: 600;
 `;

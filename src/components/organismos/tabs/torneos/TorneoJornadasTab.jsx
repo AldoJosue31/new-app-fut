@@ -7,6 +7,7 @@ import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
+import { isOfficialJornadaName, parseJornadaNumber, sortJornadas } from "../../../../utils/jornadaUtils";
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 
@@ -54,7 +55,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setLoading(false);
   };
 
-  const fetchJornadas = async () => {
+  const fetchJornadas = async (preferredJornadaId = null) => {
     try {
       const { data, error } = await supabase
         .from('jornadas')
@@ -63,18 +64,26 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         .order('id', { ascending: true });
       if (error) throw error;
       
-      const sorted = data.sort((a, b) => {
-          const numA = parseInt(a.name.replace(/\D/g, '')) || a.id;
-          const numB = parseInt(b.name.replace(/\D/g, '')) || b.id;
-          return numA - numB;
-      });
+      const sorted = sortJornadas(data);
       setJornadas(sorted);
 
-      if (sorted.length > 0 && currentJornadaIndex === 0) {
-        const activeIndex = sorted.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
-        if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
-        else setCurrentJornadaIndex(sorted.length - 1);
+      if (sorted.length > 0) {
+        if (preferredJornadaId) {
+          const preferredIndex = sorted.findIndex((jornada) => jornada.id === preferredJornadaId);
+          if (preferredIndex !== -1) {
+            setCurrentJornadaIndex(preferredIndex);
+            return sorted;
+          }
+        }
+
+        if (currentJornadaIndex === 0) {
+          const activeIndex = sorted.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
+          if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
+          else setCurrentJornadaIndex(sorted.length - 1);
+        }
       }
+
+      return sorted;
     } catch (error) { console.error("Error fetchJornadas:", error); }
   };
 
@@ -245,14 +254,20 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const handleConfirmJornada = async (dataToSave) => {
     setLoading(true);
     try {
+        const preservedJornadaId = jornadas[currentJornadaIndex]?.id || null;
         await guardarJornadaService(activeTournament.id, dataToSave);
         setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
 
-        await Promise.all([
-            fetchJornadas(), 
-            fetchGlobalPendingMatches(), 
-            fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id) 
-        ]);
+        const updatedJornadas = await fetchJornadas(preservedJornadaId);
+        await fetchGlobalPendingMatches();
+
+        const jornadaToRefresh =
+          updatedJornadas?.find((jornada) => jornada.id === preservedJornadaId) ||
+          updatedJornadas?.[currentJornadaIndex];
+
+        if (jornadaToRefresh?.id) {
+          await fetchCurrentJornadaMatches(jornadaToRefresh.id);
+        }
         
         setDataVersion(prev => prev + 1);
         
@@ -276,7 +291,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             
             if (!isFirstConfirmed) {
                 const updates = jornadas.map((j) => {
-                    const num = parseInt(j.name.replace(/\D/g, '')) || 0;
+                    if (!isOfficialJornadaName(j.name)) return null;
+
+                    const num = parseJornadaNumber(j.name, 0);
                     if (num === 0) return null;
 
                     const weeksOffset = (num - 1) * 7;

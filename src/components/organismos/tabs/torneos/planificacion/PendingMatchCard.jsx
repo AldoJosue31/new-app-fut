@@ -3,10 +3,11 @@ import styled from "styled-components";
 import { Badge } from "../../../../../index"; 
 import { RiDragMove2Line, RiSettings3Line, RiCloseLine, RiLockLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
+import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
 
-export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJornadaIndex, onOpenResolution, onClearResolution }) => {
-  const matchJornadaNum = match.originJornada ? parseInt(match.originJornada.split(' ')[1]) : 999;
-  const isDelayed = matchJornadaNum < (currentJornadaIndex + 1);
+export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJornadaNumber = 1, onOpenResolution, onClearResolution }) => {
+  const matchJornadaNum = parseJornadaNumber(match.originJornada, 999);
+  const isDelayed = matchJornadaNum < currentJornadaNumber;
   const hasResolution = !!match.resolution;
 
   return (

@@ -35,7 +35,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     onOpenResult, 
     onPostpone,
     groupLabel,
-    onDropOnDate 
+    onDropOnDate,
+    isRepositionMode = false
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
@@ -133,6 +134,12 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                         <span className="name">{match.awayTeam?.name || match.visitante?.name || "Equipo Visitante"}</span>
                     </div>
                 </div>
+
+                {isRepositionMode && match.originJornada && (
+                    <div className="origin-badge">
+                        Pendiente arrastrado desde {match.originJornada}
+                    </div>
+                )}
 
                 <div className="settings">
                     {isConfirmed ? (
@@ -333,5 +340,18 @@ const Container = styled.div`
                 &.print { background: #95a5a620; color: #7f8c8d; &:hover{ background: #95a5a6; color: white; } }
             }
         }
+    }
+
+    .origin-badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        background: #f39c1215;
+        color: #f39c12;
+        border: 1px solid #f39c1240;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
     }
 `;
