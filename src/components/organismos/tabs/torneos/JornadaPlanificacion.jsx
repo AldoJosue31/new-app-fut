@@ -110,10 +110,16 @@ export function JornadaPlanificacion({
   );
 
   const matchesWithoutResult = scheduledMatches.filter((match) => {
+    if (match.isReferenceOnly) return false;
     const isSaved = match.id && !String(match.id).startsWith("temp");
     const isPendingResult = match.status !== "Finalizado";
     return isSaved && isPendingResult;
   });
+
+  const editableScheduledMatches = useMemo(
+    () => scheduledMatches.filter((match) => !match.isReferenceOnly),
+    [scheduledMatches]
+  );
 
   const pendientesEstaJornada = sidebarMatches.filter(
     (match) => match.originJornada === currentJornadaName && !match.isByeMatch
@@ -121,7 +127,6 @@ export function JornadaPlanificacion({
 
   const repositionMode = getRepositionMode({
     scheduledMatches,
-    sidebarMatches,
     currentJornadaNumber,
   });
 
@@ -161,8 +166,17 @@ export function JornadaPlanificacion({
         jornadaIndex,
         repositionStartDate:
           repositionWeek.startDate || suggestedRepositionWindow.startDate,
+        repositionEndDate:
+          repositionWeek.endDate || suggestedRepositionWindow.endDate,
       }),
-    [jornadaIndex, jornadas, repositionWeek.startDate, suggestedRepositionWindow.startDate]
+    [
+      jornadaIndex,
+      jornadas,
+      repositionWeek.endDate,
+      repositionWeek.startDate,
+      suggestedRepositionWindow.endDate,
+      suggestedRepositionWindow.startDate,
+    ]
   );
 
   const nextJornadaPreview = futureJornadaPreview[1] || null;
@@ -281,7 +295,7 @@ export function JornadaPlanificacion({
       });
 
       const detectedConflicts = findScheduleConflicts(
-        scheduledMatches,
+        editableScheduledMatches,
         filteredExternalData,
         durationMatch
       );
@@ -299,7 +313,7 @@ export function JornadaPlanificacion({
             jornada_id: jornadaData?.id,
             jornada_numero: currentJornadaNumber,
             jornada_name: jornadaData?.name,
-            matches: scheduledMatches,
+            matches: editableScheduledMatches,
             allPendingMatches,
             repositionConfig: isRepositionMode
               ? {
@@ -325,6 +339,7 @@ export function JornadaPlanificacion({
 
         if (dt) {
           const syntheticConflicts = scheduledMatches
+            .filter((match) => !match.isReferenceOnly)
             .filter((internal) =>
               checkOverlap(
                 internal,
@@ -651,10 +666,10 @@ export function JornadaPlanificacion({
         }}
         onEndDateChange={(e) => {
           const endDate = e.target.value;
-          setRepositionWeek({
-            startDate: endDate ? addDaysToDate(endDate, -6) : "",
+          setRepositionWeek((prev) => ({
+            startDate: prev.startDate,
             endDate,
-          });
+          }));
         }}
       />
 
@@ -689,7 +704,7 @@ export function JornadaPlanificacion({
       >
         <StatsContainer>
           <StatBox $color="#2ecc71">
-            <span className="num">{scheduledMatches.length}</span>
+            <span className="num">{editableScheduledMatches.length}</span>
             <span className="lbl">A Confirmar</span>
           </StatBox>
 

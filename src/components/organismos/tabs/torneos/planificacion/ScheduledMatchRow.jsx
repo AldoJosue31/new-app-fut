@@ -42,6 +42,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   const [isDragOver, setIsDragOver] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
   const [showPreSheet, setShowPreSheet] = useState(false);
+  const isReferenceOnly = Boolean(match.isReferenceOnly);
   
   // Referencia para evitar parpadeos en DnD
   const dragCounter = useRef(0);
@@ -55,7 +56,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 
   const handleDragEnter = (e) => {
       e.preventDefault();
-      if (!isConfirmed) {
+      if (!isConfirmed && !isReferenceOnly) {
           dragCounter.current += 1;
           if (dragCounter.current === 1) setIsDragOver(true);
       }
@@ -67,7 +68,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 
   const handleDragLeave = (e) => {
       e.preventDefault();
-      if (!isConfirmed) {
+      if (!isConfirmed && !isReferenceOnly) {
           dragCounter.current -= 1;
           if (dragCounter.current === 0) setIsDragOver(false);
       }
@@ -78,7 +79,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       dragCounter.current = 0; 
       setIsDragOver(false);
       
-      if (!isConfirmed && onDropOnDate && match.date) {
+      if (!isConfirmed && !isReferenceOnly && onDropOnDate && match.date) {
           e.stopPropagation();
           onDropOnDate(match.date);
       }
@@ -135,11 +136,19 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                     </div>
                 </div>
 
-                {isRepositionMode && match.originJornada && (
+                {match.playedInJornada ? (
+                    <div className="origin-badge is-reference">
+                        Se jugo en {match.playedInJornada}
+                    </div>
+                ) : match.isRepositionScheduled && match.originJornada ? (
+                    <div className="origin-badge">
+                        Pendiente de {match.originJornada}
+                    </div>
+                ) : isRepositionMode && match.originJornada ? (
                     <div className="origin-badge">
                         Pendiente arrastrado desde {match.originJornada}
                     </div>
-                )}
+                ) : null}
 
                 <div className="settings">
                     {isConfirmed ? (
@@ -199,13 +208,15 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                         type="date" 
                                         className="input-date" 
                                         value={match.date || ''} 
-                                        onChange={(e)=> onUpdateDate(e.target.value)} 
+                                        onChange={(e)=> onUpdateDate(e.target.value)}
+                                        disabled={isReferenceOnly}
                                     />
                                     <input 
                                         type="time" 
                                         className="input-time" 
                                         value={match.time || ''} 
-                                        onChange={(e)=> onUpdateTime(e.target.value)} 
+                                        onChange={(e)=> onUpdateTime(e.target.value)}
+                                        disabled={isReferenceOnly}
                                     />
                                 </>
                             ) : (
@@ -213,9 +224,11 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     <span className="no-date-badge" style={{ margin: '0 auto' }}>Victoria Default</span>
                                 </div>
                             )}
-                            <button className="del" onClick={onRemove} title="Desagendar">
-                                <RiDeleteBinLine/>
-                            </button>
+                            {!isReferenceOnly && (
+                                <button className="del" onClick={onRemove} title="Desagendar">
+                                    <RiDeleteBinLine/>
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -353,5 +366,11 @@ const Container = styled.div`
         padding: 5px 10px;
         font-size: 0.75rem;
         font-weight: 700;
+    }
+
+    .origin-badge.is-reference {
+        background: #3498db15;
+        color: #3498db;
+        border-color: #3498db40;
     }
 `;

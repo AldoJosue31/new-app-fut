@@ -12,30 +12,21 @@ export const isConfirmedJornada = (jornada) => {
 
 export const getRepositionMode = ({
   scheduledMatches = [],
-  sidebarMatches = [],
   currentJornadaNumber = 1,
 }) => {
   const currentNum = currentJornadaNumber;
-  const playableScheduled = scheduledMatches.filter((match) => !match.isByeMatch);
-  const playableSidebar = sidebarMatches.filter((match) => !match.isByeMatch);
+  const playableScheduled = scheduledMatches.filter(
+    (match) => !match.isByeMatch && !match.isReferenceOnly
+  );
   const isDelayed = (match) =>
     parseJornadaNumber(match.originJornada, currentNum) < currentNum;
-  const isCurrentOrFuture = (match) =>
-    parseJornadaNumber(match.originJornada, currentNum) >= currentNum;
 
-  if (playableScheduled.length === 0 && playableSidebar.length === 0) {
+  if (playableScheduled.length === 0) {
     return REPOSITION_MODE.NONE;
   }
 
-  if (playableScheduled.length > 0) {
-    const onlyDelayedScheduled = playableScheduled.every(isDelayed);
-    const hasCurrentScheduled = playableScheduled.some(isCurrentOrFuture);
-    if (onlyDelayedScheduled && !hasCurrentScheduled) {
-      return REPOSITION_MODE.ONLY_DELAYED;
-    }
-  }
-
-  if (playableSidebar.length > 0 && playableSidebar.every(isDelayed)) {
+  const onlyDelayedScheduled = playableScheduled.every(isDelayed);
+  if (onlyDelayedScheduled) {
     return REPOSITION_MODE.ONLY_DELAYED;
   }
 

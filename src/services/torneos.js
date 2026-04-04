@@ -419,11 +419,12 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     if (!originalCurrentJornadaId) throw new Error("Jornada no encontrada en la BD");
 
     let confirmationJornadaId = originalCurrentJornadaId;
+    let repositionJornadaData = null;
+    let tournamentConfigCache = {};
 
     if (repositionConfig?.enabled) {
         const currentJornada = todasLasJornadas.find((jornada) => jornada.id === originalCurrentJornadaId);
         const repositionName = buildRepositionJornadaName({
-            currentJornadaName: currentJornada?.name || jornadaData.jornada_name || `Jornada ${jornadaData.jornada_numero}`,
             existingJornadas: todasLasJornadas,
         });
 
@@ -441,14 +442,68 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
 
         if (insertRepositionError) throw insertRepositionError;
         confirmationJornadaId = insertedReposition.id;
+        repositionJornadaData = insertedReposition;
+
+        const { data: tournamentRow, error: tournamentError } = await supabase
+          .from('tournaments')
+          .select('config')
+          .eq('id', torneoId)
+          .single();
+
+        if (tournamentError) throw tournamentError;
+
+        const previousConfig =
+          tournamentRow?.config && typeof tournamentRow.config === 'object'
+            ? tournamentRow.config
+            : {};
+        tournamentConfigCache = previousConfig;
+
+        const previousMappings = Array.isArray(previousConfig.repositionMappings)
+          ? previousConfig.repositionMappings
+          : [];
+
+        const nextMappings = [
+          ...previousMappings.filter(
+            (mapping) =>
+              String(mapping?.repositionJornadaId) !== String(insertedReposition.id)
+          ),
+          {
+            repositionJornadaId: insertedReposition.id,
+            repositionJornadaName: insertedReposition.name,
+            originalJornadaId: originalCurrentJornadaId,
+            originalJornadaName:
+              currentJornada?.name ||
+              jornadaData.jornada_name ||
+              `Jornada ${jornadaData.jornada_numero}`,
+          },
+        ];
+
+        const { error: configUpdateError } = await supabase
+          .from('tournaments')
+          .update({
+            config: {
+              ...previousConfig,
+              repositionMappings: nextMappings,
+            },
+          })
+          .eq('id', torneoId);
+
+        if (configUpdateError) throw configUpdateError;
+        tournamentConfigCache = {
+          ...previousConfig,
+          repositionMappings: nextMappings,
+        };
     }
 
     const matchesToInsert = [];
     const matchesToUpdate = [];
+    const repositionMatchMappings = [];
+    const repositionInsertMetas = [];
 
     // --- FUNCIÓN UNIFICADA PARA PROCESAR PARTIDOS ---
     const procesarPartido = (m, forcedJornadaId = null) => {
         const originName = m.jornadas?.name || m.originJornada;
+        const originJornadaId = m.originJornadaId || jornadasMap[originName] || null;
         const targetJornadaId = forcedJornadaId || m.jornada_id || jornadasMap[originName] || confirmationJornadaId;
         const t2Id = (m.visitante && m.visitante.id && m.visitante.id !== 'BYE') ? Number(m.visitante.id) : null;
         const t1Id = (m.local && m.local.id) ? Number(m.local.id) : null;
@@ -497,8 +552,27 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         if (m.id && !isNaN(numericId) && numericId > 0 && !String(m.id).startsWith('temp')) {
             payload.id = numericId;
             matchesToUpdate.push(payload);
+            if (repositionConfig?.enabled && targetJornadaId === confirmationJornadaId) {
+                repositionMatchMappings.push({
+                    matchId: numericId,
+                    originalJornadaId: originJornadaId || originalCurrentJornadaId,
+                    originalJornadaName:
+                      originName ||
+                      jornadaData.jornada_name ||
+                      `Jornada ${jornadaData.jornada_numero}`,
+                });
+            }
         } else {
             matchesToInsert.push(payload);
+            if (repositionConfig?.enabled && targetJornadaId === confirmationJornadaId) {
+                repositionInsertMetas.push({
+                    originalJornadaId: originJornadaId || originalCurrentJornadaId,
+                    originalJornadaName:
+                      originName ||
+                      jornadaData.jornada_name ||
+                      `Jornada ${jornadaData.jornada_numero}`,
+                });
+            }
         }
     };
 
@@ -515,8 +589,24 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     });
 
     if (matchesToInsert.length > 0) {
-        const { error: insertError } = await supabase.from('matches').insert(matchesToInsert);
+        const { data: insertedMatches, error: insertError } = await supabase
+          .from('matches')
+          .insert(matchesToInsert)
+          .select('id');
         if (insertError) throw insertError;
+
+        if (repositionConfig?.enabled && repositionInsertMetas.length > 0) {
+            insertedMatches?.forEach((insertedMatch, index) => {
+                const meta = repositionInsertMetas[index];
+                if (!meta?.originalJornadaId) return;
+
+                repositionMatchMappings.push({
+                    matchId: insertedMatch.id,
+                    originalJornadaId: meta.originalJornadaId,
+                    originalJornadaName: meta.originalJornadaName,
+                });
+            });
+        }
     }
 
     if (matchesToUpdate.length > 0) {
@@ -551,6 +641,43 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
 
             if (futureDatesError) throw futureDatesError;
         }
+    }
+
+    if (repositionConfig?.enabled && repositionJornadaData && repositionMatchMappings.length > 0) {
+        const previousMatchMappings = Array.isArray(tournamentConfigCache.repositionMatchMappings)
+          ? tournamentConfigCache.repositionMatchMappings
+          : [];
+
+        const nextMatchMappings = [
+          ...previousMatchMappings.filter(
+            (mapping) =>
+              !repositionMatchMappings.some(
+                (newMapping) => String(newMapping.matchId) === String(mapping?.matchId)
+              )
+          ),
+          ...repositionMatchMappings.map((mapping) => ({
+            matchId: mapping.matchId,
+            repositionJornadaId: repositionJornadaData.id,
+            repositionJornadaName: repositionJornadaData.name,
+            originalJornadaId: mapping.originalJornadaId,
+            originalJornadaName: mapping.originalJornadaName,
+          })),
+        ];
+
+        const { error: matchMappingsError } = await supabase
+          .from('tournaments')
+          .update({
+            config: {
+              ...tournamentConfigCache,
+              repositionMappings: Array.isArray(tournamentConfigCache.repositionMappings)
+                ? tournamentConfigCache.repositionMappings
+                : [],
+              repositionMatchMappings: nextMatchMappings,
+            },
+          })
+          .eq('id', torneoId);
+
+        if (matchMappingsError) throw matchMappingsError;
     }
 
     return { success: true };

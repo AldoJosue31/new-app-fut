@@ -208,7 +208,7 @@ export const usePlanificacionMatches = (
           }
       }
 
-      let rawOrigin = m.jornadas?.name || m.originJornada;
+      let rawOrigin = m.originJornada || m.jornadas?.name;
       if (!rawOrigin && m._source === 'db') {
           rawOrigin = currentJornadaName;
       }
@@ -225,7 +225,11 @@ export const usePlanificacionMatches = (
         referee_id: m.referee_id,
         observations: m.observations,
         jornada_id: m.jornada_id,
+        originJornadaId: m.originJornadaId || null,
         originJornada: rawOrigin, 
+        playedInJornada: m.playedInJornada || "",
+        isReferenceOnly: Boolean(m.isReferenceOnly),
+        isRepositionScheduled: Boolean(m.isRepositionScheduled),
         isModified: Boolean(m.isModified) || false,
         isByeMatch: isByeMatch,
         isExternal: false 

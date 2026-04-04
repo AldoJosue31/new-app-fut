@@ -39,51 +39,139 @@ export const sortJornadas = (jornadas = []) => {
 };
 
 export const buildRepositionJornadaName = ({
-  currentJornadaName,
   existingJornadas = [],
 }) => {
-  const baseName = `Reposicion previa a ${currentJornadaName}`;
-  const matches = existingJornadas.filter((jornada) =>
-    String(jornada?.name || "").startsWith(baseName)
-  );
+  const repositionNumbers = existingJornadas
+    .map((jornada) => {
+      const match = String(jornada?.name || "")
+        .trim()
+        .match(/^reposicion(?:\s+(\d+))?$/i);
 
-  if (matches.length === 0) {
-    return baseName;
-  }
+      if (!match) return null;
+      return match[1] ? Number(match[1]) : 1;
+    })
+    .filter((value) => Number.isFinite(value));
 
-  return `${baseName} (${matches.length + 1})`;
+  const nextNumber =
+    repositionNumbers.length > 0 ? Math.max(...repositionNumbers) + 1 : 1;
+
+  return `Reposicion ${nextNumber}`;
 };
 
 export const buildRepositionPreview = ({
   jornadas = [],
   jornadaIndex = 0,
   repositionStartDate,
+  repositionEndDate,
 }) => {
   if (!repositionStartDate) return [];
 
-  const currentJornada = jornadas[jornadaIndex];
+  const repositionName = buildRepositionJornadaName({
+    existingJornadas: jornadas,
+  });
+  const syntheticEndDate =
+    repositionEndDate || addDaysToDate(repositionStartDate, 6);
   const preview = [
     {
       id: null,
-      name: currentJornada?.name
-        ? `Reposicion previa a ${currentJornada.name}`
-        : "Reposicion",
+      name: repositionName,
       start_date: repositionStartDate,
-      end_date: addDaysToDate(repositionStartDate, 6),
+      end_date: syntheticEndDate,
       isSynthetic: true,
     },
   ];
 
+  let cursorStartDate = addDaysToDate(syntheticEndDate, 1);
+
   jornadas.slice(jornadaIndex).forEach((jornada, offset) => {
-    const startDate = addDaysToDate(repositionStartDate, (offset + 1) * 7);
+    const originalStart = jornada?.start_date || "";
+    const originalEnd = jornada?.end_date || "";
+    const durationDays = getDateDurationDays(originalStart, originalEnd);
+    const startDate = offset === 0 ? cursorStartDate : cursorStartDate;
+    const endDate = addDaysToDate(startDate, durationDays);
+
     preview.push({
       id: jornada.id,
       name: jornada.name,
       start_date: startDate,
-      end_date: addDaysToDate(startDate, 6),
+      end_date: endDate,
       isSynthetic: false,
     });
+
+    cursorStartDate = addDaysToDate(endDate, 1);
   });
 
   return preview;
 };
+
+export const resolveRepositionMappings = ({
+  jornadas = [],
+  configuredMappings = [],
+}) => {
+  const normalizedConfigured = (configuredMappings || [])
+    .filter((mapping) => mapping?.repositionJornadaId && mapping?.originalJornadaId)
+    .map((mapping) => ({
+      repositionJornadaId: mapping.repositionJornadaId,
+      repositionJornadaName: mapping.repositionJornadaName || "",
+      originalJornadaId: mapping.originalJornadaId,
+      originalJornadaName: mapping.originalJornadaName || "",
+    }));
+
+  const configuredIds = new Set(
+    normalizedConfigured.map((mapping) => String(mapping.repositionJornadaId))
+  );
+
+  const sorted = sortJornadas(jornadas);
+
+  const inferred = sorted
+    .filter(
+      (jornada) =>
+        !isOfficialJornadaName(jornada?.name) &&
+        /^reposicion(?:\s+\d+)?$/i.test(String(jornada?.name || "").trim())
+    )
+    .map((repositionJornada) => {
+      if (configuredIds.has(String(repositionJornada.id))) {
+        return null;
+      }
+
+      const expectedNextStart = repositionJornada?.end_date
+        ? addDaysToDate(repositionJornada.end_date, 1)
+        : "";
+
+      const originalByExpectedDate = sorted.find(
+        (candidate) =>
+          isOfficialJornadaName(candidate?.name) &&
+          String(candidate?.start_date || "") === String(expectedNextStart)
+      );
+
+      const originalByNextOfficial = sorted.find(
+        (candidate) =>
+          isOfficialJornadaName(candidate?.name) &&
+          String(candidate?.start_date || "") >
+            String(repositionJornada?.end_date || "")
+      );
+
+      const originalJornada = originalByExpectedDate || originalByNextOfficial || null;
+      if (!originalJornada) return null;
+
+      return {
+        repositionJornadaId: repositionJornada.id,
+        repositionJornadaName: repositionJornada.name || "",
+        originalJornadaId: originalJornada.id,
+        originalJornadaName: originalJornada.name || "",
+      };
+    })
+    .filter(Boolean);
+
+  return [...normalizedConfigured, ...inferred];
+};
+
+function getDateDurationDays(startDate, endDate) {
+  if (!startDate || !endDate) return 6;
+
+  const start = new Date(`${startDate}T00:00:00`).getTime();
+  const end = new Date(`${endDate}T00:00:00`).getTime();
+  const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+
+  return Number.isNaN(diff) || diff < 0 ? 6 : diff;
+}
