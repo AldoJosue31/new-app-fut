@@ -130,7 +130,11 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                 </DateDivider>
             )}
 
-            <Container $isConfirmed={isConfirmed} $isDragOver={isDragOver}>
+            <Container
+                $isConfirmed={isConfirmed}
+                $isDragOver={isDragOver}
+                $hasFloatingBadge={isDraggedDelayedMatch}
+            >
                 {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
 
                 <div className="content">
@@ -319,7 +323,8 @@ const Container = styled.div`
     display: flex; flex-direction: column; 
     gap: 8px; 
     background: ${({theme})=>theme.bgtotal}; 
-    padding: 14px 10px 10px 10px; 
+    padding: ${({ $hasFloatingBadge }) =>
+        $hasFloatingBadge ? '34px 10px 10px 10px' : '10px'}; 
     border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease;
@@ -329,7 +334,9 @@ const Container = styled.div`
     `}
     
     @media ${Device.tablet} {
-        display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 18px 12px 10px 12px;
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
+        padding: ${({ $hasFloatingBadge }) =>
+            $hasFloatingBadge ? '22px 12px 10px 12px' : '10px 12px'};
     }
 
     .content {
@@ -466,10 +473,12 @@ const Container = styled.div`
 
     @media (max-width: 768px) {
         .origin-badge.is-delayed {
-            top: 6px;
+            top: 8px;
             left: 8px;
-            padding: 3px 8px;
-            font-size: 0.66rem;
+            padding: 3px 7px;
+            font-size: 0.63rem;
+            gap: 4px;
+            max-width: calc(100% - 16px);
         }
 
         .origin-badge.is-delayed .label-desktop {
