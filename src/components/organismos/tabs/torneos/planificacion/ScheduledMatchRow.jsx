@@ -11,6 +11,8 @@ import {
 } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
+import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
+import { RiArrowLeftUpLine, RiLinksLine, RiRouteLine } from "react-icons/ri";
 
 // Importar los modales
 import MatchSheetModal from "../exports/match-sheets/MatchSheetModal";
@@ -36,7 +38,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     onPostpone,
     groupLabel,
     onDropOnDate,
-    isRepositionMode = false
+    isRepositionMode = false,
+    currentJornadaNumber = 1
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
@@ -53,6 +56,18 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       }
       return null;
   }, [match.observations, match.status, isConfirmed]);
+
+  const isDraggedDelayedMatch = useMemo(() => {
+      if (!match.originJornada || match.isReferenceOnly || match.isRepositionScheduled) {
+          return false;
+      }
+      return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
+  }, [
+      currentJornadaNumber,
+      match.isReferenceOnly,
+      match.isRepositionScheduled,
+      match.originJornada,
+  ]);
 
   const handleDragEnter = (e) => {
       e.preventDefault();
@@ -93,6 +108,12 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   const displayLabel = (!match.date || String(groupLabel).includes('Invalid') || String(groupLabel).includes('NaN')) 
       ? 'Partidos definidos sin fecha (Default)' 
       : groupLabel;
+  const draggedBadgeLabel = isDraggedDelayedMatch
+      ? `Desde ${match.originJornada || "Jornada anterior"}`
+      : "";
+  const draggedBadgeShortLabel = isDraggedDelayedMatch
+      ? `De J${parseJornadaNumber(match.originJornada, currentJornadaNumber)}`
+      : "";
 
   return (
     <>
@@ -112,43 +133,57 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             <Container $isConfirmed={isConfirmed} $isDragOver={isDragOver}>
                 {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
 
-                <div className="info">
-                    <div className="team local">
-                        <span className="name">{match.homeTeam?.name || match.local?.name || "Equipo Local"}</span>
-                        {isConfirmed && match.status === 'Finalizado' && (
-                            <ScoreWrapper>
-                                <span className="main-score">{match.goals1 || match.homeScore || 0}</span>
-                                {penalties && <span className="pen-score">({penalties.local})</span>}
-                            </ScoreWrapper>
-                        )}
+                <div className="content">
+                    <div className="info">
+                        <div className="team local">
+                            <span className="name">{match.homeTeam?.name || match.local?.name || "Equipo Local"}</span>
+                            {isConfirmed && match.status === 'Finalizado' && (
+                                <ScoreWrapper>
+                                    <span className="main-score">{match.goals1 || match.homeScore || 0}</span>
+                                    {penalties && <span className="pen-score">({penalties.local})</span>}
+                                </ScoreWrapper>
+                            )}
+                        </div>
+
+                        <span className="vs">VS</span>
+
+                        <div className="team visit">
+                            {isConfirmed && match.status === 'Finalizado' && (
+                                <ScoreWrapper>
+                                    <span className="main-score">{match.goals2 || match.awayScore || 0}</span>
+                                    {penalties && <span className="pen-score">({penalties.visit})</span>}
+                                </ScoreWrapper>
+                            )}
+                            <span className="name">{match.awayTeam?.name || match.visitante?.name || "Equipo Visitante"}</span>
+                        </div>
                     </div>
 
-                    <span className="vs">VS</span>
+                    {(match.playedInJornada || match.isRepositionScheduled || isDraggedDelayedMatch) && (
+                        <div className="badge-row">
+                            {match.playedInJornada && (
+                                <div className="origin-badge is-reference">
+                                    <RiLinksLine />
+                                    <span>Se jugo en {match.playedInJornada}</span>
+                                </div>
+                            )}
 
-                    <div className="team visit">
-                        {isConfirmed && match.status === 'Finalizado' && (
-                            <ScoreWrapper>
-                                <span className="main-score">{match.goals2 || match.awayScore || 0}</span>
-                                {penalties && <span className="pen-score">({penalties.visit})</span>}
-                            </ScoreWrapper>
-                        )}
-                        <span className="name">{match.awayTeam?.name || match.visitante?.name || "Equipo Visitante"}</span>
-                    </div>
+                            {match.isRepositionScheduled && match.originJornada && (
+                                <div className="origin-badge is-reposition">
+                                    <RiRouteLine />
+                                    <span>Pendiente de {match.originJornada}</span>
+                                </div>
+                            )}
+
+                            {isDraggedDelayedMatch && (
+                                <div className="origin-badge is-delayed">
+                                    <RiArrowLeftUpLine />
+                                    <span className="label-desktop">{draggedBadgeLabel}</span>
+                                    <span className="label-mobile">{draggedBadgeShortLabel}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
-
-                {match.playedInJornada ? (
-                    <div className="origin-badge is-reference">
-                        Se jugo en {match.playedInJornada}
-                    </div>
-                ) : match.isRepositionScheduled && match.originJornada ? (
-                    <div className="origin-badge">
-                        Pendiente de {match.originJornada}
-                    </div>
-                ) : isRepositionMode && match.originJornada ? (
-                    <div className="origin-badge">
-                        Pendiente arrastrado desde {match.originJornada}
-                    </div>
-                ) : null}
 
                 <div className="settings">
                     {isConfirmed ? (
@@ -284,7 +319,7 @@ const Container = styled.div`
     display: flex; flex-direction: column; 
     gap: 8px; 
     background: ${({theme})=>theme.bgtotal}; 
-    padding: 10px; 
+    padding: 14px 10px 10px 10px; 
     border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease;
@@ -294,7 +329,14 @@ const Container = styled.div`
     `}
     
     @media ${Device.tablet} {
-        display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 10px;
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 18px 12px 10px 12px;
+    }
+
+    .content {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
     }
 
     .info { 
@@ -313,13 +355,15 @@ const Container = styled.div`
 
     .settings { 
         display: flex; gap: 8px; width: 100%; justify-content: space-between;
-        @media ${Device.tablet} { width: auto; justify-content: flex-end; }
+        @media ${Device.tablet} { width: auto; justify-content: flex-end; align-items: center; flex-shrink: 0; }
         input { 
             background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4}; 
             color: ${({theme})=>theme.text}; padding: 8px; border-radius: 6px; flex: 1; font-size: 0.9rem;
-            @media ${Device.tablet} { padding: 5px; flex: none; width: auto; font-size: 1rem; }
+            @media ${Device.tablet} { padding: 5px 8px; flex: none; font-size: 0.95rem; }
             &:focus { outline: 1px solid ${v.colorPrincipal}; }
         } 
+        .input-date { @media ${Device.tablet} { width: 144px; } }
+        .input-time { @media ${Device.tablet} { width: 130px; } }
         .del { 
             background: #e74c3c20; color: #e74c3c; border: none; border-radius: 6px; cursor: pointer; padding: 8px 12px;
             display: flex; align-items: center; justify-content: center; transition: 0.2s;
@@ -355,22 +399,85 @@ const Container = styled.div`
         }
     }
 
+    .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        min-width: 0;
+    }
+
     .origin-badge {
         display: inline-flex;
         align-items: center;
+        gap: 6px;
         width: fit-content;
-        background: #f39c1215;
-        color: #f39c12;
-        border: 1px solid #f39c1240;
+        background: linear-gradient(135deg, rgba(243, 156, 18, 0.18), rgba(243, 156, 18, 0.08));
+        color: #f8c35c;
+        border: 1px solid rgba(243, 156, 18, 0.34);
         border-radius: 999px;
-        padding: 5px 10px;
-        font-size: 0.75rem;
-        font-weight: 700;
+        padding: 6px 11px;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        max-width: 100%;
+    }
+
+    .origin-badge span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .origin-badge svg {
+        font-size: 0.9rem;
+        flex-shrink: 0;
     }
 
     .origin-badge.is-reference {
-        background: #3498db15;
-        color: #3498db;
-        border-color: #3498db40;
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.18), rgba(52, 152, 219, 0.08));
+        color: #64c7ff;
+        border-color: rgba(52, 152, 219, 0.34);
+    }
+
+    .origin-badge.is-reposition {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.16), rgba(231, 76, 60, 0.08));
+        color: #ff8c7f;
+        border-color: rgba(231, 76, 60, 0.3);
+    }
+
+    .origin-badge.is-delayed {
+        background: linear-gradient(135deg, rgba(243, 156, 18, 0.18), rgba(192, 120, 20, 0.08));
+        color: #ffb347;
+        border-color: rgba(243, 156, 18, 0.38);
+        position: absolute;
+        top: 8px;
+        left: 10px;
+        z-index: 2;
+        padding: 4px 10px;
+        font-size: 0.7rem;
+        max-width: calc(100% - 20px);
+    }
+
+    .origin-badge.is-delayed .label-mobile {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .origin-badge.is-delayed {
+            top: 6px;
+            left: 8px;
+            padding: 3px 8px;
+            font-size: 0.66rem;
+        }
+
+        .origin-badge.is-delayed .label-desktop {
+            display: none;
+        }
+
+        .origin-badge.is-delayed .label-mobile {
+            display: inline;
+        }
     }
 `;

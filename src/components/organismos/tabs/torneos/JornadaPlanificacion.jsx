@@ -540,6 +540,7 @@ export function JornadaPlanificacion({
                             }}
                             onPostpone={(selected) => setMatchToPostpone(selected)}
                             isRepositionMode={isRepositionMode}
+                            currentJornadaNumber={currentJornadaNumber}
                           />
 
                           {isLastOfDate && match.date && (
