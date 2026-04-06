@@ -1,5 +1,5 @@
 // src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import { RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiTimeLine } from "react-icons/ri";
@@ -142,6 +142,30 @@ export function JornadaPlanificacion({
       }),
     [activeTournament?.start_date, jornadaData?.start_date, jornadaIndex, jornadas, weekStartDate]
   );
+
+  const headerJornadaData = useMemo(() => {
+    if (!isRepositionMode) return jornadaData;
+
+    return {
+      ...jornadaData,
+      start_date: repositionWeek.startDate || suggestedRepositionWindow.startDate,
+      end_date: repositionWeek.endDate || suggestedRepositionWindow.endDate,
+    };
+  }, [
+    isRepositionMode,
+    jornadaData,
+    repositionWeek.endDate,
+    repositionWeek.startDate,
+    suggestedRepositionWindow.endDate,
+    suggestedRepositionWindow.startDate,
+  ]);
+
+  const handleRepositionHeaderDates = useCallback((newStart, newEnd) => {
+    setRepositionWeek({
+      startDate: newStart,
+      endDate: newEnd,
+    });
+  }, []);
 
   useEffect(() => {
     if (!isRepositionMode) {
@@ -397,10 +421,6 @@ export function JornadaPlanificacion({
 
   const handleOpenConfirmModal = () => {
     if (isRepositionMode) {
-      setRepositionWeek({
-        startDate: repositionWeek.startDate || suggestedRepositionWindow.startDate,
-        endDate: repositionWeek.endDate || suggestedRepositionWindow.endDate,
-      });
       setRepositionPlannerOpen(true);
       return;
     }
@@ -419,7 +439,7 @@ export function JornadaPlanificacion({
 
       <PlanningHeader
         jornadaIndex={jornadaIndex}
-        jornadaData={jornadaData}
+        jornadaData={headerJornadaData}
         status={
           isRepositionMode
             ? "Jornada de Reposicion"
@@ -429,6 +449,8 @@ export function JornadaPlanificacion({
         onNext={() => onChangeJornada(Math.min(totalJornadas - 1, jornadaIndex + 1))}
         totalJornadas={totalJornadas}
         onSaveDates={onUpdateDates}
+        onDateChange={handleRepositionHeaderDates}
+        isRepositionMode={isRepositionMode}
         onAutoFill={handleAutoFillWrapper}
         onConfig={() => setConfigModalOpen(true)}
         viewMode={viewMode}

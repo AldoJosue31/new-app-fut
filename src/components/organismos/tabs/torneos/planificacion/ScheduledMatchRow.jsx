@@ -114,6 +114,32 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   const draggedBadgeShortLabel = isDraggedDelayedMatch
       ? `De J${parseJornadaNumber(match.originJornada, currentJornadaNumber)}`
       : "";
+  const isReferenceBadge = Boolean(match.playedInJornada);
+  const isConfirmedRepositionBadge = Boolean(
+      match.isRepositionScheduled && match.originJornada
+  );
+  const hasFloatingOriginBadge =
+      isReferenceBadge || isDraggedDelayedMatch || isConfirmedRepositionBadge;
+  const floatingBadgeLabel = isReferenceBadge
+      ? `Se jugo en ${match.playedInJornada}`
+      : isConfirmedRepositionBadge
+        ? `Pendiente de ${match.originJornada}`
+        : draggedBadgeLabel;
+  const floatingBadgeShortLabel = isReferenceBadge
+      ? `En ${match.playedInJornada}`
+      : isConfirmedRepositionBadge
+        ? `Pend. J${parseJornadaNumber(match.originJornada, currentJornadaNumber)}`
+        : draggedBadgeShortLabel;
+  const floatingBadgeClassName = isReferenceBadge
+      ? "origin-badge is-reference is-floating"
+      : isConfirmedRepositionBadge
+        ? "origin-badge is-reposition is-floating"
+        : "origin-badge is-delayed is-floating";
+  const FloatingBadgeIcon = isReferenceBadge
+      ? RiLinksLine
+      : isConfirmedRepositionBadge
+        ? RiRouteLine
+        : RiArrowLeftUpLine;
 
   return (
     <>
@@ -133,9 +159,17 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
             <Container
                 $isConfirmed={isConfirmed}
                 $isDragOver={isDragOver}
-                $hasFloatingBadge={isDraggedDelayedMatch}
+                $hasFloatingBadge={hasFloatingOriginBadge}
             >
                 {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
+
+                {hasFloatingOriginBadge && (
+                    <div className={floatingBadgeClassName}>
+                        <FloatingBadgeIcon />
+                        <span className="label-desktop">{floatingBadgeLabel}</span>
+                        <span className="label-mobile">{floatingBadgeShortLabel}</span>
+                    </div>
+                )}
 
                 <div className="content">
                     <div className="info">
@@ -162,31 +196,6 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                         </div>
                     </div>
 
-                    {(match.playedInJornada || match.isRepositionScheduled || isDraggedDelayedMatch) && (
-                        <div className="badge-row">
-                            {match.playedInJornada && (
-                                <div className="origin-badge is-reference">
-                                    <RiLinksLine />
-                                    <span>Se jugo en {match.playedInJornada}</span>
-                                </div>
-                            )}
-
-                            {match.isRepositionScheduled && match.originJornada && (
-                                <div className="origin-badge is-reposition">
-                                    <RiRouteLine />
-                                    <span>Pendiente de {match.originJornada}</span>
-                                </div>
-                            )}
-
-                            {isDraggedDelayedMatch && (
-                                <div className="origin-badge is-delayed">
-                                    <RiArrowLeftUpLine />
-                                    <span className="label-desktop">{draggedBadgeLabel}</span>
-                                    <span className="label-mobile">{draggedBadgeShortLabel}</span>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 <div className="settings">
@@ -324,7 +333,7 @@ const Container = styled.div`
     gap: 8px; 
     background: ${({theme})=>theme.bgtotal}; 
     padding: ${({ $hasFloatingBadge }) =>
-        $hasFloatingBadge ? '34px 10px 10px 10px' : '10px'}; 
+        $hasFloatingBadge ? '28px 10px 10px 10px' : '10px'}; 
     border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease;
@@ -336,7 +345,7 @@ const Container = styled.div`
     @media ${Device.tablet} {
         display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
         padding: ${({ $hasFloatingBadge }) =>
-            $hasFloatingBadge ? '22px 12px 10px 12px' : '10px 12px'};
+            $hasFloatingBadge ? '18px 12px 10px 12px' : '10px 12px'};
     }
 
     .content {
@@ -454,38 +463,59 @@ const Container = styled.div`
         border-color: rgba(231, 76, 60, 0.3);
     }
 
-    .origin-badge.is-delayed {
+    .origin-badge.is-floating {
         background: linear-gradient(135deg, rgba(243, 156, 18, 0.18), rgba(192, 120, 20, 0.08));
         color: #ffb347;
         border-color: rgba(243, 156, 18, 0.38);
         position: absolute;
-        top: 8px;
+        top: 6px;
         left: 10px;
         z-index: 2;
-        padding: 4px 10px;
-        font-size: 0.7rem;
+        padding: 2px 8px;
+        font-size: 0.64rem;
+        line-height: 1;
         max-width: calc(100% - 20px);
     }
 
-    .origin-badge.is-delayed .label-mobile {
+    .origin-badge.is-floating svg {
+        font-size: 0.78rem;
+    }
+
+    .origin-badge.is-reposition.is-floating {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.16), rgba(231, 76, 60, 0.08));
+        color: #ff8c7f;
+        border-color: rgba(231, 76, 60, 0.3);
+    }
+
+    .origin-badge.is-reference.is-floating {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.18), rgba(52, 152, 219, 0.08));
+        color: #64c7ff;
+        border-color: rgba(52, 152, 219, 0.34);
+    }
+
+    .origin-badge.is-floating .label-mobile {
         display: none;
     }
 
     @media (max-width: 768px) {
-        .origin-badge.is-delayed {
-            top: 8px;
+        .origin-badge.is-floating {
+            top: 6px;
             left: 8px;
-            padding: 3px 7px;
-            font-size: 0.63rem;
-            gap: 4px;
+            padding: 2px 6px;
+            font-size: 0.58rem;
+            gap: 3px;
             max-width: calc(100% - 16px);
         }
 
-        .origin-badge.is-delayed .label-desktop {
+        .origin-badge.is-floating svg {
+            font-size: 0.7rem;
+        }
+
+        .origin-badge.is-floating .label-desktop {
             display: none;
         }
 
-        .origin-badge.is-delayed .label-mobile {
+        .origin-badge.is-floating .label-mobile {
             display: inline;
         }
     }
