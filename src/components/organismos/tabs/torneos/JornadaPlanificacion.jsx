@@ -7,7 +7,11 @@ import { RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiTimeLine } from "react-ic
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
 import { addDaysToDate, formatDateWithWeekday } from "../../../../utils/dateUtils";
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
-import { getJornadaReferenceNumber, isOfficialJornadaName } from "../../../../utils/jornadaUtils";
+import {
+  getJornadaReferenceNumber,
+  isOfficialJornadaName,
+  parseJornadaNumber,
+} from "../../../../utils/jornadaUtils";
 import {
   REPOSITION_MODE,
   getRepositionMode,
@@ -124,6 +128,11 @@ export function JornadaPlanificacion({
   const pendientesEstaJornada = sidebarMatches.filter(
     (match) => match.originJornada === currentJornadaName && !match.isByeMatch
   );
+  const pendingAfterRepositionConfirm = sidebarMatches.filter((match) => {
+    if (match.isByeMatch) return false;
+    if (match.resolution?.type === "default") return false;
+    return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
+  }).length;
 
   const repositionMode = getRepositionMode({
     scheduledMatches,
@@ -726,19 +735,30 @@ export function JornadaPlanificacion({
         thinButtons={true}
       >
         <StatsContainer>
-          <StatBox $color="#2ecc71">
-            <span className="num">{editableScheduledMatches.length}</span>
-            <span className="lbl">A Confirmar</span>
-          </StatBox>
+          {isRepositionMode ? (
+            <StatBox $color="#f39c12">
+              <span className="num">{pendingAfterRepositionConfirm}</span>
+              <span className="lbl" style={{ textAlign: "center" }}>
+                Quedaran Pendientes
+              </span>
+            </StatBox>
+          ) : (
+            <>
+              <StatBox $color="#2ecc71">
+                <span className="num">{editableScheduledMatches.length}</span>
+                <span className="lbl">A Confirmar</span>
+              </StatBox>
 
-          <StatBox $color="#f39c12">
-            <span className="num">{pendientesEstaJornada.length}</span>
-            <span className="lbl" style={{ textAlign: "center" }}>
-              Sin Asignar
-              <br />
-              (Esta Jornada)
-            </span>
-          </StatBox>
+              <StatBox $color="#f39c12">
+                <span className="num">{pendientesEstaJornada.length}</span>
+                <span className="lbl" style={{ textAlign: "center" }}>
+                  Sin Asignar
+                  <br />
+                  (Esta Jornada)
+                </span>
+              </StatBox>
+            </>
+          )}
         </StatsContainer>
         {isRepositionMode && nextJornadaPreview && (
           <ConfirmNote>
