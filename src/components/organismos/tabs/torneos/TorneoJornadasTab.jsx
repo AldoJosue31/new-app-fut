@@ -7,12 +7,20 @@ import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
+import {
+  isOfficialJornadaName,
+  parseJornadaNumber,
+  resolveRepositionMappings,
+  sortJornadas,
+} from "../../../../utils/jornadaUtils";
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
+  const [repositionMappings, setRepositionMappings] = useState([]);
+  const [repositionMatchMappings, setRepositionMatchMappings] = useState([]);
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
   const [currentMatches, setCurrentMatches] = useState([]); 
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
@@ -35,11 +43,16 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   useEffect(() => {
     if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
-      fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+      fetchCurrentJornadaMatches(
+        jornadas[currentJornadaIndex].id,
+        jornadas,
+        repositionMappings,
+        repositionMatchMappings
+      );
     } else {
       setCurrentMatches([]);
     }
-  }, [currentJornadaIndex, jornadas]);
+  }, [currentJornadaIndex, jornadas, repositionMappings, repositionMatchMappings]);
 
   const handleChangeJornada = (newIndex) => {
       setCurrentMatches([]); 
@@ -49,12 +62,59 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   const loadTournamentData = async () => {
       if (jornadas.length === 0) setLoading(true);
+      await fetchTournamentConfig();
       await fetchJornadas();
       await fetchGlobalPendingMatches();
       setLoading(false);
   };
 
-  const fetchJornadas = async () => {
+  const fetchTournamentConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tournaments')
+        .select('config')
+        .eq('id', activeTournament.id)
+        .single();
+
+      if (error) throw error;
+
+      const nextConfig =
+        data?.config && typeof data.config === 'object' ? data.config : {};
+
+      const nextMappings = Array.isArray(nextConfig.repositionMappings)
+        ? nextConfig.repositionMappings
+        : [];
+      const nextMatchMappings = Array.isArray(nextConfig.repositionMatchMappings)
+        ? nextConfig.repositionMatchMappings
+        : [];
+
+      setRepositionMappings(nextMappings);
+      setRepositionMatchMappings(nextMatchMappings);
+
+      setActiveTournament((prev) => ({
+        ...prev,
+        config: {
+          ...(prev?.config || {}),
+          ...nextConfig,
+        },
+      }));
+
+      return {
+        jornadaMappings: nextMappings,
+        matchMappings: nextMatchMappings,
+      };
+    } catch (error) {
+      console.error("Error fetchTournamentConfig:", error);
+      setRepositionMappings([]);
+      setRepositionMatchMappings([]);
+      return {
+        jornadaMappings: [],
+        matchMappings: [],
+      };
+    }
+  };
+
+  const fetchJornadas = async (preferredJornadaId = null) => {
     try {
       const { data, error } = await supabase
         .from('jornadas')
@@ -63,30 +123,122 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         .order('id', { ascending: true });
       if (error) throw error;
       
-      const sorted = data.sort((a, b) => {
-          const numA = parseInt(a.name.replace(/\D/g, '')) || a.id;
-          const numB = parseInt(b.name.replace(/\D/g, '')) || b.id;
-          return numA - numB;
-      });
+      const sorted = sortJornadas(data);
       setJornadas(sorted);
 
-      if (sorted.length > 0 && currentJornadaIndex === 0) {
-        const activeIndex = sorted.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
-        if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
-        else setCurrentJornadaIndex(sorted.length - 1);
+      if (sorted.length > 0) {
+        if (preferredJornadaId) {
+          const preferredIndex = sorted.findIndex((jornada) => jornada.id === preferredJornadaId);
+          if (preferredIndex !== -1) {
+            setCurrentJornadaIndex(preferredIndex);
+            return sorted;
+          }
+        }
+
+        if (currentJornadaIndex === 0) {
+          const activeIndex = sorted.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
+          if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
+          else setCurrentJornadaIndex(sorted.length - 1);
+        }
       }
+
+      return sorted;
     } catch (error) { console.error("Error fetchJornadas:", error); }
   };
 
-  const fetchCurrentJornadaMatches = async (jornadaId) => {
+  const fetchCurrentJornadaMatches = async (
+    jornadaId,
+    jornadasSource = jornadas,
+    mappingsSource = repositionMappings,
+    matchMappingsSource = repositionMatchMappings
+  ) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const selectedJornada =
+        (jornadasSource || []).find((jornada) => String(jornada.id) === String(jornadaId)) ||
+        null;
+      const resolvedJornadaMappings = resolveRepositionMappings({
+        jornadas: jornadasSource,
+        configuredMappings: mappingsSource,
+      });
+      const normalizedMatchMappings = Array.isArray(matchMappingsSource)
+        ? matchMappingsSource
+        : [];
+
+      const directResult = await supabase
         .from('matches')
-        .select('*, jornadas(name)')
+        .select('*, jornadas(id, name)')
         .eq('jornada_id', jornadaId);
-      if (error) throw error;
-      setCurrentMatches(data);
+
+      if (directResult.error) throw directResult.error;
+
+      const extraMatchIds = normalizedMatchMappings
+        .filter((mapping) => String(mapping?.originalJornadaId) === String(jornadaId))
+        .map((mapping) => mapping.matchId)
+        .filter(Boolean);
+      let extraMatches = [];
+      if (extraMatchIds.length > 0) {
+        const extraResult = await supabase
+          .from('matches')
+          .select('*, jornadas(id, name)')
+          .in('id', extraMatchIds);
+
+        if (extraResult.error) throw extraResult.error;
+        extraMatches = extraResult.data || [];
+      }
+
+      const mergedMatches = [...(directResult.data || [])];
+      extraMatches.forEach((match) => {
+        if (!mergedMatches.some((current) => String(current.id) === String(match.id))) {
+          mergedMatches.push(match);
+        }
+      });
+
+      const enhancedMatches = mergedMatches.map((match) => {
+        const matchMapping = normalizedMatchMappings.find(
+          (mapping) => String(mapping?.matchId) === String(match.id)
+        );
+
+        if (matchMapping && String(matchMapping.originalJornadaId) === String(jornadaId)) {
+          return {
+            ...match,
+            originJornada: matchMapping.originalJornadaName || selectedJornada?.name || "",
+            originJornadaId: matchMapping.originalJornadaId || null,
+            playedInJornada:
+              matchMapping.repositionJornadaName || match.jornadas?.name || "",
+            isReferenceOnly: String(match.jornada_id) !== String(jornadaId),
+          };
+        }
+
+        if (matchMapping && String(matchMapping.repositionJornadaId) === String(jornadaId)) {
+          return {
+            ...match,
+            originJornada: matchMapping.originalJornadaName || "",
+            originJornadaId: matchMapping.originalJornadaId || null,
+            isRepositionScheduled: true,
+          };
+        }
+
+        const fallbackJornadaMapping = resolvedJornadaMappings.find(
+          (mapping) => String(mapping?.repositionJornadaId) === String(match.jornada_id)
+        );
+
+        if (
+          fallbackJornadaMapping &&
+          String(fallbackJornadaMapping.repositionJornadaId) === String(jornadaId)
+        ) {
+          return {
+            ...match,
+            originJornada: fallbackJornadaMapping.originalJornadaName || "",
+            originJornadaId: fallbackJornadaMapping.originalJornadaId || null,
+            isRepositionScheduled: true,
+          };
+        }
+
+        return match;
+      });
+
+      setCurrentMatches(enhancedMatches);
     } catch (e) { 
         console.error(e);
     } finally { 
@@ -245,14 +397,26 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const handleConfirmJornada = async (dataToSave) => {
     setLoading(true);
     try {
+        const preservedJornadaId = jornadas[currentJornadaIndex]?.id || null;
         await guardarJornadaService(activeTournament.id, dataToSave);
         setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
 
-        await Promise.all([
-            fetchJornadas(), 
-            fetchGlobalPendingMatches(), 
-            fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id) 
-        ]);
+        const updatedMappings = await fetchTournamentConfig();
+        const updatedJornadas = await fetchJornadas(preservedJornadaId);
+        await fetchGlobalPendingMatches();
+
+        const jornadaToRefresh =
+          updatedJornadas?.find((jornada) => jornada.id === preservedJornadaId) ||
+          updatedJornadas?.[currentJornadaIndex];
+
+        if (jornadaToRefresh?.id) {
+          await fetchCurrentJornadaMatches(
+            jornadaToRefresh.id,
+            updatedJornadas,
+            updatedMappings?.jornadaMappings || [],
+            updatedMappings?.matchMappings || []
+          );
+        }
         
         setDataVersion(prev => prev + 1);
         
@@ -276,7 +440,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             
             if (!isFirstConfirmed) {
                 const updates = jornadas.map((j) => {
-                    const num = parseInt(j.name.replace(/\D/g, '')) || 0;
+                    if (!isOfficialJornadaName(j.name)) return null;
+
+                    const num = parseJornadaNumber(j.name, 0);
                     if (num === 0) return null;
 
                     const weeksOffset = (num - 1) * 7;

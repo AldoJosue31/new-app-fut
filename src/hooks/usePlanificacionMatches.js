@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { addDaysToDate } from "../utils/dateUtils";
 import { getPartidosExternosRango } from "../services/torneos";
+import { getJornadaReferenceNumber, parseJornadaNumber } from "../utils/jornadaUtils";
 
 export const usePlanificacionMatches = (
     activeTournament, 
@@ -26,7 +27,8 @@ export const usePlanificacionMatches = (
   const [loadingExternal, setLoadingExternal] = useState(false);
 
   const jornadaStatus = jornadaData?.status;
-  const currentJornadaName = `Jornada ${jornadaIndex + 1}`;
+  const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
+  const currentJornadaNumber = getJornadaReferenceNumber(jornadaData, jornadaIndex);
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
   const targetJornadaIndex = useMemo(() => {
@@ -140,11 +142,7 @@ export const usePlanificacionMatches = (
     return (minPorTiempo * 2) + minDescanso;
   }, [activeTournament]);
 
-  const getJornadaNum = (str) => {
-    if (!str) return 999;
-    const parts = str.split(' ');
-    return parts.length > 1 ? parseInt(parts[1], 10) : 999;
-  };
+  const getJornadaNum = (str) => parseJornadaNumber(str, 999);
 
   const clearDraft = useCallback(() => {
     if (storageKey) localStorage.removeItem(storageKey);
@@ -210,7 +208,7 @@ export const usePlanificacionMatches = (
           }
       }
 
-      let rawOrigin = m.jornadas?.name || m.originJornada;
+      let rawOrigin = m.originJornada || m.jornadas?.name;
       if (!rawOrigin && m._source === 'db') {
           rawOrigin = currentJornadaName;
       }
@@ -227,7 +225,11 @@ export const usePlanificacionMatches = (
         referee_id: m.referee_id,
         observations: m.observations,
         jornada_id: m.jornada_id,
+        originJornadaId: m.originJornadaId || null,
         originJornada: rawOrigin, 
+        playedInJornada: m.playedInJornada || "",
+        isReferenceOnly: Boolean(m.isReferenceOnly),
+        isRepositionScheduled: Boolean(m.isRepositionScheduled),
         isModified: Boolean(m.isModified) || false,
         isByeMatch: isByeMatch,
         isExternal: false 
@@ -267,7 +269,7 @@ export const usePlanificacionMatches = (
         if (jornadaIndex !== targetJornadaIndex) return acc;
 
         const originNum = getJornadaNum(gmOriginName);
-        const currentNum = jornadaIndex + 1;
+        const currentNum = currentJornadaNumber;
         if (originNum > currentNum) return acc;
 
         acc.push({ ...gm, _source: 'global' });
@@ -309,7 +311,7 @@ export const usePlanificacionMatches = (
         if (m.date || m.status === 'Finalizado' || (m.resolution && m.resolution.type === 'default')) return false;
         if (!m.originJornada) return true; 
         const mNum = getJornadaNum(m.originJornada);
-        const cNum = jornadaIndex + 1;
+        const cNum = currentJornadaNumber;
         return mNum <= cNum;
     });
 
@@ -345,7 +347,7 @@ export const usePlanificacionMatches = (
       teams, matchesDB, globalPendingMatches, 
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
-      targetJornadaIndex
+      targetJornadaIndex, currentJornadaNumber
   ]); 
 
   useEffect(() => {
@@ -365,7 +367,7 @@ export const usePlanificacionMatches = (
     allPendingMatches, setAllPendingMatches,
     sidebarMatches,
     weekStartDate, setWeekStartDate: handleSetWeekStartDate,
-    durationMatch, autoAdjustTimes, currentJornadaName,
+    durationMatch, autoAdjustTimes, currentJornadaName, currentJornadaNumber,
     clearDraft,
     showExternalMatches, toggleExternalMatches, 
     externalMatches, loadingExternal,
