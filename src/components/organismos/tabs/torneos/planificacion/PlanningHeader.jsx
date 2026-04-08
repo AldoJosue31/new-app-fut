@@ -22,7 +22,9 @@ export const PlanningHeader = memo(({
     onEditFixture, 
     isTournamentActive,
     onPrintBatch, // <--- Nueva prop
-    matchesWithoutResultCount = 0 // <--- Cantidad de partidos pendientes
+    matchesWithoutResultCount = 0, // <--- Cantidad de partidos pendientes
+    isRepositionMode = false,
+    onDateChange,
 }) => {
     const isConfirmed = status === 'Confirmada';
     const hasDates = jornadaData?.start_date && jornadaData?.end_date;
@@ -36,11 +38,28 @@ export const PlanningHeader = memo(({
         setLocalEnd(jornadaData?.end_date || '');
     }, [jornadaData]);
 
-    const hasChanges = (localStart !== (jornadaData?.start_date || '')) || (localEnd !== (jornadaData?.end_date || ''));
+    const hasChanges =
+        !isRepositionMode &&
+        ((localStart !== (jornadaData?.start_date || '')) ||
+            (localEnd !== (jornadaData?.end_date || '')));
 
     const handleConfirmChanges = () => {
         if (onSaveDates) {
             onSaveDates(localStart, localEnd);
+        }
+    };
+
+    const handleStartChange = (value) => {
+        setLocalStart(value);
+        if (isRepositionMode && onDateChange) {
+            onDateChange(value, localEnd);
+        }
+    };
+
+    const handleEndChange = (value) => {
+        setLocalEnd(value);
+        if (isRepositionMode && onDateChange) {
+            onDateChange(localStart, value);
         }
     };
 
@@ -72,8 +91,8 @@ export const PlanningHeader = memo(({
                         type="date" 
                         className="native-input"
                         value={localStart}
-                        onChange={(e) => setLocalStart(e.target.value)}
-                        disabled={isConfirmed}
+                    onChange={(e) => handleStartChange(e.target.value)}
+                    disabled={isConfirmed}
                     />
 
                     <span className="label-text">al</span>
@@ -82,17 +101,17 @@ export const PlanningHeader = memo(({
                         type="date" 
                         className="native-input"
                         value={localEnd}
-                        onChange={(e) => setLocalEnd(e.target.value)}
-                        disabled={isConfirmed}
+                    onChange={(e) => handleEndChange(e.target.value)}
+                    disabled={isConfirmed}
                     />
 
-                    {hasChanges && !isConfirmed && (
+                    {hasChanges && !isConfirmed && !isRepositionMode && (
                         <ConfirmBtn onClick={handleConfirmChanges} title="Guardar y actualizar jornadas siguientes">
                             <RiCheckLine size={18} /> Confirmar
                         </ConfirmBtn>
                     )}
                     
-                    {!hasDates && !hasChanges && !isConfirmed && onAutoFill && (
+                    {!isRepositionMode && !hasDates && !hasChanges && !isConfirmed && onAutoFill && (
                         <AutoFillBtn onClick={onAutoFill} title="Auto-calcular fechas para todas las jornadas">
                             <RiMagicLine /> Auto
                         </AutoFillBtn>

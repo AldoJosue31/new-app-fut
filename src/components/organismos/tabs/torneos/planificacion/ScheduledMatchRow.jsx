@@ -11,6 +11,8 @@ import {
 } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
+import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
+import { RiArrowLeftUpLine, RiLinksLine, RiRouteLine } from "react-icons/ri";
 
 // Importar los modales
 import MatchSheetModal from "../exports/match-sheets/MatchSheetModal";
@@ -35,12 +37,15 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     onOpenResult, 
     onPostpone,
     groupLabel,
-    onDropOnDate 
+    onDropOnDate,
+    isRepositionMode = false,
+    currentJornadaNumber = 1
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
   const [showPreSheet, setShowPreSheet] = useState(false);
+  const isReferenceOnly = Boolean(match.isReferenceOnly);
   
   // Referencia para evitar parpadeos en DnD
   const dragCounter = useRef(0);
@@ -52,9 +57,21 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       return null;
   }, [match.observations, match.status, isConfirmed]);
 
+  const isDraggedDelayedMatch = useMemo(() => {
+      if (!match.originJornada || match.isReferenceOnly || match.isRepositionScheduled) {
+          return false;
+      }
+      return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
+  }, [
+      currentJornadaNumber,
+      match.isReferenceOnly,
+      match.isRepositionScheduled,
+      match.originJornada,
+  ]);
+
   const handleDragEnter = (e) => {
       e.preventDefault();
-      if (!isConfirmed) {
+      if (!isConfirmed && !isReferenceOnly) {
           dragCounter.current += 1;
           if (dragCounter.current === 1) setIsDragOver(true);
       }
@@ -66,7 +83,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
 
   const handleDragLeave = (e) => {
       e.preventDefault();
-      if (!isConfirmed) {
+      if (!isConfirmed && !isReferenceOnly) {
           dragCounter.current -= 1;
           if (dragCounter.current === 0) setIsDragOver(false);
       }
@@ -77,7 +94,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       dragCounter.current = 0; 
       setIsDragOver(false);
       
-      if (!isConfirmed && onDropOnDate && match.date) {
+      if (!isConfirmed && !isReferenceOnly && onDropOnDate && match.date) {
           e.stopPropagation();
           onDropOnDate(match.date);
       }
@@ -91,6 +108,38 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   const displayLabel = (!match.date || String(groupLabel).includes('Invalid') || String(groupLabel).includes('NaN')) 
       ? 'Partidos definidos sin fecha (Default)' 
       : groupLabel;
+  const draggedBadgeLabel = isDraggedDelayedMatch
+      ? `Desde ${match.originJornada || "Jornada anterior"}`
+      : "";
+  const draggedBadgeShortLabel = isDraggedDelayedMatch
+      ? `De J${parseJornadaNumber(match.originJornada, currentJornadaNumber)}`
+      : "";
+  const isReferenceBadge = Boolean(match.playedInJornada);
+  const isConfirmedRepositionBadge = Boolean(
+      match.isRepositionScheduled && match.originJornada
+  );
+  const hasFloatingOriginBadge =
+      isReferenceBadge || isDraggedDelayedMatch || isConfirmedRepositionBadge;
+  const floatingBadgeLabel = isReferenceBadge
+      ? `Se jugo en ${match.playedInJornada}`
+      : isConfirmedRepositionBadge
+        ? `Pendiente de ${match.originJornada}`
+        : draggedBadgeLabel;
+  const floatingBadgeShortLabel = isReferenceBadge
+      ? `En ${match.playedInJornada}`
+      : isConfirmedRepositionBadge
+        ? `Pend. J${parseJornadaNumber(match.originJornada, currentJornadaNumber)}`
+        : draggedBadgeShortLabel;
+  const floatingBadgeClassName = isReferenceBadge
+      ? "origin-badge is-reference is-floating"
+      : isConfirmedRepositionBadge
+        ? "origin-badge is-reposition is-floating"
+        : "origin-badge is-delayed is-floating";
+  const FloatingBadgeIcon = isReferenceBadge
+      ? RiLinksLine
+      : isConfirmedRepositionBadge
+        ? RiRouteLine
+        : RiArrowLeftUpLine;
 
   return (
     <>
@@ -107,31 +156,46 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                 </DateDivider>
             )}
 
-            <Container $isConfirmed={isConfirmed} $isDragOver={isDragOver}>
+            <Container
+                $isConfirmed={isConfirmed}
+                $isDragOver={isDragOver}
+                $hasFloatingBadge={hasFloatingOriginBadge}
+            >
                 {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
 
-                <div className="info">
-                    <div className="team local">
-                        <span className="name">{match.homeTeam?.name || match.local?.name || "Equipo Local"}</span>
-                        {isConfirmed && match.status === 'Finalizado' && (
-                            <ScoreWrapper>
-                                <span className="main-score">{match.goals1 || match.homeScore || 0}</span>
-                                {penalties && <span className="pen-score">({penalties.local})</span>}
-                            </ScoreWrapper>
-                        )}
+                {hasFloatingOriginBadge && (
+                    <div className={floatingBadgeClassName}>
+                        <FloatingBadgeIcon />
+                        <span className="label-desktop">{floatingBadgeLabel}</span>
+                        <span className="label-mobile">{floatingBadgeShortLabel}</span>
+                    </div>
+                )}
+
+                <div className="content">
+                    <div className="info">
+                        <div className="team local">
+                            <span className="name">{match.homeTeam?.name || match.local?.name || "Equipo Local"}</span>
+                            {isConfirmed && match.status === 'Finalizado' && (
+                                <ScoreWrapper>
+                                    <span className="main-score">{match.goals1 || match.homeScore || 0}</span>
+                                    {penalties && <span className="pen-score">({penalties.local})</span>}
+                                </ScoreWrapper>
+                            )}
+                        </div>
+
+                        <span className="vs">VS</span>
+
+                        <div className="team visit">
+                            {isConfirmed && match.status === 'Finalizado' && (
+                                <ScoreWrapper>
+                                    <span className="main-score">{match.goals2 || match.awayScore || 0}</span>
+                                    {penalties && <span className="pen-score">({penalties.visit})</span>}
+                                </ScoreWrapper>
+                            )}
+                            <span className="name">{match.awayTeam?.name || match.visitante?.name || "Equipo Visitante"}</span>
+                        </div>
                     </div>
 
-                    <span className="vs">VS</span>
-
-                    <div className="team visit">
-                        {isConfirmed && match.status === 'Finalizado' && (
-                            <ScoreWrapper>
-                                <span className="main-score">{match.goals2 || match.awayScore || 0}</span>
-                                {penalties && <span className="pen-score">({penalties.visit})</span>}
-                            </ScoreWrapper>
-                        )}
-                        <span className="name">{match.awayTeam?.name || match.visitante?.name || "Equipo Visitante"}</span>
-                    </div>
                 </div>
 
                 <div className="settings">
@@ -192,13 +256,15 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                         type="date" 
                                         className="input-date" 
                                         value={match.date || ''} 
-                                        onChange={(e)=> onUpdateDate(e.target.value)} 
+                                        onChange={(e)=> onUpdateDate(e.target.value)}
+                                        disabled={isReferenceOnly}
                                     />
                                     <input 
                                         type="time" 
                                         className="input-time" 
                                         value={match.time || ''} 
-                                        onChange={(e)=> onUpdateTime(e.target.value)} 
+                                        onChange={(e)=> onUpdateTime(e.target.value)}
+                                        disabled={isReferenceOnly}
                                     />
                                 </>
                             ) : (
@@ -206,9 +272,11 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     <span className="no-date-badge" style={{ margin: '0 auto' }}>Victoria Default</span>
                                 </div>
                             )}
-                            <button className="del" onClick={onRemove} title="Desagendar">
-                                <RiDeleteBinLine/>
-                            </button>
+                            {!isReferenceOnly && (
+                                <button className="del" onClick={onRemove} title="Desagendar">
+                                    <RiDeleteBinLine/>
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -264,7 +332,8 @@ const Container = styled.div`
     display: flex; flex-direction: column; 
     gap: 8px; 
     background: ${({theme})=>theme.bgtotal}; 
-    padding: 10px; 
+    padding: ${({ $hasFloatingBadge }) =>
+        $hasFloatingBadge ? '28px 10px 10px 10px' : '10px'}; 
     border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease;
@@ -274,7 +343,16 @@ const Container = styled.div`
     `}
     
     @media ${Device.tablet} {
-        display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 10px;
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
+        padding: ${({ $hasFloatingBadge }) =>
+            $hasFloatingBadge ? '18px 12px 10px 12px' : '10px 12px'};
+    }
+
+    .content {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
     }
 
     .info { 
@@ -293,13 +371,15 @@ const Container = styled.div`
 
     .settings { 
         display: flex; gap: 8px; width: 100%; justify-content: space-between;
-        @media ${Device.tablet} { width: auto; justify-content: flex-end; }
+        @media ${Device.tablet} { width: auto; justify-content: flex-end; align-items: center; flex-shrink: 0; }
         input { 
             background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4}; 
             color: ${({theme})=>theme.text}; padding: 8px; border-radius: 6px; flex: 1; font-size: 0.9rem;
-            @media ${Device.tablet} { padding: 5px; flex: none; width: auto; font-size: 1rem; }
+            @media ${Device.tablet} { padding: 5px 8px; flex: none; font-size: 0.95rem; }
             &:focus { outline: 1px solid ${v.colorPrincipal}; }
         } 
+        .input-date { @media ${Device.tablet} { width: 144px; } }
+        .input-time { @media ${Device.tablet} { width: 130px; } }
         .del { 
             background: #e74c3c20; color: #e74c3c; border: none; border-radius: 6px; cursor: pointer; padding: 8px 12px;
             display: flex; align-items: center; justify-content: center; transition: 0.2s;
@@ -332,6 +412,111 @@ const Container = styled.div`
                 &.sheet { background: #3498db20; color: #3498db; &:hover{ background: #3498db; color: white; } }
                 &.print { background: #95a5a620; color: #7f8c8d; &:hover{ background: #95a5a6; color: white; } }
             }
+        }
+    }
+
+    .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .origin-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        width: fit-content;
+        background: linear-gradient(135deg, rgba(243, 156, 18, 0.18), rgba(243, 156, 18, 0.08));
+        color: #f8c35c;
+        border: 1px solid rgba(243, 156, 18, 0.34);
+        border-radius: 999px;
+        padding: 6px 11px;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        max-width: 100%;
+    }
+
+    .origin-badge span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .origin-badge svg {
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+
+    .origin-badge.is-reference {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.18), rgba(52, 152, 219, 0.08));
+        color: #64c7ff;
+        border-color: rgba(52, 152, 219, 0.34);
+    }
+
+    .origin-badge.is-reposition {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.16), rgba(231, 76, 60, 0.08));
+        color: #ff8c7f;
+        border-color: rgba(231, 76, 60, 0.3);
+    }
+
+    .origin-badge.is-floating {
+        background: linear-gradient(135deg, rgba(243, 156, 18, 0.18), rgba(192, 120, 20, 0.08));
+        color: #ffb347;
+        border-color: rgba(243, 156, 18, 0.38);
+        position: absolute;
+        top: 6px;
+        left: 10px;
+        z-index: 2;
+        padding: 2px 8px;
+        font-size: 0.64rem;
+        line-height: 1;
+        max-width: calc(100% - 20px);
+    }
+
+    .origin-badge.is-floating svg {
+        font-size: 0.78rem;
+    }
+
+    .origin-badge.is-reposition.is-floating {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.16), rgba(231, 76, 60, 0.08));
+        color: #ff8c7f;
+        border-color: rgba(231, 76, 60, 0.3);
+    }
+
+    .origin-badge.is-reference.is-floating {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.18), rgba(52, 152, 219, 0.08));
+        color: #64c7ff;
+        border-color: rgba(52, 152, 219, 0.34);
+    }
+
+    .origin-badge.is-floating .label-mobile {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .origin-badge.is-floating {
+            top: 6px;
+            left: 8px;
+            padding: 2px 6px;
+            font-size: 0.58rem;
+            gap: 3px;
+            max-width: calc(100% - 16px);
+        }
+
+        .origin-badge.is-floating svg {
+            font-size: 0.7rem;
+        }
+
+        .origin-badge.is-floating .label-desktop {
+            display: none;
+        }
+
+        .origin-badge.is-floating .label-mobile {
+            display: inline;
         }
     }
 `;
