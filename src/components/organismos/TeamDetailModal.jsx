@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { 
     Modal, 
@@ -16,6 +16,7 @@ import {
     RiArrowLeftLine, RiTrophyLine, RiFootballLine, RiUserSmileLine,
     RiHashtag, RiFontSize, RiFocus2Line
 } from "react-icons/ri";
+import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { DynamicTeamLogo } from "./equipos/DynamicTeamLogo"; // IMPORTACIÓN DEL LOGO DINÁMICO
 
 export function TeamDetailModal({ isOpen, onClose, team, division, initialView }) {
@@ -25,11 +26,14 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
     const [loadingPlayers, setLoadingPlayers] = useState(false);
 
     const [showStats, setShowStats] = useState(false);
+    const [activeStatsTab, setActiveStatsTab] = useState("results");
     const [statsData, setStatsData] = useState(null);
     const [hasActiveTournament, setHasActiveTournament] = useState(false);
     const [loadingStats, setLoadingStats] = useState(false);
 
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+    const resultsRailRef = useRef(null);
+    const upcomingRailRef = useRef(null);
 
     // --- ORDENAMIENTO PLANTILLA (ICONIZADO) ---
     const POSITION_RANK = { 'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4 };
@@ -59,12 +63,14 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
         if (!isOpen) {
             setShowPlayerList(false);
             setShowStats(false);
+            setActiveStatsTab("results");
             setPlayers([]);
             setStatsData(null);
             setHasActiveTournament(false);
         } else if (team) {
             if (division) checkTournamentStatus();
             if (initialView === 'stats') {
+                setActiveStatsTab("results");
                 setShowStats(true);
             }
         }
@@ -88,13 +94,17 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
             }
 
             const tournamentId = torneoSel.id;
-            const data = await getTeamTournamentStats(team.id, division.id);
+            setHasActiveTournament(true);
 
-            if (!data || !data.hasTournament) {
-                setHasActiveTournament(false);
-                setStatsData(null);
-                return;
-            }
+            const data = await getTeamTournamentStats(team.id, division.id);
+            const safeData = data && data.hasTournament
+                ? data
+                : {
+                    hasTournament: true,
+                    matchHistory: [],
+                    upcomingRivals: [],
+                    playerStats: []
+                };
 
             const { data: golesView, error: gErr } = await supabase
                 .from('view_goleadores')
@@ -110,7 +120,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                 return acc;
             }, {});
 
-            const mergedPlayerStats = (data.playerStats || []).map(p => {
+            const mergedPlayerStats = (safeData.playerStats || []).map(p => {
                 const pidKey = String(p.id);
                 const viewGoals = (pidKey in goalsMap) ? goalsMap[pidKey] : undefined;
                 return {
@@ -119,9 +129,8 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                 };
             });
 
-            setHasActiveTournament(true);
             setStatsData({
-                ...data,
+                ...safeData,
                 tournamentId,
                 playerStats: mergedPlayerStats
             });
@@ -146,11 +155,46 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
         finally { setLoadingPlayers(false); }
     };
 
-    const handleShowStats = () => { setShowStats(true); };
+    const handleShowStats = () => {
+        setActiveStatsTab("results");
+        setShowStats(true);
+    };
 
     const SortIcon = ({ columnKey }) => {
         if (statSortConfig.key !== columnKey) return null; 
         return <SortIndicator>{statSortConfig.direction === 'ascending' ? '▲' : '▼'}</SortIndicator>;
+    };
+
+    const statsTabs = [
+        { id: "results", label: "Últimos Resultados", icon: <RiFootballLine /> },
+        { id: "performance", label: "Rendimiento Individual", icon: <RiUserSmileLine /> }
+    ];
+
+    const renderTeamLogo = (club, size = "28px") => {
+        if (club?.logo_url) {
+            return <img src={club.logo_url} alt={club?.name || "Equipo"} />;
+        }
+
+        return (
+            <DynamicTeamLogo
+                name={club?.name || "Equipo"}
+                color={club?.color || "#000000"}
+                size={size}
+            />
+        );
+    };
+
+    const handleCardsWheel = (event) => {
+        const rail = event.currentTarget;
+        if (!rail || rail.scrollWidth <= rail.clientWidth) return;
+
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+            event.preventDefault();
+            rail.scrollBy({
+                left: event.deltaY,
+                behavior: "smooth"
+            });
+        }
     };
 
     if (!team) return null;
@@ -220,9 +264,18 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
 
                         <ContainerScroll $maxHeight="70vh">
                             <StatsContent>
-                                <SectionContainer>
+                                <StatsTabsShell>
+                                    <TabsNavigation
+                                        tabs={statsTabs}
+                                        activeTab={activeStatsTab}
+                                        setActiveTab={setActiveStatsTab}
+                                    />
+                                    {activeStatsTab === "results" ? (
+                                        <TabContent>
+                                            <StatsPanel>
+                                                <SectionContainer>
                                     <SectionLabel>Últimos Resultados</SectionLabel>
-                                    <MatchesRow>
+                                    <MatchesGrid ref={resultsRailRef} onWheel={handleCardsWheel}>
                                         {loadingStats ? (
                                             Array.from({ length: 4 }).map((_, i) => <MatchCardSkeleton key={i} />)
                                         ) : statsData?.matchHistory?.length > 0 ? (
@@ -272,11 +325,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
 
                                                         <div className="rival-container">
                                                             {/* LOGO DINÁMICO DEL RIVAL */}
-                                                            {m.rival.logo_url ? (
-                                                                <img src={m.rival.logo_url} alt="R" />
-                                                            ) : (
-                                                                <DynamicTeamLogo name={m.rival.name || "Rival"} color={m.rival.color || "#000000"} size="28px" />
-                                                            )}
+                                                            {renderTeamLogo(m.rival)}
                                                             <span>{m.rival.name}</span>
                                                         </div>
                                                     </MatchCard>
@@ -285,9 +334,42 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                         ) : (
                                             <EmptyBox>Sin resultados aún.</EmptyBox>
                                         )}
-                                    </MatchesRow>
+                                    </MatchesGrid>
                                 </SectionContainer>
 
+                                <SectionContainer>
+                                    <SectionLabel>Próximos Rivales</SectionLabel>
+                                    <UpcomingGrid ref={upcomingRailRef} onWheel={handleCardsWheel}>
+                                        {loadingStats ? (
+                                            Array.from({ length: 4 }).map((_, i) => <UpcomingRivalSkeleton key={i} />)
+                                        ) : statsData?.upcomingRivals?.length > 0 ? (
+                                            statsData.upcomingRivals.map(match => (
+                                                <UpcomingCard key={match.id}>
+                                                    <div className="upcoming-jornada" title={match.jornada}>
+                                                        {match.jornada || "Pendiente"}
+                                                    </div>
+                                                    <div className="logo-slot">
+                                                        {renderTeamLogo(match.rival, "34px")}
+                                                    </div>
+                                                    <div className="upcoming-name" title={match.rival?.name}>
+                                                        {match.rival?.name || "Rival pendiente"}
+                                                    </div>
+                                                    <div className="upcoming-date">
+                                                        {match.date ? formatShortDate(match.date) : "Sin fecha"}
+                                                    </div>
+                                                    {match.time && <div className="upcoming-time">{match.time}</div>}
+                                                </UpcomingCard>
+                                            ))
+                                        ) : (
+                                            <EmptyBox>No quedan partidos pendientes por disputar.</EmptyBox>
+                                        )}
+                                    </UpcomingGrid>
+                                </SectionContainer>
+                                            </StatsPanel>
+                                        </TabContent>
+                                    ) : (
+                                        <TabContent>
+                                            <StatsPanel>
                                 <SectionContainer>
                                     <SectionLabel>Rendimiento Individual</SectionLabel>
                                     <TableWrapper>
@@ -341,6 +423,10 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
                                         </StyledTable>
                                     </TableWrapper>
                                 </SectionContainer>
+                                            </StatsPanel>
+                                        </TabContent>
+                                    )}
+                                </StatsTabsShell>
                             </StatsContent>
                         </ContainerScroll>
                     </div>
@@ -437,6 +523,18 @@ const MatchCardSkeleton = () => (
             <Skeleton width="60px" height="10px" />
         </div>
     </MatchCard>
+);
+
+const UpcomingRivalSkeleton = () => (
+    <UpcomingCard>
+        <Skeleton width="70%" height="12px" radius="999px" />
+        <div className="logo-slot">
+            <Skeleton width="42px" height="42px" radius="50%" />
+        </div>
+        <Skeleton width="75%" height="14px" />
+        <Skeleton width="60%" height="11px" />
+        <Skeleton width="45%" height="10px" />
+    </UpcomingCard>
 );
 
 const StatTableRowSkeleton = () => (
@@ -542,26 +640,100 @@ const StatusPill = styled.span`
     background: ${({$active}) => $active ? 'rgba(46, 213, 115, 0.15)' : 'rgba(231, 76, 60, 0.15)'}; color: ${({$active}) => $active ? '#2ecc71' : '#e74c3c'};
 `;
 
-const StatsContent = styled.div` display: flex; flex-direction: column; gap: 20px; padding-bottom: 15px; `;
-const SectionContainer = styled.div` display: flex; flex-direction: column; gap: 8px; `;
-const SectionLabel = styled.h4` margin: 0; color: ${({theme}) => theme.text}; opacity: 0.8; font-size: 0.85rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; border-left: 3px solid ${v.colorPrincipal}; padding-left: 8px; @media (max-width: 480px) { margin-left: 5px; } `;
-const MatchesRow = styled.div`
-    display: flex; gap: 10px; overflow-x: auto; padding: 2px 5px; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; -ms-overflow-style: none; &::-webkit-scrollbar { display: none; }
+const StatsContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 15px;
+`;
+
+const StatsTabsShell = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+`;
+
+const StatsPanel = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+`;
+
+const SectionContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+`;
+
+const SectionLabel = styled.h4`
+    margin: 0;
+    color: ${({theme}) => theme.text};
+    opacity: 0.8;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border-left: 3px solid ${v.colorPrincipal};
+    padding-left: 8px;
+
+    @media (max-width: 480px) {
+        margin-left: 5px;
+    }
+`;
+
+const MatchesGrid = styled.div`
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    width: 100%;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        gap: 10px;
+    }
+`;
+
+const UpcomingGrid = styled.div`
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    width: 100%;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        gap: 10px;
+    }
 `;
 
 const MatchCard = styled.div`
-    flex: 0 0 120px; 
+    flex: 0 0 142px;
     background: ${({theme}) => theme.bgtotal}; 
     border: 1px solid ${({theme}) => theme.bg4}; 
     border-radius: 12px; 
-    padding: 10px; 
+    padding: 12px 10px; 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
     gap: 4px;
     position: relative; 
     box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    scroll-snap-align: start;
 
     .match-header { 
         width: 100%; 
@@ -596,6 +768,87 @@ const MatchCard = styled.div`
         img, svg { width: 28px; height: 28px; object-fit: contain; } 
         span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } 
     }
+
+    @media (max-width: 480px) {
+        flex-basis: 132px;
+        padding: 10px 8px;
+        .match-score { font-size: 1.15rem; }
+        .jornada-tag { max-width: 74px; }
+        .rival-container span { font-size: 0.68rem; }
+    }
+`;
+
+const UpcomingCard = styled.div`
+    flex: 0 0 122px;
+    background: ${({theme}) => theme.bgtotal};
+    border: 1px solid ${({theme}) => theme.bg4};
+    border-radius: 12px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-align: center;
+    scroll-snap-align: start;
+
+    .upcoming-jornada {
+        max-width: 100%;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: ${({theme}) => theme.bgcards};
+        color: ${({theme}) => theme.text};
+        opacity: 0.75;
+        font-size: 0.58rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .logo-slot {
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        img, svg {
+            width: 34px;
+            height: 34px;
+            object-fit: contain;
+        }
+    }
+
+    .upcoming-name {
+        width: 100%;
+        font-size: 0.74rem;
+        font-weight: 700;
+        line-height: 1.1;
+        color: ${({theme}) => theme.text};
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .upcoming-date,
+    .upcoming-time {
+        font-size: 0.64rem;
+        font-weight: 600;
+        opacity: 0.65;
+    }
+
+    .upcoming-time {
+        color: ${v.colorPrincipal};
+        opacity: 0.9;
+    }
+
+    @media (max-width: 480px) {
+        flex-basis: 114px;
+        .upcoming-name { font-size: 0.7rem; }
+    }
 `;
 
 /* ESTILOS DE LA ETIQUETA (G / E / P) ACTUALIZADOS CON BORDE DINÁMICO */
@@ -615,7 +868,18 @@ const ResultBadge = styled.span`
     };
 `;
 
-const EmptyBox = styled.div` background: ${({theme})=>theme.bgcards}; padding: 15px; border-radius: 8px; width: 100%; text-align: center; font-size: 0.8rem; opacity: 0.7; border: 1px dashed ${({theme})=>theme.bg4}; margin: 0 5px; `;
+const EmptyBox = styled.div`
+    background: ${({theme})=>theme.bgcards};
+    padding: 15px;
+    border-radius: 8px;
+    width: 100%;
+    flex: 0 0 100%;
+    text-align: center;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    border: 1px dashed ${({theme})=>theme.bg4};
+    margin: 0;
+`;
 
 const TableWrapper = styled.div`
     border: 1px solid ${({theme}) => theme.bg4}; border-radius: 10px; background: ${({theme}) => theme.bgtotal};
