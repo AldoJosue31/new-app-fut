@@ -278,7 +278,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
           setEditorData({
               matches: allMatches,
-              jornadas: jornadas 
+              jornadas: jornadas,
+              repositionMappings,
+              repositionMatchMappings,
           });
           setIsEditorOpen(true);
 
