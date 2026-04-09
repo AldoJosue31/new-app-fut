@@ -1,5 +1,14 @@
 import { addDaysToDate } from "./dateUtils";
 
+export const normalizeJornadaName = (name) => {
+  return String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+};
+
 export const parseJornadaNumber = (name, fallback = Number.MAX_SAFE_INTEGER) => {
   if (!name) return fallback;
 
@@ -17,6 +26,11 @@ export const getJornadaReferenceNumber = (jornada, fallbackIndex = 0) => {
 };
 
 export const isOfficialJornadaName = (name) => /^jornada\s+\d+$/i.test(String(name || "").trim());
+
+export const isRepositionJornadaName = (name) => {
+  const normalized = normalizeJornadaName(name);
+  return /^(?:jornada de )?reposicion(?: \d+)?$/.test(normalized);
+};
 
 export const sortJornadas = (jornadas = []) => {
   return [...jornadas].sort((a, b) => {
@@ -43,9 +57,9 @@ export const buildRepositionJornadaName = ({
 }) => {
   const repositionNumbers = existingJornadas
     .map((jornada) => {
-      const match = String(jornada?.name || "")
-        .trim()
-        .match(/^reposicion(?:\s+(\d+))?$/i);
+      const match = normalizeJornadaName(jornada?.name).match(
+        /^(?:jornada de )?reposicion(?: (\d+))?$/
+      );
 
       if (!match) return null;
       return match[1] ? Number(match[1]) : 1;
@@ -127,7 +141,7 @@ export const resolveRepositionMappings = ({
     .filter(
       (jornada) =>
         !isOfficialJornadaName(jornada?.name) &&
-        /^reposicion(?:\s+\d+)?$/i.test(String(jornada?.name || "").trim())
+        isRepositionJornadaName(jornada?.name)
     )
     .map((repositionJornada) => {
       if (configuredIds.has(String(repositionJornada.id))) {

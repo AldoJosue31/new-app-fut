@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabase/supabase.config';
 import {
   isOfficialJornadaName,
+  normalizeJornadaName,
   parseJornadaNumber,
   resolveRepositionMappings,
 } from '../utils/jornadaUtils';
@@ -12,7 +13,7 @@ const getOfficialJornadaNumberFromName = (name) => {
 };
 
 const findRepositionMapping = (jornadaId, jornadaName, repositionMappings = []) => {
-  const normalizedName = String(jornadaName || '').trim().toLowerCase();
+  const normalizedName = normalizeJornadaName(jornadaName);
 
   return repositionMappings.find((mapping) => {
     if (jornadaId && Number(mapping?.repositionJornadaId) === Number(jornadaId)) {
@@ -22,18 +23,49 @@ const findRepositionMapping = (jornadaId, jornadaName, repositionMappings = []) 
     if (!normalizedName) return false;
 
     return (
-      String(mapping?.repositionJornadaName || '').trim().toLowerCase() === normalizedName
+      normalizeJornadaName(mapping?.repositionJornadaName) === normalizedName
     );
   }) || null;
+};
+
+const findRepositionMatchMapping = (matchId, repositionMatchMappings = []) => {
+  if (!matchId) return null;
+
+  return repositionMatchMappings.find(
+    (mapping) => Number(mapping?.matchId) === Number(matchId)
+  ) || null;
+};
+
+const getOfficialJornadaNumberFromMapping = (mapping, jornadas = []) => {
+  if (!mapping) return 0;
+
+  const mappedJornada = mapping?.originalJornadaId
+    ? jornadas.find((jornada) => Number(jornada.id) === Number(mapping.originalJornadaId))
+    : null;
+
+  return getOfficialJornadaNumberFromName(
+    mapping?.originalJornadaName || mappedJornada?.name
+  );
 };
 
 const getOfficialJornadaNumberForMatch = (
   match,
   jornadas = [],
-  repositionMappings = []
+  repositionMappings = [],
+  repositionMatchMappings = []
 ) => {
+  const matchMapping = findRepositionMatchMapping(match?.id, repositionMatchMappings);
+  const mappedOfficialNum = getOfficialJornadaNumberFromMapping(matchMapping, jornadas);
+  if (mappedOfficialNum > 0) return mappedOfficialNum;
+
+  const originJornada = match?.originJornadaId
+    ? jornadas.find((jornada) => Number(jornada.id) === Number(match.originJornadaId))
+    : null;
   const originOfficialNum = getOfficialJornadaNumberFromName(match?.originJornada);
   if (originOfficialNum > 0) return originOfficialNum;
+
+  const originJornadaOfficialNum = getOfficialJornadaNumberFromName(originJornada?.name);
+  if (originJornadaOfficialNum > 0) return originJornadaOfficialNum;
 
   const directName = match?.jornadas?.name || match?.jornada?.name || '';
   const directOfficialNum = getOfficialJornadaNumberFromName(directName);
@@ -55,13 +87,7 @@ const getOfficialJornadaNumberForMatch = (
 
   if (!mapping) return 0;
 
-  const mappedJornada = mapping?.originalJornadaId
-    ? jornadas.find((jornada) => Number(jornada.id) === Number(mapping.originalJornadaId))
-    : null;
-
-  return getOfficialJornadaNumberFromName(
-    mapping?.originalJornadaName || mappedJornada?.name
-  );
+  return getOfficialJornadaNumberFromMapping(mapping, jornadas);
 };
 
 export const useTorneoStandingsLogic = ({
@@ -116,26 +142,32 @@ export const useTorneoStandingsLogic = ({
   }, [torneo?.id, jornadasStr]);
 
   const mergedJornadas = (Array.isArray(jornadasProp) && jornadasProp.length > 0) ? jornadasProp : fetchedJornadas;
-  const repositionMappings = useMemo(() => {
-    let parsedConfig = {};
-
+  const parsedTournamentConfig = useMemo(() => {
     if (typeof torneo?.config === 'string') {
       try {
-        parsedConfig = JSON.parse(torneo.config) || {};
+        return JSON.parse(torneo.config) || {};
       } catch (error) {
-        parsedConfig = {};
+        return {};
       }
-    } else {
-      parsedConfig = torneo?.config || {};
     }
 
+    return torneo?.config || {};
+  }, [torneo?.config]);
+
+  const repositionMappings = useMemo(() => {
     return resolveRepositionMappings({
       jornadas: mergedJornadas,
-      configuredMappings: Array.isArray(parsedConfig?.repositionMappings)
-        ? parsedConfig.repositionMappings
+      configuredMappings: Array.isArray(parsedTournamentConfig?.repositionMappings)
+        ? parsedTournamentConfig.repositionMappings
         : [],
     });
-  }, [mergedJornadas, torneo?.config]);
+  }, [mergedJornadas, parsedTournamentConfig]);
+
+  const repositionMatchMappings = useMemo(() => {
+    return Array.isArray(parsedTournamentConfig?.repositionMatchMappings)
+      ? parsedTournamentConfig.repositionMatchMappings
+      : [];
+  }, [parsedTournamentConfig]);
 
   // 2. Configuración de puntos y liguilla
   const config = useMemo(() => {
@@ -197,7 +229,8 @@ export const useTorneoStandingsLogic = ({
       const jNum = getOfficialJornadaNumberForMatch(
         p,
         mergedJornadas,
-        repositionMappings
+        repositionMappings,
+        repositionMatchMappings
       );
 
       if (jNum <= 0) return;
@@ -257,7 +290,7 @@ export const useTorneoStandingsLogic = ({
       effectiveJornada: effective,
       jornadasConfirmadasForDropdown: confirmedList
     };
-  }, [relevantMatches, mergedJornadas, repositionMappings]);
+  }, [relevantMatches, mergedJornadas, repositionMappings, repositionMatchMappings]);
 
   // 5. Cálculo maestro de la Tabla General
   const tablaGeneral = useMemo(() => {
@@ -271,7 +304,8 @@ export const useTorneoStandingsLogic = ({
         const jNum = getOfficialJornadaNumberForMatch(
           partido,
           mergedJornadas,
-          repositionMappings
+          repositionMappings,
+          repositionMatchMappings
         );
         
         // Excluimos partidos posteriores al límite seleccionado
@@ -379,7 +413,7 @@ export const useTorneoStandingsLogic = ({
       return { ...eq, tendencia, posDiff };
     });
 
-  }, [uniqueEquipos, selectedJornadaView, effectiveJornada, relevantMatches, config, mergedJornadas, repositionMappings]);
+  }, [uniqueEquipos, selectedJornadaView, effectiveJornada, relevantMatches, config, mergedJornadas, repositionMappings, repositionMatchMappings]);
 
   // 6. Texto para exportar e imprimir
   const activeJornadaName = useMemo(() => {
@@ -393,7 +427,8 @@ export const useTorneoStandingsLogic = ({
             const jNum = getOfficialJornadaNumberForMatch(
                 m,
                 mergedJornadas,
-                repositionMappings
+                repositionMappings,
+                repositionMatchMappings
             );
 
             // CORRECCIÓN: ACUMULAMOS DESDE LA JORNADA 1 HASTA EL LÍMITE
@@ -415,7 +450,7 @@ export const useTorneoStandingsLogic = ({
         
         return `Jornada ${sel}${suffix}`;
     }
-  }, [selectedJornadaView, effectiveJornada, relevantMatches, mergedJornadas, repositionMappings]);
+  }, [selectedJornadaView, effectiveJornada, relevantMatches, mergedJornadas, repositionMappings, repositionMatchMappings]);
 
   return {
     config,

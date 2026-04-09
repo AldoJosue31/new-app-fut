@@ -65,8 +65,8 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
       .from('matches')
       .select(`
         id, goals1, goals2, date, status, observations,
-        team1:teams!team1_id(id, name, logo_url),
-        team2:teams!team2_id(id, name, logo_url),
+        team1:teams!team1_id(id, name, logo_url, color),
+        team2:teams!team2_id(id, name, logo_url, color),
         jornadas!inner(id, name, tournament_id)
       `)
       .eq('jornadas.tournament_id', tournamentId)
@@ -88,21 +88,41 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
       configuredMappings: configuredRepositionMappings,
     });
 
+    const resolveDisplayJornada = (match) => {
+      const matchMapping = repositionMatchMappings.find(
+        mapping => String(mapping?.matchId) === String(match?.id)
+      );
+      const jornadaMapping = repositionMappings.find(
+        mapping => String(mapping?.repositionJornadaId) === String(match?.jornadas?.id)
+      );
+
+      return (
+        matchMapping?.originalJornadaName ||
+        jornadaMapping?.originalJornadaName ||
+        match?.jornadas?.name ||
+        ''
+      );
+    };
+
+    const extractMatchTime = (dateValue) => {
+      if (!dateValue) return '';
+
+      const parsedDate = new Date(dateValue);
+      if (Number.isNaN(parsedDate.getTime())) return '';
+
+      return parsedDate.toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    };
+
     const matchHistory = matches.map(m => {
       const isLocal = m.team1.id === teamId;
       const myGoals = isLocal ? m.goals1 : m.goals2;
       const rivalGoals = isLocal ? m.goals2 : m.goals1;
       const rival = isLocal ? m.team2 : m.team1;
-      const matchMapping = repositionMatchMappings.find(
-        mapping => String(mapping?.matchId) === String(m.id)
-      );
-      const jornadaMapping = repositionMappings.find(
-        mapping => String(mapping?.repositionJornadaId) === String(m.jornadas?.id)
-      );
-      const displayJornada =
-        matchMapping?.originalJornadaName ||
-        jornadaMapping?.originalJornadaName ||
-        m.jornadas?.name;
+      const displayJornada = resolveDisplayJornada(m);
       
       // EXTRAER PENALES DE LAS OBSERVACIONES (Ej. "Pen: 4-3")
       let myPenalties = null;
@@ -140,6 +160,41 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
         result
       };
     });
+
+    const { data: upcomingMatches, error: upcomingError } = await supabase
+      .from('matches')
+      .select(`
+        id, date, status,
+        team1:teams!team1_id(id, name, logo_url, color),
+        team2:teams!team2_id(id, name, logo_url, color),
+        jornadas!inner(id, name, tournament_id)
+      `)
+      .eq('jornadas.tournament_id', tournamentId)
+      .in('status', ['Pendiente', 'Programado'])
+      .or(`team1_id.eq.${teamId},team2_id.eq.${teamId}`);
+
+    if (upcomingError) {
+      console.warn('getTeamTournamentStats upcoming rivals error:', upcomingError);
+    }
+
+    const upcomingRivals = ((upcomingError ? [] : upcomingMatches) || [])
+      .map((m) => {
+        const isLocal = m.team1.id === teamId;
+        const rival = isLocal ? m.team2 : m.team1;
+
+        return {
+          id: m.id,
+          jornada: resolveDisplayJornada(m),
+          date: m.date,
+          time: extractMatchTime(m.date),
+          rival,
+        };
+      })
+      .sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : Number.MAX_SAFE_INTEGER;
+        const dateB = b.date ? new Date(b.date).getTime() : Number.MAX_SAFE_INTEGER;
+        return dateA - dateB;
+      });
 
     // 3. Obtener Estadísticas de Jugadores (Eventos)
     const { data: events, error: eError } = await supabase
@@ -189,6 +244,7 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
     return {
       hasTournament: true,
       matchHistory,
+      upcomingRivals,
       playerStats
     };
 
