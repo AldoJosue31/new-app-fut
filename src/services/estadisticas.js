@@ -1,4 +1,5 @@
 import { supabase } from '../supabase/supabase.config';
+import { resolveRepositionMappings } from '../utils/jornadaUtils';
 
 export const getTablaPosicionesService = async (division) => {
   const { data, error } = await supabase
@@ -40,7 +41,7 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
     // 1. Obtener ID del torneo ACTIVO
     const { data: torneo, error: tError } = await supabase
       .from('tournaments')
-      .select('id')
+      .select('id, config')
       .eq('division_id', divisionId)
       .eq('status', 'Activo')
       .single();
@@ -48,6 +49,15 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
     if (tError || !torneo) return null;
 
     const tournamentId = torneo.id;
+    const tournamentConfig =
+      torneo?.config && typeof torneo.config === 'object' ? torneo.config : {};
+
+    const configuredRepositionMappings = Array.isArray(tournamentConfig.repositionMappings)
+      ? tournamentConfig.repositionMappings
+      : [];
+    const repositionMatchMappings = Array.isArray(tournamentConfig.repositionMatchMappings)
+      ? tournamentConfig.repositionMatchMappings
+      : [];
 
     // 2. Obtener Historial de Partidos (Solo FINALIZADOS)
     // Se pide 'observations' en lugar de columnas de penales inexistentes
@@ -57,7 +67,7 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
         id, goals1, goals2, date, status, observations,
         team1:teams!team1_id(id, name, logo_url),
         team2:teams!team2_id(id, name, logo_url),
-        jornadas!inner(name, tournament_id)
+        jornadas!inner(id, name, tournament_id)
       `)
       .eq('jornadas.tournament_id', tournamentId)
       .eq('status', 'Finalizado')
@@ -66,11 +76,33 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
 
     if (mError) throw mError;
 
+    const { data: jornadas, error: jornadasError } = await supabase
+      .from('jornadas')
+      .select('id, name, start_date, end_date')
+      .eq('tournament_id', tournamentId);
+
+    if (jornadasError) throw jornadasError;
+
+    const repositionMappings = resolveRepositionMappings({
+      jornadas: jornadas || [],
+      configuredMappings: configuredRepositionMappings,
+    });
+
     const matchHistory = matches.map(m => {
       const isLocal = m.team1.id === teamId;
       const myGoals = isLocal ? m.goals1 : m.goals2;
       const rivalGoals = isLocal ? m.goals2 : m.goals1;
       const rival = isLocal ? m.team2 : m.team1;
+      const matchMapping = repositionMatchMappings.find(
+        mapping => String(mapping?.matchId) === String(m.id)
+      );
+      const jornadaMapping = repositionMappings.find(
+        mapping => String(mapping?.repositionJornadaId) === String(m.jornadas?.id)
+      );
+      const displayJornada =
+        matchMapping?.originalJornadaName ||
+        jornadaMapping?.originalJornadaName ||
+        m.jornadas?.name;
       
       // EXTRAER PENALES DE LAS OBSERVACIONES (Ej. "Pen: 4-3")
       let myPenalties = null;
@@ -98,7 +130,7 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
 
       return {
         id: m.id,
-        jornada: m.jornadas.name,
+        jornada: displayJornada,
         date: m.date,
         rival,
         myGoals,
