@@ -16,7 +16,13 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
             setIsAnimating(true);
             const timer = setTimeout(() => {
                 if (isEditMode) {
-                    const initial = transformarPartidosExistentes(existingData.matches, existingData.jornadas, teams);
+                    const initial = transformarPartidosExistentes(
+                        existingData.matches,
+                        existingData.jornadas,
+                        teams,
+                        existingData.repositionMatchMappings,
+                        existingData.repositionMappings
+                    );
                     setMatches(initial);
                 } else {
                     if (matches.length === 0) {
@@ -70,7 +76,13 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         setTimeout(() => {
             let newMatches;
             if (isEditMode) {
-                newMatches = transformarPartidosExistentes(existingData.matches, existingData.jornadas, teams);
+                newMatches = transformarPartidosExistentes(
+                    existingData.matches,
+                    existingData.jornadas,
+                    teams,
+                    existingData.repositionMatchMappings,
+                    existingData.repositionMappings
+                );
             } else {
                 newMatches = generarEstructuraInicial(teams, config);
             }
