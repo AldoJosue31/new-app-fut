@@ -570,6 +570,8 @@ const TabContainer = styled.div`
     flex-direction: column; 
     gap: 20px; 
     width: 100%; 
+    flex: 1 1 auto;
+    min-height: 0;
     max-width: 100vw; 
     box-sizing: border-box; 
     animation: ${fadeIn} 0.5s ease-out;

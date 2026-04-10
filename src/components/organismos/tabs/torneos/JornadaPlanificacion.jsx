@@ -807,7 +807,7 @@ const Container = styled.div`
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  flex: 1;
+  flex: 1 1 auto;
   height: 100%;
   min-height: 0;
 `;
@@ -818,7 +818,7 @@ const TransitionWrapper = styled.div`
     to { opacity: 1; transform: translateX(0); }
   `} 0.4s both;
   width: 100%;
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -829,6 +829,7 @@ const Workspace = styled.div`
   gap: 15px;
   flex: 1;
   min-height: 0;
+  align-items: stretch;
 
   @media (max-width: 768px) {
     flex-direction: column;
@@ -841,16 +842,20 @@ const MainZone = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 `;
 
 const DropZone = styled.div`
-  flex: 1;
+  flex: 1 1 auto;
   background: ${({ theme, $isOver }) => ($isOver ? `${theme.bg4}40` : theme.bgcards)};
   border: 2px dashed ${({ theme, $isOver }) => ($isOver ? v.colorPrincipal : theme.bg4)};
   border-radius: 10px;
   padding: 10px;
   overflow-y: auto;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   transition: all 0.3s ease;
 
   @media (min-width: 768px) {
@@ -862,6 +867,8 @@ const GridList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1 1 auto;
+  min-height: 100%;
   padding-bottom: 5px;
 `;
 
@@ -896,6 +903,7 @@ const ControlsBar = styled.div`
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-shrink: 0;
   padding: 0 5px;
   animation: ${keyframes`
     from { opacity: 0; }

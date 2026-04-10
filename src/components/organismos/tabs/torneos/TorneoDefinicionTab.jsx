@@ -254,7 +254,7 @@ export function TorneoDefinicionTab({
 }
 
 const StyledCardWrapper = styled.div` 
-    position: relative; width: 100%; display: flex; justify-content: center; 
+    position: relative; width: 100%; display: flex; flex: 1 1 auto; min-height: 0; justify-content: center; 
     & > div:last-child { 
         transition: filter 0.6s ease-in-out, transform 0.6s ease-in-out, opacity 0.6s;
         ${props => props.$isBlur ? css` filter: blur(4px) grayscale(0.8); pointer-events: none; user-select: none; transform: scale(0.98); opacity: 0.8; ` : css` filter: blur(0px) grayscale(0); pointer-events: all; transform: scale(1); opacity: 1; `}

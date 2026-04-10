@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { useNavigate, useParams } from "react-router-dom";
@@ -43,6 +43,8 @@ export function TorneosTemplate({
 
   const [goleadores, setGoleadores] = useState([]);
   const [loadingGoleadores, setLoadingGoleadores] = useState(false);
+  const headerMeasureRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(118);
 
   const fetchGoleadores = async () => {
     if (!activeTournament?.id) {
@@ -68,18 +70,52 @@ export function TorneosTemplate({
   useEffect(() => {
   }, [refreshStandings]);
 
+  useLayoutEffect(() => {
+    const node = headerMeasureRef.current;
+    if (!node) return;
+
+    const measure = () => {
+      const nextHeight = Math.ceil(node.getBoundingClientRect().height || 0);
+      if (nextHeight > 0) {
+        setHeaderHeight(nextHeight);
+      }
+    };
+
+    measure();
+    const frameId = requestAnimationFrame(measure);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(measure);
+      resizeObserver.observe(node);
+    }
+
+    window.addEventListener("resize", measure);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", measure);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, [activeTab]);
+
   return (
     <>
-      <PageHeader 
-        title="Torneos" 
-        maxWidth="1000px" 
-        marginBottom="0"
-        state={state}
-        setState={setState}
-        tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
-      />
+      <HeaderMeasure ref={headerMeasureRef}>
+        <PageHeader 
+          title="Torneos" 
+          maxWidth="1000px" 
+          marginBottom="0"
+          state={state}
+          setState={setState}
+          tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+        />
+      </HeaderMeasure>
 
-      <StyledContentContainer>
+      <StyledContentContainer
+        $activeTab={activeTab}
+        $headerHeight={headerHeight}
+      >
         <ContentGrid $isWide={isWideView}>
           {activeTab === "definir" && (
             <FullWidthTab>
@@ -96,7 +132,7 @@ export function TorneosTemplate({
           )}
 
           {activeTab === "jornadas" && (
-            <FullWidthTab>
+            <FullWidthTab $isConstrained>
               {activeTournament ? (
                  <TorneoJornadasTab 
                     activeTournament={activeTournament} 
@@ -154,12 +190,31 @@ export function TorneosTemplate({
   );
 }
 
+const HeaderMeasure = styled.div`
+  width: 100%;
+  flex-shrink: 0;
+`;
+
 const StyledContentContainer = styled(ContentContainer)`
   && {
     padding-top: 0 !important;
-    padding-bottom: 20px !important; 
+    padding-bottom: ${({ $activeTab }) => ($activeTab === "jornadas" ? "14px" : "20px")} !important; 
     margin-top: 0 !important;
-    min-height: auto !important; 
+    width: 100%;
+    flex: 1 1 auto;
+    align-items: stretch;
+    box-sizing: border-box;
+    min-height: ${({ $headerHeight }) => `calc(100dvh - ${$headerHeight || 118}px)`} !important;
+
+    ${({ $activeTab, $headerHeight }) =>
+      $activeTab === "jornadas" &&
+      `
+        @media (min-width: 769px) {
+          height: calc(100dvh - ${$headerHeight || 118}px);
+          min-height: calc(100dvh - ${$headerHeight || 118}px) !important;
+          overflow: hidden;
+        }
+      `}
     
     @media (max-width: 768px) {
       padding-top: 0 !important;
@@ -171,8 +226,10 @@ const StyledContentContainer = styled(ContentContainer)`
 const ContentGrid = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0 auto;
   gap: 0px; 
   margin-top: 0; 
@@ -187,7 +244,9 @@ const FullWidthTab = styled(TabContent)`
   width: 100%; 
   display: flex; 
   flex-direction: column; 
-  overflow: visible; 
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: ${({ $isConstrained }) => ($isConstrained ? "hidden" : "visible")}; 
   margin-bottom: 0; 
 `;
 

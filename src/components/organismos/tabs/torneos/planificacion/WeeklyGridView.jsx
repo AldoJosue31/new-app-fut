@@ -138,15 +138,16 @@ const pulseAnimation = keyframes`
 `;
 
 const Container = styled.div`
-    display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%;
+    display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%; flex: 1 1 auto; min-height: 0;
     @media ${Device.laptop} {
-        display: grid; grid-template-rows: auto 1fr; gap: 5px;
+        display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 5px;
     }
 `;
 
 const Legend = styled.div`
     display: flex; gap: 15px; font-size: 0.75rem; font-weight: 700; 
     color: ${({theme})=>theme.text};
+    flex-shrink: 0;
     padding-left: 5px; opacity: 0.8;
     .item { display: flex; align-items: center; gap: 5px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
@@ -155,15 +156,16 @@ const Legend = styled.div`
 `;
 
 const GridContainer = styled.div`
-    display: flex; flex-direction: column; gap: 15px; width: 100%; height: 100%;
+    display: flex; flex-direction: column; gap: 15px; width: 100%; height: 100%; flex: 1 1 auto; min-height: 0;
     @media ${Device.laptop} {
-        display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+        display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 1px;
         background: ${({theme})=>theme.bg4}; border-radius: 10px; overflow: hidden;
     }
 `;
 
 const DayWrapper = styled.div`
     display: flex; flex-direction: column; gap: 5px; width: 100%;
+    min-height: 0;
     @media ${Device.laptop} { gap: 0; height: 100%; min-width: 0; }
 `;
 
@@ -182,12 +184,12 @@ const DesktopHeader = styled.div`
 
 const DayColumn = styled.div`
     background: ${({theme})=>theme.bgtotal}; border-radius: 8px; border: 1px solid ${({theme})=>theme.bg4};
-    display: flex; flex-direction: column; min-height: 60px;
-    @media ${Device.laptop} { background: ${({theme})=>theme.bgcards}; border: none; height: 100%; }
+    display: flex; flex-direction: column; flex: 1 1 auto; min-height: 60px;
+    @media ${Device.laptop} { background: ${({theme})=>theme.bgcards}; border: none; height: 100%; min-height: 0; }
 `;
 
 const MatchesList = styled.div`
-    padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0;
     @media ${Device.laptop} {
         padding: 5px; overflow-y: auto;
         &::-webkit-scrollbar { width: 4px; }
@@ -255,4 +257,8 @@ const MatchCard = styled.div`
 const EmptyState = styled.div`
     text-align: center; font-size: 0.8rem; opacity: 0.4; font-style: italic; padding: 10px;
     color: ${({theme})=>theme.text};
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
