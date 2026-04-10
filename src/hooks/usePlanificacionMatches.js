@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useLayoutEffect } from "react";
 import { addDaysToDate } from "../utils/dateUtils";
 import { getPartidosExternosRango } from "../services/torneos";
 import { getJornadaReferenceNumber, parseJornadaNumber } from "../utils/jornadaUtils";
@@ -52,7 +52,7 @@ export const usePlanificacionMatches = (
       return `tournament_dates_${activeTournament.id}`;
   }, [activeTournament?.id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
       if (datesStorageKey) {
           const savedDates = localStorage.getItem(datesStorageKey);
           if (savedDates) {
@@ -64,7 +64,7 @@ export const usePlanificacionMatches = (
       }
   }, [datesStorageKey, activeTournament]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
       if (jornadaData?.start_date) {
           setWeekStartDate(jornadaData.start_date);
       } else if (Object.keys(jornadaDates).length > 0) {
@@ -237,7 +237,7 @@ export const usePlanificacionMatches = (
   }, [teams, byeTeam, currentJornadaName, activeTournament]);
 
   // --- CARGA DATOS LOCALES ---
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!teams || teams.length < 2) return;
 
     let hasDraft = false;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { supabase } from "../../../../supabase/supabase.config";
 import { Toast } from "../../../../index";
@@ -41,32 +41,106 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   }, [activeTournament?.id]);
 
-  useEffect(() => {
-    if (jornadas.length > 0 && jornadas[currentJornadaIndex]?.id) {
-      fetchCurrentJornadaMatches(
-        jornadas[currentJornadaIndex].id,
-        jornadas,
-        repositionMappings,
-        repositionMatchMappings
-      );
-    } else {
-      setCurrentMatches([]);
+  const resolveSelectedJornada = useCallback((sortedJornadas = [], preferredJornadaId = null) => {
+    if (!Array.isArray(sortedJornadas) || sortedJornadas.length === 0) {
+      return { selectedIndex: 0, selectedJornada: null };
     }
-  }, [currentJornadaIndex, jornadas, repositionMappings, repositionMatchMappings]);
 
-  const handleChangeJornada = (newIndex) => {
+    if (preferredJornadaId) {
+      const preferredIndex = sortedJornadas.findIndex(
+        (jornada) => String(jornada.id) === String(preferredJornadaId)
+      );
+      if (preferredIndex !== -1) {
+        return {
+          selectedIndex: preferredIndex,
+          selectedJornada: sortedJornadas[preferredIndex],
+        };
+      }
+    }
+
+    const currentVisibleJornadaId = jornadas[currentJornadaIndex]?.id || null;
+    if (currentVisibleJornadaId) {
+      const currentIndex = sortedJornadas.findIndex(
+        (jornada) => String(jornada.id) === String(currentVisibleJornadaId)
+      );
+      if (currentIndex !== -1) {
+        return {
+          selectedIndex: currentIndex,
+          selectedJornada: sortedJornadas[currentIndex],
+        };
+      }
+    }
+
+    const currentCandidate = sortedJornadas[currentJornadaIndex] || null;
+    if (
+      currentCandidate &&
+      currentCandidate.status !== 'Finalizada' &&
+      currentCandidate.status !== 'Confirmada'
+    ) {
+      return {
+        selectedIndex: currentJornadaIndex,
+        selectedJornada: currentCandidate,
+      };
+    }
+
+    const activeIndex = sortedJornadas.findIndex(
+      (jornada) => jornada.status !== 'Finalizada' && jornada.status !== 'Confirmada'
+    );
+    const selectedIndex = activeIndex !== -1 ? activeIndex : sortedJornadas.length - 1;
+
+    return {
+      selectedIndex,
+      selectedJornada: sortedJornadas[selectedIndex] || null,
+    };
+  }, [currentJornadaIndex, jornadas]);
+
+  const handleChangeJornada = async (newIndex) => {
+      const targetJornada = jornadas[newIndex];
+      if (!targetJornada?.id) return;
+
       setCurrentMatches([]); 
       setLoading(true);
       setCurrentJornadaIndex(newIndex);
+
+      try {
+        await fetchCurrentJornadaMatches(
+          targetJornada.id,
+          jornadas,
+          repositionMappings,
+          repositionMatchMappings
+        );
+      } finally {
+        setLoading(false);
+      }
   };
 
-  const loadTournamentData = async () => {
-      if (jornadas.length === 0) setLoading(true);
-      await fetchTournamentConfig();
-      await fetchJornadas();
-      await fetchGlobalPendingMatches();
-      setLoading(false);
-  };
+  const loadTournamentData = useCallback(async () => {
+      setLoading(true);
+      setJornadas([]);
+      setCurrentMatches([]);
+      setGlobalPendingMatches([]);
+
+      try {
+        const updatedMappings = await fetchTournamentConfig();
+        const jornadasResult = await fetchJornadas();
+        const sortedJornadas = jornadasResult?.jornadas || [];
+        const selectedJornada = jornadasResult?.selectedJornada || null;
+
+        await Promise.all([
+          fetchGlobalPendingMatches(),
+          selectedJornada?.id
+            ? fetchCurrentJornadaMatches(
+                selectedJornada.id,
+                sortedJornadas,
+                updatedMappings?.jornadaMappings || [],
+                updatedMappings?.matchMappings || []
+              )
+            : Promise.resolve(),
+        ]);
+      } finally {
+        setLoading(false);
+      }
+  }, [activeTournament?.id, currentJornadaIndex]);
 
   const fetchTournamentConfig = async () => {
     try {
@@ -126,23 +200,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       const sorted = sortJornadas(data);
       setJornadas(sorted);
 
-      if (sorted.length > 0) {
-        if (preferredJornadaId) {
-          const preferredIndex = sorted.findIndex((jornada) => jornada.id === preferredJornadaId);
-          if (preferredIndex !== -1) {
-            setCurrentJornadaIndex(preferredIndex);
-            return sorted;
-          }
-        }
+      const { selectedIndex, selectedJornada } = resolveSelectedJornada(sorted, preferredJornadaId);
+      setCurrentJornadaIndex(selectedIndex);
 
-        if (currentJornadaIndex === 0) {
-          const activeIndex = sorted.findIndex(j => j.status !== 'Finalizada' && j.status !== 'Confirmada');
-          if (activeIndex !== -1) setCurrentJornadaIndex(activeIndex);
-          else setCurrentJornadaIndex(sorted.length - 1);
-        }
-      }
-
-      return sorted;
+      return {
+        jornadas: sorted,
+        selectedIndex,
+        selectedJornada,
+      };
     } catch (error) { console.error("Error fetchJornadas:", error); }
   };
 
@@ -152,7 +217,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     mappingsSource = repositionMappings,
     matchMappingsSource = repositionMatchMappings
   ) => {
-    setLoading(true);
     try {
       const selectedJornada =
         (jornadasSource || []).find((jornada) => String(jornada.id) === String(jornadaId)) ||
@@ -241,8 +305,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setCurrentMatches(enhancedMatches);
     } catch (e) { 
         console.error(e);
-    } finally { 
-        setLoading(false); 
     }
   };
 
