@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from "react";
+import React, { memo, useState, useLayoutEffect } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { 
@@ -30,10 +30,10 @@ export const PlanningHeader = memo(({
     const hasDates = jornadaData?.start_date && jornadaData?.end_date;
 
     // --- ESTADO LOCAL PARA EDICIÓN SIN GUARDADO INMEDIATO ---
-    const [localStart, setLocalStart] = useState('');
-    const [localEnd, setLocalEnd] = useState('');
+    const [localStart, setLocalStart] = useState(jornadaData?.start_date || '');
+    const [localEnd, setLocalEnd] = useState(jornadaData?.end_date || '');
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         setLocalStart(jornadaData?.start_date || '');
         setLocalEnd(jornadaData?.end_date || '');
     }, [jornadaData]);
