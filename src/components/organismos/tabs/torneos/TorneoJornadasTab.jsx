@@ -466,12 +466,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
 
         const updatedMappings = await fetchTournamentConfig();
-        const updatedJornadas = await fetchJornadas(preservedJornadaId);
+        const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
+        const updatedJornadas = updatedJornadasResult?.jornadas || [];
         await fetchGlobalPendingMatches();
 
         const jornadaToRefresh =
-          updatedJornadas?.find((jornada) => jornada.id === preservedJornadaId) ||
-          updatedJornadas?.[currentJornadaIndex];
+          updatedJornadasResult?.selectedJornada ||
+          updatedJornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId)) ||
+          updatedJornadas[currentJornadaIndex];
 
         if (jornadaToRefresh?.id) {
           await fetchCurrentJornadaMatches(
@@ -483,6 +485,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         }
         
         setDataVersion(prev => prev + 1);
+        if (refreshStandings) await refreshStandings();
         
     } catch (error) { 
         setToastConfig({ show: true, message: error.message, type: "error" }); 

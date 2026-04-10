@@ -13,6 +13,24 @@ export function AuthContextProvider({ children }) {
   // Ref para mantener canal de presencia único por sesión
   const presenceRef = useRef(null);
 
+  const clearBrokenSession = async () => {
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (err) {
+      console.warn("No se pudo limpiar la sesion local con signOut local:", err);
+      try { await supabase.auth.signOut(); } catch (_) {}
+    }
+
+    setUser(null);
+    setProfile(null);
+    useAuthStore.setState({ user: null, profile: null });
+  };
+
+  const isInvalidRefreshTokenError = (error) => {
+    const message = String(error?.message || error || "").toLowerCase();
+    return message.includes('refresh token') || message.includes('invalid refresh token');
+  };
+
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
 const validateProfile = async (sessionUser) => {
     if (!sessionUser) return;
@@ -75,6 +93,9 @@ const validateProfile = async (sessionUser) => {
         }
       } catch (error) {
         console.error("Init Error:", error);
+        if (isInvalidRefreshTokenError(error)) {
+          await clearBrokenSession();
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -134,13 +155,6 @@ const validateProfile = async (sessionUser) => {
 
     const handleSubscribe = async (status) => {
       console.log('[AUTH][TRACKER] channel status', status);
-      // debug session
-      try {
-        const { data } = await supabase.auth.getSession();
-        console.log('[AUTH][TRACKER] session', data);
-      } catch(e) {
-        console.warn('[AUTH][TRACKER] getSession err', e);
-      }
 
       if (status === 'SUBSCRIBED') {
         try {
