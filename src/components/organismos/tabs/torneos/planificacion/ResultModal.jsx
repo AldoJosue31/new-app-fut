@@ -38,6 +38,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
   const [rosterLocal, setRosterLocal] = useState([]);
   const [rosterVisit, setRosterVisit] = useState([]);
+  const [participationStats, setParticipationStats] = useState({ local: {}, visit: {} });
 
   // Configuración de Torneo
   const tournamentConfig = useMemo(() => {
@@ -117,9 +118,52 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     }
   }, [isOpen, match?.id]);
 
+  const fetchParticipationCounts = async (players = []) => {
+    const playerIds = players.map(player => player?.id).filter(Boolean);
+    const tournamentId = activeTournament?.id;
+
+    if (!tournamentId || playerIds.length === 0) {
+      return {};
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('match_events')
+        .select(`
+          match_id,
+          player_id,
+          matches!inner (
+            jornadas!inner ( tournament_id )
+          )
+        `)
+        .eq('event_type', 'participation')
+        .eq('matches.jornadas.tournament_id', tournamentId)
+        .in('player_id', playerIds);
+
+      if (error) throw error;
+
+      const uniqueMatchesByPlayer = {};
+      (data || []).forEach(event => {
+        if (String(event.match_id) === String(match?.id)) return;
+
+        const playerId = String(event.player_id);
+        if (!uniqueMatchesByPlayer[playerId]) uniqueMatchesByPlayer[playerId] = new Set();
+        uniqueMatchesByPlayer[playerId].add(String(event.match_id));
+      });
+
+      return Object.fromEntries(
+        Object.entries(uniqueMatchesByPlayer).map(([playerId, matchIds]) => [playerId, matchIds.size])
+      );
+    } catch (error) {
+      console.error("Error getting participation counts:", error);
+      return {};
+    }
+  };
+
   const fetchAllData = async () => {
     try {
       const matchId = Number(match.id);
+      setParticipationStats({ local: {}, visit: {} });
       if(isNaN(matchId)) throw new Error("ID de partido inválido");
 
       const { data: freshMatch, error: matchError } = await supabase.from('matches').select('*').eq('id', matchId).single();
@@ -154,6 +198,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setLocalPlayers(localRes.data || []);
       setVisitPlayers(visitRes.data || []);
       setSelectedReferee(freshMatch.referee_id || "");
+      const [localParticipation, visitParticipation] = await Promise.all([
+        fetchParticipationCounts(localRes.data || []),
+        fetchParticipationCounts(visitRes.data || [])
+      ]);
+      setParticipationStats({ local: localParticipation, visit: visitParticipation });
       
       const obs = freshMatch.observations || "";
       const isWO = obs.includes('W.O.') || obs.includes('Victoria por default');
@@ -219,6 +268,73 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         return newRoster;
     });
   }, [minPlayers, maxSubs]);
+
+  const handleAutoFillStarters = useCallback((team) => {
+    const isLocal = team === 'local';
+    const roster = isLocal ? rosterLocal : rosterVisit;
+    const players = isLocal ? localPlayers : visitPlayers;
+    const teamParticipationStats = isLocal ? participationStats.local : participationStats.visit;
+    const setter = isLocal ? setRosterLocal : setRosterVisit;
+
+    if (players.length === 0) {
+      setToastConfig({ show: true, message: "No hay jugadores disponibles para autocompletar.", type: "warning" });
+      return;
+    }
+
+    const emptyStarterIndexes = roster
+      .map((slot, index) => (slot.isStarter && !slot.playerId ? index : -1))
+      .filter(index => index >= 0);
+
+    if (emptyStarterIndexes.length === 0) {
+      setToastConfig({ show: true, message: "Los titulares ya estan completos.", type: "warning" });
+      return;
+    }
+
+    const selectedPlayerIds = new Set(
+      roster
+        .filter(slot => slot.playerId)
+        .map(slot => String(slot.playerId))
+    );
+
+    const sortedPlayers = [...players].sort((a, b) => {
+      const appearancesDiff =
+        (teamParticipationStats[String(b.id)] || 0) - (teamParticipationStats[String(a.id)] || 0);
+
+      if (appearancesDiff !== 0) return appearancesDiff;
+
+      const fullNameA = `${a.first_name || ''} ${a.last_name || ''}`.trim();
+      const fullNameB = `${b.first_name || ''} ${b.last_name || ''}`.trim();
+      return fullNameA.localeCompare(fullNameB, 'es', { sensitivity: 'base' });
+    });
+
+    let playersAdded = 0;
+    const updatedRoster = [...roster];
+
+    emptyStarterIndexes.forEach(index => {
+      const nextPlayer = sortedPlayers.find(player => !selectedPlayerIds.has(String(player.id)));
+      if (!nextPlayer) return;
+
+      updatedRoster[index] = { ...updatedRoster[index], playerId: nextPlayer.id };
+      selectedPlayerIds.add(String(nextPlayer.id));
+      playersAdded++;
+    });
+
+    setter(updatedRoster);
+
+    if (playersAdded === 0) {
+      setToastConfig({ show: true, message: "No hay mas jugadores disponibles para completar titulares.", type: "warning" });
+      return;
+    }
+
+    setToastConfig({
+      show: true,
+      message:
+        playersAdded === 1
+          ? "Se agrego 1 titular segun asistencias."
+          : `Se agregaron ${playersAdded} titulares segun asistencias.`,
+      type: "success"
+    });
+  }, [localPlayers, participationStats.local, participationStats.visit, rosterLocal, rosterVisit, visitPlayers]);
 
   const handleToggleWalkover = (newValue) => {
     setIsWalkover(newValue);
@@ -363,12 +479,28 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                     )}
                     {activeTab === 'local' && (
                         <TabContent>
-                            <RosterTab roster={rosterLocal} teamKey="local" players={localPlayers} isWalkover={isWalkover} minPlayers={minPlayers} onUpdate={handleUpdateRoster} />
+                            <RosterTab
+                              roster={rosterLocal}
+                              teamKey="local"
+                              players={localPlayers}
+                              isWalkover={isWalkover}
+                              minPlayers={minPlayers}
+                              onUpdate={handleUpdateRoster}
+                              onAutoFillStarters={handleAutoFillStarters}
+                            />
                         </TabContent>
                     )}
                     {activeTab === 'visit' && (
                         <TabContent>
-                             <RosterTab roster={rosterVisit} teamKey="visit" players={visitPlayers} isWalkover={isWalkover} minPlayers={minPlayers} onUpdate={handleUpdateRoster} />
+                             <RosterTab
+                               roster={rosterVisit}
+                               teamKey="visit"
+                               players={visitPlayers}
+                               isWalkover={isWalkover}
+                               minPlayers={minPlayers}
+                               onUpdate={handleUpdateRoster}
+                               onAutoFillStarters={handleAutoFillStarters}
+                             />
                         </TabContent>
                     )}
                     {activeTab === 'penalties' && (
@@ -398,7 +530,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 }
 
 const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
-const ContentBody = styled.div` min-height: 350px; width: 100%; box-sizing: border-box; overflow-x: hidden; `;
+const ContentBody = styled.div` min-height: 350px; width: 100%; box-sizing: border-box; overflow: hidden; position: relative; `;
 const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
 const LoadingState = styled.div` display: flex; justify-content: center; align-items: center; height: 300px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
