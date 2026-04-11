@@ -2,6 +2,8 @@ import React, { memo, useMemo, useState, useRef } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../../../../index";
 import { 
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
   RiDeleteBinLine, 
   RiTrophyLine, 
   RiTimeLine, 
@@ -10,7 +12,7 @@ import {
   RiPrinterLine 
 } from "react-icons/ri";
 import { Device } from "../../../../../styles/breakpoints";
-import { formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
+import { addDaysToDate, formatTimeTo12Hour, formatDateWithWeekday } from "../../../../../utils/dateUtils";
 import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
 import { RiArrowLeftUpLine, RiLinksLine, RiRouteLine } from "react-icons/ri";
 
@@ -28,9 +30,38 @@ const getPenaltyScore = (observations) => {
     return null;
 };
 
+const normalizeTimeValue = (timeValue) => {
+    if (!timeValue) return "";
+    const match = String(timeValue).match(/^(\d{2}):(\d{2})/);
+    if (!match) return "";
+    return `${match[1]}:${match[2]}`;
+};
+
+const timeToMinutes = (timeValue) => {
+    const normalized = normalizeTimeValue(timeValue);
+    if (!normalized) return null;
+    const [hours, minutes] = normalized.split(":").map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    return (hours * 60) + minutes;
+};
+
+const minutesToTime = (totalMinutes) => {
+    if (!Number.isFinite(totalMinutes)) return "";
+    const normalizedMinutes = Math.max(0, Math.min((23 * 60) + 59, totalMinutes));
+    const hours = String(Math.floor(normalizedMinutes / 60)).padStart(2, "0");
+    const minutes = String(normalizedMinutes % 60).padStart(2, "0");
+    return `${hours}:${minutes}`;
+};
+
 export const ScheduledMatchRow = memo(function ScheduledMatchRow({ 
     match, 
     isConfirmed, 
+    jornadaStartDate = "",
+    jornadaEndDate = "",
+    timeStepMinutes = 0,
+    timeMin = "",
+    timeMax = "",
+    defaultTime = "",
     onUpdateDate, 
     onUpdateTime, 
     onRemove, 
@@ -140,6 +171,90 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
       : isConfirmedRepositionBadge
         ? RiRouteLine
         : RiArrowLeftUpLine;
+  const hasDateBounds =
+      Boolean(jornadaStartDate && jornadaEndDate) &&
+      jornadaStartDate <= jornadaEndDate;
+  const isDateWithinBounds =
+      hasDateBounds &&
+      Boolean(match.date) &&
+      match.date >= jornadaStartDate &&
+      match.date <= jornadaEndDate;
+  const dateMin = isDateWithinBounds ? jornadaStartDate : undefined;
+  const dateMax = isDateWithinBounds ? jornadaEndDate : undefined;
+  const previousDate = match.date ? addDaysToDate(match.date, -1) : "";
+  const nextDate = match.date ? addDaysToDate(match.date, 1) : "";
+  const canMoveDateBackward =
+      Boolean(match.date) &&
+      !isReferenceOnly &&
+      (!dateMin || previousDate >= dateMin);
+  const canMoveDateForward =
+      Boolean(match.date) &&
+      !isReferenceOnly &&
+      (!dateMax || nextDate <= dateMax);
+
+  const safeTimeStep = useMemo(() => {
+      const parsed = parseInt(timeStepMinutes, 10);
+      return Number.isNaN(parsed) || parsed <= 0 ? 105 : parsed;
+  }, [timeStepMinutes]);
+  const normalizedTimeMin = normalizeTimeValue(timeMin);
+  const normalizedTimeMax = normalizeTimeValue(timeMax);
+  const rawCurrentTime = normalizeTimeValue(match.time);
+  const fallbackTime = normalizeTimeValue(defaultTime || normalizedTimeMin);
+  const baseTimeValue = rawCurrentTime || fallbackTime;
+  const baseTimeMinutes = timeToMinutes(baseTimeValue);
+  const minTimeMinutes = timeToMinutes(normalizedTimeMin);
+  const maxTimeMinutes = timeToMinutes(normalizedTimeMax);
+  const hasValidTimeBounds =
+      minTimeMinutes !== null &&
+      maxTimeMinutes !== null &&
+      minTimeMinutes <= maxTimeMinutes;
+  const isTimeWithinBounds =
+      hasValidTimeBounds &&
+      baseTimeMinutes !== null &&
+      baseTimeMinutes >= minTimeMinutes &&
+      baseTimeMinutes <= maxTimeMinutes;
+  const inputTimeMin = isTimeWithinBounds ? normalizedTimeMin : undefined;
+  const inputTimeMax = isTimeWithinBounds ? normalizedTimeMax : undefined;
+  const effectiveTimeMin = isTimeWithinBounds ? minTimeMinutes : 0;
+  const effectiveTimeMax = isTimeWithinBounds ? maxTimeMinutes : (23 * 60) + 59;
+  const canMoveTimeBackward =
+      Boolean(baseTimeValue) &&
+      !isReferenceOnly &&
+      (
+          !rawCurrentTime ||
+          (baseTimeMinutes !== null && (baseTimeMinutes - safeTimeStep) >= effectiveTimeMin)
+      );
+  const canMoveTimeForward =
+      Boolean(baseTimeValue) &&
+      !isReferenceOnly &&
+      (
+          !rawCurrentTime ||
+          (baseTimeMinutes !== null && (baseTimeMinutes + safeTimeStep) <= effectiveTimeMax)
+      );
+
+  const handleShiftDate = (days) => {
+      if (isReferenceOnly || !match.date) return;
+
+      const nextValue = addDaysToDate(match.date, days);
+      if (days < 0 && !canMoveDateBackward) return;
+      if (days > 0 && !canMoveDateForward) return;
+
+      onUpdateDate(nextValue);
+  };
+
+  const handleShiftTime = (direction) => {
+      if (isReferenceOnly || !baseTimeValue) return;
+
+      if (!rawCurrentTime) {
+          onUpdateTime(baseTimeValue);
+          return;
+      }
+
+      const nextMinutes = baseTimeMinutes + (direction * safeTimeStep);
+      if (nextMinutes < effectiveTimeMin || nextMinutes > effectiveTimeMax) return;
+
+      onUpdateTime(minutesToTime(nextMinutes));
+  };
 
   return (
     <>
@@ -252,20 +367,64 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                         <>
                             {match.date ? (
                                 <>
-                                    <input 
-                                        type="date" 
-                                        className="input-date" 
-                                        value={match.date || ''} 
-                                        onChange={(e)=> onUpdateDate(e.target.value)}
-                                        disabled={isReferenceOnly}
-                                    />
-                                    <input 
-                                        type="time" 
-                                        className="input-time" 
-                                        value={match.time || ''} 
-                                        onChange={(e)=> onUpdateTime(e.target.value)}
-                                        disabled={isReferenceOnly}
-                                    />
+                                    <div className="input-control input-date-control">
+                                        <button
+                                            type="button"
+                                            className="step-btn"
+                                            onClick={() => handleShiftDate(-1)}
+                                            disabled={!canMoveDateBackward}
+                                            title="Regresar un día"
+                                        >
+                                            <RiArrowLeftSLine />
+                                        </button>
+                                        <input 
+                                            type="date" 
+                                            className="input-date" 
+                                            value={match.date || ''} 
+                                            min={dateMin}
+                                            max={dateMax}
+                                            onChange={(e)=> onUpdateDate(e.target.value)}
+                                            disabled={isReferenceOnly}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="step-btn"
+                                            onClick={() => handleShiftDate(1)}
+                                            disabled={!canMoveDateForward}
+                                            title="Avanzar un día"
+                                        >
+                                            <RiArrowRightSLine />
+                                        </button>
+                                    </div>
+                                    <div className="input-control input-time-control">
+                                        <button
+                                            type="button"
+                                            className="step-btn"
+                                            onClick={() => handleShiftTime(-1)}
+                                            disabled={!canMoveTimeBackward}
+                                            title={`Restar ${safeTimeStep} min`}
+                                        >
+                                            <RiArrowLeftSLine />
+                                        </button>
+                                        <input 
+                                            type="time" 
+                                            className="input-time" 
+                                            value={match.time || ''} 
+                                            min={inputTimeMin}
+                                            max={inputTimeMax}
+                                            onChange={(e)=> onUpdateTime(e.target.value)}
+                                            disabled={isReferenceOnly}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="step-btn"
+                                            onClick={() => handleShiftTime(1)}
+                                            disabled={!canMoveTimeForward}
+                                            title={`Sumar ${safeTimeStep} min`}
+                                        >
+                                            <RiArrowRightSLine />
+                                        </button>
+                                    </div>
                                 </>
                             ) : (
                                 <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
@@ -372,14 +531,81 @@ const Container = styled.div`
     .settings { 
         display: flex; gap: 8px; width: 100%; justify-content: space-between;
         @media ${Device.tablet} { width: auto; justify-content: flex-end; align-items: center; flex-shrink: 0; }
-        input { 
-            background: ${({theme})=>theme.bg3}; border: 1px solid ${({theme})=>theme.bg4}; 
-            color: ${({theme})=>theme.text}; padding: 8px; border-radius: 6px; flex: 1; font-size: 0.9rem;
-            @media ${Device.tablet} { padding: 5px 8px; flex: none; font-size: 0.95rem; }
-            &:focus { outline: 1px solid ${v.colorPrincipal}; }
-        } 
-        .input-date { @media ${Device.tablet} { width: 144px; } }
-        .input-time { @media ${Device.tablet} { width: 130px; } }
+        .input-control {
+            display: flex;
+            align-items: stretch;
+            flex: 1;
+            min-width: 0;
+            background: ${({theme})=>theme.bg3};
+            border: 1px solid ${({theme})=>theme.bg4};
+            border-radius: 6px;
+            overflow: hidden;
+
+            @media ${Device.tablet} {
+                flex: none;
+            }
+        }
+        .input-control input {
+            background: transparent;
+            border: none;
+            color: ${({theme})=>theme.text};
+            padding: 8px 6px;
+            flex: 1;
+            min-width: 0;
+            font-size: 0.9rem;
+            text-align: center;
+
+            @media ${Device.tablet} {
+                padding: 5px 8px;
+                font-size: 0.95rem;
+            }
+
+            &:focus {
+                outline: 1px solid ${v.colorPrincipal};
+                outline-offset: -1px;
+            }
+        }
+        .step-btn {
+            width: 34px;
+            border: none;
+            background: ${({theme})=>theme.bg3};
+            color: ${({theme})=>theme.text};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            flex-shrink: 0;
+            font-size: 1.05rem;
+
+            &:first-child {
+                border-right: 1px solid ${({theme})=>theme.bg4};
+            }
+
+            &:last-child {
+                border-left: 1px solid ${({theme})=>theme.bg4};
+            }
+
+            &:hover:not(:disabled) {
+                background: ${v.colorPrincipal}15;
+                color: ${v.colorPrincipal};
+            }
+
+            &:disabled {
+                opacity: 0.35;
+                cursor: not-allowed;
+            }
+        }
+        .input-date-control {
+            @media ${Device.tablet} {
+                width: 212px;
+            }
+        }
+        .input-time-control {
+            @media ${Device.tablet} {
+                width: 198px;
+            }
+        }
         .del { 
             background: #e74c3c20; color: #e74c3c; border: none; border-radius: 6px; cursor: pointer; padding: 8px 12px;
             display: flex; align-items: center; justify-content: center; transition: 0.2s;

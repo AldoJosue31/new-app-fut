@@ -1,26 +1,52 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { 
     RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine, 
-    RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line 
+    RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line,
+    RiEyeLine, RiEyeOffLine
 } from "react-icons/ri";
 import { Btnsave } from "../../../../../index"; 
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 
+const ROUND_ANIMATION_MS = 220;
+const sortRoundIndexes = (indexes) => [...indexes].sort((a, b) => Number(a) - Number(b));
+
+const clearRoundTimer = (timersRef, rIndex) => {
+    if (timersRef.current[rIndex]) {
+        clearTimeout(timersRef.current[rIndex]);
+        delete timersRef.current[rIndex];
+    }
+};
+
+const clearAllRoundTimers = (timersRef) => {
+    Object.keys(timersRef.current).forEach((rIndex) => {
+        clearRoundTimer(timersRef, rIndex);
+    });
+};
+
 export function FixturePreviewModal({ 
     isOpen, onClose, onConfirm, teams = [], config, isLoading,
     existingData = null 
 }) {
+    const roundAnimationTimersRef = useRef({});
+    const prevVisibleRoundsRef = useRef([]);
     const {
         matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
         handleTeamClick, toggleLock, handleShuffle, handleAutoFix,
         handleDragStart, handleDropOnMatch, handleDropOnJornada
     } = useFixturePreview(teams, config, isOpen, existingData);
+    const [showConfirmedRounds, setShowConfirmedRounds] = useState(false);
+    const [renderedRoundIndexes, setRenderedRoundIndexes] = useState([]);
+    const [roundAnimationState, setRoundAnimationState] = useState({});
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (isOpen) {
+            setShowConfirmedRounds(false);
+        }
+    }, [isOpen, isEditMode]);
 
     const handleConfirmar = () => {
         if (isEditMode) {
@@ -38,7 +64,108 @@ export function FixturePreviewModal({
     };
 
     const roundIndexes = Object.keys(matchesByRound).sort((a,b) => Number(a) - Number(b));
+    const isRoundLocked = (rIndex) => (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
+    const confirmedRoundsCount = roundIndexes.filter((rIndex) => isRoundLocked(rIndex)).length;
+    const visibleRoundIndexes = roundIndexes.filter((rIndex) => {
+        if (!isEditMode || showConfirmedRounds) return true;
+        return !isRoundLocked(rIndex);
+    });
     const conflictCount = Object.keys(conflicts).length;
+
+    useEffect(() => {
+        if (!isOpen) {
+            clearAllRoundTimers(roundAnimationTimersRef);
+            prevVisibleRoundsRef.current = [];
+            setRenderedRoundIndexes([]);
+            setRoundAnimationState({});
+            return;
+        }
+
+        const prevVisibleRounds = prevVisibleRoundsRef.current;
+        const enteringRounds = visibleRoundIndexes.filter((rIndex) => !prevVisibleRounds.includes(rIndex));
+        const exitingRounds = prevVisibleRounds.filter((rIndex) => !visibleRoundIndexes.includes(rIndex));
+
+        if (prevVisibleRounds.length === 0 && visibleRoundIndexes.length > 0) {
+            setRenderedRoundIndexes(visibleRoundIndexes);
+            setRoundAnimationState(
+                visibleRoundIndexes.reduce((acc, rIndex) => {
+                    acc[rIndex] = "enter";
+                    return acc;
+                }, {})
+            );
+
+            visibleRoundIndexes.forEach((rIndex) => {
+                clearRoundTimer(roundAnimationTimersRef, rIndex);
+                roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
+                    setRoundAnimationState((prev) => {
+                        const next = { ...prev };
+                        if (next[rIndex] === "enter") delete next[rIndex];
+                        return next;
+                    });
+                    delete roundAnimationTimersRef.current[rIndex];
+                }, ROUND_ANIMATION_MS);
+            });
+        } else {
+            if (enteringRounds.length > 0) {
+                setRenderedRoundIndexes((prev) => sortRoundIndexes([...new Set([...prev, ...enteringRounds])]));
+                setRoundAnimationState((prev) => {
+                    const next = { ...prev };
+                    enteringRounds.forEach((rIndex) => {
+                        next[rIndex] = "enter";
+                    });
+                    return next;
+                });
+
+                enteringRounds.forEach((rIndex) => {
+                    clearRoundTimer(roundAnimationTimersRef, rIndex);
+                    roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
+                        setRoundAnimationState((prev) => {
+                            const next = { ...prev };
+                            if (next[rIndex] === "enter") delete next[rIndex];
+                            return next;
+                        });
+                        delete roundAnimationTimersRef.current[rIndex];
+                    }, ROUND_ANIMATION_MS);
+                });
+            }
+
+            if (exitingRounds.length > 0) {
+                setRoundAnimationState((prev) => {
+                    const next = { ...prev };
+                    exitingRounds.forEach((rIndex) => {
+                        next[rIndex] = "exit";
+                    });
+                    return next;
+                });
+
+                exitingRounds.forEach((rIndex) => {
+                    clearRoundTimer(roundAnimationTimersRef, rIndex);
+                    roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
+                        setRenderedRoundIndexes((prev) => prev.filter((value) => value !== rIndex));
+                        setRoundAnimationState((prev) => {
+                            const next = { ...prev };
+                            delete next[rIndex];
+                            return next;
+                        });
+                        delete roundAnimationTimersRef.current[rIndex];
+                    }, ROUND_ANIMATION_MS);
+                });
+            }
+        }
+
+        prevVisibleRoundsRef.current = visibleRoundIndexes;
+    }, [isOpen, visibleRoundIndexes]);
+
+    useEffect(() => () => {
+        clearAllRoundTimers(roundAnimationTimersRef);
+    }, []);
+
+    if (!isOpen) return null;
+
+    const displayedRoundIndexes =
+        renderedRoundIndexes.length === 0 && visibleRoundIndexes.length > 0
+            ? visibleRoundIndexes
+            : renderedRoundIndexes;
 
     return createPortal(
         <Overlay>
@@ -64,7 +191,21 @@ export function FixturePreviewModal({
                                 <BadgeSuccess><RiCheckDoubleLine /> Fixture Válido</BadgeSuccess>
                             )}
                         </div>
-                        <div style={{display:'flex', gap:'10px'}}>
+                        <ToolbarActions>
+                            {isEditMode && confirmedRoundsCount > 0 && (
+                                <ToggleFilterButton
+                                    type="button"
+                                    onClick={() => setShowConfirmedRounds((prev) => !prev)}
+                                    $active={showConfirmedRounds}
+                                >
+                                    {showConfirmedRounds ? <RiEyeOffLine /> : <RiEyeLine />}
+                                    <span>
+                                        {showConfirmedRounds
+                                            ? "Ocultar confirmadas"
+                                            : `Ver confirmadas (${confirmedRoundsCount})`}
+                                    </span>
+                                </ToggleFilterButton>
+                            )}
                             {conflictCount > 0 && (
                                 <ActionButton onClick={handleAutoFix} disabled={isAnimating} $color={v.colorWarning}>
                                     <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
@@ -75,35 +216,43 @@ export function FixturePreviewModal({
                                 <RiRefreshLine className={isAnimating ? "icon-spin" : ""} />
                                 <span>{isEditMode ? "Restaurar" : "Reiniciar"}</span>
                             </ActionButton>
-                        </div>
+                        </ToolbarActions>
                     </Toolbar>
 
                     <ScrollArea>
                         <Grid $isAnimating={isAnimating}>
-                            {roundIndexes.map((rIndex) => {
+                            {displayedRoundIndexes.length === 0 ? (
+                                <EmptyRoundsState>
+                                    {isEditMode && confirmedRoundsCount > 0 && !showConfirmedRounds
+                                        ? "Las jornadas confirmadas estan ocultas. Activa el filtro para verlas."
+                                        : "No hay jornadas para mostrar."}
+                                </EmptyRoundsState>
+                            ) : displayedRoundIndexes.map((rIndex) => {
                                 // Detectar si la jornada está totalmente bloqueada (confirmada en BD)
                                 const roundMatches = matchesByRound[rIndex];
-                                const isRoundLocked = roundMatches.some(m => m.roundLocked);
+                                const roundIsLocked = isRoundLocked(rIndex);
                                 const hasConflict = !!conflicts[rIndex];
+                                const animationState = roundAnimationState[rIndex] || "idle";
 
                                 return (
                                     <JornadaColumn 
                                         key={rIndex}
-                                        $locked={isRoundLocked}
+                                        $locked={roundIsLocked}
                                         $hasConflict={hasConflict}
+                                        $animationState={animationState}
                                         onDragOver={(e) => { 
-                                            if(!isRoundLocked) { 
+                                            if(!roundIsLocked && animationState !== "exit") { 
                                                 e.preventDefault(); 
                                                 e.dataTransfer.dropEffect = "move"; 
                                             }
                                         }}
                                         onDrop={(e) => { 
-                                            if(!isRoundLocked) handleDropOnJornada(e, Number(rIndex)) 
+                                            if(!roundIsLocked && animationState !== "exit") handleDropOnJornada(e, Number(rIndex)) 
                                         }}
                                     >
-                                        <JornadaTitle $hasConflict={hasConflict} $locked={isRoundLocked}>
+                                        <JornadaTitle $hasConflict={hasConflict} $locked={roundIsLocked}>
                                             <span className="title-text">Jornada {Number(rIndex) + 1}</span>
-                                            {isRoundLocked && <LockBadge><RiLock2Line /> Confirmada</LockBadge>}
+                                            {roundIsLocked && <LockBadge><RiLock2Line /> Confirmada</LockBadge>}
                                         </JornadaTitle>
                                         
                                         <MatchesList>
@@ -165,6 +314,14 @@ export function FixturePreviewModal({
 // --- STYLES ---
 const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const fadeIn = keyframes`from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); }`;
+const roundEnter = keyframes`
+    from { opacity: 0; transform: translateY(14px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+const roundExit = keyframes`
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(14px) scale(0.97); }
+`;
 
 const Overlay = styled.div`
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
@@ -218,6 +375,12 @@ const Toolbar = styled.div`
     @media (max-width: 600px) { flex-direction: column; gap: 10px; align-items: stretch; }
 `;
 
+const ToolbarActions = styled.div`
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+`;
+
 const ActionButton = styled.button`
     display: flex; align-items: center; gap: 8px; padding: 8px 16px; 
     background: ${({ theme }) => theme.bg3}; color: ${props => props.$color || props.theme.text}; 
@@ -226,6 +389,12 @@ const ActionButton = styled.button`
     &:hover { background: ${props => props.$color || v.colorPrincipal}; color: white; border-color: transparent; } 
     &:disabled { opacity: 0.6; cursor: not-allowed; } 
     .icon-spin { animation: ${spinAnimation} 0.6s linear infinite; }
+`;
+
+const ToggleFilterButton = styled(ActionButton)`
+    background: ${({ $active, theme }) => ($active ? `${v.colorPrincipal}18` : theme.bg3)};
+    color: ${({ $active, theme }) => ($active ? v.colorPrincipal : theme.text)};
+    border-color: ${({ $active, theme }) => ($active ? v.colorPrincipal : theme.bg4)};
 `;
 
 const BadgeError = styled.span`
@@ -251,6 +420,21 @@ const Grid = styled.div`
     transition: opacity 0.3s ease; align-items: flex-start;
 `;
 
+const EmptyRoundsState = styled.div`
+    width: 100%;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    border: 1px dashed ${({ theme }) => theme.bg4};
+    border-radius: 12px;
+    color: ${({ theme }) => theme.textFade};
+    font-size: 0.9rem;
+    text-align: center;
+    background: ${({ theme }) => theme.bgcards};
+`;
+
 const JornadaColumn = styled.div`
     background: ${({ theme, $hasConflict, $locked }) => 
         $locked ? theme.bg2 : ($hasConflict ? `${v.colorError}05` : theme.bgcards)}; 
@@ -259,7 +443,18 @@ const JornadaColumn = styled.div`
     border-radius: 12px; overflow: hidden; width: 280px; flex-shrink: 0; display: flex; flex-direction: column; 
     box-shadow: ${({$locked}) => $locked ? 'none' : '0 2px 4px rgba(0,0,0,0.03)'}; 
     opacity: ${({$locked}) => $locked ? 0.8 : 1};
-    transition: all 0.2s;
+    transform-origin: top center;
+    pointer-events: ${({ $animationState }) => $animationState === "exit" ? "none" : "auto"};
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    animation: ${({ $animationState }) => {
+        if ($animationState === "enter") {
+            return css`${roundEnter} 0.22s cubic-bezier(0.22, 1, 0.36, 1) both`;
+        }
+        if ($animationState === "exit") {
+            return css`${roundExit} 0.22s ease both`;
+        }
+        return "none";
+    }};
     @media (max-width: 600px) { width: 100%; }
 `;
 
