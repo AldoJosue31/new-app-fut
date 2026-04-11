@@ -1,5 +1,9 @@
 import { generarFixture } from "../services/torneos";
-import { isOfficialJornadaName, sortJornadas } from "./jornadaUtils";
+import {
+    isOfficialJornadaName,
+    resolveRepositionMappings,
+    sortJornadas
+} from "./jornadaUtils";
 
 /**
  * Genera la estructura plana inicial de partidos (creacion).
@@ -97,13 +101,17 @@ export const transformarPartidosExistentes = (
 
     const jornadaMap = {};
     const jornadasSorted = sortJornadas(jornadas);
+    const resolvedRepositionMappings = resolveRepositionMappings({
+        jornadas: jornadasSorted,
+        configuredMappings: repositionMappings,
+    });
 
     (repositionMatchMappings || []).forEach((mapping) => {
         if (!mapping?.matchId) return;
         repositionMatchMap.set(String(mapping.matchId), mapping);
     });
 
-    (repositionMappings || []).forEach((mapping) => {
+    (resolvedRepositionMappings || []).forEach((mapping) => {
         if (!mapping?.repositionJornadaId) return;
         repositionJornadaMap.set(String(mapping.repositionJornadaId), mapping);
     });
