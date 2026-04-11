@@ -5,7 +5,15 @@ import { RiDragMove2Line, RiSettings3Line, RiCloseLine, RiLockLine } from "react
 import { v } from "../../../../../styles/variables";
 import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
 
-export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJornadaNumber = 1, onOpenResolution, onClearResolution }) => {
+export const PendingMatchCard = ({
+  match,
+  isConfirmed,
+  onDragStart,
+  onDragEnd,
+  currentJornadaNumber = 1,
+  onOpenResolution,
+  onClearResolution,
+}) => {
   const matchJornadaNum = parseJornadaNumber(match.originJornada, 999);
   const isDelayed = matchJornadaNum < currentJornadaNumber;
   const hasResolution = !!match.resolution;
@@ -14,6 +22,7 @@ export const PendingMatchCard = ({ match, isConfirmed, onDragStart, currentJorna
     <Card 
       draggable={!isConfirmed && !hasResolution} 
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       $isConfirmed={isConfirmed}
       $isDelayed={isDelayed}
       $hasResolution={hasResolution}

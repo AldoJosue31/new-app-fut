@@ -216,6 +216,15 @@ export function JornadaPlanificacion({
   const planningReferenceStartDate = isRepositionMode
     ? repositionWeek.startDate || suggestedRepositionWindow.startDate
     : weekStartDate;
+  const planningWindowStartDate =
+    headerJornadaData?.start_date ||
+    planningReferenceStartDate ||
+    jornadaData?.start_date ||
+    weekStartDate ||
+    "";
+  const planningWindowEndDate =
+    headerJornadaData?.end_date ||
+    (planningWindowStartDate ? addDaysToDate(planningWindowStartDate, 6) : "");
   const tournamentConfig = useMemo(() => {
     if (!activeTournament?.config) return {};
 
@@ -255,49 +264,73 @@ export function JornadaPlanificacion({
     setAllPendingMatches(updated);
   };
 
+  const clearDraggedMatch = useCallback(() => {
+    setDraggedMatch(null);
+    setIsDragOver(false);
+  }, []);
+
+  const assignDraggedMatchToDate = useCallback(
+    (targetDate = null) => {
+      setIsDragOver(false);
+      if (!draggedMatch || isConfirmed) return;
+
+      const baseStartDate = planningWindowStartDate || weekStartDate;
+      const finalDate = targetDate || baseStartDate;
+
+      const matchesOfTargetDate = scheduledMatches.filter(
+        (match) => match.date === finalDate
+      );
+      const configStartHour = tournamentConfig?.horaInicio || "08:00";
+      let nextTime = configStartHour;
+
+      if (matchesOfTargetDate.length > 0) {
+        const last = matchesOfTargetDate
+          .sort((a, b) => (a.time || "").localeCompare(b.time || ""))
+          .pop();
+
+        if (last?.time) {
+          const [h, m] = last.time.split(":").map(Number);
+          const total = h * 60 + m + durationMatch;
+          nextTime = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
+            total % 60
+          ).padStart(2, "0")}`;
+        }
+      }
+
+      const newMatch = {
+        ...draggedMatch,
+        time: nextTime,
+        date: finalDate,
+        status: "Programado",
+        isModified: true,
+      };
+
+      const newList = [...scheduledMatches, newMatch];
+      setScheduledMatches(autoAdjustTimes(newList, finalDate));
+      setAllPendingMatches(
+        allPendingMatches.filter((match) => match.id !== draggedMatch.id)
+      );
+      setDraggedMatch(null);
+    },
+    [
+      allPendingMatches,
+      autoAdjustTimes,
+      draggedMatch,
+      durationMatch,
+      isConfirmed,
+      planningWindowStartDate,
+      scheduledMatches,
+      setAllPendingMatches,
+      setScheduledMatches,
+      tournamentConfig?.horaInicio,
+      weekStartDate,
+    ]
+  );
+
   const handleDrop = (e, targetDate = null) => {
     e.preventDefault();
     if (e.stopPropagation) e.stopPropagation();
-
-    setIsDragOver(false);
-    if (!draggedMatch || isConfirmed) return;
-
-    const baseStartDate =
-      planningReferenceStartDate || jornadaData?.start_date || weekStartDate;
-    const finalDate = targetDate || baseStartDate;
-
-    const matchesOfTargetDate = scheduledMatches.filter(
-      (match) => match.date === finalDate
-    );
-    const configStartHour = tournamentConfig?.horaInicio || "08:00";
-    let nextTime = configStartHour;
-
-    if (matchesOfTargetDate.length > 0) {
-      const last = matchesOfTargetDate
-        .sort((a, b) => (a.time || "").localeCompare(b.time || ""))
-        .pop();
-
-      if (last?.time) {
-        const [h, m] = last.time.split(":").map(Number);
-        const total = h * 60 + m + durationMatch;
-        nextTime = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
-          total % 60
-        ).padStart(2, "0")}`;
-      }
-    }
-
-    const newMatch = {
-      ...draggedMatch,
-      time: nextTime,
-      date: finalDate,
-      status: "Programado",
-      isModified: true,
-    };
-
-    const newList = [...scheduledMatches, newMatch];
-    setScheduledMatches(autoAdjustTimes(newList, finalDate));
-    setAllPendingMatches(allPendingMatches.filter((match) => match.id !== draggedMatch.id));
-    setDraggedMatch(null);
+    assignDraggedMatchToDate(targetDate);
   };
 
   const handleUpdateDate = (matchId, newDate) => {
@@ -508,6 +541,7 @@ export function JornadaPlanificacion({
               matches={sidebarMatches}
               isConfirmed={isConfirmed}
               setDraggedMatch={setDraggedMatch}
+              onDragEnd={clearDraggedMatch}
               jornadaIndex={jornadaIndex}
               currentJornadaNumber={currentJornadaNumber}
               onOpenResolution={handleOpenResolution}
@@ -528,7 +562,14 @@ export function JornadaPlanificacion({
                 $isOver={isDragOver}
               >
                 {sortedMatches.length === 0 ? (
-                  <EmptyDropZone isConfirmed={isConfirmed} isDragOver={isDragOver} />
+                  <EmptyDropZone
+                    isConfirmed={isConfirmed}
+                    isDragOver={isDragOver}
+                    draggedMatch={draggedMatch}
+                    jornadaStartDate={planningWindowStartDate}
+                    jornadaEndDate={planningWindowEndDate}
+                    onDropDate={assignDraggedMatchToDate}
+                  />
                 ) : (
                   <GridList>
                     {sortedMatches.map((match, idx, arr) => {
@@ -551,15 +592,13 @@ export function JornadaPlanificacion({
                             match={match}
                             groupLabel={groupLabel}
                             isConfirmed={isConfirmed}
-                            jornadaStartDate={headerJornadaData?.start_date || ""}
-                            jornadaEndDate={headerJornadaData?.end_date || ""}
+                            jornadaStartDate={planningWindowStartDate}
+                            jornadaEndDate={planningWindowEndDate}
                             timeStepMinutes={durationMatch}
                             timeMin={tournamentConfig?.horaInicio || ""}
                             timeMax={tournamentConfig?.horaFin || ""}
                             defaultTime={tournamentConfig?.horaInicio || "08:00"}
-                            onDropOnDate={(targetDate) =>
-                              handleDrop({ preventDefault: () => {} }, targetDate)
-                            }
+                            onDropOnDate={assignDraggedMatchToDate}
                             onUpdateDate={(val) => handleUpdateDate(match.id, val)}
                             onUpdateTime={(val) => {
                               const updated = scheduledMatches.map((item) =>
@@ -597,9 +636,7 @@ export function JornadaPlanificacion({
                           {isLastOfDate && match.date && (
                             <DaySeparatorDropZone
                               baseDate={match.date}
-                              onDropAction={(date) =>
-                                handleDrop({ preventDefault: () => {} }, date)
-                              }
+                              onDropAction={assignDraggedMatchToDate}
                               isConfirmed={isConfirmed}
                             />
                           )}

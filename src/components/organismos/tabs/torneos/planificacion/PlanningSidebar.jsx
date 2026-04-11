@@ -11,6 +11,7 @@ export function PlanningSidebar({
   matches,
   isConfirmed,
   setDraggedMatch,
+  onDragEnd,
   jornadaIndex,
   currentJornadaNumber = jornadaIndex + 1,
   onOpenResolution,
@@ -95,6 +96,7 @@ export function PlanningSidebar({
                                             e.dataTransfer.setData("text", match.id);
                                         }
                                     }}
+                                    onDragEnd={onDragEnd}
                                     currentJornadaNumber={currentJornadaNumber}
                                     onOpenResolution={onOpenResolution}
                                     onClearResolution={onClearResolution}
@@ -133,6 +135,7 @@ export function PlanningSidebar({
                                     e.dataTransfer.setData("text", match.id);
                                 }
                             }}
+                            onDragEnd={onDragEnd}
                             currentJornadaNumber={currentJornadaNumber}
                             onOpenResolution={onOpenResolution}
                             onClearResolution={onClearResolution}
