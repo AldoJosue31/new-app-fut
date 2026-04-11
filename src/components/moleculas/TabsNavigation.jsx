@@ -2,7 +2,12 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { Device } from "../../styles/breakpoints";
 
-export function TabsNavigation({ tabs, activeTab, setActiveTab }) {
+export function TabsNavigation({
+  tabs,
+  activeTab,
+  setActiveTab,
+  showLabelsOnMobile = false,
+}) {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, opacity: 0 });
   const containerRef = useRef(null);
   const tabsRef = useRef([]);
@@ -77,6 +82,7 @@ export function TabsNavigation({ tabs, activeTab, setActiveTab }) {
             tabsRef.current[index] = el;
           }}
           $active={activeTab === tab.id}
+          $showLabelsOnMobile={showLabelsOnMobile}
           onClick={() => setActiveTab(tab.id)}
           type="button"
         >
@@ -161,9 +167,10 @@ const TabButton = styled.button`
   transition: all 0.3s ease;
 
   .label {
-    display: none;
+    display: ${({ $showLabelsOnMobile }) => ($showLabelsOnMobile ? "block" : "none")};
     position: relative;
     z-index: 2;
+    font-size: ${({ $showLabelsOnMobile }) => ($showLabelsOnMobile ? "0.78rem" : "inherit")};
   }
 
   .icon {
@@ -173,11 +180,21 @@ const TabButton = styled.button`
     font-size: 1.4rem;
   }
 
+  @media (max-width: 767px) {
+    gap: ${({ $showLabelsOnMobile }) => ($showLabelsOnMobile ? "6px" : "8px")};
+    padding: ${({ $showLabelsOnMobile }) => ($showLabelsOnMobile ? "10px 8px" : "12px 0")};
+
+    .icon {
+      font-size: ${({ $showLabelsOnMobile }) => ($showLabelsOnMobile ? "1rem" : "1.4rem")};
+    }
+  }
+
   @media ${Device.tablet} {
     padding: 10px 16px;
 
     .label {
       display: block;
+      font-size: inherit;
     }
 
     .icon {
