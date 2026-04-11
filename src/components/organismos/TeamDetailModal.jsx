@@ -1,924 +1,231 @@
-import React, { useState, useEffect, useRef } from "react";
-import styled, { keyframes, css } from "styled-components";
-import { 
-    Modal, 
-    ContainerScroll, 
-    Skeleton, 
-    SortControl, 
-    useSort, 
-    v 
-} from "../../index";
+import React, { useEffect, useRef, useState } from "react";
+import { Modal } from "./Modal";
+import { useSort } from "../../hooks/useSort";
 import { supabase } from "../../supabase/supabase.config";
-import { getTeamTournamentStats } from "../../services/estadisticas"; 
-import { formatShortDate } from "../../utils/dateUtils";
-import { 
-    RiShieldUserLine, RiUserFollowLine, RiSmartphoneLine, 
-    RiArrowLeftLine, RiTrophyLine, RiFootballLine, RiUserSmileLine,
-    RiHashtag, RiFontSize, RiFocus2Line
-} from "react-icons/ri";
-import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
-import { DynamicTeamLogo } from "./equipos/DynamicTeamLogo"; // IMPORTACIÓN DEL LOGO DINÁMICO
+import { getTeamTournamentStats } from "../../services/estadisticas";
+import {
+  PLAYER_SORT_OPTIONS,
+  STATS_TABS,
+  TEAM_DETAIL_VIEWS,
+} from "./teamDetailModal/constants";
+import { TeamDetailOverviewView } from "./teamDetailModal/submenus/TeamDetailOverviewView";
+import { TeamDetailPlayersView } from "./teamDetailModal/submenus/TeamDetailPlayersView";
+import { TeamDetailStatsView } from "./teamDetailModal/submenus/TeamDetailStatsView";
+import { DetailContainer } from "./teamDetailModal/styles";
 
 export function TeamDetailModal({ isOpen, onClose, team, division, initialView }) {
-    // --- ESTADOS ---
-    const [showPlayerList, setShowPlayerList] = useState(false);
-    const [players, setPlayers] = useState([]);
-    const [loadingPlayers, setLoadingPlayers] = useState(false);
+  const [activeView, setActiveView] = useState(TEAM_DETAIL_VIEWS.OVERVIEW);
+  const [players, setPlayers] = useState([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
 
-    const [showStats, setShowStats] = useState(false);
-    const [activeStatsTab, setActiveStatsTab] = useState("results");
-    const [statsData, setStatsData] = useState(null);
-    const [hasActiveTournament, setHasActiveTournament] = useState(false);
-    const [loadingStats, setLoadingStats] = useState(false);
+  const [activeStatsTab, setActiveStatsTab] = useState("results");
+  const [statsData, setStatsData] = useState(null);
+  const [hasActiveTournament, setHasActiveTournament] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
 
-    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-    const resultsRailRef = useRef(null);
-    const upcomingRailRef = useRef(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const resultsRailRef = useRef(null);
+  const upcomingRailRef = useRef(null);
 
-    // --- ORDENAMIENTO PLANTILLA (ICONIZADO) ---
-    const POSITION_RANK = { 'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4 };
-    const { items: sortedPlayers, requestSort, sortConfig } = useSort(players, {
-        key: 'dorsal', direction: 'ascending'
-    });
-    
-    const sortOptions = [
-        { label: "Dorsal", key: "dorsal", icon: <RiHashtag/> },
-        { label: "Nombre", key: "first_name", icon: <RiFontSize/> },
-        { label: "Posición", key: "position", icon: <RiFocus2Line/>, customOrder: POSITION_RANK }
-    ];
+  const { items: sortedPlayers, requestSort, sortConfig } = useSort(players, {
+    key: "dorsal",
+    direction: "ascending",
+  });
 
-    // --- ORDENAMIENTO ESTADÍSTICAS ---
-    const { items: sortedStats, requestSort: requestStatSort, sortConfig: statSortConfig } = useSort(statsData?.playerStats || [], {
-        key: 'goals', direction: 'descending'
-    });
+  const {
+    items: sortedStats,
+    requestSort: requestStatSort,
+    sortConfig: statSortConfig,
+  } = useSort(statsData?.playerStats || [], {
+    key: "goals",
+    direction: "descending",
+  });
 
-    // --- EFECTOS ---
-    useEffect(() => {
-        const handleResize = () => setWindowWidth(window.innerWidth);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-    useEffect(() => {
-        if (!isOpen) {
-            setShowPlayerList(false);
-            setShowStats(false);
-            setActiveStatsTab("results");
-            setPlayers([]);
-            setStatsData(null);
-            setHasActiveTournament(false);
-        } else if (team) {
-            if (division) checkTournamentStatus();
-            if (initialView === 'stats') {
-                setActiveStatsTab("results");
-                setShowStats(true);
-            }
-        }
-    }, [isOpen, team, division, initialView]);
-
-    const checkTournamentStatus = async () => {
-        setLoadingStats(true);
-        try {
-            const { data: torneoSel, error: tErr } = await supabase
-                .from('tournaments')
-                .select('id')
-                .eq('division_id', division.id)
-                .eq('status', 'Activo')
-                .single();
-
-            if (tErr || !torneoSel) {
-                console.warn("TeamDetailModal.checkTournamentStatus: No hay torneo activo para la division", { error: tErr });
-                setHasActiveTournament(false);
-                setStatsData(null);
-                return;
-            }
-
-            const tournamentId = torneoSel.id;
-            setHasActiveTournament(true);
-
-            const data = await getTeamTournamentStats(team.id, division.id);
-            const safeData = data && data.hasTournament
-                ? data
-                : {
-                    hasTournament: true,
-                    matchHistory: [],
-                    upcomingRivals: [],
-                    playerStats: []
-                };
-
-            const { data: golesView, error: gErr } = await supabase
-                .from('view_goleadores')
-                .select('player_id, goals')
-                .eq('tournament_id', Number(tournamentId))
-                .eq('team_id', Number(team.id));
-
-            if (gErr) console.warn("TeamDetailModal.checkTournamentStatus: error reading view_goleadores", gErr);
-
-            const goalsMap = (golesView || []).reduce((acc, row) => {
-                const pid = row.player_id ?? row.playerId ?? null;
-                if (pid != null) acc[String(pid)] = Number(row.goals ?? 0);
-                return acc;
-            }, {});
-
-            const mergedPlayerStats = (safeData.playerStats || []).map(p => {
-                const pidKey = String(p.id);
-                const viewGoals = (pidKey in goalsMap) ? goalsMap[pidKey] : undefined;
-                return {
-                    ...p,
-                    goals: (typeof viewGoals === 'number') ? viewGoals : (p.goals || 0)
-                };
-            });
-
-            setStatsData({
-                ...safeData,
-                tournamentId,
-                playerStats: mergedPlayerStats
-            });
-
-        } catch (error) {
-            console.error("TeamDetailModal.checkTournamentStatus - unexpected error:", error);
-            setHasActiveTournament(false);
-            setStatsData(null);
-        } finally {
-            setLoadingStats(false);
-        }
-    };
-
-    const handleShowPlayers = async () => {
-        if (!team) return;
-        setShowPlayerList(true);
-        setLoadingPlayers(true);
-        try {
-            const { data } = await supabase.from('players').select('*').eq('team_id', team.id);
-            setPlayers(data || []);
-        } catch (error) { console.error(error); } 
-        finally { setLoadingPlayers(false); }
-    };
-
-    const handleShowStats = () => {
-        setActiveStatsTab("results");
-        setShowStats(true);
-    };
-
-    const SortIcon = ({ columnKey }) => {
-        if (statSortConfig.key !== columnKey) return null; 
-        return <SortIndicator>{statSortConfig.direction === 'ascending' ? '▲' : '▼'}</SortIndicator>;
-    };
-
-    const statsTabs = [
-        { id: "results", label: "Últimos Resultados", icon: <RiFootballLine /> },
-        { id: "performance", label: "Rendimiento Individual", icon: <RiUserSmileLine /> }
-    ];
-
-    const renderTeamLogo = (club, size = "28px") => {
-        if (club?.logo_url) {
-            return <img src={club.logo_url} alt={club?.name || "Equipo"} />;
-        }
-
-        return (
-            <DynamicTeamLogo
-                name={club?.name || "Equipo"}
-                color={club?.color || "#000000"}
-                size={size}
-            />
-        );
-    };
-
-    const handleCardsWheel = (event) => {
-        const rail = event.currentTarget;
-        if (!rail || rail.scrollWidth <= rail.clientWidth) return;
-
-        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-            event.preventDefault();
-            rail.scrollBy({
-                left: event.deltaY,
-                behavior: "smooth"
-            });
-        }
-    };
-
-    if (!team) return null;
-
-    let modalTitle = "Ficha del Equipo";
-    if (showPlayerList) modalTitle = "Plantilla";
-    if (showStats) modalTitle = `Estadísticas: ${team.name ? ` ${team.name}` : ''}`;
-
-    const getModalWidth = () => {
-        const isMobile = windowWidth < 768;
-        return isMobile ? "100%" : (showPlayerList || showStats ? "850px" : "550px");
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW);
+      setActiveStatsTab("results");
+      setPlayers([]);
+      setStatsData(null);
+      setHasActiveTournament(false);
+      setLoadingPlayers(false);
+      return;
     }
 
-    return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={modalTitle}
-            closeOnOverlayClick={true}
-            width={getModalWidth()}
-        >
-            <DetailContainer $color={team.color}>
-                
-                {/* --- VISTA 1: PLANTILLA --- */}
-                {showPlayerList ? (
-                    <div className="internal-view">
-                        <div className="header-list-actions">
-                            <button className="back-link-styled" onClick={() => setShowPlayerList(false)}>
-                                <RiArrowLeftLine /> <span>Volver</span>
-                            </button>
-                            {!loadingPlayers && players.length > 0 && (
-                                <SortControl 
-                                    options={sortOptions} 
-                                    currentSort={sortConfig} 
-                                    onSortChange={requestSort} 
-                                />
-                            )}
-                        </div>
-                        <ContainerScroll $maxHeight="70vh">
-                            <div className="players-grid-simple">
-                                {loadingPlayers ? (
-                                    Array.from({ length: 8 }).map((_, i) => <PlayerSkeleton key={i} />)
-                                ) : (
-                                    sortedPlayers.map(p => (
-                                        <div className="player-chip-simple" key={p.id}>
-                                            <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="foto" />
-                                            <div className="info-p">
-                                                <span className="dorsal">#{p.dorsal}</span>
-                                                <span className="name">{p.first_name} {p.last_name}</span>
-                                                <span className="pos">{p.position || "Jugador"}</span>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                                {players.length === 0 && !loadingPlayers && <p className="empty-msg">Sin jugadores.</p>}
-                            </div>
-                        </ContainerScroll>
-                    </div>
-                ) : showStats ? (
-                    /* --- VISTA 2: ESTADÍSTICAS --- */
-                    <div className="internal-view">
-                        <div className="header-list-actions">
-                            <button className="back-link-styled" onClick={() => setShowStats(false)}>
-                                <RiArrowLeftLine /> <span>Volver</span>
-                            </button>
-                        </div>
+    if (!team) return;
 
-                        <ContainerScroll $maxHeight="70vh">
-                            <StatsContent>
-                                <StatsTabsShell>
-                                    <TabsNavigation
-                                        tabs={statsTabs}
-                                        activeTab={activeStatsTab}
-                                        setActiveTab={setActiveStatsTab}
-                                    />
-                                    {activeStatsTab === "results" ? (
-                                        <TabContent>
-                                            <StatsPanel>
-                                                <SectionContainer>
-                                    <SectionLabel>Últimos Resultados</SectionLabel>
-                                    <MatchesGrid ref={resultsRailRef} onWheel={handleCardsWheel}>
-                                        {loadingStats ? (
-                                            Array.from({ length: 4 }).map((_, i) => <MatchCardSkeleton key={i} />)
-                                        ) : statsData?.matchHistory?.length > 0 ? (
-                                            statsData.matchHistory.map(m => {
-                                                // EVALUACIÓN DE EMPATE EN TIEMPO REGULAR Y PENALES
-                                                const isTieRegular = m.myGoals === m.rivalGoals;
-                                                const hasPenalties = m.myPenalties !== null && m.rivalPenalties !== null;
-                                                
-                                                let badgeLetter = m.result === 'V' ? 'G' : m.result === 'E' ? 'E' : 'P';
-                                                let badgeColor = m.result; 
-                                                let penaltyStatus = null;
-
-                                                if (isTieRegular) {
-                                                    badgeLetter = 'E';
-                                                    badgeColor = 'E'; 
-                                                    if (hasPenalties) {
-                                                        penaltyStatus = m.myPenalties > m.rivalPenalties ? 'win' : 'loss';
-                                                    }
-                                                }
-
-                                                return (
-                                                    <MatchCard key={m.id}>
-                                                        <div className="match-header">
-                                                            <span className="jornada-tag" title={m.jornada}>{m.jornada}</span>
-                                                            <ResultBadge $result={badgeColor} $penaltyStatus={penaltyStatus}>
-                                                                {badgeLetter}
-                                                            </ResultBadge>
-                                                        </div>
-
-                                                        {/* Fecha simple justo arriba del marcador */}
-                                                        <div className="match-date-simple">
-                                                            {formatShortDate(m.date)}
-                                                        </div>
-
-                                                        <div className="match-score">
-                                                            <span className="score-num my-team">{m.myGoals}</span>
-                                                            <span className="divider">-</span>
-                                                            <span className="score-num">{m.rivalGoals}</span>
-                                                        </div>
-                                                        
-                                                        {/* Mostrar Tanda de Penales */}
-                                                        {hasPenalties && (
-                                                            <div className="penalties-score">
-                                                                (P: {m.myPenalties} - {m.rivalPenalties})
-                                                            </div>
-                                                        )}
-
-                                                        <div className="rival-container">
-                                                            {/* LOGO DINÁMICO DEL RIVAL */}
-                                                            {renderTeamLogo(m.rival)}
-                                                            <span>{m.rival.name}</span>
-                                                        </div>
-                                                    </MatchCard>
-                                                );
-                                            })
-                                        ) : (
-                                            <EmptyBox>Sin resultados aún.</EmptyBox>
-                                        )}
-                                    </MatchesGrid>
-                                </SectionContainer>
-
-                                <SectionContainer>
-                                    <SectionLabel>Próximos Rivales</SectionLabel>
-                                    <UpcomingGrid ref={upcomingRailRef} onWheel={handleCardsWheel}>
-                                        {loadingStats ? (
-                                            Array.from({ length: 4 }).map((_, i) => <UpcomingRivalSkeleton key={i} />)
-                                        ) : statsData?.upcomingRivals?.length > 0 ? (
-                                            statsData.upcomingRivals.map(match => (
-                                                <UpcomingCard key={match.id}>
-                                                    <div className="upcoming-jornada" title={match.jornada}>
-                                                        {match.jornada || "Pendiente"}
-                                                    </div>
-                                                    <div className="logo-slot">
-                                                        {renderTeamLogo(match.rival, "34px")}
-                                                    </div>
-                                                    <div className="upcoming-name" title={match.rival?.name}>
-                                                        {match.rival?.name || "Rival pendiente"}
-                                                    </div>
-                                                    <div className="upcoming-date">
-                                                        {match.date ? formatShortDate(match.date) : "Sin fecha"}
-                                                    </div>
-                                                    {match.time && <div className="upcoming-time">{match.time}</div>}
-                                                </UpcomingCard>
-                                            ))
-                                        ) : (
-                                            <EmptyBox>No quedan partidos pendientes por disputar.</EmptyBox>
-                                        )}
-                                    </UpcomingGrid>
-                                </SectionContainer>
-                                            </StatsPanel>
-                                        </TabContent>
-                                    ) : (
-                                        <TabContent>
-                                            <StatsPanel>
-                                <SectionContainer>
-                                    <SectionLabel>Rendimiento Individual</SectionLabel>
-                                    <TableWrapper>
-                                        <StyledTable>
-                                            <thead>
-                                                <tr>
-                                                    <th className="col-player clickable" onClick={() => requestStatSort('name')}>
-                                                        <div className="th-content">Jugador <SortIcon columnKey="name"/></div>
-                                                    </th>
-                                                    <th className="col-stat clickable" onClick={() => requestStatSort('matches')}>
-                                                         <div className="th-content centered"><RiUserSmileLine size={14}/></div>
-                                                    </th>
-                                                    <th className="col-stat clickable" onClick={() => requestStatSort('goals')}>
-                                                        <div className="th-content centered"><RiFootballLine size={14}/></div>
-                                                    </th>
-                                                    <th className="col-stat clickable" onClick={() => requestStatSort('yellow')}>
-                                                        <div className="th-content centered"><CardIcon color="#f1c40f"/></div>
-                                                    </th>
-                                                    <th className="col-stat clickable" onClick={() => requestStatSort('red')}>
-                                                        <div className="th-content centered"><CardIcon color="#e74c3c"/></div>
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {loadingStats ? (
-                                                    Array.from({ length: 5 }).map((_, i) => <StatTableRowSkeleton key={i} />)
-                                                ) : sortedStats.length > 0 ? (
-                                                    sortedStats.map(p => (
-                                                        <tr key={p.id}>
-                                                            <td className="col-player">
-                                                                <PlayerCell>
-                                                                    <div className="avatar-mini">
-                                                                        {p.photo ? <img src={p.photo} alt="p"/> : <span>{p.name.charAt(0)}</span>}
-                                                                    </div>
-                                                                    <div className="p-info">
-                                                                        <span className="p-name">{p.name}</span>
-                                                                        {p.dorsal !== '?' && <span className="p-dorsal">#{p.dorsal}</span>}
-                                                                    </div>
-                                                                </PlayerCell>
-                                                            </td>
-                                                            <td className="col-stat">{p.matches}</td>
-                                                            <td className="col-stat bold">{p.goals}</td>
-                                                            <td className="col-stat">{p.yellow}</td>
-                                                            <td className="col-stat">{p.red}</td>
-                                                        </tr>
-                                                    ))
-                                                ) : (
-                                                    <tr><td colSpan="5" className="empty-cell">Sin estadísticas</td></tr>
-                                                )}
-                                            </tbody>
-                                        </StyledTable>
-                                    </TableWrapper>
-                                </SectionContainer>
-                                            </StatsPanel>
-                                        </TabContent>
-                                    )}
-                                </StatsTabsShell>
-                            </StatsContent>
-                        </ContainerScroll>
-                    </div>
-                ) : (
-                    /* --- VISTA 3: HOME --- */
-                    <div className="ficha-view">
-                        <div className="banner">
-                            <div className="division-badge">{division?.name || "Liga"}</div>
-                        </div>
-                        <div className="logo-wrapper">
-                            {/* LOGO DINÁMICO DEL EQUIPO PRINCIPAL */}
-                            {team.logo_url ? (
-                                <img src={team.logo_url} alt={team.name} />
-                            ) : (
-                                <DynamicTeamLogo name={team.name} color={team.color || "#000000"} size="130px" />
-                            )}
-                        </div>
-                        <h2 className="team-title">{team.name}</h2>
-                        
-                        <div className="info-body">
-                            <InfoItem>
-                                <IconBox><RiShieldUserLine /></IconBox>
-                                <div>
-                                    <span className="label">Delegado</span>
-                                    <p className="value">{team.delegate_name || "No registrado"}</p>
-                                </div>
-                            </InfoItem>
-
-                            <InfoItem className="clickable" onClick={handleShowPlayers}>
-                                <IconBox><RiUserFollowLine /></IconBox>
-                                <div style={{ flex: 1 }}>
-                                    <span className="label">Plantilla</span>
-                                    <p className="value">Ver Jugadores</p>
-                                </div>
-                                <span className="arrow-icon">➔</span>
-                            </InfoItem>
-
-                            <InfoItem>
-                                <IconBox><RiSmartphoneLine /></IconBox>
-                                <div>
-                                    <span className="label">Contacto</span>
-                                    <p className="value">{team.contact_phone || "No disponible"}</p>
-                                </div>
-                            </InfoItem>
-
-                            {loadingStats ? (
-                                <Skeleton width="100%" height="60px" />
-                            ) : hasActiveTournament ? (
-                                <InfoItem className="clickable tournament-active" onClick={handleShowStats}>
-                                    <IconBox className="gold"><RiTrophyLine /></IconBox>
-                                    <div style={{ flex: 1 }}>
-                                        <span className="label">Torneo Actual</span>
-                                        <p className="value highlight">Estadísticas</p>
-                                    </div>
-                                    <span className="arrow-icon">➔</span>
-                                </InfoItem>
-                            ) : (
-                                <InfoItem>
-                                    <IconBox><v.iconoemijivacio /></IconBox>
-                                    <div>
-                                        <span className="label">Estado</span>
-                                        <StatusPill $active={team.status === 'Activo'}>{team.status}</StatusPill>
-                                    </div>
-                                </InfoItem>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </DetailContainer>
-        </Modal>
+    setActiveView(
+      initialView === "stats" ? TEAM_DETAIL_VIEWS.STATS : TEAM_DETAIL_VIEWS.OVERVIEW
     );
+    setActiveStatsTab("results");
+
+    if (division) {
+      checkTournamentStatus();
+      return;
+    }
+
+    setHasActiveTournament(false);
+    setStatsData(null);
+  }, [division, initialView, isOpen, team]);
+
+  const checkTournamentStatus = async () => {
+    if (!team || !division) return;
+
+    setLoadingStats(true);
+
+    try {
+      const { data: torneoSel, error: tournamentError } = await supabase
+        .from("tournaments")
+        .select("id")
+        .eq("division_id", division.id)
+        .eq("status", "Activo")
+        .single();
+
+      if (tournamentError || !torneoSel) {
+        console.warn(
+          "TeamDetailModal.checkTournamentStatus: No hay torneo activo para la division",
+          { error: tournamentError }
+        );
+        setHasActiveTournament(false);
+        setStatsData(null);
+        return;
+      }
+
+      const tournamentId = torneoSel.id;
+      setHasActiveTournament(true);
+
+      const data = await getTeamTournamentStats(team.id, division.id);
+      const safeData =
+        data && data.hasTournament
+          ? data
+          : {
+              hasTournament: true,
+              matchHistory: [],
+              upcomingRivals: [],
+              playerStats: [],
+            };
+
+      setStatsData({
+        ...safeData,
+        tournamentId,
+      });
+    } catch (error) {
+      console.error("TeamDetailModal.checkTournamentStatus - unexpected error:", error);
+      setHasActiveTournament(false);
+      setStatsData(null);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const handleShowPlayers = async () => {
+    if (!team) return;
+
+    setActiveView(TEAM_DETAIL_VIEWS.PLAYERS);
+    setLoadingPlayers(true);
+
+    try {
+      const { data } = await supabase
+        .from("players")
+        .select("*")
+        .eq("team_id", team.id);
+
+      setPlayers(data || []);
+    } catch (error) {
+      console.error(error);
+      setPlayers([]);
+    } finally {
+      setLoadingPlayers(false);
+    }
+  };
+
+  const handleShowStats = () => {
+    setActiveStatsTab("results");
+    setActiveView(TEAM_DETAIL_VIEWS.STATS);
+  };
+
+  if (!team) return null;
+
+  const sortOptions = PLAYER_SORT_OPTIONS.map(({ Icon, ...option }) => ({
+    ...option,
+    icon: <Icon />,
+  }));
+
+  const statsTabs = STATS_TABS.map(({ Icon, ...tab }) => ({
+    ...tab,
+    icon: <Icon />,
+  }));
+
+  const getModalTitle = () => {
+    if (activeView === TEAM_DETAIL_VIEWS.PLAYERS) return "Plantilla";
+    if (activeView === TEAM_DETAIL_VIEWS.STATS) {
+      return `Estadísticas:${team.name ? ` ${team.name}` : ""}`;
+    }
+    return "Ficha del Equipo";
+  };
+
+  const getModalWidth = () => {
+    const isMobile = windowWidth < 768;
+    if (isMobile) return "100%";
+
+    return activeView === TEAM_DETAIL_VIEWS.OVERVIEW ? "550px" : "850px";
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={getModalTitle()}
+      closeOnOverlayClick={true}
+      width={getModalWidth()}
+    >
+      <DetailContainer>
+        {activeView === TEAM_DETAIL_VIEWS.PLAYERS && (
+          <TeamDetailPlayersView
+            loadingPlayers={loadingPlayers}
+            onBack={() => setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW)}
+            onSortChange={requestSort}
+            players={players}
+            sortConfig={sortConfig}
+            sortOptions={sortOptions}
+            sortedPlayers={sortedPlayers}
+          />
+        )}
+
+        {activeView === TEAM_DETAIL_VIEWS.STATS && (
+          <TeamDetailStatsView
+            activeStatsTab={activeStatsTab}
+            loadingStats={loadingStats}
+            matchHistory={statsData?.matchHistory || []}
+            onBack={() => setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW)}
+            onStatsTabChange={setActiveStatsTab}
+            requestStatSort={requestStatSort}
+            resultsRailRef={resultsRailRef}
+            sortedStats={sortedStats}
+            statSortConfig={statSortConfig}
+            statsTabs={statsTabs}
+            upcomingRailRef={upcomingRailRef}
+            upcomingRivals={statsData?.upcomingRivals || []}
+          />
+        )}
+
+        {activeView === TEAM_DETAIL_VIEWS.OVERVIEW && (
+          <TeamDetailOverviewView
+            division={division}
+            hasActiveTournament={hasActiveTournament}
+            loadingStats={loadingStats}
+            onShowPlayers={handleShowPlayers}
+            onShowStats={handleShowStats}
+            team={team}
+          />
+        )}
+      </DetailContainer>
+    </Modal>
+  );
 }
-
-// --- ESTILOS OPTIMIZADOS ---
-
-const PlayerSkeleton = () => (
-    <PlayerSkeletonWrapper>
-        <Skeleton type="circle" width="60px" height="60px" />
-        <div className="info-sk"><Skeleton width="70%" height="14px" /><Skeleton width="40%" height="10px" /></div>
-    </PlayerSkeletonWrapper>
-);
-
-// Nuevos Skeletons para Estadísticas (VISTA 2)
-const MatchCardSkeleton = () => (
-    <MatchCard>
-        <div className="match-header">
-            <Skeleton width="40px" height="12px" radius="4px" />
-            <Skeleton width="18px" height="18px" radius="4px" />
-        </div>
-        <Skeleton width="50px" height="10px" style={{ margin: '4px 0' }} />
-        <Skeleton width="70px" height="24px" radius="6px" />
-        <div className="rival-container" style={{ marginTop: '8px' }}>
-            <Skeleton width="28px" height="28px" radius="50%" />
-            <Skeleton width="60px" height="10px" />
-        </div>
-    </MatchCard>
-);
-
-const UpcomingRivalSkeleton = () => (
-    <UpcomingCard>
-        <Skeleton width="70%" height="12px" radius="999px" />
-        <div className="logo-slot">
-            <Skeleton width="42px" height="42px" radius="50%" />
-        </div>
-        <Skeleton width="75%" height="14px" />
-        <Skeleton width="60%" height="11px" />
-        <Skeleton width="45%" height="10px" />
-    </UpcomingCard>
-);
-
-const StatTableRowSkeleton = () => (
-    <tr>
-        <td className="col-player">
-            <PlayerCell>
-                <Skeleton width="24px" height="24px" radius="50%" />
-                <div className="p-info" style={{ gap: '4px', flex: 1 }}>
-                    <Skeleton width="60%" height="12px" />
-                    <Skeleton width="30%" height="10px" />
-                </div>
-            </PlayerCell>
-        </td>
-        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
-        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
-        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
-        <td className="col-stat"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></td>
-    </tr>
-);
-
-const slideInRight = keyframes` from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; }`;
-const slideInLeft = keyframes` from { transform: translateX(-30px); opacity: 0; } to { transform: translateX(0); opacity: 1; }`;
-
-const DetailContainer = styled.div`
-    display: flex; flex-direction: column; align-items: center; position: relative; padding-bottom: 10px; width: 100%; overflow-x: hidden; 
-
-    .internal-view { 
-        width: 100%; 
-        animation: ${slideInRight} 0.3s cubic-bezier(0.25, 1, 0.5, 1); 
-        padding: 0 10px;
-        @media (max-width: 768px) { padding: 0; }
-    }
-    .ficha-view { 
-        width: 100%; display: flex; flex-direction: column; align-items: center; 
-        animation: ${slideInLeft} 0.3s cubic-bezier(0.25, 1, 0.5, 1); 
-    }
-
-    .header-list-actions { 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        margin-bottom: 15px; 
-        gap: 15px; 
-        flex-wrap: wrap; 
-
-        @media (max-width: 480px) { 
-            margin-bottom: 10px; 
-            padding: 0 8px;
-            gap: 10px;
-        }
-    }
-
-    .back-link-styled { 
-        background: ${({theme}) => theme.bgtotal}; border: 1px solid ${({theme}) => theme.bg4}; color: ${({theme}) => theme.text}; 
-        cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 8px 14px; border-radius: 20px; transition: 0.2s;
-        font-size: 0.85rem;
-        flex-shrink: 0; 
-        &:hover { background: ${({theme}) => theme.bgcards}; border-color: ${v.colorPrincipal}; }
-    }
-    
-    .players-grid-simple { 
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; 
-        @media(max-width: 480px){ grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 8px; } 
-    }
-    .player-chip-simple {
-        background: ${({theme})=>theme.bgtotal}; border: 1px solid ${({theme})=>theme.bg4}; padding: 10px; border-radius: 12px;
-        display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
-        img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; background: #eee; border: 2px solid ${({theme})=>theme.bgcards}; }
-        .info-p { display: flex; flex-direction: column; gap: 1px; }
-        .dorsal { font-weight: 900; color: ${v.colorPrincipal}; font-size: 1rem; }
-        .name { font-size: 0.9rem; font-weight: 600; line-height: 1.1; }
-        .pos { font-size: 0.7rem; opacity: 0.7; background: ${({theme})=>theme.bgcards}; padding: 2px 6px; border-radius: 8px; margin-top: 2px; }
-    }
-    .banner {
-        height: 140px; width: calc(100% + 50px); margin: -25px -25px 0 -25px;
-        background: ${({$color}) => `linear-gradient(135deg, ${$color}, ${$color}aa)`};
-        display: flex; justify-content: center; padding-top: 35px; position: relative;
-        &::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.2) 0%, transparent 50%); }
-        .division-badge { background: rgba(0,0,0,0.3); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; z-index: 2; height: fit-content; }
-    }
-    .logo-wrapper {
-        width: 130px; height: 130px; margin-top: -65px; z-index: 5; display: flex; justify-content: center;
-        img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.4)); }
-    }
-    .team-title { margin: 10px 0 5px 0; text-align: center; color: ${({theme}) => theme.text}; font-size: 1.6rem; font-weight: 800; @media(max-width:480px){font-size: 1.4rem;} }
-    .info-body { width: 100%; padding-top: 15px; display: flex; flex-direction: column; gap: 12px; }
-`;
-
-const InfoItem = styled.div`
-    background: ${({theme}) => theme.bgtotal}; padding: 12px 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px; border: 1px solid ${({theme}) => theme.bg4};
-    &.clickable { cursor: pointer; transition: all 0.2s ease; &:hover { border-color: ${v.colorPrincipal}; background: ${({theme}) => theme.bgcards}; .arrow-icon { transform: translateX(5px); color: ${v.colorPrincipal}; } } }
-    &.tournament-active { border-color: #f39c12; background: rgba(243, 156, 18, 0.05); &:hover { background: rgba(243, 156, 18, 0.1); } }
-    .arrow-icon { margin-left: auto; font-size: 1.1rem; opacity: 0.5; transition: transform 0.2s; }
-    .label { font-size: 0.75rem; color: ${({theme}) => theme.text}; opacity: 0.6; display: block; }
-    .value { margin: 0; font-size: 0.95rem; font-weight: 600; color: ${({theme}) => theme.text}; &.highlight { color: #f39c12; font-weight: 800; } }
-`;
-const IconBox = styled.div`
-    width: 38px; height: 38px; background: ${({theme}) => theme.bgcards}; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: ${({theme}) => theme.text}; box-shadow: ${({theme}) => theme.boxshadowGray};
-    &.gold { background: linear-gradient(135deg, #f1c40f, #d35400); color: white; border: none; }
-`;
-const StatusPill = styled.span`
-    display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;
-    background: ${({$active}) => $active ? 'rgba(46, 213, 115, 0.15)' : 'rgba(231, 76, 60, 0.15)'}; color: ${({$active}) => $active ? '#2ecc71' : '#e74c3c'};
-`;
-
-const StatsContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding-bottom: 15px;
-`;
-
-const StatsTabsShell = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-`;
-
-const StatsPanel = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    width: 100%;
-`;
-
-const SectionContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-`;
-
-const SectionLabel = styled.h4`
-    margin: 0;
-    color: ${({theme}) => theme.text};
-    opacity: 0.8;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    border-left: 3px solid ${v.colorPrincipal};
-    padding-left: 8px;
-
-    @media (max-width: 480px) {
-        margin-left: 5px;
-    }
-`;
-
-const MatchesGrid = styled.div`
-    display: flex;
-    overflow-x: auto;
-    gap: 12px;
-    width: 100%;
-    padding: 2px 2px 8px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-
-    &::-webkit-scrollbar {
-        display: none;
-    }
-
-    @media (max-width: 768px) {
-        gap: 10px;
-    }
-`;
-
-const UpcomingGrid = styled.div`
-    display: flex;
-    overflow-x: auto;
-    gap: 12px;
-    width: 100%;
-    padding: 2px 2px 8px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-
-    &::-webkit-scrollbar {
-        display: none;
-    }
-
-    @media (max-width: 768px) {
-        gap: 10px;
-    }
-`;
-
-const MatchCard = styled.div`
-    flex: 0 0 142px;
-    background: ${({theme}) => theme.bgtotal}; 
-    border: 1px solid ${({theme}) => theme.bg4}; 
-    border-radius: 12px; 
-    padding: 12px 10px; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    gap: 4px;
-    position: relative; 
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    scroll-snap-align: start;
-
-    .match-header { 
-        width: 100%; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        margin-bottom: 2px;
-    }
-    .jornada-tag { 
-        font-size: 0.6rem; 
-        font-weight: 800; 
-        text-transform: uppercase; 
-        opacity: 0.6;
-        white-space: nowrap; 
-        overflow: hidden; 
-        text-overflow: ellipsis; 
-        max-width: 80px; 
-    }
-    .match-date-simple {
-        font-size: 0.65rem;
-        font-weight: 600;
-        opacity: 0.5;
-        margin-bottom: -2px; 
-    }
-    .match-score { font-weight: 800; font-size: 1.3rem; color: ${({theme})=>theme.text}; display:flex; align-items: center; gap: 5px; line-height: 1; }
-    .score-num { &.my-team { color: ${v.colorPrincipal}; } }
-    .divider { opacity: 0.3; font-size: 0.9rem; }
-    .penalties-score { font-size: 0.65rem; color: #f39c12; font-weight: 700; margin-top: -3px; margin-bottom: 1px; letter-spacing: 0.5px; }
-    
-    .rival-container { 
-        display: flex; flex-direction: column; align-items: center; gap: 2px; 
-        img, svg { width: 28px; height: 28px; object-fit: contain; } 
-        span { font-size: 0.7rem; text-align: center; line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } 
-    }
-
-    @media (max-width: 480px) {
-        flex-basis: 132px;
-        padding: 10px 8px;
-        .match-score { font-size: 1.15rem; }
-        .jornada-tag { max-width: 74px; }
-        .rival-container span { font-size: 0.68rem; }
-    }
-`;
-
-const UpcomingCard = styled.div`
-    flex: 0 0 122px;
-    background: ${({theme}) => theme.bgtotal};
-    border: 1px solid ${({theme}) => theme.bg4};
-    border-radius: 12px;
-    padding: 10px 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    text-align: center;
-    scroll-snap-align: start;
-
-    .upcoming-jornada {
-        max-width: 100%;
-        padding: 2px 7px;
-        border-radius: 999px;
-        background: ${({theme}) => theme.bgcards};
-        color: ${({theme}) => theme.text};
-        opacity: 0.75;
-        font-size: 0.58rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .logo-slot {
-        width: 34px;
-        height: 34px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        img, svg {
-            width: 34px;
-            height: 34px;
-            object-fit: contain;
-        }
-    }
-
-    .upcoming-name {
-        width: 100%;
-        font-size: 0.74rem;
-        font-weight: 700;
-        line-height: 1.1;
-        color: ${({theme}) => theme.text};
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-
-    .upcoming-date,
-    .upcoming-time {
-        font-size: 0.64rem;
-        font-weight: 600;
-        opacity: 0.65;
-    }
-
-    .upcoming-time {
-        color: ${v.colorPrincipal};
-        opacity: 0.9;
-    }
-
-    @media (max-width: 480px) {
-        flex-basis: 114px;
-        .upcoming-name { font-size: 0.7rem; }
-    }
-`;
-
-/* ESTILOS DE LA ETIQUETA (G / E / P) ACTUALIZADOS CON BORDE DINÁMICO */
-const ResultBadge = styled.span`
-    font-size: 0.55rem; 
-    padding: 2px 5px; 
-    border-radius: 4px; 
-    color: white; 
-    font-weight: 700;
-    background: ${props => props.$result === 'V' ? '#2ecc71' : props.$result === 'D' ? '#e74c3c' : '#95a5a6'};
-    
-    /* Borde del badge si hubo penales */
-    border: ${props => 
-        props.$penaltyStatus === 'win' ? '1.5px solid #2ecc71' : 
-        props.$penaltyStatus === 'loss' ? '1.5px solid #e74c3c' : 
-        '1.5px solid transparent'
-    };
-`;
-
-const EmptyBox = styled.div`
-    background: ${({theme})=>theme.bgcards};
-    padding: 15px;
-    border-radius: 8px;
-    width: 100%;
-    flex: 0 0 100%;
-    text-align: center;
-    font-size: 0.8rem;
-    opacity: 0.7;
-    border: 1px dashed ${({theme})=>theme.bg4};
-    margin: 0;
-`;
-
-const TableWrapper = styled.div`
-    border: 1px solid ${({theme}) => theme.bg4}; border-radius: 10px; background: ${({theme}) => theme.bgtotal};
-    width: 100%; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; &::-webkit-scrollbar { display: none; }
-    @media (max-width: 480px) { border-radius: 0; border-left: none; border-right: none; }
-`;
-
-const StyledTable = styled.table`
-    width: 100%; border-collapse: collapse; table-layout: fixed;
-    th { 
-        background: ${({theme}) => theme.bgcards}; color: ${({theme}) => theme.text}; 
-        padding: 10px 4px; text-align: left; font-size: 0.65rem; 
-        font-weight: 700; text-transform: uppercase; border-bottom: 2px solid ${({theme}) => theme.bg4}; user-select: none; white-space: nowrap;
-        &.clickable { cursor: pointer; transition: background 0.2s; &:hover { background: ${({theme}) => theme.bg4}; } }
-        .th-content { display: flex; align-items: center; gap: 2px; &.centered { justify-content: center; } }
-    }
-    td { padding: 8px 4px; border-bottom: 1px solid ${({theme}) => theme.bg4}; color: ${({theme}) => theme.text}; vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    .col-player { width: auto; text-align: left; }
-    .col-stat { width: 32px; text-align: center; display: table-cell; vertical-align: middle; font-size: 0.85rem; }
-    .bold { font-weight: 700; color: ${v.colorPrincipal}; font-size: 0.9rem; }
-    .empty-cell { text-align: center; padding: 15px; opacity: 0.6; font-style: italic; font-size: 0.8rem; }
-`;
-
-const SortIndicator = styled.span` color: ${v.colorPrincipal}; margin-left: 1px; font-size: 0.8em; `;
-
-const PlayerCell = styled.div`
-    display: flex; align-items: center; gap: 6px;
-    .avatar-mini { 
-        width: 24px; height: 24px; border-radius: 50%; overflow: hidden; background: ${({theme})=>theme.bg4}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        img { width: 100%; height: 100%; object-fit: cover; } span { font-weight: 700; opacity: 0.5; font-size: 0.7rem; } 
-    }
-    .p-info { display: flex; flex-direction: column; line-height: 1; overflow: hidden; max-width: 100%; }
-    .p-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .p-dorsal { font-size: 0.6rem; opacity: 0.7; }
-`;
-
-const CardIcon = styled.div` width: 8px; height: 11px; background: ${props => props.color}; border-radius: 2px; display: inline-block; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.2); `;
-const PlayerSkeletonWrapper = styled.div`
-  background: ${({theme})=>theme.bgtotal}; border: 1px solid ${({theme})=>theme.bg4}; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 150px;
-  .info-sk { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 5px; }
-`;
