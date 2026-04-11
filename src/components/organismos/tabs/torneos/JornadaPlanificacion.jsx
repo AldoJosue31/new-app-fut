@@ -216,6 +216,20 @@ export function JornadaPlanificacion({
   const planningReferenceStartDate = isRepositionMode
     ? repositionWeek.startDate || suggestedRepositionWindow.startDate
     : weekStartDate;
+  const tournamentConfig = useMemo(() => {
+    if (!activeTournament?.config) return {};
+
+    if (typeof activeTournament.config === "string") {
+      try {
+        return JSON.parse(activeTournament.config);
+      } catch (error) {
+        console.error("Error parsing tournament config:", error);
+        return {};
+      }
+    }
+
+    return activeTournament.config;
+  }, [activeTournament?.config]);
 
   const handleOpenResolution = (match) => {
     setMatchToResolve(match);
@@ -255,7 +269,7 @@ export function JornadaPlanificacion({
     const matchesOfTargetDate = scheduledMatches.filter(
       (match) => match.date === finalDate
     );
-    const configStartHour = activeTournament?.config?.horaInicio || "10:00";
+    const configStartHour = tournamentConfig?.horaInicio || "08:00";
     let nextTime = configStartHour;
 
     if (matchesOfTargetDate.length > 0) {
@@ -537,6 +551,12 @@ export function JornadaPlanificacion({
                             match={match}
                             groupLabel={groupLabel}
                             isConfirmed={isConfirmed}
+                            jornadaStartDate={headerJornadaData?.start_date || ""}
+                            jornadaEndDate={headerJornadaData?.end_date || ""}
+                            timeStepMinutes={durationMatch}
+                            timeMin={tournamentConfig?.horaInicio || ""}
+                            timeMax={tournamentConfig?.horaFin || ""}
+                            defaultTime={tournamentConfig?.horaInicio || "08:00"}
                             onDropOnDate={(targetDate) =>
                               handleDrop({ preventDefault: () => {} }, targetDate)
                             }
