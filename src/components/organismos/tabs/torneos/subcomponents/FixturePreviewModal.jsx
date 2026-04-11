@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../styles/variables";
@@ -63,21 +63,30 @@ export function FixturePreviewModal({
         }
     };
 
-    const roundIndexes = Object.keys(matchesByRound).sort((a,b) => Number(a) - Number(b));
+    const roundIndexes = useMemo(
+        () => Object.keys(matchesByRound).sort((a, b) => Number(a) - Number(b)),
+        [matches]
+    );
     const isRoundLocked = (rIndex) => (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
     const confirmedRoundsCount = roundIndexes.filter((rIndex) => isRoundLocked(rIndex)).length;
-    const visibleRoundIndexes = roundIndexes.filter((rIndex) => {
-        if (!isEditMode || showConfirmedRounds) return true;
-        return !isRoundLocked(rIndex);
-    });
+    const visibleRoundIndexes = useMemo(
+        () =>
+            roundIndexes.filter((rIndex) => {
+                if (!isEditMode || showConfirmedRounds) return true;
+                return !((matchesByRound[rIndex] || []).some((match) => match.roundLocked));
+            }),
+        [roundIndexes, isEditMode, showConfirmedRounds, matches]
+    );
     const conflictCount = Object.keys(conflicts).length;
 
     useEffect(() => {
         if (!isOpen) {
             clearAllRoundTimers(roundAnimationTimersRef);
             prevVisibleRoundsRef.current = [];
-            setRenderedRoundIndexes([]);
-            setRoundAnimationState({});
+            setRenderedRoundIndexes((prev) => (prev.length === 0 ? prev : []));
+            setRoundAnimationState((prev) =>
+                Object.keys(prev).length === 0 ? prev : {}
+            );
             return;
         }
 
