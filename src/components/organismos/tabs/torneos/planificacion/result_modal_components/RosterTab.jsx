@@ -1,7 +1,7 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/RosterTab.jsx
 import React, { useEffect, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
-import { v } from "../../../../../../index";
+import { InputNumber, v } from "../../../../../../index";
 import { RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
 
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
@@ -48,15 +48,19 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
             </div>
 
             <div className="stats-actions">
-                <div className="goals-wrapper">
-                    <span className="mobile-label">Goles:</span>
-                    <input
-                        type="number"
-                        min="0"
+                <div className="stat-number goals">
+                    <span className="stat-chip">G</span>
+                    <InputNumber
                         value={isWalkover ? 0 : slot.goals}
                         onChange={(e) => onUpdate(team, idx, 'goals', e.target.value)}
-                        disabled={!slot.playerId || isWalkover}
-                        className="number-input"
+                    />
+                </div>
+
+                <div className="stat-number own-goals">
+                    <span className="stat-chip">AG</span>
+                    <InputNumber
+                        value={isWalkover ? 0 : (slot.ownGoals || 0)}
+                        onChange={(e) => onUpdate(team, idx, 'ownGoals', e.target.value)}
                     />
                 </div>
 
@@ -116,7 +120,7 @@ export const RosterTab = ({ roster, teamKey, players, isWalkover, minPlayers, on
 
             <div className="header-row">
                 <span className="player-col">Jugador</span>
-                <span className="stats-col">Goles / Tarjetas</span>
+                <span className="stats-col">Goles / AG / Tarjetas</span>
             </div>
 
             {roster.map((slot, idx) => slot.isStarter && (
@@ -189,7 +193,7 @@ const RosterGrid = styled.div`
         }
 
         .stats-col {
-            width: 140px;
+            width: 270px;
             text-align: center;
         }
 
@@ -326,7 +330,7 @@ const selectPulse = keyframes`
 const PlayerSelectShell = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
     padding: 4px;
     border-radius: 14px;
@@ -343,9 +347,9 @@ const PlayerSelectShell = styled.div`
 `;
 
 const ClearPlayerButton = styled.button`
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
     border: 1px solid ${({theme, $visible}) => $visible ? `${v.colorError}45` : theme.bg4};
     border-radius: 12px;
     background: ${({theme, $visible}) => $visible
@@ -387,42 +391,58 @@ const ClearPlayerButton = styled.button`
 `;
 
 const RowContainer = styled.div`
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 15px;
-    padding: 8px;
+    gap: 10px;
+    padding: 8px 10px;
     background: ${({theme}) => theme.bgtotal};
     border-radius: 8px;
     border: 1px solid ${({theme}) => theme.bg4};
 
     .player-select {
-        flex: 1;
-        min-width: 120px;
+        min-width: 0;
     }
 
     .stats-actions {
         display: flex;
         align-items: center;
-        gap: 15px;
-        width: 140px;
+        gap: 8px;
+        width: 270px;
         justify-content: flex-end;
+        flex-shrink: 0;
     }
 
-    .goals-wrapper {
+    .stat-number {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        min-width: 0;
+        flex-shrink: 0;
     }
 
-    .mobile-label {
-        display: none;
-        font-size: 0.8rem;
-        font-weight: 700;
-        opacity: 0.7;
-        color: ${({theme}) => theme.text};
+    .stat-chip {
+        min-width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: white;
+        flex-shrink: 0;
     }
 
-    select, input {
+    .stat-number.goals .stat-chip {
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+    }
+
+    .stat-number.own-goals .stat-chip {
+        background: linear-gradient(135deg, #f97316, #ef4444);
+    }
+
+    select {
         background: ${({theme}) => theme.bg3};
         border: 1px solid ${({theme}) => theme.bg4};
         color: ${({theme}) => theme.text};
@@ -435,24 +455,77 @@ const RowContainer = styled.div`
         transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
 
-    select:focus, input:focus {
+    select:focus {
         border-color: ${v.colorPrincipal};
         box-shadow: 0 0 0 3px ${`${v.colorPrincipal}20`};
     }
 
-    .number-input {
-        width: 55px;
-        text-align: center;
-        font-weight: 700;
+    .stat-number > div {
+        width: 82px;
+        height: 40px;
+        background: ${({theme}) => theme.bgtotal};
+        border-color: ${({theme}) => theme.bg4};
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: none;
+    }
+
+    .stat-number input {
+        background: transparent;
+        border: none;
+        color: ${({theme}) => theme.text};
+        font-size: 0.98rem;
+        font-weight: 800;
+        padding-right: 22px;
+    }
+
+    .stat-number > div > div {
+        width: 24px;
+        border-left: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .stat-number button {
+        background: ${({theme}) => theme.bg3};
+        color: ${({theme}) => theme.text};
+    }
+
+    .stat-number button:hover {
+        background: ${({theme}) => theme.bg4};
+    }
+
+    .stat-number button:active {
+        background: ${`${v.colorPrincipal}20`};
+    }
+
+    .stat-number${''} {
+        opacity: ${({}) => 1};
+    }
+
+    ${({ $theme }) => ''}
+
+    .stat-number[disabled] {
+        opacity: 0.6;
     }
 
     .cards-wrapper {
         display: flex;
-        gap: 8px;
+        gap: 6px;
+        justify-content: flex-end;
     }
 
-    @media (max-width: 500px) {
-        flex-direction: column;
+    @media (max-width: 900px) {
+        .stats-actions {
+            width: 258px;
+            gap: 6px;
+        }
+
+        .stat-number > div {
+            width: 78px;
+        }
+    }
+
+    @media (max-width: 760px) {
+        grid-template-columns: 1fr;
         gap: 8px;
         align-items: stretch;
 
@@ -460,21 +533,48 @@ const RowContainer = styled.div`
             width: 100%;
             justify-content: space-between;
             background: ${({theme}) => theme.bg3};
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            gap: 8px;
         }
 
-        .mobile-label {
-            display: block;
+        .stat-number {
+            flex: 1;
         }
 
-        .number-input {
-            background: ${({theme}) => theme.bgtotal};
-            width: 65px;
+        .stat-number > div {
+            width: 100%;
         }
 
         .cards-wrapper {
-            gap: 12px;
+            align-self: center;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .cards-wrapper {
+            gap: 8px;
+        }
+
+        .stats-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            align-items: center;
+        }
+
+        .stat-number {
+            min-width: 0;
+        }
+    }
+
+    @media (max-width: 420px) {
+        .stats-actions {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .cards-wrapper {
+            grid-column: 1 / -1;
+            justify-content: flex-end;
         }
     }
 `;

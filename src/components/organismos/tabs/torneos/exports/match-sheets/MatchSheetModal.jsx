@@ -113,6 +113,7 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
         const mapLineup = (list) => list.map(p => ({
             id: p.id, name: p.first_name, lastName: p.last_name, number: p.dorsal,
             goalsCount: p.events.filter(e => e.event_type === 'goal').length,
+            ownGoalsCount: p.events.filter(e => e.event_type === 'own_goal').length,
             hasYellow: p.events.some(e => e.event_type === 'yellow_card'),
             hasRed: p.events.some(e => e.event_type === 'red_card')
         }));
@@ -120,6 +121,7 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
         const goals = []; const cards = [];
         const proc = (list, t) => list.forEach(p => p.events.forEach(e => {
             if (e.event_type === 'goal') goals.push({ minute: e.minute || 0, player: { name: p.first_name }, team: t });
+            else if (e.event_type === 'own_goal') goals.push({ minute: e.minute || 0, player: { name: p.first_name }, team: t === 'home' ? 'away' : 'home', ownGoal: true, creditedTeam: t });
             else if (['yellow_card', 'red_card'].includes(e.event_type)) cards.push({ minute: e.minute || 0, type: e.event_type.split('_')[0], player: { name: p.first_name }, team: t });
         }));
         proc(players.local, 'home'); proc(players.visit, 'away');
