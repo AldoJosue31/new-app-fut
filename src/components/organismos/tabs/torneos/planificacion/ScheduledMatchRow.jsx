@@ -5,6 +5,7 @@ import {
   RiArrowLeftSLine,
   RiArrowRightSLine,
   RiDeleteBinLine, 
+  RiHandCoinLine,
   RiTrophyLine, 
   RiTimeLine, 
   RiEditLine, 
@@ -70,7 +71,10 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     groupLabel,
     onDropOnDate,
     isRepositionMode = false,
-    currentJornadaNumber = 1
+    currentJornadaNumber = 1,
+    isTapDropEnabled = false,
+    onTapDrop,
+    selectedPendingMatchLabel = ""
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
@@ -231,7 +235,12 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
           !rawCurrentTime ||
           (baseTimeMinutes !== null && (baseTimeMinutes + safeTimeStep) <= effectiveTimeMax)
       );
-
+  const canAcceptTapDrop =
+      isTapDropEnabled &&
+      !isConfirmed &&
+      !isReferenceOnly &&
+      Boolean(match.date) &&
+      typeof onTapDrop === "function";
   const handleShiftDate = (days) => {
       if (isReferenceOnly || !match.date) return;
 
@@ -277,6 +286,16 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                 $hasFloatingBadge={hasFloatingOriginBadge}
             >
                 {isDragOver && match.date && <DropOverlay>Añadir a esta fecha (+{formatDateWithWeekday(match.date)})</DropOverlay>}
+                {canAcceptTapDrop && (
+                    <TapDropOverlay
+                        type="button"
+                        onClick={() => onTapDrop(match.date)}
+                        aria-label={`Mover a ${formatDateWithWeekday(match.date)}`}
+                        title={`Mover a ${formatDateWithWeekday(match.date)}`}
+                    >
+                        <RiHandCoinLine />
+                    </TapDropOverlay>
+                )}
 
                 {hasFloatingOriginBadge && (
                     <div className={floatingBadgeClassName}>
@@ -487,6 +506,29 @@ const DropOverlay = styled.div`
     z-index: 10; backdrop-filter: blur(2px); pointer-events: none; 
 `;
 
+const TapDropOverlay = styled.button`
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border: 1px solid ${v.colorPrincipal};
+    border-radius: 8px;
+    background: ${({ theme }) => theme.bg3};
+    color: ${v.colorPrincipal};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    z-index: 6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.16);
+
+    svg {
+        font-size: 0.95rem;
+    }
+`;
+
 const Container = styled.div`
     display: flex; flex-direction: column; 
     gap: 8px; 
@@ -495,7 +537,7 @@ const Container = styled.div`
         $hasFloatingBadge ? '28px 10px 10px 10px' : '10px'}; 
     border-radius: 8px; 
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
-    position: relative; transition: all 0.2s ease;
+    position: relative; transition: all 0.2s ease; overflow: hidden;
 
     ${({ $isDragOver, theme }) => $isDragOver && css`
         border-color: ${v.colorPrincipal}; transform: scale(1.01); box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -696,7 +738,7 @@ const Container = styled.div`
         position: absolute;
         top: 6px;
         left: 10px;
-        z-index: 2;
+        z-index: 5;
         padding: 2px 8px;
         font-size: 0.64rem;
         line-height: 1;

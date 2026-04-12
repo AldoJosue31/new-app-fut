@@ -17,6 +17,9 @@ export function PlanningSidebar({
   onOpenResolution,
   onClearResolution,
   isRepositionMode = false,
+  onSelectMatch,
+  selectedMatchId = null,
+  isTapSelectionEnabled = false,
 }) {
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
@@ -100,6 +103,9 @@ export function PlanningSidebar({
                                     currentJornadaNumber={currentJornadaNumber}
                                     onOpenResolution={onOpenResolution}
                                     onClearResolution={onClearResolution}
+                                    onSelect={onSelectMatch}
+                                    isSelected={selectedMatchId === match.id}
+                                    isTapSelectionEnabled={isTapSelectionEnabled}
                                 />
                             ))}
                         </div>
@@ -139,6 +145,9 @@ export function PlanningSidebar({
                             currentJornadaNumber={currentJornadaNumber}
                             onOpenResolution={onOpenResolution}
                             onClearResolution={onClearResolution}
+                            onSelect={onSelectMatch}
+                            isSelected={selectedMatchId === match.id}
+                            isTapSelectionEnabled={isTapSelectionEnabled}
                         />
                     );
                 })}

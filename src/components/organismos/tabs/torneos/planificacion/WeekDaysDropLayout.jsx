@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import styled, { css } from "styled-components";
-import { RiDragDropLine } from "react-icons/ri";
+import { RiDragDropLine, RiHandCoinLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
 import { addDaysToDate } from "../../../../../utils/dateUtils";
 
@@ -53,6 +53,7 @@ export function WeekDaysDropLayout({
   onDropDate,
   draggedMatch = null,
   isHighlighted = false,
+  allowTapDrop = false,
 }) {
   const [hoveredDate, setHoveredDate] = useState("");
 
@@ -70,8 +71,12 @@ export function WeekDaysDropLayout({
       <div className="summary">
         <span className="summary-text">
           {matchLabel
-            ? `Suelta ${matchLabel} en el dia que quieras`
-            : "Suelta el partido en el dia que quieras"}
+            ? allowTapDrop
+              ? `Toca el dia para mover ${matchLabel}`
+              : `Suelta ${matchLabel} en el dia que quieras`
+            : allowTapDrop
+              ? "Toca el dia que quieras"
+              : "Suelta el partido en el dia que quieras"}
         </span>
       </div>
 
@@ -83,7 +88,14 @@ export function WeekDaysDropLayout({
             <button
               key={date}
               type="button"
-              className={`day-card${isHovered ? " is-hovered" : ""}`}
+              className={`day-card${isHovered ? " is-hovered" : ""}${
+                allowTapDrop ? " is-tap-ready" : ""
+              }`}
+              onClick={() => {
+                if (allowTapDrop) {
+                  onDropDate?.(date);
+                }
+              }}
               onDragEnter={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -108,12 +120,13 @@ export function WeekDaysDropLayout({
             >
               <div className="day-main">
                 <span className="day-name">
-                  {formatWeekday(date)} <span className="day-date">{formatShortDate(date)}</span>
+                  {formatWeekday(date)}{" "}
+                  <span className="day-date">{formatShortDate(date)}</span>
                 </span>
               </div>
               <span className="day-hint">
-                <RiDragDropLine />
-                {isHovered ? "Soltar aqui" : "Soltar"}
+                {allowTapDrop ? <RiHandCoinLine /> : <RiDragDropLine />}
+                {isHovered ? "Soltar aqui" : allowTapDrop ? "Tocar" : "Soltar"}
               </span>
             </button>
           );
@@ -187,6 +200,13 @@ const Container = styled.div`
     background: ${v.colorPrincipal}12;
   }
 
+  .day-card.is-tap-ready {
+    cursor: pointer;
+    border-style: dashed;
+    border-color: ${v.colorPrincipal}90;
+    background: ${v.colorPrincipal}08;
+  }
+
   .day-main {
     min-width: 0;
     display: flex;
@@ -229,7 +249,8 @@ const Container = styled.div`
       }
     `}
 
-  .day-card.is-hovered .day-hint {
+  .day-card.is-hovered .day-hint,
+  .day-card.is-tap-ready .day-hint {
     border-style: solid;
     background: ${v.colorPrincipal}12;
   }
