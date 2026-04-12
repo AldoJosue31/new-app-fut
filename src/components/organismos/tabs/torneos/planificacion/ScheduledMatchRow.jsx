@@ -571,13 +571,15 @@ const Container = styled.div`
     }
 
     .settings { 
-        display: flex; gap: 8px; width: 100%; justify-content: space-between;
+        display: flex; gap: 8px; width: 100%; justify-content: space-between; min-width: 0;
         @media ${Device.tablet} { width: auto; justify-content: flex-end; align-items: center; flex-shrink: 0; }
         .input-control {
             display: flex;
             align-items: stretch;
             flex: 1;
             min-width: 0;
+            width: 100%;
+            max-width: 100%;
             background: ${({theme})=>theme.bg3};
             border: 1px solid ${({theme})=>theme.bg4};
             border-radius: 6px;
@@ -594,8 +596,11 @@ const Container = styled.div`
             padding: 8px 6px;
             flex: 1;
             min-width: 0;
+            width: 1px;
+            max-width: 100%;
             font-size: 0.9rem;
             text-align: center;
+            box-sizing: border-box;
 
             @media ${Device.tablet} {
                 padding: 5px 8px;
@@ -606,6 +611,12 @@ const Container = styled.div`
                 outline: 1px solid ${v.colorPrincipal};
                 outline-offset: -1px;
             }
+        }
+        .input-date,
+        .input-time {
+            min-width: 0;
+            width: 1px;
+            max-width: 100%;
         }
         .step-btn {
             width: 34px;
@@ -679,6 +690,46 @@ const Container = styled.div`
                 &.postpone { background: #f1c40f20; color: #f1c40f; &:hover{ background: #f1c40f; color: black; } }
                 &.sheet { background: #3498db20; color: #3498db; &:hover{ background: #3498db; color: white; } }
                 &.print { background: #95a5a620; color: #7f8c8d; &:hover{ background: #95a5a6; color: white; } }
+            }
+        }
+
+        @media (max-width: 768px) {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+            align-items: stretch;
+
+            .step-btn {
+                width: 28px;
+                font-size: 0.95rem;
+            }
+
+            .input-control input {
+                padding: 8px 4px;
+                font-size: 0.78rem;
+            }
+
+            .del {
+                width: 38px;
+                min-width: 38px;
+                padding: 0;
+            }
+        }
+
+        @media (max-width: 400px) {
+            gap: 6px;
+
+            .step-btn {
+                width: 26px;
+            }
+
+            .input-control input {
+                font-size: 0.74rem;
+                padding: 8px 2px;
+            }
+
+            .del {
+                width: 34px;
+                min-width: 34px;
             }
         }
     }

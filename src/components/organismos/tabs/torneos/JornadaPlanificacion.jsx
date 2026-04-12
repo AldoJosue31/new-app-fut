@@ -102,6 +102,7 @@ export function JornadaPlanificacion({
     if (typeof window === "undefined") return false;
     return window.innerWidth <= 768;
   });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -318,6 +319,15 @@ export function JornadaPlanificacion({
       setSelectedPendingMatch(null);
     }
   }, [isTapSelectionEnabled]);
+
+  useEffect(() => {
+    if (!isMobileViewport || viewMode !== "list") {
+      setIsSidebarCollapsed(false);
+      return;
+    }
+
+    setIsSidebarCollapsed(Boolean(selectedPendingMatch));
+  }, [isMobileViewport, selectedPendingMatch, viewMode]);
 
   useEffect(() => {
     if (draggedMatch) {
@@ -626,6 +636,11 @@ export function JornadaPlanificacion({
               onSelectMatch={toggleSelectedPendingMatch}
               selectedMatchId={selectedPendingMatch?.id || null}
               isTapSelectionEnabled={isTapSelectionEnabled}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={() =>
+                setIsSidebarCollapsed((prev) => !prev)
+              }
+              canCollapse={isMobileViewport && viewMode === "list"}
             />
           )}
 

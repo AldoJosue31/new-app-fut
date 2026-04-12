@@ -20,6 +20,9 @@ export function PlanningSidebar({
   onSelectMatch,
   selectedMatchId = null,
   isTapSelectionEnabled = false,
+  isCollapsed = false,
+  onToggleCollapse,
+  canCollapse = false,
 }) {
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
@@ -52,9 +55,20 @@ export function PlanningSidebar({
   }, [matches, currentJornadaNumber]);
 
   return (
-    <SidebarContainer>
+    <SidebarContainer $isCollapsed={isCollapsed}>
       <div className="sb-header">
         <span>Por Asignar ({matches.length})</span>
+        {canCollapse && (
+          <button
+            type="button"
+            className="collapse-btn"
+            onClick={onToggleCollapse}
+            title={isCollapsed ? "Expandir pendientes" : "Contraer pendientes"}
+            aria-label={isCollapsed ? "Expandir pendientes" : "Contraer pendientes"}
+          >
+            {isCollapsed ? <RiArrowDownSLine /> : <RiArrowUpSLine />}
+          </button>
+        )}
       </div>
       <div className="scroll-wrapper">
         <ContainerScroll>
@@ -168,9 +182,23 @@ const SidebarContainer = styled.div`
   background: ${({ theme }) => theme.bgcards}; 
   border: 1px solid ${({ theme }) => theme.bg4}; 
   border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; height: 100%;
+  transition: max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s ease, box-shadow 0.28s ease;
   
-  .sb-header { padding: 10px; border-bottom: 1px solid ${({ theme }) => theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; }
-  .scroll-wrapper { flex: 1; height: 100%; overflow: hidden; }
+  .sb-header { padding: 10px; border-bottom: 1px solid ${({ theme }) => theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; gap: 8px; }
+  .collapse-btn {
+    display: none;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 999px;
+    background: ${({ theme }) => theme.bg4};
+    color: ${({ theme }) => theme.text};
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .scroll-wrapper { flex: 1; height: 100%; overflow: hidden; transition: opacity 0.26s ease, transform 0.3s ease; }
   .list-content { padding: 10px; display: flex; flex-direction: column; gap: 15px; }
   
   .section-group { display: flex; flex-direction: column; gap: 8px; }
@@ -179,7 +207,23 @@ const SidebarContainer = styled.div`
   .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: ${({theme}) => theme.text2}; margin-bottom: 2px; }
   
   .empty { text-align: center; opacity: 0.5; margin-top: 20px; font-size: 0.8rem; }
-  @media (max-width: 768px) { width: 100%; height: 300px; }
+  @media (max-width: 768px) {
+    width: 100%;
+    height: auto;
+    max-height: ${({ $isCollapsed }) => ($isCollapsed ? '64px' : '300px')};
+    box-shadow: ${({ $isCollapsed }) =>
+      $isCollapsed ? '0 10px 18px rgba(0,0,0,0.08)' : 'none'};
+
+    .collapse-btn {
+      display: inline-flex;
+    }
+
+    .scroll-wrapper {
+      opacity: ${({ $isCollapsed }) => ($isCollapsed ? 0 : 1)};
+      transform: translateY(${({ $isCollapsed }) => ($isCollapsed ? '-10px' : '0')});
+      pointer-events: ${({ $isCollapsed }) => ($isCollapsed ? 'none' : 'auto')};
+    }
+  }
 `;
 
 const StackedHeader = styled.div`

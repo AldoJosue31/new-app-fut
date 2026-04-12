@@ -281,23 +281,32 @@ const MobileControlsCollapse = styled.div`
 `;
 
 const CompactToggleButton = styled.button`
-  align-self: flex-end;
-  width: 42px;
-  height: 32px;
+  width: 100%;
+  height: 22px;
   border-radius: 999px;
   border: 1px solid
-    ${({ $hasChanges, theme }) => ($hasChanges ? v.colorPrincipal : theme.bg4)};
-  background: ${({ $isOpen, theme }) => ($isOpen ? theme.bgcards : theme.bg4)};
+    ${({ $hasChanges, theme }) => ($hasChanges ? v.colorPrincipal : `${theme.bg4}`)};
+  background: linear-gradient(
+    90deg,
+    ${({ theme }) => `${theme.bg4}30`} 0%,
+    ${({ theme }) => `${theme.bgcards}`} 50%,
+    ${({ theme }) => `${theme.bg4}30`} 100%
+  );
   color: ${({ theme }) => theme.text};
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 4px;
   cursor: pointer;
   transition: 0.2s ease;
+  padding: 0 10px;
 
   svg:first-child {
     color: ${v.colorPrincipal};
+  }
+
+  svg:last-child {
+    opacity: 0.8;
   }
 `;
 
