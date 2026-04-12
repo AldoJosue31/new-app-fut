@@ -261,7 +261,16 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     const setter = isLocal ? setRosterLocal : setRosterVisit;
     setter(prevRoster => {
         const newRoster = [...prevRoster];
-        newRoster[index] = { ...newRoster[index], [field]: value };
+        const previousSlot = newRoster[index] || {};
+        const nextSlot = { ...previousSlot, [field]: value };
+
+        if (field === 'playerId' && String(previousSlot?.playerId || '') !== String(value || '')) {
+            nextSlot.goals = 0;
+            nextSlot.yellow = false;
+            nextSlot.red = false;
+        }
+
+        newRoster[index] = nextSlot;
         if (field === 'playerId' && value !== "" && index === newRoster.length - 1 && newRoster.length < (minPlayers + maxSubs)) {
             newRoster.push({ idTemp: `${isLocal ? 'l' : 'v'}-${Date.now()}`, playerId: "", goals: 0, yellow: false, red: false, isStarter: false });
         }
@@ -335,6 +344,25 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       type: "success"
     });
   }, [localPlayers, participationStats.local, participationStats.visit, rosterLocal, rosterVisit, visitPlayers]);
+
+  const handleClearRoster = useCallback((team) => {
+    const isLocal = team === 'local';
+    const setter = isLocal ? setRosterLocal : setRosterVisit;
+
+    setter(prevRoster => prevRoster.map(slot => ({
+      ...slot,
+      playerId: "",
+      goals: 0,
+      yellow: false,
+      red: false
+    })));
+
+    setToastConfig({
+      show: true,
+      message: "Se limpio la alineacion y sus estadisticas.",
+      type: "success"
+    });
+  }, []);
 
   const handleToggleWalkover = (newValue) => {
     setIsWalkover(newValue);
@@ -487,6 +515,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                               minPlayers={minPlayers}
                               onUpdate={handleUpdateRoster}
                               onAutoFillStarters={handleAutoFillStarters}
+                              onClearRoster={handleClearRoster}
                             />
                         </TabContent>
                     )}
@@ -498,9 +527,10 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                                players={visitPlayers}
                                isWalkover={isWalkover}
                                minPlayers={minPlayers}
-                               onUpdate={handleUpdateRoster}
-                               onAutoFillStarters={handleAutoFillStarters}
-                             />
+                                onUpdate={handleUpdateRoster}
+                                onAutoFillStarters={handleAutoFillStarters}
+                                onClearRoster={handleClearRoster}
+                               />
                         </TabContent>
                     )}
                     {activeTab === 'penalties' && (

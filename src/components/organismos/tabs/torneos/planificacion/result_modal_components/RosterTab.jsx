@@ -1,28 +1,50 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/RosterTab.jsx
-import React from "react";
-import styled from "styled-components";
+import React, { useEffect, useState } from "react";
+import styled, { css, keyframes } from "styled-components";
 import { v } from "../../../../../../index";
-import { RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
+import { RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
 
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
+    const hasSelectedPlayer = Boolean(slot.playerId);
+    const [animateSelect, setAnimateSelect] = useState(false);
+
+    useEffect(() => {
+        if (!slot?.idTemp) return;
+        setAnimateSelect(true);
+        const timer = setTimeout(() => setAnimateSelect(false), 260);
+        return () => clearTimeout(timer);
+    }, [slot.playerId, slot.idTemp]);
+
     return (
         <RowContainer>
             <div className="player-select">
-                <select
-                    value={slot.playerId}
-                    onChange={(e) => onUpdate(team, idx, 'playerId', e.target.value)}
-                >
-                    <option value="">Seleccionar jugador...</option>
-                    {players.map(p => (
-                        <option
-                            key={p.id}
-                            value={p.id}
-                            disabled={globalRoster.some(r => String(r.playerId) === String(p.id) && r.idTemp !== slot.idTemp)}
-                        >
-                            {p.first_name} {p.last_name} {p.dorsal ? `(${p.dorsal})` : ''}
-                        </option>
-                    ))}
-                </select>
+                <PlayerSelectShell $selected={hasSelectedPlayer} $animate={animateSelect}>
+                    <select
+                        value={slot.playerId}
+                        onChange={(e) => onUpdate(team, idx, 'playerId', e.target.value)}
+                    >
+                        <option value="">Seleccionar jugador...</option>
+                        {players.map(p => (
+                            <option
+                                key={p.id}
+                                value={p.id}
+                                disabled={globalRoster.some(r => String(r.playerId) === String(p.id) && r.idTemp !== slot.idTemp)}
+                            >
+                                {p.first_name} {p.last_name} {p.dorsal ? `(${p.dorsal})` : ''}
+                            </option>
+                        ))}
+                    </select>
+                    <ClearPlayerButton
+                        type="button"
+                        $visible={hasSelectedPlayer}
+                        disabled={!hasSelectedPlayer}
+                        onClick={() => onUpdate(team, idx, 'playerId', '')}
+                        title="Limpiar jugador seleccionado"
+                        aria-label="Limpiar jugador seleccionado"
+                    >
+                        <RiCloseLine />
+                    </ClearPlayerButton>
+                </PlayerSelectShell>
             </div>
 
             <div className="stats-actions">
@@ -61,8 +83,9 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
     );
 });
 
-export const RosterTab = ({ roster, teamKey, players, isWalkover, minPlayers, onUpdate, onAutoFillStarters }) => {
+export const RosterTab = ({ roster, teamKey, players, isWalkover, minPlayers, onUpdate, onAutoFillStarters, onClearRoster }) => {
     const hasEmptyStarters = roster.some(slot => slot.isStarter && !slot.playerId);
+    const hasSelectedPlayers = roster.some(slot => slot.playerId);
 
     return (
         <RosterGrid>
@@ -71,14 +94,24 @@ export const RosterTab = ({ roster, teamKey, players, isWalkover, minPlayers, on
                     <div className="section-title"><RiUserStarFill /> Titulares (Minimo {minPlayers})</div>
                     <div className="section-hint">Completa espacios vacios usando a los jugadores con mas asistencias a partidos.</div>
                 </div>
-                <AutoFillButton
-                    type="button"
-                    onClick={() => onAutoFillStarters?.(teamKey)}
-                    disabled={!onAutoFillStarters || !players.length || !hasEmptyStarters}
-                >
-                    <RiMagicLine />
-                    <span>Auto-rellenar titulares</span>
-                </AutoFillButton>
+                <HeaderActions>
+                    <AutoFillButton
+                        type="button"
+                        onClick={() => onAutoFillStarters?.(teamKey)}
+                        disabled={!onAutoFillStarters || !players.length || !hasEmptyStarters}
+                    >
+                        <RiMagicLine />
+                        <span>Auto-rellenar titulares</span>
+                    </AutoFillButton>
+                    <ClearRosterButton
+                        type="button"
+                        onClick={() => onClearRoster?.(teamKey)}
+                        disabled={!onClearRoster || !hasSelectedPlayers}
+                    >
+                        <RiDeleteBinLine />
+                        <span>Limpiar todos</span>
+                    </ClearRosterButton>
+                </HeaderActions>
             </SectionHeader>
 
             <div className="header-row">
@@ -187,6 +220,20 @@ const SectionHeader = styled.div`
     }
 `;
 
+const HeaderActions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    @media (max-width: 768px) {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+`;
+
 const AutoFillButton = styled.button`
     display: inline-flex;
     align-items: center;
@@ -229,6 +276,113 @@ const AutoFillButton = styled.button`
     @media (max-width: 500px) {
         padding: 12px 14px;
         font-size: 0.82rem;
+    }
+`;
+
+const ClearRosterButton = styled(AutoFillButton)`
+    border-color: ${({theme}) => theme.bg4};
+    background: ${({theme}) => theme.bg3};
+    color: ${({theme}) => theme.text};
+    box-shadow: none;
+
+    &:hover:not(:disabled) {
+        background: ${v.colorError};
+        border-color: ${v.colorError};
+        color: white;
+        box-shadow: 0 12px 22px ${v.colorError}25;
+    }
+`;
+
+const clearButtonIn = keyframes`
+    0% {
+        opacity: 0;
+        transform: translateX(8px) scale(0.82);
+    }
+    70% {
+        opacity: 1;
+        transform: translateX(-1px) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+`;
+
+const selectPulse = keyframes`
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(28, 176, 246, 0);
+    }
+    45% {
+        transform: scale(1.015);
+        box-shadow: 0 0 0 4px rgba(28, 176, 246, 0.14);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(28, 176, 246, 0);
+    }
+`;
+
+const PlayerSelectShell = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px;
+    border-radius: 14px;
+    background: ${({theme, $selected}) => $selected ? `${v.colorPrincipal}10` : 'transparent'};
+    border: 1px solid ${({theme, $selected}) => $selected ? `${v.colorPrincipal}22` : 'transparent'};
+    transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+    ${({$animate}) => $animate && css`
+        animation: ${selectPulse} 0.26s ease-out;
+    `}
+
+    select {
+        flex: 1;
+    }
+`;
+
+const ClearPlayerButton = styled.button`
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    border: 1px solid ${({theme, $visible}) => $visible ? `${v.colorError}45` : theme.bg4};
+    border-radius: 12px;
+    background: ${({theme, $visible}) => $visible
+        ? `linear-gradient(135deg, ${v.colorError}16, ${v.colorPrincipal}10)`
+        : theme.bg3};
+    color: ${({theme, $visible}) => $visible ? v.colorError : theme.text};
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ${({$visible}) => $visible ? 'pointer' : 'default'};
+    opacity: ${({$visible}) => $visible ? 1 : 0};
+    pointer-events: ${({$visible}) => $visible ? 'auto' : 'none'};
+    transform: ${({$visible}) => $visible ? 'translateX(0) scale(1)' : 'translateX(8px) scale(0.82)'};
+    box-shadow: ${({$visible}) => $visible ? `0 8px 18px ${v.colorError}18` : 'none'};
+    transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, opacity 0.22s ease;
+    ${({$visible}) => $visible && css`
+        animation: ${clearButtonIn} 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.18);
+    `}
+
+    svg {
+        font-size: 1.1rem;
+    }
+
+    &:hover:not(:disabled) {
+        background: ${v.colorError};
+        color: white;
+        border-color: ${v.colorError};
+        transform: translateY(-1px) scale(1.04);
+        box-shadow: 0 12px 22px ${v.colorError}30;
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.94);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
     }
 `;
 
@@ -278,6 +432,12 @@ const RowContainer = styled.div`
         outline: none;
         box-sizing: border-box;
         font-size: 0.9rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    select:focus, input:focus {
+        border-color: ${v.colorPrincipal};
+        box-shadow: 0 0 0 3px ${`${v.colorPrincipal}20`};
     }
 
     .number-input {
