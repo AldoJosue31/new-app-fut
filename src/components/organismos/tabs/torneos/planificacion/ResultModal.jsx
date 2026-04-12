@@ -67,13 +67,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   // Cálculos de goles
   const totalGoalsLocal = useMemo(() => {
     if (isWalkover) return woWinnerId === match?.local?.id ? 3 : 0;
-    return rosterLocal.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
-  }, [rosterLocal, isWalkover, woWinnerId, match]);
+    const localGoals = rosterLocal.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
+    const visitOwnGoals = rosterVisit.reduce((acc, p) => acc + (parseInt(p.ownGoals) || 0), 0);
+    return localGoals + visitOwnGoals;
+  }, [rosterLocal, rosterVisit, isWalkover, woWinnerId, match]);
 
   const totalGoalsVisit = useMemo(() => {
     if (isWalkover) return woWinnerId === match?.visitante?.id ? 3 : 0;
-    return rosterVisit.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
-  }, [rosterVisit, isWalkover, woWinnerId, match]);
+    const visitGoals = rosterVisit.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
+    const localOwnGoals = rosterLocal.reduce((acc, p) => acc + (parseInt(p.ownGoals) || 0), 0);
+    return visitGoals + localOwnGoals;
+  }, [rosterVisit, rosterLocal, isWalkover, woWinnerId, match]);
 
   // Tabs Dinámicas
   const modalTabs = useMemo(() => {
@@ -112,9 +116,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const buildEmptyRoster = useCallback((prefix) => {
     const roster = [];
     for (let i = 0; i < minPlayers; i++) {
-      roster.push({ idTemp: `${prefix}-${i}`, isStarter: true, playerId: "", goals: 0, yellow: false, red: false });
+      roster.push({ idTemp: `${prefix}-${i}`, isStarter: true, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false });
     }
-    roster.push({ idTemp: `${prefix}-new-sub`, playerId: "", goals: 0, yellow: false, red: false, isStarter: false });
+    roster.push({ idTemp: `${prefix}-new-sub`, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false, isStarter: false });
     return roster;
   }, [minPlayers]);
 
@@ -288,8 +292,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const statsMap = {};
       events.forEach(ev => {
           const sId = String(ev.player_id);
-          if (!statsMap[sId]) statsMap[sId] = { goals: 0, yellow: false, red: false, played: true };
+          if (!statsMap[sId]) statsMap[sId] = { goals: 0, ownGoals: 0, yellow: false, red: false, played: true };
           if (ev.event_type === 'goal') statsMap[sId].goals++;
+          if (ev.event_type === 'own_goal') statsMap[sId].ownGoals++;
           if (ev.event_type === 'yellow_card') statsMap[sId].yellow = true;
           if (ev.event_type === 'red_card') statsMap[sId].red = true;
       });
@@ -297,12 +302,12 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const activePlayers = players.filter(p => statsMap[String(p.id)]).map(p => ({ playerId: p.id, ...statsMap[String(p.id)] }));
       const roster = [];
       if (isEditMode && activePlayers.length > 0) {
-          activePlayers.forEach((pData, index) => roster.push({ idTemp: `${prefix}-loaded-${index}`, isStarter: index < minPlayers, playerId: pData.playerId, goals: pData.goals, yellow: pData.yellow, red: pData.red }));
-          while (roster.length < minPlayers) roster.push({ idTemp: `${prefix}-fill-${roster.length}`, isStarter: true, playerId: "", goals: 0, yellow: false, red: false });
-          if (roster.length < (minPlayers + maxSubs)) roster.push({ idTemp: `${prefix}-extra-${Date.now()}`, isStarter: false, playerId: "", goals: 0, yellow: false, red: false });
+          activePlayers.forEach((pData, index) => roster.push({ idTemp: `${prefix}-loaded-${index}`, isStarter: index < minPlayers, playerId: pData.playerId, goals: pData.goals, ownGoals: pData.ownGoals || 0, yellow: pData.yellow, red: pData.red }));
+          while (roster.length < minPlayers) roster.push({ idTemp: `${prefix}-fill-${roster.length}`, isStarter: true, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false });
+          if (roster.length < (minPlayers + maxSubs)) roster.push({ idTemp: `${prefix}-extra-${Date.now()}`, isStarter: false, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false });
       } else {
-          for (let i = 0; i < minPlayers; i++) roster.push({ idTemp: `${prefix}-${i}`, isStarter: true, playerId: "", goals: 0, yellow: false, red: false });
-          roster.push({ idTemp: `${prefix}-new-sub`, playerId: "", goals: 0, yellow: false, red: false, isStarter: false });
+          for (let i = 0; i < minPlayers; i++) roster.push({ idTemp: `${prefix}-${i}`, isStarter: true, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false });
+          roster.push({ idTemp: `${prefix}-new-sub`, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false, isStarter: false });
       }
       return roster;
   };
@@ -317,13 +322,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
         if (field === 'playerId' && String(previousSlot?.playerId || '') !== String(value || '')) {
             nextSlot.goals = 0;
+            nextSlot.ownGoals = 0;
             nextSlot.yellow = false;
             nextSlot.red = false;
         }
 
         newRoster[index] = nextSlot;
         if (field === 'playerId' && value !== "" && index === newRoster.length - 1 && newRoster.length < (minPlayers + maxSubs)) {
-            newRoster.push({ idTemp: `${isLocal ? 'l' : 'v'}-${Date.now()}`, playerId: "", goals: 0, yellow: false, red: false, isStarter: false });
+            newRoster.push({ idTemp: `${isLocal ? 'l' : 'v'}-${Date.now()}`, playerId: "", goals: 0, ownGoals: 0, yellow: false, red: false, isStarter: false });
         }
         return newRoster;
     });
@@ -404,6 +410,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       ...slot,
       playerId: "",
       goals: 0,
+      ownGoals: 0,
       yellow: false,
       red: false
     })));
@@ -477,7 +484,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           
           if (!isWalkover) {
               const goals = parseInt(p.goals) || 0;
+              const ownGoals = parseInt(p.ownGoals) || 0;
               if (goals > 0) for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
+              if (ownGoals > 0) for(let i=0; i < ownGoals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'own_goal' });
               if (p.yellow) events.push({ match_id: matchId, player_id: pid, event_type: 'yellow_card' });
               if (p.red) events.push({ match_id: matchId, player_id: pid, event_type: 'red_card' });
           }

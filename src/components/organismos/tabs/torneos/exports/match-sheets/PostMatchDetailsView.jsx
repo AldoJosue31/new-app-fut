@@ -24,6 +24,17 @@ const BadgeGol = ({ count }) => (
     </div>
 );
 
+const BadgeOwnGoal = ({ count }) => (
+    <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        background: 'rgba(249,115,22,0.14)', border: '1px solid rgba(249,115,22,0.32)',
+        borderRadius: '10px', padding: '2px 8px', marginLeft: '6px',
+    }}>
+        <span style={{ fontSize: '11px', color: '#ea580c', fontWeight: 'bold' }}>AG</span>
+        {count > 1 && <span style={{ fontSize: '11px', color: '#ea580c', fontWeight: 'bold' }}>{count}</span>}
+    </div>
+);
+
 const BadgeCard = ({ color }) => (
     <div style={{
         display: 'inline-block', width: '10px', height: '15px',
@@ -55,6 +66,7 @@ const LineupColumn = ({ teamName, teamLogo, teamColor, players = [], colors }) =
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         {p.goalsCount > 0 && <BadgeGol count={p.goalsCount} />}
+                        {p.ownGoalsCount > 0 && <BadgeOwnGoal count={p.ownGoalsCount} />}
                         {p.hasYellow && <BadgeCard color="yellow" />}
                         {p.hasRed && <BadgeCard color="red" />}
                     </div>
