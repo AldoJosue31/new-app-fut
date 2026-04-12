@@ -2,8 +2,33 @@ import React from "react";
 import styled, { keyframes, css } from "styled-components";
 import { RiCalendarCheckLine, RiDragDropLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
+import { WeekDaysDropLayout } from "./WeekDaysDropLayout";
 
-export const EmptyDropZone = ({ isConfirmed, isDragOver }) => {
+export const EmptyDropZone = ({
+    isConfirmed,
+    isDragOver,
+    draggedMatch = null,
+    jornadaStartDate = "",
+    jornadaEndDate = "",
+    onDropDate,
+}) => {
+    const showWeekLayout =
+        !isConfirmed &&
+        Boolean(draggedMatch) &&
+        Boolean(jornadaStartDate);
+
+    if (showWeekLayout) {
+        return (
+            <WeekDaysDropLayout
+                startDate={jornadaStartDate}
+                endDate={jornadaEndDate}
+                draggedMatch={draggedMatch}
+                onDropDate={onDropDate}
+                isHighlighted={isDragOver}
+            />
+        );
+    }
+
     return (
         <Container $isConfirmed={isConfirmed} $isDragOver={isDragOver}>
             <div className="icon-wrapper">

@@ -10,6 +10,7 @@ import {
 import { Btnsave } from "../../../../../index"; 
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
+import { isOfficialJornadaName } from "../../../../../utils/jornadaUtils";
 
 const ROUND_ANIMATION_MS = 220;
 const sortRoundIndexes = (indexes) => [...indexes].sort((a, b) => Number(a) - Number(b));
@@ -63,21 +64,65 @@ export function FixturePreviewModal({
         }
     };
 
-    const roundIndexes = useMemo(
-        () => Object.keys(matchesByRound).sort((a, b) => Number(a) - Number(b)),
-        [matches]
+    const roundDefinitions = useMemo(() => {
+        if (isEditMode && Array.isArray(existingData?.jornadas)) {
+            const officialRounds = existingData.jornadas
+                .map((jornada, index) => ({
+                    roundIndex: String(index),
+                    title: jornada?.name || `Jornada ${index + 1}`,
+                    isLocked:
+                        jornada?.status === "Confirmada" ||
+                        jornada?.status === "Finalizada" ||
+                        (matchesByRound[index] || []).some((match) => match.roundLocked),
+                }))
+                .filter((round) =>
+                    isOfficialJornadaName(existingData.jornadas?.[Number(round.roundIndex)]?.name)
+                );
+
+            if (officialRounds.length > 0) {
+                return officialRounds;
+            }
+        }
+
+        return Object.keys(matchesByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map((rIndex) => ({
+                roundIndex: rIndex,
+                title: `Jornada ${Number(rIndex) + 1}`,
+                isLocked: (matchesByRound[rIndex] || []).some((match) => match.roundLocked),
+            }));
+    }, [existingData?.jornadas, isEditMode, matchesByRound]);
+
+    const roundDefinitionMap = useMemo(
+        () =>
+            roundDefinitions.reduce((acc, round) => {
+                acc[round.roundIndex] = round;
+                return acc;
+            }, {}),
+        [roundDefinitions]
     );
-    const isRoundLocked = (rIndex) => (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
-    const confirmedRoundsCount = roundIndexes.filter((rIndex) => isRoundLocked(rIndex)).length;
+
+    const roundIndexes = useMemo(
+        () => roundDefinitions.map((round) => round.roundIndex),
+        [roundDefinitions]
+    );
+    const isRoundLocked = (rIndex) =>
+        roundDefinitionMap[rIndex]?.isLocked ??
+        (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
+    const getRoundTitle = (rIndex) =>
+        roundDefinitionMap[rIndex]?.title || `Jornada ${Number(rIndex) + 1}`;
+    const confirmedRoundsCount = roundDefinitions.filter((round) => round.isLocked).length;
     const visibleRoundIndexes = useMemo(
         () =>
-            roundIndexes.filter((rIndex) => {
-                if (!isEditMode || showConfirmedRounds) return true;
-                return !((matchesByRound[rIndex] || []).some((match) => match.roundLocked));
-            }),
-        [roundIndexes, isEditMode, showConfirmedRounds, matches]
+            roundDefinitions
+                .filter((round) => {
+                    if (!isEditMode || showConfirmedRounds) return true;
+                    return !round.isLocked;
+                })
+                .map((round) => round.roundIndex),
+        [roundDefinitions, isEditMode, showConfirmedRounds]
     );
-    const conflictCount = Object.keys(conflicts).length;
+    const conflictCount = roundIndexes.filter((rIndex) => Boolean(conflicts[rIndex]?.length)).length;
 
     useEffect(() => {
         if (!isOpen) {
@@ -238,7 +283,7 @@ export function FixturePreviewModal({
                                 </EmptyRoundsState>
                             ) : displayedRoundIndexes.map((rIndex) => {
                                 // Detectar si la jornada está totalmente bloqueada (confirmada en BD)
-                                const roundMatches = matchesByRound[rIndex];
+                                const roundMatches = matchesByRound[rIndex] || [];
                                 const roundIsLocked = isRoundLocked(rIndex);
                                 const hasConflict = !!conflicts[rIndex];
                                 const animationState = roundAnimationState[rIndex] || "idle";
@@ -260,7 +305,7 @@ export function FixturePreviewModal({
                                         }}
                                     >
                                         <JornadaTitle $hasConflict={hasConflict} $locked={roundIsLocked}>
-                                            <span className="title-text">Jornada {Number(rIndex) + 1}</span>
+                                            <span className="title-text">{getRoundTitle(rIndex)}</span>
                                             {roundIsLocked && <LockBadge><RiLock2Line /> Confirmada</LockBadge>}
                                         </JornadaTitle>
                                         
@@ -300,9 +345,14 @@ export function FixturePreviewModal({
                 <Footer>
                     <WarningText>
                        * Haz click en un equipo para ver su ruta.<br/>
-                       {isEditMode ? 
-                        "* Las jornadas confirmadas (gris oscuro) no se pueden modificar ni generan conflictos." : 
-                        "* Puedes mover partidos entre jornadas."}
+                       {isEditMode ? (
+                        <>
+                            * Las jornadas confirmadas (gris oscuro) no se pueden modificar ni generan conflictos.<br/>
+                            * Solo se muestran jornadas naturales; las reposiciones no se editan aqui.
+                        </>
+                       ) : (
+                        "* Puedes mover partidos entre jornadas."
+                       )}
                     </WarningText>
                     <ActionWrapper>
                         <Btnsave 

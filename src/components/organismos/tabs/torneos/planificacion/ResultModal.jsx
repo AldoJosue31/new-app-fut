@@ -22,6 +22,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
   const isSavingRef = useRef(false);
+  const latestLoadRequestRef = useRef(0);
 
   const [referees, setReferees] = useState([]);
   const [localPlayers, setLocalPlayers] = useState([]);
@@ -108,17 +109,52 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       return { d, t };
   };
 
+  const buildEmptyRoster = useCallback((prefix) => {
+    const roster = [];
+    for (let i = 0; i < minPlayers; i++) {
+      roster.push({ idTemp: `${prefix}-${i}`, isStarter: true, playerId: "", goals: 0, yellow: false, red: false });
+    }
+    roster.push({ idTemp: `${prefix}-new-sub`, playerId: "", goals: 0, yellow: false, red: false, isStarter: false });
+    return roster;
+  }, [minPlayers]);
+
+  const resetModalState = useCallback(() => {
+    setActiveTab('general');
+    setShowConfirm(false);
+    setToastConfig({ show: false, message: '', type: 'error' });
+    setReferees([]);
+    setLocalPlayers([]);
+    setVisitPlayers([]);
+    setSelectedReferee("");
+    setIsWalkover(false);
+    setWoWinnerId(null);
+    setPenalties({ local: 0, visit: 0 });
+    setMatchDate("");
+    setMatchTime("");
+    setManualObservations("");
+    setRosterLocal(buildEmptyRoster('l'));
+    setRosterVisit(buildEmptyRoster('v'));
+    setParticipationStats({ local: {}, visit: {} });
+  }, [buildEmptyRoster]);
+
   useEffect(() => {
+    latestLoadRequestRef.current += 1;
+    const requestId = latestLoadRequestRef.current;
+
     if (isOpen && match?.id) {
-      setActiveTab('general');
-      setShowConfirm(false);
+      resetModalState();
       setLoading(true);
       isSavingRef.current = false;
-      fetchAllData();
+      fetchAllData(requestId);
+      return;
     }
-  }, [isOpen, match?.id]);
 
-  const fetchParticipationCounts = async (players = []) => {
+    isSavingRef.current = false;
+    setLoading(false);
+    resetModalState();
+  }, [isOpen, match?.id, resetModalState]);
+
+  const fetchParticipationCounts = async (players = [], excludedMatchId = match?.id) => {
     const playerIds = players.map(player => player?.id).filter(Boolean);
     const tournamentId = activeTournament?.id;
 
@@ -144,7 +180,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       const uniqueMatchesByPlayer = {};
       (data || []).forEach(event => {
-        if (String(event.match_id) === String(match?.id)) return;
+        if (String(event.match_id) === String(excludedMatchId)) return;
 
         const playerId = String(event.player_id);
         if (!uniqueMatchesByPlayer[playerId]) uniqueMatchesByPlayer[playerId] = new Set();
@@ -160,25 +196,25 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     }
   };
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (requestId) => {
     try {
       const matchId = Number(match.id);
-      setParticipationStats({ local: {}, visit: {} });
       if(isNaN(matchId)) throw new Error("ID de partido inválido");
 
       const { data: freshMatch, error: matchError } = await supabase.from('matches').select('*').eq('id', matchId).single();
       if (matchError) throw matchError;
+      if (requestId !== latestLoadRequestRef.current) return;
 
+      let nextMatchDate = "";
+      let nextMatchTime = "";
       if (freshMatch.date) {
         const { d, t } = parseDateTime(freshMatch.date);
-        setMatchDate(d);
-        setMatchTime(t || "10:00");
+        nextMatchDate = d;
+        nextMatchTime = t || "10:00";
       } else if (match.date) {
         const { d, t } = parseDateTime(match.date);
-        setMatchDate(d);
-        setMatchTime(match.time || t || "10:00");
-      } else {
-        setMatchDate(""); setMatchTime("");
+        nextMatchDate = d;
+        nextMatchTime = match.time || t || "10:00";
       }
 
       let leagueId = activeTournament?.division?.league_id || activeTournament?.league_id;
@@ -193,44 +229,59 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         supabase.from('players').select('*').eq('team_id', match.visitante.id).eq('is_suspended', false).order('first_name'),
         supabase.from('match_events').select('*').eq('match_id', matchId)
       ]);
-
-      setReferees(refsRes.data || []);
-      setLocalPlayers(localRes.data || []);
-      setVisitPlayers(visitRes.data || []);
-      setSelectedReferee(freshMatch.referee_id || "");
+      if (requestId !== latestLoadRequestRef.current) return;
       const [localParticipation, visitParticipation] = await Promise.all([
-        fetchParticipationCounts(localRes.data || []),
-        fetchParticipationCounts(visitRes.data || [])
+        fetchParticipationCounts(localRes.data || [], matchId),
+        fetchParticipationCounts(visitRes.data || [], matchId)
       ]);
-      setParticipationStats({ local: localParticipation, visit: visitParticipation });
+      if (requestId !== latestLoadRequestRef.current) return;
       
       const obs = freshMatch.observations || "";
-      const isWO = obs.includes('W.O.') || obs.includes('Victoria por default');
-      setIsWalkover(isWO);
+      const nextIsWalkover = obs.includes('W.O.') || obs.includes('Victoria por default');
+      let nextWoWinnerId = null;
+      let nextPenalties = { local: 0, visit: 0 };
       
       let cleanObs = obs;
-      if (isWO) {
-        setWoWinnerId(freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id);
+      if (nextIsWalkover) {
+        nextWoWinnerId = freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id;
         cleanObs = cleanObs.replace(/W\.O\./gi, '').replace(/Victoria por default/gi, '');
-      } else { setWoWinnerId(null); }
+      }
 
       if (/Pen/i.test(obs)) {
         try {
             const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
-            if (matchPen) { setPenalties({ local: parseInt(matchPen[1]), visit: parseInt(matchPen[2]) }); cleanObs = cleanObs.replace(matchPen[0], ''); } 
-            else { setPenalties({ local: 0, visit: 0 }); }
-        } catch(e) { setPenalties({ local: 0, visit: 0 }); }
-      } else { setPenalties({ local: 0, visit: 0 }); }
-
-      setManualObservations(cleanObs.trim());
+            if (matchPen) {
+              nextPenalties = { local: parseInt(matchPen[1]), visit: parseInt(matchPen[2]) };
+              cleanObs = cleanObs.replace(matchPen[0], '');
+            }
+        } catch(e) {}
+      }
 
       const isEditMode = freshMatch.status === 'Finalizado';
-      setRosterLocal(reconstructRoster(localRes.data || [], eventsRes.data || [], 'l', isEditMode));
-      setRosterVisit(reconstructRoster(visitRes.data || [], eventsRes.data || [], 'v', isEditMode));
+      const nextRosterLocal = reconstructRoster(localRes.data || [], eventsRes.data || [], 'l', isEditMode);
+      const nextRosterVisit = reconstructRoster(visitRes.data || [], eventsRes.data || [], 'v', isEditMode);
+      if (requestId !== latestLoadRequestRef.current) return;
+
+      setMatchDate(nextMatchDate);
+      setMatchTime(nextMatchTime);
+      setReferees(refsRes.data || []);
+      setLocalPlayers(localRes.data || []);
+      setVisitPlayers(visitRes.data || []);
+      setSelectedReferee(freshMatch.referee_id || "");
+      setParticipationStats({ local: localParticipation, visit: visitParticipation });
+      setIsWalkover(nextIsWalkover);
+      setWoWinnerId(nextWoWinnerId);
+      setPenalties(nextPenalties);
+      setManualObservations(cleanObs.trim());
+      setRosterLocal(nextRosterLocal);
+      setRosterVisit(nextRosterVisit);
 
     } catch (error) {
+      if (requestId !== latestLoadRequestRef.current) return;
       setToastConfig({ show: true, message: "Error cargando datos: " + (error?.message || error), type: "error" });
-    } finally { setLoading(false); }
+    } finally {
+      if (requestId === latestLoadRequestRef.current) setLoading(false);
+    }
   };
 
   const reconstructRoster = (players, events, prefix, isEditMode) => {
@@ -261,7 +312,16 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     const setter = isLocal ? setRosterLocal : setRosterVisit;
     setter(prevRoster => {
         const newRoster = [...prevRoster];
-        newRoster[index] = { ...newRoster[index], [field]: value };
+        const previousSlot = newRoster[index] || {};
+        const nextSlot = { ...previousSlot, [field]: value };
+
+        if (field === 'playerId' && String(previousSlot?.playerId || '') !== String(value || '')) {
+            nextSlot.goals = 0;
+            nextSlot.yellow = false;
+            nextSlot.red = false;
+        }
+
+        newRoster[index] = nextSlot;
         if (field === 'playerId' && value !== "" && index === newRoster.length - 1 && newRoster.length < (minPlayers + maxSubs)) {
             newRoster.push({ idTemp: `${isLocal ? 'l' : 'v'}-${Date.now()}`, playerId: "", goals: 0, yellow: false, red: false, isStarter: false });
         }
@@ -335,6 +395,25 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       type: "success"
     });
   }, [localPlayers, participationStats.local, participationStats.visit, rosterLocal, rosterVisit, visitPlayers]);
+
+  const handleClearRoster = useCallback((team) => {
+    const isLocal = team === 'local';
+    const setter = isLocal ? setRosterLocal : setRosterVisit;
+
+    setter(prevRoster => prevRoster.map(slot => ({
+      ...slot,
+      playerId: "",
+      goals: 0,
+      yellow: false,
+      red: false
+    })));
+
+    setToastConfig({
+      show: true,
+      message: "Se limpio la alineacion y sus estadisticas.",
+      type: "success"
+    });
+  }, []);
 
   const handleToggleWalkover = (newValue) => {
     setIsWalkover(newValue);
@@ -445,6 +524,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         date: fullDate
       });
       
+      latestLoadRequestRef.current += 1;
+      resetModalState();
       onClose();
     } catch (e) {
       setToastConfig({ show: true, message: "Error al guardar: " + (e?.message || e), type: "error" });
@@ -487,6 +568,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                               minPlayers={minPlayers}
                               onUpdate={handleUpdateRoster}
                               onAutoFillStarters={handleAutoFillStarters}
+                              onClearRoster={handleClearRoster}
                             />
                         </TabContent>
                     )}
@@ -498,9 +580,10 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                                players={visitPlayers}
                                isWalkover={isWalkover}
                                minPlayers={minPlayers}
-                               onUpdate={handleUpdateRoster}
-                               onAutoFillStarters={handleAutoFillStarters}
-                             />
+                                onUpdate={handleUpdateRoster}
+                                onAutoFillStarters={handleAutoFillStarters}
+                                onClearRoster={handleClearRoster}
+                               />
                         </TabContent>
                     )}
                     {activeTab === 'penalties' && (
