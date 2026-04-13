@@ -1,5 +1,6 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/RosterTab.jsx
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styled, { css, keyframes } from "styled-components";
 import { InputNumber, v } from "../../../../../../index";
 import { RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
@@ -18,10 +19,13 @@ const getPlayerLabel = (player) =>
 
 const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpdate }) => {
     const wrapperRef = useRef(null);
+    const inputRef = useRef(null);
+    const menuRef = useRef(null);
     const selectedPlayer = players.find((player) => String(player.id) === String(slot.playerId)) || null;
     const selectedLabel = selectedPlayer ? getPlayerLabel(selectedPlayer) : "";
     const [isOpen, setIsOpen] = useState(false);
     const [inputValue, setInputValue] = useState(selectedLabel);
+    const [menuStyle, setMenuStyle] = useState(null);
 
     useEffect(() => {
         if (!isOpen || !selectedLabel) {
@@ -33,7 +37,10 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
         if (!isOpen) return;
 
         const handlePointerDownOutside = (event) => {
-            if (!wrapperRef.current?.contains(event.target)) {
+            const clickedInsideInput = wrapperRef.current?.contains(event.target);
+            const clickedInsideMenu = menuRef.current?.contains(event.target);
+
+            if (!clickedInsideInput && !clickedInsideMenu) {
                 setIsOpen(false);
                 setInputValue(selectedLabel);
             }
@@ -42,6 +49,46 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
         document.addEventListener("mousedown", handlePointerDownOutside);
         return () => document.removeEventListener("mousedown", handlePointerDownOutside);
     }, [isOpen, selectedLabel]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const updateMenuPosition = () => {
+            const inputNode = inputRef.current;
+            if (!inputNode) return;
+
+            const rect = inputNode.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
+            const spacing = 6;
+            const minMenuHeight = 160;
+            const maxMenuHeight = 220;
+            const spaceBelow = viewportHeight - rect.bottom - 16;
+            const spaceAbove = rect.top - 16;
+            const shouldOpenUpwards = spaceBelow < minMenuHeight && spaceAbove > spaceBelow;
+            const availableHeight = shouldOpenUpwards ? spaceAbove : spaceBelow;
+            const resolvedMaxHeight = Math.max(120, Math.min(maxMenuHeight, availableHeight));
+            const menuWidth = Math.min(rect.width, viewportWidth - rect.left - 16);
+
+            setMenuStyle({
+                left: rect.left,
+                width: menuWidth,
+                maxHeight: resolvedMaxHeight,
+                top: shouldOpenUpwards ? "auto" : rect.bottom + spacing,
+                bottom: shouldOpenUpwards ? viewportHeight - rect.top + spacing : "auto",
+            });
+        };
+
+        updateMenuPosition();
+
+        window.addEventListener("resize", updateMenuPosition);
+        window.addEventListener("scroll", updateMenuPosition, true);
+
+        return () => {
+            window.removeEventListener("resize", updateMenuPosition);
+            window.removeEventListener("scroll", updateMenuPosition, true);
+        };
+    }, [isOpen, inputValue, players.length, slot.playerId]);
 
     const effectiveQuery = isOpen && selectedLabel && inputValue === selectedLabel ? "" : inputValue;
     const normalizedQuery = normalizePlayerSearch(effectiveQuery);
@@ -88,6 +135,7 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
     return (
         <SearchableSelectContainer ref={wrapperRef}>
             <input
+                ref={inputRef}
                 type="text"
                 value={inputValue}
                 placeholder="Seleccionar jugador..."
@@ -105,34 +153,37 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
             />
 
             {isOpen && (
-                <OptionsList role="listbox">
-                    {filteredPlayers.length ? (
-                        filteredPlayers.map((player) => {
-                            const isDisabled = globalRoster.some(
-                                (rosterPlayer) =>
-                                    String(rosterPlayer.playerId) === String(player.id) &&
-                                    rosterPlayer.idTemp !== slot.idTemp
-                            );
-                            const isSelected = String(slot.playerId) === String(player.id);
+                createPortal(
+                    <OptionsList ref={menuRef} role="listbox" style={menuStyle || undefined}>
+                        {filteredPlayers.length ? (
+                            filteredPlayers.map((player) => {
+                                const isDisabled = globalRoster.some(
+                                    (rosterPlayer) =>
+                                        String(rosterPlayer.playerId) === String(player.id) &&
+                                        rosterPlayer.idTemp !== slot.idTemp
+                                );
+                                const isSelected = String(slot.playerId) === String(player.id);
 
-                            return (
-                                <OptionButton
-                                    key={player.id}
-                                    type="button"
-                                    $selected={isSelected}
-                                    disabled={isDisabled}
-                                    onMouseDown={(event) => event.preventDefault()}
-                                    onClick={() => !isDisabled && handleSelectPlayer(player)}
-                                >
-                                    <span>{getPlayerLabel(player)}</span>
-                                    {isDisabled && <small>Ya seleccionado</small>}
-                                </OptionButton>
-                            );
-                        })
-                    ) : (
-                        <EmptyOptionsMessage>No hay jugadores que coincidan con la busqueda.</EmptyOptionsMessage>
-                    )}
-                </OptionsList>
+                                return (
+                                    <OptionButton
+                                        key={player.id}
+                                        type="button"
+                                        $selected={isSelected}
+                                        disabled={isDisabled}
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onClick={() => !isDisabled && handleSelectPlayer(player)}
+                                    >
+                                        <span>{getPlayerLabel(player)}</span>
+                                        {isDisabled && <small>Ya seleccionado</small>}
+                                    </OptionButton>
+                                );
+                            })
+                        ) : (
+                            <EmptyOptionsMessage>No hay jugadores que coincidan con la busqueda.</EmptyOptionsMessage>
+                        )}
+                    </OptionsList>,
+                    document.body
+                )
             )}
         </SearchableSelectContainer>
     );
@@ -497,21 +548,33 @@ const SearchableSelectContainer = styled.div`
 `;
 
 const OptionsList = styled.div`
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
-    z-index: 25;
+    position: fixed;
+    z-index: 100002;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 220px;
     overflow-y: auto;
     padding: 6px;
     border-radius: 12px;
     background: ${({theme}) => theme.bgtotal};
     border: 1px solid ${({theme}) => theme.bg4};
     box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
+
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: ${({theme}) => theme.bg4};
+        border-radius: 4px;
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: ${({theme}) => theme.bg4} transparent;
 `;
 
 const OptionButton = styled.button`
