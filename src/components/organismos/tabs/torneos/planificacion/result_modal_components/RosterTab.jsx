@@ -1,8 +1,142 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/RosterTab.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled, { css, keyframes } from "styled-components";
 import { InputNumber, v } from "../../../../../../index";
 import { RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
+
+const normalizePlayerSearch = (value) =>
+    String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+
+const getPlayerLabel = (player) =>
+    `${player?.first_name || ''} ${player?.last_name || ''} ${player?.dorsal ? `(${player.dorsal})` : ''}`
+        .replace(/\s+/g, " ")
+        .trim();
+
+const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpdate }) => {
+    const wrapperRef = useRef(null);
+    const selectedPlayer = players.find((player) => String(player.id) === String(slot.playerId)) || null;
+    const selectedLabel = selectedPlayer ? getPlayerLabel(selectedPlayer) : "";
+    const [isOpen, setIsOpen] = useState(false);
+    const [inputValue, setInputValue] = useState(selectedLabel);
+
+    useEffect(() => {
+        if (!isOpen || !selectedLabel) {
+            setInputValue(selectedLabel);
+        }
+    }, [selectedLabel, isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handlePointerDownOutside = (event) => {
+            if (!wrapperRef.current?.contains(event.target)) {
+                setIsOpen(false);
+                setInputValue(selectedLabel);
+            }
+        };
+
+        document.addEventListener("mousedown", handlePointerDownOutside);
+        return () => document.removeEventListener("mousedown", handlePointerDownOutside);
+    }, [isOpen, selectedLabel]);
+
+    const effectiveQuery = isOpen && selectedLabel && inputValue === selectedLabel ? "" : inputValue;
+    const normalizedQuery = normalizePlayerSearch(effectiveQuery);
+
+    const filteredPlayers = players.filter((player) => {
+        if (!normalizedQuery) return true;
+
+        const searchableText = normalizePlayerSearch(
+            `${player.first_name || ''} ${player.last_name || ''} ${player.dorsal || ''}`
+        );
+
+        return searchableText.includes(normalizedQuery);
+    });
+
+    const handleSelectPlayer = (player) => {
+        onUpdate(team, idx, 'playerId', player.id);
+        setInputValue(getPlayerLabel(player));
+        setIsOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+        if (event.key === "Escape") {
+            setIsOpen(false);
+            setInputValue(selectedLabel);
+            return;
+        }
+
+        if (event.key === "Enter") {
+            const firstAvailablePlayer = filteredPlayers.find((player) => (
+                !globalRoster.some(
+                    (rosterPlayer) =>
+                        String(rosterPlayer.playerId) === String(player.id) &&
+                        rosterPlayer.idTemp !== slot.idTemp
+                )
+            ));
+
+            if (firstAvailablePlayer) {
+                event.preventDefault();
+                handleSelectPlayer(firstAvailablePlayer);
+            }
+        }
+    };
+
+    return (
+        <SearchableSelectContainer ref={wrapperRef}>
+            <input
+                type="text"
+                value={inputValue}
+                placeholder="Seleccionar jugador..."
+                onFocus={(event) => {
+                    setIsOpen(true);
+                    if (selectedLabel && inputValue === selectedLabel) {
+                        event.target.select();
+                    }
+                }}
+                onChange={(event) => {
+                    setInputValue(event.target.value);
+                    if (!isOpen) setIsOpen(true);
+                }}
+                onKeyDown={handleKeyDown}
+            />
+
+            {isOpen && (
+                <OptionsList role="listbox">
+                    {filteredPlayers.length ? (
+                        filteredPlayers.map((player) => {
+                            const isDisabled = globalRoster.some(
+                                (rosterPlayer) =>
+                                    String(rosterPlayer.playerId) === String(player.id) &&
+                                    rosterPlayer.idTemp !== slot.idTemp
+                            );
+                            const isSelected = String(slot.playerId) === String(player.id);
+
+                            return (
+                                <OptionButton
+                                    key={player.id}
+                                    type="button"
+                                    $selected={isSelected}
+                                    disabled={isDisabled}
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() => !isDisabled && handleSelectPlayer(player)}
+                                >
+                                    <span>{getPlayerLabel(player)}</span>
+                                    {isDisabled && <small>Ya seleccionado</small>}
+                                </OptionButton>
+                            );
+                        })
+                    ) : (
+                        <EmptyOptionsMessage>No hay jugadores que coincidan con la busqueda.</EmptyOptionsMessage>
+                    )}
+                </OptionsList>
+            )}
+        </SearchableSelectContainer>
+    );
+};
 
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
     const hasSelectedPlayer = Boolean(slot.playerId);
@@ -19,21 +153,14 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
         <RowContainer>
             <div className="player-select">
                 <PlayerSelectShell $selected={hasSelectedPlayer} $animate={animateSelect}>
-                    <select
-                        value={slot.playerId}
-                        onChange={(e) => onUpdate(team, idx, 'playerId', e.target.value)}
-                    >
-                        <option value="">Seleccionar jugador...</option>
-                        {players.map(p => (
-                            <option
-                                key={p.id}
-                                value={p.id}
-                                disabled={globalRoster.some(r => String(r.playerId) === String(p.id) && r.idTemp !== slot.idTemp)}
-                            >
-                                {p.first_name} {p.last_name} {p.dorsal ? `(${p.dorsal})` : ''}
-                            </option>
-                        ))}
-                    </select>
+                    <SearchablePlayerSelect
+                        slot={slot}
+                        idx={idx}
+                        team={team}
+                        players={players}
+                        globalRoster={globalRoster}
+                        onUpdate={onUpdate}
+                    />
                     <ClearPlayerButton
                         type="button"
                         $visible={hasSelectedPlayer}
@@ -329,7 +456,7 @@ const selectPulse = keyframes`
 
 const PlayerSelectShell = styled.div`
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     width: 100%;
     padding: 4px;
@@ -341,9 +468,91 @@ const PlayerSelectShell = styled.div`
         animation: ${selectPulse} 0.26s ease-out;
     `}
 
-    select {
+    input {
         flex: 1;
     }
+`;
+
+const SearchableSelectContainer = styled.div`
+    position: relative;
+    flex: 1;
+
+    input {
+        background: ${({theme}) => theme.bg3};
+        border: 1px solid ${({theme}) => theme.bg4};
+        color: ${({theme}) => theme.text};
+        padding: 8px 10px;
+        border-radius: 10px;
+        width: 100%;
+        outline: none;
+        box-sizing: border-box;
+        font-size: 0.9rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    input:focus {
+        border-color: ${v.colorPrincipal};
+        box-shadow: 0 0 0 3px ${`${v.colorPrincipal}20`};
+    }
+`;
+
+const OptionsList = styled.div`
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 6px;
+    border-radius: 12px;
+    background: ${({theme}) => theme.bgtotal};
+    border: 1px solid ${({theme}) => theme.bg4};
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
+`;
+
+const OptionButton = styled.button`
+    width: 100%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: ${({theme, $selected}) => $selected ? `${v.colorPrincipal}18` : 'transparent'};
+    color: ${({theme}) => theme.text};
+    cursor: ${({disabled}) => disabled ? 'not-allowed' : 'pointer'};
+    opacity: ${({disabled}) => disabled ? 0.45 : 1};
+    transition: background 0.18s ease, transform 0.18s ease;
+
+    span {
+        min-width: 0;
+        flex: 1;
+    }
+
+    small {
+        color: ${v.colorError};
+        font-size: 0.68rem;
+        font-weight: 700;
+    }
+
+    &:hover:not(:disabled) {
+        background: ${({theme, $selected}) => $selected ? `${v.colorPrincipal}22` : theme.bg3};
+        transform: translateY(-1px);
+    }
+`;
+
+const EmptyOptionsMessage = styled.div`
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: ${({theme}) => theme.text};
+    opacity: 0.7;
 `;
 
 const ClearPlayerButton = styled.button`
@@ -442,24 +651,6 @@ const RowContainer = styled.div`
         background: linear-gradient(135deg, #f97316, #ef4444);
     }
 
-    select {
-        background: ${({theme}) => theme.bg3};
-        border: 1px solid ${({theme}) => theme.bg4};
-        color: ${({theme}) => theme.text};
-        padding: 8px;
-        border-radius: 5px;
-        width: 100%;
-        outline: none;
-        box-sizing: border-box;
-        font-size: 0.9rem;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-    }
-
-    select:focus {
-        border-color: ${v.colorPrincipal};
-        box-shadow: 0 0 0 3px ${`${v.colorPrincipal}20`};
-    }
-
     .stat-number > div {
         width: 82px;
         height: 40px;
@@ -496,12 +687,6 @@ const RowContainer = styled.div`
     .stat-number button:active {
         background: ${`${v.colorPrincipal}20`};
     }
-
-    .stat-number${''} {
-        opacity: ${({}) => 1};
-    }
-
-    ${({ $theme }) => ''}
 
     .stat-number[disabled] {
         opacity: 0.6;
