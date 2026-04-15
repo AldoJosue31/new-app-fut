@@ -2,7 +2,13 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
-import { RiCheckDoubleLine, RiEyeLine, RiEyeOffLine, RiTimeLine } from "react-icons/ri";
+import {
+  RiCheckDoubleLine,
+  RiCloseLine,
+  RiEyeLine,
+  RiEyeOffLine,
+  RiTimeLine,
+} from "react-icons/ri";
 
 import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatches";
 import { addDaysToDate, formatDateWithWeekday } from "../../../../utils/dateUtils";
@@ -32,6 +38,13 @@ import { EmptyDropZone } from "./planificacion/EmptyDropZone";
 import { ConfirmModal } from "../../ConfirmModal";
 import { MatchResolutionModal } from "./planificacion/MatchResolutionModal";
 import { RepositionPlannerModal } from "./planificacion/RepositionPlannerModal";
+
+const getMatchTeamsLabel = (match) => {
+  if (!match) return "";
+  const homeName = match.homeTeam?.name || match.local?.name || "Local";
+  const awayName = match.awayTeam?.name || match.visitante?.name || "Visitante";
+  return `${homeName} vs ${awayName}`;
+};
 
 export function JornadaPlanificacion({
   matchesDB = [],
@@ -83,7 +96,13 @@ export function JornadaPlanificacion({
 
   const [viewMode, setViewMode] = useState("list");
   const [draggedMatch, setDraggedMatch] = useState(null);
+  const [selectedPendingMatch, setSelectedPendingMatch] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= 768;
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
@@ -192,6 +211,18 @@ export function JornadaPlanificacion({
     suggestedRepositionWindow.startDate,
   ]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleResize = () => {
+      setIsMobileViewport(window.innerWidth <= 768);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const futureJornadaPreview = useMemo(
     () =>
       buildRepositionPreview({
@@ -239,6 +270,13 @@ export function JornadaPlanificacion({
 
     return activeTournament.config;
   }, [activeTournament?.config]);
+  const isTapSelectionEnabled = isMobileViewport && viewMode === "list" && !isConfirmed;
+  const isTapDropEnabled = isTapSelectionEnabled && Boolean(selectedPendingMatch);
+  const activePendingMatch = draggedMatch || selectedPendingMatch;
+  const selectedPendingMatchLabel = useMemo(
+    () => getMatchTeamsLabel(selectedPendingMatch),
+    [selectedPendingMatch]
+  );
 
   const handleOpenResolution = (match) => {
     setMatchToResolve(match);
@@ -264,15 +302,61 @@ export function JornadaPlanificacion({
     setAllPendingMatches(updated);
   };
 
+  useEffect(() => {
+    if (!selectedPendingMatch) return;
+
+    const isStillAvailable = sidebarMatches.some(
+      (match) => match.id === selectedPendingMatch.id && !match.resolution
+    );
+
+    if (!isStillAvailable) {
+      setSelectedPendingMatch(null);
+    }
+  }, [selectedPendingMatch, sidebarMatches]);
+
+  useEffect(() => {
+    if (!isTapSelectionEnabled) {
+      setSelectedPendingMatch(null);
+    }
+  }, [isTapSelectionEnabled]);
+
+  useEffect(() => {
+    if (!isMobileViewport || viewMode !== "list") {
+      setIsSidebarCollapsed(false);
+      return;
+    }
+
+    setIsSidebarCollapsed(Boolean(selectedPendingMatch));
+  }, [isMobileViewport, selectedPendingMatch, viewMode]);
+
+  useEffect(() => {
+    if (draggedMatch) {
+      setSelectedPendingMatch(null);
+    }
+  }, [draggedMatch]);
+
   const clearDraggedMatch = useCallback(() => {
     setDraggedMatch(null);
     setIsDragOver(false);
   }, []);
 
+  const toggleSelectedPendingMatch = useCallback(
+    (match) => {
+      if (!isTapSelectionEnabled || !match || match.resolution) return;
+      setDraggedMatch(null);
+      setIsDragOver(false);
+      setSelectedPendingMatch((prev) =>
+        prev?.id === match.id ? null : match
+      );
+    },
+    [isTapSelectionEnabled]
+  );
+
   const assignDraggedMatchToDate = useCallback(
     (targetDate = null) => {
       setIsDragOver(false);
-      if (!draggedMatch || isConfirmed) return;
+      const pendingMatch = draggedMatch || selectedPendingMatch;
+      if (!pendingMatch || isConfirmed) return;
 
       const baseStartDate = planningWindowStartDate || weekStartDate;
       const finalDate = targetDate || baseStartDate;
@@ -298,7 +382,7 @@ export function JornadaPlanificacion({
       }
 
       const newMatch = {
-        ...draggedMatch,
+        ...pendingMatch,
         time: nextTime,
         date: finalDate,
         status: "Programado",
@@ -308,9 +392,10 @@ export function JornadaPlanificacion({
       const newList = [...scheduledMatches, newMatch];
       setScheduledMatches(autoAdjustTimes(newList, finalDate));
       setAllPendingMatches(
-        allPendingMatches.filter((match) => match.id !== draggedMatch.id)
+        allPendingMatches.filter((match) => match.id !== pendingMatch.id)
       );
       setDraggedMatch(null);
+      setSelectedPendingMatch(null);
     },
     [
       allPendingMatches,
@@ -320,6 +405,7 @@ export function JornadaPlanificacion({
       isConfirmed,
       planningWindowStartDate,
       scheduledMatches,
+      selectedPendingMatch,
       setAllPendingMatches,
       setScheduledMatches,
       tournamentConfig?.horaInicio,
@@ -547,6 +633,14 @@ export function JornadaPlanificacion({
               onOpenResolution={handleOpenResolution}
               onClearResolution={handleClearResolution}
               isRepositionMode={isRepositionMode}
+              onSelectMatch={toggleSelectedPendingMatch}
+              selectedMatchId={selectedPendingMatch?.id || null}
+              isTapSelectionEnabled={isTapSelectionEnabled}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={() =>
+                setIsSidebarCollapsed((prev) => !prev)
+              }
+              canCollapse={isMobileViewport && viewMode === "list"}
             />
           )}
 
@@ -561,14 +655,32 @@ export function JornadaPlanificacion({
                 onDrop={(e) => handleDrop(e, null)}
                 $isOver={isDragOver}
               >
+                {isTapDropEnabled && selectedPendingMatch && (
+                  <TapSelectionBanner>
+                    <div className="copy">
+                      <span className="title">Partido seleccionado</span>
+                      <strong>{selectedPendingMatchLabel}</strong>
+                      <small>Toca una fila o un dia para moverlo.</small>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPendingMatch(null)}
+                      title="Cancelar seleccion"
+                    >
+                      <RiCloseLine />
+                    </button>
+                  </TapSelectionBanner>
+                )}
+
                 {sortedMatches.length === 0 ? (
                   <EmptyDropZone
                     isConfirmed={isConfirmed}
                     isDragOver={isDragOver}
-                    draggedMatch={draggedMatch}
+                    draggedMatch={activePendingMatch}
                     jornadaStartDate={planningWindowStartDate}
                     jornadaEndDate={planningWindowEndDate}
                     onDropDate={assignDraggedMatchToDate}
+                    allowTapDrop={isTapDropEnabled}
                   />
                 ) : (
                   <GridList>
@@ -599,6 +711,7 @@ export function JornadaPlanificacion({
                             timeMax={tournamentConfig?.horaFin || ""}
                             defaultTime={tournamentConfig?.horaInicio || "08:00"}
                             onDropOnDate={assignDraggedMatchToDate}
+                            onTapDrop={assignDraggedMatchToDate}
                             onUpdateDate={(val) => handleUpdateDate(match.id, val)}
                             onUpdateTime={(val) => {
                               const updated = scheduledMatches.map((item) =>
@@ -631,6 +744,8 @@ export function JornadaPlanificacion({
                             onPostpone={(selected) => setMatchToPostpone(selected)}
                             isRepositionMode={isRepositionMode}
                             currentJornadaNumber={currentJornadaNumber}
+                            isTapDropEnabled={isTapDropEnabled}
+                            selectedPendingMatchLabel={selectedPendingMatchLabel}
                           />
 
                           {isLastOfDate && match.date && (
@@ -638,6 +753,7 @@ export function JornadaPlanificacion({
                               baseDate={match.date}
                               onDropAction={assignDraggedMatchToDate}
                               isConfirmed={isConfirmed}
+                              isTapDropEnabled={isTapDropEnabled}
                             />
                           )}
                         </React.Fragment>
@@ -927,6 +1043,60 @@ const GridList = styled.div`
   flex: 1 1 auto;
   min-height: 100%;
   padding-bottom: 5px;
+`;
+
+const TapSelectionBanner = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: 1px solid ${v.colorPrincipal};
+  background: ${v.colorPrincipal}12;
+  color: ${({ theme }) => theme.text};
+
+  .copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: ${v.colorPrincipal};
+  }
+
+  strong {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  small {
+    font-size: 0.72rem;
+    opacity: 0.75;
+  }
+
+  button {
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: ${({ theme }) => theme.bg3};
+    color: ${({ theme }) => theme.text};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
 `;
 
 const Footer = styled.div`
