@@ -36,6 +36,44 @@ export const getTopScorersService = async ({ division = null, tournamentId = nul
   return data || [];
 };
 
+export const getTopScorerEventsService = async ({ tournamentId = null } = {}) => {
+  if (!tournamentId) return [];
+
+  const tid = Number(tournamentId);
+  const { data, error } = await supabase
+    .from('match_events')
+    .select(`
+      event_type,
+      player_id,
+      players!inner (
+        id,
+        first_name,
+        last_name,
+        dorsal,
+        photo_url,
+        team_id
+      ),
+      matches!inner (
+        id,
+        jornada_id,
+        status,
+        jornadas!inner (
+          id,
+          name,
+          tournament_id
+        )
+      )
+    `)
+    .eq('matches.jornadas.tournament_id', tid);
+
+  if (error) {
+    console.error("getTopScorerEventsService error:", error);
+    throw error;
+  }
+
+  return data || [];
+};
+
 export const getTeamTournamentStats = async (teamId, divisionId) => {
   try {
     // 1. Obtener ID del torneo ACTIVO

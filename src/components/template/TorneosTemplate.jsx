@@ -137,6 +137,8 @@ export function TorneosTemplate({
                 <GoleadoresTab
                    torneo={activeTournament}
                    goleadores={goleadores}
+                   equipos={participatingTeamsObj}
+                   partidos={partidos}
                    isPublic={false}
                    onRefresh={() => {
                      if (refreshStandings) refreshStandings();

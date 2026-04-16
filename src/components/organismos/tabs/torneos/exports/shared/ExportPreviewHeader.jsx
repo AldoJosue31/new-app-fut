@@ -10,7 +10,8 @@ export const ExportPreviewHeader = ({
     setIsMobile, 
     onExport, 
     isExporting, 
-    title = "Configura la imagen" 
+    title = "Configura la imagen",
+    extraControls = null
 }) => {
     return (
         <HeaderContainer>
@@ -31,7 +32,16 @@ export const ExportPreviewHeader = ({
                 <ThemeToggleBtn onClick={() => !isExporting && setIsDark(!isDark)} title="Cambiar tema de la imagen">
                     {isDark ? <RiSunLine /> : <RiMoonLine />}
                 </ThemeToggleBtn>
-                
+
+                {extraControls ? (
+                    <>
+                        <div className="separator" />
+                        <div className="extra-controls">
+                            {extraControls}
+                        </div>
+                    </>
+                ) : null}
+
                 <div className="separator" />
                 
                 <div style={{ opacity: isExporting ? 0.6 : 1, pointerEvents: isExporting ? 'none' : 'auto' }}>
@@ -60,6 +70,7 @@ const HeaderContainer = styled.div`
     .right-group {
         display: flex; align-items: center; gap: 12px;
         .separator { width: 1px; height: 20px; background: ${({theme}) => theme.bg3}; }
+        .extra-controls { display: flex; align-items: center; gap: 8px; }
         
         .spinner-mini {
             width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
