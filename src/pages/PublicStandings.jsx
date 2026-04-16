@@ -208,6 +208,8 @@ export const PublicStandings = () => {
                 <GoleadoresTab 
                     torneo={torneo}
                     goleadores={goleadores}
+                    partidos={partidos}
+                    equipos={equipos}
                     isPublic={true}
                 />
             )}

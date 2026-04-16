@@ -48,7 +48,7 @@ const getOfficialJornadaNumberFromMapping = (mapping, jornadas = []) => {
   );
 };
 
-const getOfficialJornadaNumberForMatch = (
+export const getOfficialJornadaNumberForMatch = (
   match,
   jornadas = [],
   repositionMappings = [],
@@ -458,6 +458,10 @@ export const useTorneoStandingsLogic = ({
     jornadasConfirmadasForDropdown,
     tablaGeneral,
     activeJornadaName,
-    isCalculating: fetchingJornadas 
+    isCalculating: fetchingJornadas,
+    mergedJornadas,
+    repositionMappings,
+    repositionMatchMappings,
+    relevantMatches
   };
 };
