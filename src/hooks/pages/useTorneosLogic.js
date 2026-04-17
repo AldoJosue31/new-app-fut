@@ -291,6 +291,7 @@ export const useTorneosLogic = () => {
       }
 
       await iniciarTorneoService({
+        divisionId: selectedDivision.id,
         divisionName: selectedDivision.name,
         season: form.season,
         startDate: form.startDate,

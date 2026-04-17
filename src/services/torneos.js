@@ -239,10 +239,24 @@ export const actualizarConfigTorneoService = async (tournamentId, newConfig, bas
 };
 
 export const iniciarTorneoService = async ({ 
-  divisionName, season, startDate, config, jornadas 
+  divisionId, divisionName, season, startDate, config, jornadas
 }, fixtureGenerado) => {
   try {
-    const { data: divisionData } = await supabase.from('divisions').select('id').eq('name', divisionName).single();
+    let resolvedDivisionId = divisionId ?? null;
+    let divisionData = resolvedDivisionId ? { id: resolvedDivisionId } : null;
+
+    if (!divisionData && divisionName) {
+      const { data, error: divisionError } = await supabase
+        .from('divisions')
+        .select('id')
+        .eq('name', divisionName)
+        .maybeSingle();
+
+      if (divisionError) throw divisionError;
+
+      divisionData = data;
+      resolvedDivisionId = data?.id ?? null;
+    }
     if (!divisionData) throw new Error("División no encontrada");
 
     const { data: torneo, error: tError } = await supabase
