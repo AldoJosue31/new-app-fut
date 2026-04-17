@@ -13,25 +13,13 @@ export const supabase = createClient(
         getItem: (k) => {
           try { return localStorage.getItem(k); } catch { return null; }
         },
-        setItem: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
-        removeItem: (k) => { try { localStorage.removeItem(k); } catch {} },
+        setItem: (k, v) => {
+          try { localStorage.setItem(k, v); } catch { return undefined; }
+        },
+        removeItem: (k) => {
+          try { localStorage.removeItem(k); } catch { return undefined; }
+        },
       },
     },
-  }
-);
-
-// NUEVO: Cliente de Administrador (Cuidado: Solo para uso administrativo)
-// REQUIERE: VITE_APP_SUPABASE_SERVICE_ROLE_KEY en tu archivo .env
-// Se usa un string vacío por defecto temporal para evitar que crashee la app si aún no pones la variable en el .env
-const serviceRoleKey = import.meta.env.VITE_APP_SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.dummy";
-
-export const supabaseAdmin = createClient(
-  import.meta.env.VITE_APP_SUPABASE_URL,
-  serviceRoleKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    }
   }
 );

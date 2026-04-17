@@ -8,6 +8,7 @@ import {
     getAllMatchesByTournament
 } from "../../services/torneos"; 
 import { getTablaPosicionesService } from "../../services/estadisticas";
+import { getLeagueById } from "../../services/leagues";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { 
   TOURNAMENT_STATUS, 
@@ -15,7 +16,6 @@ import {
   TEAM_STATUS 
 } from "../../utils/constants";
 import { addDaysToDate, isValidDate } from "../../utils/dateUtils";
-import { supabase } from "../../supabase/supabase.config"; 
 
 export const useTorneosLogic = () => {
   const [loading, setLoading] = useState(false);
@@ -87,7 +87,7 @@ export const useTorneosLogic = () => {
     if (!form.hasRepechaje && form.repechajeTeams !== 0) {
         setForm(prev => ({ ...prev, repechajeTeams: 0 }));
     }
-  }, [form.hasRepechaje]);
+  }, [form.hasRepechaje, form.repechajeTeams]);
 
   useEffect(() => {
     const max = parseInt(form.maxTeams || 0);
@@ -104,11 +104,7 @@ export const useTorneosLogic = () => {
     setIsLoadingData(true); 
     try {
       if (selectedDivision.league_id) {
-          const { data: lData } = await supabase
-            .from('leagues')
-            .select('*')
-            .eq('id', selectedDivision.league_id)
-            .single();
+          const lData = await getLeagueById(selectedDivision.league_id);
           setLeagueData(lData);
       }
 
@@ -291,6 +287,7 @@ export const useTorneosLogic = () => {
       }
 
       await iniciarTorneoService({
+        divisionId: selectedDivision.id,
         divisionName: selectedDivision.name,
         season: form.season,
         startDate: form.startDate,

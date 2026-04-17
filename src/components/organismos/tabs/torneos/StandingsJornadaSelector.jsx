@@ -6,9 +6,11 @@ export const StandingsJornadaSelector = ({
   selected, 
   onChange, 
   effectiveJornada,
-  jornadasOptions = [] 
+  jornadasOptions = [],
+  currentLabel
 }) => {
   const options = Array.isArray(jornadasOptions) ? jornadasOptions : [];
+  const recentLabel = currentLabel || `Vista Actual (J. ${effectiveJornada})`;
 
   return (
     <SelectorContainer>
@@ -17,7 +19,7 @@ export const StandingsJornadaSelector = ({
           value={selected}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="recent">Vista Actual (J. {effectiveJornada})</option>
+          <option value="recent">{recentLabel}</option>
 
           {options.length > 0 && (
             <optgroup label="Historial de Jornadas">

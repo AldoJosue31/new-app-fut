@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
-import { supabase } from "../../../../supabase/supabase.config";
 import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
-import { guardarJornadaService, actualizarConfigTorneoService, bulkUpdateJornadaFechas } from "../../../../services/torneos";
+import {
+  actualizarConfigTorneoService,
+  bulkUpdateJornadaFechas,
+  bulkUpsertMatchesService,
+  getAllMatchesByTournament,
+  getJornadas,
+  getMatchesByIdsService,
+  getMatchesByJornadaService,
+  getPendingMatchesByTournamentService,
+  getTournamentConfigService,
+  guardarJornadaService,
+  updateMatchResultService,
+} from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 import {
   isOfficialJornadaName,
@@ -144,16 +155,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   const fetchTournamentConfig = async () => {
     try {
-      const { data, error } = await supabase
-        .from('tournaments')
-        .select('config')
-        .eq('id', activeTournament.id)
-        .single();
-
-      if (error) throw error;
-
-      const nextConfig =
-        data?.config && typeof data.config === 'object' ? data.config : {};
+      const nextConfig = await getTournamentConfigService(activeTournament.id);
 
       const nextMappings = Array.isArray(nextConfig.repositionMappings)
         ? nextConfig.repositionMappings
@@ -190,13 +192,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   const fetchJornadas = async (preferredJornadaId = null) => {
     try {
-      const { data, error } = await supabase
-        .from('jornadas')
-        .select('*')
-        .eq('tournament_id', activeTournament.id)
-        .order('id', { ascending: true });
-      if (error) throw error;
-      
+      const data = await getJornadas(activeTournament.id);
       const sorted = sortJornadas(data);
       setJornadas(sorted);
 
@@ -229,29 +225,15 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         ? matchMappingsSource
         : [];
 
-      const directResult = await supabase
-        .from('matches')
-        .select('*, jornadas(id, name)')
-        .eq('jornada_id', jornadaId);
-
-      if (directResult.error) throw directResult.error;
+      const directMatches = await getMatchesByJornadaService(jornadaId);
 
       const extraMatchIds = normalizedMatchMappings
         .filter((mapping) => String(mapping?.originalJornadaId) === String(jornadaId))
         .map((mapping) => mapping.matchId)
         .filter(Boolean);
-      let extraMatches = [];
-      if (extraMatchIds.length > 0) {
-        const extraResult = await supabase
-          .from('matches')
-          .select('*, jornadas(id, name)')
-          .in('id', extraMatchIds);
+      const extraMatches = await getMatchesByIdsService(extraMatchIds);
 
-        if (extraResult.error) throw extraResult.error;
-        extraMatches = extraResult.data || [];
-      }
-
-      const mergedMatches = [...(directResult.data || [])];
+      const mergedMatches = [...directMatches];
       extraMatches.forEach((match) => {
         if (!mergedMatches.some((current) => String(current.id) === String(match.id))) {
           mergedMatches.push(match);
@@ -310,13 +292,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   const fetchGlobalPendingMatches = async () => {
       try {
-          const { data, error } = await supabase
-            .from('matches')
-            .select('*, jornadas!inner(id, name, tournament_id)') 
-            .eq('jornadas.tournament_id', activeTournament.id)
-            .in('status', ['Pendiente', 'Programado']); 
-            
-          if(error) throw error;
+          const data = await getPendingMatchesByTournamentService(activeTournament.id);
 
           // Se mantiene la busqueda de Programados sin fecha para que la UI 
           // los detecte de tu base de datos y no se vuelvan invisibles.
@@ -331,12 +307,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const handleOpenFixtureEditor = async () => {
       setLoading(true);
       try {
-          const { data: allMatches, error } = await supabase
-            .from('matches')
-            .select('*')
-            .in('jornada_id', jornadas.map(j => j.id));
-          
-          if(error) throw error;
+          const allMatches = await getAllMatchesByTournament(activeTournament.id);
 
           setEditorData({
               matches: allMatches,
@@ -378,11 +349,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         });
 
         if(updates.length > 0) {
-            const { error } = await supabase
-                .from('matches')
-                .upsert(updates, { onConflict: 'id' }); 
-
-            if (error) throw error;
+            await bulkUpsertMatchesService(updates);
             setToastConfig({ show: true, message: "Fixture reorganizado correctamente.", type: "success" });
             
             await fetchGlobalPendingMatches(); 
@@ -552,14 +519,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   };
 
   const handleMatchUpdate = async (matchId, updates) => {
-    try {
-      const { error } = await supabase.from('matches').update(updates).eq('id', matchId);
-      if (error) throw error;
-      await new Promise(res => setTimeout(res, 100));
-      if (refreshStandings) await refreshStandings(); 
-      await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
-      await fetchGlobalPendingMatches();
-    } catch (e) { throw e; }
+    await updateMatchResultService(matchId, updates);
+    await new Promise(res => setTimeout(res, 100));
+    if (refreshStandings) await refreshStandings(); 
+    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+    await fetchGlobalPendingMatches();
   };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;

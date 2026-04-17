@@ -1,6 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { AdminManagersTemplate } from "../components/template/AdminManagersTemplate";
-import { supabase, supabaseAdmin } from "../supabase/supabase.config";
+import { supabase } from "../supabase/supabase.config";
+import {
+  createManagerAdminService,
+  deleteManagerAdminService,
+  updateManagerCredentialsService,
+} from "../services/adminManagers";
 
 export function AdminManagers({ state, setState }) { 
   const [managers, setManagers] = useState([]);
@@ -23,71 +28,16 @@ export function AdminManagers({ state, setState }) {
     divisionsAffected: []
   });
 
-  const [form, setForm] = useState({ email: "", nombre: "", nombreLiga: "" });
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   const presenceRef = useRef(null);
-
-  useEffect(() => {
-    fetchManagers();
-
-    if (presenceRef.current) {
-      console.log("[ADMIN] presence channel already active");
-      return;
-    }
-
-    const channel = supabase.channel("online-managers");
-    presenceRef.current = channel;
-
-    const mapPresenceStateToOnline = (state) => {
-      const onlineMap = {};
-      Object.entries(state).forEach(([_, metas]) => {
-        metas.forEach(meta => {
-          if (meta?.user_id) {
-            onlineMap[meta.user_id] = true;
-          }
-        });
-      });
-      return onlineMap;
-    };
-
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        setOnlineUsers(mapPresenceStateToOnline(state));
-      })
-      .on("presence", { event: "join" }, ({ newPresences }) => {
-        setOnlineUsers(prev => {
-          const next = { ...prev };
-          newPresences.forEach(meta => {
-            if (meta?.user_id) next[meta.user_id] = true;
-          });
-          return next;
-        });
-      })
-      .on("presence", { event: "leave" }, () => {
-        const state = channel.presenceState();
-        setOnlineUsers(mapPresenceStateToOnline(state));
-      })
-      .subscribe();
-
-    return () => {
-      try {
-        channel.unsubscribe();
-      } catch (e) {
-        try { supabase.removeChannel(channel); } catch {}
-      } finally {
-        presenceRef.current = null;
-      }
-    };
-  }, []);
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
   };
   const closeToast = () => setToast({ ...toast, show: false });
 
-  const fetchManagers = async () => {
+  const fetchManagers = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
@@ -111,53 +61,98 @@ export function AdminManagers({ state, setState }) {
       setManagers(data);
     }
     setLoading(false);
-  };
+  }, []);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    fetchManagers();
+
+    if (presenceRef.current) {
+      console.log("[ADMIN] presence channel already active");
+      return;
+    }
+
+    const channel = supabase.channel("online-managers");
+    presenceRef.current = channel;
+
+    const mapPresenceStateToOnline = (state) => {
+      const onlineMap = {};
+      Object.values(state).forEach((metas) => {
+        metas.forEach((meta) => {
+          if (meta?.user_id) {
+            onlineMap[meta.user_id] = true;
+          }
+        });
+      });
+      return onlineMap;
+    };
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        setOnlineUsers(mapPresenceStateToOnline(state));
+      })
+      .on("presence", { event: "join" }, ({ newPresences }) => {
+        setOnlineUsers((prev) => {
+          const next = { ...prev };
+          newPresences.forEach((meta) => {
+            if (meta?.user_id) next[meta.user_id] = true;
+          });
+          return next;
+        });
+      })
+      .on("presence", { event: "leave" }, () => {
+        const state = channel.presenceState();
+        setOnlineUsers(mapPresenceStateToOnline(state));
+      })
+      .subscribe();
+
+    return () => {
+      try {
+        channel.unsubscribe();
+      } catch {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          return null;
+        }
+      } finally {
+        presenceRef.current = null;
+      }
+    };
+  }, [fetchManagers]);
+
+  const handleCreate = async ({ fullName, email, password, leagueName }) => {
     setLoading(true);
     try {
-      const { error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: "TemporalPassword123!",
-        options: { data: { full_name: form.nombre } }
+      await createManagerAdminService({
+        fullName,
+        email,
+        password,
+        leagueName,
       });
-      if (authError) throw authError;
-
-      const { error: rpcError } = await supabase.rpc("activar_nuevo_manager", {
-        p_email: form.email,
-        p_nombre: form.nombre,
-        p_nombre_liga: form.nombreLiga
-      });
-      if (rpcError) throw rpcError;
 
       showToast("Manager creado correctamente");
       setCreateModalOpen(false);
-      setForm({ email: "", nombre: "", nombreLiga: "" });
-      fetchManagers();
+      await fetchManagers();
+      return true;
     } catch (error) {
       showToast(error.message, "error");
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // --- NUEVA FUNCIÓN: Actualizar Credenciales con supabaseAdmin ---
   const handleUpdateCredentials = async (userId, newEmail, newPassword) => {
     try {
-      if (import.meta.env.VITE_APP_SUPABASE_SERVICE_ROLE_KEY === undefined) {
-        throw new Error("Falta VITE_APP_SUPABASE_SERVICE_ROLE_KEY en el .env");
-      }
-
-      const updates = {};
-      if (newEmail) updates.email = newEmail;
-      if (newPassword) updates.password = newPassword;
-
-      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, updates);
-      if (error) throw error;
+      await updateManagerCredentialsService({
+        userId,
+        email: newEmail,
+        password: newPassword,
+      });
 
       showToast("Credenciales actualizadas correctamente", "success");
-      fetchManagers(); // Para actualizar el email en la UI
+      await fetchManagers();
       return true;
     } catch (error) {
       console.error("Error actualizando credenciales:", error);
@@ -188,21 +183,14 @@ export function AdminManagers({ state, setState }) {
 
   const handleConfirmDelete = async () => {
     try {
-      const { error } = await supabase.rpc("borrar_usuario_por_email", {
-        p_email: deleteModalState.emailToDelete
-      });
-      if (error) throw error;
+      await deleteManagerAdminService(deleteModalState.emailToDelete);
       showToast("Usuario eliminado correctamente");
-      fetchManagers();
+      await fetchManagers();
     } catch (error) {
       showToast("Error al eliminar: " + error.message, "error");
     } finally {
       setDeleteModalState({ isOpen: false, emailToDelete: null, divisionsAffected: [] });
     }
-  };
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   return (
@@ -213,7 +201,6 @@ export function AdminManagers({ state, setState }) {
       managers={managers}
       onlineUsers={onlineUsers}
       loading={loading}
-      form={form}
       
       createModalOpen={createModalOpen}
       setCreateModalOpen={setCreateModalOpen}
@@ -233,7 +220,6 @@ export function AdminManagers({ state, setState }) {
       setDeleteModalState={setDeleteModalState}
       handleConfirmDelete={handleConfirmDelete}
       openDeleteModal={openDeleteModal}
-      handleChange={handleChange}
       handleCreate={handleCreate}
       toast={toast}
       closeToast={closeToast}

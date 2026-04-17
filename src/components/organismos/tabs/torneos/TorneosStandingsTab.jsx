@@ -1,7 +1,6 @@
 // src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { supabase } from '../../../../supabase/supabase.config'; 
 import { v } from '../../../../styles/variables';
 import { BiShareAlt, BiCheck } from "react-icons/bi"; 
 import { RiImageLine } from "react-icons/ri"; 
@@ -12,11 +11,11 @@ import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { Skeleton } from '../../../atomos/Skeleton';
 
 import { useTorneoStandingsLogic } from '../../../../hooks/useTorneoStandingsLogic';
+import { updateTournamentFieldsService } from '../../../../services/torneos';
 
 export const TorneosStandingsTab = ({
   torneo = {},
   equipos = [],
-  estadisticas = [],
   partidos = [],
   jornadas: jornadasProp = [],
   reglas = {},
@@ -84,12 +83,7 @@ export const TorneosStandingsTab = ({
     const newState = !isPublicEnabled;
 
     try {
-        const { error } = await supabase
-            .from('tournaments')
-            .update({ is_public: newState })
-            .eq('id', torneo.id);
-
-        if (error) throw error;
+        await updateTournamentFieldsService(torneo.id, { is_public: newState });
         setIsPublicEnabled(newState);
         if (onRefresh) onRefresh(); 
         
