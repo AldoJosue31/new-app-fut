@@ -20,7 +20,6 @@ export function AdminManagersTemplate({
   managers,
   onlineUsers = {},
   loading,
-  form,
   createModalOpen,
   setCreateModalOpen,
   detailModalOpen,
@@ -39,7 +38,6 @@ export function AdminManagersTemplate({
   setDeleteModalState,
   handleConfirmDelete,
   openDeleteModal,
-  handleChange,
   handleCreate,
   toast,
   closeToast,
@@ -117,10 +115,7 @@ export function AdminManagersTemplate({
         <ManagerCreateModal 
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
-          form={form}
-          handleChange={handleChange}
           handleCreate={handleCreate}
-          loading={loading}
         />
 
         {/* NUEVO MODAL DE EDICIÓN */}

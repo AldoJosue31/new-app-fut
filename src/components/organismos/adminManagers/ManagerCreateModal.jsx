@@ -26,7 +26,7 @@ import {
   BiLock
 } from "react-icons/bi";
 
-export const ManagerCreateModal = ({ isOpen, onClose, handleCreate, loading }) => {
+export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
   const [activeTab, setActiveTab] = useState(0);
   
   // --- ESTADOS DE FEEDBACK ---
@@ -73,25 +73,20 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate, loading }) =
     const { fullName, email, password, leagueName } = manualForm;
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } }
-      });
+      if (handleCreate) {
+        const success = await handleCreate({
+          fullName,
+          email,
+          password,
+          leagueName,
+        });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        if (handleCreate) {
-             await handleCreate({ nombre: fullName, email, password, nombreLiga: leagueName }, authData.user.id);
+        if (success) {
+          setToast({ show: true, message: "Manager creado correctamente", type: "success" });
+          setManualForm({ fullName: "", email: "", password: "", leagueName: "" });
+          onClose();
         }
-        setToast({ show: true, message: "Manager creado correctamente", type: "success" });
-        setManualForm({ fullName: "", email: "", password: "", leagueName: "" });
-        onClose();
-      } else {
-        setToast({ show: true, message: "Registro iniciado. Verifica el correo.", type: "success" });
       }
-
     } catch (error) {
       setToast({ show: true, message: "Error: " + error.message, type: "error" });
     } finally {
@@ -216,7 +211,7 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate, loading }) =
         } else {
             setToast({ show: true, message: "Liga no encontrada", type: "error" });
         }
-    } catch (err) {
+    } catch {
         setToast({ show: true, message: "Error cargando detalles", type: "error" });
     }
   };
