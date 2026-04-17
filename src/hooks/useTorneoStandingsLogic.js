@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../supabase/supabase.config';
+import { getJornadas } from '../services/torneos';
 import {
   isOfficialJornadaName,
   normalizeJornadaName,
@@ -117,18 +117,8 @@ export const useTorneoStandingsLogic = ({
 
       try {
         setFetchingJornadas(true);
-        const { data, error } = await supabase
-          .from('jornadas')
-          .select('*')
-          .eq('tournament_id', torneo.id)
-          .order('start_date', { ascending: true });
-
-        if (error) {
-          console.error('Error fetching jornadas:', error);
-          if (mounted) setFetchedJornadas([]);
-        } else {
-          if (mounted) setFetchedJornadas(Array.isArray(data) ? data : []);
-        }
+        const data = await getJornadas(torneo.id);
+        if (mounted) setFetchedJornadas(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Fetch jornadas unexpected error:', err);
         if (mounted) setFetchedJornadas([]);
@@ -146,7 +136,7 @@ export const useTorneoStandingsLogic = ({
     if (typeof torneo?.config === 'string') {
       try {
         return JSON.parse(torneo.config) || {};
-      } catch (error) {
+      } catch {
         return {};
       }
     }
@@ -173,7 +163,7 @@ export const useTorneoStandingsLogic = ({
   const config = useMemo(() => {
     let c = {};
     if (typeof torneo?.config === 'string') {
-        try { c = JSON.parse(torneo.config); } catch(e){}
+        try { c = JSON.parse(torneo.config); } catch { c = {}; }
     } else {
         c = torneo?.config || reglas || {};
     }

@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import styled from "styled-components";
-import { supabase } from "../../../../supabase/supabase.config";
 import { v } from "../../../../styles/variables";
-import { Btnsave } from "../../../../index";
+import { updateMatchResultService } from "../../../../services/torneos";
 
-export function JornadaResultados({ matches, teams, jornadaId, refreshMatches, activeTournament }) {
+export function JornadaResultados({ matches, teams, refreshMatches, activeTournament }) {
   const [editingId, setEditingId] = useState(null);
   const [tempScore, setTempScore] = useState({ g1: 0, g2: 0 });
 
@@ -27,18 +26,17 @@ export function JornadaResultados({ matches, teams, jornadaId, refreshMatches, a
     else { p1 = drawPoints; p2 = drawPoints; }
 
     try {
-        const { error } = await supabase.from('matches').update({
+        await updateMatchResultService(matchId, {
             goals1: tempScore.g1,
             goals2: tempScore.g2,
             puntos1: p1, 
             puntos2: p2,
             status: 'Finalizado'
-        }).eq('id', matchId);
-        
-        if(error) throw error;
+        });
+
         setEditingId(null);
         refreshMatches();
-    } catch (error) {
+    } catch {
         alert("Error guardando resultado");
     }
   };

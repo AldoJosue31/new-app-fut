@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { supabase } from '../../../../supabase/supabase.config';
 import { v } from '../../../../styles/variables';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
 import { BiLock, BiLockOpen } from 'react-icons/bi';
@@ -10,6 +9,7 @@ import GoleadoresExportModal from './exports/goleadores/GoleadoresExportModal';
 import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { useTorneoGoleadoresLogic } from '../../../../hooks/useTorneoGoleadoresLogic';
 import { Skeleton } from '../../../atomos/Skeleton';
+import { updateTournamentFieldsService } from '../../../../services/torneos';
 
 const PlayerAvatar = ({ src, alt }) => {
   const [hasError, setHasError] = useState(false);
@@ -94,12 +94,9 @@ export const GoleadoresTab = ({
     const newState = !isPublicEnabled;
 
     try {
-      const { error } = await supabase
-        .from('tournaments')
-        .update({ is_goleadores_public: newState })
-        .eq('id', torneo.id);
-
-      if (error) throw error;
+      await updateTournamentFieldsService(torneo.id, {
+        is_goleadores_public: newState,
+      });
       setIsPublicEnabled(newState);
       if (onRefresh) onRefresh();
     } catch (error) {
