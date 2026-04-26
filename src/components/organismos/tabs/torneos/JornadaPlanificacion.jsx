@@ -144,6 +144,17 @@ export function JornadaPlanificacion({
     [scheduledMatches]
   );
 
+  const confirmedResultsProgress = useMemo(() => {
+    const trackableMatches = scheduledMatches.filter(
+      (match) => !match.isReferenceOnly && !match.isByeMatch
+    );
+
+    return {
+      completed: trackableMatches.filter((match) => match.status === "Finalizado").length,
+      total: trackableMatches.length,
+    };
+  }, [scheduledMatches]);
+
   const pendientesEstaJornada = sidebarMatches.filter(
     (match) => match.originJornada === currentJornadaName && !match.isByeMatch
   );
@@ -601,6 +612,7 @@ export function JornadaPlanificacion({
         isTournamentActive={isTournamentActive}
         onPrintBatch={() => setBatchPrintOpen(true)}
         matchesWithoutResultCount={matchesWithoutResult.length}
+        confirmedResultsProgress={confirmedResultsProgress}
       />
 
       {viewMode === "grid" && (
