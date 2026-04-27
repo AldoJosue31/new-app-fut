@@ -1,5 +1,5 @@
 import React from "react";
-import styled, { css } from "styled-components";
+import styled from "styled-components";
 import { RiLock2Line, RiLockUnlockLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
 
@@ -8,6 +8,8 @@ export const FixtureMatchCard = ({
     onDragStart, 
     onDragOver, 
     onDrop, 
+    onTeamDragStart,
+    onTeamDrop,
     toggleLock, 
     isConflict,
     selectedTeamId,
@@ -39,6 +41,17 @@ export const FixtureMatchCard = ({
                 <TeamName 
                     $align="left" 
                     $isSelected={isLocalSelected}
+                    $draggable={!match.roundLocked}
+                    draggable={!match.roundLocked}
+                    onDragStart={(e) => onTeamDragStart(e, match, "local")}
+                    onDragOver={(e) => {
+                        if (!match.roundLocked) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.dataTransfer.dropEffect = "move";
+                        }
+                    }}
+                    onDrop={(e) => onTeamDrop(e, match, "local")}
                     onClick={(e) => { e.stopPropagation(); onTeamClick(match.local.id); }}
                     title={match.local.name}
                 >
@@ -55,6 +68,17 @@ export const FixtureMatchCard = ({
                     $align="right" 
                     $isSelected={isVisitSelected}
                     $isBye={match.visitante.id === 'BYE'}
+                    $draggable={!match.roundLocked}
+                    draggable={!match.roundLocked}
+                    onDragStart={(e) => onTeamDragStart(e, match, "visitante")}
+                    onDragOver={(e) => {
+                        if (!match.roundLocked) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.dataTransfer.dropEffect = "move";
+                        }
+                    }}
+                    onDrop={(e) => onTeamDrop(e, match, "visitante")}
                     onClick={(e) => { 
                         if(match.visitante.id !== 'BYE') {
                             e.stopPropagation(); 
@@ -80,7 +104,7 @@ const CardContainer = styled.div`
         if ($isBye) return theme.bg; // Fondo más suave para descansos
         return theme.bg2;
     }};
-    border: 2px solid ${({ theme, $isConflict, $isLocked, $isHighlighted }) => {
+    border: 2px solid ${({ $isConflict, $isLocked, $isHighlighted }) => {
         if ($isHighlighted) return v.colorPrincipal; // Borde fuerte si está seleccionado
         if ($isConflict) return v.colorError;
         if ($isLocked) return `${v.colorPrincipal}50`;
@@ -116,11 +140,21 @@ const TeamName = styled.div`
     }};
     text-align: ${props => props.$align}; 
     font-size: 0.85rem;
-    cursor: ${({ $isBye }) => $isBye ? 'default' : 'pointer'};
+    cursor: ${({ $draggable, $isBye }) => {
+        if ($draggable) return "grab";
+        return $isBye ? "default" : "pointer";
+    }};
     padding: 2px 4px; border-radius: 4px;
 
     &:hover {
         background: ${({ $isBye, theme }) => $isBye ? 'transparent' : theme.bg3};
+    }
+
+    &:active {
+        cursor: ${({ $draggable, $isBye }) => {
+            if ($draggable) return "grabbing";
+            return $isBye ? "default" : "pointer";
+        }};
     }
 `;
 

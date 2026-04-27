@@ -79,6 +79,70 @@ export const generarEstructuraInicial = (teams, config) => {
     return newMatches;
 };
 
+export const generarJornadaExtra = ({
+    teams,
+    config,
+    officialRoundsPlayed = 0,
+    nextRoundIndex = 0,
+    roundName,
+}) => {
+    if (!Array.isArray(teams) || teams.length < 2) return [];
+
+    const normalizedTeams = teams.filter((team) => team?.id !== undefined && team?.id !== null);
+    const baseRounds = generarFixture(normalizedTeams);
+    if (baseRounds.length === 0) return [];
+
+    const vueltas = String(config?.vueltas || "1") === "2" ? 2 : 1;
+    const cycleLength = baseRounds.length * vueltas;
+    const cycleIndex = officialRoundsPlayed % cycleLength;
+    const baseRoundIndex = cycleIndex % baseRounds.length;
+    const reverseHomeAway = vueltas === 2 && cycleIndex >= baseRounds.length;
+    const byeTeam = { id: "BYE", name: "DESCANSA", img: null, isBye: true };
+    const targetRound = baseRounds[baseRoundIndex] || [];
+
+    return targetRound.reduce((acc, pair, pairIndex) => {
+        const homeTeam = normalizedTeams.find((team) => String(team.id) === String(pair.home));
+        const awayTeam = normalizedTeams.find((team) => String(team.id) === String(pair.away));
+
+        if (!homeTeam && !awayTeam) {
+            return acc;
+        }
+
+        const realTeam = homeTeam || awayTeam;
+        const isByeMatch = !homeTeam || !awayTeam;
+        let local = homeTeam;
+        let visitante = awayTeam;
+
+        if (isByeMatch && realTeam) {
+            local = realTeam;
+            visitante = byeTeam;
+        } else if (reverseHomeAway) {
+            local = awayTeam;
+            visitante = homeTeam;
+        }
+
+        if (!local) {
+            return acc;
+        }
+
+        acc.push({
+            id: `temp_extra_${nextRoundIndex}_${pairIndex + 1}`,
+            local,
+            visitante: visitante || byeTeam,
+            jornadaIndex: nextRoundIndex,
+            locked: false,
+            roundLocked: false,
+            isByeMatch,
+            dbId: null,
+            isGeneratedRound: true,
+            roundType: "extra",
+            roundName: roundName || `Jornada ${nextRoundIndex + 1}`,
+        });
+
+        return acc;
+    }, []);
+};
+
 /**
  * Transforma partidos de BD al formato del editor.
  * Evita descansos falsos en jornadas de reposicion o por partidos reprogramados.

@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { 
-    RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine, 
-    RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line,
-    RiEyeLine, RiEyeOffLine
+import {
+    RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine,
+    RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line, RiAddLine,
+    RiHistoryLine, RiEyeLine, RiEyeOffLine
 } from "react-icons/ri";
 import { Btnsave } from "../../../../../index"; 
 import { FixtureMatchCard } from "./FixtureMatchCard";
@@ -37,7 +37,9 @@ export function FixturePreviewModal({
     const {
         matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
         handleTeamClick, toggleLock, handleShuffle, handleAutoFix,
-        handleDragStart, handleDropOnMatch, handleDropOnJornada
+        handleDragStart, handleTeamDragStart, handleDropOnMatch,
+        handleDropOnJornada, handleDropOnTeamSlot,
+        handleGenerateExtraRound, handleGenerateRepositionRound
     } = useFixturePreview(teams, config, isOpen, existingData);
     const [showConfirmedRounds, setShowConfirmedRounds] = useState(false);
     const [renderedRoundIndexes, setRenderedRoundIndexes] = useState([]);
@@ -64,34 +66,57 @@ export function FixturePreviewModal({
         }
     };
 
-    const roundDefinitions = useMemo(() => {
-        if (isEditMode && Array.isArray(existingData?.jornadas)) {
-            const officialRounds = existingData.jornadas
-                .map((jornada, index) => ({
-                    roundIndex: String(index),
-                    title: jornada?.name || `Jornada ${index + 1}`,
-                    isLocked:
-                        jornada?.status === "Confirmada" ||
-                        jornada?.status === "Finalizada" ||
-                        (matchesByRound[index] || []).some((match) => match.roundLocked),
-                }))
-                .filter((round) =>
-                    isOfficialJornadaName(existingData.jornadas?.[Number(round.roundIndex)]?.name)
-                );
+    const persistedOfficialRounds = useMemo(() => {
+        if (!isEditMode || !Array.isArray(existingData?.jornadas)) return [];
 
-            if (officialRounds.length > 0) {
-                return officialRounds;
-            }
+        return existingData.jornadas
+            .map((jornada, index) => ({
+                roundIndex: String(index),
+                title: jornada?.name || `Jornada ${index + 1}`,
+                isLocked:
+                    jornada?.status === "Confirmada" ||
+                    jornada?.status === "Finalizada" ||
+                    (matchesByRound[index] || []).some((match) => match.roundLocked),
+                isGenerated: false,
+            }))
+            .filter((round) =>
+                isOfficialJornadaName(existingData.jornadas?.[Number(round.roundIndex)]?.name)
+            );
+    }, [existingData?.jornadas, isEditMode, matchesByRound]);
+
+    const roundDefinitions = useMemo(() => {
+        if (persistedOfficialRounds.length > 0) {
+            const persistedIndexes = new Set(
+                persistedOfficialRounds.map((round) => String(round.roundIndex))
+            );
+
+            const generatedRounds = Object.keys(matchesByRound)
+                .filter((rIndex) => !persistedIndexes.has(String(rIndex)))
+                .sort((a, b) => Number(a) - Number(b))
+                .map((rIndex) => {
+                    const firstMatch = matchesByRound[rIndex]?.[0];
+                    return {
+                        roundIndex: String(rIndex),
+                        title:
+                            firstMatch?.roundName ||
+                            `Jornada ${Number(rIndex) + 1}`,
+                        isLocked: (matchesByRound[rIndex] || []).some((match) => match.roundLocked),
+                        isGenerated: true,
+                    };
+                });
+
+            return [...persistedOfficialRounds, ...generatedRounds];
         }
 
         return Object.keys(matchesByRound)
             .sort((a, b) => Number(a) - Number(b))
             .map((rIndex) => ({
                 roundIndex: rIndex,
-                title: `Jornada ${Number(rIndex) + 1}`,
+                title: matchesByRound[rIndex]?.[0]?.roundName || `Jornada ${Number(rIndex) + 1}`,
                 isLocked: (matchesByRound[rIndex] || []).some((match) => match.roundLocked),
+                isGenerated: !!matchesByRound[rIndex]?.some((match) => match.isGeneratedRound),
             }));
-    }, [existingData?.jornadas, isEditMode, matchesByRound]);
+    }, [matchesByRound, persistedOfficialRounds]);
 
     const roundDefinitionMap = useMemo(
         () =>
@@ -112,6 +137,27 @@ export function FixturePreviewModal({
     const getRoundTitle = (rIndex) =>
         roundDefinitionMap[rIndex]?.title || `Jornada ${Number(rIndex) + 1}`;
     const confirmedRoundsCount = roundDefinitions.filter((round) => round.isLocked).length;
+    const hasGeneratedRound = roundDefinitions.some((round) => round.isGenerated);
+    const pendingMatchesAvailable = useMemo(
+        () =>
+            Array.isArray(existingData?.pendingMatches) &&
+            existingData.pendingMatches.some((match) => {
+                const jornadaName = match?.jornadas?.name || "";
+                return Boolean(match?.team1_id && match?.team2_id && isOfficialJornadaName(jornadaName));
+            }),
+        [existingData?.pendingMatches]
+    );
+    const allOfficialRoundsConfirmed =
+        persistedOfficialRounds.length > 0 &&
+        persistedOfficialRounds.every((round) => round.isLocked);
+    const canShowRoundGenerators =
+        isEditMode &&
+        teams.length > 1 &&
+        allOfficialRoundsConfirmed &&
+        showConfirmedRounds &&
+        !hasGeneratedRound;
+    const canGenerateExtraRound = canShowRoundGenerators;
+    const canGenerateRepositionRound = canShowRoundGenerators && pendingMatchesAvailable;
     const visibleRoundIndexes = useMemo(
         () =>
             roundDefinitions
@@ -274,6 +320,32 @@ export function FixturePreviewModal({
                     </Toolbar>
 
                     <ScrollArea>
+                        {canShowRoundGenerators && (
+                            <RoundCreationPanel>
+                                {canGenerateExtraRound && (
+                                    <button type="button" onClick={handleGenerateExtraRound}>
+                                        <RiAddLine />
+                                        <div>
+                                            <strong>Jornada extra</strong>
+                                            <span>Genera otra fecha regular con todos los participantes.</span>
+                                        </div>
+                                    </button>
+                                )}
+                                {canGenerateRepositionRound && (
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateRepositionRound}
+                                        className="reposition"
+                                    >
+                                        <RiHistoryLine />
+                                        <div>
+                                            <strong>Jornada de reposicion</strong>
+                                            <span>Crea una fecha con los partidos pendientes del torneo.</span>
+                                        </div>
+                                    </button>
+                                )}
+                            </RoundCreationPanel>
+                        )}
                         <Grid $isAnimating={isAnimating}>
                             {displayedRoundIndexes.length === 0 ? (
                                 <EmptyRoundsState>
@@ -320,6 +392,7 @@ export function FixturePreviewModal({
                                                         key={match.id}
                                                         match={match}
                                                         onDragStart={handleDragStart}
+                                                        onTeamDragStart={handleTeamDragStart}
                                                         onDragOver={(e) => { 
                                                             if(!match.roundLocked) { 
                                                                 e.preventDefault(); 
@@ -327,6 +400,7 @@ export function FixturePreviewModal({
                                                             }
                                                         }}
                                                         onDrop={handleDropOnMatch}
+                                                        onTeamDrop={handleDropOnTeamSlot}
                                                         toggleLock={toggleLock}
                                                         isConflict={isConflict}
                                                         selectedTeamId={selectedTeamId}
@@ -347,6 +421,7 @@ export function FixturePreviewModal({
                        * Haz click en un equipo para ver su ruta.<br/>
                        {isEditMode ? (
                         <>
+                            * Puedes arrastrar equipos para cambiar rivales o invertir local y visitante.<br/>
                             * Las jornadas confirmadas (gris oscuro) no se pueden modificar ni generan conflictos.<br/>
                             * Solo se muestran jornadas naturales; las reposiciones no se editan aqui.
                         </>
@@ -477,6 +552,67 @@ const Grid = styled.div`
     display: flex; flex-wrap: wrap; gap: 16px; 
     opacity: ${props => props.$isAnimating ? 0.5 : 1}; 
     transition: opacity 0.3s ease; align-items: flex-start;
+`;
+
+const RoundCreationPanel = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+    animation: ${roundEnter} 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+    button {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid ${({ theme }) => theme.bg4};
+        background: ${({ theme }) => theme.bgcards};
+        color: ${({ theme }) => theme.text};
+        cursor: pointer;
+        text-align: left;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    button:hover {
+        transform: translateY(-2px);
+        border-color: ${v.colorPrincipal};
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.1);
+    }
+
+    button.reposition:hover {
+        border-color: ${v.colorWarning};
+    }
+
+    svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-size: 1.25rem;
+        color: ${v.colorPrincipal};
+    }
+
+    button.reposition svg {
+        color: ${v.colorWarning};
+    }
+
+    div {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    strong {
+        font-size: 0.92rem;
+    }
+
+    span {
+        font-size: 0.8rem;
+        color: ${({ theme }) => theme.textFade};
+        line-height: 1.4;
+    }
 `;
 
 const EmptyRoundsState = styled.div`
