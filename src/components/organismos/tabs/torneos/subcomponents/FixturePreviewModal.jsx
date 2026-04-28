@@ -359,6 +359,9 @@ export function FixturePreviewModal({
                                 const roundIsLocked = isRoundLocked(rIndex);
                                 const hasConflict = !!conflicts[rIndex];
                                 const animationState = roundAnimationState[rIndex] || "idle";
+                                const roundOnlySwapsTeams = roundMatches.some(
+                                    (match) => match.roundType === "extra"
+                                );
 
                                 return (
                                     <JornadaColumn 
@@ -367,13 +370,15 @@ export function FixturePreviewModal({
                                         $hasConflict={hasConflict}
                                         $animationState={animationState}
                                         onDragOver={(e) => { 
-                                            if(!roundIsLocked && animationState !== "exit") { 
+                                            if(!roundIsLocked && !roundOnlySwapsTeams && animationState !== "exit") { 
                                                 e.preventDefault(); 
                                                 e.dataTransfer.dropEffect = "move"; 
                                             }
                                         }}
                                         onDrop={(e) => { 
-                                            if(!roundIsLocked && animationState !== "exit") handleDropOnJornada(e, Number(rIndex)) 
+                                            if(!roundIsLocked && !roundOnlySwapsTeams && animationState !== "exit") {
+                                                handleDropOnJornada(e, Number(rIndex));
+                                            }
                                         }}
                                     >
                                         <JornadaTitle $hasConflict={hasConflict} $locked={roundIsLocked}>
@@ -391,10 +396,11 @@ export function FixturePreviewModal({
                                                     <FixtureMatchCard 
                                                         key={match.id}
                                                         match={match}
+                                                        canDragMatch={!match.roundLocked && match.roundType !== "extra"}
                                                         onDragStart={handleDragStart}
                                                         onTeamDragStart={handleTeamDragStart}
                                                         onDragOver={(e) => { 
-                                                            if(!match.roundLocked) { 
+                                                            if(!match.roundLocked && match.roundType !== "extra") { 
                                                                 e.preventDefault(); 
                                                                 e.dataTransfer.dropEffect = "move"; 
                                                             }

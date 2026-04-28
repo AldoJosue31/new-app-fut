@@ -5,6 +5,7 @@ import { v } from "../../../../../styles/variables";
 
 export const FixtureMatchCard = ({ 
     match, 
+    canDragMatch = true,
     onDragStart, 
     onDragOver, 
     onDrop, 
@@ -24,7 +25,7 @@ export const FixtureMatchCard = ({
 
     return (
         <CardContainer
-            draggable
+            draggable={canDragMatch}
             onDragStart={(e) => onDragStart(e, match)}
             onDragOver={onDragOver}
             onDrop={(e) => onDrop(e, match)}
@@ -32,6 +33,7 @@ export const FixtureMatchCard = ({
             $isConflict={isConflict}
             $isBye={isByeMatch}
             $isHighlighted={isHighlighted}
+            $canDragMatch={canDragMatch}
         >
             <LockIcon onClick={(e) => { e.stopPropagation(); toggleLock(match.id); }}>
                 {match.locked ? <RiLock2Line /> : <RiLockUnlockLine className="unlock" />}
@@ -110,7 +112,10 @@ const CardContainer = styled.div`
         if ($isLocked) return `${v.colorPrincipal}50`;
         return 'transparent';
     }};
-    border-radius: 8px; padding: 10px; cursor: grab; position: relative;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: ${({ $canDragMatch }) => ($canDragMatch ? "grab" : "default")};
+    position: relative;
     box-shadow: ${({ $isHighlighted }) => $isHighlighted ? '0 0 10px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)'};
     user-select: none;
     transition: all 0.2s ease;
@@ -119,7 +124,11 @@ const CardContainer = styled.div`
     transform: ${({ $isHighlighted }) => $isHighlighted ? 'scale(1.02)' : 'scale(1)'};
     z-index: ${({ $isHighlighted }) => $isHighlighted ? '10' : '1'};
 
-    &:active { cursor: grabbing; transform: scale(1.03); z-index: 20; }
+    &:active {
+        cursor: ${({ $canDragMatch }) => ($canDragMatch ? "grabbing" : "default")};
+        transform: scale(1.03);
+        z-index: 20;
+    }
     &:hover { border-color: ${({theme, $isHighlighted}) => $isHighlighted ? v.colorPrincipal : theme.textFade}; }
 
     .unlock { opacity: 0; transition: opacity 0.2s; }

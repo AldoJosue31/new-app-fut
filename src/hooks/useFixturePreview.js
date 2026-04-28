@@ -137,7 +137,7 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
     };
 
     const handleDragStart = useCallback((e, match) => {
-        if (match.roundLocked) {
+        if (match.roundLocked || match.roundType === "extra") {
             e.preventDefault();
             return;
         }
@@ -168,6 +168,7 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
 
         const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
         if (!sourceMatch || sourceMatch.id === targetMatch.id) return;
+        if (sourceMatch.roundType === "extra" || targetMatch.roundType === "extra") return;
 
         if (sourceMatch.isByeMatch !== targetMatch.isByeMatch) {
             alert("Solo puedes intercambiar partidos del mismo tipo (Descanso vs Descanso o Normal vs Normal).");
@@ -209,6 +210,7 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
         if (!sourceMatch) return;
         if (sourceMatch.jornadaIndex === targetJornadaIndex) return;
+        if (sourceMatch.roundType === "extra") return;
 
         const targetIsLocked = matches.some(
             (match) => match.jornadaIndex === targetJornadaIndex && match.roundLocked
@@ -305,6 +307,18 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
             const targetTeam = targetCurrent[targetTeamSide];
 
             if (!sourceTeam || !targetTeam) return prev;
+
+            if (sourceIdx === targetIdx) {
+                if (draggedItem.teamSide === targetTeamSide) return prev;
+
+                next[sourceIdx] = normalizeByeMatch({
+                    ...sourceCurrent,
+                    local: sourceCurrent.visitante,
+                    visitante: sourceCurrent.local,
+                });
+
+                return next;
+            }
 
             next[sourceIdx] = normalizeByeMatch({
                 ...sourceCurrent,
