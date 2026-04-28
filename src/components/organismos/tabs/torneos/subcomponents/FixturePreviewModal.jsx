@@ -154,7 +154,7 @@ export function FixturePreviewModal({
         isEditMode &&
         teams.length > 1 &&
         allOfficialRoundsConfirmed &&
-        showConfirmedRounds &&
+        !showConfirmedRounds &&
         !hasGeneratedRound;
     const canGenerateExtraRound = canShowRoundGenerators;
     const canGenerateRepositionRound = canShowRoundGenerators && pendingMatchesAvailable;
