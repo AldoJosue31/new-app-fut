@@ -6,6 +6,7 @@ import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import {
   actualizarConfigTorneoService,
+  bulkInsertMatchesService,
   bulkUpdateJornadaFechas,
   bulkUpsertMatchesService,
   createJornadasService,
@@ -393,6 +394,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         }
 
         const updates = [];
+        const inserts = [];
 
         updatedMatches.forEach(m => {
             if (m.roundLocked) {
@@ -420,7 +422,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             };
 
             if (!m.dbId) {
-              updates.push(payload);
+              if (m.isGeneratedRound) {
+                inserts.push(payload);
+              }
               return;
             }
 
@@ -508,8 +512,15 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
           });
         }
 
-        if(updates.length > 0) {
-            await bulkUpsertMatchesService(updates);
+        if(updates.length > 0 || inserts.length > 0) {
+            if (updates.length > 0) {
+              await bulkUpsertMatchesService(updates);
+            }
+
+            if (inserts.length > 0) {
+              await bulkInsertMatchesService(inserts);
+            }
+
             setToastConfig({
               show: true,
               message: generatedRoundIndexes.length > 0
