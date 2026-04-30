@@ -1,4 +1,4 @@
-// src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx
+﻿// src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { v } from '../../../../styles/variables';
@@ -109,12 +109,10 @@ export const TorneosStandingsTab = ({
         <ControlPanel>
             <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
                 <div className="track"><div className="thumb" /></div>
-                <span className="label">
-                    {updating ? "Guardando..." : (isPublicEnabled ? "Enlace Público: ACTIVO" : "Enlace Público: INACTIVO")}
-                </span>
+                <span className="label">Publico</span>
             </ToggleContainer>
 
-            <div style={{ width: '280px' }}>
+            <SelectorShell>
               {showSkeleton ? (
                 <Skeleton width="100%" height="36px" radius="8px" />
               ) : (
@@ -127,9 +125,9 @@ export const TorneosStandingsTab = ({
                   />
                 </SelectorWrapper>
               )}
-            </div>
+            </SelectorShell>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <ActionsGroup>
                 <ShareButton onClick={() => setShowExportModal(true)} title="Exportar Tabla">
                     <RiImageLine size={20}/>
                     <span>Exportar</span>
@@ -141,7 +139,7 @@ export const TorneosStandingsTab = ({
                         <span>{copied ? "Copiado" : "Link"}</span>
                     </ShareButton>
                 )}
-            </div>
+            </ActionsGroup>
         </ControlPanel>
       )}
 
@@ -166,28 +164,53 @@ export const TorneosStandingsTab = ({
 
 /* ---------- Estilos ---------- */
 const ControlPanel = styled.div`
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
   align-items: center;
   width: 98%;
   max-width: 900px;
-  margin: 0 auto 15px auto;
+  margin: 0 auto 10px auto;
   background: ${({ theme }) => theme.bg};
-  padding: 10px 15px;
+  padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid ${({ theme }) => theme.color2};
   box-shadow: ${v.boxshadowGray};
-  flex-wrap: wrap; 
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 7px 10px;
+    border-radius: 10px;
+  }
+`;
+
+const SelectorShell = styled.div`
+  width: 100%;
+  min-width: 0;
 `;
 
 const SelectorWrapper = styled.div`
-  max-width: 320px;
+  max-width: 360px;
   width: 100%;
+
+  @media (max-width: 768px) {
+    max-width: none;
+  }
+`;
+
+const ActionsGroup = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
 `;
 
 const ToggleContainer = styled.div`
-    display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+    display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; user-select: none; min-width: 0;
     .track {
         width: 44px; height: 24px; background-color: ${({ $active, theme }) => $active ? v.verde : theme.bg3};
         border-radius: 20px; position: relative; transition: background-color 0.3s ease; border: 1px solid ${({ theme }) => theme.color2};
@@ -197,8 +220,17 @@ const ToggleContainer = styled.div`
         transform: ${({ $active }) => $active ? 'translateX(20px)' : 'translateX(0)'};
         transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-    .label { font-size: 0.85rem; font-weight: 600; color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'}; }
-    @media (max-width: 600px) { .label { display: none; } }
+    .label {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'};
+        line-height: 1;
+        max-width: 48px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    @media (max-width: 380px) { .label { font-size: 0.62rem; max-width: 46px; } }
 `;
 
 const ShareButton = styled.button`
@@ -216,7 +248,7 @@ const ShareButton = styled.button`
   }
 
   @media (max-width: 768px) {
-    padding: 0; width: 36px; height: 36px; justify-content: center; border-radius: 50%;
+    padding: 0; width: 34px; height: 34px; justify-content: center; border-radius: 8px;
     span { display: none; }
   }
 `;
