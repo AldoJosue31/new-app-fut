@@ -51,6 +51,59 @@ const sortScorers = (a, b) => {
   return fullNameA.localeCompare(fullNameB, 'es', { sensitivity: 'base' });
 };
 
+const GOAL_EVENTS_PAGE_SIZE = 1000;
+
+const fetchGoalEventsByTournament = async (torneoId) => {
+  const allRows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + GOAL_EVENTS_PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from('match_events')
+      .select(`
+        id,
+        match_id,
+        player_id,
+        event_type,
+        players!inner (
+          id,
+          first_name,
+          last_name,
+          dorsal,
+          photo_url,
+          team_id
+        ),
+        matches!inner (
+          id,
+          status,
+          team1_id,
+          team2_id,
+          jornadas!inner (
+            id,
+            name,
+            tournament_id
+          )
+        )
+      `)
+      .eq('matches.jornadas.tournament_id', torneoId)
+      .or('event_type.ilike.%gol%,event_type.ilike.%goal%')
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? data : [];
+    allRows.push(...rows);
+
+    if (rows.length < GOAL_EVENTS_PAGE_SIZE) break;
+    from += GOAL_EVENTS_PAGE_SIZE;
+  }
+
+  return allRows;
+};
+
 export const useTorneoGoleadoresLogic = ({
   torneo,
   equipos = [],
@@ -97,36 +150,7 @@ export const useTorneoGoleadoresLogic = ({
       try {
         setIsLoadingEvents(true);
 
-        const { data, error } = await supabase
-          .from('match_events')
-          .select(`
-            id,
-            match_id,
-            player_id,
-            event_type,
-            players!inner (
-              id,
-              first_name,
-              last_name,
-              dorsal,
-              photo_url,
-              team_id
-            ),
-            matches!inner (
-              id,
-              status,
-              team1_id,
-              team2_id,
-              jornadas!inner (
-                id,
-                name,
-                tournament_id
-              )
-            )
-          `)
-          .eq('matches.jornadas.tournament_id', torneo.id);
-
-        if (error) throw error;
+        const data = await fetchGoalEventsByTournament(torneo.id);
 
         if (mounted) {
           setGoalEvents(Array.isArray(data) ? data : []);
