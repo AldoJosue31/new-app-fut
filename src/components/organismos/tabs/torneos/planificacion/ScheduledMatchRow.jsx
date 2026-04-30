@@ -70,11 +70,9 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     onPostpone,
     groupLabel,
     onDropOnDate,
-    isRepositionMode = false,
     currentJornadaNumber = 1,
     isTapDropEnabled = false,
     onTapDrop,
-    selectedPendingMatchLabel = ""
 }) {
   
   const [isDragOver, setIsDragOver] = useState(false);
@@ -446,8 +444,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     </div>
                                 </>
                             ) : (
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                                    <span className="no-date-badge" style={{ margin: '0 auto' }}>Victoria Default</span>
+                                <div className="no-date-control">
+                                    <span className="no-date-badge">Victoria Default</span>
                                 </div>
                             )}
                             {!isReferenceOnly && (
@@ -495,6 +493,7 @@ const DateDivider = styled.div`
 const ScoreWrapper = styled.div`
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: ${({theme})=>theme.bg3}; padding: 2px 8px; border-radius: 4px; min-width: 30px;
+    flex-shrink: 0;
     .main-score { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
     .pen-score { font-size: 0.75rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.7; margin-top: -2px; }
 `;
@@ -539,14 +538,19 @@ const Container = styled.div`
     border: 1px solid ${({theme, $isConfirmed})=> $isConfirmed ? '#2ecc7140' : theme.bg4}; width: 100%;
     position: relative; transition: all 0.2s ease; overflow: hidden;
 
-    ${({ $isDragOver, theme }) => $isDragOver && css`
+    ${({ $isDragOver }) => $isDragOver && css`
         border-color: ${v.colorPrincipal}; transform: scale(1.01); box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     `}
     
     @media ${Device.tablet} {
-        display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px;
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto); align-items: center; gap: 12px;
         padding: ${({ $hasFloatingBadge }) =>
             $hasFloatingBadge ? '18px 12px 10px 12px' : '10px 12px'};
+    }
+
+    @media (min-width: 768px) and (max-width: 1024px) {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
     }
 
     .content {
@@ -557,12 +561,18 @@ const Container = styled.div`
     }
 
     .info { 
-        display: flex; gap: 10px; font-weight: 600; justify-content: space-between; align-items: center; width: 100%;
-        .team { display: flex; align-items: center; gap: 8px; flex:1; overflow: hidden; }
-        .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem;}
+        display: flex; gap: 10px; font-weight: 600; justify-content: space-between; align-items: center; width: 100%; min-width: 0;
+        .team { display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; overflow: hidden; }
+        .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.9rem; line-height: 1.25; min-width: 0; }
         .local { justify-content: flex-start; text-align: left; order: 1; }
         .visit { justify-content: flex-end; text-align: right; order: 3; }
-        .vs { order: 2; font-size: 0.8rem; opacity: 0.6; }
+        .vs { order: 2; font-size: 0.8rem; opacity: 0.6; flex-shrink: 0; }
+        @media (max-width: 480px) {
+            gap: 6px;
+            .team { gap: 5px; }
+            .name { font-size: 0.82rem; }
+            .vs { font-size: 0.72rem; }
+        }
         @media ${Device.tablet} {
             justify-content: center;
             .local { justify-content: flex-end; text-align: right; }
@@ -572,7 +582,14 @@ const Container = styled.div`
 
     .settings { 
         display: flex; gap: 8px; width: 100%; justify-content: space-between; min-width: 0;
-        @media ${Device.tablet} { width: auto; justify-content: flex-end; align-items: center; flex-shrink: 0; }
+        @media ${Device.tablet} { width: auto; max-width: 100%; justify-content: flex-end; align-items: center; flex-shrink: 0; }
+        @media (min-width: 768px) and (max-width: 1024px) {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+            align-items: stretch;
+            width: 100%;
+            justify-content: stretch;
+        }
         .input-control {
             display: flex;
             align-items: stretch;
@@ -653,39 +670,77 @@ const Container = styled.div`
             @media ${Device.tablet} {
                 width: 212px;
             }
+            @media (min-width: 768px) and (max-width: 1024px) {
+                width: auto;
+            }
         }
         .input-time-control {
             @media ${Device.tablet} {
                 width: 198px;
             }
+            @media (min-width: 768px) and (max-width: 1024px) {
+                width: auto;
+            }
         }
         .del { 
             background: #e74c3c20; color: #e74c3c; border: none; border-radius: 6px; cursor: pointer; padding: 8px 12px;
-            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;
             &:hover { background: #e74c3c; color: white; }
         } 
+        .no-date-control {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+        .no-date-badge {
+            font-weight: 800;
+            color: #e74c3c;
+            background: #e74c3c20;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            text-align: center;
+            white-space: nowrap;
+            border: 1px solid #e74c3c40;
+        }
         .confirmed-actions { 
-            display: flex; align-items: center; gap: 10px; width: 100%; flex-direction: column; 
-            @media (min-width: 450px) { flex-direction: row; justify-content: space-between; }
-            @media ${Device.tablet} { width: auto; gap: 15px; }
+            display: flex; align-items: stretch; gap: 10px; width: 100%; flex-direction: column; min-width: 0; 
+            @media (min-width: 640px) { flex-direction: row; justify-content: space-between; align-items: center; }
+            @media ${Device.tablet} { width: auto; max-width: 100%; gap: 15px; }
+            @media (min-width: 768px) and (max-width: 1024px) { width: 100%; }
             
             .datetime-display { 
                 display: flex; flex-direction: row; gap: 8px; align-items: center; font-size: 0.85rem; opacity: 0.9; width: 100%;
                 justify-content: center; background: ${({theme})=>theme.bg3}; padding: 5px 10px; border-radius: 6px;
-                @media ${Device.tablet} { background: transparent; padding: 0; flex-direction: column; align-items: flex-end; width: auto; gap: 2px; }
-                .date-text { font-weight: 500; text-transform: capitalize; &.mobile-only { @media ${Device.tablet} { display: none; } } }
+                min-width: 0; flex-wrap: wrap; text-align: center;
+                @media ${Device.tablet} { background: transparent; padding: 0; flex-direction: column; align-items: flex-end; width: auto; gap: 2px; flex-wrap: nowrap; text-align: right; }
+                @media (min-width: 768px) and (max-width: 1024px) { background: ${({theme})=>theme.bg3}; padding: 5px 10px; flex-direction: row; align-items: center; width: 100%; justify-content: center; flex-wrap: wrap; text-align: center; }
+                .date-text { font-weight: 500; text-transform: capitalize; min-width: 0; &.mobile-only { @media (min-width: 1025px) { display: none; } } }
                 small { font-weight: 700; color: ${v.colorPrincipal}; font-size: 0.95rem; } 
+                .wo-badge-small { margin-left: 0 !important; }
                 
                 .no-date-badge {
-                    font-weight: 800; color: #e74c3c; background: #e74c3c20; padding: 4px 10px; border-radius: 6px;
-                    font-size: 0.8rem; text-align: center; white-space: nowrap; border: 1px solid #e74c3c40;
+                    font-size: 0.8rem;
                 }
             }
-            .btns-row { display: flex; gap: 5px; width: 100%; @media ${Device.tablet} { width: auto; } }
+            .btns-row {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+                gap: 5px;
+                width: 100%;
+                min-width: 0;
+                @media (min-width: 640px) { width: min(100%, 380px); }
+                @media ${Device.tablet} { display: flex; width: auto; flex-wrap: wrap; justify-content: flex-end; }
+                @media (min-width: 768px) and (max-width: 1024px) { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); justify-content: stretch; }
+            }
             .action-btn { 
                 border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-                gap: 5px; font-weight: 600; font-size: 0.8rem; flex: 1; transition: 0.2s;
-                @media ${Device.tablet} { padding: 6px 12px; flex: none; }
+                gap: 5px; font-weight: 600; font-size: 0.8rem; flex: 1; transition: 0.2s; min-width: 0; white-space: nowrap;
+                svg { flex-shrink: 0; }
+                @media ${Device.tablet} { padding: 6px 12px; flex: 0 0 auto; }
+                @media (min-width: 768px) and (max-width: 1024px) { flex: 1; }
                 &.result { background: ${v.colorPrincipal}; color: white; &:hover{ filter: brightness(1.1); } }
                 &.postpone { background: #f1c40f20; color: #f1c40f; &:hover{ background: #f1c40f; color: black; } }
                 &.sheet { background: #3498db20; color: #3498db; &:hover{ background: #3498db; color: white; } }
@@ -712,6 +767,35 @@ const Container = styled.div`
                 width: 38px;
                 min-width: 38px;
                 padding: 0;
+            }
+
+            .confirmed-actions,
+            .no-date-control {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 560px) {
+            grid-template-columns: minmax(0, 1fr) auto;
+
+            .input-date-control {
+                grid-column: 1 / -1;
+            }
+
+            .input-time-control {
+                grid-column: 1 / 2;
+            }
+
+            .del {
+                grid-column: 2 / 3;
+                width: 38px;
+                min-width: 38px;
+                height: 100%;
+            }
+
+            .confirmed-actions .btns-row,
+            .confirmed-actions .datetime-display {
+                grid-column: 1 / -1;
             }
         }
 

@@ -116,11 +116,7 @@ export const GoleadoresTab = ({
               <div className="thumb" />
             </div>
             <span className="label">
-              {updating
-                ? 'Guardando...'
-                : isPublicEnabled
-                  ? 'Goleadores: PUBLICO'
-                  : 'Goleadores: PRIVADO'}
+              Publico
             </span>
           </ToggleContainer>
 
@@ -157,28 +153,15 @@ export const GoleadoresTab = ({
         </ControlPanel>
       )}
 
-      <SummaryCard>
-        {showSkeleton ? (
-          <>
-            <Skeleton width="180px" height="18px" radius="6px" />
-            <Skeleton width="260px" height="16px" radius="6px" />
-          </>
-        ) : (
-          <>
-            <span className="title">Tabla de goleo</span>
-            <span className="subtitle">
-              {activeJornadaSummary}
-              {activeJornadaName && activeJornadaName !== 'Sin iniciar'
-                ? ` - ${activeJornadaName}`
-                : ''}
-            </span>
-          </>
-        )}
-      </SummaryCard>
-
       <TableCard>
         <TableScrollWrapper $height="auto">
           <StyledTable>
+            <colgroup>
+              <col className="rank-col" />
+              <col className="player-col" />
+              <col className="team-col" />
+              <col className="goals-col" />
+            </colgroup>
             <thead>
               <tr>
                 <ThRank>#</ThRank>
@@ -292,36 +275,50 @@ const Container = styled.div`
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 `;
 
 const ControlPanel = styled.div`
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
   align-items: center;
   width: 98%;
   max-width: 980px;
   margin: 0 auto;
   background: ${({ theme }) => theme.bg};
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid ${({ theme }) => theme.color2};
   box-shadow: ${v.boxshadowGray};
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 7px 10px;
+    border-radius: 10px;
+  }
 `;
 
 const SelectorWrapper = styled.div`
   width: 100%;
-  max-width: 320px;
-  flex: 1;
-  min-width: 220px;
+  max-width: 360px;
+  min-width: 0;
+
+  @media (max-width: 768px) {
+    max-width: none;
+  }
 `;
 
 const ControlsGroup = styled.div`
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
 `;
 
 const ExportButton = styled.button`
@@ -344,6 +341,12 @@ const ExportButton = styled.button`
   }
 
   @media (max-width: 600px) {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 8px;
+
     span {
       display: none;
     }
@@ -352,14 +355,16 @@ const ExportButton = styled.button`
 
 const ToggleContainer = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 1px;
   cursor: pointer;
   user-select: none;
+  min-width: 0;
 
   .track {
-    width: 48px;
-    height: 26px;
+    width: 44px;
+    height: 24px;
     background-color: ${({ $active, theme }) => ($active ? v.verde : theme.bg3)};
     border-radius: 20px;
     position: relative;
@@ -368,64 +373,48 @@ const ToggleContainer = styled.div`
   }
 
   .thumb {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     background-color: #fff;
     border-radius: 50%;
     position: absolute;
     top: 1px;
     left: 1px;
     transform: ${({ $active }) =>
-      $active ? 'translateX(22px)' : 'translateX(0)'};
+      $active ? 'translateX(20px)' : 'translateX(0)'};
     transition: transform 0.3s;
   }
 
   .label {
-    font-size: 0.9rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: ${({ theme }) => theme.text};
+    line-height: 1;
+    max-width: 48px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
+    min-width: 0;
+  }
+
+  @media (max-width: 380px) {
     .label {
-      display: none;
+      font-size: 0.62rem;
+      max-width: 46px;
     }
   }
 `;
 
 const StatusIcon = styled.div`
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   color: ${({ $active, theme }) => ($active ? v.verde : theme.text)};
   opacity: ${({ $active }) => ($active ? 1 : 0.5)};
-`;
-
-const SummaryCard = styled.div`
-  width: 98%;
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 12px 18px;
-  border-radius: 14px;
-  background: ${({ theme }) => theme.bg};
-  border: 1px solid ${({ theme }) => theme.color2};
-  box-shadow: ${v.boxshadowGray};
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-
-  .title {
-    font-size: 1rem;
-    font-weight: 800;
-    color: ${({ theme }) => theme.text};
-  }
-
-  .subtitle {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: ${({ theme }) => theme.text};
-    opacity: 0.75;
-  }
+  flex-shrink: 0;
 `;
 
 const TableCard = styled.div`
@@ -437,16 +426,78 @@ const TableCard = styled.div`
   overflow: hidden;
   border: 1px solid ${({ theme }) => theme.color2};
   box-shadow: ${v.boxshadowGray};
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 10px;
+  }
 `;
 
 const TableScrollWrapper = styled(ContainerScroll)`
   max-height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0;
 `;
 
 const StyledTable = styled.table`
   width: 100%;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: fixed;
+
+  .rank-col {
+    width: 58px;
+  }
+
+  .player-col {
+    width: 43%;
+  }
+
+  .team-col {
+    width: 37%;
+  }
+
+  .goals-col {
+    width: 76px;
+  }
+
+  @media (max-width: 768px) {
+    .rank-col {
+      width: 48px;
+    }
+
+    .player-col {
+      width: 42%;
+    }
+
+    .team-col {
+      width: 35%;
+    }
+
+    .goals-col {
+      width: 50px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .rank-col {
+      width: 42px;
+    }
+
+    .player-col {
+      width: 43%;
+    }
+
+    .team-col {
+      width: 34%;
+    }
+
+    .goals-col {
+      width: 44px;
+    }
+  }
 `;
 
 const Th = styled.th`
@@ -458,10 +509,18 @@ const Th = styled.th`
   position: sticky;
   top: 0;
   z-index: 10;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   &.goals {
     text-align: center;
     color: ${({ theme }) => theme.primary};
+  }
+
+  @media (max-width: 768px) {
+    padding: 10px 6px;
+    font-size: 0.74rem;
   }
 `;
 
@@ -474,6 +533,12 @@ const ThRank = styled.th`
   position: sticky;
   top: 0;
   z-index: 11;
+
+  @media (max-width: 768px) {
+    width: 48px;
+    padding: 10px 4px;
+    font-size: 0.78rem;
+  }
 `;
 
 const Td = styled.td`
@@ -481,12 +546,32 @@ const Td = styled.td`
   border-bottom: 1px solid ${({ theme }) => theme.color2};
   color: ${({ theme }) => theme.text};
   font-size: 0.9rem;
+  min-width: 0;
+  overflow: hidden;
 
   &.goals {
     text-align: center;
     font-weight: 800;
     color: ${({ theme }) => theme.primary};
     font-size: 1.1rem;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    padding: 8px 5px;
+    font-size: 0.78rem;
+
+    &.goals {
+      font-size: 0.95rem;
+      padding-left: 2px;
+      padding-right: 2px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 0.74rem;
   }
 `;
 
@@ -494,6 +579,18 @@ const RankTd = styled.td`
   width: 56px;
   padding: 8px 6px;
   text-align: center;
+  overflow: hidden;
+
+  @media (max-width: 768px) {
+    width: 48px;
+    padding: 7px 4px;
+  }
+
+  @media (max-width: 380px) {
+    width: 42px;
+    padding-left: 3px;
+    padding-right: 3px;
+  }
 `;
 
 const RankBadge = styled.div`
@@ -515,6 +612,25 @@ const RankBadge = styled.div`
         : $pos === 3
           ? 'background: linear-gradient(180deg,#d7a17a 0%, #b97745 100%); color: rgba(0,0,0,0.85);'
           : 'background: transparent; color: inherit; border: 1px solid #ccc; width: 30px; height: 30px;'}
+
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    ${({ $pos }) =>
+      $pos > 3 &&
+      'width: 28px; height: 28px;'}
+  }
+
+  @media (max-width: 380px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+    ${({ $pos }) =>
+      $pos > 3 &&
+      'width: 26px; height: 26px;'}
+  }
 `;
 
 const Tr = styled.tr`
@@ -527,19 +643,45 @@ const PlayerCell = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 
   .info {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .name {
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .dorsal {
     font-size: 0.75rem;
     opacity: 0.6;
+  }
+
+  @media (max-width: 768px) {
+    gap: 7px;
+
+    .name {
+      font-size: 0.78rem;
+    }
+
+    .dorsal {
+      font-size: 0.68rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    gap: 5px;
+
+    .name {
+      font-size: 0.74rem;
+    }
   }
 `;
 
@@ -562,12 +704,28 @@ const AvatarCircle = styled.div`
     height: 100%;
     object-fit: cover;
   }
+
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    width: 28px;
+    height: 28px;
+  }
 `;
 
 const TeamCell = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 
   img {
     width: 24px;
@@ -579,6 +737,36 @@ const TeamCell = styled.div`
   .tname {
     font-size: 0.85rem;
     opacity: 0.8;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @media (max-width: 768px) {
+    gap: 5px;
+
+    img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .tname {
+      font-size: 0.74rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    gap: 4px;
+
+    img {
+      width: 18px;
+      height: 18px;
+    }
+
+    .tname {
+      font-size: 0.7rem;
+    }
   }
 `;
 
