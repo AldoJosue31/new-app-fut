@@ -31,6 +31,7 @@ export const PlanningHeader = memo(
     isTournamentActive,
     onPrintBatch,
     matchesWithoutResultCount = 0,
+    confirmedResultsProgress = { completed: 0, total: 0 },
     isRepositionMode = false,
     onDateChange,
   }) => {
@@ -97,6 +98,10 @@ export const PlanningHeader = memo(
     };
 
     const showPrintButton = isConfirmed && matchesWithoutResultCount > 0;
+    const confirmedResultsLabel =
+      isConfirmed && confirmedResultsProgress.total > 0
+        ? `(${confirmedResultsProgress.completed}/${confirmedResultsProgress.total})`
+        : null;
 
     const dateControls = (
       <DateRow $hasChanges={hasChanges}>
@@ -181,6 +186,9 @@ export const PlanningHeader = memo(
             <Title $status={status}>
               <span>{jornadaData?.name || `Jornada ${jornadaIndex + 1}`}</span>
               <small>{status}</small>
+              {confirmedResultsLabel && (
+                <StatusCounter>{confirmedResultsLabel}</StatusCounter>
+              )}
             </Title>
             <NavBtn
               onClick={onNext}
@@ -368,7 +376,21 @@ const Title = styled.div`
     color: ${({ $status, theme }) =>
       $status === "Confirmada" ? "#2ecc71" : theme.text};
     opacity: ${({ $status }) => ($status === "Confirmada" ? 1 : 0.6)};
+    line-height: 1;
   }
+`;
+
+const StatusCounter = styled.small`
+  display: block;
+  color: ${({ theme }) => theme.text};
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-transform: none;
+  opacity: 0.78;
+  margin-top: 2px;
+  font-family: inherit;
 `;
 
 const NavBtn = styled.button`

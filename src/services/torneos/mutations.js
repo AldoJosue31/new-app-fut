@@ -639,6 +639,34 @@ export const bulkUpsertMatchesService = async (matches) => {
   return data || [];
 };
 
+export const bulkInsertMatchesService = async (matches) => {
+  if (!Array.isArray(matches) || matches.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('matches')
+    .insert(matches)
+    .select();
+
+  if (error) throw error;
+  return data || [];
+};
+
+export const createJornadasService = async (jornadas) => {
+  if (!Array.isArray(jornadas) || jornadas.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('jornadas')
+    .insert(jornadas)
+    .select();
+
+  if (error) throw error;
+  return data || [];
+};
+
 export const updateMatchResultService = async (matchId, payload) => {
   const { error } = await supabase
     .from('matches')

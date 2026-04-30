@@ -1,7 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useLayoutEffect } from "react";
 import { addDaysToDate } from "../utils/dateUtils";
 import { getPartidosExternosRango } from "../services/torneos";
-import { getJornadaReferenceNumber, parseJornadaNumber } from "../utils/jornadaUtils";
+import {
+  getJornadaReferenceNumber,
+  isRepositionJornadaName,
+  parseJornadaNumber,
+} from "../utils/jornadaUtils";
 
 export const usePlanificacionMatches = (
     activeTournament, 
@@ -29,6 +33,7 @@ export const usePlanificacionMatches = (
   const jornadaStatus = jornadaData?.status;
   const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
   const currentJornadaNumber = getJornadaReferenceNumber(jornadaData, jornadaIndex);
+  const isRepositionJornada = isRepositionJornadaName(currentJornadaName);
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
   const targetJornadaIndex = useMemo(() => {
@@ -268,9 +273,11 @@ export const usePlanificacionMatches = (
         if (gmOriginName === currentJornadaName) return acc;
         if (jornadaIndex !== targetJornadaIndex) return acc;
 
-        const originNum = getJornadaNum(gmOriginName);
-        const currentNum = currentJornadaNumber;
-        if (originNum > currentNum) return acc;
+        if (!isRepositionJornada) {
+            const originNum = getJornadaNum(gmOriginName);
+            const currentNum = currentJornadaNumber;
+            if (originNum > currentNum) return acc;
+        }
 
         acc.push({ ...gm, _source: 'global' });
         return acc;
@@ -309,6 +316,7 @@ export const usePlanificacionMatches = (
 
     const currentPending = mergedMatches.filter(m => {
         if (m.date || m.status === 'Finalizado' || (m.resolution && m.resolution.type === 'default')) return false;
+        if (isRepositionJornada) return true;
         if (!m.originJornada) return true; 
         const mNum = getJornadaNum(m.originJornada);
         const cNum = currentJornadaNumber;
@@ -316,7 +324,7 @@ export const usePlanificacionMatches = (
     });
 
     let currentSuggestions = [];
-    if (teams.length % 2 !== 0) {
+    if (!isRepositionJornada && teams.length % 2 !== 0) {
         const teamsPlaying = new Set();
         currentScheduled.forEach(m => {
              if (m.local?.id) teamsPlaying.add(m.local.id);
@@ -347,7 +355,7 @@ export const usePlanificacionMatches = (
       teams, matchesDB, globalPendingMatches, 
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
-      targetJornadaIndex, currentJornadaNumber
+      targetJornadaIndex, currentJornadaNumber, isRepositionJornada
   ]); 
 
   useEffect(() => {
