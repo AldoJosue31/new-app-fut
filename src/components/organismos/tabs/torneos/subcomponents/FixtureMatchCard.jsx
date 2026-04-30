@@ -1,13 +1,16 @@
 import React from "react";
-import styled, { css } from "styled-components";
+import styled from "styled-components";
 import { RiLock2Line, RiLockUnlockLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
 
 export const FixtureMatchCard = ({ 
     match, 
+    canDragMatch = true,
     onDragStart, 
     onDragOver, 
     onDrop, 
+    onTeamDragStart,
+    onTeamDrop,
     toggleLock, 
     isConflict,
     selectedTeamId,
@@ -22,7 +25,7 @@ export const FixtureMatchCard = ({
 
     return (
         <CardContainer
-            draggable
+            draggable={canDragMatch}
             onDragStart={(e) => onDragStart(e, match)}
             onDragOver={onDragOver}
             onDrop={(e) => onDrop(e, match)}
@@ -30,6 +33,7 @@ export const FixtureMatchCard = ({
             $isConflict={isConflict}
             $isBye={isByeMatch}
             $isHighlighted={isHighlighted}
+            $canDragMatch={canDragMatch}
         >
             <LockIcon onClick={(e) => { e.stopPropagation(); toggleLock(match.id); }}>
                 {match.locked ? <RiLock2Line /> : <RiLockUnlockLine className="unlock" />}
@@ -39,6 +43,17 @@ export const FixtureMatchCard = ({
                 <TeamName 
                     $align="left" 
                     $isSelected={isLocalSelected}
+                    $draggable={!match.roundLocked}
+                    draggable={!match.roundLocked}
+                    onDragStart={(e) => onTeamDragStart(e, match, "local")}
+                    onDragOver={(e) => {
+                        if (!match.roundLocked) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.dataTransfer.dropEffect = "move";
+                        }
+                    }}
+                    onDrop={(e) => onTeamDrop(e, match, "local")}
                     onClick={(e) => { e.stopPropagation(); onTeamClick(match.local.id); }}
                     title={match.local.name}
                 >
@@ -55,6 +70,17 @@ export const FixtureMatchCard = ({
                     $align="right" 
                     $isSelected={isVisitSelected}
                     $isBye={match.visitante.id === 'BYE'}
+                    $draggable={!match.roundLocked}
+                    draggable={!match.roundLocked}
+                    onDragStart={(e) => onTeamDragStart(e, match, "visitante")}
+                    onDragOver={(e) => {
+                        if (!match.roundLocked) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.dataTransfer.dropEffect = "move";
+                        }
+                    }}
+                    onDrop={(e) => onTeamDrop(e, match, "visitante")}
                     onClick={(e) => { 
                         if(match.visitante.id !== 'BYE') {
                             e.stopPropagation(); 
@@ -80,13 +106,16 @@ const CardContainer = styled.div`
         if ($isBye) return theme.bg; // Fondo más suave para descansos
         return theme.bg2;
     }};
-    border: 2px solid ${({ theme, $isConflict, $isLocked, $isHighlighted }) => {
+    border: 2px solid ${({ $isConflict, $isLocked, $isHighlighted }) => {
         if ($isHighlighted) return v.colorPrincipal; // Borde fuerte si está seleccionado
         if ($isConflict) return v.colorError;
         if ($isLocked) return `${v.colorPrincipal}50`;
         return 'transparent';
     }};
-    border-radius: 8px; padding: 10px; cursor: grab; position: relative;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: ${({ $canDragMatch }) => ($canDragMatch ? "grab" : "default")};
+    position: relative;
     box-shadow: ${({ $isHighlighted }) => $isHighlighted ? '0 0 10px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)'};
     user-select: none;
     transition: all 0.2s ease;
@@ -95,7 +124,11 @@ const CardContainer = styled.div`
     transform: ${({ $isHighlighted }) => $isHighlighted ? 'scale(1.02)' : 'scale(1)'};
     z-index: ${({ $isHighlighted }) => $isHighlighted ? '10' : '1'};
 
-    &:active { cursor: grabbing; transform: scale(1.03); z-index: 20; }
+    &:active {
+        cursor: ${({ $canDragMatch }) => ($canDragMatch ? "grabbing" : "default")};
+        transform: scale(1.03);
+        z-index: 20;
+    }
     &:hover { border-color: ${({theme, $isHighlighted}) => $isHighlighted ? v.colorPrincipal : theme.textFade}; }
 
     .unlock { opacity: 0; transition: opacity 0.2s; }
@@ -116,11 +149,21 @@ const TeamName = styled.div`
     }};
     text-align: ${props => props.$align}; 
     font-size: 0.85rem;
-    cursor: ${({ $isBye }) => $isBye ? 'default' : 'pointer'};
+    cursor: ${({ $draggable, $isBye }) => {
+        if ($draggable) return "grab";
+        return $isBye ? "default" : "pointer";
+    }};
     padding: 2px 4px; border-radius: 4px;
 
     &:hover {
         background: ${({ $isBye, theme }) => $isBye ? 'transparent' : theme.bg3};
+    }
+
+    &:active {
+        cursor: ${({ $draggable, $isBye }) => {
+            if ($draggable) return "grabbing";
+            return $isBye ? "default" : "pointer";
+        }};
     }
 `;
 

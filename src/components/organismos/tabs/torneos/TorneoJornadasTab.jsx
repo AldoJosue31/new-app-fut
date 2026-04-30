@@ -6,8 +6,10 @@ import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import {
   actualizarConfigTorneoService,
+  bulkInsertMatchesService,
   bulkUpdateJornadaFechas,
   bulkUpsertMatchesService,
+  createJornadasService,
   getAllMatchesByTournament,
   getJornadas,
   getMatchesByIdsService,
@@ -15,6 +17,7 @@ import {
   getPendingMatchesByTournamentService,
   getTournamentConfigService,
   guardarJornadaService,
+  updateTournamentFieldsService,
   updateMatchResultService,
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
@@ -125,15 +128,17 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       }
   };
 
-  const loadTournamentData = useCallback(async () => {
+  const loadTournamentData = useCallback(async ({ preserveData = false } = {}) => {
       setLoading(true);
-      setJornadas([]);
-      setCurrentMatches([]);
-      setGlobalPendingMatches([]);
+      if (!preserveData) {
+        setJornadas([]);
+        setCurrentMatches([]);
+        setGlobalPendingMatches([]);
+      }
 
       try {
-        const updatedMappings = await fetchTournamentConfig();
-        const jornadasResult = await fetchJornadas();
+          const updatedMappings = await fetchTournamentConfig();
+          const jornadasResult = await fetchJornadas();
         const sortedJornadas = jornadasResult?.jornadas || [];
         const selectedJornada = jornadasResult?.selectedJornada || null;
 
@@ -312,6 +317,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
           setEditorData({
               matches: allMatches,
               jornadas: jornadas,
+              pendingMatches: globalPendingMatches,
               repositionMappings,
               repositionMatchMappings,
           });
@@ -327,42 +333,217 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const handleConfirmFixtureUpdate = async (updatedMatches) => {
       setLoading(true);
       try {
-        const updates = [];
         const originalMap = new Map(editorData.matches.map(m => [m.id, m]));
+        const generatedRoundIndexes = [...new Set(
+          updatedMatches
+            .filter((match) => match.isGeneratedRound)
+            .map((match) => Number(match.jornadaIndex))
+        )].sort((a, b) => a - b);
+
+        const generatedRoundIdMap = new Map();
+        const generatedRoundMetaMap = new Map();
+
+        if (generatedRoundIndexes.length > 0) {
+            const lastJornada = jornadas[jornadas.length - 1] || null;
+            const nextStartDate = lastJornada?.end_date
+              ? addDaysToDate(lastJornada.end_date, 1)
+              : lastJornada?.start_date
+                ? addDaysToDate(lastJornada.start_date, 7)
+                : activeTournament?.start_date
+                  ? addDaysToDate(activeTournament.start_date, jornadas.length * 7)
+                  : null;
+
+            const jornadasToCreate = generatedRoundIndexes.map((roundIndex, offset) => {
+              const roundMatches = updatedMatches.filter(
+                (match) => Number(match.jornadaIndex) === roundIndex
+              );
+              const roundName =
+                roundMatches[0]?.roundName ||
+                `Jornada ${roundIndex + 1}`;
+              const startDate = nextStartDate
+                ? (offset === 0 ? nextStartDate : addDaysToDate(nextStartDate, offset * 7))
+                : null;
+              const endDate = startDate ? addDaysToDate(startDate, 6) : null;
+
+              return {
+                tournament_id: activeTournament.id,
+                name: roundName,
+                status: 'Pendiente',
+                start_date: startDate,
+                end_date: endDate,
+              };
+            });
+
+            const createdJornadas = await createJornadasService(jornadasToCreate);
+            jornadasToCreate.forEach((jornadaToCreate, index) => {
+              const createdJornada = createdJornadas.find(
+                (jornada) => jornada.name === jornadaToCreate.name
+              );
+              if (createdJornada?.id) {
+                const roundIndex = generatedRoundIndexes[index];
+                generatedRoundIdMap.set(roundIndex, createdJornada.id);
+                generatedRoundMetaMap.set(roundIndex, {
+                  id: createdJornada.id,
+                  name: createdJornada.name,
+                  roundType: updatedMatches.find(
+                    (match) => Number(match.jornadaIndex) === roundIndex
+                  )?.roundType || "extra",
+                });
+              }
+            });
+        }
+
+        const updates = [];
+        const inserts = [];
 
         updatedMatches.forEach(m => {
-            if (m.dbId && !m.roundLocked) {
-                const targetJornada = jornadas[m.jornadaIndex];
-                const original = originalMap.get(m.dbId);
+            if (m.roundLocked) {
+                return;
+            }
 
-                if (targetJornada && original) {
-                    if (original.jornada_id !== targetJornada.id) {
-                        updates.push({
-                            id: m.dbId,
-                            jornada_id: targetJornada.id,
-                            date: null, 
-                            status: 'Pendiente' 
-                        });
-                    }
-                }
+            const targetJornadaId =
+              generatedRoundIdMap.get(Number(m.jornadaIndex)) ||
+              jornadas[m.jornadaIndex]?.id;
+            const team1Id =
+              m.local?.id && m.local.id !== 'BYE' ? Number(m.local.id) : null;
+            const team2Id =
+              m.visitante?.id && m.visitante.id !== 'BYE' ? Number(m.visitante.id) : null;
+
+            if (!targetJornadaId || !team1Id) {
+              return;
+            }
+
+            const payload = {
+              jornada_id: targetJornadaId,
+              team1_id: team1Id,
+              team2_id: team2Id,
+              date: null,
+              status: 'Pendiente',
+            };
+
+            if (!m.dbId) {
+              if (m.isGeneratedRound) {
+                inserts.push(payload);
+              }
+              return;
+            }
+
+            const original = originalMap.get(m.dbId);
+            if (!original) return;
+
+            const jornadaChanged = String(original.jornada_id) !== String(targetJornadaId);
+            const team1Changed = String(original.team1_id ?? '') !== String(team1Id ?? '');
+            const team2Changed = String(original.team2_id ?? '') !== String(team2Id ?? '');
+
+            if (jornadaChanged || team1Changed || team2Changed) {
+              updates.push({
+                id: m.dbId,
+                ...payload,
+              });
             }
         });
 
-        if(updates.length > 0) {
-            await bulkUpsertMatchesService(updates);
-            setToastConfig({ show: true, message: "Fixture reorganizado correctamente.", type: "success" });
-            
-            await fetchGlobalPendingMatches(); 
-            if (jornadas[currentJornadaIndex]?.id) {
-                await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+        const generatedRepositionRounds = [...generatedRoundMetaMap.entries()]
+          .filter(([, meta]) => meta.roundType === "reposition")
+          .map(([roundIndex, meta]) => ({
+            roundIndex,
+            ...meta,
+          }));
+
+        if (generatedRepositionRounds.length > 0) {
+          const currentConfig = await getTournamentConfigService(activeTournament.id);
+          const previousMappings = Array.isArray(currentConfig.repositionMappings)
+            ? currentConfig.repositionMappings
+            : [];
+          const previousMatchMappings = Array.isArray(currentConfig.repositionMatchMappings)
+            ? currentConfig.repositionMatchMappings
+            : [];
+
+          const nextMappings = [...previousMappings];
+          const nextMatchMappings = [...previousMatchMappings];
+
+          generatedRepositionRounds.forEach((roundMeta) => {
+            const roundMatches = updatedMatches.filter(
+              (match) =>
+                Number(match.jornadaIndex) === Number(roundMeta.roundIndex) &&
+                match.roundType === "reposition"
+            );
+            const firstOriginMatch = roundMatches.find(
+              (match) => match.originalJornadaId || match.originalJornadaName
+            );
+
+            if (firstOriginMatch) {
+              nextMappings.push({
+                repositionJornadaId: roundMeta.id,
+                repositionJornadaName: roundMeta.name,
+                originalJornadaId: firstOriginMatch.originalJornadaId || null,
+                originalJornadaName: firstOriginMatch.originalJornadaName || "",
+              });
             }
+
+            roundMatches.forEach((match) => {
+              if (!match.dbId) return;
+              nextMatchMappings.push({
+                matchId: match.dbId,
+                repositionJornadaId: roundMeta.id,
+                repositionJornadaName: roundMeta.name,
+                originalJornadaId: match.originalJornadaId || null,
+                originalJornadaName: match.originalJornadaName || "",
+              });
+            });
+          });
+
+          const dedupedMappings = [...nextMappings].reduce((acc, mapping) => {
+            acc.set(String(mapping.repositionJornadaId), mapping);
+            return acc;
+          }, new Map());
+
+          const dedupedMatchMappings = [...nextMatchMappings].reduce((acc, mapping) => {
+            acc.set(String(mapping.matchId), mapping);
+            return acc;
+          }, new Map());
+
+          await updateTournamentFieldsService(activeTournament.id, {
+            config: {
+              ...currentConfig,
+              repositionMappings: Array.from(dedupedMappings.values()),
+              repositionMatchMappings: Array.from(dedupedMatchMappings.values()),
+            },
+          });
+        }
+
+        if(updates.length > 0 || inserts.length > 0) {
+            if (updates.length > 0) {
+              await bulkUpsertMatchesService(updates);
+            }
+
+            if (inserts.length > 0) {
+              await bulkInsertMatchesService(inserts);
+            }
+
+            setToastConfig({
+              show: true,
+              message: generatedRoundIndexes.length > 0
+                ? "Nueva jornada generada y guardada correctamente."
+                : "Fixture reorganizado correctamente.",
+              type: "success"
+            });
+
+            await loadTournamentData({ preserveData: true });
 
             setDataVersion(prev => prev + 1);
             
         } else {
-            setToastConfig({ show: true, message: "No se detectaron cambios de jornada.", type: "warning" });
+            setToastConfig({
+              show: true,
+              message: generatedRoundIndexes.length > 0
+                ? "La jornada se creo, pero no hubo partidos validos para guardar."
+                : "No se detectaron cambios de jornada.",
+              type: "warning"
+            });
         }
 
+        await new Promise((resolve) => setTimeout(resolve, 180));
         setIsEditorOpen(false);
 
       } catch (error) {

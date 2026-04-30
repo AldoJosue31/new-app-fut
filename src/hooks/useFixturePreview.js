@@ -1,16 +1,45 @@
 import { useState, useEffect, useCallback } from "react";
-import { generarEstructuraInicial, validarFixture, autoCorregirFixture, transformarPartidosExistentes } from "../utils/fixtureAlgorithms";
+import {
+    generarEstructuraInicial,
+    generarJornadaExtra,
+    validarFixture,
+    autoCorregirFixture,
+    transformarPartidosExistentes,
+} from "../utils/fixtureAlgorithms";
+import {
+    buildRepositionJornadaName,
+    isOfficialJornadaName,
+} from "../utils/jornadaUtils";
+
+const normalizeByeMatch = (match) => {
+    const localId = match.local?.id;
+    const visitanteId = match.visitante?.id;
+    const isByeMatch = localId === "BYE" || visitanteId === "BYE";
+
+    if (localId === "BYE" && visitanteId && visitanteId !== "BYE") {
+        return {
+            ...match,
+            local: match.visitante,
+            visitante: match.local,
+            isByeMatch: true,
+        };
+    }
+
+    return {
+        ...match,
+        isByeMatch,
+    };
+};
 
 export const useFixturePreview = (teams, config, isOpen, existingData = null) => {
     const [matches, setMatches] = useState([]);
     const [isAnimating, setIsAnimating] = useState(false);
-    const [draggedMatch, setDraggedMatch] = useState(null);
+    const [draggedItem, setDraggedItem] = useState(null);
     const [conflicts, setConflicts] = useState({});
     const [selectedTeamId, setSelectedTeamId] = useState(null);
-    
+
     const isEditMode = !!existingData;
 
-    // Inicializar Datos
     useEffect(() => {
         if (isOpen && teams.length > 0) {
             setIsAnimating(true);
@@ -24,52 +53,56 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                         existingData.repositionMappings
                     );
                     setMatches(initial);
-                } else {
-                    if (matches.length === 0) {
-                        const initial = generarEstructuraInicial(teams, config);
-                        setMatches(initial);
-                    }
+                } else if (matches.length === 0) {
+                    const initial = generarEstructuraInicial(teams, config);
+                    setMatches(initial);
                 }
                 setIsAnimating(false);
             }, 50);
-            
+
             setSelectedTeamId(null);
+            setDraggedItem(null);
             return () => clearTimeout(timer);
-        } else if (!isOpen) {
-             setMatches([]);
-             setConflicts({});
+        }
+
+        if (!isOpen) {
+            setMatches([]);
+            setConflicts({});
+            setDraggedItem(null);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, isEditMode]); 
+    }, [isOpen, isEditMode]);
 
-    // Validar en cada cambio
     useEffect(() => {
         if (matches.length > 0) {
             const { conflicts: newConflicts } = validarFixture(matches);
             setConflicts(newConflicts);
+            return;
         }
+
+        setConflicts({});
     }, [matches]);
 
-    // --- ACCIONES DE UI ---
-    
     const handleTeamClick = (teamId) => {
-        setSelectedTeamId(prev => prev === teamId ? null : teamId);
+        setSelectedTeamId((prev) => (prev === teamId ? null : teamId));
     };
 
     const toggleLock = (matchId) => {
-        setMatches(prev => prev.map(m => {
-            if (m.id === matchId) {
-                if (m.roundLocked) return m;
-                return { ...m, locked: !m.locked };
-            }
-            return m;
-        }));
+        setMatches((prev) =>
+            prev.map((match) => {
+                if (match.id !== matchId) return match;
+                if (match.roundLocked) return match;
+                return { ...match, locked: !match.locked };
+            })
+        );
     };
 
     const handleShuffle = () => {
-        const hasManualLocks = matches.some(m => m.locked && !m.roundLocked);
+        const hasManualLocks = matches.some((match) => match.locked && !match.roundLocked);
         if (hasManualLocks) {
-            if(!window.confirm("Se perderán los bloqueos manuales. Las jornadas confirmadas se mantendrán. ¿Continuar?")) return;
+            if (!window.confirm("Se perderan los bloqueos manuales. Las jornadas confirmadas se mantendran. ¿Continuar?")) {
+                return;
+            }
         }
 
         setIsAnimating(true);
@@ -86,117 +119,138 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
             } else {
                 newMatches = generarEstructuraInicial(teams, config);
             }
+
             setMatches(newMatches);
             setIsAnimating(false);
             setSelectedTeamId(null);
+            setDraggedItem(null);
         }, 300);
     };
 
     const handleAutoFix = () => {
         setIsAnimating(true);
         setTimeout(() => {
-            const fixedMatches = autoCorregirFixture(matches, 5000); 
+            const fixedMatches = autoCorregirFixture(matches, 5000);
             setMatches(fixedMatches);
             setIsAnimating(false);
         }, 100);
     };
 
-    // --- DRAG & DROP CORREGIDO ---
-
     const handleDragStart = useCallback((e, match) => {
-        // Bloquear arrastre si la jornada está confirmada
+        if (match.roundLocked || match.roundType === "extra") {
+            e.preventDefault();
+            return;
+        }
+
+        setDraggedItem({ type: "match", matchId: match.id });
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", `match:${match.id}`);
+    }, []);
+
+    const handleTeamDragStart = useCallback((e, match, teamSide) => {
         if (match.roundLocked) {
             e.preventDefault();
             return;
         }
-        setDraggedMatch(match);
+
+        e.stopPropagation();
+        setDraggedItem({ type: "team", matchId: match.id, teamSide });
         e.dataTransfer.effectAllowed = "move";
-        // Opcional: configurar ghost image
+        e.dataTransfer.setData("text/plain", `team:${match.id}:${teamSide}`);
     }, []);
 
     const handleDropOnMatch = useCallback((e, targetMatch) => {
         e.preventDefault();
-        e.stopPropagation(); // <--- CRÍTICO: Evita que el evento suba a la Jornada y duplique la acción
+        e.stopPropagation();
 
-        if (!draggedMatch || draggedMatch.id === targetMatch.id) return;
-        if (targetMatch.roundLocked) return; 
+        if (!draggedItem || draggedItem.type !== "match") return;
+        if (targetMatch.roundLocked) return;
 
-        if (draggedMatch.isByeMatch !== targetMatch.isByeMatch) {
+        const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
+        if (!sourceMatch || sourceMatch.id === targetMatch.id) return;
+        if (sourceMatch.roundType === "extra" || targetMatch.roundType === "extra") return;
+
+        if (sourceMatch.isByeMatch !== targetMatch.isByeMatch) {
             alert("Solo puedes intercambiar partidos del mismo tipo (Descanso vs Descanso o Normal vs Normal).");
             return;
         }
 
-        setMatches(prev => {
+        setMatches((prev) => {
             const newMatches = [...prev];
-            const sourceIdx = newMatches.findIndex(m => m.id === draggedMatch.id);
-            const targetIdx = newMatches.findIndex(m => m.id === targetMatch.id);
-            
-            if(sourceIdx === -1 || targetIdx === -1) return prev;
+            const sourceIdx = newMatches.findIndex((match) => match.id === sourceMatch.id);
+            const targetIdx = newMatches.findIndex((match) => match.id === targetMatch.id);
 
-            // Guardamos las jornadas originales antes de tocar nada
+            if (sourceIdx === -1 || targetIdx === -1) return prev;
+
             const sourceJornada = newMatches[sourceIdx].jornadaIndex;
             const targetJornada = newMatches[targetIdx].jornadaIndex;
 
-            // Intercambio Directo (Swap)
-            newMatches[sourceIdx] = { 
-                ...newMatches[sourceIdx], 
-                jornadaIndex: targetJornada, 
-                locked: true // Se bloquea al moverse manualmente
+            newMatches[sourceIdx] = {
+                ...newMatches[sourceIdx],
+                jornadaIndex: targetJornada,
+                locked: true,
             };
-            newMatches[targetIdx] = { 
-                ...newMatches[targetIdx], 
-                jornadaIndex: sourceJornada 
-                // El target no necesariamente se bloquea, o puedes decidir bloquearlo también
+            newMatches[targetIdx] = {
+                ...newMatches[targetIdx],
+                jornadaIndex: sourceJornada,
             };
-            
+
             return newMatches;
         });
-        setDraggedMatch(null);
-    }, [draggedMatch]);
+
+        setDraggedItem(null);
+    }, [draggedItem, matches]);
 
     const handleDropOnJornada = useCallback((e, targetJornadaIndex) => {
         e.preventDefault();
-        e.stopPropagation(); // <--- CRÍTICO: Buena práctica para evitar efectos secundarios
+        e.stopPropagation();
 
-        if (!draggedMatch) return;
-        if (draggedMatch.jornadaIndex === targetJornadaIndex) return;
+        if (!draggedItem || draggedItem.type !== "match") return;
 
-        // Validar bloqueo de jornada destino
-        const targetIsLocked = matches.some(m => m.jornadaIndex === targetJornadaIndex && m.roundLocked);
+        const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
+        if (!sourceMatch) return;
+        if (sourceMatch.jornadaIndex === targetJornadaIndex) return;
+        if (sourceMatch.roundType === "extra") return;
+
+        const targetIsLocked = matches.some(
+            (match) => match.jornadaIndex === targetJornadaIndex && match.roundLocked
+        );
         if (targetIsLocked) {
             alert("Esta jornada ya fue jugada o confirmada.");
             return;
         }
 
-        const targetMatches = matches.filter(m => m.jornadaIndex === targetJornadaIndex);
-        
-        // 1. Buscar candidato ideal (mismo tipo, NO bloqueado, NO confirmado)
-        let candidate = targetMatches.find(m => 
-            m.isByeMatch === draggedMatch.isByeMatch && 
-            !m.locked && 
-            !m.roundLocked
+        const targetMatches = matches.filter((match) => match.jornadaIndex === targetJornadaIndex);
+
+        let candidate = targetMatches.find(
+            (match) =>
+                match.isByeMatch === sourceMatch.isByeMatch &&
+                !match.locked &&
+                !match.roundLocked
         );
 
-        // 2. Fallback: Buscar candidato bloqueado manualmente (pero NO confirmado)
         if (!candidate) {
-            candidate = targetMatches.find(m => 
-                m.isByeMatch === draggedMatch.isByeMatch && 
-                !m.roundLocked
+            candidate = targetMatches.find(
+                (match) =>
+                    match.isByeMatch === sourceMatch.isByeMatch &&
+                    !match.roundLocked
             );
         }
 
-        setMatches(prev => {
+        setMatches((prev) => {
             const newMatches = [...prev];
-            const sourceIdx = newMatches.findIndex(m => m.id === draggedMatch.id);
+            const sourceIdx = newMatches.findIndex((match) => match.id === sourceMatch.id);
             if (sourceIdx === -1) return prev;
 
-            // CASO A: Hay espacio libre (raro en ligas llenas, posible si hay desbalance)
-            // O no se encontró candidato compatible para swap
-            if (!candidate && targetMatches.length < matches.filter(m => m.jornadaIndex === draggedMatch.jornadaIndex).length) {
-                 newMatches[sourceIdx] = { 
-                    ...newMatches[sourceIdx], 
-                    jornadaIndex: targetJornadaIndex, 
-                    locked: true 
+            const sourceRoundMatches = matches.filter(
+                (match) => match.jornadaIndex === sourceMatch.jornadaIndex
+            );
+
+            if (!candidate && targetMatches.length < sourceRoundMatches.length) {
+                newMatches[sourceIdx] = {
+                    ...newMatches[sourceIdx],
+                    jornadaIndex: targetJornadaIndex,
+                    locked: true,
                 };
                 return newMatches;
             }
@@ -206,38 +260,166 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                 return prev;
             }
 
-            const targetIdx = newMatches.findIndex(m => m.id === candidate.id);
+            const targetIdx = newMatches.findIndex((match) => match.id === candidate.id);
             if (targetIdx === -1) return prev;
 
-            // CASO B: Swap con candidato encontrado al azar en la columna
             const sourceJornada = newMatches[sourceIdx].jornadaIndex;
-            
-            newMatches[sourceIdx] = { 
-                ...newMatches[sourceIdx], 
-                jornadaIndex: targetJornadaIndex, // Usamos el índice explícito del drop
-                locked: true 
+
+            newMatches[sourceIdx] = {
+                ...newMatches[sourceIdx],
+                jornadaIndex: targetJornadaIndex,
+                locked: true,
             };
-            newMatches[targetIdx] = { 
-                ...newMatches[targetIdx], 
-                jornadaIndex: sourceJornada 
+            newMatches[targetIdx] = {
+                ...newMatches[targetIdx],
+                jornadaIndex: sourceJornada,
             };
 
             return newMatches;
         });
 
-        setDraggedMatch(null);
-    }, [draggedMatch, matches]);
+        setDraggedItem(null);
+    }, [draggedItem, matches]);
 
-    // --- PREPARAR SALIDA ---
-    
+    const handleDropOnTeamSlot = useCallback((e, targetMatch, targetTeamSide) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!draggedItem || draggedItem.type !== "team") return;
+        if (targetMatch.roundLocked) return;
+
+        const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
+        if (!sourceMatch) return;
+
+        const isSameSlot =
+            sourceMatch.id === targetMatch.id && draggedItem.teamSide === targetTeamSide;
+        if (isSameSlot) return;
+
+        setMatches((prev) => {
+            const sourceIdx = prev.findIndex((match) => match.id === sourceMatch.id);
+            const targetIdx = prev.findIndex((match) => match.id === targetMatch.id);
+            if (sourceIdx === -1 || targetIdx === -1) return prev;
+
+            const next = [...prev];
+            const sourceCurrent = next[sourceIdx];
+            const targetCurrent = next[targetIdx];
+            const sourceTeam = sourceCurrent[draggedItem.teamSide];
+            const targetTeam = targetCurrent[targetTeamSide];
+
+            if (!sourceTeam || !targetTeam) return prev;
+
+            if (sourceIdx === targetIdx) {
+                if (draggedItem.teamSide === targetTeamSide) return prev;
+
+                next[sourceIdx] = normalizeByeMatch({
+                    ...sourceCurrent,
+                    local: sourceCurrent.visitante,
+                    visitante: sourceCurrent.local,
+                });
+
+                return next;
+            }
+
+            next[sourceIdx] = normalizeByeMatch({
+                ...sourceCurrent,
+                [draggedItem.teamSide]: targetTeam,
+            });
+            next[targetIdx] = normalizeByeMatch({
+                ...targetCurrent,
+                [targetTeamSide]: sourceTeam,
+            });
+
+            return next;
+        });
+
+        setDraggedItem(null);
+    }, [draggedItem, matches]);
+
+    const handleGenerateExtraRound = useCallback(() => {
+        if (!isEditMode || !Array.isArray(existingData?.jornadas) || teams.length < 2) {
+            return;
+        }
+
+        const officialRoundsPlayed = existingData.jornadas.filter((jornada) =>
+            isOfficialJornadaName(jornada?.name)
+        ).length;
+        const nextRoundIndex = existingData.jornadas.length;
+        const roundName = `Jornada ${officialRoundsPlayed + 1}`;
+        const extraRoundMatches = generarJornadaExtra({
+            teams,
+            config,
+            officialRoundsPlayed,
+            nextRoundIndex,
+            roundName,
+        });
+
+        if (extraRoundMatches.length === 0) return;
+
+        setMatches((prev) => [...prev, ...extraRoundMatches]);
+    }, [config, existingData?.jornadas, isEditMode, teams]);
+
+    const handleGenerateRepositionRound = useCallback(() => {
+        if (!isEditMode || !Array.isArray(existingData?.jornadas) || !Array.isArray(existingData?.pendingMatches)) {
+            return;
+        }
+
+        const repositionCandidates = existingData.pendingMatches.filter((match) => {
+            const jornadaName = match?.jornadas?.name || "";
+            const hasTeams = match?.team1_id && match?.team2_id;
+            return hasTeams && isOfficialJornadaName(jornadaName);
+        });
+
+        if (repositionCandidates.length === 0) {
+            return;
+        }
+
+        const nextRoundIndex = existingData.jornadas.length;
+        const roundName = buildRepositionJornadaName({
+            existingJornadas: existingData.jornadas,
+        });
+
+        const repositionMatches = repositionCandidates.reduce((acc, pendingMatch, index) => {
+            const localTeam = teams.find((team) => String(team.id) === String(pendingMatch.team1_id));
+            const visitanteTeam = teams.find((team) => String(team.id) === String(pendingMatch.team2_id));
+
+            if (!localTeam || !visitanteTeam) {
+                return acc;
+            }
+
+            acc.push({
+                id: `temp_reposition_${pendingMatch.id}_${index + 1}`,
+                dbId: pendingMatch.id,
+                local: localTeam,
+                visitante: visitanteTeam,
+                jornadaIndex: nextRoundIndex,
+                locked: false,
+                roundLocked: false,
+                isByeMatch: false,
+                isGeneratedRound: true,
+                roundType: "reposition",
+                roundName,
+                originalJornadaId: pendingMatch.jornada_id,
+                originalJornadaName: pendingMatch?.jornadas?.name || "",
+            });
+
+            return acc;
+        }, []);
+
+        if (repositionMatches.length === 0) {
+            return;
+        }
+
+        setMatches((prev) => [...prev, ...repositionMatches]);
+    }, [existingData?.jornadas, existingData?.pendingMatches, isEditMode, teams]);
+
     const matchesByRound = {};
-    matches.forEach(m => {
-        if(!matchesByRound[m.jornadaIndex]) matchesByRound[m.jornadaIndex] = [];
-        matchesByRound[m.jornadaIndex].push(m);
+    matches.forEach((match) => {
+        if (!matchesByRound[match.jornadaIndex]) matchesByRound[match.jornadaIndex] = [];
+        matchesByRound[match.jornadaIndex].push(match);
     });
 
-    Object.keys(matchesByRound).forEach(key => {
-        matchesByRound[key].sort((a, b) => {
+    Object.keys(matchesByRound).forEach((roundKey) => {
+        matchesByRound[roundKey].sort((a, b) => {
             if (a.isByeMatch && !b.isByeMatch) return -1;
             if (!a.isByeMatch && b.isByeMatch) return 1;
             return 0;
@@ -256,7 +438,11 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         handleShuffle,
         handleAutoFix,
         handleDragStart,
+        handleTeamDragStart,
         handleDropOnMatch,
-        handleDropOnJornada
+        handleDropOnJornada,
+        handleDropOnTeamSlot,
+        handleGenerateExtraRound,
+        handleGenerateRepositionRound,
     };
 };
