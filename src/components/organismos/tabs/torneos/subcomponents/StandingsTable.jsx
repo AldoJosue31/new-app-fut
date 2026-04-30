@@ -1,5 +1,5 @@
 // src/components/organismos/tabs/torneos/subcomponents/StandingsTable.jsx
-import React, { useMemo } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -50,14 +50,14 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
             <thead>
               <tr>
                 <Th className="team-col-header">Equipo</Th>
-                <Th className="stat-col">PJ</Th>
-                <Th className="stat-col hide-mobile">G</Th>
-                <Th className="stat-col hide-mobile">E</Th>
-                <Th className="stat-col hide-mobile">P</Th>
-                <Th className="stat-col hide-mobile">GF</Th>
-                <Th className="stat-col hide-mobile">GC</Th>
+                <Th className="stat-col pj-col">PJ</Th>
+                <Th className="stat-col g-col optional-mobile">G</Th>
+                <Th className="stat-col e-col optional-mobile">E</Th>
+                <Th className="stat-col p-col optional-mobile">P</Th>
+                <Th className="stat-col gf-col optional-mobile">GF</Th>
+                <Th className="stat-col gc-col optional-mobile">GC</Th>
                 <Th className="stat-col dif-col">DIF</Th>
-                <Th className="stat-col pend-col hide-mobile" title="Partidos Pendientes">Pnd</Th>
+                <Th className="stat-col pend-col" title="Partidos Pendientes">Pnd</Th>
                 <Th className="stat-col pts-col">PTS</Th>
               </tr>
             </thead>
@@ -75,15 +75,15 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                         <Skeleton width={skeletonWidths[index % 8]} height="16px" />
                       </TeamNameCell>
                     </Td>
-                    <Td className="stat-col"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col hide-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col"><Skeleton width="20px" height="20px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-pj"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-g optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-e optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-p optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-gf optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-gc optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-dif"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-pend"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-pts"><Skeleton width="20px" height="20px" style={{ margin: '0 auto' }} /></Td>
                   </TrBase>
                 ))
               ) : (
@@ -154,17 +154,17 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                       </Td>
 
                       <Td className="stat-col val-pj">{fila.pj}</Td>
-                      <Td className="stat-col hide-mobile val-stat">{fila.g}</Td>
-                      <Td className="stat-col hide-mobile val-stat">{fila.e}</Td>
-                      <Td className="stat-col hide-mobile val-stat">{fila.p}</Td>
-                      <Td className="stat-col hide-mobile val-stat">{fila.gf}</Td>
-                      <Td className="stat-col hide-mobile val-stat">{fila.gc}</Td>
+                      <Td className="stat-col val-stat val-g optional-mobile">{fila.g}</Td>
+                      <Td className="stat-col val-stat val-e optional-mobile">{fila.e}</Td>
+                      <Td className="stat-col val-stat val-p optional-mobile">{fila.p}</Td>
+                      <Td className="stat-col val-stat val-gf optional-mobile">{fila.gf}</Td>
+                      <Td className="stat-col val-stat val-gc optional-mobile">{fila.gc}</Td>
                       <Td className="stat-col val-dif" style={{
                           color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit'
                       }}>
                           {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                       </Td>
-                      <Td className="stat-col hide-mobile val-pend" style={{
+                      <Td className="stat-col val-pend" style={{
                            color: fila.partidosPendientes > 0 ? '#f59e0b' : 'inherit',
                            opacity: fila.partidosPendientes > 0 ? 1 : 0.3
                       }}>
@@ -220,23 +220,130 @@ const TableCard = styled.div`
   border: 1px solid ${({ theme }) => theme.color2}; 
   width: 100%; 
   max-width: 1000px; 
+  min-width: 0;
+  box-sizing: border-box;
   overflow: hidden; 
   flex-shrink: 0; 
   align-self: center;
+  contain: layout paint;
+
+  @media (max-width: 500px) {
+    width: calc(100% - 24px);
+    max-width: 366px;
+    margin-left: auto;
+    margin-right: auto;
+  }
 `;
 
 const ResponsiveTableWrapper = styled.div`
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  &::-webkit-scrollbar { height: 6px; }
-  &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.color2}; border-radius: 4px; }
+  overscroll-behavior-x: contain;
+  &::-webkit-scrollbar { height: 5px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.color2}; border-radius: 999px; }
+
+  @media (max-width: 500px) {
+    scroll-snap-type: x proximity;
+  }
 `;
 
 const StyledTable = styled.table`
   width: 100%; 
   border-collapse: collapse; 
   text-align: center;
+
+  @media (max-width: 500px) {
+    --extra-stats-width: 180px;
+    --main-stat-width: 40px;
+    --main-stats-width: 160px;
+    --extra-stat-width: 36px;
+
+    display: block;
+    width: calc(100% + var(--extra-stats-width));
+    min-width: calc(100% + var(--extra-stats-width));
+    max-width: none;
+    border-collapse: separate;
+    border-spacing: 0;
+
+    thead,
+    tbody {
+      display: block;
+      width: 100%;
+    }
+
+    tr {
+      display: grid;
+      grid-template-columns:
+        minmax(96px, calc(100% - var(--extra-stats-width) - var(--main-stats-width)))
+        repeat(4, var(--main-stat-width))
+        repeat(5, var(--extra-stat-width));
+      width: 100%;
+      grid-auto-flow: column;
+      grid-auto-rows: auto;
+      column-gap: 0;
+      contain: layout paint;
+      align-items: stretch;
+    }
+
+    thead tr {
+      background-color: ${({ theme }) => theme.bgtotal};
+    }
+
+    .team-col-header,
+    .team-col {
+      grid-column: 1;
+    }
+
+    .pj-col,
+    .val-pj {
+      grid-column: 2;
+    }
+
+    .dif-col,
+    .val-dif {
+      grid-column: 3;
+    }
+
+    .pend-col,
+    .val-pend {
+      grid-column: 4;
+    }
+
+    .pts-col,
+    .val-pts {
+      grid-column: 5;
+    }
+
+    .g-col,
+    .val-g {
+      grid-column: 6;
+    }
+
+    .e-col,
+    .val-e {
+      grid-column: 7;
+    }
+
+    .p-col,
+    .val-p {
+      grid-column: 8;
+    }
+
+    .gf-col,
+    .val-gf {
+      grid-column: 9;
+    }
+
+    .gc-col,
+    .val-gc {
+      grid-column: 10;
+    }
+  }
 `;
 
 const Th = styled.th`
@@ -256,7 +363,43 @@ const Th = styled.th`
   
   &.pend-col { color: #f59e0b; }
   &.pts-col { color: ${v.colorPrincipal}; opacity: 1; font-weight: 900; }
-  &.hide-mobile { @media (max-width: 500px) { display: none; } }
+
+  @media (max-width: 500px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+    height: 100%;
+    min-height: 32px;
+    padding: 6px 3px;
+    font-size: 0.62rem;
+    line-height: 1;
+    opacity: 1;
+    background-color: transparent;
+    border-bottom: none;
+    border-right: none;
+    box-sizing: border-box;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    justify-self: stretch;
+
+    &.team-col-header {
+      justify-content: flex-start;
+      padding-left: 10px;
+      padding-right: 6px;
+      position: sticky;
+      left: 0;
+      z-index: 12;
+      background-color: ${({ theme }) => theme.bgtotal};
+      box-shadow: 6px 0 8px -10px rgba(0, 0, 0, 0.7);
+    }
+
+    &.optional-mobile {
+      background-color: transparent;
+    }
+  }
 `;
 
 const Td = styled.td`
@@ -284,7 +427,56 @@ const Td = styled.td`
     font-weight: 900; color: ${v.colorPrincipal}; font-size: 1rem; 
     @media ${Device.tablet} { font-size: 1.15rem; } 
   }
-  &.hide-mobile { @media (max-width: 500px) { display: none; } }
+
+  @media (max-width: 500px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+    height: 100%;
+    min-height: 38px;
+    padding: 5px 3px;
+    font-size: 0.76rem;
+    line-height: 1;
+    background-color: transparent;
+    border-right: 1px solid ${({ theme }) => theme.color2}33;
+    box-sizing: border-box;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    justify-self: stretch;
+
+    &.team-col {
+      justify-content: flex-start;
+      padding-left: 6px;
+      padding-right: 6px;
+      position: sticky;
+      left: 0;
+      z-index: 4;
+      border-left: none;
+      box-shadow: 8px 0 10px -10px rgba(0, 0, 0, 0.7);
+
+      &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 4px;
+        background: ${({ $zoneColor }) => $zoneColor || 'transparent'};
+        pointer-events: none;
+      }
+    }
+
+    &.optional-mobile {
+      background-color: transparent;
+    }
+
+    &.val-pts {
+      font-size: 0.95rem;
+    }
+  }
 `;
 
 const TrBase = styled.tr`
@@ -299,6 +491,13 @@ const TrBase = styled.tr`
     $isEven ? (theme.bg2 || 'rgba(128, 128, 128, 0.04)') : 'transparent'};
 
   td { border-bottom: 1px solid ${({ $zoneColor, theme }) => $zoneColor ? `${$zoneColor}60` : theme.color2}; }
+
+  @media (max-width: 500px) {
+    td.team-col {
+      background-color: ${({ $isEven, theme }) => 
+        $isEven ? (theme.bg2 || 'rgba(128, 128, 128, 0.04)') : theme.bg};
+    }
+  }
   
   &:hover { 
     background-color: ${({ theme }) => theme.bgAlpha}; 
@@ -366,6 +565,45 @@ const TeamNameCell = styled.div`
     @media (min-width: 400px) { max-width: 140px; } 
     @media ${Device.tablet} { font-size: 0.95rem; max-width: 300px; } 
   }
+
+  @media (max-width: 500px) {
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+
+    .rank-container {
+      min-width: 24px;
+      gap: 2px;
+    }
+
+    .pos {
+      width: 14px;
+      font-size: 0.68rem;
+    }
+
+    .tendencia {
+      .icon-up,
+      .icon-down {
+        font-size: 12px;
+        margin: -4px 0;
+      }
+
+      .icon-same {
+        font-size: 12px;
+        margin-left: 0;
+      }
+    }
+
+    .logo-container {
+      width: 18px;
+      height: 18px;
+    }
+
+    .team-name {
+      font-size: 0.76rem;
+      max-width: clamp(72px, calc(100vw - 286px), 132px);
+    }
+  }
 `;
 
 const BottomInfoContainer = styled.div`
@@ -373,9 +611,13 @@ const BottomInfoContainer = styled.div`
   flex-direction: column; 
   align-items: center; 
   gap: 10px; 
+  width: 100%;
   max-width: 1000px; 
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0 auto 15px auto; 
   padding: 0 10px;
+  overflow-x: hidden;
 `;
 
 const TieBreakerContainer = styled.div`
@@ -387,6 +629,14 @@ const TieBreakerContainer = styled.div`
   color: ${({ theme }) => theme.text}70; 
   text-align: center;
   flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
+
+  span {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
 
   @media ${Device.tablet} { 
     font-size: 0.75rem; 
