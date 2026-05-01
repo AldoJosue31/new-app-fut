@@ -51,14 +51,14 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
               <tr>
                 <Th className="team-col-header">Equipo</Th>
                 <Th className="stat-col pj-col">PJ</Th>
+                <Th className="stat-col dif-col">DIF</Th>
+                <Th className="stat-col pend-col" title="Partidos Pendientes">Pnd</Th>
+                <Th className="stat-col pts-col">PTS</Th>
                 <Th className="stat-col g-col optional-mobile">G</Th>
                 <Th className="stat-col e-col optional-mobile">E</Th>
                 <Th className="stat-col p-col optional-mobile">P</Th>
                 <Th className="stat-col gf-col optional-mobile">GF</Th>
                 <Th className="stat-col gc-col optional-mobile">GC</Th>
-                <Th className="stat-col dif-col">DIF</Th>
-                <Th className="stat-col pend-col" title="Partidos Pendientes">Pnd</Th>
-                <Th className="stat-col pts-col">PTS</Th>
               </tr>
             </thead>
             <tbody>
@@ -76,14 +76,14 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                       </TeamNameCell>
                     </Td>
                     <Td className="stat-col val-pj"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-dif"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-pend"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
+                    <Td className="stat-col val-pts"><Skeleton width="20px" height="20px" style={{ margin: '0 auto' }} /></Td>
                     <Td className="stat-col val-g optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
                     <Td className="stat-col val-e optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
                     <Td className="stat-col val-p optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
                     <Td className="stat-col val-gf optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
                     <Td className="stat-col val-gc optional-mobile"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col val-dif"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col val-pend"><Skeleton width="16px" height="16px" style={{ margin: '0 auto' }} /></Td>
-                    <Td className="stat-col val-pts"><Skeleton width="20px" height="20px" style={{ margin: '0 auto' }} /></Td>
                   </TrBase>
                 ))
               ) : (
@@ -154,23 +154,20 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                       </Td>
 
                       <Td className="stat-col val-pj">{fila.pj}</Td>
-                      <Td className="stat-col val-stat val-g optional-mobile">{fila.g}</Td>
-                      <Td className="stat-col val-stat val-e optional-mobile">{fila.e}</Td>
-                      <Td className="stat-col val-stat val-p optional-mobile">{fila.p}</Td>
-                      <Td className="stat-col val-stat val-gf optional-mobile">{fila.gf}</Td>
-                      <Td className="stat-col val-stat val-gc optional-mobile">{fila.gc}</Td>
                       <Td className="stat-col val-dif" style={{
                           color: fila.dg > 0 ? v.verde : fila.dg < 0 ? v.rojo : 'inherit'
                       }}>
                           {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                       </Td>
-                      <Td className="stat-col val-pend" style={{
-                           color: fila.partidosPendientes > 0 ? '#f59e0b' : 'inherit',
-                           opacity: fila.partidosPendientes > 0 ? 1 : 0.3
-                      }}>
+                      <Td className="stat-col val-pend" $hasPending={fila.partidosPendientes > 0}>
                           {fila.partidosPendientes}
                       </Td>
                       <Td className="stat-col val-pts">{fila.pts}</Td>
+                      <Td className="stat-col val-stat val-g optional-mobile">{fila.g}</Td>
+                      <Td className="stat-col val-stat val-e optional-mobile">{fila.e}</Td>
+                      <Td className="stat-col val-stat val-p optional-mobile">{fila.p}</Td>
+                      <Td className="stat-col val-stat val-gf optional-mobile">{fila.gf}</Td>
+                      <Td className="stat-col val-stat val-gc optional-mobile">{fila.gc}</Td>
                     </RowComponent>
                   );
                 })
@@ -227,9 +224,9 @@ const TableCard = styled.div`
   align-self: center;
   contain: layout paint;
 
-  @media (max-width: 500px) {
-    width: calc(100% - 24px);
-    max-width: 366px;
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 360px;
     margin-left: auto;
     margin-right: auto;
   }
@@ -247,8 +244,8 @@ const ResponsiveTableWrapper = styled.div`
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.color2}; border-radius: 999px; }
 
-  @media (max-width: 500px) {
-    scroll-snap-type: x proximity;
+  @media (max-width: 768px) {
+    overflow-x: auto;
   }
 `;
 
@@ -256,19 +253,23 @@ const StyledTable = styled.table`
   width: 100%; 
   border-collapse: collapse; 
   text-align: center;
+  table-layout: auto;
 
-  @media (max-width: 500px) {
-    --extra-stats-width: 180px;
-    --main-stat-width: 40px;
-    --main-stats-width: 160px;
-    --extra-stat-width: 36px;
+  @media (max-width: 768px) {
+    --extra-stat-width: 30px;
+    --extra-stats-width: 150px;
+    --pj-width: 34px;
+    --dif-width: 42px;
+    --pend-width: 42px;
+    --pts-width: 44px;
+    --main-stats-width: calc(var(--pj-width) + var(--dif-width) + var(--pend-width) + var(--pts-width));
 
     display: block;
     width: calc(100% + var(--extra-stats-width));
     min-width: calc(100% + var(--extra-stats-width));
-    max-width: none;
     border-collapse: separate;
     border-spacing: 0;
+    table-layout: auto;
 
     thead,
     tbody {
@@ -279,69 +280,24 @@ const StyledTable = styled.table`
     tr {
       display: grid;
       grid-template-columns:
-        minmax(96px, calc(100% - var(--extra-stats-width) - var(--main-stats-width)))
-        repeat(4, var(--main-stat-width))
+        minmax(128px, calc(100% - var(--extra-stats-width) - var(--main-stats-width)))
+        var(--pj-width)
+        var(--dif-width)
+        var(--pend-width)
+        var(--pts-width)
         repeat(5, var(--extra-stat-width));
       width: 100%;
-      grid-auto-flow: column;
-      grid-auto-rows: auto;
-      column-gap: 0;
-      contain: layout paint;
       align-items: stretch;
-    }
-
-    thead tr {
-      background-color: ${({ theme }) => theme.bgtotal};
     }
 
     .team-col-header,
     .team-col {
-      grid-column: 1;
+      width: auto;
     }
 
     .pj-col,
     .val-pj {
-      grid-column: 2;
-    }
-
-    .dif-col,
-    .val-dif {
-      grid-column: 3;
-    }
-
-    .pend-col,
-    .val-pend {
-      grid-column: 4;
-    }
-
-    .pts-col,
-    .val-pts {
-      grid-column: 5;
-    }
-
-    .g-col,
-    .val-g {
-      grid-column: 6;
-    }
-
-    .e-col,
-    .val-e {
-      grid-column: 7;
-    }
-
-    .p-col,
-    .val-p {
-      grid-column: 8;
-    }
-
-    .gf-col,
-    .val-gf {
-      grid-column: 9;
-    }
-
-    .gc-col,
-    .val-gc {
-      grid-column: 10;
+      width: var(--pj-width);
     }
   }
 `;
@@ -364,40 +320,59 @@ const Th = styled.th`
   &.pend-col { color: #f59e0b; }
   &.pts-col { color: ${v.colorPrincipal}; opacity: 1; font-weight: 900; }
 
-  @media (max-width: 500px) {
+  @media (max-width: 768px) {
     display: flex;
     align-items: center;
     justify-content: center;
-    grid-row: 1;
     width: auto;
     min-width: 0;
     height: 100%;
     min-height: 32px;
-    padding: 6px 3px;
-    font-size: 0.62rem;
+    padding: 7px 2px;
+    font-size: 0.58rem;
     line-height: 1;
     opacity: 1;
-    background-color: transparent;
-    border-bottom: none;
+    background-color: ${({ theme }) => theme.bgtotal};
+    border-bottom: 2px solid ${({ theme }) => theme.color2};
     border-right: none;
     box-sizing: border-box;
     text-align: center;
     font-variant-numeric: tabular-nums;
-    justify-self: stretch;
 
     &.team-col-header {
       justify-content: flex-start;
-      padding-left: 10px;
-      padding-right: 6px;
+      text-align: left;
+      padding-left: 7px;
+      padding-right: 5px;
       position: sticky;
       left: 0;
       z-index: 12;
       background-color: ${({ theme }) => theme.bgtotal};
-      box-shadow: 6px 0 8px -10px rgba(0, 0, 0, 0.7);
+      box-shadow: 8px 0 10px -12px rgba(0, 0, 0, 0.75);
     }
 
-    &.optional-mobile {
-      background-color: transparent;
+    &.g-col,
+    &.e-col,
+    &.p-col,
+    &.gf-col,
+    &.gc-col {
+      width: var(--extra-stat-width);
+    }
+
+    &.pj-col {
+      width: var(--pj-width);
+    }
+
+    &.dif-col {
+      width: var(--dif-width);
+    }
+
+    &.pend-col {
+      width: var(--pend-width);
+    }
+
+    &.pts-col {
+      width: var(--pts-width);
     }
   }
 `;
@@ -422,40 +397,43 @@ const Td = styled.td`
   &.val-pj { font-weight: 700; }
   &.val-stat { color: ${({ theme }) => theme.text}CC; }
   &.val-dif { font-weight: 800; }
+  &.val-pend {
+    color: ${({ $hasPending, theme }) => ($hasPending ? '#f59e0b' : `${theme.text}4D`)};
+  }
   
   &.val-pts { 
     font-weight: 900; color: ${v.colorPrincipal}; font-size: 1rem; 
     @media ${Device.tablet} { font-size: 1.15rem; } 
   }
 
-  @media (max-width: 500px) {
+  @media (max-width: 768px) {
     display: flex;
     align-items: center;
     justify-content: center;
-    grid-row: 1;
     width: auto;
     min-width: 0;
     height: 100%;
     min-height: 38px;
-    padding: 5px 3px;
-    font-size: 0.76rem;
+    padding: 6px 2px;
+    font-size: 0.72rem;
     line-height: 1;
     background-color: transparent;
     border-right: 1px solid ${({ theme }) => theme.color2}33;
     box-sizing: border-box;
     text-align: center;
     font-variant-numeric: tabular-nums;
-    justify-self: stretch;
 
     &.team-col {
       justify-content: flex-start;
+      text-align: left;
       padding-left: 6px;
-      padding-right: 6px;
+      padding-right: 5px;
       position: sticky;
       left: 0;
       z-index: 4;
       border-left: none;
-      box-shadow: 8px 0 10px -10px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      box-shadow: 8px 0 10px -12px rgba(0, 0, 0, 0.75);
 
       &::before {
         content: "";
@@ -467,10 +445,6 @@ const Td = styled.td`
         background: ${({ $zoneColor }) => $zoneColor || 'transparent'};
         pointer-events: none;
       }
-    }
-
-    &.optional-mobile {
-      background-color: transparent;
     }
 
     &.val-pts {
@@ -492,7 +466,7 @@ const TrBase = styled.tr`
 
   td { border-bottom: 1px solid ${({ $zoneColor, theme }) => $zoneColor ? `${$zoneColor}60` : theme.color2}; }
 
-  @media (max-width: 500px) {
+  @media (max-width: 768px) {
     td.team-col {
       background-color: ${({ $isEven, theme }) => 
         $isEven ? (theme.bg2 || 'rgba(128, 128, 128, 0.04)') : theme.bg};
@@ -566,7 +540,7 @@ const TeamNameCell = styled.div`
     @media ${Device.tablet} { font-size: 0.95rem; max-width: 300px; } 
   }
 
-  @media (max-width: 500px) {
+  @media (max-width: 768px) {
     gap: 5px;
     width: 100%;
     min-width: 0;
@@ -601,7 +575,9 @@ const TeamNameCell = styled.div`
 
     .team-name {
       font-size: 0.76rem;
-      max-width: clamp(72px, calc(100vw - 286px), 132px);
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: none;
     }
   }
 `;
