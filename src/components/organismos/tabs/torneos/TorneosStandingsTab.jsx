@@ -167,10 +167,19 @@ const StandingsTabContainer = styled.div`
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow-x: clip;
+  overflow-x: hidden;
+
+  @media (max-width: 768px) {
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding: 0 16px;
+  }
 `;
 
 const ControlPanel = styled.div`
@@ -190,8 +199,8 @@ const ControlPanel = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 768px) {
-    width: calc(100% - 24px);
-    max-width: 366px;
+    width: 100%;
+    max-width: 360px;
     grid-template-columns: auto minmax(0, 1fr) auto;
     padding: 7px 10px;
     border-radius: 10px;
