@@ -104,7 +104,7 @@ export const TorneosStandingsTab = ({
   };
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+    <StandingsTabContainer>
       {!isPublic && (
         <ControlPanel>
             <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
@@ -158,11 +158,21 @@ export const TorneosStandingsTab = ({
         config={config}
         activeJornadaName={activeJornadaName} 
       />
-    </div>
+    </StandingsTabContainer>
   );
 };
 
 /* ---------- Estilos ---------- */
+const StandingsTabContainer = styled.div`
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: clip;
+`;
+
 const ControlPanel = styled.div`
   display: grid;
   grid-template-columns: auto minmax(180px, 1fr) auto;
@@ -177,10 +187,11 @@ const ControlPanel = styled.div`
   box-shadow: ${v.boxshadowGray};
   gap: 8px;
   min-width: 0;
+  box-sizing: border-box;
 
   @media (max-width: 768px) {
-    width: 100%;
-    max-width: 100%;
+    width: calc(100% - 24px);
+    max-width: 366px;
     grid-template-columns: auto minmax(0, 1fr) auto;
     padding: 7px 10px;
     border-radius: 10px;
