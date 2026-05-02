@@ -166,6 +166,9 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
                         isMobile={isMobileLayout} setIsMobile={setIsMobileLayout} 
                         onExport={handleExportPNG} isExporting={isExporting}
                         title="Revisa los datos antes de exportar"
+                        inactiveFormatLabel="Escritorio"
+                        activeFormatLabel="Movil"
+                        formatTitle="Cambiar formato de cedula"
                     />
                     <div className="preview-viewport">
                         <div className="scale-box" style={{ width: (isMobileLayout ? 480 : 1240) * previewScale }}>
@@ -190,4 +193,4 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
 export default MatchSheetModal;
 
 const LoadingContainer = styled.div` padding: 80px; text-align: center; .spinner { border: 4px solid #eee; width: 40px; height: 40px; border-radius: 50%; border-left-color: ${v.colorPrincipal}; animation: spin 1s linear infinite; margin: 0 auto 15px; } @keyframes spin { to { transform: rotate(360deg); } } span { font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.7; } `;
-const PreviewWrapper = styled.div` margin: -25px; width: calc(100% + 50px); display: flex; flex-direction: column; background: ${({theme}) => theme.bgtotal || theme.bg}; .preview-viewport { flex: 1; display: flex; justify-content: center; padding: 30px 20px; overflow: hidden; } .scale-box { box-shadow: 0 20px 50px rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; } `;
+const PreviewWrapper = styled.div` margin: -25px; width: calc(100% + 50px); display: flex; flex-direction: column; background: ${({theme}) => theme.bgtotal || theme.bg}; .preview-viewport { flex: 1; display: flex; justify-content: center; padding: 28px 20px; overflow: auto; } .scale-box { box-shadow: 0 20px 50px rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; } @media (max-width: 520px) { .preview-viewport { padding: 18px 10px; } } `;
