@@ -13,7 +13,7 @@ import {
 import { uploadImageToSupabase } from "../../../utils/uploadHandler";
 
 const POSITION_RANK = {
-    'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4
+    'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4, 'No especificada': 5
 };
 
 export function PlayerManager({ teamId, showToast }) {
@@ -39,7 +39,7 @@ export function PlayerManager({ teamId, showToast }) {
   const [originalFile, setOriginalFile] = useState(null);
   
   const initialForm = {
-    first_name: "", last_name: "", dorsal: "", position: "Delantero",
+    first_name: "", last_name: "", dorsal: "", position: "No especificada",
     birth_date: "", curp_dni: "", photo_url: "", original_photo_url: ""
   };
   const [form, setForm] = useState(initialForm);
@@ -91,6 +91,7 @@ export function PlayerManager({ teamId, showToast }) {
     setEditingPlayer(player); 
     setForm({
         ...player,
+        position: player.position || "No especificada",
         original_photo_url: player.original_photo_url || "" 
     }); 
     setPreview(player.photo_url); 
@@ -247,8 +248,8 @@ export function PlayerManager({ teamId, showToast }) {
                 <div className="info">
                   <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="foto" />
                   <div>
-                    <span className="name">{p.first_name} {p.last_name}</span>
-                    <span className="details">#{p.dorsal} - {p.position}</span>
+                  <span className="name">{p.first_name} {p.last_name}</span>
+                    <span className="details">#{p.dorsal} - {p.position || "No especificada"}</span>
                   </div>
                 </div>
                 <div className="actions">
@@ -344,7 +345,7 @@ export function PlayerManager({ teamId, showToast }) {
            </div>
            <div className="select-wrap">
               <select name="position" value={form.position} onChange={handleInputChange} className="custom-select">
-                  <option>Portero</option><option>Defensa</option><option>Medio</option><option>Delantero</option>
+                  <option>No especificada</option><option>Portero</option><option>Defensa</option><option>Medio</option><option>Delantero</option>
               </select>
            </div>
            <InputText2><input className="form__field" type="date" name="birth_date" value={form.birth_date} onChange={handleInputChange}/></InputText2>

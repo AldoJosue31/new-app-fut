@@ -17,6 +17,7 @@ export const PLAYER_POSITION_RANK = {
   Defensa: 2,
   Medio: 3,
   Delantero: 4,
+  "No especificada": 5,
 };
 
 export const PLAYER_SORT_OPTIONS = [
