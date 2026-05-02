@@ -3,10 +3,82 @@ import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { 
   RiImageAddLine, RiZoomInLine, RiZoomOutLine, 
-  RiCheckLine, RiCloseLine, RiCropLine, RiEraserLine
+  RiCheckLine, RiCloseLine, RiCropLine, RiEraserLine, RiPaintFill
 } from "react-icons/ri";
 import { BtnNormal } from "./BtnNormal";
 import { removeBackground } from "../../utils/imageProcessor"; 
+
+const hexToRgb = (hex) => {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3
+    ? normalized.split("").map((char) => char + char).join("")
+    : normalized;
+  const intValue = parseInt(value, 16);
+
+  if (Number.isNaN(intValue)) return { r: 255, g: 255, b: 255 };
+
+  return {
+    r: (intValue >> 16) & 255,
+    g: (intValue >> 8) & 255,
+    b: intValue & 255,
+  };
+};
+
+const fillClosedTransparentAreas = (ctx, size, fillColor) => {
+  const imageData = ctx.getImageData(0, 0, size, size);
+  const { data } = imageData;
+  const totalPixels = size * size;
+  const visited = new Uint8Array(totalPixels);
+  const queue = new Uint32Array(totalPixels);
+  const alphaThreshold = 12;
+  let head = 0;
+  let tail = 0;
+
+  const isTransparent = (index) => data[index * 4 + 3] <= alphaThreshold;
+  const enqueue = (index) => {
+    if (visited[index] || !isTransparent(index)) return;
+    visited[index] = 1;
+    queue[tail] = index;
+    tail += 1;
+  };
+
+  for (let x = 0; x < size; x += 1) {
+    enqueue(x);
+    enqueue((size - 1) * size + x);
+  }
+
+  for (let y = 0; y < size; y += 1) {
+    enqueue(y * size);
+    enqueue(y * size + size - 1);
+  }
+
+  while (head < tail) {
+    const index = queue[head];
+    head += 1;
+
+    const x = index % size;
+    const y = Math.floor(index / size);
+
+    if (x > 0) enqueue(index - 1);
+    if (x < size - 1) enqueue(index + 1);
+    if (y > 0) enqueue(index - size);
+    if (y < size - 1) enqueue(index + size);
+  }
+
+  const { r, g, b } = hexToRgb(fillColor);
+
+  for (let index = 0; index < totalPixels; index += 1) {
+    if (!isTransparent(index) || visited[index]) continue;
+
+    const pixelIndex = index * 4;
+    data[pixelIndex] = r;
+    data[pixelIndex + 1] = g;
+    data[pixelIndex + 2] = b;
+    data[pixelIndex + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+};
 
 export const PhotoUploader = memo(function PhotoUploader({ 
   previewUrl,    
@@ -29,6 +101,8 @@ export const PhotoUploader = memo(function PhotoUploader({
   
   const [bgRemovalEnabled, setBgRemovalEnabled] = useState(false);
   const [applyBorder, setApplyBorder] = useState(false);
+  const [fillEmptySpacesEnabled, setFillEmptySpacesEnabled] = useState(false);
+  const [emptySpacesColor, setEmptySpacesColor] = useState("#ffffff");
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -215,6 +289,10 @@ const handleRemoveBgInside = async () => {
 
                ctx.drawImage(img, x, y, scaledW, scaledH);
 
+               if (isTeamLogo && fillEmptySpacesEnabled) {
+                  fillClosedTransparentAreas(ctx, size, emptySpacesColor);
+               }
+
                if (isTeamLogo && applyBorder) {
                   ctx.strokeStyle = themeColor;
                   ctx.lineWidth = 15;
@@ -228,7 +306,7 @@ const handleRemoveBgInside = async () => {
                }
           };
       }
-  }, [isCropping, tempImgSrc, crop, zoom, isTeamLogo, applyBorder, themeColor, shape]);
+  }, [isCropping, tempImgSrc, crop, zoom, isTeamLogo, applyBorder, themeColor, shape, fillEmptySpacesEnabled, emptySpacesColor]);
 
   return (
     <>
@@ -278,10 +356,26 @@ const handleRemoveBgInside = async () => {
                         </button>
                     )}
                     {isTeamLogo && (
-                        <ToggleLabel style={{justifyContent:'center', marginTop:'10px'}}>
-                            <input type="checkbox" checked={applyBorder} onChange={e => setApplyBorder(e.target.checked)} />
-                            <span style={{color: themeColor, fontWeight:'700'}}>Aplicar borde del uniforme</span>
-                        </ToggleLabel>
+                        <>
+                            <div className="fill-empty-spaces-control">
+                                <ToggleLabel>
+                                    <input type="checkbox" checked={fillEmptySpacesEnabled} onChange={e => setFillEmptySpacesEnabled(e.target.checked)} />
+                                    <span><RiPaintFill /> Rellenar espacios vacíos</span>
+                                </ToggleLabel>
+                                <input 
+                                    className="fill-color-input"
+                                    type="color"
+                                    value={emptySpacesColor}
+                                    onChange={e => setEmptySpacesColor(e.target.value)}
+                                    disabled={!fillEmptySpacesEnabled}
+                                    title="Color de relleno"
+                                />
+                            </div>
+                            <ToggleLabel className="border-toggle">
+                                <input type="checkbox" checked={applyBorder} onChange={e => setApplyBorder(e.target.checked)} />
+                                <span style={{color: themeColor, fontWeight:'700'}}>Aplicar borde del uniforme</span>
+                            </ToggleLabel>
+                        </>
                     )}
                  </div>
 
@@ -431,6 +525,38 @@ const CropModalOverlay = styled.div`
   .controls-container { width: 100%; display: flex; flex-direction: column; gap: 10px; }
   .slider-group { display: flex; align-items: center; gap: 10px; color: ${({ theme }) => theme.text}; input { flex: 1; accent-color: ${v.colorPrincipal}; } }
   .magic-btn { background: #6c5ce7; color: white; border: none; padding: 8px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .fill-empty-spaces-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: ${({ theme }) => theme.text};
+
+    span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+    }
+  }
+  .border-toggle {
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .fill-color-input {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid ${({ theme }) => theme.bg4};
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  }
   .actions { width: 100%; display: flex; justify-content: flex-end; gap: 10px;
     .btn-confirm { background: ${v.colorPrincipal}; color: white; border: none; padding: 8px 20px; border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; }
   }
