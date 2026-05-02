@@ -3,25 +3,77 @@ import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
 import { AiOutlineClose } from "react-icons/ai";
 
-export const Modal = ({ isOpen, onClose, title, children, closeOnOverlayClick = true, width = "500px" }) => {
-  
-  // --- CORRECCIÓN: BLOQUEO TOTAL DE SCROLL ---
-  useEffect(() => {
-    if (isOpen) {
-      // 1. Bloquear scroll en body y html (para móviles y escritorio)
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-    } else {
-      // 2. Restaurar scroll al cerrar
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    }
+let openModalCount = 0;
+let scrollPosition = 0;
+let previousBodyStyles = null;
+let previousHtmlStyles = null;
 
-    // 3. Cleanup: Asegurar que se restaura si el componente se desmonta
-    return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    };
+const lockPageScroll = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  openModalCount += 1;
+  if (openModalCount > 1) return;
+
+  scrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
+  previousBodyStyles = {
+    overflow: document.body.style.overflow,
+    overflowY: document.body.style.overflowY,
+    position: document.body.style.position,
+    top: document.body.style.top,
+    width: document.body.style.width,
+  };
+  previousHtmlStyles = {
+    overflow: document.documentElement.style.overflow,
+    overflowY: document.documentElement.style.overflowY,
+  };
+
+  document.body.style.overflow = "hidden";
+  document.body.style.overflowY = "hidden";
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${scrollPosition}px`;
+  document.body.style.width = "100%";
+  document.documentElement.style.overflow = "hidden";
+  document.documentElement.style.overflowY = "hidden";
+};
+
+const unlockPageScroll = () => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  openModalCount = Math.max(0, openModalCount - 1);
+  if (openModalCount > 0) return;
+
+  if (previousBodyStyles) {
+    document.body.style.overflow = previousBodyStyles.overflow;
+    document.body.style.overflowY = previousBodyStyles.overflowY;
+    document.body.style.position = previousBodyStyles.position;
+    document.body.style.top = previousBodyStyles.top;
+    document.body.style.width = previousBodyStyles.width;
+  }
+
+  if (previousHtmlStyles) {
+    document.documentElement.style.overflow = previousHtmlStyles.overflow;
+    document.documentElement.style.overflowY = previousHtmlStyles.overflowY;
+  }
+
+  window.scrollTo(0, scrollPosition);
+  previousBodyStyles = null;
+  previousHtmlStyles = null;
+  scrollPosition = 0;
+};
+
+export const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  closeOnOverlayClick = true,
+  width = "500px",
+}) => {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    lockPageScroll();
+    return unlockPageScroll;
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -30,60 +82,57 @@ export const Modal = ({ isOpen, onClose, title, children, closeOnOverlayClick = 
     <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
       <ModalContainer $width={width} onClick={(e) => e.stopPropagation()}>
         <Header>
-          {/* Si no hay título, mostramos un div vacío para mantener el layout del botón de cerrar */}
           <h3>{title || ""}</h3>
-          
+
           {onClose && (
             <button className="close-btn" onClick={onClose}>
               <AiOutlineClose />
             </button>
           )}
         </Header>
-        <Body>
-          {children}
-        </Body>
+        <Body>{children}</Body>
       </ModalContainer>
     </Overlay>,
     document.getElementById("root")
   );
 };
 
-// --- ESTILOS ---
-
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideIn = keyframes`from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; }`;
 
 const Overlay = styled.div`
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100000; 
+  z-index: 100000;
   animation: ${fadeIn} 0.2s ease-out;
   padding: 20px;
-  
-  /* IMPORTANTE: Previene que eventos de touch pasen al fondo en móviles */
-  touch-action: none; 
+  overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: none;
 `;
 
 const ModalContainer = styled.div`
   background-color: ${({ theme }) => theme.bgcards};
   width: 100%;
   max-width: ${({ $width }) => $width};
+  max-height: calc(100dvh - 40px);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   animation: ${slideIn} 0.3s ease-out;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   color: ${({ theme }) => theme.text};
   transition: max-width 0.3s ease;
-  
-  /* Restauramos touch-action para permitir scroll dentro del modal */
-  touch-action: auto; 
+  touch-action: auto;
 `;
 
 const Header = styled.div`
@@ -92,7 +141,13 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  h3 { margin: 0; font-size: 1.2rem; font-weight: 700; }
+
+  h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
   .close-btn {
     background: transparent;
     border: none;
@@ -105,20 +160,31 @@ const Header = styled.div`
     padding: 5px;
     border-radius: 50%;
     transition: background 0.2s;
-    &:hover { background: rgba(255,255,255,0.1); }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
   }
 `;
 
 const Body = styled.div`
   padding: 25px;
-  max-height: 85vh; /* Límite de altura para permitir scroll interno si es muy alto */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  
-  /* Estilizado de scrollbar interno */
-  &::-webkit-scrollbar { width: 8px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: ${({theme})=>theme.bg4}; border-radius: 4px; }
-  
-  /* Soporte móvil */
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.bg4};
+    border-radius: 4px;
+  }
 `;

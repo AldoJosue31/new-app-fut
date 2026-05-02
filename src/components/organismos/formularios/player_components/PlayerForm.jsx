@@ -31,7 +31,7 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving: 
     first_name: '',
     last_name: '',
     dorsal: '',
-    position: 'Delantero',
+    position: 'No especificada',
     curp_dni: '',
     photo_url: null,
     original_photo_url: null,
@@ -49,6 +49,7 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving: 
       setFormData({
         ...initialData,
         dorsal: initialData.dorsal || '',
+        position: initialData.position || 'No especificada',
       });
       setPreview(initialData.photo_url || null);
     }
@@ -143,6 +144,7 @@ export const PlayerForm = ({ initialData, teamId, onSubmit, onCancel, isSaving: 
             value={formData.position}
             onChange={(e) => handleChange('position', e.target.value)}
           >
+            <option value="No especificada">No especificada</option>
             <option value="Portero">Portero</option>
             <option value="Defensa">Defensa</option>
             <option value="Medio">Medio</option>

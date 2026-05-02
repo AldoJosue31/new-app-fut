@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { useEquiposStore } from "../../store/EquiposStore";
 import { supabase } from "../../supabase/supabase.config";
@@ -13,10 +13,40 @@ const getStoragePathFromUrl = (url) => {
   if (!url) return null;
   // Buscamos a partir de '/logos/' para obtener la ruta interna (ej: 'teams/mi-logo.png' o 'logo.png')
   if (url.includes('/logos/')) {
-    return decodeURIComponent(url.split('/logos/')[1]);
+    return decodeURIComponent(url.split('/logos/')[1].split(/[?#]/)[0]);
   }
   // Fallback por si la URL tiene un formato inesperado
-  return decodeURIComponent(url.split('/').pop());
+  return decodeURIComponent(url.split('/').pop().split(/[?#]/)[0]);
+};
+
+const getUniquePaths = (...urls) => {
+  const paths = urls.map(getStoragePathFromUrl).filter(Boolean);
+  return [...new Set(paths)];
+};
+
+const getCurrentOwnerId = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!user?.id) throw new Error("No se pudo identificar al usuario actual");
+  return user.id;
+};
+
+const uploadTeamLogo = async ({ file, originalFile, ownerId, leagueId, teamId }) => {
+  if (!leagueId) throw new Error("No se pudo identificar la liga del equipo");
+
+  return uploadImageToSupabase(
+    file,
+    originalFile,
+    "logos",
+    `teams/${ownerId}/${leagueId}/${teamId}`,
+    {
+      fileName: "crop.webp",
+      originalFileName: "original.webp",
+      upsert: true,
+      cacheBuster: true,
+      requireOriginal: true,
+    }
+  );
 };
 
 export const useEquiposLogic = () => {
@@ -58,6 +88,7 @@ export const useEquiposLogic = () => {
   const [file, setFile] = useState(null); 
   const [originalFile, setOriginalFile] = useState(null); 
   const [preview, setPreview] = useState(null);
+  const isSavingRef = useRef(false);
 
   // Carga de equipos
   useEffect(() => {
@@ -219,37 +250,15 @@ export const useEquiposLogic = () => {
       alert("Selecciona una división");
       return;
     }
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setUploading(true);
 
     try {
       let logoUrl = form.logo_url;
       let originalLogoUrl = form.original_logo_url || teamToEdit?.original_logo_url;
-
-      // 1. Si hay un archivo nuevo, lo subimos
-      if (file) {
-        // MEJORA: Borrar los viejos del Storage si estamos reemplazando
-        if (teamToEdit && teamToEdit.logo_url) {
-           const path1 = getStoragePathFromUrl(teamToEdit.logo_url);
-           const path2 = getStoragePathFromUrl(teamToEdit.original_logo_url);
-           
-           const oldFilesToRemove = [];
-           if (path1) oldFilesToRemove.push(path1);
-           if (path2 && path2 !== path1) oldFilesToRemove.push(path2);
-           
-           if (oldFilesToRemove.length > 0) {
-              await supabase.storage.from("logos").remove(oldFilesToRemove);
-           }
-        }
-
-        const uploadResult = await uploadImageToSupabase(
-            file, 
-            originalFile, 
-            'logos', 
-            'teams'  
-        );
-        logoUrl = uploadResult.url;
-        originalLogoUrl = uploadResult.originalUrl;
-      }
+      const ownerId = file ? await getCurrentOwnerId() : null;
+      const leagueId = selectedDivision?.league_id;
 
       // 2. LÓGICA DE BORRADO: Si el usuario le dio a la X y no subió nada nuevo
       if (!file && !preview && !form.logo_url) {
@@ -258,12 +267,7 @@ export const useEquiposLogic = () => {
 
           // Borrado físico exacto gracias a la nueva función
           if (teamToEdit && teamToEdit.logo_url) {
-             const path1 = getStoragePathFromUrl(teamToEdit.logo_url);
-             const path2 = getStoragePathFromUrl(teamToEdit.original_logo_url);
-             
-             const filesToRemove = [];
-             if (path1) filesToRemove.push(path1);
-             if (path2 && path2 !== path1) filesToRemove.push(path2);
+             const filesToRemove = getUniquePaths(teamToEdit.logo_url, teamToEdit.original_logo_url);
              
              if (filesToRemove.length > 0) {
                  await supabase.storage.from("logos").remove(filesToRemove);
@@ -283,13 +287,61 @@ export const useEquiposLogic = () => {
       };
 
       if (teamToEdit) {
+        if (file) {
+          const oldFilesToRemove = getUniquePaths(teamToEdit.logo_url, teamToEdit.original_logo_url);
+
+          if (oldFilesToRemove.length > 0) {
+            await supabase.storage.from("logos").remove(oldFilesToRemove);
+          }
+
+          const uploadResult = await uploadTeamLogo({
+            file,
+            originalFile,
+            ownerId,
+            leagueId,
+            teamId: teamToEdit.id,
+          });
+
+          teamData.logo_url = uploadResult.url;
+          teamData.original_logo_url = uploadResult.originalUrl;
+        }
+
         const { data, error } = await supabase.from("teams").update(teamData).eq("id", teamToEdit.id).select();
         if (error) throw error;
         updateEquipoLocal(data[0]);
       } else {
         const { data, error } = await supabase.from("teams").insert(teamData).select();
         if (error) throw error;
-        addEquipoLocal(data[0]);
+        let savedTeam = data[0];
+
+        if (file) {
+          try {
+            const uploadResult = await uploadTeamLogo({
+              file,
+              originalFile,
+              ownerId,
+              leagueId,
+              teamId: savedTeam.id,
+            });
+
+            const { data: updatedData, error: updateError } = await supabase
+              .from("teams")
+              .update({
+                logo_url: uploadResult.url,
+                original_logo_url: uploadResult.originalUrl,
+              })
+              .eq("id", savedTeam.id)
+              .select();
+
+            if (updateError) throw updateError;
+            savedTeam = updatedData[0];
+          } catch (uploadError) {
+            await supabase.from("teams").delete().eq("id", savedTeam.id);
+            throw uploadError;
+          }
+        }
+
+        addEquipoLocal(savedTeam);
       }
 
       // Reset
@@ -302,6 +354,7 @@ export const useEquiposLogic = () => {
       console.error("Error guardando equipo:", error);
       alert("Error: " + (error?.message || "No se pudo guardar el equipo"));
     } finally {
+      isSavingRef.current = false;
       setUploading(false);
     }
   };
@@ -313,12 +366,7 @@ export const useEquiposLogic = () => {
       
       // Intentar borrar imágenes (Corregido también aquí para evitar basura al eliminar equipo)
       if (team?.logo_url) {
-        const path1 = getStoragePathFromUrl(team.logo_url);
-        const path2 = getStoragePathFromUrl(team.original_logo_url);
-        
-        const filesToRemove = [];
-        if (path1) filesToRemove.push(path1);
-        if (path2 && path2 !== path1) filesToRemove.push(path2);
+        const filesToRemove = getUniquePaths(team.logo_url, team.original_logo_url);
         
         if (filesToRemove.length > 0) {
             await supabase.storage.from("logos").remove(filesToRemove);

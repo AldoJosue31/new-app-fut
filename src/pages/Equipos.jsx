@@ -30,6 +30,7 @@ export function Equipos({ state, setState }) { // <--- Recibimos props
       form={form.data}
       preview={form.preview}
       file={form.file}
+      originalFile={form.originalFile}
       onFormChange={form.handleChange}
       onFileChange={form.handleFileChange}
       onClearImage={form.handleClearImage}
