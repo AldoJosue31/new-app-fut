@@ -44,19 +44,12 @@ export const useJugadoresStore = create((set, get) => ({
     const playerToUpdate = currentState.find((p) => p.id === id);
 
     // Lógica de imágenes (Mantenida)
-    if (playerToUpdate && updates.photo_url && playerToUpdate.photo_url) {
+    if (playerToUpdate && playerToUpdate.photo_url) {
       const oldPath = getPathFromUrl(playerToUpdate.photo_url);
       const newPath = getPathFromUrl(updates.photo_url);
 
-      if (oldPath && newPath && oldPath !== newPath) {
-        await deleteFileFromStorage(playerToUpdate.photo_url);
-        if (playerToUpdate.original_photo_url) {
-             const oldOrigPath = getPathFromUrl(playerToUpdate.original_photo_url);
-             const newOrigPath = getPathFromUrl(updates.original_photo_url);
-             if (oldOrigPath !== newOrigPath) await deleteFileFromStorage(playerToUpdate.original_photo_url);
-        } else if (playerToUpdate.photo_url.includes('_crop')) {
-             await deleteFileFromStorage(playerToUpdate.photo_url.replace('_crop', '_original'));
-        }
+      if (oldPath && oldPath !== newPath) {
+        await deleteFilesFromStorage(getPlayerPhotoUrls(playerToUpdate));
       }
     }
 
@@ -92,10 +85,7 @@ export const useJugadoresStore = create((set, get) => ({
 
         // Borrar fotos
         if (playerToDelete) {
-             if (playerToDelete.photo_url) await deleteFileFromStorage(playerToDelete.photo_url);
-             if (playerToDelete.photo_url?.includes('_crop')) {
-                 await deleteFileFromStorage(playerToDelete.photo_url.replace('_crop', '_original'));
-             }
+             await deleteFilesFromStorage(getPlayerPhotoUrls(playerToDelete));
         }
 
         set((state) => ({
@@ -158,15 +148,25 @@ const getPathFromUrl = (fullUrl) => {
         const bucketName = 'logos'; 
         const parts = fullUrl.split(`/${bucketName}/`);
         if (parts.length < 2) return null;
-        return parts[1].split('?')[0];
+        return parts[1].split(/[?#]/)[0];
     } catch (e) { return null; }
 };
 
-const deleteFileFromStorage = async (fullUrl) => {
+const getPlayerPhotoUrls = (player) => {
+  const urls = [player?.photo_url, player?.original_photo_url].filter(Boolean);
+
+  if (player?.photo_url?.includes('_crop') && !player?.original_photo_url) {
+    urls.push(player.photo_url.replace('_crop', '_original'));
+  }
+
+  return urls;
+};
+
+const deleteFilesFromStorage = async (urls) => {
   try {
-    const path = getPathFromUrl(fullUrl);
-    if (path) {
-      await supabase.storage.from('logos').remove([path]);
+    const paths = [...new Set(urls.map(getPathFromUrl).filter(Boolean))];
+    if (paths.length > 0) {
+      await supabase.storage.from('logos').remove(paths);
     }
   } catch (err) { console.error("Error file delete:", err); }
 };

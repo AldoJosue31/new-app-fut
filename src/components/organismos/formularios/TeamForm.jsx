@@ -9,6 +9,7 @@ export function TeamForm({
   isUploading, 
   preview, 
   file, 
+  originalFile,
   onFileChange, 
   onClearImage, 
   showToast, 
@@ -46,7 +47,7 @@ export function TeamForm({
           <PhotoUploader 
             previewUrl={preview}
             originalUrl={teamToEdit?.original_logo_url || teamToEdit?.logo_url} 
-            originalFile={file} 
+            originalFile={originalFile} 
             
             onImageSelect={(croppedFile, originalFile, newPreviewUrl) => { 
                 onFileChange({ 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../styles/variables";
 import { InputText2, Btnsave, PhotoUploader, InputNumber, Skeleton, ContainerScroll, useSort, SortControl } from "../../../index";
@@ -11,12 +11,38 @@ import {
 } from "react-icons/ri";
 // IMPORTANTE: Importamos la utilidad de subida
 import { uploadImageToSupabase } from "../../../utils/uploadHandler";
+import { supabase } from "../../../supabase/supabase.config";
 
 const POSITION_RANK = {
     'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4, 'No especificada': 5
 };
 
-export function PlayerManager({ teamId, showToast }) {
+const getCurrentOwnerId = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!user?.id) throw new Error("No se pudo identificar al usuario actual");
+  return user.id;
+};
+
+const uploadPlayerPhoto = async ({ file, originalFile, ownerId, leagueId, teamId, playerId }) => {
+  if (!leagueId) throw new Error("No se pudo identificar la liga del jugador");
+
+  return uploadImageToSupabase(
+    file,
+    originalFile,
+    "logos",
+    `players/${ownerId}/${leagueId}/${teamId}/${playerId}`,
+    {
+      fileName: "crop.webp",
+      originalFileName: "original.webp",
+      upsert: true,
+      cacheBuster: true,
+      requireOriginal: true,
+    }
+  );
+};
+
+export function PlayerManager({ teamId, leagueId, showToast }) {
   const { 
       jugadores, fetchJugadores, addJugador, updateJugador, 
       deleteJugador, archivarJugador, restaurarJugador, isLoading 
@@ -46,6 +72,7 @@ export function PlayerManager({ teamId, showToast }) {
   const [dorsalError, setDorsalError] = useState("");
   const [shakeError, setShakeError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const isSavingRef = useRef(false);
 
   const { items: sortedPlayers, requestSort, sortConfig } = useSort(jugadores, { 
       key: 'dorsal', direction: 'ascending' 
@@ -154,26 +181,19 @@ export function PlayerManager({ teamId, showToast }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (dorsalError) { setShakeError(true); setTimeout(() => setShakeError(false), 500); return; }
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     
     setIsUploading(true);
 
     try {
       let finalPhotoUrl = form.photo_url;
       let finalOriginalUrl = form.original_photo_url;
+      const ownerId = croppedFile ? await getCurrentOwnerId() : null;
 
-      // Usamos la utilidad para subir AMBOS archivos si hay uno nuevo
-      if (croppedFile) {
-        const { url, originalUrl } = await uploadImageToSupabase(
-            croppedFile, 
-            originalFile, 
-            'logos', 
-            'players'
-        );
-        finalPhotoUrl = url;
-        finalOriginalUrl = originalUrl;
-      }
+      
       // Si el usuario limpió la imagen
-      else if (!preview && !form.photo_url) {
+      if (!croppedFile && !preview && !form.photo_url) {
           finalPhotoUrl = null;
           finalOriginalUrl = null;
       }
@@ -187,10 +207,46 @@ export function PlayerManager({ teamId, showToast }) {
       };
 
       if (editingPlayer) {
+        if (croppedFile) {
+          const { url, originalUrl } = await uploadPlayerPhoto({
+            file: croppedFile,
+            originalFile,
+            ownerId,
+            leagueId,
+            teamId,
+            playerId: editingPlayer.id,
+          });
+
+          payload.photo_url = url;
+          payload.original_photo_url = originalUrl;
+        }
+
         await updateJugador(editingPlayer.id, payload);
         if(showToast) showToast("Jugador actualizado", "success");
       } else {
-        await addJugador(payload);
+        const savedPlayer = await addJugador(payload);
+
+        if (croppedFile) {
+          try {
+            const { url, originalUrl } = await uploadPlayerPhoto({
+              file: croppedFile,
+              originalFile,
+              ownerId,
+              leagueId,
+              teamId,
+              playerId: savedPlayer.id,
+            });
+
+            await updateJugador(savedPlayer.id, {
+              photo_url: url,
+              original_photo_url: originalUrl,
+            });
+          } catch (uploadError) {
+            await deleteJugador(savedPlayer.id);
+            throw uploadError;
+          }
+        }
+
         if(showToast) showToast("Jugador creado", "success");
       }
       setView("list");
@@ -198,6 +254,7 @@ export function PlayerManager({ teamId, showToast }) {
       if(showToast) showToast("Error al guardar: " + err.message, "error");
       console.error(err);
     } finally {
+      isSavingRef.current = false;
       setIsUploading(false);
     }
   };

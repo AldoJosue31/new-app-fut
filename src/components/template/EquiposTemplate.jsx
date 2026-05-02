@@ -19,7 +19,7 @@ import { RiFileList3Line, RiGroupLine } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 
 export const EquiposTemplate = ({ 
-  equipos, division, loading, isUploading, form, preview, file,
+  equipos, division, loading, isUploading, form, preview, file, originalFile,
   isFormOpen, setIsFormOpen, teamToEdit, 
   isDeleteModalOpen, setIsDeleteModalOpen,
   onFormChange, onFileChange, onClearImage, onGenerateLogo,
@@ -145,6 +145,7 @@ export const EquiposTemplate = ({
                   isUploading={isUploading}
                   preview={preview} 
                   file={file} 
+                  originalFile={originalFile}
                   onFileChange={onFileChange} 
                   onClearImage={onClearImage}
                   onGenerateLogo={onGenerateLogo} 
@@ -154,7 +155,15 @@ export const EquiposTemplate = ({
                 />
               </TabContent>
           )}
-          {activeTab === "players" && teamToEdit && (<TabContent><PlayerManager teamId={teamToEdit.id} showToast={showToast} /></TabContent>)}
+          {activeTab === "players" && teamToEdit && (
+            <TabContent>
+              <PlayerManager
+                teamId={teamToEdit.id}
+                leagueId={division?.league_id}
+                showToast={showToast}
+              />
+            </TabContent>
+          )}
         </Modal>
 
         <TeamDetailModal 
