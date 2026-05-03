@@ -58,8 +58,31 @@ export const useAuthStore = create((set, get) => {
       set({ authLoadingAction: true });
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        set({ authLoadingAction: false });
         if (error) throw error;
+
+        const sessionUser = data?.user;
+        if (sessionUser?.id) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, role, is_suspended')
+            .eq('id', sessionUser.id)
+            .single();
+
+          if (!profileError && profile?.role === 'manager' && profile?.is_suspended) {
+            await supabase.auth.signOut();
+            set({ user: null, profile: null, authLoadingAction: false });
+            window.dispatchEvent(new CustomEvent('account-suspended-notice', {
+              detail: {
+                message: 'No puedes iniciar sesion porque esta cuenta se encuentra bloqueada temporalmente. Contacta al administrador para recuperar el acceso.',
+              },
+            }));
+            const suspendedError = new Error('Cuenta bloqueada temporalmente.');
+            suspendedError.code = 'ACCOUNT_SUSPENDED';
+            throw suspendedError;
+          }
+        }
+
+        set({ authLoadingAction: false });
         return data;
       } catch (err) {
         set({ authLoadingAction: false });

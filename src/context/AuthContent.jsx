@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/supabase.config';
 import { useAuthStore } from '../store/AuthStore';
 
 const AuthContext = createContext();
 const PRESENCE_CHANNEL = 'online-managers';
 const PRESENCE_HEARTBEAT_MS = 30000;
+const MANAGER_ACCESS_EVENT = 'manager-access-change';
 
 export function AuthContextProvider({ children }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
+  const [suspendedNotice, setSuspendedNotice] = useState(null);
 
   // Ref para mantener canal de presencia único por sesión
   const presenceRef = useRef(null);
@@ -36,6 +40,26 @@ export function AuthContextProvider({ children }) {
   const isInvalidRefreshTokenError = (error) => {
     const message = String(error?.message || error || "").toLowerCase();
     return message.includes('refresh token') || message.includes('invalid refresh token');
+  };
+
+  const showSuspendedNotice = (reason = 'Tu cuenta fue bloqueada temporalmente por el administrador.') => {
+    setSuspendedNotice({
+      title: 'Cuenta bloqueada',
+      message: reason,
+    });
+  };
+
+  const signOutSuspendedManager = async (reason) => {
+    console.warn("AuthContext: Cuenta manager suspendida. Cerrando sesion...");
+    showSuspendedNotice(reason);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("No se pudo cerrar sesion suspendida:", err);
+    }
+    setUser(null);
+    setProfile(null);
+    useAuthStore.setState({ user: null, profile: null });
   };
 
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
@@ -72,6 +96,11 @@ const validateProfile = async (sessionUser) => {
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
+        return;
+      }
+
+      if (data.role === 'manager' && data.is_suspended) {
+        await signOutSuspendedManager('No puedes iniciar sesion porque esta cuenta se encuentra bloqueada temporalmente. Contacta al administrador para recuperar el acceso.');
         return;
       }
 
@@ -138,6 +167,46 @@ const validateProfile = async (sessionUser) => {
   }, []);
 
   useEffect(() => {
+    const handleSuspendedNotice = async (event) => {
+      await signOutSuspendedManager(event.detail?.message || event.detail?.reason);
+    };
+
+    window.addEventListener('account-suspended-notice', handleSuspendedNotice);
+    return () => window.removeEventListener('account-suspended-notice', handleSuspendedNotice);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const channel = supabase
+      .channel(`profile-access-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        async ({ new: updatedProfile }) => {
+          if (updatedProfile?.role === "manager" && updatedProfile?.is_suspended) {
+            await signOutSuspendedManager('Tu cuenta fue bloqueada mientras estabas conectado. La sesion se cerro para proteger el acceso.');
+            return;
+          }
+
+          if (updatedProfile?.id === user.id) {
+            setProfile(updatedProfile);
+            useAuthStore.setState({ profile: updatedProfile });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        channel.unsubscribe();
+      } catch {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     const cleanupPresence = () => {
       if (!presenceRef.current) return;
 
@@ -186,6 +255,16 @@ const validateProfile = async (sessionUser) => {
       role: profile.role,
       online_at: startedAt,
       last_seen_at: new Date().toISOString(),
+    });
+
+    channel.on("broadcast", { event: MANAGER_ACCESS_EVENT }, async ({ payload }) => {
+      if (payload?.user_id !== user.id) return;
+      if (!payload?.suspended) return;
+
+      await signOutSuspendedManager(
+        payload.message ||
+        'Tu cuenta fue bloqueada por el administrador mientras estabas conectado. Se cerro tu sesion y no podras volver a entrar hasta que sea reactivada.'
+      );
     });
 
     const markLastSeen = async () => {
@@ -295,9 +374,81 @@ const validateProfile = async (sessionUser) => {
     signInWithEmail,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const handleSuspendedNoticeClose = () => {
+    setSuspendedNotice(null);
+    navigate('/login', { replace: true });
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {suspendedNotice && (
+        <SuspendedOverlay>
+          <SuspendedDialog>
+            <h3>{suspendedNotice.title}</h3>
+            <p>{suspendedNotice.message}</p>
+            <button
+              type="button"
+              onClick={handleSuspendedNoticeClose}
+              style={{
+                width: '100%',
+                border: 'none',
+                borderRadius: 10,
+                padding: '12px 16px',
+                cursor: 'pointer',
+                color: '#ffffff',
+                background: '#1CB0F6',
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              Regresar al login
+            </button>
+          </SuspendedDialog>
+        </SuspendedOverlay>
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function UserAuth() {
   return useContext(AuthContext);
 }
+
+const SuspendedOverlay = ({ children }) => (
+  <div
+    style={{
+      position: 'fixed',
+      inset: 0,
+      zIndex: 300000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+      background: 'rgba(0, 0, 0, 0.68)',
+      backdropFilter: 'blur(4px)',
+    }}
+  >
+    {children}
+  </div>
+);
+
+const SuspendedDialog = ({ children }) => (
+  <div
+    style={{
+      width: '100%',
+      maxWidth: 420,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 14,
+      padding: 24,
+      borderRadius: 14,
+      color: '#f8fafc',
+      background: '#101820',
+      border: '1px solid rgba(255, 255, 255, 0.14)',
+      boxShadow: '0 24px 80px rgba(0, 0, 0, 0.45)',
+    }}
+  >
+    {children}
+  </div>
+);

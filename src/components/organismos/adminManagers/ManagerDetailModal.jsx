@@ -4,6 +4,7 @@ import {
   Modal,
   Badge,
   BtnNormal,
+  Btnsave,
   ContainerScroll,
 } from "../../../index";
 import { TabsNavigation, TabContent } from "../../moleculas/TabsNavigation";
@@ -18,13 +19,28 @@ import {
   BiEnvelope,
   BiTrophy,
   BiGridAlt,
+  BiLock,
 } from "react-icons/bi";
 
 const HEARTBEAT_ONLINE_GRACE_MS = 75000;
 
-export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} }) => {
+export const ManagerDetailModal = ({
+  isOpen,
+  onClose,
+  manager,
+  onlineUsers = {},
+  onUpdateLimits,
+  onUpdateSuspension,
+}) => {
   const [activeTab, setActiveTab] = useState(0);
   const [now, setNow] = useState(Date.now());
+  const [limitForm, setLimitForm] = useState({
+    max_divisions_total: "",
+    max_teams_total: "",
+    max_players_total: "",
+  });
+  const [savingLimits, setSavingLimits] = useState(false);
+  const [savingSuspension, setSavingSuspension] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -34,9 +50,19 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} 
     return () => clearInterval(timer);
   }, [isOpen, manager?.id]);
 
+  useEffect(() => {
+    const league = manager?.leagues?.[0];
+    setLimitForm({
+      max_divisions_total: formatLimitInput(league?.max_divisions_total),
+      max_teams_total: formatLimitInput(league?.max_teams_total),
+      max_players_total: formatLimitInput(league?.max_players_total),
+    });
+  }, [isOpen, manager?.id, manager?.leagues]);
+
   const managerTabs = [
     { id: 0, label: "Perfil & Cuenta", icon: <BiUserCircle size={20} /> },
     { id: 1, label: "Gestion Deportiva", icon: <BiTrophy size={20} /> },
+    { id: 2, label: "Limites", icon: <BiGridAlt size={20} /> },
   ];
 
   const getGoogleInfo = (mgr) => {
@@ -128,10 +154,82 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} 
     };
   };
 
+  const formatLimitInput = (value) => {
+    if (value === null || value === undefined) return "";
+    return String(value);
+  };
+
+  const parseLimitInput = (value) => {
+    const normalizedValue = String(value ?? "").trim();
+    if (!normalizedValue) return null;
+    const parsedValue = Number(normalizedValue);
+    if (!Number.isFinite(parsedValue) || parsedValue < 0) return null;
+    return Math.floor(parsedValue);
+  };
+
+  const getDivisionTeamCount = (division) => {
+    const teams = division?.teams || [];
+    if (!Array.isArray(teams) || teams.length === 0) return 0;
+    if (teams.length === 1 && Number.isFinite(teams[0]?.count)) return teams[0].count;
+    return teams.filter((team) => team?.id || team?.name).length;
+  };
+
+  const getTeamPlayersCount = (team) => {
+    const players = team?.players || [];
+    if (!Array.isArray(players) || players.length === 0) return 0;
+    if (Number.isFinite(players[0]?.count)) return players[0].count;
+    return players.length;
+  };
+
+  const getLeagueUsage = (league) => {
+    const divisions = league?.divisions || [];
+    const teams = divisions.flatMap((division) => division?.teams || []);
+    return {
+      divisions: divisions.length,
+      teams: divisions.reduce((total, division) => total + getDivisionTeamCount(division), 0),
+      players: teams.reduce((total, team) => total + getTeamPlayersCount(team), 0),
+    };
+  };
+
+  const getLimitLabel = (value) => {
+    const parsedValue = parseLimitInput(value);
+    return parsedValue === null ? "Sin limite" : parsedValue;
+  };
+
+  const handleLimitChange = (event) => {
+    const { name, value } = event.target;
+    setLimitForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleSaveLimits = async () => {
+    if (!onUpdateLimits) return;
+    const leagueId = manager?.leagues?.[0]?.id;
+    setSavingLimits(true);
+
+    const success = await onUpdateLimits(leagueId, {
+      max_divisions_total: parseLimitInput(limitForm.max_divisions_total),
+      max_teams_total: parseLimitInput(limitForm.max_teams_total),
+      max_players_total: parseLimitInput(limitForm.max_players_total),
+    });
+
+    setSavingLimits(false);
+    return success;
+  };
+
+  const handleSuspensionToggle = async (event) => {
+    if (!onUpdateSuspension || !manager?.id) return;
+    const shouldSuspend = !event.target.checked;
+    setSavingSuspension(true);
+    await onUpdateSuspension(manager.id, shouldSuspend);
+    setSavingSuspension(false);
+  };
+
   if (!manager) return null;
 
   const googleInfo = getGoogleInfo(manager);
   const currentStatus = getConnectionStatus(manager);
+  const currentLeague = manager.leagues?.[0];
+  const leagueUsage = getLeagueUsage(currentLeague);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Perfil de Usuario" width="600px">
@@ -144,6 +242,7 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} 
             <h2>{manager.full_name}</h2>
             <div className="badges-row">
               <Badge color={v.colorPrincipal}>Manager</Badge>
+              {manager.is_suspended && <Badge color={v.rojo}>Bloqueado</Badge>}
               <Badge color={currentStatus.color}>
                 <FlexRow>
                   {currentStatus.icon}
@@ -211,19 +310,19 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} 
           <TabContent>
             <InfoBox $fullWidth>
               <h4><BiTrophy /> Liga Actual</h4>
-              {manager.leagues?.[0] ? (
+              {currentLeague ? (
                 <LeagueCard>
                   <div className="header-league">
-                    <h3>{manager.leagues[0].name}</h3>
+                    <h3>{currentLeague.name}</h3>
                   </div>
                   <div className="content-league">
                     <span className="sub-label"><BiGridAlt /> Divisiones:</span>
                     <StyledScroll>
-                      {manager.leagues[0].divisions?.length > 0 ? (
-                        manager.leagues[0].divisions.map((div, i) => (
+                      {currentLeague.divisions?.length > 0 ? (
+                        currentLeague.divisions.map((div, i) => (
                           <div key={i} className="div-row">
                             <span>{div.name}</span>
-                            <Badge color={v.gris}>{div.teams?.[0]?.count || 0} equipos</Badge>
+                            <Badge color={v.gris}>{getDivisionTeamCount(div)} equipos</Badge>
                           </div>
                         ))
                       ) : (
@@ -232,6 +331,111 @@ export const ManagerDetailModal = ({ isOpen, onClose, manager, onlineUsers = {} 
                     </StyledScroll>
                   </div>
                 </LeagueCard>
+              ) : (
+                <EmptyLeague>
+                  <v.iconocorona size={40} />
+                  <p>Sin asignacion deportiva.</p>
+                </EmptyLeague>
+              )}
+            </InfoBox>
+          </TabContent>
+        )}
+
+        {activeTab === 2 && (
+          <TabContent>
+            <InfoBox $fullWidth>
+              {currentLeague ? (
+                <LimitsStack>
+                  <AccessPanel $suspended={manager.is_suspended}>
+                    <AccessInfo>
+                      <h4><BiLock /> Acceso de cuenta</h4>
+                      <strong>{manager.is_suspended ? "Cuenta bloqueada" : "Cuenta activa"}</strong>
+                      <span>
+                        {manager.is_suspended
+                          ? "El manager no podra acceder a la app hasta que reactives la cuenta."
+                          : "El manager puede entrar y administrar su liga normalmente."}
+                      </span>
+                      {manager.suspended_at && (
+                        <small>Bloqueada desde: {formatDate(manager.suspended_at)}</small>
+                      )}
+                    </AccessInfo>
+                    <SwitchLabel>
+                      <input
+                        type="checkbox"
+                        checked={!manager.is_suspended}
+                        onChange={handleSuspensionToggle}
+                        disabled={savingSuspension || !onUpdateSuspension}
+                      />
+                      <span className="switch" />
+                    </SwitchLabel>
+                  </AccessPanel>
+
+                  <LimitsPanel>
+                    <h4><BiGridAlt /> Limites de esta cuenta</h4>
+                  <UsageGrid>
+                    <UsageItem>
+                      <strong>{leagueUsage.divisions}</strong>
+                      <span>Divisiones usadas</span>
+                      <small>Limite: {getLimitLabel(currentLeague.max_divisions_total)}</small>
+                    </UsageItem>
+                    <UsageItem>
+                      <strong>{leagueUsage.teams}</strong>
+                      <span>Equipos usados</span>
+                      <small>Limite: {getLimitLabel(currentLeague.max_teams_total)}</small>
+                    </UsageItem>
+                    <UsageItem>
+                      <strong>{leagueUsage.players}</strong>
+                      <span>Jugadores usados</span>
+                      <small>Limite: {getLimitLabel(currentLeague.max_players_total)}</small>
+                    </UsageItem>
+                  </UsageGrid>
+
+                  <LimitForm>
+                    <label>
+                      Maximo de divisiones
+                      <input
+                        type="number"
+                        min="0"
+                        name="max_divisions_total"
+                        value={limitForm.max_divisions_total}
+                        onChange={handleLimitChange}
+                        placeholder="Sin limite"
+                      />
+                    </label>
+                    <label>
+                      Maximo de equipos
+                      <input
+                        type="number"
+                        min="0"
+                        name="max_teams_total"
+                        value={limitForm.max_teams_total}
+                        onChange={handleLimitChange}
+                        placeholder="Sin limite"
+                      />
+                    </label>
+                    <label>
+                      Maximo de jugadores
+                      <input
+                        type="number"
+                        min="0"
+                        name="max_players_total"
+                        value={limitForm.max_players_total}
+                        onChange={handleLimitChange}
+                        placeholder="Sin limite"
+                      />
+                    </label>
+                  </LimitForm>
+
+                  <Btnsave
+                    titulo={savingLimits ? "Guardando..." : "Guardar limites"}
+                    bgcolor={v.colorPrincipal}
+                    icono={<v.iconoguardar />}
+                    funcion={handleSaveLimits}
+                    disabled={savingLimits || !onUpdateLimits}
+                    width="100%"
+                  />
+                  </LimitsPanel>
+                </LimitsStack>
               ) : (
                 <EmptyLeague>
                   <v.iconocorona size={40} />
@@ -341,6 +545,179 @@ const LeagueCard = styled.div`
     background: ${({ theme }) => theme.bg3}; border-radius: 6px; margin-bottom: 6px; font-size: 0.9rem;
   }
   .muted { font-size: 0.85rem; font-style: italic; opacity: 0.5; text-align: center; margin-top: 10px; }
+`;
+
+const LimitsStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const AccessPanel = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid ${({ $suspended }) => ($suspended ? "rgba(231, 76, 60, 0.35)" : "rgba(46, 204, 113, 0.35)")};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.bgtotal || theme.bg2};
+
+  @media (max-width: 550px) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+`;
+
+const AccessInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+
+  strong {
+    font-size: 0.95rem;
+  }
+
+  span,
+  small {
+    font-size: 0.78rem;
+    opacity: 0.68;
+    line-height: 1.35;
+  }
+`;
+
+const SwitchLabel = styled.label`
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 30px;
+  flex: 0 0 auto;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .switch {
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background: ${v.rojo};
+    cursor: pointer;
+    transition: 0.2s ease;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    transition: 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  input:checked + .switch {
+    background: ${v.verde};
+  }
+
+  input:checked + .switch::after {
+    transform: translateX(22px);
+  }
+
+  input:disabled + .switch {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+`;
+
+const LimitsPanel = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px solid ${({ theme }) => theme.bg3};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.bgtotal || theme.bg2};
+`;
+
+const UsageGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+
+  @media (max-width: 550px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const UsageItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: ${({ theme }) => theme.bg3};
+
+  strong {
+    font-size: 1.25rem;
+    line-height: 1;
+    color: ${({ theme }) => theme.primary};
+  }
+
+  span {
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  small {
+    font-size: 0.7rem;
+    opacity: 0.65;
+  }
+`;
+
+const LimitForm = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+
+  input {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid ${({ theme }) => theme.bg4 || theme.bg3};
+    border-radius: 8px;
+    outline: none;
+    color: ${({ theme }) => theme.text};
+    background: ${({ theme }) => theme.bg3};
+    font-size: 0.9rem;
+  }
+
+  input:focus {
+    border-color: ${({ theme }) => theme.primary};
+  }
+
+  @media (max-width: 550px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const EmptyLeague = styled.div`
