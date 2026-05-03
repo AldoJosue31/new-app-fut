@@ -7,6 +7,9 @@ import {
   updateManagerCredentialsService,
 } from "../services/adminManagers";
 
+const PRESENCE_CHANNEL = "online-managers";
+const MANAGERS_REFRESH_MS = 30000;
+
 export function AdminManagers({ state, setState }) { 
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -37,8 +40,8 @@ export function AdminManagers({ state, setState }) {
   };
   const closeToast = () => setToast({ ...toast, show: false });
 
-  const fetchManagers = useCallback(async () => {
-    setLoading(true);
+  const fetchManagers = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
       .select(`
@@ -56,22 +59,26 @@ export function AdminManagers({ state, setState }) {
 
     if (error) {
       console.error("Error fetching managers:", error);
-      showToast("Error al cargar lista de managers", "error");
+      if (!silent) showToast("Error al cargar lista de managers", "error");
     } else {
-      setManagers(data);
+      setManagers(data || []);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchManagers();
+    const refreshInterval = setInterval(() => {
+      fetchManagers({ silent: true });
+    }, MANAGERS_REFRESH_MS);
 
     if (presenceRef.current) {
       console.log("[ADMIN] presence channel already active");
+      clearInterval(refreshInterval);
       return;
     }
 
-    const channel = supabase.channel("online-managers");
+    const channel = supabase.channel(PRESENCE_CHANNEL);
     presenceRef.current = channel;
 
     const mapPresenceStateToOnline = (state) => {
@@ -79,7 +86,14 @@ export function AdminManagers({ state, setState }) {
       Object.values(state).forEach((metas) => {
         metas.forEach((meta) => {
           if (meta?.user_id) {
-            onlineMap[meta.user_id] = true;
+            const current = onlineMap[meta.user_id] || {};
+            onlineMap[meta.user_id] = {
+              online: true,
+              metasCount: (current.metasCount || 0) + 1,
+              online_at: current.online_at || meta.online_at || null,
+              last_seen_at: meta.last_seen_at || current.last_seen_at || null,
+              role: meta.role || current.role || null,
+            };
           }
         });
       });
@@ -95,7 +109,16 @@ export function AdminManagers({ state, setState }) {
         setOnlineUsers((prev) => {
           const next = { ...prev };
           newPresences.forEach((meta) => {
-            if (meta?.user_id) next[meta.user_id] = true;
+            if (meta?.user_id) {
+              const current = next[meta.user_id] || {};
+              next[meta.user_id] = {
+                online: true,
+                metasCount: (current.metasCount || 0) + 1,
+                online_at: current.online_at || meta.online_at || null,
+                last_seen_at: meta.last_seen_at || current.last_seen_at || null,
+                role: meta.role || current.role || null,
+              };
+            }
           });
           return next;
         });
@@ -107,6 +130,7 @@ export function AdminManagers({ state, setState }) {
       .subscribe();
 
     return () => {
+      clearInterval(refreshInterval);
       try {
         channel.unsubscribe();
       } catch {
@@ -120,6 +144,40 @@ export function AdminManagers({ state, setState }) {
       }
     };
   }, [fetchManagers]);
+
+  useEffect(() => {
+    if (!selectedManager?.id) return;
+
+    const freshManager = managers.find((manager) => manager.id === selectedManager.id);
+    if (freshManager) setSelectedManager(freshManager);
+  }, [managers, selectedManager?.id]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-managers-profile-changes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: "role=eq.manager" },
+        ({ new: updatedManager }) => {
+          setManagers((currentManagers) =>
+            currentManagers.map((manager) =>
+              manager.id === updatedManager.id
+                ? { ...manager, ...updatedManager, leagues: manager.leagues }
+                : manager
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        channel.unsubscribe();
+      } catch {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   const handleCreate = async ({ fullName, email, password, leagueName }) => {
     setLoading(true);

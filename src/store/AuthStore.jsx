@@ -90,6 +90,21 @@ export const useAuthStore = create((set, get) => {
     // --- CORRECCIÓN DEL BUG ---
     cerrarSesion: async () => {
       try {
+        const currentUser = get().user;
+        const currentProfile = get().profile;
+
+        if (currentUser?.id && currentProfile?.id === currentUser.id) {
+          await supabase
+            .from('profiles')
+            .update({
+              metadata: {
+                ...(currentProfile?.metadata || {}),
+                last_seen_at: new Date().toISOString(),
+              },
+            })
+            .eq('id', currentUser.id);
+        }
+
         await supabase.auth.signOut();
         
         // 1. Limpiamos usuario

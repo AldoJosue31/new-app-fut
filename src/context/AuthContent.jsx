@@ -3,6 +3,8 @@ import { supabase } from '../supabase/supabase.config';
 import { useAuthStore } from '../store/AuthStore';
 
 const AuthContext = createContext();
+const PRESENCE_CHANNEL = 'online-managers';
+const PRESENCE_HEARTBEAT_MS = 30000;
 
 export function AuthContextProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -12,6 +14,11 @@ export function AuthContextProvider({ children }) {
 
   // Ref para mantener canal de presencia único por sesión
   const presenceRef = useRef(null);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const clearBrokenSession = async () => {
     try {
@@ -130,66 +137,141 @@ const validateProfile = async (sessionUser) => {
     };
   }, []);
 
-  // ---------------------------
-  // NUEVO: EFECTO DE PRESENCIA
-  // ---------------------------
   useEffect(() => {
-    // Si no hay usuario: limpiar canal si existe
+    const cleanupPresence = () => {
+      if (!presenceRef.current) return;
+
+      const { channel, heartbeatId } = presenceRef.current;
+      if (heartbeatId) clearInterval(heartbeatId);
+
+      try { channel.untrack?.().catch(()=>{}); } catch(e) {}
+      try { channel.unsubscribe(); } catch(e) {}
+      presenceRef.current = null;
+    };
+
     if (!user?.id) {
-      if (presenceRef.current) {
-        try { presenceRef.current.untrack?.().catch(()=>{}); } catch(e){};
-        try { presenceRef.current.unsubscribe(); } catch(e){};
-        presenceRef.current = null;
-      }
+      cleanupPresence();
       return;
     }
 
-    // Si ya existe, no volver a crear
-    if (presenceRef.current) {
+    if (!profile?.id || profile.id !== user.id) {
+      cleanupPresence();
+      return;
+    }
+
+    if (profile.role !== 'manager') {
+      cleanupPresence();
+      return;
+    }
+
+    if (presenceRef.current?.userId === user.id) {
       console.log('[AUTH] presence already active for', user.id);
       return;
     }
 
-    const channel = supabase.channel('online-managers');
-    presenceRef.current = channel;
+    cleanupPresence();
+
+    let lastSeenWarningLogged = false;
+    const startedAt = new Date().toISOString();
+    const channel = supabase.channel(PRESENCE_CHANNEL, {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    const buildPresencePayload = () => ({
+      user_id: user.id,
+      role: profile.role,
+      online_at: startedAt,
+      last_seen_at: new Date().toISOString(),
+    });
+
+    const markLastSeen = async () => {
+      const currentProfile = profileRef.current;
+      if (!currentProfile?.id || currentProfile.id !== user.id) return;
+
+      const lastSeenAt = new Date().toISOString();
+      const nextMetadata = {
+        ...(currentProfile.metadata || {}),
+        last_seen_at: lastSeenAt,
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ metadata: nextMetadata })
+        .eq('id', user.id);
+
+      if (error) {
+        if (!lastSeenWarningLogged) {
+          console.warn('[AUTH][TRACKER] no se pudo actualizar last_seen_at:', error.message);
+          lastSeenWarningLogged = true;
+        }
+        return;
+      }
+
+      profileRef.current = {
+        ...currentProfile,
+        metadata: nextMetadata,
+      };
+    };
+
+    const trackPresence = async () => {
+      try {
+        await channel.track(buildPresencePayload());
+      } catch (err) {
+        console.error('[AUTH][TRACKER] track error', err);
+      }
+    };
+
+    presenceRef.current = {
+      channel,
+      heartbeatId: null,
+      userId: user.id,
+    };
 
     const handleSubscribe = async (status) => {
       console.log('[AUTH][TRACKER] channel status', status);
 
       if (status === 'SUBSCRIBED') {
-        try {
-          await channel.track({
-            user_id: user.id,
-            online_at: new Date().toISOString()
-          });
-          console.log('[AUTH][TRACKER] tracked presence for', user.id);
-        } catch (err) {
-          console.error('[AUTH][TRACKER] track error', err);
-        }
+        await trackPresence();
+        await markLastSeen();
+        console.log('[AUTH][TRACKER] tracked presence for', user.id);
       }
     };
 
     channel.subscribe(handleSubscribe);
 
-    // Re-track on visibility change (optional but useful)
+    const heartbeatId = setInterval(() => {
+      trackPresence();
+      markLastSeen();
+    }, PRESENCE_HEARTBEAT_MS);
+    presenceRef.current.heartbeatId = heartbeatId;
+
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
-        try {
-          channel.track({ user_id: user.id, online_at: new Date().toISOString() })
-            .then(() => console.log('[AUTH][TRACKER] re-tracked on visible', user.id))
-            .catch(e => console.error('[AUTH][TRACKER] re-track err', e));
-        } catch(e) {}
+        trackPresence();
+        markLastSeen();
+      } else {
+        markLastSeen();
       }
     };
+
+    const onPageHide = () => {
+      markLastSeen();
+    };
+
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onPageHide);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
-      try { channel.untrack?.().catch(()=>{}); } catch(e) {}
-      try { channel.unsubscribe(); } catch(e) {}
-      presenceRef.current = null;
+      window.removeEventListener('pagehide', onPageHide);
+      markLastSeen();
+      cleanupPresence();
     };
-  }, [user?.id]);
+  }, [profile?.id, profile?.role, user?.id]);
 
   // --- Funciones Públicas ---
   async function signInWithEmail(email, password) {
