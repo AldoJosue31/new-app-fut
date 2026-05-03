@@ -73,6 +73,7 @@ export function LoginTemplate() {
             await loginWithEmail(email, password);
             navigate('/dashboard', { replace: true });
         } catch (err) {
+            if (err.code === 'ACCOUNT_SUSPENDED') return;
             let msg = err.message || 'Error al iniciar sesión';
             if (msg.includes('Invalid login credentials')) msg = 'Correo o contraseña incorrectos.';
             showError(msg);

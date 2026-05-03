@@ -33,6 +33,8 @@ export function AdminManagersTemplate({
   managerToEditAuth,
   openEditAuthModal,
   handleUpdateCredentials,
+  handleUpdateManagerLimits,
+  handleUpdateManagerSuspension,
 
   deleteModalState,
   setDeleteModalState,
@@ -110,6 +112,8 @@ export function AdminManagersTemplate({
           onClose={() => setDetailModalOpen(false)}
           manager={selectedManager}
           onlineUsers={onlineUsers}
+          onUpdateLimits={handleUpdateManagerLimits}
+          onUpdateSuspension={handleUpdateManagerSuspension}
         />
 
         <ManagerCreateModal 

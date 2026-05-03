@@ -4,8 +4,14 @@ import { supabase } from "../supabase/supabase.config";
 import {
   createManagerAdminService,
   deleteManagerAdminService,
+  updateManagerLimitsService,
+  updateManagerSuspensionService,
   updateManagerCredentialsService,
 } from "../services/adminManagers";
+
+const PRESENCE_CHANNEL = "online-managers";
+const MANAGERS_REFRESH_MS = 30000;
+const MANAGER_ACCESS_EVENT = "manager-access-change";
 
 export function AdminManagers({ state, setState }) { 
   const [managers, setManagers] = useState([]);
@@ -37,17 +43,25 @@ export function AdminManagers({ state, setState }) {
   };
   const closeToast = () => setToast({ ...toast, show: false });
 
-  const fetchManagers = useCallback(async () => {
-    setLoading(true);
+  const fetchManagers = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
       .select(`
         *,
         leagues:leagues (
+          id,
           name,
+          max_divisions_total,
+          max_teams_total,
+          max_players_total,
           divisions:divisions (
+            id,
             name,
-            teams:teams (count)
+            teams:teams (
+              id,
+              players:players (count)
+            )
           )
         )
       `)
@@ -56,22 +70,26 @@ export function AdminManagers({ state, setState }) {
 
     if (error) {
       console.error("Error fetching managers:", error);
-      showToast("Error al cargar lista de managers", "error");
+      if (!silent) showToast("Error al cargar lista de managers", "error");
     } else {
-      setManagers(data);
+      setManagers(data || []);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchManagers();
+    const refreshInterval = setInterval(() => {
+      fetchManagers({ silent: true });
+    }, MANAGERS_REFRESH_MS);
 
     if (presenceRef.current) {
       console.log("[ADMIN] presence channel already active");
+      clearInterval(refreshInterval);
       return;
     }
 
-    const channel = supabase.channel("online-managers");
+    const channel = supabase.channel(PRESENCE_CHANNEL);
     presenceRef.current = channel;
 
     const mapPresenceStateToOnline = (state) => {
@@ -79,7 +97,14 @@ export function AdminManagers({ state, setState }) {
       Object.values(state).forEach((metas) => {
         metas.forEach((meta) => {
           if (meta?.user_id) {
-            onlineMap[meta.user_id] = true;
+            const current = onlineMap[meta.user_id] || {};
+            onlineMap[meta.user_id] = {
+              online: true,
+              metasCount: (current.metasCount || 0) + 1,
+              online_at: current.online_at || meta.online_at || null,
+              last_seen_at: meta.last_seen_at || current.last_seen_at || null,
+              role: meta.role || current.role || null,
+            };
           }
         });
       });
@@ -95,7 +120,16 @@ export function AdminManagers({ state, setState }) {
         setOnlineUsers((prev) => {
           const next = { ...prev };
           newPresences.forEach((meta) => {
-            if (meta?.user_id) next[meta.user_id] = true;
+            if (meta?.user_id) {
+              const current = next[meta.user_id] || {};
+              next[meta.user_id] = {
+                online: true,
+                metasCount: (current.metasCount || 0) + 1,
+                online_at: current.online_at || meta.online_at || null,
+                last_seen_at: meta.last_seen_at || current.last_seen_at || null,
+                role: meta.role || current.role || null,
+              };
+            }
           });
           return next;
         });
@@ -107,6 +141,7 @@ export function AdminManagers({ state, setState }) {
       .subscribe();
 
     return () => {
+      clearInterval(refreshInterval);
       try {
         channel.unsubscribe();
       } catch {
@@ -120,6 +155,40 @@ export function AdminManagers({ state, setState }) {
       }
     };
   }, [fetchManagers]);
+
+  useEffect(() => {
+    if (!selectedManager?.id) return;
+
+    const freshManager = managers.find((manager) => manager.id === selectedManager.id);
+    if (freshManager) setSelectedManager(freshManager);
+  }, [managers, selectedManager?.id]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-managers-profile-changes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: "role=eq.manager" },
+        ({ new: updatedManager }) => {
+          setManagers((currentManagers) =>
+            currentManagers.map((manager) =>
+              manager.id === updatedManager.id
+                ? { ...manager, ...updatedManager, leagues: manager.leagues }
+                : manager
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        channel.unsubscribe();
+      } catch {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   const handleCreate = async ({ fullName, email, password, leagueName }) => {
     setLoading(true);
@@ -157,6 +226,96 @@ export function AdminManagers({ state, setState }) {
     } catch (error) {
       console.error("Error actualizando credenciales:", error);
       showToast("Error: " + error.message, "error");
+      return false;
+    }
+  };
+
+  const handleUpdateManagerLimits = async (leagueId, limits) => {
+    if (!leagueId) {
+      showToast("No se encontro la liga del manager", "error");
+      return false;
+    }
+
+    const normalizedLimits = {
+      max_divisions_total: limits.max_divisions_total,
+      max_teams_total: limits.max_teams_total,
+      max_players_total: limits.max_players_total,
+    };
+
+    try {
+      const { league } = await updateManagerLimitsService({
+        leagueId,
+        ...normalizedLimits,
+      });
+
+      showToast("Limites actualizados correctamente", "success");
+      if (league) {
+        setManagers((currentManagers) =>
+          currentManagers.map((manager) => ({
+            ...manager,
+            leagues: (manager.leagues || []).map((currentLeague) =>
+              currentLeague.id === league.id
+                ? { ...currentLeague, ...league }
+                : currentLeague
+            ),
+          }))
+        );
+      }
+      await fetchManagers({ silent: true });
+      return true;
+    } catch (error) {
+      console.error("Error actualizando limites:", error);
+      showToast("Error al actualizar limites: " + error.message, "error");
+      return false;
+    }
+  };
+
+  const handleUpdateManagerSuspension = async (userId, suspended) => {
+    if (!userId) {
+      showToast("No se encontro el manager", "error");
+      return false;
+    }
+
+    try {
+      const { profile } = await updateManagerSuspensionService({
+        userId,
+        suspended,
+      });
+
+      showToast(
+        suspended ? "Cuenta bloqueada correctamente" : "Cuenta reactivada correctamente",
+        "success"
+      );
+
+      if (profile) {
+        setManagers((currentManagers) =>
+          currentManagers.map((manager) =>
+            manager.id === profile.id ? { ...manager, ...profile } : manager
+          )
+        );
+      }
+
+      try {
+        await presenceRef.current?.send({
+          type: "broadcast",
+          event: MANAGER_ACCESS_EVENT,
+          payload: {
+            user_id: userId,
+            suspended,
+            message: suspended
+              ? "Tu cuenta fue bloqueada por el administrador mientras estabas conectado. Se cerro tu sesion y no podras volver a entrar hasta que sea reactivada."
+              : "Tu cuenta fue reactivada.",
+          },
+        });
+      } catch (broadcastError) {
+        console.warn("No se pudo notificar acceso en tiempo real:", broadcastError);
+      }
+
+      await fetchManagers({ silent: true });
+      return true;
+    } catch (error) {
+      console.error("Error actualizando suspension:", error);
+      showToast("Error al actualizar acceso: " + error.message, "error");
       return false;
     }
   };
@@ -215,6 +374,8 @@ export function AdminManagers({ state, setState }) {
       managerToEditAuth={managerToEditAuth}
       openEditAuthModal={openEditAuthModal}
       handleUpdateCredentials={handleUpdateCredentials}
+      handleUpdateManagerLimits={handleUpdateManagerLimits}
+      handleUpdateManagerSuspension={handleUpdateManagerSuspension}
 
       deleteModalState={deleteModalState}
       setDeleteModalState={setDeleteModalState}
