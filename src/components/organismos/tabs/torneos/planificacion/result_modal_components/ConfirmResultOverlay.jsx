@@ -6,7 +6,7 @@ import { RiCheckDoubleLine } from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
 export const ConfirmResultOverlay = ({ 
-    match, isOnlyDateUpdate, isWalkover, matchDate, matchTime, 
+    match, isOnlyDateUpdate, isWalkover, isDoubleWalkover, matchDate, matchTime, 
     totalGoalsLocal, totalGoalsVisit, penalties, isExtraPointEnabled, 
     setShowConfirm, handleFinalSave, loading 
 }) => {
@@ -35,10 +35,14 @@ export const ConfirmResultOverlay = ({
                 {!isOnlyDateUpdate && totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled && !isWalkover && (
                     <div className="pen-score">Penales: {penalties.local} - {penalties.visit}</div>
                 )}
+
+                {isDoubleWalkover && (
+                    <div className="walkover-note">Ambos equipos pierden por default: 0 puntos y -3 DIF para cada uno.</div>
+                )}
                 
                 <div className="match-datetime-confirm">
                     {/* Condicional para mostrar la fecha preservada en caso de W.O. */}
-                    {matchDate && matchTime ? `${matchDate} ${matchTime} ${isWalkover ? '(W.O.)' : ''}` : 'Definido sin fecha (W.O.)'}
+                    {matchDate && matchTime ? `${matchDate} ${matchTime} ${isWalkover ? '(W.O.)' : ''}` : `Definido sin fecha ${isWalkover ? '(W.O.)' : ''}`}
                 </div>
                 
                 <div className="confirm-btns">
@@ -66,6 +70,7 @@ const Overlay = styled.div`
         
         h2 { margin-bottom: 20px; }
         .pen-score { font-weight: 700; margin-bottom: 15px; color: ${({theme})=>theme.text}; opacity: 0.8; background: ${({theme})=>theme.bg3}; padding: 8px; border-radius: 10px;} 
+        .walkover-note { font-weight: 700; margin-bottom: 15px; color: #e74c3c; background: #e74c3c18; border: 1px solid #e74c3c35; padding: 8px; border-radius: 10px; }
         .match-datetime-confirm { margin-bottom: 25px; opacity: 0.7; font-size: 0.9rem; font-family: monospace; } 
         .confirm-btns { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; } 
     } 
