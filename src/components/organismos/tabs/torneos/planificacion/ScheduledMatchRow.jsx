@@ -31,6 +31,17 @@ const getPenaltyScore = (observations) => {
     return null;
 };
 
+const isWalkoverObservation = (observations) => (
+    /victoria por default/i.test(String(observations || "")) ||
+    /doble\s*w\.?o\.?/i.test(String(observations || "")) ||
+    /ambos\s+pierden\s+por\s+default/i.test(String(observations || ""))
+);
+
+const isDoubleWalkoverObservation = (observations) => (
+    /doble\s*w\.?o\.?/i.test(String(observations || "")) ||
+    /ambos\s+pierden\s+por\s+default/i.test(String(observations || ""))
+);
+
 const normalizeTimeValue = (timeValue) => {
     if (!timeValue) return "";
     const match = String(timeValue).match(/^(\d{2}):(\d{2})/);
@@ -79,6 +90,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   const [showSheet, setShowSheet] = useState(false);
   const [showPreSheet, setShowPreSheet] = useState(false);
   const isReferenceOnly = Boolean(match.isReferenceOnly);
+  const isWalkover = isWalkoverObservation(match.observations);
+  const isDoubleWalkover = isDoubleWalkoverObservation(match.observations);
   
   // Referencia para evitar parpadeos en DnD
   const dragCounter = useRef(0);
@@ -338,15 +351,15 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     <>
                                         <span className="date-text mobile-only">{formatDateWithWeekday(match.date)}</span>
                                         <small>{formatTimeTo12Hour(match.time)}</small>
-                                        {match.observations?.includes('Victoria por default') && (
+                                        {isWalkover && (
                                             <span className="wo-badge-small" style={{ fontSize: '0.7rem', background: '#e74c3c20', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px', fontWeight: 'bold' }}>
-                                                W.O.
+                                                {isDoubleWalkover ? 'Doble W.O.' : 'W.O.'}
                                             </span>
                                         )}
                                     </>
                                 ) : (
                                     <span className="no-date-badge">
-                                        {match.observations?.includes('Victoria por default') ? 'Victoria Default' : 'Sin Fecha'}
+                                        {isDoubleWalkover ? 'Doble W.O.' : isWalkover ? 'Victoria Default' : 'Sin Fecha'}
                                     </span>
                                 )}
                             </div>

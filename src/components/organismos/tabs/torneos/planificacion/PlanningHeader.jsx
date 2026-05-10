@@ -11,8 +11,10 @@ import {
   RiMagicLine,
   RiCheckLine,
   RiPrinterLine,
+  RiCalendarCheckLine,
 } from "react-icons/ri";
 import { ViewToggle } from "../../../../../index";
+import { addDaysToDate } from "../../../../../utils/dateUtils";
 
 export const PlanningHeader = memo(
   ({
@@ -22,6 +24,8 @@ export const PlanningHeader = memo(
     onPrev,
     onNext,
     totalJornadas,
+    navigationIndex = jornadaIndex,
+    totalNavigationItems = totalJornadas,
     onSaveDates,
     onAutoFill,
     onConfig,
@@ -29,6 +33,8 @@ export const PlanningHeader = memo(
     onToggleView,
     onEditFixture,
     isTournamentActive,
+    needsDateNormalization = false,
+    onOpenDateNormalizer,
     onPrintBatch,
     matchesWithoutResultCount = 0,
     confirmedResultsProgress = { completed: 0, total: 0 },
@@ -84,9 +90,11 @@ export const PlanningHeader = memo(
     };
 
     const handleStartChange = (value) => {
+      const nextEnd = value ? addDaysToDate(value, 6) : "";
       setLocalStart(value);
+      setLocalEnd(nextEnd);
       if (isRepositionMode && onDateChange) {
-        onDateChange(value, localEnd);
+        onDateChange(value, nextEnd);
       }
     };
 
@@ -112,7 +120,6 @@ export const PlanningHeader = memo(
           className="native-input"
           value={localStart}
           onChange={(e) => handleStartChange(e.target.value)}
-          disabled={isConfirmed}
         />
 
         <span className="label-text">al</span>
@@ -125,7 +132,7 @@ export const PlanningHeader = memo(
           disabled={isConfirmed}
         />
 
-        {hasChanges && !isConfirmed && !isRepositionMode && (
+        {hasChanges && !isRepositionMode && (
           <ConfirmBtn
             onClick={handleConfirmChanges}
             title="Guardar y actualizar jornadas siguientes"
@@ -161,6 +168,15 @@ export const PlanningHeader = memo(
           </BtnAction>
         )}
 
+        {isTournamentActive && needsDateNormalization && onOpenDateNormalizer && (
+          <BtnAction
+            onClick={onOpenDateNormalizer}
+            title="Ajustar calendario a jornadas de 7 dias"
+          >
+            <RiCalendarCheckLine size={20} />
+          </BtnAction>
+        )}
+
         {isTournamentActive && (
           <BtnAction onClick={onEditFixture} title="Reorganizar partidos futuros">
             <RiEdit2Line size={20} />
@@ -179,8 +195,8 @@ export const PlanningHeader = memo(
     return (
       <Container>
         <InfoGroup>
-          <NavRow>
-            <NavBtn onClick={onPrev} disabled={jornadaIndex === 0}>
+            <NavRow>
+            <NavBtn onClick={onPrev} disabled={navigationIndex === 0}>
               <RiArrowLeftSLine size={24} />
             </NavBtn>
             <Title $status={status}>
@@ -192,7 +208,7 @@ export const PlanningHeader = memo(
             </Title>
             <NavBtn
               onClick={onNext}
-              disabled={jornadaIndex === totalJornadas - 1}
+              disabled={navigationIndex === totalNavigationItems - 1}
             >
               <RiArrowRightSLine size={24} />
             </NavBtn>

@@ -15,11 +15,13 @@ const formatTimeAMPM = (timeStr) => {
     return `${hours}:${m} ${ampm}`;
 };
 
-export const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate, displayTime, isWalkover }) => {
+export const ScoreHeader = ({ match, goalsLocal, goalsVisit, divisionName, displayDate, displayTime, isWalkover, isDoubleWalkover }) => {
     
     const timeAMPM = formatTimeAMPM(displayTime);
-    const dateDisplay = isWalkover 
-        ? 'Victoria Default (W.O.)' 
+    const dateDisplay = isDoubleWalkover
+        ? 'Doble W.O.'
+        : isWalkover 
+        ? 'Victoria Default (W.O.)'
         : (displayDate ? `${displayDate} - ${timeAMPM}` : 'Sin fecha');
 
     return (

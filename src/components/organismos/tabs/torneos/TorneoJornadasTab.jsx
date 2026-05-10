@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
@@ -23,12 +23,284 @@ import {
 import { addDaysToDate } from "../../../../utils/dateUtils";
 import {
   isOfficialJornadaName,
+  isRepositionJornadaName,
   parseJornadaNumber,
   resolveRepositionMappings,
   sortJornadas,
 } from "../../../../utils/jornadaUtils";
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
+import { NormalizeJornadaDatesModal } from "./planificacion/NormalizeJornadaDatesModal";
+
+const getDateDurationDays = (startDate, endDate) => {
+  if (!startDate || !endDate) return null;
+
+  const start = new Date(`${startDate}T00:00:00`).getTime();
+  const end = new Date(`${endDate}T00:00:00`).getTime();
+  const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+
+  return Number.isNaN(diff) ? null : diff + 1;
+};
+
+const getDateTimeValue = (dateStr) => {
+  if (!dateStr) return null;
+  const value = new Date(`${dateStr}T00:00:00`).getTime();
+  return Number.isNaN(value) ? null : value;
+};
+
+const getDaysBetweenDates = (startDate, nextStartDate) => {
+  const start = getDateTimeValue(startDate);
+  const next = getDateTimeValue(nextStartDate);
+  if (start === null || next === null) return null;
+  return Math.round((next - start) / (1000 * 60 * 60 * 24));
+};
+
+const hasValidSevenDayCadence = (jornadas = []) => {
+  if (!Array.isArray(jornadas) || jornadas.length === 0) return false;
+
+  const datedJornadas = sortJornadas(jornadas).filter(
+    (jornada) => jornada?.start_date && jornada?.end_date
+  );
+
+  if (datedJornadas.length !== jornadas.length) return false;
+
+  return datedJornadas.every((jornada, index) => {
+    if (getDateDurationDays(jornada.start_date, jornada.end_date) !== 7) {
+      return false;
+    }
+
+    if (index === 0) return true;
+
+    return getDaysBetweenDates(
+      datedJornadas[index - 1].start_date,
+      jornada.start_date
+    ) === 7;
+  });
+};
+
+const sortJornadasForDateNormalization = (jornadas = [], configuredMappings = []) => {
+  const resolvedMappings = resolveRepositionMappings({
+    jornadas,
+    configuredMappings,
+  });
+  const repositionBeforeOfficial = new Map();
+
+  resolvedMappings.forEach((mapping) => {
+    if (!mapping?.repositionJornadaId || !mapping?.originalJornadaId) return;
+    repositionBeforeOfficial.set(
+      String(mapping.repositionJornadaId),
+      String(mapping.originalJornadaId)
+    );
+  });
+
+  const getOrderKey = (jornada) => {
+    if (isOfficialJornadaName(jornada?.name)) {
+      return parseJornadaNumber(jornada?.name, jornada?.id || Number.MAX_SAFE_INTEGER) * 10;
+    }
+
+    if (isRepositionJornadaName(jornada?.name)) {
+      const originalJornadaId = repositionBeforeOfficial.get(String(jornada?.id));
+      const originalJornada = originalJornadaId
+        ? jornadas.find((candidate) => String(candidate?.id) === originalJornadaId)
+        : null;
+
+      if (originalJornada) {
+        return parseJornadaNumber(
+          originalJornada?.name,
+          originalJornada?.id || Number.MAX_SAFE_INTEGER
+        ) * 10 - 1;
+      }
+    }
+
+    return Number.MAX_SAFE_INTEGER;
+  };
+
+  return [...jornadas].sort((a, b) => {
+    const keyA = getOrderKey(a);
+    const keyB = getOrderKey(b);
+    if (keyA !== keyB) return keyA - keyB;
+
+    const officialA = isOfficialJornadaName(a?.name);
+    const officialB = isOfficialJornadaName(b?.name);
+
+    if (officialA && officialB) {
+      const numA = parseJornadaNumber(a?.name, a?.id || Number.MAX_SAFE_INTEGER);
+      const numB = parseJornadaNumber(b?.name, b?.id || Number.MAX_SAFE_INTEGER);
+      if (numA !== numB) return numA - numB;
+      return (a?.id || 0) - (b?.id || 0);
+    }
+
+    if (officialA) return -1;
+    if (officialB) return 1;
+
+    const startA = a?.start_date || "9999-12-31";
+    const startB = b?.start_date || "9999-12-31";
+    if (startA !== startB) return startA.localeCompare(startB);
+
+    const numA = parseJornadaNumber(a?.name, a?.id || Number.MAX_SAFE_INTEGER);
+    const numB = parseJornadaNumber(b?.name, b?.id || Number.MAX_SAFE_INTEGER);
+    if (numA !== numB) return numA - numB;
+
+    return (a?.id || 0) - (b?.id || 0);
+  });
+};
+
+const buildSevenDayPreview = (
+  jornadas = [],
+  fallbackStartDate = "",
+  configuredMappings = []
+) => {
+  const isCurrentCalendarValid = hasValidSevenDayCadence(jornadas);
+  const sorted = isCurrentCalendarValid
+    ? sortJornadas(jornadas)
+    : sortJornadasForDateNormalization(jornadas, configuredMappings);
+  const anchorStartDate =
+    sorted[0]?.start_date ||
+    fallbackStartDate ||
+    "";
+
+  if (!anchorStartDate) {
+    return {
+      anchorStartDate: "",
+      rows: [],
+      needsAdjustment: false,
+      irregularCount: 0,
+    };
+  }
+
+  const rows = sorted.map((jornada, index) => {
+    const nextStartDate =
+      index === 0 ? anchorStartDate : addDaysToDate(anchorStartDate, index * 7);
+    const nextEndDate = addDaysToDate(nextStartDate, 6);
+    const currentDuration = getDateDurationDays(
+      jornada?.start_date,
+      jornada?.end_date
+    );
+    const changed =
+      !isCurrentCalendarValid &&
+      (String(jornada?.start_date || "") !== String(nextStartDate) ||
+        String(jornada?.end_date || "") !== String(nextEndDate));
+    const hasInvalidDuration = currentDuration !== 7;
+
+    return {
+      ...jornada,
+      currentDuration,
+      nextStartDate,
+      nextEndDate,
+      changed,
+      hasInvalidDuration,
+    };
+  });
+
+  return {
+    anchorStartDate,
+    rows,
+    needsAdjustment:
+      !isCurrentCalendarValid &&
+      rows.some((row) => row.changed || row.hasInvalidDuration),
+    irregularCount: isCurrentCalendarValid
+      ? 0
+      : rows.filter((row) => row.changed || row.hasInvalidDuration).length,
+  };
+};
+
+const getDatePart = (dateValue) => {
+  if (!dateValue) return "";
+  return String(dateValue).split("T")[0].split(" ")[0];
+};
+
+const getTimePart = (dateValue) => {
+  if (!dateValue) return "10:00:00";
+
+  const raw = String(dateValue);
+  const timePart = raw.includes("T")
+    ? raw.split("T")[1]
+    : raw.includes(" ")
+      ? raw.split(" ")[1]
+      : "";
+  const cleanTime = String(timePart || "").split(".")[0].replace("Z", "");
+
+  if (!cleanTime) return "10:00:00";
+  if (/^\d{2}:\d{2}$/.test(cleanTime)) return `${cleanTime}:00`;
+  if (/^\d{2}:\d{2}:\d{2}$/.test(cleanTime)) return cleanTime;
+  return "10:00:00";
+};
+
+const getWeekdayIndex = (dateStr) => {
+  if (!dateStr) return 0;
+  const [year, month, day] = String(dateStr).split("-").map(Number);
+  return new Date(year, month - 1, day).getDay();
+};
+
+const buildMatchWeekPreview = ({
+  matches = [],
+  jornadas = [],
+  repositionMatchMappings = [],
+  teams = [],
+}) => {
+  const jornadaMap = new Map(
+    (jornadas || []).map((jornada) => [String(jornada.id), jornada])
+  );
+  const teamMap = new Map((teams || []).map((team) => [String(team.id), team]));
+  const repositionMatchIds = new Set(
+    (repositionMatchMappings || [])
+      .map((mapping) => mapping?.matchId)
+      .filter(Boolean)
+      .map((matchId) => String(matchId))
+  );
+
+  const rows = (matches || [])
+    .filter((match) => match?.id && match?.date)
+    .map((match) => {
+      const jornada =
+        jornadaMap.get(String(match.jornada_id)) ||
+        jornadaMap.get(String(match.jornadas?.id)) ||
+        null;
+
+      if (!jornada?.start_date || !jornada?.end_date) return null;
+      if (repositionMatchIds.has(String(match.id))) return null;
+
+      const currentDate = getDatePart(match.date);
+      if (!currentDate) return null;
+
+      const isInsideJornada =
+        currentDate >= String(jornada.start_date) &&
+        currentDate <= String(jornada.end_date);
+      if (isInsideJornada) return null;
+
+      const jornadaStartWeekday = getWeekdayIndex(jornada.start_date);
+      const matchWeekday = getWeekdayIndex(currentDate);
+      const dayOffset = (matchWeekday - jornadaStartWeekday + 7) % 7;
+      const nextDate = addDaysToDate(jornada.start_date, dayOffset);
+      const nextDateTime = `${nextDate} ${getTimePart(match.date)}`;
+      const homeTeam = teamMap.get(String(match.team1_id));
+      const awayTeam = teamMap.get(String(match.team2_id));
+
+      return {
+        ...match,
+        jornada,
+        currentDate,
+        currentDateTime: match.date,
+        nextDate,
+        nextDateTime,
+        homeName: homeTeam?.name || match.team1?.name || "Local",
+        awayName: awayTeam?.name || match.team2?.name || "Visitante",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const jornadaA = parseJornadaNumber(a.jornada?.name, Number.MAX_SAFE_INTEGER);
+      const jornadaB = parseJornadaNumber(b.jornada?.name, Number.MAX_SAFE_INTEGER);
+      if (jornadaA !== jornadaB) return jornadaA - jornadaB;
+      return String(a.currentDate).localeCompare(String(b.currentDate));
+    });
+
+  return {
+    rows,
+    needsAdjustment: rows.length > 0,
+    irregularCount: rows.length,
+  };
+};
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
@@ -37,12 +309,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const [repositionMatchMappings, setRepositionMatchMappings] = useState([]);
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
   const [currentMatches, setCurrentMatches] = useState([]); 
+  const [allTournamentMatches, setAllTournamentMatches] = useState([]);
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
   
   const [dataVersion, setDataVersion] = useState(0);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
 
   useEffect(() => {
@@ -133,6 +407,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       if (!preserveData) {
         setJornadas([]);
         setCurrentMatches([]);
+        setAllTournamentMatches([]);
         setGlobalPendingMatches([]);
       }
 
@@ -144,6 +419,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
         await Promise.all([
           fetchGlobalPendingMatches(),
+          fetchAllTournamentMatches(),
           selectedJornada?.id
             ? fetchCurrentJornadaMatches(
                 selectedJornada.id,
@@ -157,6 +433,18 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         setLoading(false);
       }
   }, [activeTournament?.id, currentJornadaIndex]);
+
+  const fetchAllTournamentMatches = async () => {
+      try {
+          const data = await getAllMatchesByTournament(activeTournament.id);
+          setAllTournamentMatches(data || []);
+          return data || [];
+      } catch (error) {
+          console.error("Error fetchAllTournamentMatches:", error);
+          setAllTournamentMatches([]);
+          return [];
+      }
+  };
 
   const fetchTournamentConfig = async () => {
     try {
@@ -595,7 +883,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
           await bulkUpdateJornadaFechas(updates);
 
-          setToastConfig({ show: true, message: `Fechas actualizadas. Se recorrieron ${updates.length - 1} jornadas futuras.`, type: "success" });
+          const successMessage =
+            currentJornada.status === 'Confirmada'
+              ? "Cambio confirmado. La fecha de fin se ajusto 6 dias despues."
+              : `Fechas actualizadas. Se recorrieron ${updates.length - 1} jornadas futuras.`;
+          setToastConfig({ show: true, message: successMessage, type: "success" });
           await fetchJornadas(); 
           
       } catch (error) {
@@ -604,6 +896,120 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       } finally {
           setLoading(false);
       }
+  };
+
+  const sevenDayPreview = useMemo(
+    () =>
+      buildSevenDayPreview(
+        jornadas,
+        activeTournament?.start_date || "",
+        repositionMappings
+      ),
+    [activeTournament?.start_date, jornadas, repositionMappings]
+  );
+
+  const matchWeekPreview = useMemo(
+    () =>
+      buildMatchWeekPreview({
+        matches: allTournamentMatches,
+        jornadas,
+        repositionMatchMappings,
+        teams: participatingTeams,
+      }),
+    [allTournamentMatches, jornadas, participatingTeams, repositionMatchMappings]
+  );
+
+  const handleNormalizeJornadaDates = async () => {
+    if (!sevenDayPreview.rows.length) return;
+
+    setLoading(true);
+    try {
+      const preservedJornadaId = jornadas[currentJornadaIndex]?.id || null;
+      const updates = sevenDayPreview.rows.map((jornada) => ({
+        id: jornada.id,
+        tournament_id: activeTournament.id,
+        name: jornada.name,
+        status: jornada.status,
+        start_date: jornada.nextStartDate,
+        end_date: jornada.nextEndDate,
+      }));
+
+      await bulkUpdateJornadaFechas(updates);
+      setIsDateNormalizerOpen(false);
+      setToastConfig({
+        show: true,
+        message: "Calendario ajustado. Todas las jornadas duran 7 dias.",
+        type: "success",
+      });
+
+      const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
+      const selectedJornada = updatedJornadasResult?.selectedJornada || null;
+      if (selectedJornada?.id) {
+        await fetchCurrentJornadaMatches(selectedJornada.id, updatedJornadasResult.jornadas);
+      }
+    } catch (error) {
+      console.error(error);
+      setToastConfig({
+        show: true,
+        message: "Error ajustando calendario: " + error.message,
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNormalizeMatchDates = async () => {
+    if (!matchWeekPreview.rows.length) return;
+
+    setLoading(true);
+    try {
+      const updates = matchWeekPreview.rows.map((match) => {
+        const payload = {
+          id: Number(match.id),
+          jornada_id: match.jornada_id,
+          team1_id: match.team1_id,
+          team2_id: match.team2_id || null,
+          status: match.status || "Programado",
+          date: match.nextDateTime,
+        };
+
+        if (match.goals1 !== undefined) payload.goals1 = match.goals1;
+        if (match.goals2 !== undefined) payload.goals2 = match.goals2;
+        if (match.observations !== undefined) payload.observations = match.observations;
+
+        return payload;
+      });
+
+      await bulkUpsertMatchesService(updates);
+      setIsDateNormalizerOpen(false);
+      setToastConfig({
+        show: true,
+        message: `Partidos ajustados a la semana de su jornada: ${updates.length}.`,
+        type: "success",
+      });
+
+      await fetchAllTournamentMatches();
+      if (jornadas[currentJornadaIndex]?.id) {
+        await fetchCurrentJornadaMatches(
+          jornadas[currentJornadaIndex].id,
+          jornadas,
+          repositionMappings,
+          repositionMatchMappings
+        );
+      }
+      await fetchGlobalPendingMatches();
+      setDataVersion((prev) => prev + 1);
+    } catch (error) {
+      console.error(error);
+      setToastConfig({
+        show: true,
+        message: "Error ajustando partidos: " + error.message,
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleConfirmJornada = async (dataToSave) => {
@@ -617,6 +1023,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
         const updatedJornadas = updatedJornadasResult?.jornadas || [];
         await fetchGlobalPendingMatches();
+        await fetchAllTournamentMatches();
 
         const jornadaToRefresh =
           updatedJornadasResult?.selectedJornada ||
@@ -705,6 +1112,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     if (refreshStandings) await refreshStandings(); 
     await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
     await fetchGlobalPendingMatches();
+    await fetchAllTournamentMatches();
   };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
@@ -736,6 +1144,19 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         existingData={editorData} 
       />
 
+      <NormalizeJornadaDatesModal
+        isOpen={isDateNormalizerOpen}
+        onClose={() => setIsDateNormalizerOpen(false)}
+        onApply={handleNormalizeJornadaDates}
+        onApplyMatches={handleNormalizeMatchDates}
+        rows={sevenDayPreview.rows}
+        irregularCount={sevenDayPreview.irregularCount}
+        anchorStartDate={sevenDayPreview.anchorStartDate}
+        matchRows={matchWeekPreview.rows}
+        matchIssueCount={matchWeekPreview.irregularCount}
+        initialView={matchWeekPreview.needsAdjustment ? "matches" : "jornadas"}
+      />
+
        {isPhaseAssignment ? (
           <JornadaPlanificacion 
             key={`plan-${currentJornada.id}-${dataVersion}`} 
@@ -756,6 +1177,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             dataVersion={dataVersion}
             jornadas={jornadas} 
             onUpdateDates={handleCascadingDateUpdate}
+            needsDateNormalization={
+              sevenDayPreview.needsAdjustment || matchWeekPreview.needsAdjustment
+            }
+            onOpenDateNormalizer={() => setIsDateNormalizerOpen(true)}
           />
        ) : (
         <JornadaResultados 

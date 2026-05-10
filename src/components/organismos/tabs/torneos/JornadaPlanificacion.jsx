@@ -17,6 +17,7 @@ import {
   getJornadaReferenceNumber,
   isOfficialJornadaName,
   parseJornadaNumber,
+  sortJornadas,
 } from "../../../../utils/jornadaUtils";
 import {
   REPOSITION_MODE,
@@ -65,6 +66,8 @@ export function JornadaPlanificacion({
   jornadas = [],
   onUpdateDates,
   onAutoFill,
+  needsDateNormalization = false,
+  onOpenDateNormalizer,
 }) {
   const {
     scheduledMatches,
@@ -123,6 +126,20 @@ export function JornadaPlanificacion({
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const isConfirmed = jornadaData?.status === "Confirmada";
+  const chronologicalJornadas = useMemo(
+    () => sortJornadas(jornadas),
+    [jornadas]
+  );
+  const chronologicalJornadaIndex = useMemo(() => {
+    const currentId = jornadaData?.id;
+    if (!currentId) return jornadaIndex;
+
+    const foundIndex = chronologicalJornadas.findIndex(
+      (jornada) => String(jornada.id) === String(currentId)
+    );
+
+    return foundIndex === -1 ? jornadaIndex : foundIndex;
+  }, [chronologicalJornadas, jornadaData?.id, jornadaIndex]);
   const officialJornadasCount = jornadas.filter((jornada) =>
     isOfficialJornadaName(jornada?.name)
   ).length || totalJornadas;
@@ -581,6 +598,22 @@ export function JornadaPlanificacion({
     setConfirmJornadaModalOpen(true);
   };
 
+  const handleChronologicalNavigation = useCallback(
+    (nextChronologicalIndex) => {
+      const targetJornada = chronologicalJornadas[nextChronologicalIndex];
+      if (!targetJornada?.id) return;
+
+      const targetSourceIndex = jornadas.findIndex(
+        (jornada) => String(jornada.id) === String(targetJornada.id)
+      );
+
+      if (targetSourceIndex !== -1) {
+        onChangeJornada(targetSourceIndex);
+      }
+    },
+    [chronologicalJornadas, jornadas, onChangeJornada]
+  );
+
   return (
     <Container>
       <Toast
@@ -598,9 +631,17 @@ export function JornadaPlanificacion({
             ? "Jornada de Reposicion"
             : jornadaData?.status || "Pendiente"
         }
-        onPrev={() => onChangeJornada(Math.max(0, jornadaIndex - 1))}
-        onNext={() => onChangeJornada(Math.min(totalJornadas - 1, jornadaIndex + 1))}
+        onPrev={() =>
+          handleChronologicalNavigation(Math.max(0, chronologicalJornadaIndex - 1))
+        }
+        onNext={() =>
+          handleChronologicalNavigation(
+            Math.min(chronologicalJornadas.length - 1, chronologicalJornadaIndex + 1)
+          )
+        }
         totalJornadas={totalJornadas}
+        navigationIndex={chronologicalJornadaIndex}
+        totalNavigationItems={chronologicalJornadas.length}
         onSaveDates={onUpdateDates}
         onDateChange={handleRepositionHeaderDates}
         isRepositionMode={isRepositionMode}
@@ -610,6 +651,8 @@ export function JornadaPlanificacion({
         onToggleView={setViewMode}
         onEditFixture={onEditFixture}
         isTournamentActive={isTournamentActive}
+        needsDateNormalization={needsDateNormalization}
+        onOpenDateNormalizer={onOpenDateNormalizer}
         onPrintBatch={() => setBatchPrintOpen(true)}
         matchesWithoutResultCount={matchesWithoutResult.length}
         confirmedResultsProgress={confirmedResultsProgress}

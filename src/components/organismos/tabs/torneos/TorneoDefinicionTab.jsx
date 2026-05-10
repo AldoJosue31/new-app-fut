@@ -128,7 +128,8 @@ export function TorneoDefinicionTab({
       }
       if (form.zonaLiguilla) {
           const directos = parseInt(form.clasificados || 0);
-          const repechaje = form.hasRepechaje ? parseInt(form.repechajeTeams || 0) : 0;
+          const repechajeTeams = parseInt(form.repechajeTeams || 0);
+          const repechaje = (form.hasRepechaje || repechajeTeams > 0) ? repechajeTeams : 0;
           const totalRequeridos = directos + repechaje;
 
           if (totalRequeridos < 2) {

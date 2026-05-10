@@ -14,6 +14,14 @@ import { RosterTab } from "./result_modal_components/RosterTab";
 import { PenaltiesTab } from "./result_modal_components/PenaltiesTab";
 import { ConfirmResultOverlay } from "./result_modal_components/ConfirmResultOverlay";
 
+const DOUBLE_WALKOVER_ID = "__double_walkover__";
+const DOUBLE_WALKOVER_OBSERVATION = "Doble W.O. - ambos pierden por default";
+
+const isDoubleWalkoverObservation = (observations = "") => (
+  /doble\s*w\.?o\.?/i.test(observations) ||
+  /ambos\s+pierden\s+por\s+default/i.test(observations)
+);
+
 export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }) {
   
   const [activeTab, setActiveTab] = useState('general');
@@ -66,6 +74,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
   // Cálculos de goles
   const totalGoalsLocal = useMemo(() => {
+    if (isWalkover && woWinnerId === DOUBLE_WALKOVER_ID) return 0;
     if (isWalkover) return woWinnerId === match?.local?.id ? 3 : 0;
     const localGoals = rosterLocal.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
     const visitOwnGoals = rosterVisit.reduce((acc, p) => acc + (parseInt(p.ownGoals) || 0), 0);
@@ -73,6 +82,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   }, [rosterLocal, rosterVisit, isWalkover, woWinnerId, match]);
 
   const totalGoalsVisit = useMemo(() => {
+    if (isWalkover && woWinnerId === DOUBLE_WALKOVER_ID) return 0;
     if (isWalkover) return woWinnerId === match?.visitante?.id ? 3 : 0;
     const visitGoals = rosterVisit.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
     const localOwnGoals = rosterLocal.reduce((acc, p) => acc + (parseInt(p.ownGoals) || 0), 0);
@@ -241,24 +251,29 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       if (requestId !== latestLoadRequestRef.current) return;
       
       const obs = freshMatch.observations || "";
-      const nextIsWalkover = obs.includes('W.O.') || obs.includes('Victoria por default');
+      const nextIsDoubleWalkover = isDoubleWalkoverObservation(obs);
+      const nextIsWalkover = nextIsDoubleWalkover || obs.includes('W.O.') || obs.includes('Victoria por default');
       let nextWoWinnerId = null;
       let nextPenalties = { local: 0, visit: 0 };
       
       let cleanObs = obs;
       if (nextIsWalkover) {
-        nextWoWinnerId = freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id;
-        cleanObs = cleanObs.replace(/W\.O\./gi, '').replace(/Victoria por default/gi, '');
+        nextWoWinnerId = nextIsDoubleWalkover
+          ? DOUBLE_WALKOVER_ID
+          : freshMatch.goals1 > freshMatch.goals2 ? match.local.id : match.visitante.id;
+        cleanObs = cleanObs
+          .replace(/Doble\s*W\.?O\.?\s*-\s*ambos pierden por default/gi, '')
+          .replace(/ambos\s+pierden\s+por\s+default/gi, '')
+          .replace(/W\.O\./gi, '')
+          .replace(/Victoria por default/gi, '');
       }
 
       if (/Pen/i.test(obs)) {
-        try {
-            const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
-            if (matchPen) {
-              nextPenalties = { local: parseInt(matchPen[1]), visit: parseInt(matchPen[2]) };
-              cleanObs = cleanObs.replace(matchPen[0], '');
-            }
-        } catch(e) {}
+        const matchPen = obs.match(/Pen.*:\s*(\d+)\s*-\s*(\d+)/i);
+        if (matchPen) {
+          nextPenalties = { local: parseInt(matchPen[1]), visit: parseInt(matchPen[2]) };
+          cleanObs = cleanObs.replace(matchPen[0], '');
+        }
       }
 
       const isEditMode = freshMatch.status === 'Finalizado';
@@ -425,11 +440,13 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const handleToggleWalkover = (newValue) => {
     setIsWalkover(newValue);
     if (!newValue) setWoWinnerId(null);
+    setActiveTab('general');
     setRosterLocal(reconstructRoster(localPlayers, [], 'l', false));
     setRosterVisit(reconstructRoster(visitPlayers, [], 'v', false));
   };
 
   const handleWalkoverSelect = (teamId) => {
+    setActiveTab('general');
     if (woWinnerId === teamId) { 
         setWoWinnerId(null); 
         setIsWalkover(false); 
@@ -453,7 +470,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     }
 
     if (isWalkover) {
-        if (!woWinnerId) return setToastConfig({ show: true, message: "Seleccione al ganador por default.", type: "error" });
+        if (!woWinnerId) return setToastConfig({ show: true, message: "Seleccione la resolucion por default.", type: "error" });
     } else if (!isOnlyDateUpdate) {
         if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
         if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
@@ -494,7 +511,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       };
 
       if (isWalkover) {
-        if (woWinnerId === match?.local?.id) processRoster(rosterLocal); else processRoster(rosterVisit);
+        if (woWinnerId === match?.local?.id) processRoster(rosterLocal);
+        else if (woWinnerId === match?.visitante?.id) processRoster(rosterVisit);
       } else { processRoster(rosterLocal); processRoster(rosterVisit); }
 
       if (events.length > 0) {
@@ -504,8 +522,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       let p1 = 0, p2 = 0; const finalObsParts = [];
       if (isWalkover) {
-        if (woWinnerId === match?.local?.id) { p1 = winPoints; p2 = lossPoints; } else { p1 = lossPoints; p2 = winPoints; }
-        finalObsParts.push("Victoria por default"); 
+        if (woWinnerId === DOUBLE_WALKOVER_ID) {
+          p1 = 0;
+          p2 = 0;
+          finalObsParts.push(DOUBLE_WALKOVER_OBSERVATION);
+        } else {
+          if (woWinnerId === match?.local?.id) { p1 = winPoints; p2 = lossPoints; } else { p1 = lossPoints; p2 = winPoints; }
+          finalObsParts.push("Victoria por default"); 
+        }
       } else if (totalGoalsLocal > totalGoalsVisit) { p1 = winPoints; p2 = lossPoints;
       } else if (totalGoalsVisit > totalGoalsLocal) { p1 = lossPoints; p2 = winPoints;
       } else {
@@ -546,7 +570,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   return (
     <Modal isOpen={isOpen} onClose={onClose} width="950px" title="Definir Resultado" closeOnOverlayClick={false}>
       <Container>
-        <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} />
+        <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} />
 
         {loading ? (
             <LoadingState>Procesando datos...</LoadingState>
@@ -560,7 +584,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                                 isWalkover={isWalkover} 
                                 setIsWalkover={handleToggleWalkover} 
                                 woWinnerId={woWinnerId} 
-                                setWoWinnerId={setWoWinnerId} 
+                                doubleWalkoverId={DOUBLE_WALKOVER_ID}
                                 match={match} 
                                 handleWalkoverSelect={handleWalkoverSelect} 
                                 selectedReferee={selectedReferee} setSelectedReferee={setSelectedReferee} referees={referees} matchDate={matchDate} setMatchDate={setMatchDate} matchTime={matchTime} setMatchTime={setMatchTime} manualObservations={manualObservations} setManualObservations={setManualObservations} 
@@ -572,6 +596,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                             <RosterTab
                               roster={rosterLocal}
                               teamKey="local"
+                              teamName={match?.local?.name || "Local"}
                               players={localPlayers}
                               isWalkover={isWalkover}
                               minPlayers={minPlayers}
@@ -586,6 +611,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                              <RosterTab
                                roster={rosterVisit}
                                teamKey="visit"
+                               teamName={match?.visitante?.name || "Visitante"}
                                players={visitPlayers}
                                isWalkover={isWalkover}
                                minPlayers={minPlayers}
@@ -611,7 +637,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       </Container>
 
       {showConfirm && (
-         <ConfirmResultOverlay match={match} isWalkover={isWalkover} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
+         <ConfirmResultOverlay match={match} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
       )}
 
       <ToastContainerFix>

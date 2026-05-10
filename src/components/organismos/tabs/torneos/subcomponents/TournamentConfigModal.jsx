@@ -118,6 +118,7 @@ export function TournamentConfigModal({
             descensos: parseInt(editedConfig.descensos) || 0,
             clasificados: parseInt(editedConfig.clasificados) || 8,
             repechajeTeams: parseInt(editedConfig.repechajeTeams) || 0,
+            hasRepechaje: editedConfig.hasRepechaje || (parseInt(editedConfig.repechajeTeams) || 0) > 0,
 
             vueltas: String(editedConfig.vueltas || "1"),
             zonaLiguilla: !!editedConfig.zonaLiguilla,

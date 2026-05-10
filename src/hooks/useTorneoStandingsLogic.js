@@ -36,6 +36,14 @@ const findRepositionMatchMapping = (matchId, repositionMatchMappings = []) => {
   ) || null;
 };
 
+const isDoubleWalkoverMatch = (match) => {
+  const observations = String(match?.observations || '');
+  return (
+    /doble\s*w\.?o\.?/i.test(observations) ||
+    /ambos\s+pierden\s+por\s+default/i.test(observations)
+  );
+};
+
 const getOfficialJornadaNumberFromMapping = (mapping, jornadas = []) => {
   if (!mapping) return 0;
 
@@ -326,6 +334,16 @@ export const useTorneoStandingsLogic = ({
         const hasValidResult = !isNaN(golesLocal) && !isNaN(golesVisitante);
 
         if (!hasValidResult) return;
+
+        if (isDoubleWalkoverMatch(partido)) {
+          local.pj += 1;
+          visitante.pj += 1;
+          local.p += 1;
+          visitante.p += 1;
+          local.gc += 3;
+          visitante.gc += 3;
+          return;
+        }
 
         local.pj += 1; visitante.pj += 1;
         local.gf += golesLocal; visitante.gf += golesVisitante;
