@@ -192,6 +192,7 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
     const hasSelectedPlayer = Boolean(slot.playerId);
     const [animateSelect, setAnimateSelect] = useState(false);
+    const [ownGoalsOpen, setOwnGoalsOpen] = useState(() => Boolean(parseInt(slot.ownGoals, 10)));
 
     useEffect(() => {
         if (!slot?.idTemp) return;
@@ -199,6 +200,18 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
         const timer = setTimeout(() => setAnimateSelect(false), 260);
         return () => clearTimeout(timer);
     }, [slot.playerId, slot.idTemp]);
+
+    const handleOwnGoalsToggle = () => {
+        if (isWalkover) return;
+
+        if (ownGoalsOpen) {
+            onUpdate(team, idx, 'ownGoals', 0);
+            setOwnGoalsOpen(false);
+            return;
+        }
+
+        setOwnGoalsOpen(true);
+    };
 
     return (
         <RowContainer>
@@ -235,11 +248,22 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
                 </div>
 
                 <div className="stat-number own-goals">
-                    <span className="stat-chip">AG</span>
-                    <InputNumber
-                        value={isWalkover ? 0 : (slot.ownGoals || 0)}
-                        onChange={(e) => onUpdate(team, idx, 'ownGoals', e.target.value)}
-                    />
+                    <button
+                        type="button"
+                        className="own-goals-toggle"
+                        onClick={handleOwnGoalsToggle}
+                        disabled={isWalkover}
+                        aria-pressed={ownGoalsOpen}
+                        title={ownGoalsOpen ? "Ocultar autogoles y limpiar valor" : "Registrar autogol"}
+                    >
+                        AG
+                    </button>
+                    {ownGoalsOpen && (
+                        <InputNumber
+                            value={isWalkover ? 0 : (slot.ownGoals || 0)}
+                            onChange={(e) => onUpdate(team, idx, 'ownGoals', e.target.value)}
+                        />
+                    )}
                 </div>
 
                 <div className="cards-wrapper">
@@ -265,7 +289,7 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
     );
 });
 
-export const RosterTab = ({ roster, teamKey, players, isWalkover, minPlayers, onUpdate, onAutoFillStarters, onClearRoster }) => {
+export const RosterTab = ({ roster, teamKey, teamName, players, isWalkover, minPlayers, onUpdate, onAutoFillStarters, onClearRoster }) => {
     const hasEmptyStarters = roster.some(slot => slot.isStarter && !slot.playerId);
     const hasSelectedPlayers = roster.some(slot => slot.playerId);
 
@@ -273,6 +297,7 @@ export const RosterTab = ({ roster, teamKey, players, isWalkover, minPlayers, on
         <RosterGrid>
             <SectionHeader>
                 <div className="section-copy">
+                    <div className="team-name">{teamName}</div>
                     <div className="section-title"><RiUserStarFill /> Titulares (Minimo {minPlayers})</div>
                     <div className="section-hint">Completa espacios vacios usando a los jugadores con mas asistencias a partidos.</div>
                 </div>
@@ -350,6 +375,16 @@ const RosterGrid = styled.div`
             opacity: 0.7;
             margin-top: 10px;
         }
+    }
+
+    .team-name {
+        color: ${({theme}) => theme.text};
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .section-hint {
@@ -507,20 +542,21 @@ const selectPulse = keyframes`
 
 const PlayerSelectShell = styled.div`
     display: flex;
-    align-items: flex-start;
-    gap: 6px;
+    align-items: center;
     width: 100%;
     padding: 4px;
     border-radius: 14px;
-    background: ${({theme, $selected}) => $selected ? `${v.colorPrincipal}10` : 'transparent'};
-    border: 1px solid ${({theme, $selected}) => $selected ? `${v.colorPrincipal}22` : 'transparent'};
+    background: ${({$selected}) => $selected ? `${v.colorPrincipal}10` : 'transparent'};
+    border: 1px solid ${({$selected}) => $selected ? `${v.colorPrincipal}22` : 'transparent'};
     transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+    position: relative;
     ${({$animate}) => $animate && css`
         animation: ${selectPulse} 0.26s ease-out;
     `}
 
     input {
         flex: 1;
+        padding-right: 54px;
     }
 `;
 
@@ -587,7 +623,7 @@ const OptionButton = styled.button`
     text-align: left;
     padding: 10px 12px;
     border-radius: 10px;
-    background: ${({theme, $selected}) => $selected ? `${v.colorPrincipal}18` : 'transparent'};
+    background: ${({$selected}) => $selected ? `${v.colorPrincipal}18` : 'transparent'};
     color: ${({theme}) => theme.text};
     cursor: ${({disabled}) => disabled ? 'not-allowed' : 'pointer'};
     opacity: ${({disabled}) => disabled ? 0.45 : 1};
@@ -619,9 +655,9 @@ const EmptyOptionsMessage = styled.div`
 `;
 
 const ClearPlayerButton = styled.button`
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
     border: 1px solid ${({theme, $visible}) => $visible ? `${v.colorError}45` : theme.bg4};
     border-radius: 12px;
     background: ${({theme, $visible}) => $visible
@@ -634,9 +670,13 @@ const ClearPlayerButton = styled.button`
     cursor: ${({$visible}) => $visible ? 'pointer' : 'default'};
     opacity: ${({$visible}) => $visible ? 1 : 0};
     pointer-events: ${({$visible}) => $visible ? 'auto' : 'none'};
-    transform: ${({$visible}) => $visible ? 'translateX(0) scale(1)' : 'translateX(8px) scale(0.82)'};
+    transform: ${({$visible}) => $visible ? 'translateY(-50%) scale(1)' : 'translateY(-50%) scale(0.82)'};
     box-shadow: ${({$visible}) => $visible ? `0 8px 18px ${v.colorError}18` : 'none'};
     transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease, opacity 0.22s ease;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    z-index: 2;
     ${({$visible}) => $visible && css`
         animation: ${clearButtonIn} 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.18);
     `}
@@ -649,12 +689,12 @@ const ClearPlayerButton = styled.button`
         background: ${v.colorError};
         color: white;
         border-color: ${v.colorError};
-        transform: translateY(-1px) scale(1.04);
+        transform: translateY(-50%) scale(1.04);
         box-shadow: 0 12px 22px ${v.colorError}30;
     }
 
     &:active:not(:disabled) {
-        transform: scale(0.94);
+        transform: translateY(-50%) scale(0.94);
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -666,7 +706,8 @@ const RowContainer = styled.div`
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
+    column-gap: 28px;
+    row-gap: 8px;
     padding: 8px 10px;
     background: ${({theme}) => theme.bgtotal};
     border-radius: 8px;
@@ -674,15 +715,19 @@ const RowContainer = styled.div`
 
     .player-select {
         min-width: 0;
+        position: relative;
+        z-index: 2;
     }
 
     .stats-actions {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         width: 270px;
         justify-content: flex-end;
         flex-shrink: 0;
+        position: relative;
+        z-index: 1;
     }
 
     .stat-number {
@@ -712,6 +757,37 @@ const RowContainer = styled.div`
 
     .stat-number.own-goals .stat-chip {
         background: linear-gradient(135deg, #f97316, #ef4444);
+    }
+
+    .own-goals-toggle {
+        min-width: 38px;
+        height: 38px;
+        padding: 0 10px;
+        border: 1px solid ${({theme}) => theme.bg4};
+        border-radius: 10px;
+        background: ${({theme}) => theme.bg3};
+        color: ${({theme}) => theme.text};
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: 900;
+        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .own-goals-toggle[aria-pressed="true"] {
+        background: linear-gradient(135deg, #f97316, #ef4444);
+        border-color: #f97316;
+        color: white;
+        box-shadow: 0 8px 16px rgba(249, 115, 22, 0.2);
+    }
+
+    .own-goals-toggle:hover:not(:disabled) {
+        transform: translateY(-1px);
+        border-color: #f97316;
+    }
+
+    .own-goals-toggle:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
     }
 
     .stat-number > div {

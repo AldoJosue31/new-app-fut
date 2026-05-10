@@ -596,6 +596,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                             <RosterTab
                               roster={rosterLocal}
                               teamKey="local"
+                              teamName={match?.local?.name || "Local"}
                               players={localPlayers}
                               isWalkover={isWalkover}
                               minPlayers={minPlayers}
@@ -610,6 +611,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                              <RosterTab
                                roster={rosterVisit}
                                teamKey="visit"
+                               teamName={match?.visitante?.name || "Visitante"}
                                players={visitPlayers}
                                isWalkover={isWalkover}
                                minPlayers={minPlayers}
