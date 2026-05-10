@@ -69,9 +69,11 @@ export const useTorneosLogic = () => {
     const savedRules = localStorage.getItem("torneo_reglas_draft");
     if (savedRules) {
         const parsed = JSON.parse(savedRules);
+        const parsedRepechajeTeams = parseInt(parsed.repechajeTeams, 10) || 0;
         return {
             ...defaultForm,
             ...parsed,
+            hasRepechaje: parsed.hasRepechaje ?? parsedRepechajeTeams > 0,
             season: "", 
             startDate: today
         };
@@ -135,7 +137,7 @@ export const useTorneosLogic = () => {
             lossPoints: torneo.config?.lossPoints ?? 0,
             zonaLiguilla: torneo.config?.zonaLiguilla || false,
             clasificados: torneo.config?.clasificados || 4,
-            hasRepechaje: torneo.config?.hasRepechaje || false,
+            hasRepechaje: torneo.config?.hasRepechaje ?? (parseInt(torneo.config?.repechajeTeams, 10) || 0) > 0,
             repechajeTeams: torneo.config?.repechajeTeams || 0,
             ascensos: torneo.config?.ascensos || 0, 
             descensos: torneo.config?.descensos || 0
@@ -304,8 +306,8 @@ export const useTorneosLogic = () => {
           lossPoints: form.lossPoints,
           zonaLiguilla: form.zonaLiguilla,
           clasificados: form.clasificados,
-          hasRepechaje: form.hasRepechaje,
-          repechajeTeams: form.repechajeTeams,
+          hasRepechaje: form.hasRepechaje || (parseInt(form.repechajeTeams, 10) || 0) > 0,
+          repechajeTeams: parseInt(form.repechajeTeams, 10) || 0,
           ascensos: form.ascensos,
           descensos: form.descensos,
           ...reglas 

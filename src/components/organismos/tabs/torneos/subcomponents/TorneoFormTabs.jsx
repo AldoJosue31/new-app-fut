@@ -12,7 +12,7 @@ export const INITIAL_TOURNAMENT_CONFIG = {
     // Scoring
     winPoints: 3, drawPoints: 1, lossPoints: 0, tieBreakType: "normal", // <-- REGRESADO A NORMAL
     // Format
-    vueltas: "1", ascensos: 0, descensos: 0, zonaLiguilla: false, clasificados: 8, repechajeTeams: 0,
+    vueltas: "1", ascensos: 0, descensos: 0, zonaLiguilla: false, clasificados: 8, hasRepechaje: false, repechajeTeams: 0,
     // Rules
     horaInicio: "08:00", horaFin: "22:00", minutosPorTiempo: 45, minutosDescanso: 15, cambios: "Ilimitados", observaciones: ""
 };
@@ -110,6 +110,21 @@ export const TabFormat = ({ form, onChange, vueltasDisabled }) => {
   const currentClas = parseInt(form.clasificados) || 0;
   const currentRep = parseInt(form.repechajeTeams) || 0;
 
+  const handlePlayoffsToggle = (e) => {
+      onChange(e);
+      if (!e.target.checked) {
+          onChange({ target: { name: 'hasRepechaje', value: false } });
+          onChange({ target: { name: 'repechajeTeams', value: 0 } });
+      }
+  };
+
+  const handleRepechajeChange = (e) => {
+      const nextValue = e?.target?.value;
+      const nextNumber = parseInt(nextValue, 10) || 0;
+      onChange(e);
+      onChange({ target: { name: 'hasRepechaje', value: nextNumber > 0 } });
+  };
+
   return (
     <TabContainer>
       <InputWithTooltip label="Modalidad de Juego" warning={vueltasDisabled ? "Gestionado por el sistema" : null}>
@@ -125,11 +140,11 @@ export const TabFormat = ({ form, onChange, vueltasDisabled }) => {
         </Row2>
       </ControlBox>
       <ControlBox $isActive={form.zonaLiguilla}>
-        <div className="header-control"><div className="checkbox-wrapper"><input type="checkbox" id="zonaLiguilla" name="zonaLiguilla" checked={!!form.zonaLiguilla} onChange={onChange} /><label htmlFor="zonaLiguilla">Fase Final (Playoffs)</label></div></div>
+        <div className="header-control"><div className="checkbox-wrapper"><input type="checkbox" id="zonaLiguilla" name="zonaLiguilla" checked={!!form.zonaLiguilla} onChange={handlePlayoffsToggle} /><label htmlFor="zonaLiguilla">Fase Final (Playoffs)</label></div></div>
         {form.zonaLiguilla && (
           <Row2>
             <InputWithTooltip label="Clasificados Directos"><InputNumber name="clasificados" value={currentClas} onChange={onChange} min={2} max={maxTeams} /></InputWithTooltip>
-            <InputWithTooltip label="Equipos Repechaje"><InputNumber name="repechajeTeams" value={currentRep} onChange={onChange} max={maxTeams} /></InputWithTooltip>
+            <InputWithTooltip label="Equipos Repechaje"><InputNumber name="repechajeTeams" value={currentRep} onChange={handleRepechajeChange} max={maxTeams} /></InputWithTooltip>
           </Row2>
         )}
       </ControlBox>
