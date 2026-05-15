@@ -44,6 +44,13 @@ const isDoubleWalkoverMatch = (match) => {
   );
 };
 
+const FINISHED_STATUSES = ['finalizado', 'completado', 'jugado', 'terminado'];
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
 const getOfficialJornadaNumberFromMapping = (mapping, jornadas = []) => {
   if (!mapping) return 0;
 
@@ -264,7 +271,7 @@ export const useTorneoStandingsLogic = ({
 
           matches.forEach(m => {
             const st = String(m.status || '').trim().toLowerCase();
-            if (!['finalizado', 'completado', 'jugado', 'terminado'].includes(st)) {
+            if (!FINISHED_STATUSES.includes(st)) {
               allFinished = false;
             }
 
@@ -322,7 +329,7 @@ export const useTorneoStandingsLogic = ({
            return; 
         }
 
-        if (!['finalizado', 'completado', 'jugado', 'terminado'].includes(statusLower)) return;
+        if (!FINISHED_STATUSES.includes(statusLower)) return;
         if (!localId || !visitanteId) return;
 
         const local = statsMap[localId];
@@ -398,6 +405,110 @@ export const useTorneoStandingsLogic = ({
       });
     };
 
+    const countRemainingMatchesByTeam = (limitJornada) => {
+      const remainingByTeam = {};
+      uniqueEquipos.forEach(eq => {
+        remainingByTeam[String(eq.id)] = 0;
+      });
+
+      relevantMatches.forEach(partido => {
+        const localId = partido.team1_id;
+        const visitanteId = partido.team2_id;
+        if (localId == null || visitanteId == null) return;
+
+        const jNum = getOfficialJornadaNumberForMatch(
+          partido,
+          mergedJornadas,
+          repositionMappings,
+          repositionMatchMappings
+        );
+        if (jNum <= 0) return;
+
+        const statusLower = String(partido.status || '').trim().toLowerCase();
+        const isUnplayedAtSnapshot = jNum > limitJornada || !FINISHED_STATUSES.includes(statusLower);
+        if (!isUnplayedAtSnapshot) return;
+
+        const localKey = String(localId);
+        const visitanteKey = String(visitanteId);
+        if (remainingByTeam[localKey] !== undefined) remainingByTeam[localKey] += 1;
+        if (remainingByTeam[visitanteKey] !== undefined) remainingByTeam[visitanteKey] += 1;
+      });
+
+      return remainingByTeam;
+    };
+
+    const getClinchedStatusesByTeam = (standings, limitJornada) => {
+      if (!standings.length) return {};
+
+      const totalTeams = standings.length;
+      const remainingByTeam = countRemainingMatchesByTeam(limitJornada);
+      const possibleOutcomePoints = [
+        toFiniteNumber(config.winPoints),
+        toFiniteNumber(config.drawPoints),
+        toFiniteNumber(config.lossPoints)
+      ];
+      const maxPointsPerMatch = Math.max(...possibleOutcomePoints);
+      const minPointsPerMatch = Math.min(...possibleOutcomePoints);
+
+      const projections = standings.map(team => {
+        const remaining = remainingByTeam[String(team.id)] || 0;
+        return {
+          id: String(team.id),
+          minPts: team.pts + (remaining * minPointsPerMatch),
+          maxPts: team.pts + (remaining * maxPointsPerMatch)
+        };
+      });
+
+      const clinchesTopLimit = (teamProjection, limit) => {
+        if (!limit || limit <= 0 || limit > totalTeams) return false;
+        const teamsThatCouldPass = projections.filter(other => (
+          other.id !== teamProjection.id && other.maxPts >= teamProjection.minPts
+        )).length;
+        return teamsThatCouldPass < limit;
+      };
+
+      const clinchesBottomLimit = (teamProjection, bottomCount) => {
+        if (!bottomCount || bottomCount <= 0 || bottomCount >= totalTeams) return false;
+        const safePlaces = totalTeams - bottomCount;
+        const teamsAlreadyUnreachable = projections.filter(other => (
+          other.id !== teamProjection.id && other.minPts > teamProjection.maxPts
+        )).length;
+        return teamsAlreadyUnreachable >= safePlaces;
+      };
+
+      return projections.reduce((acc, teamProjection) => {
+        const statuses = [];
+        const ascensosLimit = Math.min(config.ascensos || 0, totalTeams);
+        const liguillaLimit = Math.min(config.clasificados || 0, totalTeams);
+        const repechajeLimit = Math.min(
+          Math.max(config.clasificados || 0, config.ascensos || 0) + (config.repechaje || 0),
+          totalTeams
+        );
+
+        if (ascensosLimit > 0 && clinchesTopLimit(teamProjection, ascensosLimit)) {
+          statuses.push({ key: 'ascenso', label: 'Ascenso', color: '#22c55e' });
+        }
+
+        if (config.zonaLiguilla && liguillaLimit > 0 && clinchesTopLimit(teamProjection, liguillaLimit)) {
+          statuses.push({ key: 'liguilla', label: 'Liguilla', color: '#3b82f6' });
+        } else if (
+          config.zonaLiguilla &&
+          config.repechaje > 0 &&
+          repechajeLimit > 0 &&
+          clinchesTopLimit(teamProjection, repechajeLimit)
+        ) {
+          statuses.push({ key: 'repechaje', label: 'Repechaje', color: '#f59e0b' });
+        }
+
+        if (config.descensos > 0 && clinchesBottomLimit(teamProjection, config.descensos)) {
+          statuses.push({ key: 'descenso', label: 'Descenso', color: '#ef4444' });
+        }
+
+        acc[teamProjection.id] = statuses;
+        return acc;
+      }, {});
+    };
+
     let limitCurrent = selectedJornadaView === 'recent' ? effectiveJornada : parseInt(selectedJornadaView, 10);
     const prevLimit = limitCurrent - 1;
 
@@ -406,6 +517,7 @@ export const useTorneoStandingsLogic = ({
     prevTable.forEach((eq, index) => { prevRanks[eq.id] = index + 1; });
 
     const currentTable = buildTableUpTo(limitCurrent);
+    const clinchedStatusesByTeam = getClinchedStatusesByTeam(currentTable, limitCurrent);
 
     return currentTable.map((eq, index) => {
       const currentRank = index + 1;
@@ -418,7 +530,12 @@ export const useTorneoStandingsLogic = ({
         else if (prevRank < currentRank) { tendencia = 'down'; posDiff = currentRank - prevRank; }
       }
 
-      return { ...eq, tendencia, posDiff };
+      return {
+        ...eq,
+        tendencia,
+        posDiff,
+        clinchedStatuses: clinchedStatusesByTeam[String(eq.id)] || []
+      };
     });
 
   }, [uniqueEquipos, selectedJornadaView, effectiveJornada, relevantMatches, config, mergedJornadas, repositionMappings, repositionMatchMappings]);
