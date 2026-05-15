@@ -149,7 +149,18 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                               )}
                           </div>
                           
-                          <span className="team-name" title={fila.nombre}>{fila.nombre}</span>
+                          <TeamTextBlock>
+                            <span className="team-name" title={fila.nombre}>{fila.nombre}</span>
+                            {Array.isArray(fila.clinchedStatuses) && fila.clinchedStatuses.length > 0 && (
+                              <ClinchedStatusList aria-label="Puestos asegurados">
+                                {fila.clinchedStatuses.map((status) => (
+                                  <ClinchedStatus key={status.key} $color={status.color}>
+                                    {status.label}
+                                  </ClinchedStatus>
+                                ))}
+                              </ClinchedStatusList>
+                            )}
+                          </TeamTextBlock>
                         </TeamNameCell>
                       </Td>
 
@@ -534,12 +545,6 @@ const TeamNameCell = styled.div`
     svg { width: 100%; height: 100%; }
   }
   
-  .team-name { 
-    font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; 
-    @media (min-width: 400px) { max-width: 140px; } 
-    @media ${Device.tablet} { font-size: 0.95rem; max-width: 300px; } 
-  }
-
   @media (max-width: 768px) {
     gap: 5px;
     width: 100%;
@@ -572,13 +577,65 @@ const TeamNameCell = styled.div`
       width: 18px;
       height: 18px;
     }
+  }
+`;
+
+const TeamTextBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+
+  .team-name {
+    font-weight: 700;
+    font-size: 0.85rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+  }
+
+  @media (min-width: 400px) {
+    .team-name { max-width: 140px; }
+  }
+
+  @media ${Device.tablet} {
+    .team-name {
+      font-size: 0.95rem;
+      max-width: 300px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    flex: 1 1 auto;
 
     .team-name {
       font-size: 0.76rem;
-      flex: 1 1 auto;
-      min-width: 0;
-      max-width: none;
+      max-width: 100%;
     }
+  }
+`;
+
+const ClinchedStatusList = styled.span`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 100%;
+  margin-top: 2px;
+`;
+
+const ClinchedStatus = styled.span`
+  color: ${({ $color }) => $color};
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+
+  @media ${Device.tablet} {
+    font-size: 0.65rem;
   }
 `;
 

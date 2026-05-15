@@ -299,7 +299,7 @@ export const RosterTab = ({ roster, teamKey, teamName, players, isWalkover, minP
                 <div className="section-copy">
                     <div className="team-name">{teamName}</div>
                     <div className="section-title"><RiUserStarFill /> Titulares (Minimo {minPlayers})</div>
-                    <div className="section-hint">Completa espacios vacios usando a los jugadores con mas asistencias a partidos.</div>
+                     <div className="section-hint">Completa espacios vacios usando a los jugadores con mas asistencias a partidos.</div>
                 </div>
                 <HeaderActions>
                     <AutoFillButton
