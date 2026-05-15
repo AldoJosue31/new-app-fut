@@ -46,7 +46,8 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const rowScale = Math.min(maxScale, teamsThreshold / totalEquipos);
 
     // --- CONFIGURACIÓN DE TAMAÑOS ---
-    const logoSize = isMobile ? '220px' : '170px'; 
+    const logoSize = isMobile ? '260px' : '210px'; 
+    const leagueLogoSize = isMobile ? '120%' : '125%';
     const hasLogo = !!metaInfo?.leagueLogo;
     const hideGFGC = isMobile; // Oculta GF/GC solo en historias para dar más aire
 
@@ -178,8 +179,8 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 boxSizing: 'border-box'
             }}>
                 {hasLogo && (
-                    <div style={{ width: logoSize, height: logoSize, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                        <img src={metaInfo.leagueLogo} alt="Logo Liga" crossOrigin="anonymous" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: isDark ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.6))' : 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }} />
+                    <div style={{ width: logoSize, height: logoSize, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible' }}>
+                        <img src={metaInfo.leagueLogo} alt="Logo Liga" crossOrigin="anonymous" style={{ width: leagueLogoSize, height: leagueLogoSize, objectFit: 'contain', objectPosition: 'center', filter: isDark ? 'drop-shadow(0 4px 6px rgba(0,0,0,0.6))' : 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }} />
                     </div>
                 )}
 
@@ -188,14 +189,15 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                         <span style={{ fontSize: fBadge, fontWeight: '800', backgroundColor: colors.primary + '20', color: colors.primary, padding: '6px 16px', borderRadius: '30px', textTransform: 'uppercase', letterSpacing: '1px' }}>
                             {metaInfo?.league || 'Liga'}
                         </span>
-                        <span style={{ fontSize: fBadge, fontWeight: '800', backgroundColor: colors.border, color: colors.text, padding: '6px 16px', borderRadius: '30px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            {metaInfo?.division || 'División'}
-                        </span>
                     </div>
 
                     <h1 style={{ fontSize: fTitle, fontWeight: '900', textTransform: 'uppercase', margin: '0 0 10px 0', color: colors.text, lineHeight: '1.1' }}>
                         {torneo?.name || 'Tabla General'}
                     </h1>
+
+                    <p style={{ fontSize: fSub, color: colors.text, margin: '0 0 8px 0', fontWeight: '800' }}>
+                        {metaInfo?.division || 'División'}
+                    </p>
                     
                     <p style={{ fontSize: fSub, color: colors.subtext, margin: 0, fontWeight: '700' }}>
                         Clasificación Oficial 
