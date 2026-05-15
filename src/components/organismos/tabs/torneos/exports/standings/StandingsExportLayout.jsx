@@ -61,6 +61,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const fTd = `${16 * rowScale}px`;
     const fPts = `${20 * rowScale}px`;
     const fTeam = `${18 * rowScale}px`;
+    const fClinched = `${11 * rowScale}px`;
     const cellPadding = `${8 * rowScale}px 6px`; // Padding Y pequeño, se estira con height: 100%
     
     const teamLogoSize = `${32 * rowScale}px`;
@@ -124,10 +125,31 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                                 <DynamicTeamLogo name={fila.nombre} color={fila.color || "#000000"} size="100%" />
                                             )}
                                         </div>
-                                        <span style={{ fontWeight: '800', fontSize: fTeam, color: colors.text, whiteSpace: 'nowrap' }}>
-                                            {/* Truncamos para prevenir empujes horizontales */}
-                                            {fila.nombre.length > (isMobile ? 24 : 32) ? fila.nombre.substring(0, isMobile ? 22 : 29) + '...' : fila.nombre}
-                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                                            <span style={{ fontWeight: '800', fontSize: fTeam, color: colors.text, whiteSpace: 'nowrap', lineHeight: '1.15' }}>
+                                                {/* Truncamos para prevenir empujes horizontales */}
+                                                {fila.nombre.length > (isMobile ? 24 : 32) ? fila.nombre.substring(0, isMobile ? 22 : 29) + '...' : fila.nombre}
+                                            </span>
+                                            {Array.isArray(fila.clinchedStatuses) && fila.clinchedStatuses.length > 0 && (
+                                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: `${4 * rowScale}px`, marginTop: `${2 * rowScale}px`, maxWidth: isMobile ? '260px' : '360px' }}>
+                                                    {fila.clinchedStatuses.map((status) => (
+                                                        <span
+                                                            key={status.key}
+                                                            style={{
+                                                                color: status.color,
+                                                                fontSize: fClinched,
+                                                                fontWeight: '900',
+                                                                lineHeight: '1',
+                                                                textTransform: 'uppercase',
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            {status.label}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </td>
                                 <td style={{ padding: cellPadding, fontSize: fTd, fontWeight: '700' }}>{fila.pj}</td>
