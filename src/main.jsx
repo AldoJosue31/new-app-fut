@@ -6,6 +6,12 @@ import { BrowserRouter } from 'react-router-dom'
 // Importa el ErrorBoundary
 import ErrorBoundary from './components/organismos/ErrorBoundary'
 
+const developmentTitleSuffix = ' (development)'
+
+if (import.meta.env.DEV && !document.title.endsWith(developmentTitleSuffix)) {
+  document.title = `${document.title}${developmentTitleSuffix}`
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     {/* El ErrorBoundary debe ser el padre supremo (o casi) */}
