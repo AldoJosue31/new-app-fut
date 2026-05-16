@@ -4,7 +4,44 @@ import { v } from "../../../../../index";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
 
+const DIVISION_COLORS = [
+    "#2563eb",
+    "#dc2626",
+    "#16a34a",
+    "#f59e0b",
+    "#7c3aed",
+    "#0891b2",
+    "#db2777",
+    "#65a30d",
+    "#ea580c",
+    "#4f46e5",
+    "#0f766e",
+    "#be123c",
+];
+
+const normalizeDivisionName = (name) => name || "Otra";
+
 export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
+    const currentDivisionName = normalizeDivisionName(divisionActual || "Esta División");
+
+    const divisionColorMap = useMemo(() => {
+        const map = new Map();
+
+        const addDivisionColor = (divisionName) => {
+            const normalizedName = normalizeDivisionName(divisionName);
+            if (!map.has(normalizedName)) {
+                map.set(normalizedName, DIVISION_COLORS[map.size % DIVISION_COLORS.length]);
+            }
+        };
+
+        addDivisionColor(currentDivisionName);
+        externalMatches.forEach(m => {
+            addDivisionColor(m.division_name || m.divisionName || "Otra");
+        });
+
+        return map;
+    }, [currentDivisionName, externalMatches]);
+    
     
     // 1. Generar los 7 días de la semana
     const weekDays = useMemo(() => {
@@ -33,9 +70,11 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
         // Procesar partidos locales
         scheduledMatches.forEach(m => {
             if (m.date) {
+                const divisionName = currentDivisionName;
                 addToGroup(m.date, {
                     ...m,
-                    division: divisionActual,
+                    division: divisionName,
+                    divisionColor: divisionColorMap.get(divisionName) || DIVISION_COLORS[0],
                     isExternal: false,
                     isPreview: !isConfirmed 
                 });
@@ -47,13 +86,15 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
             // Aseguramos compatibilidad con ambas propiedades de fecha
             const dateKey = m.rawDate || m.date; 
             if (dateKey) {
+                const divisionName = normalizeDivisionName(m.division_name || m.divisionName || "Otra");
                 addToGroup(dateKey, {
                     id: m.id,
                     time: m.time,
                     local: { name: m.local_name || m.local },
                     visitante: { name: m.visitante_name || m.visitante },
                     // IMPORTANTE: Aseguramos que el nombre de la división llegue para el color
-                    division: m.division_name || m.divisionName || "Otra",
+                    division: divisionName,
+                    divisionColor: divisionColorMap.get(divisionName) || DIVISION_COLORS[0],
                     isExternal: true,
                     isPreview: false
                 });
@@ -66,7 +107,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
         });
 
         return groups;
-    }, [scheduledMatches, externalMatches, divisionActual, isConfirmed]);
+    }, [scheduledMatches, externalMatches, currentDivisionName, divisionColorMap, isConfirmed]);
 
     // Formateadores
     const formatMobileDay = (dateStr) => {
@@ -84,8 +125,12 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
     return (
         <Container>
             <Legend>
-               <div className="item"><span className="dot local"></span> {divisionActual || "Esta División"}</div>
-               {externalMatches.length > 0 && <div className="item"><span className="dot external"></span> Otras Divisiones</div>}
+               {Array.from(divisionColorMap.entries()).map(([divisionName, color]) => (
+                    <div className="item" key={divisionName}>
+                        <span className="dot" style={{ backgroundColor: color }}></span>
+                        {divisionName}
+                    </div>
+               ))}
             </Legend>
 
             <GridContainer>
@@ -103,7 +148,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                                             key={m.id || `temp-${idx}`} 
                                             $isExternal={m.isExternal}
                                             $isPreview={m.isPreview}
-                                            $divisionName={m.division} 
+                                            $divisionColor={m.divisionColor}
                                         >
                                             <div className="time-pill">{formatTimeTo12Hour(m.time)}</div>
                                             <div className="info">
@@ -145,14 +190,12 @@ const Container = styled.div`
 `;
 
 const Legend = styled.div`
-    display: flex; gap: 15px; font-size: 0.75rem; font-weight: 700; 
+    display: flex; flex-wrap: wrap; gap: 8px 15px; font-size: 0.75rem; font-weight: 700; 
     color: ${({theme})=>theme.text};
     flex-shrink: 0;
     padding-left: 5px; opacity: 0.8;
     .item { display: flex; align-items: center; gap: 5px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-    .local { background: ${v.colorPrincipal}; }
-    .external { background: ${({theme})=>theme.text}; opacity: 0.5; }
 `;
 
 const GridContainer = styled.div`
@@ -203,23 +246,17 @@ const MatchCard = styled.div`
     transition: all 0.3s ease;
 
     background: ${({theme, $isExternal})=> $isExternal ? theme.bg4 : theme.bg2};
-    border-left: 4px solid ${({ $isExternal }) => $isExternal ? 'transparent' : v.colorPrincipal};
+    border-left: 4px solid ${({ $divisionColor }) => $divisionColor || v.colorPrincipal};
 
     /* ESTILOS PREVIEW */
-    ${({ $isPreview, theme }) => $isPreview && css`
+    ${({ $isPreview, theme, $divisionColor }) => $isPreview && css`
         background: ${theme.bg4}; 
-        border-left: 4px solid #95a5a6;
         border: 1px dashed #7f8c8d;
+        border-left: 4px solid ${$divisionColor || "#95a5a6"};
         animation: ${pulseAnimation} 2s infinite ease-in-out;
         .time-pill { background: #bdc3c7 !important; color: #2c3e50 !important; }
         .div-tag.local { color: #7f8c8d !important; }
     `}
-
-    /* --- LÓGICA DE COLORES ORIGINAL RESTAURADA --- */
-    ${({ $isExternal, $divisionName }) => $isExternal && `
-        border-left-color: hsl(${($divisionName?.split('').reduce((a,c)=>a+c.charCodeAt(0),0) * 50) % 360}, 50%, 50%);
-    `}
-    /* --------------------------------------------- */
 
     .time-pill {
         font-weight: 800; font-size: 0.85rem; background: ${({theme})=>theme.bgtotal};
