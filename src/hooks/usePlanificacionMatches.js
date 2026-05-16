@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useLayoutEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from "react";
 import { addDaysToDate } from "../utils/dateUtils";
 import { getPartidosExternosRango } from "../services/torneos";
 import {
@@ -26,9 +26,10 @@ export const usePlanificacionMatches = (
   const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
 
   // --- LOGICA DE PARTIDOS EXTERNOS ---
-  const [showExternalMatches, setShowExternalMatches] = useState(false);
+  const [showExternalMatches, setShowExternalMatches] = useState(true);
   const [externalMatches, setExternalMatches] = useState([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
+  const externalMatchesRequestRef = useRef(0);
 
   const jornadaStatus = jornadaData?.status;
   const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
@@ -110,6 +111,8 @@ export const usePlanificacionMatches = (
       }
 
       const endDate = addDaysToDate(startDateToCheck, 7);
+      const requestId = externalMatchesRequestRef.current + 1;
+      externalMatchesRequestRef.current = requestId;
       
       setLoadingExternal(true);
       try {
@@ -119,13 +122,17 @@ export const usePlanificacionMatches = (
               activeTournament.id, 
               leagueId
           );
-          setExternalMatches(data);
+          if (requestId === externalMatchesRequestRef.current) {
+              setExternalMatches(data);
+          }
           return data;
       } catch (err) {
           console.error("Error fetching external matches:", err);
           return [];
       } finally {
-          setLoadingExternal(false);
+          if (requestId === externalMatchesRequestRef.current) {
+              setLoadingExternal(false);
+          }
       }
   }, [activeTournament]);
 
@@ -133,7 +140,9 @@ export const usePlanificacionMatches = (
     if (showExternalMatches && weekStartDate) {
         fetchExternalMatches(weekStartDate);
     } else if (!showExternalMatches) {
+        externalMatchesRequestRef.current += 1;
         setExternalMatches([]);
+        setLoadingExternal(false);
     }
   }, [showExternalMatches, weekStartDate, fetchExternalMatches]);
 
