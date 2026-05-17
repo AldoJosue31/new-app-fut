@@ -3,44 +3,19 @@ import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../index";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
-
-const DIVISION_COLORS = [
-    "#2563eb",
-    "#dc2626",
-    "#16a34a",
-    "#f59e0b",
-    "#7c3aed",
-    "#0891b2",
-    "#db2777",
-    "#65a30d",
-    "#ea580c",
-    "#4f46e5",
-    "#0f766e",
-    "#be123c",
-];
-
-const normalizeDivisionName = (name) => name || "Otra";
+import {
+    DIVISION_COLORS,
+    buildDivisionColorMap,
+    normalizeDivisionName,
+} from "../../../../../utils/divisionColors";
 
 export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
     const currentDivisionName = normalizeDivisionName(divisionActual || "Esta División");
 
-    const divisionColorMap = useMemo(() => {
-        const map = new Map();
-
-        const addDivisionColor = (divisionName) => {
-            const normalizedName = normalizeDivisionName(divisionName);
-            if (!map.has(normalizedName)) {
-                map.set(normalizedName, DIVISION_COLORS[map.size % DIVISION_COLORS.length]);
-            }
-        };
-
-        addDivisionColor(currentDivisionName);
-        externalMatches.forEach(m => {
-            addDivisionColor(m.division_name || m.divisionName || "Otra");
-        });
-
-        return map;
-    }, [currentDivisionName, externalMatches]);
+    const divisionColorMap = useMemo(() => buildDivisionColorMap([
+        currentDivisionName,
+        ...externalMatches.map(m => m.division_name || m.divisionName || "Otra"),
+    ]), [currentDivisionName, externalMatches]);
     
     
     // 1. Generar los 7 días de la semana

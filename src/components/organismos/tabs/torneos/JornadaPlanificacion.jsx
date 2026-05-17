@@ -7,6 +7,7 @@ import {
   RiCloseLine,
   RiEyeLine,
   RiEyeOffLine,
+  RiImageLine,
   RiTimeLine,
 } from "react-icons/ri";
 
@@ -14,7 +15,6 @@ import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatch
 import { addDaysToDate, formatDateWithWeekday } from "../../../../utils/dateUtils";
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import {
-  getJornadaReferenceNumber,
   isOfficialJornadaName,
   parseJornadaNumber,
   sortJornadas,
@@ -34,6 +34,7 @@ import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal";
 import { BatchPrintModal } from "./exports/match-sheets/BatchPrintModal";
+import ScheduleExportModal from "./exports/schedule/ScheduleExportModal";
 import { DaySeparatorDropZone } from "./planificacion/DaySeparatorDropZone";
 import { EmptyDropZone } from "./planificacion/EmptyDropZone";
 import { ConfirmModal } from "../../ConfirmModal";
@@ -113,6 +114,7 @@ export function JornadaPlanificacion({
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [batchPrintOpen, setBatchPrintOpen] = useState(false);
+  const [scheduleExportOpen, setScheduleExportOpen] = useState(false);
 
   const [repositionPlannerOpen, setRepositionPlannerOpen] = useState(false);
   const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
@@ -667,6 +669,10 @@ export function JornadaPlanificacion({
               : "Ver partidos de otras divisiones"}
             {loadingExternal && <span className="spinner">...</span>}
           </GhostButton>
+          <GhostButton onClick={() => setScheduleExportOpen(true)}>
+            <RiImageLine />
+            Exportar rol
+          </GhostButton>
           <span className="info-text">
             {showExternalMatches
               ? "Mostrando ocupación de canchas de TODAS las divisiones."
@@ -885,6 +891,19 @@ export function JornadaPlanificacion({
         isOpen={batchPrintOpen}
         onClose={() => setBatchPrintOpen(false)}
         matchesToPrint={matchesWithoutResult}
+      />
+
+      <ScheduleExportModal
+        isOpen={scheduleExportOpen}
+        onClose={() => setScheduleExportOpen(false)}
+        weekStartDate={planningReferenceStartDate}
+        scheduledMatches={scheduledMatches}
+        externalMatches={showExternalMatches ? externalMatches : []}
+        divisionActual={activeTournament?.division?.name || activeTournament?.divisions?.name}
+        torneo={activeTournament}
+        jornadaName={currentJornadaName}
+        includeExternal={showExternalMatches}
+        isConfirmed={isConfirmed}
       />
 
       <MatchResolutionModal

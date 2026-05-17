@@ -15,7 +15,8 @@ export const ExportPreviewHeader = ({
     activeFormatLabel = "Historia (9:16)",
     formatTitle = "Cambiar formato",
     exportLabel = "Descargar",
-    exportingLabel = "Exportando..."
+    exportingLabel = "Exportando...",
+    beforeFormatControls = null
 }) => {
     return (
         <HeaderContainer>
@@ -27,6 +28,8 @@ export const ExportPreviewHeader = ({
             </div>
 
             <div className="right-group">
+                {beforeFormatControls}
+
                 <FormatSwitch
                     $disabled={isExporting}
                     aria-label={formatTitle}

@@ -127,6 +127,8 @@ export const getPartidosExternosRango = async (
                 team1:teams!team1_id ( name, logo_url ),
                 team2:teams!team2_id ( name, logo_url ),
                 jornadas!inner (
+                    id,
+                    name,
                     tournament_id,
                     tournaments!inner (
                         status, 
@@ -179,6 +181,8 @@ export const getPartidosExternosRango = async (
       return {
         id: `ext-${m.id}`,
         original_id: m.id,
+        jornada_id: m.jornadas?.id,
+        jornada_name: m.jornadas?.name,
         rawDate: datePart,
         date: datePart,
         time: timePart,
