@@ -32,12 +32,21 @@ export function TorneosTemplate({
   ];
 
   const validTabIds = tabList.map(t => t.id);
-  const activeTab = validTabIds.includes(tab) ? tab : "definir";
+  const isValidTab = validTabIds.includes(tab);
+  const defaultTab = activeTournament ? "jornadas" : "definir";
+  const activeTab = isValidTab ? tab : defaultTab;
+  const isResolvingInitialTab = !isValidTab && isLoadingData;
   const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
 
   const handleTabChange = (newTabId) => {
     navigate(`/torneos/${newTabId}`);
   };
+
+  useLayoutEffect(() => {
+    if (isLoadingData || isValidTab) return;
+
+    navigate(`/torneos/${defaultTab}`, { replace: true });
+  }, [defaultTab, isLoadingData, isValidTab, navigate]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
 
@@ -98,6 +107,10 @@ export function TorneosTemplate({
       if (resizeObserver) resizeObserver.disconnect();
     };
   }, [activeTab]);
+
+  if (isResolvingInitialTab) {
+    return null;
+  }
 
   return (
     <>

@@ -10,10 +10,24 @@ import {
 import { Btnsave } from "../../../../../index"; 
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
-import { isOfficialJornadaName } from "../../../../../utils/jornadaUtils";
+import {
+    isOfficialJornadaName,
+    isRepositionJornadaName,
+} from "../../../../../utils/jornadaUtils";
 
 const ROUND_ANIMATION_MS = 220;
 const sortRoundIndexes = (indexes) => [...indexes].sort((a, b) => Number(a) - Number(b));
+
+const isRepositionRound = (roundMatches = [], roundTitle = "") =>
+    roundMatches.length > 0 &&
+    (
+        isRepositionJornadaName(roundTitle) ||
+        roundMatches.every(
+            (match) =>
+                match.roundType === "reposition" ||
+                isRepositionJornadaName(match.roundName)
+        )
+    );
 
 const clearRoundTimer = (timersRef, rIndex) => {
     if (timersRef.current[rIndex]) {
@@ -138,6 +152,24 @@ export function FixturePreviewModal({
         roundDefinitionMap[rIndex]?.title || `Jornada ${Number(rIndex) + 1}`;
     const confirmedRoundsCount = roundDefinitions.filter((round) => round.isLocked).length;
     const hasGeneratedRound = roundDefinitions.some((round) => round.isGenerated);
+    const blockingConflicts = useMemo(
+        () =>
+            Object.entries(conflicts).reduce((acc, [rIndex, roundConflicts]) => {
+                const roundMatches = matchesByRound[rIndex] || [];
+                const roundTitle =
+                    roundDefinitionMap[rIndex]?.title ||
+                    roundMatches[0]?.roundName ||
+                    "";
+
+                if (isRepositionRound(roundMatches, roundTitle)) {
+                    return acc;
+                }
+
+                acc[rIndex] = roundConflicts;
+                return acc;
+            }, {}),
+        [conflicts, matchesByRound, roundDefinitionMap]
+    );
     const pendingMatchesAvailable = useMemo(
         () =>
             Array.isArray(existingData?.pendingMatches) &&
@@ -168,7 +200,7 @@ export function FixturePreviewModal({
                 .map((round) => round.roundIndex),
         [roundDefinitions, isEditMode, showConfirmedRounds]
     );
-    const conflictCount = roundIndexes.filter((rIndex) => Boolean(conflicts[rIndex]?.length)).length;
+    const conflictCount = roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length)).length;
 
     useEffect(() => {
         if (!isOpen) {
@@ -357,7 +389,7 @@ export function FixturePreviewModal({
                                 // Detectar si la jornada está totalmente bloqueada (confirmada en BD)
                                 const roundMatches = matchesByRound[rIndex] || [];
                                 const roundIsLocked = isRoundLocked(rIndex);
-                                const hasConflict = !!conflicts[rIndex];
+                                const hasConflict = !!blockingConflicts[rIndex];
                                 const animationState = roundAnimationState[rIndex] || "idle";
                                 const roundOnlySwapsTeams = roundMatches.some(
                                     (match) => match.roundType === "extra"
@@ -388,9 +420,9 @@ export function FixturePreviewModal({
                                         
                                         <MatchesList>
                                             {roundMatches.map((match) => {
-                                                const isConflict = conflicts[rIndex] && (
-                                                    conflicts[rIndex].includes(match.local.id) || 
-                                                    conflicts[rIndex].includes(match.visitante.id)
+                                                const isConflict = blockingConflicts[rIndex] && (
+                                                    blockingConflicts[rIndex].includes(match.local.id) || 
+                                                    blockingConflicts[rIndex].includes(match.visitante.id)
                                                 );
                                                 return (
                                                     <FixtureMatchCard 
