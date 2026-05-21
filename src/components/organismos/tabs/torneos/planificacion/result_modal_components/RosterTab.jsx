@@ -2,8 +2,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { css, keyframes } from "styled-components";
-import { InputNumber, v } from "../../../../../../index";
-import { RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
+import { InputNumber, Tooltip, v } from "../../../../../../index";
+import { RiAlertFill, RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
 
 const normalizePlayerSearch = (value) =>
     String(value || "")
@@ -16,6 +16,8 @@ const getPlayerLabel = (player) =>
     `${player?.first_name || ''} ${player?.last_name || ''} ${player?.dorsal ? `(${player.dorsal})` : ''}`
         .replace(/\s+/g, " ")
         .trim();
+
+const toStatNumber = (value) => parseInt(value, 10) || 0;
 
 const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpdate }) => {
     const wrapperRef = useRef(null);
@@ -191,6 +193,7 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
 
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
     const hasSelectedPlayer = Boolean(slot.playerId);
+    const hasUnassignedGoals = !hasSelectedPlayer && !isWalkover && toStatNumber(slot.goals) > 0;
     const [animateSelect, setAnimateSelect] = useState(false);
     const [ownGoalsOpen, setOwnGoalsOpen] = useState(() => Boolean(parseInt(slot.ownGoals, 10)));
 
@@ -241,10 +244,21 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
             <div className="stats-actions">
                 <div className="stat-number goals">
                     <span className="stat-chip">G</span>
-                    <InputNumber
-                        value={isWalkover ? 0 : slot.goals}
-                        onChange={(e) => onUpdate(team, idx, 'goals', e.target.value)}
-                    />
+                    <GoalInputShell $warning={hasUnassignedGoals}>
+                        <InputNumber
+                            value={isWalkover ? 0 : slot.goals}
+                            onChange={(e) => onUpdate(team, idx, 'goals', e.target.value)}
+                        />
+                        {hasUnassignedGoals && (
+                            <WarningIconSlot>
+                                <Tooltip text="No se asignaran a jugador." position="top">
+                                    <UnassignedGoalWarning aria-label="Goles sin jugador asignado">
+                                        <RiAlertFill />
+                                    </UnassignedGoalWarning>
+                                </Tooltip>
+                            </WarningIconSlot>
+                        )}
+                    </GoalInputShell>
                 </div>
 
                 <div className="stat-number own-goals">
@@ -291,7 +305,13 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
 
 export const RosterTab = ({ roster, teamKey, teamName, players, isWalkover, minPlayers, onUpdate, onAutoFillStarters, onClearRoster }) => {
     const hasEmptyStarters = roster.some(slot => slot.isStarter && !slot.playerId);
-    const hasSelectedPlayers = roster.some(slot => slot.playerId);
+    const hasRosterData = roster.some(slot => (
+        slot.playerId ||
+        toStatNumber(slot.goals) > 0 ||
+        toStatNumber(slot.ownGoals) > 0 ||
+        slot.yellow ||
+        slot.red
+    ));
 
     return (
         <RosterGrid>
@@ -313,7 +333,7 @@ export const RosterTab = ({ roster, teamKey, teamName, players, isWalkover, minP
                     <ClearRosterButton
                         type="button"
                         onClick={() => onClearRoster?.(teamKey)}
-                        disabled={!onClearRoster || !hasSelectedPlayers}
+                        disabled={!onClearRoster || !hasRosterData}
                     >
                         <RiDeleteBinLine />
                         <span>Limpiar todos</span>
@@ -790,7 +810,8 @@ const RowContainer = styled.div`
         opacity: 0.55;
     }
 
-    .stat-number > div {
+    .stat-number > div:not(.goal-input-shell),
+    .goal-input-shell > div:first-child {
         width: 82px;
         height: 40px;
         background: ${({theme}) => theme.bgtotal};
@@ -809,7 +830,8 @@ const RowContainer = styled.div`
         padding-right: 22px;
     }
 
-    .stat-number > div > div {
+    .stat-number > div:not(.goal-input-shell) > div,
+    .goal-input-shell > div:first-child > div {
         width: 24px;
         border-left: 1px solid ${({theme}) => theme.bg4};
     }
@@ -843,7 +865,8 @@ const RowContainer = styled.div`
             gap: 6px;
         }
 
-        .stat-number > div {
+        .stat-number > div:not(.goal-input-shell),
+        .goal-input-shell {
             width: 78px;
         }
     }
@@ -866,7 +889,8 @@ const RowContainer = styled.div`
             flex: 1;
         }
 
-        .stat-number > div {
+        .stat-number > div:not(.goal-input-shell),
+        .goal-input-shell {
             width: 100%;
         }
 
@@ -900,6 +924,47 @@ const RowContainer = styled.div`
             grid-column: 1 / -1;
             justify-content: flex-end;
         }
+    }
+`;
+
+const GoalInputShell = styled.div.attrs({ className: "goal-input-shell" })`
+    position: relative;
+    width: 82px;
+    height: 40px;
+    flex-shrink: 0;
+
+    > div:first-child {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        ${({$warning}) => $warning && css`
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+        `}
+    }
+`;
+
+const WarningIconSlot = styled.span`
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    z-index: 4;
+    line-height: 1;
+`;
+
+const UnassignedGoalWarning = styled.span`
+    width: 19px;
+    height: 19px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: ${({theme}) => theme.bgtotal};
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.42);
+    box-shadow: 0 6px 14px rgba(245, 158, 11, 0.22);
+    cursor: help;
+
+    svg {
+        font-size: 0.95rem;
     }
 `;
 
