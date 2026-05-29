@@ -2,28 +2,50 @@ import React, { useState, useMemo, useEffect } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../../../styles/variables";
 import { 
-    RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine
+    RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
-import { Card, CardHeader, Btnsave, Modal, TabsNavigation, Toast, BtnNormal } from "../../../../index";
+import { Card, CardHeader, Btnsave, Modal, TabsNavigation, Toast } from "../../../../index";
 import { ConfirmModal } from "../../ConfirmModal";
 import { TorneoDashboard } from "./subcomponents/TorneoDashboard";
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
-import { eliminarTorneoService } from "../../../../services/torneos";
+import { PlayoffAdvanceModal } from "./subcomponents/PlayoffAdvanceModal";
+import {
+  bulkInsertMatchesService,
+  createJornadasService,
+  eliminarTorneoService,
+  getAllMatchesByTournament,
+  getJornadas,
+  getTournamentConfigService,
+  updateTournamentFieldsService,
+} from "../../../../services/torneos";
+import { addDaysToDate } from "../../../../utils/dateUtils";
+import {
+  buildNextPlayoffPreview,
+  buildPhaseJornadaNames,
+  getPendingPhaseCounts,
+  getPlayoffSettings,
+} from "../../../../utils/playoffUtils";
+import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandingsLogic";
 
 export function TorneoDefinicionTab({ 
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
-    allTeams, participatingIds, onInclude, onExclude, minPlayers,
+    allTeams, participatingIds, onInclude, onExclude,
     isLoading, reglas, setReglas, onTournamentReset, leagueData 
 }) {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false); 
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
+  const [showAdvanceWarningModal, setShowAdvanceWarningModal] = useState(false);
+  const [showPlayoffPreviewModal, setShowPlayoffPreviewModal] = useState(false);
+  const [playoffPreview, setPlayoffPreview] = useState(null);
+  const [advanceWarning, setAdvanceWarning] = useState({ pendingMatches: 0, pendingJornadas: 0 });
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [isAdvancingPhase, setIsAdvancingPhase] = useState(false);
 
   const [configTab, setConfigTab] = useState("general"); 
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
@@ -170,11 +192,206 @@ export function TorneoDefinicionTab({
               setIsExiting(false);
               setIsDeleting(false);
           }, 600);
-      } catch (error) {
+      } catch {
           showToast("Error al finalizar el torneo. Revisa la consola.", "error");
           setIsDeleting(false);
       }
   };
+
+  const getActiveTournamentConfig = async () => {
+      const currentConfig = await getTournamentConfigService(activeTournament.id);
+      let baseConfig = {};
+      try {
+          baseConfig = typeof activeTournament?.config === "string"
+              ? JSON.parse(activeTournament.config)
+              : activeTournament?.config || {};
+      } catch {
+          baseConfig = {};
+      }
+      return {
+          ...baseConfig,
+          ...currentConfig,
+      };
+  };
+
+  const preparePlayoffPreview = async ({ ignorePending = false } = {}) => {
+      if (!activeTournament?.id) return;
+
+      setIsAdvancingPhase(true);
+      try {
+          const [freshConfig, jornadas, matches] = await Promise.all([
+              getActiveTournamentConfig(),
+              getJornadas(activeTournament.id),
+              getAllMatchesByTournament(activeTournament.id),
+          ]);
+
+          if (!freshConfig.zonaLiguilla) {
+              showToast("La fase final no esta habilitada en Formato.", "warning");
+              return;
+          }
+
+          const currentPhaseKey = freshConfig.playoffState?.currentPhaseKey || null;
+          const pending = getPendingPhaseCounts({
+              phaseKey: currentPhaseKey,
+              matches,
+              jornadas,
+          });
+
+          if (!ignorePending && (pending.pendingMatches > 0 || pending.pendingJornadas > 0)) {
+              setAdvanceWarning(pending);
+              setShowAdvanceWarningModal(true);
+              return;
+          }
+
+          const preview = buildNextPlayoffPreview({
+              torneo: activeTournament,
+              teams: participatingTeams,
+              matches,
+              jornadas,
+              config: freshConfig,
+              selectedJornadaView: activeTournament?.id && typeof window !== "undefined"
+                  ? localStorage.getItem(getStandingsViewStorageKey(activeTournament.id)) || "recent"
+                  : "recent",
+          });
+
+          if (preview.error) {
+              showToast(preview.error, "error");
+              return;
+          }
+
+          if (preview.complete) {
+              showToast(`Torneo completado. Campeon: ${preview.champion?.name || "por definir"}.`, "success");
+              return;
+          }
+
+          if (!preview.pairs?.length) {
+              showToast("No hay suficientes equipos para crear la siguiente fase.", "warning");
+              return;
+          }
+
+          setPlayoffPreview(preview);
+          setShowPlayoffPreviewModal(true);
+      } catch (error) {
+          console.error(error);
+          showToast("No se pudo preparar la fase final: " + error.message, "error");
+      } finally {
+          setIsAdvancingPhase(false);
+      }
+  };
+
+  const handleConfirmAdvanceWarning = async () => {
+      setShowAdvanceWarningModal(false);
+      await preparePlayoffPreview({ ignorePending: true });
+  };
+
+  const handleConfirmPlayoffAdvance = async (confirmedPreview) => {
+      if (!activeTournament?.id || !confirmedPreview) return;
+
+      setIsAdvancingPhase(true);
+      try {
+          const currentConfig = await getActiveTournamentConfig();
+          const jornadas = await getJornadas(activeTournament.id);
+          const lastJornada = jornadas[jornadas.length - 1] || null;
+          const nextStartDate = lastJornada?.end_date
+              ? addDaysToDate(lastJornada.end_date, 1)
+              : lastJornada?.start_date
+                ? addDaysToDate(lastJornada.start_date, 7)
+                : activeTournament?.start_date || null;
+
+          const phaseNames = buildPhaseJornadaNames(
+              confirmedPreview.phaseKey,
+              confirmedPreview.settings || getPlayoffSettings(currentConfig)
+          );
+
+          const jornadasToCreate = phaseNames.map((name, index) => {
+              const startDate = nextStartDate ? addDaysToDate(nextStartDate, index * 7) : null;
+              return {
+                  tournament_id: activeTournament.id,
+                  name,
+                  status: "Pendiente",
+                  start_date: startDate,
+                  end_date: startDate ? addDaysToDate(startDate, 6) : null,
+              };
+          });
+
+          const createdJornadas = await createJornadasService(jornadasToCreate);
+          const jornadaByName = new Map(createdJornadas.map((jornada) => [jornada.name, jornada]));
+          const matchesToInsert = [];
+
+          confirmedPreview.pairs.forEach((pair, pairIndex) => {
+              if (!pair.home || !pair.away) return;
+
+              phaseNames.forEach((name, legIndex) => {
+                  const jornadaId = jornadaByName.get(name)?.id;
+                  if (!jornadaId) return;
+
+                  const isSecondLeg = legIndex === 1;
+                  matchesToInsert.push({
+                      jornada_id: jornadaId,
+                      team1_id: Number(isSecondLeg ? pair.away.teamId || pair.away.id : pair.home.teamId || pair.home.id),
+                      team2_id: Number(isSecondLeg ? pair.home.teamId || pair.home.id : pair.away.teamId || pair.away.id),
+                      date: null,
+                      status: "Pendiente",
+                      observations: `Fase:${confirmedPreview.phaseKey};Serie:${pairIndex + 1}`,
+                  });
+              });
+          });
+
+          if (matchesToInsert.length > 0) {
+              await bulkInsertMatchesService(matchesToInsert);
+          }
+
+          const previousStages = Array.isArray(currentConfig.playoffState?.stages)
+              ? currentConfig.playoffState.stages
+              : [];
+          const nextSettings = {
+              ...getPlayoffSettings(currentConfig),
+              ...(confirmedPreview.settings || {}),
+          };
+          const nextConfig = {
+              ...currentConfig,
+              ...nextSettings,
+              playoffState: {
+                  ...(currentConfig.playoffState || {}),
+                  currentPhaseKey: confirmedPreview.phaseKey,
+                  stages: [
+                      ...previousStages,
+                      {
+                          phaseKey: confirmedPreview.phaseKey,
+                          phaseLabel: confirmedPreview.phaseLabel,
+                          source: confirmedPreview.source,
+                          createdAt: new Date().toISOString(),
+                          jornadaNames: phaseNames,
+                          pairs: confirmedPreview.pairs,
+                      },
+                  ],
+              },
+          };
+
+          await updateTournamentFieldsService(activeTournament.id, { config: nextConfig });
+          setShowPlayoffPreviewModal(false);
+          setPlayoffPreview(null);
+          showToast(`${confirmedPreview.phaseLabel} creada en Jornadas.`, "success");
+          if (onTournamentReset) onTournamentReset();
+      } catch (error) {
+          console.error(error);
+          showToast("Error creando la fase: " + error.message, "error");
+      } finally {
+          setIsAdvancingPhase(false);
+      }
+  };
+
+  const tournamentConfigForUi = useMemo(() => {
+      try {
+          return typeof activeTournament?.config === "string"
+              ? JSON.parse(activeTournament.config)
+              : activeTournament?.config || {};
+      } catch {
+          return {};
+      }
+  }, [activeTournament?.config]);
+
+  const playoffEnabled = !!(tournamentConfigForUi.zonaLiguilla ?? form.zonaLiguilla);
 
   return (
     <StyledCardWrapper $isBlur={!!activeTournament && !isExiting}>
@@ -186,10 +403,22 @@ export function TorneoDefinicionTab({
                     <v.iconocorona className="big-icon" />
                     <h2>Torneo en Curso</h2>
                     <p>{activeTournament.season}</p>
-                    <span className="desc">Finaliza el torneo actual para crear uno nuevo.</span>
+                    <span className="desc">Gestiona la fase final o cierra el torneo actual.</span>
                     <div className="actions-overlay">
-                        <BtnNormal titulo="Finalizar Torneo" funcion={() => setShowEndTournamentModal(true)} icono={<RiDeleteBinLine/>} bgcolor="rgba(255,255,255,0.15)" />
+                        {playoffEnabled && (
+                            <Btnsave
+                                titulo={isAdvancingPhase ? "Preparando..." : "Avanzar de fase"}
+                                funcion={() => preparePlayoffPreview()}
+                                icono={<RiArrowRightLine/>}
+                                bgcolor={v.colorPrincipal}
+                                disabled={isAdvancingPhase}
+                            />
+                        )}
                     </div>
+                    <button className="end-tournament-corner" type="button" onClick={() => setShowEndTournamentModal(true)}>
+                        <RiDeleteBinLine/>
+                        <span>Finalizar Torneo</span>
+                    </button>
                 </div>
             </LockedOverlay>
         )}
@@ -212,6 +441,26 @@ export function TorneoDefinicionTab({
 
         <FixturePreviewModal isOpen={showPreviewModal} onClose={() => setShowPreviewModal(false)} onConfirm={handleConfirmFixture} teams={participatingTeams} config={form} isLoading={loading} />
         <ConfirmModal isOpen={showEndTournamentModal} onClose={() => setShowEndTournamentModal(false)} onConfirm={handleEndTournament} title="¿Finalizar Torneo Actual?" message="Esta acción borrará permanentemente todos los partidos del torneo actual." confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"} confirmColor={v.rojo} />
+
+        <ConfirmModal
+            isOpen={showAdvanceWarningModal}
+            onClose={() => setShowAdvanceWarningModal(false)}
+            onConfirm={handleConfirmAdvanceWarning}
+            title="Faltan resultados antes de avanzar"
+            message={advanceWarning.pendingMatches > 0 ? `Falta confirmar resultado en ${advanceWarning.pendingMatches} partido(s).` : "Hay jornadas sin confirmar antes de avanzar."}
+            subMessage={advanceWarning.pendingJornadas > 0 ? `Tambien hay ${advanceWarning.pendingJornadas} jornada(s) sin confirmar. Si continuas, los cruces se calcularan con la informacion disponible.` : "Si continuas, los cruces se calcularan con la informacion disponible."}
+            confirmText="Avanzar de todos modos"
+            confirmColor={v.colorPrincipal}
+            confirmIcon={<RiArrowRightLine/>}
+            thinButtons
+        />
+        <PlayoffAdvanceModal
+            isOpen={showPlayoffPreviewModal}
+            onClose={() => setShowPlayoffPreviewModal(false)}
+            onConfirm={handleConfirmPlayoffAdvance}
+            preview={playoffPreview}
+            isLoading={isAdvancingPhase}
+        />
 
         <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configurar Reglas" width="650px" closeOnOverlayClick={false}>
             <ModalContentStyled>
@@ -265,9 +514,31 @@ const StyledCardWrapper = styled.div`
 const LockedOverlay = styled.div` 
     position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; justify-content: center; 
     transition: opacity 0.5s ease-in-out, visibility 0.5s; opacity: ${props => props.$isExiting ? 0 : 1}; visibility: ${props => props.$isExiting ? 'hidden' : 'visible'}; pointer-events: ${props => props.$isExiting ? 'none' : 'all'};
-    .lock-message { background: rgba(0,0,0,0.85); padding: 40px; border-radius: 16px; text-align: center; color: white; backdrop-filter: blur(5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 100%; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: ${props => props.$isExiting ? 'scale(0.8) translateY(20px)' : 'scale(1) translateY(0)'}; } 
+    .lock-message { position: relative; background: rgba(0,0,0,0.85); padding: 40px 40px 64px; border-radius: 16px; text-align: center; color: white; backdrop-filter: blur(5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 420px; width: 100%; min-height: 280px; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: ${props => props.$isExiting ? 'scale(0.8) translateY(20px)' : 'scale(1) translateY(0)'}; } 
     .big-icon{ font-size: 60px; color: ${v.colorPrincipal}; margin-bottom:15px;} h2{margin:0; font-size:26px; font-weight: 700;} p{margin:5px 0 10px; font-size:20px; font-weight:600; color:${v.colorPrincipal};} .desc{opacity:0.7; font-size:14px; display:block; margin-bottom: 20px;}
-    .actions-overlay { display: flex; justify-content: center; width: 100%; button { border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s; &:hover { background: ${v.rojo} !important; border-color: ${v.rojo}; } } }
+    .actions-overlay { display: flex; justify-content: center; width: 100%; button { border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s; } }
+    .end-tournament-corner {
+        position: absolute;
+        right: 18px;
+        bottom: 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.9);
+        padding: 8px 11px;
+        border-radius: 8px;
+        font-weight: 800;
+        font-size: 12px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .end-tournament-corner:hover {
+        background: ${v.rojo};
+        border-color: ${v.rojo};
+        color: #fff;
+    }
 `;
 
 const ModalContentStyled = styled.div` 

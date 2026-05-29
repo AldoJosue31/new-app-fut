@@ -4,6 +4,11 @@ import {
   getOfficialJornadaNumberForMatch,
   useTorneoStandingsLogic,
 } from './useTorneoStandingsLogic';
+import {
+  getMatchJornadaName,
+  isPlayoffJornadaName,
+  isRepechajeJornadaName,
+} from '../utils/playoffUtils';
 
 const normalizeGoalEventType = (eventType = '') =>
   String(eventType || '').trim().toLowerCase();
@@ -198,6 +203,16 @@ export const useTorneoGoleadoresLogic = ({
     return Number.isNaN(parsed) ? effectiveJornada : parsed;
   }, [selectedJornadaView, effectiveJornada]);
 
+  const tournamentConfig = useMemo(() => {
+    try {
+      return typeof torneo?.config === 'string'
+        ? JSON.parse(torneo.config) || {}
+        : torneo?.config || {};
+    } catch {
+      return {};
+    }
+  }, [torneo?.config]);
+
   const goleadores = useMemo(() => {
     if (!eventsReady) return fallbackRows;
 
@@ -208,6 +223,17 @@ export const useTorneoGoleadoresLogic = ({
     const allowedMatchIds = new Set(
       (Array.isArray(relevantMatches) ? relevantMatches : [])
         .filter((match) => {
+          const jornadaName = getMatchJornadaName(match, mergedJornadas);
+          const isRepechaje = isRepechajeJornadaName(jornadaName);
+          const isPlayoff = isPlayoffJornadaName(jornadaName) && !isRepechaje;
+
+          if (selectedJornadaView === 'recent') {
+            if (isRepechaje) return tournamentConfig.countGoalsRepechaje !== false;
+            if (isPlayoff) return tournamentConfig.countGoalsPlayoffs !== false;
+          } else if (isRepechaje || isPlayoff) {
+            return false;
+          }
+
           const jornadaNumber = getOfficialJornadaNumberForMatch(
             match,
             mergedJornadas,
@@ -275,6 +301,7 @@ export const useTorneoGoleadoresLogic = ({
     repositionMappings,
     repositionMatchMappings,
     selectedJornadaView,
+    tournamentConfig,
   ]);
 
   const activeJornadaSummary = useMemo(() => {

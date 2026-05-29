@@ -11,6 +11,7 @@ import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { Skeleton } from '../../../atomos/Skeleton';
 
 import { useTorneoStandingsLogic } from '../../../../hooks/useTorneoStandingsLogic';
+import { getStandingsViewStorageKey } from '../../../../hooks/useTorneoStandingsLogic';
 import { updateTournamentFieldsService } from '../../../../services/torneos';
 
 export const TorneosStandingsTab = ({
@@ -28,7 +29,10 @@ export const TorneosStandingsTab = ({
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
+  const [selectedJornadaView, setSelectedJornadaView] = useState(() => {
+    if (!torneo?.id || typeof window === 'undefined') return 'recent';
+    return localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent';
+  });
 
   useEffect(() => {
     if (onRefresh && !isPublic) {
@@ -42,8 +46,19 @@ export const TorneosStandingsTab = ({
   }, [torneo?.is_public]);
 
   useEffect(() => {
-    setSelectedJornadaView('recent');
+    if (!torneo?.id || typeof window === 'undefined') {
+      setSelectedJornadaView('recent');
+      return;
+    }
+    setSelectedJornadaView(localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent');
   }, [torneo?.id]);
+
+  const handleSelectedJornadaViewChange = (nextValue) => {
+    setSelectedJornadaView(nextValue);
+    if (torneo?.id && typeof window !== 'undefined') {
+      localStorage.setItem(getStandingsViewStorageKey(torneo.id), nextValue);
+    }
+  };
 
   const {
     config,
@@ -119,7 +134,7 @@ export const TorneosStandingsTab = ({
                 <SelectorWrapper>
                   <StandingsJornadaSelector 
                     selected={selectedJornadaView}
-                    onChange={setSelectedJornadaView}
+                    onChange={handleSelectedJornadaViewChange}
                     effectiveJornada={effectiveJornada}
                     jornadasOptions={jornadasConfirmadasForDropdown}
                   />
