@@ -25,6 +25,11 @@ const formatTime = (timeString) => {
     } catch (e) { return timePart; }
 };
 
+const toScoreNumber = (value) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+};
+
 const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLineup, matchEvents, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
   const isDark = themeMode === 'dark';
   const isMobile = layoutMode === 'mobile';
@@ -39,8 +44,12 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
       border: isDark ? '#334155' : '#e2e8f0',
   };
 
-  const homeScore = matchEvents?.goals?.filter(g => g.team === 'home').length || 0;
-  const awayScore = matchEvents?.goals?.filter(g => g.team === 'away').length || 0;
+  const eventHomeScore = matchEvents?.goals?.filter(g => g.team === 'home').length || 0;
+  const eventAwayScore = matchEvents?.goals?.filter(g => g.team === 'away').length || 0;
+  const storedHomeScore = toScoreNumber(match?.goals1);
+  const storedAwayScore = toScoreNumber(match?.goals2);
+  const homeScore = storedHomeScore ?? eventHomeScore;
+  const awayScore = storedAwayScore ?? eventAwayScore;
   
   const containerStyle = {
       width: isMobile ? '480px' : '1240px', 

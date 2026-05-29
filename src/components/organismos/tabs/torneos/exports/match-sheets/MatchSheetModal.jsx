@@ -128,8 +128,11 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
 
         return {
             match: {
+                id: fullMatch.id,
                 competitionName: fullMatch.jornada?.tournament?.division?.league?.name || 'Torneo', 
-                date: fullMatch.date, time: fullMatch.time, 
+                date: fullMatch.date, time: fullMatch.time,
+                goals1: fullMatch.goals1,
+                goals2: fullMatch.goals2,
                 homeTeam: { name: fullMatch.local?.name, logo: fullMatch.local?.logo_url, color: fullMatch.local?.color },
                 awayTeam: { name: fullMatch.visitante?.name, logo: fullMatch.visitante?.logo_url, color: fullMatch.visitante?.color },
                 stadium: fullMatch.field_name || 'Campo Principal'

@@ -22,6 +22,37 @@ const isDoubleWalkoverObservation = (observations = "") => (
   /ambos\s+pierden\s+por\s+default/i.test(observations)
 );
 
+const toStatNumber = (value) => parseInt(value, 10) || 0;
+
+const hasUnassignedGoals = (roster = []) =>
+  roster.some(slot => !slot.playerId && toStatNumber(slot.goals) > 0);
+
+const addUnassignedGoalsToRoster = (roster = [], goals = 0, prefix = "team") => {
+  const safeGoals = Math.max(0, toStatNumber(goals));
+  if (safeGoals <= 0) return roster;
+
+  const nextRoster = [...roster];
+  const emptySlotIndex = nextRoster.findIndex(slot => !slot.playerId);
+  const targetIndex = emptySlotIndex >= 0 ? emptySlotIndex : nextRoster.length;
+  const fallbackSlot = {
+    idTemp: `${prefix}-unassigned-goals`,
+    playerId: "",
+    goals: 0,
+    ownGoals: 0,
+    yellow: false,
+    red: false,
+    isStarter: false
+  };
+
+  nextRoster[targetIndex] = {
+    ...(nextRoster[targetIndex] || fallbackSlot),
+    playerId: "",
+    goals: safeGoals
+  };
+
+  return nextRoster;
+};
+
 export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }) {
   
   const [activeTab, setActiveTab] = useState('general');
@@ -76,16 +107,16 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const totalGoalsLocal = useMemo(() => {
     if (isWalkover && woWinnerId === DOUBLE_WALKOVER_ID) return 0;
     if (isWalkover) return woWinnerId === match?.local?.id ? 3 : 0;
-    const localGoals = rosterLocal.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
-    const visitOwnGoals = rosterVisit.reduce((acc, p) => acc + (parseInt(p.ownGoals) || 0), 0);
+    const localGoals = rosterLocal.reduce((acc, p) => acc + toStatNumber(p.goals), 0);
+    const visitOwnGoals = rosterVisit.reduce((acc, p) => acc + toStatNumber(p.ownGoals), 0);
     return localGoals + visitOwnGoals;
   }, [rosterLocal, rosterVisit, isWalkover, woWinnerId, match]);
 
   const totalGoalsVisit = useMemo(() => {
     if (isWalkover && woWinnerId === DOUBLE_WALKOVER_ID) return 0;
     if (isWalkover) return woWinnerId === match?.visitante?.id ? 3 : 0;
-    const visitGoals = rosterVisit.reduce((acc, p) => acc + (parseInt(p.goals) || 0), 0);
-    const localOwnGoals = rosterLocal.reduce((acc, p) => acc + (parseInt(p.ownGoals) || 0), 0);
+    const visitGoals = rosterVisit.reduce((acc, p) => acc + toStatNumber(p.goals), 0);
+    const localOwnGoals = rosterLocal.reduce((acc, p) => acc + toStatNumber(p.ownGoals), 0);
     return visitGoals + localOwnGoals;
   }, [rosterVisit, rosterLocal, isWalkover, woWinnerId, match]);
 
@@ -277,8 +308,28 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       }
 
       const isEditMode = freshMatch.status === 'Finalizado';
-      const nextRosterLocal = reconstructRoster(localRes.data || [], eventsRes.data || [], 'l', isEditMode);
-      const nextRosterVisit = reconstructRoster(visitRes.data || [], eventsRes.data || [], 'v', isEditMode);
+      let nextRosterLocal = reconstructRoster(localRes.data || [], eventsRes.data || [], 'l', isEditMode);
+      let nextRosterVisit = reconstructRoster(visitRes.data || [], eventsRes.data || [], 'v', isEditMode);
+
+      if (isEditMode && !nextIsWalkover) {
+        const assignedLocalGoals =
+          nextRosterLocal.reduce((acc, p) => acc + toStatNumber(p.goals), 0) +
+          nextRosterVisit.reduce((acc, p) => acc + toStatNumber(p.ownGoals), 0);
+        const assignedVisitGoals =
+          nextRosterVisit.reduce((acc, p) => acc + toStatNumber(p.goals), 0) +
+          nextRosterLocal.reduce((acc, p) => acc + toStatNumber(p.ownGoals), 0);
+
+        nextRosterLocal = addUnassignedGoalsToRoster(
+          nextRosterLocal,
+          toStatNumber(freshMatch.goals1) - assignedLocalGoals,
+          'l'
+        );
+        nextRosterVisit = addUnassignedGoalsToRoster(
+          nextRosterVisit,
+          toStatNumber(freshMatch.goals2) - assignedVisitGoals,
+          'v'
+        );
+      }
       if (requestId !== latestLoadRequestRef.current) return;
 
       setMatchDate(nextMatchDate);
@@ -461,7 +512,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const handleSaveAttempt = () => {
     const countLocal = rosterLocal.filter(p => p.playerId).length;
     const countVisit = rosterVisit.filter(p => p.playerId).length;
-    const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
+    const hasGoalsWithoutPlayer = hasUnassignedGoals(rosterLocal) || hasUnassignedGoals(rosterVisit);
+    const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
+    const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
 
     // Validación estricta del árbitro independientemente de si es o no W.O. 
     // (A menos que sea únicamente una edición de fecha sin W.O. y sin rosters)
@@ -472,7 +525,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     if (isWalkover) {
         if (!woWinnerId) return setToastConfig({ show: true, message: "Seleccione la resolucion por default.", type: "error" });
     } else if (!isOnlyDateUpdate) {
-        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers) return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
+        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
         if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
           if (parseInt(penalties.local) === parseInt(penalties.visit)) return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
         }
@@ -500,8 +553,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           events.push({ match_id: matchId, player_id: pid, event_type: 'participation' });
           
           if (!isWalkover) {
-              const goals = parseInt(p.goals) || 0;
-              const ownGoals = parseInt(p.ownGoals) || 0;
+              const goals = toStatNumber(p.goals);
+              const ownGoals = toStatNumber(p.ownGoals);
               if (goals > 0) for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
               if (ownGoals > 0) for(let i=0; i < ownGoals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'own_goal' });
               if (p.yellow) events.push({ match_id: matchId, player_id: pid, event_type: 'yellow_card' });
@@ -546,7 +599,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
       const countLocal = rosterLocal.filter(p => p.playerId).length;
       const countVisit = rosterVisit.filter(p => p.playerId).length;
-      const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover;
+      const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
+      const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
 
       await onSave(matchId, {
         goals1: totalGoalsLocal, goals2: totalGoalsVisit, puntos1: p1, puntos2: p2,
