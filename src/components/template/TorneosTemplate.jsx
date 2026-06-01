@@ -139,6 +139,8 @@ export function TorneosTemplate({
                   onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                   isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
                   onTournamentReset={onTournamentReset}
+                  standings={standings}
+                  partidos={partidos}
                   leagueData={leagueData} // <-- PASAMOS LA LIGA AL TAB DEFINITIVO
               />
             </FullWidthTab>

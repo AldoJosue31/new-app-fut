@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
-import styled, { css } from "styled-components";
+import styled from "styled-components";
+import { useNavigate } from "react-router-dom";
 import { v } from "../../../../styles/variables";
 import { 
-    RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine
+    RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine,
+    RiSearchLine, RiExchangeLine, RiFileWarningLine, RiBarChartGroupedLine, RiFlagLine
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
@@ -28,13 +30,22 @@ import {
   getPendingPhaseCounts,
   getPlayoffSettings,
 } from "../../../../utils/playoffUtils";
-import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandingsLogic";
+import {
+  buildTorneoStandingsSnapshot,
+  getStandingsViewStorageKey,
+} from "../../../../hooks/useTorneoStandingsLogic";
+import {
+  isOfficialJornadaName,
+  parseJornadaNumber,
+} from "../../../../utils/jornadaUtils";
 
 export function TorneoDefinicionTab({ 
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
     allTeams, participatingIds, onInclude, onExclude,
-    isLoading, reglas, setReglas, onTournamentReset, leagueData 
+    isLoading, reglas, setReglas, onTournamentReset, leagueData,
+    standings = [], partidos = []
 }) {
+  const navigate = useNavigate();
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false); 
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
@@ -52,6 +63,7 @@ export function TorneoDefinicionTab({
 
   // ESTADO DEL SWITCH
   const [useLeagueRules, setUseLeagueRules] = useState(true);
+  const [teamSearch, setTeamSearch] = useState("");
 
   const configTabList = [
       { id: "general", label: "General", icon: <RiFileList3Line/> },
@@ -60,8 +72,14 @@ export function TorneoDefinicionTab({
       { id: "gameRules", label: "Reglas Juego", icon: <IoMdStopwatch/> }
   ];
 
-  const participatingTeams = allTeams?.filter(t => participatingIds.includes(t.id)) || [];
-  const excludedTeams = allTeams?.filter(t => !participatingIds.includes(t.id)) || [];
+  const participatingTeams = useMemo(
+      () => allTeams?.filter(t => participatingIds.includes(t.id)) || [],
+      [allTeams, participatingIds]
+  );
+  const excludedTeams = useMemo(
+      () => allTeams?.filter(t => !participatingIds.includes(t.id)) || [],
+      [allTeams, participatingIds]
+  );
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
 
@@ -392,37 +410,227 @@ export function TorneoDefinicionTab({
   }, [activeTournament?.config]);
 
   const playoffEnabled = !!(tournamentConfigForUi.zonaLiguilla ?? form.zonaLiguilla);
+  const activeJornadas = useMemo(() => {
+      const jornadas = Array.isArray(activeTournament?.jornadas) ? activeTournament.jornadas : [];
+      return jornadas
+          .filter((jornada) => isOfficialJornadaName(jornada?.name))
+          .map((jornada) => ({
+              ...jornada,
+              number: parseJornadaNumber(jornada.name, 0),
+          }))
+          .filter((jornada) => jornada.number > 0)
+          .sort((a, b) => a.number - b.number);
+  }, [activeTournament?.jornadas]);
+
+  const tournamentProgress = useMemo(() => {
+      const total = activeJornadas.length;
+      const completed = activeJornadas.filter((jornada) => {
+          const status = String(jornada.status || "").toLowerCase();
+          return status.includes("confirmad") || status.includes("finaliz") || status.includes("complet");
+      }).length;
+      const current = total > 0 ? Math.max(1, Math.min(completed + 1, total)) : 1;
+      const next = total > 0 ? Math.min(current + 1, total) : 1;
+      const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      return { total, completed, current, next, percent };
+  }, [activeJornadas]);
+
+  const standingsSnapshot = useMemo(() => {
+      if (!activeTournament) return null;
+
+      try {
+          return buildTorneoStandingsSnapshot({
+              torneo: activeTournament,
+              equipos: participatingTeams,
+              partidos,
+              jornadasProp: activeJornadas,
+              reglas,
+              selectedJornadaView: activeTournament?.id && typeof window !== "undefined"
+                  ? localStorage.getItem(getStandingsViewStorageKey(activeTournament.id)) || "recent"
+                  : "recent",
+          });
+      } catch (error) {
+          console.warn("No se pudo calcular tabla para resumen activo:", error);
+          return null;
+      }
+  }, [activeTournament, activeJornadas, participatingTeams, partidos, reglas]);
+
+  const topGeneralRows = useMemo(() => {
+      const source = standingsSnapshot?.tablaGeneral?.length ? standingsSnapshot.tablaGeneral : standings;
+      return (Array.isArray(source) ? source : []).slice(0, 5).map((row, index) => ({
+          id: row.id || `${row.nombre || row.name}-${index}`,
+          rank: index + 1,
+          name: row.nombre || row.name || row.equipo || "Equipo",
+          pj: row.pj ?? row.PJ ?? 0,
+          dif: row.dg ?? row.dif ?? row.DIF ?? 0,
+          pts: row.pts ?? row.PTS ?? 0,
+      }));
+  }, [standingsSnapshot?.tablaGeneral, standings]);
+
+  const filteredParticipatingTeams = useMemo(() => {
+      const query = teamSearch.trim().toLowerCase();
+      if (!query) return participatingTeams;
+
+      return participatingTeams.filter((team) =>
+          String(team.name || "").toLowerCase().includes(query)
+      );
+  }, [participatingTeams, teamSearch]);
+
+  const activeRules = useMemo(() => ([
+      {
+          icon: <RiExchangeLine />,
+          title: "Sustituciones",
+          detail: `${tournamentConfigForUi.cambios || reglas?.cambios || "Ilimitados"}`,
+      },
+      {
+          icon: <RiFileWarningLine />,
+          title: "Acumulacion Tarjetas",
+          detail: tournamentConfigForUi.suspensionYellowCards
+              ? `Suspension tras ${tournamentConfigForUi.suspensionYellowCards} amarillas`
+              : "Suspension tras 5 amarillas",
+      },
+      {
+          icon: <RiBarChartGroupedLine />,
+          title: "Sistema Puntos",
+          detail: `V: ${tournamentConfigForUi.winPoints ?? form.winPoints ?? 3} | E: ${tournamentConfigForUi.drawPoints ?? form.drawPoints ?? 1} | D: ${tournamentConfigForUi.lossPoints ?? form.lossPoints ?? 0}`,
+      },
+  ]), [tournamentConfigForUi, reglas?.cambios, form.winPoints, form.drawPoints, form.lossPoints]);
+
+  const handleGoToJornadas = () => {
+      navigate("/torneos/jornadas");
+  };
 
   return (
-    <StyledCardWrapper $isBlur={!!activeTournament && !isExiting}>
+    <StyledCardWrapper>
         <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
 
-        {activeTournament && (
-            <LockedOverlay $isExiting={isExiting}>
-                <div className="lock-message">
-                    <v.iconocorona className="big-icon" />
-                    <h2>Torneo en Curso</h2>
-                    <p>{activeTournament.season}</p>
-                    <span className="desc">Gestiona la fase final o cierra el torneo actual.</span>
-                    <div className="actions-overlay">
+        {activeTournament ? (
+            <ActiveTournamentPanel $isExiting={isExiting}>
+                <section className="active-hero active-card">
+                    <div className="hero-top">
+                        <div className="tournament-title">
+                            <span className="icon-box"><v.iconocorona /></span>
+                            <div>
+                                <h2>{activeTournament.season || form.season || "Torneo actual"}</h2>
+                                <span className="status-dot">En Curso</span>
+                            </div>
+                        </div>
+                        <div className="progress-copy">
+                            <span>Progreso del Torneo</span>
+                            <strong>Jornada {tournamentProgress.current} <small>de {tournamentProgress.total || "--"}</small></strong>
+                        </div>
+                    </div>
+
+                    <div className="progress-track-area">
+                        <div className="progress-labels">
+                            <span>Inicio</span>
+                            <strong>{tournamentProgress.percent}% Completado</strong>
+                            <span>Final</span>
+                        </div>
+                        <div className="progress-track">
+                            <span style={{ width: `${tournamentProgress.percent}%` }} />
+                        </div>
+                    </div>
+
+                    <div className="hero-actions">
+                        <button className="primary-action" type="button" onClick={handleGoToJornadas}>
+                            <RiArrowRightLine />
+                            <span>
+                                {tournamentProgress.total
+                                    ? `Avanzar a Jornada ${tournamentProgress.next}`
+                                    : "Gestionar Jornadas"}
+                            </span>
+                        </button>
                         {playoffEnabled && (
-                            <Btnsave
-                                titulo={isAdvancingPhase ? "Preparando..." : "Avanzar de fase"}
-                                funcion={() => preparePlayoffPreview()}
-                                icono={<RiArrowRightLine/>}
-                                bgcolor={v.colorPrincipal}
-                                disabled={isAdvancingPhase}
+                            <button className="secondary-action" type="button" onClick={() => preparePlayoffPreview()} disabled={isAdvancingPhase}>
+                                <RiFlagLine />
+                                <span>{isAdvancingPhase ? "Preparando..." : "Avanzar de fase"}</span>
+                            </button>
+                        )}
+                        <button className="secondary-action danger" type="button" onClick={() => setShowEndTournamentModal(true)}>
+                            <RiDeleteBinLine />
+                            <span>Finalizar Torneo</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section className="rules-card active-card">
+                    <div className="section-heading">
+                        <h3><RiFileList3Line /> Reglas Activas</h3>
+                        <button type="button" onClick={() => setShowConfigModal(true)} title="Ver configuracion">
+                            <RiInformationLine />
+                        </button>
+                    </div>
+                    <div className="rules-list">
+                        {activeRules.map((rule) => (
+                            <div className="rule-item" key={rule.title}>
+                                <span className="rule-icon">{rule.icon}</span>
+                                <div>
+                                    <strong>{rule.title}</strong>
+                                    <small>{rule.detail}</small>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="participants-card active-card">
+                    <div className="section-heading">
+                        <h3><v.iconocorona /> Equipos Participantes ({participatingTeams.length})</h3>
+                        <label className="search-box">
+                            <RiSearchLine />
+                            <input
+                                value={teamSearch}
+                                onChange={(event) => setTeamSearch(event.target.value)}
+                                placeholder="Buscar equipo..."
                             />
+                        </label>
+                    </div>
+                    <div className="teams-grid">
+                        {filteredParticipatingTeams.map((team, index) => (
+                            <div className="team-chip" key={team.id}>
+                                <span className="team-rank">{participatingTeams.findIndex((item) => item.id === team.id) + 1 || index + 1}</span>
+                                <span className="team-name" title={team.name}>{team.name}</span>
+                            </div>
+                        ))}
+                        {filteredParticipatingTeams.length === 0 && (
+                            <div className="empty-inline">No se encontro ningun equipo.</div>
                         )}
                     </div>
-                    <button className="end-tournament-corner" type="button" onClick={() => setShowEndTournamentModal(true)}>
-                        <RiDeleteBinLine/>
-                        <span>Finalizar Torneo</span>
-                    </button>
-                </div>
-            </LockedOverlay>
-        )}
+                </section>
 
+                <section className="standings-card active-card">
+                    <div className="section-heading">
+                        <h3><RiBarChartGroupedLine /> Top 5 - General</h3>
+                        <button className="text-link" type="button" onClick={() => navigate("/torneos/standings")}>
+                            Ver Completa
+                        </button>
+                    </div>
+                    <div className="mini-table">
+                        <div className="mini-head">
+                            <span>Equipo</span>
+                            <span>PJ</span>
+                            <span>DIF</span>
+                            <span>PTS</span>
+                        </div>
+                        {topGeneralRows.map((row) => (
+                            <div className="mini-row" key={row.id}>
+                                <div className="mini-team">
+                                    <span className={row.rank === 1 ? "rank leader" : "rank"}>{row.rank}</span>
+                                    <strong title={row.name}>{row.name}</strong>
+                                </div>
+                                <span>{row.pj}</span>
+                                <span>{Number(row.dif) > 0 ? `+${row.dif}` : row.dif}</span>
+                                <span className="points">{row.pts}</span>
+                            </div>
+                        ))}
+                        {topGeneralRows.length === 0 && (
+                            <div className="empty-inline">La tabla general aun no tiene datos.</div>
+                        )}
+                    </div>
+                </section>
+            </ActiveTournamentPanel>
+        ) : (
         <Card maxWidth="1000px">
             <div style={{ marginBottom: '20px' }}>
                 <CardHeader Icono={v.iconocorona} titulo="Resumen de Temporada" subtitulo={`División: ${divisionName || "..."}`} />
@@ -438,6 +646,7 @@ export function TorneoDefinicionTab({
                 <Btnsave titulo={loading ? "Creando..." : "Siguiente: Sorteo"} bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} funcion={handlePreStartTournament} disabled={loading || !divisionName || participatingTeams.length < 2 || !form.season} />
             </div>
         </Card>
+        )}
 
         <FixturePreviewModal isOpen={showPreviewModal} onClose={() => setShowPreviewModal(false)} onConfirm={handleConfirmFixture} teams={participatingTeams} config={form} isLoading={loading} />
         <ConfirmModal isOpen={showEndTournamentModal} onClose={() => setShowEndTournamentModal(false)} onConfirm={handleEndTournament} title="¿Finalizar Torneo Actual?" message="Esta acción borrará permanentemente todos los partidos del torneo actual." confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"} confirmColor={v.rojo} />
@@ -504,40 +713,470 @@ export function TorneoDefinicionTab({
 }
 
 const StyledCardWrapper = styled.div` 
-    position: relative; width: 100%; display: flex; flex: 1 1 auto; min-height: 0; justify-content: center; 
-    & > div:last-child { 
-        transition: filter 0.6s ease-in-out, transform 0.6s ease-in-out, opacity 0.6s;
-        ${props => props.$isBlur ? css` filter: blur(4px) grayscale(0.8); pointer-events: none; user-select: none; transform: scale(0.98); opacity: 0.8; ` : css` filter: blur(0px) grayscale(0); pointer-events: all; transform: scale(1); opacity: 1; `}
-    } 
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    justify-content: center;
 `;
 
-const LockedOverlay = styled.div` 
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; justify-content: center; 
-    transition: opacity 0.5s ease-in-out, visibility 0.5s; opacity: ${props => props.$isExiting ? 0 : 1}; visibility: ${props => props.$isExiting ? 'hidden' : 'visible'}; pointer-events: ${props => props.$isExiting ? 'none' : 'all'};
-    .lock-message { position: relative; background: rgba(0,0,0,0.85); padding: 40px 40px 64px; border-radius: 16px; text-align: center; color: white; backdrop-filter: blur(5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 420px; width: 100%; min-height: 280px; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: ${props => props.$isExiting ? 'scale(0.8) translateY(20px)' : 'scale(1) translateY(0)'}; } 
-    .big-icon{ font-size: 60px; color: ${v.colorPrincipal}; margin-bottom:15px;} h2{margin:0; font-size:26px; font-weight: 700;} p{margin:5px 0 10px; font-size:20px; font-weight:600; color:${v.colorPrincipal};} .desc{opacity:0.7; font-size:14px; display:block; margin-bottom: 20px;}
-    .actions-overlay { display: flex; justify-content: center; width: 100%; button { border: 1px solid rgba(255,255,255,0.2); transition: all 0.2s; } }
-    .end-tournament-corner {
-        position: absolute;
-        right: 18px;
-        bottom: 16px;
+const ActiveTournamentPanel = styled.div`
+    width: 100%;
+    max-width: 1180px;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 0.98fr);
+    grid-template-areas:
+        "hero rules"
+        "teams standings";
+    gap: 20px;
+    opacity: ${({ $isExiting }) => ($isExiting ? 0 : 1)};
+    transform: ${({ $isExiting }) => ($isExiting ? "translateY(10px)" : "translateY(0)")};
+    transition: opacity 0.45s ease, transform 0.45s ease;
+
+    .active-card {
+        background: ${({theme}) => theme.bgcards};
+        border: 1px solid ${({theme}) => theme.bg4};
+        border-radius: 8px;
+        box-shadow: ${v.boxshadowGray};
+        color: ${({theme}) => theme.text};
+        overflow: hidden;
+    }
+
+    .active-hero {
+        grid-area: hero;
+        min-height: 260px;
+        padding: 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background:
+            radial-gradient(circle at 85% 18%, ${v.colorPrincipal}24, transparent 32%),
+            ${({theme}) => theme.bgcards};
+    }
+
+    .hero-top,
+    .section-heading,
+    .tournament-title,
+    .hero-actions,
+    .search-box,
+    .rule-item,
+    .mini-team {
+        display: flex;
+        align-items: center;
+    }
+
+    .hero-top,
+    .section-heading {
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .tournament-title {
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .icon-box {
+        width: 52px;
+        height: 52px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: ${v.colorPrincipal}18;
+        color: ${v.colorPrincipal};
+        font-size: 26px;
+        flex: 0 0 auto;
+    }
+
+    h2,
+    h3 {
+        margin: 0;
+        min-width: 0;
+    }
+
+    h2 {
+        font-size: 1.35rem;
+        line-height: 1.1;
+    }
+
+    h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.76;
+    }
+
+    .status-dot {
         display: inline-flex;
         align-items: center;
-        gap: 7px;
-        border: 1px solid rgba(255,255,255,0.18);
-        background: rgba(255,255,255,0.08);
-        color: rgba(255,255,255,0.9);
-        padding: 8px 11px;
-        border-radius: 8px;
+        margin-top: 8px;
+        padding: 4px 9px;
+        border-radius: 6px;
+        background: ${v.verde}1d;
+        color: ${v.verde};
+        font-size: 0.68rem;
         font-weight: 800;
-        font-size: 12px;
-        cursor: pointer;
-        transition: 0.2s;
     }
-    .end-tournament-corner:hover {
+
+    .progress-copy {
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 130px;
+    }
+
+    .progress-copy span,
+    .progress-labels,
+    .rule-item small,
+    .mini-head {
+        color: ${({theme}) => theme.text}9a;
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+
+    .progress-copy strong {
+        font-size: 1.05rem;
+    }
+
+    .progress-copy small {
+        color: ${({theme}) => theme.text}88;
+        font-size: 0.78rem;
+    }
+
+    .progress-track-area {
+        margin: 26px 0;
+    }
+
+    .progress-labels {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .progress-labels span:last-child {
+        text-align: right;
+    }
+
+    .progress-track {
+        height: 8px;
+        border-radius: 999px;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+        overflow: hidden;
+    }
+
+    .progress-track span {
+        display: block;
+        height: 100%;
+        min-width: 8px;
+        max-width: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, ${v.colorPrincipal}, #39d4ff);
+        transition: width 0.35s ease;
+    }
+
+    .hero-actions {
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .primary-action,
+    .secondary-action,
+    .section-heading button {
+        border: 0;
+        cursor: pointer;
+        transition: transform 0.2s ease, filter 0.2s ease, background 0.2s ease;
+    }
+
+    .primary-action,
+    .secondary-action {
+        min-height: 42px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 900;
+        font-size: 0.82rem;
+        padding: 0 18px;
+    }
+
+    .primary-action {
+        flex: 1 1 260px;
+        color: #fff;
+        background: ${v.colorPrincipal};
+    }
+
+    .secondary-action {
+        color: ${({theme}) => theme.text};
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .secondary-action.danger:hover {
+        color: #fff;
         background: ${v.rojo};
         border-color: ${v.rojo};
+    }
+
+    .primary-action:hover,
+    .secondary-action:hover,
+    .section-heading button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+    }
+
+    .rules-card {
+        grid-area: rules;
+        padding: 22px;
+    }
+
+    .section-heading {
+        margin-bottom: 18px;
+    }
+
+    .section-heading button {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: ${({theme}) => theme.text}a8;
+        background: transparent;
+    }
+
+    .rules-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .rule-item {
+        gap: 12px;
+        min-height: 58px;
+        padding: 12px;
+        border-radius: 8px;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .rule-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: ${v.colorPrincipal};
+        background: ${v.colorPrincipal}16;
+        flex: 0 0 auto;
+    }
+
+    .rule-item div {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .rule-item strong,
+    .team-name,
+    .mini-row strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rule-item strong {
+        font-size: 0.82rem;
+    }
+
+    .participants-card {
+        grid-area: teams;
+        padding: 24px;
+        min-height: 340px;
+    }
+
+    .search-box {
+        width: min(230px, 45%);
+        gap: 8px;
+        padding: 0 12px;
+        height: 38px;
+        border-radius: 8px;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+        color: ${({theme}) => theme.text}8c;
+    }
+
+    .search-box input {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: ${({theme}) => theme.text};
+        font-weight: 700;
+        font-size: 0.78rem;
+    }
+
+    .teams-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .team-chip {
+        min-width: 0;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 14px;
+        border-radius: 8px;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .team-rank,
+    .rank {
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: ${({theme}) => theme.bg4};
+        color: ${({theme}) => theme.text}b8;
+        font-size: 0.72rem;
+        font-weight: 900;
+        flex: 0 0 auto;
+    }
+
+    .team-name {
+        min-width: 0;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .standings-card {
+        grid-area: standings;
+        padding: 22px;
+        min-height: 340px;
+    }
+
+    .text-link {
+        width: auto;
+        height: auto;
+        color: ${v.colorPrincipal};
+        font-size: 0.68rem;
+        font-weight: 900;
+        background: transparent;
+        white-space: nowrap;
+    }
+
+    .mini-table {
+        display: grid;
+        gap: 8px;
+    }
+
+    .mini-head,
+    .mini-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 34px 42px 42px;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .mini-head span:not(:first-child),
+    .mini-row > span {
+        text-align: center;
+    }
+
+    .mini-row {
+        min-height: 36px;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .mini-team {
+        min-width: 0;
+        gap: 9px;
+    }
+
+    .rank {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        font-size: 0.66rem;
+    }
+
+    .rank.leader {
         color: #fff;
+        background: ${v.verde};
+    }
+
+    .mini-row strong {
+        min-width: 0;
+        font-size: 0.76rem;
+    }
+
+    .points {
+        color: ${v.colorPrincipal};
+        font-weight: 950;
+    }
+
+    .empty-inline {
+        grid-column: 1 / -1;
+        padding: 24px;
+        text-align: center;
+        color: ${({theme}) => theme.text}80;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    @media (max-width: 980px) {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "hero"
+            "rules"
+            "teams"
+            "standings";
+
+        .teams-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 620px) {
+        gap: 14px;
+
+        .active-hero,
+        .rules-card,
+        .participants-card,
+        .standings-card {
+            padding: 18px;
+        }
+
+        .hero-top,
+        .section-heading {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .progress-copy {
+            text-align: left;
+        }
+
+        .search-box {
+            width: 100%;
+        }
+
+        .teams-grid {
+            grid-template-columns: 1fr;
+        }
     }
 `;
 
