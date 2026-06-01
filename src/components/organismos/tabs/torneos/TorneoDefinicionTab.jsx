@@ -524,6 +524,30 @@ export function TorneoDefinicionTab({
       };
   }, [activeJornadas, partidos, tournamentProgress]);
 
+  const resultConfirmationProgress = useMemo(() => {
+      const confirmableMatches = (partidos || []).filter((match) =>
+          match?.team1_id != null && match?.team2_id != null
+      );
+      const confirmedMatches = confirmableMatches.filter((match) => {
+          const status = String(match.status || "").toLowerCase();
+          return (
+              status.includes("finaliz") ||
+              status.includes("complet") ||
+              status.includes("jugad") ||
+              status.includes("termin") ||
+              (match.goals1 !== null && match.goals1 !== undefined && match.goals2 !== null && match.goals2 !== undefined)
+          );
+      });
+      const total = confirmableMatches.length;
+      const confirmed = confirmedMatches.length;
+
+      return {
+          confirmed,
+          total,
+          percent: total > 0 ? Math.round((confirmed / total) * 100) : 0,
+      };
+  }, [partidos]);
+
   const currentTopScorer = useMemo(() => {
       const scorer = Array.isArray(goleadores) ? goleadores[0] : null;
       if (!scorer) return { name: "Sin registro", goals: 0 };
@@ -549,13 +573,17 @@ export function TorneoDefinicionTab({
       const redCards = tournamentEvents.filter((event) =>
           /red|roja/.test(String(event?.event_type || "").toLowerCase())
       ).length;
+      const yellowCards = tournamentEvents.filter((event) =>
+          /yellow|amarilla/.test(String(event?.event_type || "").toLowerCase())
+      ).length;
 
       return [
           { label: "Total de Goles", value: totalGoals, icon: <RiFootballLine /> },
-          { label: "Tarjetas Rojas", value: redCards, icon: <RiFileWarningLine /> },
+          { label: "Partidos Jugados", value: resultConfirmationProgress.confirmed, detail: `de ${resultConfirmationProgress.total}`, icon: <RiCalendarEventLine /> },
+          { type: "cards", label: "Tarjetas", redCards, yellowCards, icon: <RiFileWarningLine /> },
           { label: "Goleador Actual", value: currentTopScorer.name, detail: `${currentTopScorer.goals} goles`, icon: <RiUserStarFill /> },
       ];
-  }, [partidos, tournamentEvents, currentTopScorer]);
+  }, [partidos, tournamentEvents, currentTopScorer, resultConfirmationProgress]);
 
   const activeRules = useMemo(() => ([
       {
@@ -605,6 +633,7 @@ export function TorneoDefinicionTab({
                         <div className="tournament-title">
                             <span className="icon-box"><v.iconocorona /></span>
                             <div>
+                                <span className="division-label">{activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName || "Division"}</span>
                                 <h2>{activeTournament.season || form.season || "Torneo actual"}</h2>
                                 <span className="status-dot">En Curso</span>
                             </div>
@@ -624,16 +653,19 @@ export function TorneoDefinicionTab({
                         <div className="progress-track">
                             <span style={{ width: `${tournamentProgress.percent}%` }} />
                         </div>
+                        <div className="result-progress-row">
+                            <span>Resultados confirmados</span>
+                            <strong>{resultConfirmationProgress.confirmed} de {resultConfirmationProgress.total}</strong>
+                        </div>
+                        <div className="result-progress-track">
+                            <span style={{ width: `${resultConfirmationProgress.percent}%` }} />
+                        </div>
                     </div>
 
                     <div className="hero-actions">
                         <button className="primary-action" type="button" onClick={handleGoToJornadas}>
                             <RiArrowRightLine />
-                            <span>
-                                {tournamentProgress.total
-                                    ? `Avanzar a Jornada ${tournamentProgress.next}`
-                                    : "Gestionar Jornadas"}
-                            </span>
+                            <span>Definir jornadas</span>
                         </button>
                         {playoffEnabled && (
                             <button className="secondary-action" type="button" onClick={() => preparePlayoffPreview()} disabled={isAdvancingPhase}>
@@ -694,14 +726,27 @@ export function TorneoDefinicionTab({
                     </div>
                     <div className="metrics-grid">
                         {tournamentMetrics.map((metric) => (
-                            <div className="metric-item" key={metric.label}>
-                                <span className="metric-icon">{metric.icon}</span>
-                                <div>
-                                    <small>{metric.label}</small>
-                                    <strong title={String(metric.value)}>{metric.value}</strong>
-                                    {metric.detail && <em>{metric.detail}</em>}
+                            metric.type === "cards" ? (
+                                <div className="metric-item metric-cards" key={metric.label}>
+                                    <div className="card-half red-card">
+                                        <small>Tarjetas Rojas</small>
+                                        <strong>{metric.redCards}</strong>
+                                    </div>
+                                    <div className="card-half yellow-card">
+                                        <small>Tarjetas Amarillas</small>
+                                        <strong>{metric.yellowCards}</strong>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="metric-item" key={metric.label}>
+                                    <span className="metric-icon">{metric.icon}</span>
+                                    <div>
+                                        <small>{metric.label}</small>
+                                        <strong title={String(metric.value)}>{metric.value}</strong>
+                                        {metric.detail && <em>{metric.detail}</em>}
+                                    </div>
+                                </div>
+                            )
                         ))}
                     </div>
                 </section>
@@ -887,6 +932,16 @@ const ActiveTournamentPanel = styled.div`
         line-height: 1.1;
     }
 
+    .division-label {
+        display: block;
+        margin-bottom: 5px;
+        color: ${v.colorPrincipal};
+        font-size: 0.68rem;
+        font-weight: 950;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
     h3 {
         display: flex;
         align-items: center;
@@ -967,6 +1022,35 @@ const ActiveTournamentPanel = styled.div`
         max-width: 100%;
         border-radius: inherit;
         background: linear-gradient(90deg, ${v.colorPrincipal}, #39d4ff);
+        transition: width 0.35s ease;
+    }
+
+    .result-progress-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 11px 0 7px;
+        color: ${({theme}) => theme.text}92;
+        font-size: 0.68rem;
+        font-weight: 900;
+    }
+
+    .result-progress-track {
+        height: 6px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .result-progress-track span {
+        display: block;
+        height: 100%;
+        min-width: 6px;
+        max-width: 100%;
+        border-radius: inherit;
+        background: #0f7fb6;
         transition: width 0.35s ease;
     }
 
@@ -1205,6 +1289,46 @@ const ActiveTournamentPanel = styled.div`
     .metric-item strong {
         font-size: 0.84rem;
         font-weight: 950;
+    }
+
+    .metric-cards {
+        align-items: stretch;
+        gap: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .card-half {
+        min-width: 0;
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1px;
+        padding: 9px 10px;
+    }
+
+    .card-half + .card-half {
+        border-left: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .card-half small {
+        color: ${({theme}) => theme.text}9a;
+        font-size: 0.64rem;
+        font-weight: 900;
+    }
+
+    .card-half strong {
+        font-size: 0.88rem;
+        font-weight: 950;
+    }
+
+    .red-card strong {
+        color: ${v.rojo};
+    }
+
+    .yellow-card strong {
+        color: #f59e0b;
     }
 
     .metric-item em {
