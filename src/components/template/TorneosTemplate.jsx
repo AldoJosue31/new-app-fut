@@ -51,7 +51,6 @@ export function TorneosTemplate({
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
 
   const [goleadores, setGoleadores] = useState([]);
-  const [loadingGoleadores, setLoadingGoleadores] = useState(false);
   const headerMeasureRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(118);
 
@@ -61,14 +60,11 @@ export function TorneosTemplate({
       return;
     }
     try {
-      setLoadingGoleadores(true);
       const data = await getTopScorersService({ tournamentId: activeTournament.id, limit: 50 });
       setGoleadores(data || []);
     } catch (err) {
       console.error("Error fetchGoleadores:", err);
       setGoleadores([]);
-    } finally {
-      setLoadingGoleadores(false);
     }
   };
 
@@ -141,6 +137,7 @@ export function TorneosTemplate({
                   onTournamentReset={onTournamentReset}
                   standings={standings}
                   partidos={partidos}
+                  goleadores={goleadores}
                   leagueData={leagueData} // <-- PASAMOS LA LIGA AL TAB DEFINITIVO
               />
             </FullWidthTab>

@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { v } from "../../../../styles/variables";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine,
-    RiSearchLine, RiExchangeLine, RiFileWarningLine, RiBarChartGroupedLine, RiFlagLine
+    RiExchangeLine, RiFileWarningLine, RiBarChartGroupedLine, RiFlagLine, RiSettings3Line,
+    RiCalendarEventLine, RiFootballLine, RiTimeLine, RiUserStarFill
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
@@ -14,7 +15,9 @@ import { TorneoDashboard } from "./subcomponents/TorneoDashboard";
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { PlayoffAdvanceModal } from "./subcomponents/PlayoffAdvanceModal";
+import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import {
+  actualizarConfigTorneoService,
   bulkInsertMatchesService,
   createJornadasService,
   eliminarTorneoService,
@@ -30,20 +33,18 @@ import {
   getPendingPhaseCounts,
   getPlayoffSettings,
 } from "../../../../utils/playoffUtils";
-import {
-  buildTorneoStandingsSnapshot,
-  getStandingsViewStorageKey,
-} from "../../../../hooks/useTorneoStandingsLogic";
+import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandingsLogic";
 import {
   isOfficialJornadaName,
   parseJornadaNumber,
 } from "../../../../utils/jornadaUtils";
+import { supabase } from "../../../../supabase/supabase.config";
 
 export function TorneoDefinicionTab({ 
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
     allTeams, participatingIds, onInclude, onExclude,
     isLoading, reglas, setReglas, onTournamentReset, leagueData,
-    standings = [], partidos = []
+    partidos = [], goleadores = []
 }) {
   const navigate = useNavigate();
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -63,7 +64,7 @@ export function TorneoDefinicionTab({
 
   // ESTADO DEL SWITCH
   const [useLeagueRules, setUseLeagueRules] = useState(true);
-  const [teamSearch, setTeamSearch] = useState("");
+  const [tournamentEvents, setTournamentEvents] = useState([]);
 
   const configTabList = [
       { id: "general", label: "General", icon: <RiFileList3Line/> },
@@ -195,6 +196,29 @@ export function TorneoDefinicionTab({
     localStorage.setItem("torneo_reglas_draft", JSON.stringify(draftData));
     setShowConfigModal(false);
     showToast("Configuración guardada (Borrador local).", "success");
+  };
+
+  const handleSaveActiveConfig = async (newConfig) => {
+      if (!activeTournament?.id) return;
+
+      try {
+          const baseJornadas = participatingTeams.length % 2 === 0
+              ? participatingTeams.length - 1
+              : participatingTeams.length;
+
+          await actualizarConfigTorneoService(activeTournament.id, newConfig, baseJornadas);
+          setReglas({
+              minutosPorTiempo: newConfig.minutosPorTiempo || "45",
+              minutosDescanso: newConfig.minutosDescanso || "15",
+              cambios: newConfig.cambios || "Ilimitados",
+              observaciones: newConfig.observaciones || "",
+          });
+          showToast("Ajustes del torneo guardados.", "success");
+          if (onTournamentReset) onTournamentReset();
+      } catch (error) {
+          console.error(error);
+          showToast("No se pudieron guardar los ajustes: " + error.message, "error");
+      }
   };
 
   const handleEndTournament = async () => {
@@ -435,66 +459,136 @@ export function TorneoDefinicionTab({
       return { total, completed, current, next, percent };
   }, [activeJornadas]);
 
-  const standingsSnapshot = useMemo(() => {
-      if (!activeTournament) return null;
+  useEffect(() => {
+      let ignore = false;
 
-      try {
-          return buildTorneoStandingsSnapshot({
-              torneo: activeTournament,
-              equipos: participatingTeams,
-              partidos,
-              jornadasProp: activeJornadas,
-              reglas,
-              selectedJornadaView: activeTournament?.id && typeof window !== "undefined"
-                  ? localStorage.getItem(getStandingsViewStorageKey(activeTournament.id)) || "recent"
-                  : "recent",
-          });
-      } catch (error) {
-          console.warn("No se pudo calcular tabla para resumen activo:", error);
-          return null;
-      }
-  }, [activeTournament, activeJornadas, participatingTeams, partidos, reglas]);
+      const fetchTournamentEvents = async () => {
+          if (!activeTournament?.id) {
+              setTournamentEvents([]);
+              return;
+          }
 
-  const topGeneralRows = useMemo(() => {
-      const source = standingsSnapshot?.tablaGeneral?.length ? standingsSnapshot.tablaGeneral : standings;
-      return (Array.isArray(source) ? source : []).slice(0, 5).map((row, index) => ({
-          id: row.id || `${row.nombre || row.name}-${index}`,
-          rank: index + 1,
-          name: row.nombre || row.name || row.equipo || "Equipo",
-          pj: row.pj ?? row.PJ ?? 0,
-          dif: row.dg ?? row.dif ?? row.DIF ?? 0,
-          pts: row.pts ?? row.PTS ?? 0,
-      }));
-  }, [standingsSnapshot?.tablaGeneral, standings]);
+          try {
+              const { data, error } = await supabase
+                  .from("match_events")
+                  .select("event_type, matches!inner(jornadas!inner(tournament_id))")
+                  .eq("matches.jornadas.tournament_id", activeTournament.id);
 
-  const filteredParticipatingTeams = useMemo(() => {
-      const query = teamSearch.trim().toLowerCase();
-      if (!query) return participatingTeams;
+              if (error) throw error;
+              if (!ignore) setTournamentEvents(data || []);
+          } catch (error) {
+              console.warn("No se pudieron cargar eventos del torneo:", error);
+              if (!ignore) setTournamentEvents([]);
+          }
+      };
 
-      return participatingTeams.filter((team) =>
-          String(team.name || "").toLowerCase().includes(query)
-      );
-  }, [participatingTeams, teamSearch]);
+      fetchTournamentEvents();
+
+      return () => {
+          ignore = true;
+      };
+  }, [activeTournament?.id]);
+
+  const currentJornadaSummary = useMemo(() => {
+      const currentJornada = activeJornadas.find((jornada) => {
+          const status = String(jornada.status || "").toLowerCase();
+          return !(status.includes("confirmad") || status.includes("finaliz") || status.includes("complet"));
+      }) || activeJornadas[activeJornadas.length - 1] || null;
+
+      const jornadaMatches = (partidos || []).filter((match) => {
+          const matchJornadaName = match?.jornadas?.name || match?.jornada?.name || "";
+          return currentJornada?.name && matchJornadaName === currentJornada.name;
+      });
+
+      const played = jornadaMatches.filter((match) => {
+          const status = String(match.status || "").toLowerCase();
+          return (
+              status.includes("finaliz") ||
+              status.includes("complet") ||
+              status.includes("jugad") ||
+              status.includes("termin") ||
+              (match.goals1 !== null && match.goals1 !== undefined && match.goals2 !== null && match.goals2 !== undefined)
+          );
+      }).length;
+
+      const total = jornadaMatches.length;
+      const pending = Math.max(total - played, 0);
+      const percent = total > 0 ? Math.round((played / total) * 100) : 0;
+
+      return {
+          name: currentJornada?.name || `Jornada ${tournamentProgress.current}`,
+          played,
+          total,
+          pending,
+          percent,
+      };
+  }, [activeJornadas, partidos, tournamentProgress]);
+
+  const currentTopScorer = useMemo(() => {
+      const scorer = Array.isArray(goleadores) ? goleadores[0] : null;
+      if (!scorer) return { name: "Sin registro", goals: 0 };
+
+      const name = [
+          scorer.first_name,
+          scorer.last_name,
+      ].filter(Boolean).join(" ") || scorer.player_name || scorer.name || "Sin registro";
+
+      return {
+          name,
+          goals: Number(scorer.goals || 0),
+      };
+  }, [goleadores]);
+
+  const tournamentMetrics = useMemo(() => {
+      const totalGoals = (partidos || []).reduce((acc, match) => {
+          const goals1 = Number(match.goals1);
+          const goals2 = Number(match.goals2);
+          return acc + (Number.isFinite(goals1) ? goals1 : 0) + (Number.isFinite(goals2) ? goals2 : 0);
+      }, 0);
+
+      const redCards = tournamentEvents.filter((event) =>
+          /red|roja/.test(String(event?.event_type || "").toLowerCase())
+      ).length;
+
+      return [
+          { label: "Total de Goles", value: totalGoals, icon: <RiFootballLine /> },
+          { label: "Tarjetas Rojas", value: redCards, icon: <RiFileWarningLine /> },
+          { label: "Goleador Actual", value: currentTopScorer.name, detail: `${currentTopScorer.goals} goles`, icon: <RiUserStarFill /> },
+      ];
+  }, [partidos, tournamentEvents, currentTopScorer]);
 
   const activeRules = useMemo(() => ([
       {
+          icon: <RiFootballLine />,
+          title: "Plantillas",
+          detail: `Min. ${tournamentConfigForUi.minPlayers ?? form.minPlayers ?? 7} / Max. ${tournamentConfigForUi.maxPlayers ?? form.maxPlayers ?? 25} jugadores`,
+      },
+      {
+          icon: <RiTimeLine />,
+          title: "Duracion de Partido",
+          detail: `${tournamentConfigForUi.minutosPorTiempo ?? reglas?.minutosPorTiempo ?? 45}' por tiempo / ${tournamentConfigForUi.minutosDescanso ?? reglas?.minutosDescanso ?? 15}' descanso`,
+      },
+      {
           icon: <RiExchangeLine />,
-          title: "Sustituciones",
+          title: "Cambios",
           detail: `${tournamentConfigForUi.cambios || reglas?.cambios || "Ilimitados"}`,
       },
       {
-          icon: <RiFileWarningLine />,
-          title: "Acumulacion Tarjetas",
-          detail: tournamentConfigForUi.suspensionYellowCards
-              ? `Suspension tras ${tournamentConfigForUi.suspensionYellowCards} amarillas`
-              : "Suspension tras 5 amarillas",
+          icon: <RiBarChartGroupedLine />,
+          title: "Sistema de Puntos",
+          detail: `V:${tournamentConfigForUi.winPoints ?? form.winPoints ?? 3} E:${tournamentConfigForUi.drawPoints ?? form.drawPoints ?? 1} D:${tournamentConfigForUi.lossPoints ?? form.lossPoints ?? 0}`,
       },
       {
-          icon: <RiBarChartGroupedLine />,
-          title: "Sistema Puntos",
-          detail: `V: ${tournamentConfigForUi.winPoints ?? form.winPoints ?? 3} | E: ${tournamentConfigForUi.drawPoints ?? form.drawPoints ?? 1} | D: ${tournamentConfigForUi.lossPoints ?? form.lossPoints ?? 0}`,
+          icon: <RiFlagLine />,
+          title: "Formato",
+          detail: `${String(tournamentConfigForUi.vueltas || form.vueltas || "1") === "2" ? "Ida y vuelta" : "Solo ida"}${tournamentConfigForUi.zonaLiguilla ? ` / Liguilla Top ${tournamentConfigForUi.clasificados || form.clasificados || 4}` : ""}`,
       },
-  ]), [tournamentConfigForUi, reglas?.cambios, form.winPoints, form.drawPoints, form.lossPoints]);
+  ]), [tournamentConfigForUi, reglas, form]);
+
+  const isFirstJornadaConfirmed = activeJornadas.some(
+      (jornada) => jornada.name === "Jornada 1" && String(jornada.status || "").toLowerCase().includes("confirmad")
+  );
+  const isVueltasLocked = tournamentProgress.current > Math.ceil((activeJornadas.length || tournamentProgress.total || 1) / 2);
 
   const handleGoToJornadas = () => {
       navigate("/torneos/jornadas");
@@ -558,7 +652,7 @@ export function TorneoDefinicionTab({
                     <div className="section-heading">
                         <h3><RiFileList3Line /> Reglas Activas</h3>
                         <button type="button" onClick={() => setShowConfigModal(true)} title="Ver configuracion">
-                            <RiInformationLine />
+                            <RiSettings3Line />
                         </button>
                     </div>
                     <div className="rules-list">
@@ -574,59 +668,41 @@ export function TorneoDefinicionTab({
                     </div>
                 </section>
 
-                <section className="participants-card active-card">
+                <section className="jornada-card active-card">
                     <div className="section-heading">
-                        <h3><v.iconocorona /> Equipos Participantes ({participatingTeams.length})</h3>
-                        <label className="search-box">
-                            <RiSearchLine />
-                            <input
-                                value={teamSearch}
-                                onChange={(event) => setTeamSearch(event.target.value)}
-                                placeholder="Buscar equipo..."
-                            />
-                        </label>
+                        <h3><RiCalendarEventLine /> Estatus de la Jornada Actual</h3>
+                        <span className="status-pill">{currentJornadaSummary.pending > 0 ? "En progreso" : "Lista"}</span>
                     </div>
-                    <div className="teams-grid">
-                        {filteredParticipatingTeams.map((team, index) => (
-                            <div className="team-chip" key={team.id}>
-                                <span className="team-rank">{participatingTeams.findIndex((item) => item.id === team.id) + 1 || index + 1}</span>
-                                <span className="team-name" title={team.name}>{team.name}</span>
-                            </div>
-                        ))}
-                        {filteredParticipatingTeams.length === 0 && (
-                            <div className="empty-inline">No se encontro ningun equipo.</div>
-                        )}
+                    <div className="jornada-status">
+                        <div className="jornada-main">
+                            <span>{currentJornadaSummary.name}</span>
+                            <strong>{currentJornadaSummary.played} de {currentJornadaSummary.total} partidos jugados</strong>
+                            <small>{currentJornadaSummary.pending > 0 ? `Faltan ${currentJornadaSummary.pending} resultados por reportar.` : "Todos los partidos estan reportados."}</small>
+                        </div>
+                        <div className="ring-progress" style={{ "--progress": `${currentJornadaSummary.percent}%` }}>
+                            <span>{currentJornadaSummary.percent}%</span>
+                        </div>
+                    </div>
+                    <div className="mini-progress">
+                        <span style={{ width: `${currentJornadaSummary.percent}%` }} />
                     </div>
                 </section>
 
-                <section className="standings-card active-card">
+                <section className="metrics-card active-card">
                     <div className="section-heading">
-                        <h3><RiBarChartGroupedLine /> Top 5 - General</h3>
-                        <button className="text-link" type="button" onClick={() => navigate("/torneos/standings")}>
-                            Ver Completa
-                        </button>
+                        <h3><RiBarChartGroupedLine /> Metricas del Torneo</h3>
                     </div>
-                    <div className="mini-table">
-                        <div className="mini-head">
-                            <span>Equipo</span>
-                            <span>PJ</span>
-                            <span>DIF</span>
-                            <span>PTS</span>
-                        </div>
-                        {topGeneralRows.map((row) => (
-                            <div className="mini-row" key={row.id}>
-                                <div className="mini-team">
-                                    <span className={row.rank === 1 ? "rank leader" : "rank"}>{row.rank}</span>
-                                    <strong title={row.name}>{row.name}</strong>
+                    <div className="metrics-grid">
+                        {tournamentMetrics.map((metric) => (
+                            <div className="metric-item" key={metric.label}>
+                                <span className="metric-icon">{metric.icon}</span>
+                                <div>
+                                    <small>{metric.label}</small>
+                                    <strong title={String(metric.value)}>{metric.value}</strong>
+                                    {metric.detail && <em>{metric.detail}</em>}
                                 </div>
-                                <span>{row.pj}</span>
-                                <span>{Number(row.dif) > 0 ? `+${row.dif}` : row.dif}</span>
-                                <span className="points">{row.pts}</span>
                             </div>
                         ))}
-                        {topGeneralRows.length === 0 && (
-                            <div className="empty-inline">La tabla general aun no tiene datos.</div>
-                        )}
                     </div>
                 </section>
             </ActiveTournamentPanel>
@@ -671,6 +747,16 @@ export function TorneoDefinicionTab({
             isLoading={isAdvancingPhase}
         />
 
+        {activeTournament ? (
+            <TournamentConfigModal
+                isOpen={showConfigModal}
+                onClose={() => setShowConfigModal(false)}
+                activeTournament={activeTournament}
+                onSave={handleSaveActiveConfig}
+                isVueltasLocked={isVueltasLocked}
+                isStartDateLocked={isFirstJornadaConfirmed}
+            />
+        ) : (
         <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configurar Reglas" width="650px" closeOnOverlayClick={false}>
             <ModalContentStyled>
                 
@@ -708,6 +794,7 @@ export function TorneoDefinicionTab({
                 </div>
             </ModalContentStyled>
         </Modal>
+        )}
     </StyledCardWrapper>
   );
 }
@@ -728,7 +815,7 @@ const ActiveTournamentPanel = styled.div`
     grid-template-columns: minmax(0, 2fr) minmax(280px, 0.98fr);
     grid-template-areas:
         "hero rules"
-        "teams standings";
+        "jornada metrics";
     gap: 20px;
     opacity: ${({ $isExiting }) => ($isExiting ? 0 : 1)};
     transform: ${({ $isExiting }) => ($isExiting ? "translateY(10px)" : "translateY(0)")};
@@ -745,8 +832,8 @@ const ActiveTournamentPanel = styled.div`
 
     .active-hero {
         grid-area: hero;
-        min-height: 260px;
-        padding: 26px;
+        min-height: 232px;
+        padding: 22px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -759,9 +846,9 @@ const ActiveTournamentPanel = styled.div`
     .section-heading,
     .tournament-title,
     .hero-actions,
-    .search-box,
     .rule-item,
-    .mini-team {
+    .jornada-status,
+    .metric-item {
         display: flex;
         align-items: center;
     }
@@ -833,7 +920,9 @@ const ActiveTournamentPanel = styled.div`
     .progress-copy span,
     .progress-labels,
     .rule-item small,
-    .mini-head {
+    .jornada-main small,
+    .metric-item small,
+    .metric-item em {
         color: ${({theme}) => theme.text}9a;
         font-size: 0.72rem;
         font-weight: 800;
@@ -849,7 +938,7 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .progress-track-area {
-        margin: 26px 0;
+        margin: 20px 0;
     }
 
     .progress-labels {
@@ -934,11 +1023,11 @@ const ActiveTournamentPanel = styled.div`
 
     .rules-card {
         grid-area: rules;
-        padding: 22px;
+        padding: 18px;
     }
 
     .section-heading {
-        margin-bottom: 18px;
+        margin-bottom: 14px;
     }
 
     .section-heading button {
@@ -953,22 +1042,22 @@ const ActiveTournamentPanel = styled.div`
 
     .rules-list {
         display: grid;
-        gap: 12px;
+        gap: 8px;
     }
 
     .rule-item {
-        gap: 12px;
-        min-height: 58px;
-        padding: 12px;
+        gap: 9px;
+        min-height: 44px;
+        padding: 8px 10px;
         border-radius: 8px;
         background: ${({theme}) => theme.bgtotal};
         border: 1px solid ${({theme}) => theme.bg4};
     }
 
     .rule-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
         display: grid;
         place-items: center;
         color: ${v.colorPrincipal};
@@ -980,152 +1069,146 @@ const ActiveTournamentPanel = styled.div`
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 1px;
     }
 
     .rule-item strong,
-    .team-name,
-    .mini-row strong {
+    .jornada-main strong,
+    .metric-item strong {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     .rule-item strong {
-        font-size: 0.82rem;
-    }
-
-    .participants-card {
-        grid-area: teams;
-        padding: 24px;
-        min-height: 340px;
-    }
-
-    .search-box {
-        width: min(230px, 45%);
-        gap: 8px;
-        padding: 0 12px;
-        height: 38px;
-        border-radius: 8px;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
-        color: ${({theme}) => theme.text}8c;
-    }
-
-    .search-box input {
-        width: 100%;
-        min-width: 0;
-        border: 0;
-        outline: 0;
-        background: transparent;
-        color: ${({theme}) => theme.text};
-        font-weight: 700;
-        font-size: 0.78rem;
-    }
-
-    .teams-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-    }
-
-    .team-chip {
-        min-width: 0;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 0 14px;
-        border-radius: 8px;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
-    }
-
-    .team-rank,
-    .rank {
-        display: inline-grid;
-        place-items: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 999px;
-        background: ${({theme}) => theme.bg4};
-        color: ${({theme}) => theme.text}b8;
-        font-size: 0.72rem;
-        font-weight: 900;
-        flex: 0 0 auto;
-    }
-
-    .team-name {
-        min-width: 0;
-        font-size: 0.82rem;
-        font-weight: 800;
-    }
-
-    .standings-card {
-        grid-area: standings;
-        padding: 22px;
-        min-height: 340px;
-    }
-
-    .text-link {
-        width: auto;
-        height: auto;
-        color: ${v.colorPrincipal};
-        font-size: 0.68rem;
-        font-weight: 900;
-        background: transparent;
-        white-space: nowrap;
-    }
-
-    .mini-table {
-        display: grid;
-        gap: 8px;
-    }
-
-    .mini-head,
-    .mini-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 34px 42px 42px;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .mini-head span:not(:first-child),
-    .mini-row > span {
-        text-align: center;
-    }
-
-    .mini-row {
-        min-height: 36px;
-        font-size: 0.78rem;
-        font-weight: 800;
-    }
-
-    .mini-team {
-        min-width: 0;
-        gap: 9px;
-    }
-
-    .rank {
-        width: 22px;
-        height: 22px;
-        border-radius: 6px;
-        font-size: 0.66rem;
-    }
-
-    .rank.leader {
-        color: #fff;
-        background: ${v.verde};
-    }
-
-    .mini-row strong {
-        min-width: 0;
         font-size: 0.76rem;
     }
 
-    .points {
+    .rule-item small {
+        font-size: 0.66rem;
+    }
+
+    .jornada-card {
+        grid-area: jornada;
+        padding: 20px;
+        min-height: 190px;
+    }
+
+    .status-pill {
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: ${v.colorPrincipal}16;
         color: ${v.colorPrincipal};
+        font-size: 0.68rem;
+        font-weight: 900;
+    }
+
+    .jornada-status {
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 112px;
+    }
+
+    .jornada-main {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .jornada-main span {
+        color: ${v.colorPrincipal};
+        font-size: 0.78rem;
         font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .jornada-main strong {
+        font-size: clamp(1.05rem, 1.7vw, 1.45rem);
+    }
+
+    .ring-progress {
+        width: 94px;
+        height: 94px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background:
+            radial-gradient(circle closest-side, ${({theme}) => theme.bgcards} 72%, transparent 74%),
+            conic-gradient(${v.colorPrincipal} var(--progress), ${({theme}) => theme.bg4} 0);
+        flex: 0 0 auto;
+    }
+
+    .ring-progress span {
+        font-size: 0.95rem;
+        font-weight: 950;
+    }
+
+    .mini-progress {
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .mini-progress span {
+        display: block;
+        height: 100%;
+        min-width: 8px;
+        max-width: 100%;
+        background: ${v.colorPrincipal};
+        border-radius: inherit;
+    }
+
+    .metrics-card {
+        grid-area: metrics;
+        padding: 20px;
+        min-height: 190px;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .metric-item {
+        min-width: 0;
+        gap: 10px;
+        padding: 10px;
+        min-height: 46px;
+        border-radius: 8px;
+        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid ${({theme}) => theme.bg4};
+    }
+
+    .metric-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: ${v.colorPrincipal}16;
+        color: ${v.colorPrincipal};
+        flex: 0 0 auto;
+    }
+
+    .metric-item div {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .metric-item strong {
+        font-size: 0.84rem;
+        font-weight: 950;
+    }
+
+    .metric-item em {
+        font-style: normal;
     }
 
     .empty-inline {
@@ -1142,11 +1225,11 @@ const ActiveTournamentPanel = styled.div`
         grid-template-areas:
             "hero"
             "rules"
-            "teams"
-            "standings";
+            "jornada"
+            "metrics";
 
-        .teams-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+        .metrics-grid {
+            grid-template-columns: 1fr;
         }
     }
 
@@ -1155,8 +1238,8 @@ const ActiveTournamentPanel = styled.div`
 
         .active-hero,
         .rules-card,
-        .participants-card,
-        .standings-card {
+        .jornada-card,
+        .metrics-card {
             padding: 18px;
         }
 
@@ -1170,12 +1253,9 @@ const ActiveTournamentPanel = styled.div`
             text-align: left;
         }
 
-        .search-box {
-            width: 100%;
-        }
-
-        .teams-grid {
-            grid-template-columns: 1fr;
+        .jornada-status {
+            align-items: flex-start;
+            flex-direction: column;
         }
     }
 `;
