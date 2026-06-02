@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { v } from "../../../../styles/variables";
@@ -37,8 +37,16 @@ import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandings
 import {
   isOfficialJornadaName,
   parseJornadaNumber,
+  resolveRepositionMappings,
 } from "../../../../utils/jornadaUtils";
 import { supabase } from "../../../../supabase/supabase.config";
+
+const normalizeMatchStatus = (status) => String(status || "").trim().toLowerCase();
+const isPlayedMatch = (match) => normalizeMatchStatus(match?.status) === "finalizado";
+const isTrackableMatch = (match) =>
+    match?.team1_id != null &&
+    match?.team2_id != null &&
+    !match?.isByeMatch;
 
 export function TorneoDefinicionTab({ 
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
@@ -65,6 +73,12 @@ export function TorneoDefinicionTab({
   // ESTADO DEL SWITCH
   const [useLeagueRules, setUseLeagueRules] = useState(true);
   const [tournamentEvents, setTournamentEvents] = useState([]);
+  const [dashboardJornadas, setDashboardJornadas] = useState([]);
+  const [selectedStatusJornada, setSelectedStatusJornada] = useState(null);
+  const [animatedJornadaPercent, setAnimatedJornadaPercent] = useState(0);
+  const jornadaBarsRef = useRef(null);
+  const jornadaBarsDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+  const jornadaBarsWasDraggingRef = useRef(false);
 
   const configTabList = [
       { id: "general", label: "General", icon: <RiFileList3Line/> },
@@ -434,8 +448,36 @@ export function TorneoDefinicionTab({
   }, [activeTournament?.config]);
 
   const playoffEnabled = !!(tournamentConfigForUi.zonaLiguilla ?? form.zonaLiguilla);
+
+  useEffect(() => {
+      let ignore = false;
+
+      const fetchDashboardJornadas = async () => {
+          if (!activeTournament?.id) {
+              setDashboardJornadas([]);
+              return;
+          }
+
+          try {
+              const jornadas = await getJornadas(activeTournament.id);
+              if (!ignore) setDashboardJornadas(jornadas || []);
+          } catch (error) {
+              console.warn("No se pudieron cargar jornadas para el dashboard:", error);
+              if (!ignore) setDashboardJornadas([]);
+          }
+      };
+
+      fetchDashboardJornadas();
+
+      return () => {
+          ignore = true;
+      };
+  }, [activeTournament?.id]);
+
   const activeJornadas = useMemo(() => {
-      const jornadas = Array.isArray(activeTournament?.jornadas) ? activeTournament.jornadas : [];
+      const jornadas = dashboardJornadas.length > 0
+          ? dashboardJornadas
+          : Array.isArray(activeTournament?.jornadas) ? activeTournament.jornadas : [];
       return jornadas
           .filter((jornada) => isOfficialJornadaName(jornada?.name))
           .map((jornada) => ({
@@ -444,7 +486,7 @@ export function TorneoDefinicionTab({
           }))
           .filter((jornada) => jornada.number > 0)
           .sort((a, b) => a.number - b.number);
-  }, [activeTournament?.jornadas]);
+  }, [activeTournament?.jornadas, dashboardJornadas]);
 
   const tournamentProgress = useMemo(() => {
       const total = activeJornadas.length;
@@ -489,55 +531,208 @@ export function TorneoDefinicionTab({
       };
   }, [activeTournament?.id]);
 
-  const currentJornadaSummary = useMemo(() => {
-      const currentJornada = activeJornadas.find((jornada) => {
-          const status = String(jornada.status || "").toLowerCase();
-          return !(status.includes("confirmad") || status.includes("finaliz") || status.includes("complet"));
-      }) || activeJornadas[activeJornadas.length - 1] || null;
-
-      const jornadaMatches = (partidos || []).filter((match) => {
-          const matchJornadaName = match?.jornadas?.name || match?.jornada?.name || "";
-          return currentJornada?.name && matchJornadaName === currentJornada.name;
+  const jornadaStatusRows = useMemo(() => {
+      const matchById = new Map(
+          (partidos || [])
+              .filter((match) => match?.id)
+              .map((match) => [String(match.id), match])
+      );
+      const repositionMatchMappings = Array.isArray(tournamentConfigForUi.repositionMatchMappings)
+          ? tournamentConfigForUi.repositionMatchMappings
+          : [];
+      const resolvedRepositionMappings = resolveRepositionMappings({
+          jornadas: dashboardJornadas.length > 0 ? dashboardJornadas : activeJornadas,
+          configuredMappings: Array.isArray(tournamentConfigForUi.repositionMappings)
+              ? tournamentConfigForUi.repositionMappings
+              : [],
       });
+      const originalByRepositionJornadaId = new Map(
+          resolvedRepositionMappings
+              .filter((mapping) => mapping?.repositionJornadaId && mapping?.originalJornadaId)
+              .map((mapping) => [String(mapping.repositionJornadaId), String(mapping.originalJornadaId)])
+      );
 
-      const played = jornadaMatches.filter((match) => {
-          const status = String(match.status || "").toLowerCase();
-          return (
-              status.includes("finaliz") ||
-              status.includes("complet") ||
-              status.includes("jugad") ||
-              status.includes("termin") ||
-              (match.goals1 !== null && match.goals1 !== undefined && match.goals2 !== null && match.goals2 !== undefined)
-          );
-      }).length;
+      const getMatchJornadaId = (match) => match?.jornada_id ?? match?.jornadas?.id ?? match?.jornada?.id ?? null;
+      const getMatchJornadaName = (match) => match?.jornadas?.name || match?.jornada?.name || "";
 
-      const total = jornadaMatches.length;
-      const pending = Math.max(total - played, 0);
-      const percent = total > 0 ? Math.round((played / total) * 100) : 0;
+      return activeJornadas.map((jornada) => {
+          const jornadaId = jornada?.id != null ? String(jornada.id) : null;
+          const matchesMap = new Map();
 
-      return {
-          name: currentJornada?.name || `Jornada ${tournamentProgress.current}`,
-          played,
-          total,
-          pending,
-          percent,
+          (partidos || []).forEach((match) => {
+              const matchJornadaId = getMatchJornadaId(match);
+              const matchJornadaIdString = matchJornadaId != null ? String(matchJornadaId) : null;
+              const matchJornadaName = getMatchJornadaName(match);
+              const originalJornadaId = matchJornadaIdString
+                  ? originalByRepositionJornadaId.get(matchJornadaIdString)
+                  : null;
+              const belongsById = jornadaId && (
+                  matchJornadaIdString === jornadaId ||
+                  originalJornadaId === jornadaId
+              );
+              const belongsByName = !jornadaId && jornada?.name && matchJornadaName === jornada.name;
+
+              if ((belongsById || belongsByName) && match?.id) {
+                  matchesMap.set(String(match.id), match);
+              }
+          });
+
+          repositionMatchMappings.forEach((mapping) => {
+              const mappingBelongsById =
+                  jornadaId && String(mapping?.originalJornadaId || "") === jornadaId;
+              const mappingBelongsByName =
+                  !jornadaId &&
+                  jornada?.name &&
+                  String(mapping?.originalJornadaName || "") === jornada.name;
+              const mappedMatch = mapping?.matchId ? matchById.get(String(mapping.matchId)) : null;
+
+              if ((mappingBelongsById || mappingBelongsByName) && mappedMatch?.id) {
+                  matchesMap.set(String(mappedMatch.id), mappedMatch);
+              }
+          });
+
+          const jornadaMatches = Array.from(matchesMap.values()).filter(isTrackableMatch);
+          const played = jornadaMatches.filter(isPlayedMatch).length;
+          const total = jornadaMatches.length;
+          const pending = Math.max(total - played, 0);
+          const percent = total > 0 ? Math.round((played / total) * 100) : 0;
+          const status = normalizeMatchStatus(jornada.status);
+          const isConfirmed = status.includes("confirmad") || status.includes("finaliz") || status.includes("complet");
+
+          return {
+              id: jornada.id,
+              number: jornada.number,
+              name: jornada.name,
+              played,
+              total,
+              pending,
+              percent,
+              isConfirmed,
+          };
+      });
+  }, [activeJornadas, dashboardJornadas, partidos, tournamentConfigForUi]);
+
+  const currentStatusJornada = useMemo(() => (
+      jornadaStatusRows.find((jornada) => !jornada.isConfirmed) ||
+      jornadaStatusRows[jornadaStatusRows.length - 1] ||
+      null
+  ), [jornadaStatusRows]);
+
+  useEffect(() => {
+      if (!currentStatusJornada?.number) return;
+      setSelectedStatusJornada((current) => {
+          const stillExists = jornadaStatusRows.some((jornada) => jornada.number === current);
+          return stillExists ? current : currentStatusJornada.number;
+      });
+  }, [currentStatusJornada?.number, jornadaStatusRows]);
+
+  const currentJornadaSummary = useMemo(() => {
+      const selectedRow = jornadaStatusRows.find((jornada) => jornada.number === selectedStatusJornada);
+      const row = selectedRow || currentStatusJornada;
+
+      return row || {
+          name: `Jornada ${tournamentProgress.current}`,
+          number: tournamentProgress.current,
+          played: 0,
+          total: 0,
+          pending: 0,
+          percent: 0,
       };
-  }, [activeJornadas, partidos, tournamentProgress]);
+  }, [currentStatusJornada, jornadaStatusRows, selectedStatusJornada, tournamentProgress]);
+
+  useEffect(() => {
+      const targetPercent = Number(currentJornadaSummary.percent) || 0;
+      let frameId;
+      const duration = 650;
+      const startTime = performance.now();
+      const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+      if (prefersReducedMotion) {
+          setAnimatedJornadaPercent(targetPercent);
+          return undefined;
+      }
+
+      setAnimatedJornadaPercent(0);
+
+      const animate = (now) => {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+
+          setAnimatedJornadaPercent(Math.round(targetPercent * eased));
+
+          if (progress < 1) {
+              frameId = requestAnimationFrame(animate);
+          }
+      };
+
+      frameId = requestAnimationFrame(animate);
+
+      return () => cancelAnimationFrame(frameId);
+  }, [currentJornadaSummary.number, currentJornadaSummary.percent]);
+
+  const handleJornadaBarsWheel = (event) => {
+      const scroller = jornadaBarsRef.current;
+      if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+
+      const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+          ? event.deltaY
+          : event.deltaX;
+      if (!delta) return;
+
+      event.preventDefault();
+      scroller.scrollLeft += delta;
+  };
+
+  const handleJornadaBarsPointerDown = (event) => {
+      const scroller = jornadaBarsRef.current;
+      if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+
+      jornadaBarsDragRef.current = {
+          isDragging: true,
+          startX: event.clientX,
+          scrollLeft: scroller.scrollLeft,
+      };
+      jornadaBarsWasDraggingRef.current = false;
+  };
+
+  const finishJornadaBarsDrag = () => {
+      const scroller = jornadaBarsRef.current;
+      jornadaBarsDragRef.current.isDragging = false;
+      scroller?.classList.remove("dragging");
+      window.setTimeout(() => {
+          jornadaBarsWasDraggingRef.current = false;
+      }, 0);
+  };
+
+  const handleJornadaBarsPointerMove = (event) => {
+      const scroller = jornadaBarsRef.current;
+      const dragState = jornadaBarsDragRef.current;
+      if (!scroller || !dragState.isDragging) return;
+
+      const distance = event.clientX - dragState.startX;
+      if (Math.abs(distance) > 10) {
+          jornadaBarsWasDraggingRef.current = true;
+          scroller.classList.add("dragging");
+      }
+      if (jornadaBarsWasDraggingRef.current) {
+          event.preventDefault();
+          scroller.scrollLeft = dragState.scrollLeft - distance;
+      }
+  };
+
+  const handleJornadaBarClick = (event, jornadaNumber) => {
+      if (jornadaBarsWasDraggingRef.current) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+      }
+      setSelectedStatusJornada(jornadaNumber);
+  };
 
   const resultConfirmationProgress = useMemo(() => {
-      const confirmableMatches = (partidos || []).filter((match) =>
-          match?.team1_id != null && match?.team2_id != null
-      );
-      const confirmedMatches = confirmableMatches.filter((match) => {
-          const status = String(match.status || "").toLowerCase();
-          return (
-              status.includes("finaliz") ||
-              status.includes("complet") ||
-              status.includes("jugad") ||
-              status.includes("termin") ||
-              (match.goals1 !== null && match.goals1 !== undefined && match.goals2 !== null && match.goals2 !== undefined)
-          );
-      });
+      const confirmableMatches = (partidos || []).filter(isTrackableMatch);
+      const confirmedMatches = confirmableMatches.filter(isPlayedMatch);
       const total = confirmableMatches.length;
       const confirmed = confirmedMatches.length;
 
@@ -711,12 +906,49 @@ export function TorneoDefinicionTab({
                             <strong>{currentJornadaSummary.played} de {currentJornadaSummary.total} partidos jugados</strong>
                             <small>{currentJornadaSummary.pending > 0 ? `Faltan ${currentJornadaSummary.pending} resultados por reportar.` : "Todos los partidos estan reportados."}</small>
                         </div>
-                        <div className="ring-progress" style={{ "--progress": `${currentJornadaSummary.percent}%` }}>
-                            <span>{currentJornadaSummary.percent}%</span>
+                        <div
+                            className="ring-progress"
+                            style={{ "--progress": `${animatedJornadaPercent}%` }}
+                        >
+                            <span>{animatedJornadaPercent}%</span>
                         </div>
                     </div>
                     <div className="mini-progress">
-                        <span style={{ width: `${currentJornadaSummary.percent}%` }} />
+                        <span
+                            key={`jornada-progress-${currentJornadaSummary.number}-${currentJornadaSummary.percent}`}
+                            style={{ width: `${currentJornadaSummary.percent}%` }}
+                        />
+                    </div>
+                    <div
+                        className="jornada-bars"
+                        ref={jornadaBarsRef}
+                        aria-label="Partidos confirmados por jornada"
+                        onWheel={handleJornadaBarsWheel}
+                        onPointerDown={handleJornadaBarsPointerDown}
+                        onPointerMove={handleJornadaBarsPointerMove}
+                        onPointerUp={finishJornadaBarsDrag}
+                        onPointerCancel={finishJornadaBarsDrag}
+                        onPointerLeave={finishJornadaBarsDrag}
+                    >
+                        {jornadaStatusRows.map((jornada, index) => (
+                            <button
+                                type="button"
+                                key={jornada.id || jornada.number}
+                                className={[
+                                    jornada.number === currentJornadaSummary.number ? "selected" : "",
+                                    jornada.number === currentStatusJornada?.number ? "current" : "",
+                                ].filter(Boolean).join(" ")}
+                                style={{
+                                    "--bar-height": `${Math.max(jornada.percent, jornada.total > 0 ? 8 : 0)}%`,
+                                    "--bar-index": index,
+                                }}
+                                onClick={(event) => handleJornadaBarClick(event, jornada.number)}
+                                title={`${jornada.name}: ${jornada.played} de ${jornada.total} partidos jugados`}
+                            >
+                                <span className="bar-track"><span /></span>
+                                <small>J{jornada.number}</small>
+                            </button>
+                        ))}
                     </div>
                 </section>
 
@@ -865,6 +1097,26 @@ const ActiveTournamentPanel = styled.div`
     opacity: ${({ $isExiting }) => ($isExiting ? 0 : 1)};
     transform: ${({ $isExiting }) => ($isExiting ? "translateY(10px)" : "translateY(0)")};
     transition: opacity 0.45s ease, transform 0.45s ease;
+
+    @keyframes progressFillIn {
+        from {
+            transform: scaleX(0);
+        }
+        to {
+            transform: scaleX(1);
+        }
+    }
+
+    @keyframes barGrowIn {
+        from {
+            transform: scaleY(0);
+            opacity: 0.3;
+        }
+        to {
+            transform: scaleY(1);
+            opacity: 1;
+        }
+    }
 
     .active-card {
         background: ${({theme}) => theme.bgcards};
@@ -1051,6 +1303,8 @@ const ActiveTournamentPanel = styled.div`
         max-width: 100%;
         border-radius: inherit;
         background: #0f7fb6;
+        transform-origin: left center;
+        animation: progressFillIn 0.7s ease-out both;
         transition: width 0.35s ease;
     }
 
@@ -1190,7 +1444,7 @@ const ActiveTournamentPanel = styled.div`
     .jornada-status {
         justify-content: space-between;
         gap: 18px;
-        min-height: 112px;
+        min-height: 94px;
     }
 
     .jornada-main {
@@ -1213,6 +1467,7 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .ring-progress {
+        position: relative;
         width: 94px;
         height: 94px;
         border-radius: 50%;
@@ -1229,8 +1484,119 @@ const ActiveTournamentPanel = styled.div`
         font-weight: 950;
     }
 
+    .jornada-bars {
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-start;
+        gap: 5px;
+        min-height: 126px;
+        margin: 8px 0 0;
+        padding: 14px 14px 10px;
+        border-radius: 8px;
+        border: 1px solid ${({theme}) => theme.bg4};
+        background: ${({theme}) => theme.bgtotal};
+        overflow-x: auto;
+        overflow-y: hidden;
+        cursor: grab;
+        user-select: none;
+        scroll-behavior: smooth;
+        scrollbar-gutter: stable;
+        touch-action: pan-y;
+    }
+
+    .jornada-bars.dragging {
+        cursor: grabbing;
+        scroll-behavior: auto;
+    }
+
+    .jornada-bars::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .jornada-bars::-webkit-scrollbar-thumb {
+        background: ${({theme}) => theme.bg4};
+        border-radius: 999px;
+    }
+
+    .jornada-bars button {
+        flex: 0 0 30px;
+        min-width: 30px;
+        height: 104px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: ${({theme}) => theme.text}9a;
+        cursor: pointer;
+        display: grid;
+        grid-template-rows: 1fr auto;
+        align-items: end;
+        justify-items: center;
+        gap: 5px;
+        transition: color 0.2s ease, transform 0.2s ease;
+    }
+
+    .bar-track {
+        width: 14px;
+        height: 82px;
+        display: flex;
+        align-items: flex-end;
+        border-radius: 999px;
+        background: ${({theme}) => theme.bg4};
+        overflow: hidden;
+        transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+    }
+
+    .bar-track span {
+        display: block;
+        width: 100%;
+        height: var(--bar-height);
+        min-height: 3px;
+        border-radius: inherit;
+        background: #0f7fb6;
+        transform-origin: bottom center;
+        animation: barGrowIn 0.7s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+        animation-delay: calc(var(--bar-index) * 35ms);
+        transition: height 0.2s ease, background 0.2s ease, filter 0.2s ease;
+    }
+
+    .jornada-bars button:hover {
+        color: ${v.colorPrincipal};
+        transform: translateY(-2px);
+    }
+
+    .jornada-bars button:hover .bar-track {
+        transform: translateY(-5px) scaleY(1.04);
+        box-shadow: 0 10px 18px ${v.colorPrincipal}24;
+    }
+
+    .jornada-bars button:hover .bar-track span {
+        filter: brightness(1.18);
+    }
+
+    .jornada-bars button.current .bar-track span {
+        background: ${v.colorPrincipal};
+    }
+
+    .jornada-bars button.selected .bar-track {
+        box-shadow: 0 0 0 2px ${v.colorPrincipal}44;
+    }
+
+    .jornada-bars button.selected small {
+        color: ${v.colorPrincipal};
+    }
+
+    .jornada-bars small {
+        width: 100%;
+        text-align: center;
+        white-space: nowrap;
+        font-size: 0.6rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
     .mini-progress {
         height: 8px;
+        margin: 10px 0 10px;
         border-radius: 999px;
         overflow: hidden;
         background: ${({theme}) => theme.bgtotal};
@@ -1244,6 +1610,8 @@ const ActiveTournamentPanel = styled.div`
         max-width: 100%;
         background: ${v.colorPrincipal};
         border-radius: inherit;
+        transform-origin: left center;
+        animation: progressFillIn 0.7s ease-out both;
     }
 
     .metrics-card {
@@ -1355,6 +1723,14 @@ const ActiveTournamentPanel = styled.div`
         .metrics-grid {
             grid-template-columns: 1fr;
         }
+
+        .jornada-bars {
+            justify-content: flex-start;
+        }
+
+        .jornada-bars button {
+            flex: 0 0 30px;
+        }
     }
 
     @media (max-width: 620px) {
@@ -1380,6 +1756,33 @@ const ActiveTournamentPanel = styled.div`
         .jornada-status {
             align-items: flex-start;
             flex-direction: column;
+        }
+
+        .jornada-bars {
+            min-height: 92px;
+            padding: 10px 8px 8px;
+        }
+
+        .jornada-bars button {
+            height: 70px;
+        }
+
+        .bar-track {
+            height: 48px;
+            width: 12px;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .result-progress-track span,
+        .bar-track span,
+        .mini-progress span {
+            animation: none;
+        }
+
+        .jornada-bars button,
+        .bar-track {
+            transition: none;
         }
     }
 `;
