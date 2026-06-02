@@ -1119,8 +1119,17 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .active-card {
-        background: ${({theme}) => theme.bgcards};
-        border: 1px solid ${({theme}) => theme.bg4};
+        --panel-accent: ${({theme}) => theme.tournamentDashboard?.primary || v.colorPrincipal};
+        --panel-accent-soft: ${({theme}) => theme.tournamentDashboard?.primarySoft || `${v.colorPrincipal}16`};
+        --panel-accent-strong: ${({theme}) => theme.tournamentDashboard?.primary || v.colorPrincipal};
+        --panel-glow: ${({theme}) => theme.tournamentDashboard?.hero?.glow || `${v.colorPrincipal}24`};
+        --panel-surface: ${({theme}) => theme.tournamentDashboard?.surface || theme.bgcards};
+        --panel-item-bg: ${({theme}) => theme.tournamentDashboard?.itemSurface || theme.bgtotal};
+        --panel-border: ${({theme}) => theme.tournamentDashboard?.border || theme.bg4};
+        --panel-muted: ${({theme}) => theme.tournamentDashboard?.muted || `${theme.text}9a`};
+        --td-danger: ${({theme}) => theme.tournamentDashboard?.metrics?.danger || v.rojo};
+        background: var(--panel-surface);
+        border: 1px solid var(--panel-border);
         border-radius: 8px;
         box-shadow: ${v.boxshadowGray};
         color: ${({theme}) => theme.text};
@@ -1128,6 +1137,10 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .active-hero {
+        --panel-accent: ${({theme}) => theme.tournamentDashboard?.hero?.accent || v.colorPrincipal};
+        --panel-accent-soft: ${({theme}) => theme.tournamentDashboard?.hero?.accentSoft || `${v.colorPrincipal}18`};
+        --panel-accent-strong: ${({theme}) => theme.tournamentDashboard?.hero?.accentStrong || "#39d4ff"};
+        --panel-glow: ${({theme}) => theme.tournamentDashboard?.hero?.glow || `${v.colorPrincipal}24`};
         grid-area: hero;
         min-height: 232px;
         padding: 22px;
@@ -1135,8 +1148,8 @@ const ActiveTournamentPanel = styled.div`
         flex-direction: column;
         justify-content: space-between;
         background:
-            radial-gradient(circle at 85% 18%, ${v.colorPrincipal}24, transparent 32%),
-            ${({theme}) => theme.bgcards};
+            radial-gradient(circle at 85% 18%, var(--panel-glow), transparent 32%),
+            var(--panel-surface);
     }
 
     .hero-top,
@@ -1167,8 +1180,8 @@ const ActiveTournamentPanel = styled.div`
         border-radius: 8px;
         display: grid;
         place-items: center;
-        background: ${v.colorPrincipal}18;
-        color: ${v.colorPrincipal};
+        background: var(--panel-accent-soft);
+        color: var(--panel-accent);
         font-size: 26px;
         flex: 0 0 auto;
     }
@@ -1187,7 +1200,7 @@ const ActiveTournamentPanel = styled.div`
     .division-label {
         display: block;
         margin-bottom: 5px;
-        color: ${v.colorPrincipal};
+        color: var(--panel-accent);
         font-size: 0.68rem;
         font-weight: 950;
         letter-spacing: 0.08em;
@@ -1210,8 +1223,8 @@ const ActiveTournamentPanel = styled.div`
         margin-top: 8px;
         padding: 4px 9px;
         border-radius: 6px;
-        background: ${v.verde}1d;
-        color: ${v.verde};
+        background: ${({theme}) => theme.tournamentDashboard?.metrics?.accentSoft || `${v.verde}1d`};
+        color: ${({theme}) => theme.tournamentDashboard?.metrics?.accent || v.verde};
         font-size: 0.68rem;
         font-weight: 800;
     }
@@ -1230,7 +1243,7 @@ const ActiveTournamentPanel = styled.div`
     .jornada-main small,
     .metric-item small,
     .metric-item em {
-        color: ${({theme}) => theme.text}9a;
+        color: var(--panel-muted);
         font-size: 0.72rem;
         font-weight: 800;
     }
@@ -1240,7 +1253,7 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .progress-copy small {
-        color: ${({theme}) => theme.text}88;
+        color: var(--panel-muted);
         font-size: 0.78rem;
     }
 
@@ -1262,8 +1275,8 @@ const ActiveTournamentPanel = styled.div`
     .progress-track {
         height: 8px;
         border-radius: 999px;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
+        background: var(--panel-item-bg);
+        border: 1px solid var(--panel-border);
         overflow: hidden;
     }
 
@@ -1273,7 +1286,7 @@ const ActiveTournamentPanel = styled.div`
         min-width: 8px;
         max-width: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, ${v.colorPrincipal}, #39d4ff);
+        background: linear-gradient(90deg, var(--panel-accent), var(--panel-accent-strong));
         transition: width 0.35s ease;
     }
 
@@ -1283,7 +1296,7 @@ const ActiveTournamentPanel = styled.div`
         justify-content: space-between;
         gap: 12px;
         margin: 11px 0 7px;
-        color: ${({theme}) => theme.text}92;
+        color: var(--panel-muted);
         font-size: 0.68rem;
         font-weight: 900;
     }
@@ -1292,8 +1305,8 @@ const ActiveTournamentPanel = styled.div`
         height: 6px;
         border-radius: 999px;
         overflow: hidden;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
+        background: var(--panel-item-bg);
+        border: 1px solid var(--panel-border);
     }
 
     .result-progress-track span {
@@ -1302,7 +1315,7 @@ const ActiveTournamentPanel = styled.div`
         min-width: 6px;
         max-width: 100%;
         border-radius: inherit;
-        background: #0f7fb6;
+        background: var(--panel-accent-strong);
         transform-origin: left center;
         animation: progressFillIn 0.7s ease-out both;
         transition: width 0.35s ease;
@@ -1337,19 +1350,19 @@ const ActiveTournamentPanel = styled.div`
     .primary-action {
         flex: 1 1 260px;
         color: #fff;
-        background: ${v.colorPrincipal};
+        background: var(--panel-accent);
     }
 
     .secondary-action {
         color: ${({theme}) => theme.text};
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
+        background: var(--panel-item-bg);
+        border: 1px solid var(--panel-border);
     }
 
     .secondary-action.danger:hover {
         color: #fff;
-        background: ${v.rojo};
-        border-color: ${v.rojo};
+        background: var(--td-danger);
+        border-color: var(--td-danger);
     }
 
     .primary-action:hover,
@@ -1360,6 +1373,9 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .rules-card {
+        --panel-accent: ${({theme}) => theme.tournamentDashboard?.rules?.accent || "#7c3aed"};
+        --panel-accent-soft: ${({theme}) => theme.tournamentDashboard?.rules?.accentSoft || "#f1e8ff"};
+        --panel-accent-strong: ${({theme}) => theme.tournamentDashboard?.rules?.accentStrong || "#5b21b6"};
         grid-area: rules;
         padding: 18px;
     }
@@ -1374,7 +1390,7 @@ const ActiveTournamentPanel = styled.div`
         border-radius: 6px;
         display: grid;
         place-items: center;
-        color: ${({theme}) => theme.text}a8;
+        color: var(--panel-accent);
         background: transparent;
     }
 
@@ -1388,8 +1404,8 @@ const ActiveTournamentPanel = styled.div`
         min-height: 44px;
         padding: 8px 10px;
         border-radius: 8px;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
+        background: var(--panel-item-bg);
+        border: 1px solid var(--panel-border);
     }
 
     .rule-icon {
@@ -1398,8 +1414,8 @@ const ActiveTournamentPanel = styled.div`
         border-radius: 7px;
         display: grid;
         place-items: center;
-        color: ${v.colorPrincipal};
-        background: ${v.colorPrincipal}16;
+        color: var(--panel-accent);
+        background: var(--panel-accent-soft);
         flex: 0 0 auto;
     }
 
@@ -1427,6 +1443,9 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .jornada-card {
+        --panel-accent: ${({theme}) => theme.tournamentDashboard?.jornada?.accent || v.colorPrincipal};
+        --panel-accent-soft: ${({theme}) => theme.tournamentDashboard?.jornada?.accentSoft || `${v.colorPrincipal}16`};
+        --panel-accent-strong: ${({theme}) => theme.tournamentDashboard?.jornada?.accentStrong || "#0f7fb6"};
         grid-area: jornada;
         padding: 20px;
         min-height: 190px;
@@ -1435,8 +1454,8 @@ const ActiveTournamentPanel = styled.div`
     .status-pill {
         padding: 5px 9px;
         border-radius: 999px;
-        background: ${v.colorPrincipal}16;
-        color: ${v.colorPrincipal};
+        background: var(--panel-accent-soft);
+        color: var(--panel-accent);
         font-size: 0.68rem;
         font-weight: 900;
     }
@@ -1455,7 +1474,7 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .jornada-main span {
-        color: ${v.colorPrincipal};
+        color: var(--panel-accent);
         font-size: 0.78rem;
         font-weight: 950;
         text-transform: uppercase;
@@ -1475,7 +1494,7 @@ const ActiveTournamentPanel = styled.div`
         place-items: center;
         background:
             radial-gradient(circle closest-side, ${({theme}) => theme.bgcards} 72%, transparent 74%),
-            conic-gradient(${v.colorPrincipal} var(--progress), ${({theme}) => theme.bg4} 0);
+            conic-gradient(var(--panel-accent) var(--progress), var(--panel-border) 0);
         flex: 0 0 auto;
     }
 
@@ -1493,8 +1512,8 @@ const ActiveTournamentPanel = styled.div`
         margin: 8px 0 0;
         padding: 14px 14px 10px;
         border-radius: 8px;
-        border: 1px solid ${({theme}) => theme.bg4};
-        background: ${({theme}) => theme.bgtotal};
+        border: 1px solid var(--panel-border);
+        background: var(--panel-item-bg);
         overflow-x: auto;
         overflow-y: hidden;
         cursor: grab;
@@ -1514,7 +1533,7 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .jornada-bars::-webkit-scrollbar-thumb {
-        background: ${({theme}) => theme.bg4};
+        background: var(--panel-border);
         border-radius: 999px;
     }
 
@@ -1525,7 +1544,7 @@ const ActiveTournamentPanel = styled.div`
         padding: 0;
         border: 0;
         background: transparent;
-        color: ${({theme}) => theme.text}9a;
+        color: var(--panel-muted);
         cursor: pointer;
         display: grid;
         grid-template-rows: 1fr auto;
@@ -1541,7 +1560,7 @@ const ActiveTournamentPanel = styled.div`
         display: flex;
         align-items: flex-end;
         border-radius: 999px;
-        background: ${({theme}) => theme.bg4};
+        background: var(--panel-border);
         overflow: hidden;
         transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
     }
@@ -1552,7 +1571,7 @@ const ActiveTournamentPanel = styled.div`
         height: var(--bar-height);
         min-height: 3px;
         border-radius: inherit;
-        background: #0f7fb6;
+        background: var(--panel-accent-strong);
         transform-origin: bottom center;
         animation: barGrowIn 0.7s cubic-bezier(0.2, 0.85, 0.25, 1) both;
         animation-delay: calc(var(--bar-index) * 35ms);
@@ -1560,13 +1579,13 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .jornada-bars button:hover {
-        color: ${v.colorPrincipal};
+        color: var(--panel-accent);
         transform: translateY(-2px);
     }
 
     .jornada-bars button:hover .bar-track {
         transform: translateY(-5px) scaleY(1.04);
-        box-shadow: 0 10px 18px ${v.colorPrincipal}24;
+        box-shadow: 0 10px 18px var(--panel-accent-soft);
     }
 
     .jornada-bars button:hover .bar-track span {
@@ -1574,15 +1593,15 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .jornada-bars button.current .bar-track span {
-        background: ${v.colorPrincipal};
+        background: var(--panel-accent);
     }
 
     .jornada-bars button.selected .bar-track {
-        box-shadow: 0 0 0 2px ${v.colorPrincipal}44;
+        box-shadow: 0 0 0 2px var(--panel-accent-soft);
     }
 
     .jornada-bars button.selected small {
-        color: ${v.colorPrincipal};
+        color: var(--panel-accent);
     }
 
     .jornada-bars small {
@@ -1599,8 +1618,8 @@ const ActiveTournamentPanel = styled.div`
         margin: 10px 0 10px;
         border-radius: 999px;
         overflow: hidden;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
+        background: var(--panel-item-bg);
+        border: 1px solid var(--panel-border);
     }
 
     .mini-progress span {
@@ -1608,13 +1627,18 @@ const ActiveTournamentPanel = styled.div`
         height: 100%;
         min-width: 8px;
         max-width: 100%;
-        background: ${v.colorPrincipal};
+        background: var(--panel-accent);
         border-radius: inherit;
         transform-origin: left center;
         animation: progressFillIn 0.7s ease-out both;
     }
 
     .metrics-card {
+        --panel-accent: ${({theme}) => theme.tournamentDashboard?.metrics?.accent || v.verde};
+        --panel-accent-soft: ${({theme}) => theme.tournamentDashboard?.metrics?.accentSoft || `${v.verde}1d`};
+        --panel-accent-strong: ${({theme}) => theme.tournamentDashboard?.metrics?.accentStrong || "#15803d"};
+        --panel-warning: ${({theme}) => theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};
+        --panel-danger: ${({theme}) => theme.tournamentDashboard?.metrics?.danger || v.rojo};
         grid-area: metrics;
         padding: 20px;
         min-height: 190px;
@@ -1632,8 +1656,8 @@ const ActiveTournamentPanel = styled.div`
         padding: 10px;
         min-height: 46px;
         border-radius: 8px;
-        background: ${({theme}) => theme.bgtotal};
-        border: 1px solid ${({theme}) => theme.bg4};
+        background: var(--panel-item-bg);
+        border: 1px solid var(--panel-border);
     }
 
     .metric-icon {
@@ -1642,8 +1666,8 @@ const ActiveTournamentPanel = styled.div`
         border-radius: 8px;
         display: grid;
         place-items: center;
-        background: ${v.colorPrincipal}16;
-        color: ${v.colorPrincipal};
+        background: var(--panel-accent-soft);
+        color: var(--panel-accent);
         flex: 0 0 auto;
     }
 
@@ -1677,11 +1701,11 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .card-half + .card-half {
-        border-left: 1px solid ${({theme}) => theme.bg4};
+        border-left: 1px solid var(--panel-border);
     }
 
     .card-half small {
-        color: ${({theme}) => theme.text}9a;
+        color: var(--panel-muted);
         font-size: 0.64rem;
         font-weight: 900;
     }
@@ -1692,11 +1716,11 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .red-card strong {
-        color: ${v.rojo};
+        color: var(--panel-danger);
     }
 
     .yellow-card strong {
-        color: #f59e0b;
+        color: var(--panel-warning);
     }
 
     .metric-item em {
