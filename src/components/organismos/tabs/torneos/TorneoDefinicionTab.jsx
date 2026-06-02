@@ -11,6 +11,8 @@ import { IoMdStopwatch } from "react-icons/io";
 
 import { Card, CardHeader, Btnsave, Modal, TabsNavigation, Toast } from "../../../../index";
 import { ConfirmModal } from "../../ConfirmModal";
+import { Tooltip } from "../../../atomos/Tooltip";
+import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
 import { TorneoDashboard } from "./subcomponents/TorneoDashboard";
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
@@ -57,7 +59,7 @@ export function TorneoDefinicionTab({
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
     allTeams, participatingIds, onInclude, onExclude,
     isLoading, reglas, setReglas, onTournamentReset, leagueData,
-    partidos = [], goleadores = []
+    partidos = [], goleadores = [], standings = []
 }) {
   const navigate = useNavigate();
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -774,7 +776,10 @@ export function TorneoDefinicionTab({
 
   const currentTopScorer = useMemo(() => {
       const scorer = Array.isArray(goleadores) ? goleadores[0] : null;
-      if (!scorer) return { name: "Sin registro", goals: 0 };
+      if (!scorer) return { name: "Sin registro", teamName: "Sin equipo", photo: null, goals: 0 };
+      const scorerTeam =
+          allTeams?.find((team) => String(team.id) === String(scorer.team_id)) ||
+          null;
 
       const name = [
           scorer.first_name,
@@ -783,9 +788,85 @@ export function TorneoDefinicionTab({
 
       return {
           name,
+          teamName: scorer.team_name || scorerTeam?.name || scorerTeam?.nombre || "Sin equipo",
+          photo: scorer.photo_url || scorer.player_photo || scorer.image_url || null,
           goals: Number(scorer.goals || 0),
       };
-  }, [goleadores]);
+  }, [allTeams, goleadores]);
+
+  const leastConcededTeam = useMemo(() => {
+      const teamMap = new Map();
+      const standingsMap = new Map(
+          (standings || [])
+              .filter((row) => row?.id != null)
+              .map((row) => [String(row.id), row])
+      );
+
+      participatingTeams.forEach((team) => {
+          const standingRow = standingsMap.get(String(team.id));
+          teamMap.set(String(team.id), {
+              id: team.id,
+              name: team.name || team.nombre || standingRow?.nombre || "Equipo",
+              logo: team.logo_url || team.img || standingRow?.logo || null,
+              color: team.color || standingRow?.color || "#1cb0f6",
+              gc: 0,
+              pj: 0,
+              pts: 0,
+          });
+      });
+
+      const winPoints = Number(tournamentConfigForUi.winPoints ?? form.winPoints ?? 3);
+      const drawPoints = Number(tournamentConfigForUi.drawPoints ?? form.drawPoints ?? 1);
+      const lossPoints = Number(tournamentConfigForUi.lossPoints ?? form.lossPoints ?? 0);
+
+      (partidos || [])
+          .filter((match) => isTrackableMatch(match) && hasRegisteredMatchResult(match))
+          .forEach((match) => {
+              const local = teamMap.get(String(match.team1_id));
+              const visitante = teamMap.get(String(match.team2_id));
+              if (!local || !visitante) return;
+
+              const goalsLocal = Number(match.goals1);
+              const goalsVisitante = Number(match.goals2);
+              if (!Number.isFinite(goalsLocal) || !Number.isFinite(goalsVisitante)) return;
+
+              local.pj += 1;
+              visitante.pj += 1;
+              local.gc += goalsVisitante;
+              visitante.gc += goalsLocal;
+
+              let pointsLocal = Number(match.puntos1);
+              let pointsVisitante = Number(match.puntos2);
+              const hasStoredPoints = Number.isFinite(pointsLocal) && Number.isFinite(pointsVisitante);
+
+              if (!hasStoredPoints) {
+                  if (goalsLocal > goalsVisitante) {
+                      pointsLocal = winPoints;
+                      pointsVisitante = lossPoints;
+                  } else if (goalsLocal < goalsVisitante) {
+                      pointsLocal = lossPoints;
+                      pointsVisitante = winPoints;
+                  } else {
+                      pointsLocal = drawPoints;
+                      pointsVisitante = drawPoints;
+                  }
+              }
+
+              local.pts += Number.isFinite(pointsLocal) ? pointsLocal : 0;
+              visitante.pts += Number.isFinite(pointsVisitante) ? pointsVisitante : 0;
+          });
+
+      const ranked = Array.from(teamMap.values())
+          .filter((team) => team.pj > 0)
+          .sort((a, b) => {
+              if (a.gc !== b.gc) return a.gc - b.gc;
+              if (b.pj !== a.pj) return b.pj - a.pj;
+              if (b.pts !== a.pts) return b.pts - a.pts;
+              return a.name.localeCompare(b.name);
+          });
+
+      return ranked[0] || null;
+  }, [form.drawPoints, form.lossPoints, form.winPoints, participatingTeams, partidos, standings, tournamentConfigForUi]);
 
   const tournamentMetrics = useMemo(() => {
       const totalGoals = (partidos || []).reduce((acc, match) => {
@@ -803,11 +884,11 @@ export function TorneoDefinicionTab({
 
       return [
           { label: "Total de Goles", value: totalGoals, icon: <RiFootballLine /> },
-          { label: "Partidos Jugados", value: resultConfirmationProgress.confirmed, detail: `de ${resultConfirmationProgress.total}`, icon: <RiCalendarEventLine /> },
           { type: "cards", label: "Tarjetas", redCards, yellowCards, icon: <RiFileWarningLine /> },
-          { label: "Goleador Actual", value: currentTopScorer.name, detail: `${currentTopScorer.goals} goles`, icon: <RiUserStarFill /> },
+          { type: "topScorer", label: "Goleador Actual", topScorer: currentTopScorer },
+          { type: "leastGoals", label: "Menos Goles", leastConceded: leastConcededTeam },
       ];
-  }, [partidos, tournamentEvents, currentTopScorer, resultConfirmationProgress]);
+  }, [partidos, tournamentEvents, currentTopScorer, leastConcededTeam]);
 
   const activeRules = useMemo(() => ([
       {
@@ -1004,6 +1085,63 @@ export function TorneoDefinicionTab({
                                     <div className="card-half yellow-card">
                                         <small>Tarjetas Amarillas</small>
                                         <strong>{metric.yellowCards}</strong>
+                                    </div>
+                                </div>
+                            ) : metric.type === "topScorer" ? (
+                                <div className="metric-item metric-leader-card" key={metric.label}>
+                                    <span className="metric-avatar player-avatar">
+                                        {metric.topScorer.photo ? (
+                                            <img
+                                                src={metric.topScorer.photo}
+                                                alt={metric.topScorer.name}
+                                                crossOrigin="anonymous"
+                                            />
+                                        ) : (
+                                            <RiUserStarFill />
+                                        )}
+                                    </span>
+                                    <div className="metric-copy">
+                                        <small>Goleador Actual</small>
+                                        <em>{metric.topScorer.teamName}</em>
+                                        <strong title={metric.topScorer.name}>{metric.topScorer.name}</strong>
+                                        <span className="leader-stats">{metric.topScorer.goals} goles</span>
+                                    </div>
+                                </div>
+                            ) : metric.type === "leastGoals" ? (
+                                <div className="metric-item metric-leader-card metric-least-goals" key={metric.label}>
+                                    <Tooltip
+                                        position="top"
+                                        text="Criterio: menor GC -> mas PJ -> mas PTS"
+                                    >
+                                        <button type="button" className="metric-info" aria-label="Criterios de desempate">
+                                            <RiInformationLine />
+                                        </button>
+                                    </Tooltip>
+                                    <span className="metric-avatar team-avatar">
+                                        {metric.leastConceded?.logo ? (
+                                            <img
+                                                src={metric.leastConceded.logo}
+                                                alt={metric.leastConceded.name}
+                                                crossOrigin="anonymous"
+                                            />
+                                        ) : (
+                                            <DynamicTeamLogo
+                                                name={metric.leastConceded?.name || "Equipo"}
+                                                color={metric.leastConceded?.color || "#1cb0f6"}
+                                                size="100%"
+                                            />
+                                        )}
+                                    </span>
+                                    <div className="metric-copy">
+                                        <small>Menos Goles</small>
+                                        <strong title={metric.leastConceded?.name || "Sin registro"}>
+                                            {metric.leastConceded?.name || "Sin registro"}
+                                        </strong>
+                                        <span className="leader-stats">
+                                            {metric.leastConceded
+                                                ? `${metric.leastConceded.gc} GC / ${metric.leastConceded.pj} PJ / ${metric.leastConceded.pts} PTS`
+                                                : "Sin partidos jugados"}
+                                        </span>
                                     </div>
                                 </div>
                             ) : (
@@ -1750,6 +1888,116 @@ const ActiveTournamentPanel = styled.div`
     .card-half strong {
         font-size: 0.88rem;
         font-weight: 950;
+    }
+
+    .card-half span,
+    .card-half em {
+        color: var(--panel-muted);
+        font-size: 0.64rem;
+        font-style: normal;
+        font-weight: 850;
+    }
+
+    .metric-leader-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr);
+        align-items: center;
+        gap: 9px;
+        min-height: 58px;
+        padding: 8px 10px;
+    }
+
+    .metric-least-goals {
+        padding-right: 30px;
+    }
+
+    .metric-least-goals > div:first-child {
+        position: absolute;
+        top: 9px;
+        right: 9px;
+        z-index: 3;
+    }
+
+    .metric-leader-card strong {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.86rem;
+        line-height: 1.1;
+    }
+
+    .metric-leader-card span,
+    .metric-leader-card em {
+        color: var(--panel-muted);
+        font-size: 0.61rem;
+        font-style: normal;
+        font-weight: 850;
+    }
+
+    .metric-leader-card small {
+        font-size: 0.61rem;
+    }
+
+    .metric-leader-card small {
+        white-space: nowrap;
+    }
+
+    .metric-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .leader-stats {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .metric-info {
+        width: 18px;
+        height: 18px;
+        border: 0;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        color: var(--panel-accent);
+        background: var(--panel-accent-soft);
+        cursor: help;
+        flex: 0 0 auto;
+    }
+
+    .metric-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: var(--panel-accent-soft);
+        color: var(--panel-accent);
+        flex: 0 0 auto;
+        padding: 3px;
+    }
+
+    .player-avatar {
+        border-radius: 50%;
+        font-size: 16px;
+    }
+
+    .metric-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .team-avatar img {
+        object-fit: contain;
     }
 
     .red-card strong {
