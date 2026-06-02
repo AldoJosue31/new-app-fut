@@ -13,6 +13,7 @@ import { Card, CardHeader, Btnsave, Modal, TabsNavigation, Toast } from "../../.
 import { ConfirmModal } from "../../ConfirmModal";
 import { Tooltip } from "../../../atomos/Tooltip";
 import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
+import { TorneoDefinitionMode } from "../../../TorneoDefinitionMode";
 import { TorneoDashboard } from "./subcomponents/TorneoDashboard";
 import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
@@ -939,7 +940,10 @@ export function TorneoDefinicionTab({
     <StyledCardWrapper>
         <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
 
-        {activeTournament ? (
+        <TorneoDefinitionMode
+          activeTournament={activeTournament}
+          isResolving={isLoading && !activeTournament}
+          renderActive={() => (
             <ActiveTournamentPanel $isExiting={isExiting}>
                 <section className="active-hero active-card">
                     <div className="hero-top">
@@ -1158,7 +1162,8 @@ export function TorneoDefinicionTab({
                     </div>
                 </section>
             </ActiveTournamentPanel>
-        ) : (
+          )}
+          renderSetup={() => (
         <Card maxWidth="1000px">
             <div style={{ marginBottom: '20px' }}>
                 <CardHeader Icono={v.iconocorona} titulo="Resumen de Temporada" subtitulo={`División: ${divisionName || "..."}`} />
@@ -1174,7 +1179,8 @@ export function TorneoDefinicionTab({
                 <Btnsave titulo={loading ? "Creando..." : "Siguiente: Sorteo"} bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} funcion={handlePreStartTournament} disabled={loading || !divisionName || participatingTeams.length < 2 || !form.season} />
             </div>
         </Card>
-        )}
+          )}
+        />
 
         <FixturePreviewModal isOpen={showPreviewModal} onClose={() => setShowPreviewModal(false)} onConfirm={handleConfirmFixture} teams={participatingTeams} config={form} isLoading={loading} />
         <ConfirmModal isOpen={showEndTournamentModal} onClose={() => setShowEndTournamentModal(false)} onConfirm={handleEndTournament} title="¿Finalizar Torneo Actual?" message="Esta acción borrará permanentemente todos los partidos del torneo actual." confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"} confirmColor={v.rojo} />

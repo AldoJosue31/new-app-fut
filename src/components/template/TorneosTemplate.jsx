@@ -8,6 +8,7 @@ import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { EmptyState } from "../organismos/EmptyState"; 
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
+import { TorneoDefinitionModeLoading } from "../TorneoDefinitionMode";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
@@ -69,7 +70,8 @@ export function TorneosTemplate({
   };
 
   useEffect(() => {
-    fetchGoleadores();
+    const timeoutId = window.setTimeout(fetchGoleadores, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [activeTournament?.id]);
 
   useEffect(() => {
@@ -105,7 +107,15 @@ export function TorneosTemplate({
   }, [activeTab]);
 
   if (isResolvingInitialTab) {
-    return null;
+    return (
+      <StyledContentContainer $activeTab="definir" $headerHeight={headerHeight}>
+        <ContentGrid $isWide={false}>
+          <FullWidthTab>
+            <TorneoDefinitionModeLoading />
+          </FullWidthTab>
+        </ContentGrid>
+      </StyledContentContainer>
+    );
   }
 
   return (
