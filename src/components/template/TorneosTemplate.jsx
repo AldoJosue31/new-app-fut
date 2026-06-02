@@ -25,9 +25,9 @@ export function TorneosTemplate({
   const { tab } = useParams();
   
   const tabList = [
-    { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
+    { id: "definir", label: "Torneo", icon: <v.iconocorona /> },
     { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
-    { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> },
+    { id: "standings", label: "Clasificacion", icon: <RiBarChartGroupedLine /> },
     { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> } 
   ];
 

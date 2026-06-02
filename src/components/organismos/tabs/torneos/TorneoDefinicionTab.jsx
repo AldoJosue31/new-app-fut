@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { v } from "../../../../styles/variables";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine,
-    RiExchangeLine, RiFileWarningLine, RiBarChartGroupedLine, RiFlagLine, RiSettings3Line,
+    RiFileWarningLine, RiBarChartGroupedLine, RiFlagLine, RiSettings3Line,
     RiCalendarEventLine, RiFootballLine, RiTimeLine, RiUserStarFill
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
@@ -37,12 +37,17 @@ import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandings
 import {
   isOfficialJornadaName,
   parseJornadaNumber,
-  resolveRepositionMappings,
 } from "../../../../utils/jornadaUtils";
 import { supabase } from "../../../../supabase/supabase.config";
 
 const normalizeMatchStatus = (status) => String(status || "").trim().toLowerCase();
-const isPlayedMatch = (match) => normalizeMatchStatus(match?.status) === "finalizado";
+const hasRegisteredScoreValue = (value) =>
+    value !== null &&
+    value !== undefined &&
+    String(value).trim() !== "" &&
+    Number.isFinite(Number(value));
+const hasRegisteredMatchResult = (match) =>
+    hasRegisteredScoreValue(match?.goals1) && hasRegisteredScoreValue(match?.goals2);
 const isTrackableMatch = (match) =>
     match?.team1_id != null &&
     match?.team2_id != null &&
@@ -540,20 +545,22 @@ export function TorneoDefinicionTab({
       const repositionMatchMappings = Array.isArray(tournamentConfigForUi.repositionMatchMappings)
           ? tournamentConfigForUi.repositionMatchMappings
           : [];
-      const resolvedRepositionMappings = resolveRepositionMappings({
-          jornadas: dashboardJornadas.length > 0 ? dashboardJornadas : activeJornadas,
-          configuredMappings: Array.isArray(tournamentConfigForUi.repositionMappings)
-              ? tournamentConfigForUi.repositionMappings
-              : [],
-      });
-      const originalByRepositionJornadaId = new Map(
-          resolvedRepositionMappings
-              .filter((mapping) => mapping?.repositionJornadaId && mapping?.originalJornadaId)
-              .map((mapping) => [String(mapping.repositionJornadaId), String(mapping.originalJornadaId)])
+      const matchMappingByMatchId = new Map(
+          repositionMatchMappings
+              .filter((mapping) => mapping?.matchId)
+              .map((mapping) => [String(mapping.matchId), mapping])
       );
 
       const getMatchJornadaId = (match) => match?.jornada_id ?? match?.jornadas?.id ?? match?.jornada?.id ?? null;
       const getMatchJornadaName = (match) => match?.jornadas?.name || match?.jornada?.name || "";
+      const getLogicalMatchKey = (match) => {
+          const teamIds = [match?.team1_id, match?.team2_id]
+              .filter((teamId) => teamId !== null && teamId !== undefined)
+              .map((teamId) => String(teamId))
+              .sort();
+
+          return teamIds.length === 2 ? teamIds.join("-") : String(match?.id || "");
+      };
 
       return activeJornadas.map((jornada) => {
           const jornadaId = jornada?.id != null ? String(jornada.id) : null;
@@ -563,16 +570,21 @@ export function TorneoDefinicionTab({
               const matchJornadaId = getMatchJornadaId(match);
               const matchJornadaIdString = matchJornadaId != null ? String(matchJornadaId) : null;
               const matchJornadaName = getMatchJornadaName(match);
-              const originalJornadaId = matchJornadaIdString
-                  ? originalByRepositionJornadaId.get(matchJornadaIdString)
+              const matchMapping = match?.id ? matchMappingByMatchId.get(String(match.id)) : null;
+              const mappedOriginalJornadaId = matchMapping?.originalJornadaId != null
+                  ? String(matchMapping.originalJornadaId)
                   : null;
-              const belongsById = jornadaId && (
-                  matchJornadaIdString === jornadaId ||
-                  originalJornadaId === jornadaId
+              const mappedOriginalJornadaName = matchMapping?.originalJornadaName || "";
+              const belongsByMapping = matchMapping && (
+                  (jornadaId && mappedOriginalJornadaId === jornadaId) ||
+                  (!jornadaId && jornada?.name && mappedOriginalJornadaName === jornada.name)
               );
-              const belongsByName = !jornadaId && jornada?.name && matchJornadaName === jornada.name;
+              const belongsDirectly = !matchMapping && (
+                  (jornadaId && matchJornadaIdString === jornadaId) ||
+                  (!jornadaId && jornada?.name && matchJornadaName === jornada.name)
+              );
 
-              if ((belongsById || belongsByName) && match?.id) {
+              if ((belongsByMapping || belongsDirectly) && match?.id) {
                   matchesMap.set(String(match.id), match);
               }
           });
@@ -591,13 +603,30 @@ export function TorneoDefinicionTab({
               }
           });
 
-          const jornadaMatches = Array.from(matchesMap.values()).filter(isTrackableMatch);
-          const played = jornadaMatches.filter(isPlayedMatch).length;
-          const total = jornadaMatches.length;
+          const logicalMatches = new Map();
+          Array.from(matchesMap.values())
+              .filter(isTrackableMatch)
+              .forEach((match) => {
+                  const logicalKey = getLogicalMatchKey(match);
+                  const currentGroup = logicalMatches.get(logicalKey) || {
+                      matches: [],
+                      hasResult: false,
+                  };
+
+                  currentGroup.matches.push(match);
+                  currentGroup.hasResult = currentGroup.hasResult || hasRegisteredMatchResult(match);
+                  logicalMatches.set(logicalKey, currentGroup);
+              });
+
+          const groupedMatches = Array.from(logicalMatches.values());
+          const played = groupedMatches.filter((group) => group.hasResult).length;
+          const total = groupedMatches.length;
           const pending = Math.max(total - played, 0);
           const percent = total > 0 ? Math.round((played / total) * 100) : 0;
           const status = normalizeMatchStatus(jornada.status);
-          const isConfirmed = status.includes("confirmad") || status.includes("finaliz") || status.includes("complet");
+          const isConfirmed = total > 0
+              ? pending === 0
+              : status.includes("confirmad") || status.includes("finaliz") || status.includes("complet");
 
           return {
               id: jornada.id,
@@ -732,7 +761,7 @@ export function TorneoDefinicionTab({
 
   const resultConfirmationProgress = useMemo(() => {
       const confirmableMatches = (partidos || []).filter(isTrackableMatch);
-      const confirmedMatches = confirmableMatches.filter(isPlayedMatch);
+      const confirmedMatches = confirmableMatches.filter(hasRegisteredMatchResult);
       const total = confirmableMatches.length;
       const confirmed = confirmedMatches.length;
 
@@ -792,14 +821,22 @@ export function TorneoDefinicionTab({
           detail: `${tournamentConfigForUi.minutosPorTiempo ?? reglas?.minutosPorTiempo ?? 45}' por tiempo / ${tournamentConfigForUi.minutosDescanso ?? reglas?.minutosDescanso ?? 15}' descanso`,
       },
       {
-          icon: <RiExchangeLine />,
-          title: "Cambios",
-          detail: `${tournamentConfigForUi.cambios || reglas?.cambios || "Ilimitados"}`,
+          icon: <RiCoinLine />,
+          title: "Criterio de Desempate",
+          detail: String(tournamentConfigForUi.tieBreakType || form.tieBreakType || "normal") === "penalties"
+              ? "Penales/Shootouts (Punto Extra)"
+              : "Tradicional (Empate directo)",
       },
       {
           icon: <RiBarChartGroupedLine />,
-          title: "Sistema de Puntos",
-          detail: `V:${tournamentConfigForUi.winPoints ?? form.winPoints ?? 3} E:${tournamentConfigForUi.drawPoints ?? form.drawPoints ?? 1} D:${tournamentConfigForUi.lossPoints ?? form.lossPoints ?? 0}`,
+          title: "Ascensos / Descensos",
+          detail: (() => {
+              const ascensos = Number(tournamentConfigForUi.ascensos ?? form.ascensos ?? 0) || 0;
+              const descensos = Number(tournamentConfigForUi.descensos ?? form.descensos ?? 0) || 0;
+              return ascensos > 0 || descensos > 0
+                  ? `Ascensos: ${ascensos} / Descensos: ${descensos}`
+                  : "Sin ascensos ni descensos";
+          })(),
       },
       {
           icon: <RiFlagLine />,
