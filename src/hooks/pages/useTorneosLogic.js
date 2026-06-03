@@ -115,22 +115,23 @@ export const useTorneosLogic = () => {
     
     setIsLoadingData(true); 
     try {
-      if (selectedDivision.league_id) {
-          const lData = await getLeagueById(selectedDivision.league_id);
-          setLeagueData(lData);
-      }
+      const torneoPromise = getTorneoActivo(selectedDivision.id);
+      const teamsPromise = getEquiposDivision(selectedDivision.id);
+      const leaguePromise = selectedDivision.league_id
+          ? getLeagueById(selectedDivision.league_id)
+          : Promise.resolve(null);
 
-      const [torneo, teams] = await Promise.all([
-        getTorneoActivo(selectedDivision.id),
-        getEquiposDivision(selectedDivision.id)
-      ]);
+      const torneo = await torneoPromise;
+      setActiveTournament(torneo);
+
+      const [teams, lData] = await Promise.all([teamsPromise, leaguePromise]);
+      setLeagueData(lData);
 
       const processedTeams = teams.map(t => ({
         ...t,
         playerCount: t.players?.length || 0
       }));
       setAllTeams(processedTeams);
-      setActiveTournament(torneo);
 
       if (torneo) {
         setForm(prev => ({

@@ -9,6 +9,7 @@ import { EmptyState } from "../organismos/EmptyState";
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoDefinitionModeLoading } from "../TorneoDefinitionMode";
+import { getTournamentAutoRedirectPreference } from "../../utils/tournamentPreferences";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
@@ -34,7 +35,8 @@ export function TorneosTemplate({
 
   const validTabIds = tabList.map(t => t.id);
   const isValidTab = validTabIds.includes(tab);
-  const defaultTab = activeTournament ? "jornadas" : "definir";
+  const shouldAutoRedirectToJornadas = getTournamentAutoRedirectPreference();
+  const defaultTab = activeTournament && shouldAutoRedirectToJornadas ? "jornadas" : "definir";
   const activeTab = isValidTab ? tab : defaultTab;
   const isResolvingInitialTab = !isValidTab && isLoadingData;
   const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
@@ -44,12 +46,14 @@ export function TorneosTemplate({
   };
 
   useLayoutEffect(() => {
-    if (isLoadingData || isValidTab) return;
+    if (isValidTab) return;
+    if (isLoadingData && !activeTournament) return;
 
     navigate(`/torneos/${defaultTab}`, { replace: true });
-  }, [defaultTab, isLoadingData, isValidTab, navigate]);
+  }, [activeTournament, defaultTab, isLoadingData, isValidTab, navigate]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
+  const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;
 
   const [goleadores, setGoleadores] = useState([]);
   const headerMeasureRef = useRef(null);
@@ -108,13 +112,26 @@ export function TorneosTemplate({
 
   if (isResolvingInitialTab) {
     return (
-      <StyledContentContainer $activeTab="definir" $headerHeight={headerHeight}>
-        <ContentGrid $isWide={false}>
-          <FullWidthTab>
-            <TorneoDefinitionModeLoading />
-          </FullWidthTab>
-        </ContentGrid>
-      </StyledContentContainer>
+      <>
+        <HeaderMeasure ref={headerMeasureRef}>
+          <PageHeader 
+            title="Torneos" 
+            maxWidth="1000px" 
+            marginBottom="0"
+            state={state}
+            setState={setState}
+            tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+          />
+        </HeaderMeasure>
+
+        <StyledContentContainer $activeTab={activeTab} $headerHeight={headerHeight}>
+          <ContentGrid $isWide={isWideView}>
+            <FullWidthTab $isConstrained={activeTab === "jornadas"}>
+              <TorneoDefinitionModeLoading />
+            </FullWidthTab>
+          </ContentGrid>
+        </StyledContentContainer>
+      </>
     );
   }
 
@@ -155,7 +172,11 @@ export function TorneosTemplate({
 
           {activeTab === "jornadas" && (
             <FullWidthTab $isConstrained>
-              {activeTournament ? (
+              {isLoadingData && !activeTournament ? (
+                 <TorneoDefinitionModeLoading />
+              ) : isPreparingActiveTab ? (
+                 <TorneoDefinitionModeLoading />
+              ) : activeTournament ? (
                  <TorneoJornadasTab 
                     activeTournament={activeTournament} 
                     participatingTeams={participatingTeamsObj} 
@@ -169,7 +190,9 @@ export function TorneosTemplate({
 
           {activeTab === "standings" && (
             <FullWidthTab>
-              {activeTournament ? (
+              {isLoadingData && !activeTournament ? (
+                <TorneoDefinitionModeLoading />
+              ) : activeTournament ? (
                 <TorneosStandingsTab 
                     division={{ name: divisionName }} 
                     torneo={activeTournament} 
@@ -191,7 +214,9 @@ export function TorneosTemplate({
 
           {activeTab === "goleadores" && (
             <FullWidthTab>
-              {activeTournament ? (
+              {isLoadingData && !activeTournament ? (
+                <TorneoDefinitionModeLoading />
+              ) : activeTournament ? (
                 <GoleadoresTab
                    torneo={activeTournament}
                    goleadores={goleadores}
