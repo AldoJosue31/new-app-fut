@@ -24,12 +24,15 @@ const spin = keyframes`
 
 const LoadingShell = styled.div`
   width: 100%;
-  max-width: 1000px;
-  min-height: min(520px, calc(100dvh - 180px));
+  max-width: none;
+  height: 100%;
+  min-height: min(680px, calc(100dvh - 150px));
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  box-sizing: border-box;
   border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || "#263740"};
   border-radius: 12px;
   background: ${({ theme }) => theme.tournamentDashboard?.surface || "#10191d"};
@@ -42,6 +45,10 @@ const LoadingShell = styled.div`
     border: 4px solid ${({ theme }) => theme.tournamentDashboard?.hero?.accentSoft || "rgba(28, 176, 246, 0.16)"};
     border-top-color: ${({ theme }) => theme.tournamentDashboard?.primary || "#1cb0f6"};
     animation: ${spin} 0.9s linear infinite;
+  }
+
+  @media (min-width: 769px) {
+    min-height: 100%;
   }
 
   .sr-only {

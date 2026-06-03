@@ -645,7 +645,6 @@ export function TorneoDefinicionTab({
   }, [activeJornadas, dashboardJornadas, partidos, tournamentConfigForUi]);
 
   const currentStatusJornada = useMemo(() => (
-      jornadaStatusRows.find((jornada) => !jornada.isConfirmed) ||
       jornadaStatusRows[jornadaStatusRows.length - 1] ||
       null
   ), [jornadaStatusRows]);
@@ -671,6 +670,15 @@ export function TorneoDefinicionTab({
           percent: 0,
       };
   }, [currentStatusJornada, jornadaStatusRows, selectedStatusJornada, tournamentProgress]);
+
+  const jornadaStatusTitle = useMemo(() => {
+      const name = currentJornadaSummary.name || `Jornada ${currentJornadaSummary.number}`;
+      const jornadaNumber = String(name).match(/jornada\s+(\d+)/i)?.[1] || currentJornadaSummary.number;
+
+      return jornadaNumber
+          ? `Estatus de la Jornada ${jornadaNumber}`
+          : `Estatus de ${name}`;
+  }, [currentJornadaSummary.name, currentJornadaSummary.number]);
 
   useEffect(() => {
       const targetPercent = Number(currentJornadaSummary.percent) || 0;
@@ -887,7 +895,7 @@ export function TorneoDefinicionTab({
           { label: "Total de Goles", value: totalGoals, icon: <RiFootballLine /> },
           { type: "cards", label: "Tarjetas", redCards, yellowCards, icon: <RiFileWarningLine /> },
           { type: "topScorer", label: "Goleador Actual", topScorer: currentTopScorer },
-          { type: "leastGoals", label: "Menos Goles", leastConceded: leastConcededTeam },
+          { type: "leastGoals", label: "Equipo menos goleado", leastConceded: leastConcededTeam },
       ];
   }, [partidos, tournamentEvents, currentTopScorer, leastConcededTeam]);
 
@@ -1019,7 +1027,7 @@ export function TorneoDefinicionTab({
 
                 <section className="jornada-card active-card">
                     <div className="section-heading">
-                        <h3><RiCalendarEventLine /> Estatus de la Jornada Actual</h3>
+                        <h3><RiCalendarEventLine /> {jornadaStatusTitle}</h3>
                         <span className="status-pill">{currentJornadaSummary.pending > 0 ? "En progreso" : "Lista"}</span>
                     </div>
                     <div className="jornada-status">
@@ -1115,7 +1123,7 @@ export function TorneoDefinicionTab({
                                 <div className="metric-item metric-leader-card metric-least-goals" key={metric.label}>
                                     <Tooltip
                                         position="top"
-                                        text="Criterio: menor GC -> mas PJ -> mas PTS"
+                                        text="Criterio de desempate: menor cantidad de goles en contra, luego mas partidos jugados, despues mas puntos."
                                     >
                                         <button type="button" className="metric-info" aria-label="Criterios de desempate">
                                             <RiInformationLine />
@@ -1137,7 +1145,7 @@ export function TorneoDefinicionTab({
                                         )}
                                     </span>
                                     <div className="metric-copy">
-                                        <small>Menos Goles</small>
+                                        <small>Equipo menos goleado</small>
                                         <strong title={metric.leastConceded?.name || "Sin registro"}>
                                             {metric.leastConceded?.name || "Sin registro"}
                                         </strong>
@@ -1823,6 +1831,9 @@ const ActiveTournamentPanel = styled.div`
         grid-area: metrics;
         padding: 20px;
         min-height: 190px;
+        overflow: visible;
+        position: relative;
+        z-index: 5;
     }
 
     .metrics-grid {
@@ -1916,13 +1927,32 @@ const ActiveTournamentPanel = styled.div`
 
     .metric-least-goals {
         padding-right: 30px;
+        overflow: visible;
     }
 
     .metric-least-goals > div:first-child {
         position: absolute;
         top: 9px;
         right: 9px;
-        z-index: 3;
+        z-index: 100;
+    }
+
+    .metric-least-goals > div:first-child > div {
+        right: 0;
+        left: auto;
+        transform: none;
+        width: 235px;
+        max-width: min(235px, calc(100vw - 36px));
+        white-space: normal;
+        line-height: 1.35;
+        text-align: left;
+        z-index: 10000;
+    }
+
+    .metric-least-goals > div:first-child > div > div {
+        left: auto;
+        right: 6px;
+        transform: none;
     }
 
     .metric-leader-card strong {
