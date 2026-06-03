@@ -83,6 +83,16 @@ export function TorneoDefinicionTab({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isSetupExiting, setIsSetupExiting] = useState(false);
+  const [isSetupEntering, setIsSetupEntering] = useState(false);
+  const [isStartingTournament, setIsStartingTournament] = useState(false);
+  const [isEndingTournament, setIsEndingTournament] = useState(false);
+  const [isActiveEntering, setIsActiveEntering] = useState(false);
+  const [transitionOverlay, setTransitionOverlay] = useState({
+      visible: false,
+      variant: "default",
+      title: "",
+      subtitle: "",
+  });
   const [isAdvancingPhase, setIsAdvancingPhase] = useState(false);
 
   const [configTab, setConfigTab] = useState("general"); 
@@ -100,6 +110,11 @@ export function TorneoDefinicionTab({
   const jornadaBarsRef = useRef(null);
   const jornadaBarsDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
   const jornadaBarsWasDraggingRef = useRef(false);
+  const activationTransitionTimerRef = useRef(null);
+  const activeEnterTimerRef = useRef(null);
+  const endTransitionTimerRef = useRef(null);
+  const setupEnterTimerRef = useRef(null);
+  const overlayHideTimerRef = useRef(null);
 
   const configTabList = [
       { id: "general", label: "General", icon: <RiFileList3Line/> },
@@ -118,6 +133,22 @@ export function TorneoDefinicionTab({
   );
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
+
+  const showTransitionOverlay = ({ variant = "default", title, subtitle }) => {
+      if (overlayHideTimerRef.current) {
+          clearTimeout(overlayHideTimerRef.current);
+          overlayHideTimerRef.current = null;
+      }
+      setTransitionOverlay({ visible: true, variant, title, subtitle });
+  };
+
+  const hideTransitionOverlayAfter = (delay = 650) => {
+      if (overlayHideTimerRef.current) clearTimeout(overlayHideTimerRef.current);
+      overlayHideTimerRef.current = setTimeout(() => {
+          setTransitionOverlay((current) => ({ ...current, visible: false }));
+          overlayHideTimerRef.current = null;
+      }, delay);
+  };
 
   // 1. Extraemos la config de la liga
   const defaultLeagueConfig = useMemo(() => {
@@ -163,6 +194,57 @@ export function TorneoDefinicionTab({
     setConfigDraftReglas({ ...reglas });
     setConfigDraftUseLeagueRules(useLeagueRules);
   }, [showConfigModal, activeTournament]);
+
+  useEffect(() => {
+    if (!activeTournament || !isStartingTournament) return;
+
+    if (activationTransitionTimerRef.current) {
+        clearTimeout(activationTransitionTimerRef.current);
+        activationTransitionTimerRef.current = null;
+    }
+
+    setIsSetupExiting(false);
+    setIsStartingTournament(false);
+    setIsActiveEntering(true);
+    hideTransitionOverlayAfter(720);
+
+    if (activeEnterTimerRef.current) clearTimeout(activeEnterTimerRef.current);
+    activeEnterTimerRef.current = setTimeout(() => {
+        setIsActiveEntering(false);
+        activeEnterTimerRef.current = null;
+    }, 900);
+  }, [activeTournament, isStartingTournament]);
+
+  useEffect(() => {
+    if (activeTournament || !isEndingTournament) return;
+
+    if (endTransitionTimerRef.current) {
+        clearTimeout(endTransitionTimerRef.current);
+        endTransitionTimerRef.current = null;
+    }
+
+    setIsExiting(false);
+    setIsEndingTournament(false);
+    setIsDeleting(false);
+    setIsSetupEntering(true);
+    hideTransitionOverlayAfter(720);
+
+    if (setupEnterTimerRef.current) clearTimeout(setupEnterTimerRef.current);
+    setupEnterTimerRef.current = setTimeout(() => {
+        setIsSetupEntering(false);
+        setupEnterTimerRef.current = null;
+    }, 900);
+  }, [activeTournament, isEndingTournament]);
+
+  useEffect(() => {
+    return () => {
+        if (activationTransitionTimerRef.current) clearTimeout(activationTransitionTimerRef.current);
+        if (activeEnterTimerRef.current) clearTimeout(activeEnterTimerRef.current);
+        if (endTransitionTimerRef.current) clearTimeout(endTransitionTimerRef.current);
+        if (setupEnterTimerRef.current) clearTimeout(setupEnterTimerRef.current);
+        if (overlayHideTimerRef.current) clearTimeout(overlayHideTimerRef.current);
+    };
+  }, []);
 
   const handleToggleRules = (isLeague) => {
     setConfigDraftUseLeagueRules(isLeague);
@@ -239,10 +321,35 @@ export function TorneoDefinicionTab({
   const handleConfirmFixture = async (fixtureData) => {
       setShowPreviewModal(false);
       setIsSetupExiting(true);
+      setIsStartingTournament(true);
+      showTransitionOverlay({
+          title: "Creando torneo",
+          subtitle: "Preparando jornadas, partidos y reglas...",
+      });
+
+      if (activationTransitionTimerRef.current) {
+          clearTimeout(activationTransitionTimerRef.current);
+          activationTransitionTimerRef.current = null;
+      }
+
+      activationTransitionTimerRef.current = setTimeout(() => {
+          setIsStartingTournament(false);
+          setIsSetupExiting(false);
+          hideTransitionOverlayAfter(0);
+          activationTransitionTimerRef.current = null;
+      }, 5000);
+
       try {
           await Promise.resolve(onSubmit(fixtureData));
-      } finally {
-          setTimeout(() => setIsSetupExiting(false), 650);
+      } catch (error) {
+          console.error(error);
+          if (activationTransitionTimerRef.current) {
+              clearTimeout(activationTransitionTimerRef.current);
+              activationTransitionTimerRef.current = null;
+          }
+          setIsStartingTournament(false);
+          setIsSetupExiting(false);
+          hideTransitionOverlayAfter(0);
       }
   };
 
@@ -300,19 +407,44 @@ export function TorneoDefinicionTab({
   const handleEndTournament = async () => {
       if(!activeTournament?.id) return;
       setIsDeleting(true);
+      setIsEndingTournament(true);
+      setIsExiting(true);
+      setShowEndTournamentModal(false);
+      showTransitionOverlay({
+          variant: "danger",
+          title: "Finalizando torneo",
+          subtitle: "Limpiando jornadas, partidos y panel de gestion...",
+      });
+
+      if (endTransitionTimerRef.current) {
+          clearTimeout(endTransitionTimerRef.current);
+          endTransitionTimerRef.current = null;
+      }
+
+      endTransitionTimerRef.current = setTimeout(() => {
+          setIsEndingTournament(false);
+          setIsExiting(false);
+          setIsDeleting(false);
+          hideTransitionOverlayAfter(0);
+          endTransitionTimerRef.current = null;
+      }, 5000);
+
       try {
+          await new Promise((resolve) => setTimeout(resolve, 420));
           await eliminarTorneoService(activeTournament.id);
-          setShowEndTournamentModal(false);
           showToast("Torneo eliminado. Reiniciando vista...", "success");
-          setIsExiting(true);
-          setTimeout(() => {
-              if(onTournamentReset) onTournamentReset(); 
-              setIsExiting(false);
-              setIsDeleting(false);
-          }, 600);
+
+          if(onTournamentReset) await Promise.resolve(onTournamentReset()); 
       } catch {
+          if (endTransitionTimerRef.current) {
+              clearTimeout(endTransitionTimerRef.current);
+              endTransitionTimerRef.current = null;
+          }
           showToast("Error al finalizar el torneo. Revisa la consola.", "error");
           setIsDeleting(false);
+          setIsEndingTournament(false);
+          setIsExiting(false);
+          hideTransitionOverlayAfter(0);
       }
   };
 
@@ -1067,9 +1199,9 @@ export function TorneoDefinicionTab({
 
         <TorneoDefinitionMode
           activeTournament={activeTournament}
-          isResolving={isLoading && !activeTournament}
+          isResolving={isLoading && !activeTournament && !isStartingTournament && !isEndingTournament}
           renderActive={() => (
-            <ActiveTournamentPanel $isExiting={isExiting}>
+            <ActiveTournamentPanel $isExiting={isExiting} $isEntering={isActiveEntering}>
                 <section className="active-hero active-card">
                     <div className="hero-top">
                         <div className="tournament-title">
@@ -1289,7 +1421,7 @@ export function TorneoDefinicionTab({
             </ActiveTournamentPanel>
           )}
           renderSetup={() => (
-            <SetupTournamentPanel className="setup-tournament-panel" $isExiting={isSetupExiting || loading}>
+            <SetupTournamentPanel className="setup-tournament-panel" $isExiting={isSetupExiting} $isEntering={isSetupEntering}>
                 <section className="setup-hero active-card">
                     <div className="hero-top">
                         <div className="tournament-title">
@@ -1387,6 +1519,18 @@ export function TorneoDefinicionTab({
           )}
         />
 
+        {transitionOverlay.visible && (
+            <TournamentStartOverlay aria-live="polite" aria-busy="true" $variant={transitionOverlay.variant}>
+                <div className="start-loader">
+                    <span className="loader-ring" />
+                    <div>
+                        <strong>{transitionOverlay.title}</strong>
+                        <small>{transitionOverlay.subtitle}</small>
+                    </div>
+                </div>
+            </TournamentStartOverlay>
+        )}
+
         <FixturePreviewModal isOpen={showPreviewModal} onClose={() => setShowPreviewModal(false)} onConfirm={handleConfirmFixture} teams={participatingTeams} config={form} isLoading={loading} />
         <ConfirmModal isOpen={showEndTournamentModal} onClose={() => setShowEndTournamentModal(false)} onConfirm={handleEndTournament} title="¿Finalizar Torneo Actual?" message="Esta acción borrará permanentemente todos los partidos del torneo actual." confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"} confirmColor={v.rojo} />
 
@@ -1471,6 +1615,98 @@ const StyledCardWrapper = styled.div`
     justify-content: center;
 `;
 
+const TournamentStartOverlay = styled.div`
+    --overlay-accent: ${({ $variant, theme }) =>
+        $variant === "danger"
+            ? (theme.tournamentDashboard?.metrics?.danger || v.rojo)
+            : (theme.tournamentDashboard?.primary || v.colorPrincipal)};
+    --overlay-accent-soft: ${({ $variant, theme }) =>
+        $variant === "danger"
+            ? "rgba(239, 68, 68, 0.18)"
+            : (theme.tournamentDashboard?.hero?.accentSoft || `${v.colorPrincipal}22`)};
+    --overlay-shell: ${({ theme }) => `rgba(${theme.bodyRgba || "255,255,255"}, 0.86)`};
+    --overlay-shell-strong: ${({ theme }) => `rgba(${theme.bodyRgba || "255,255,255"}, 0.96)`};
+    --overlay-shadow: ${({ theme }) =>
+        String(theme.body || "").toLowerCase() === "#fff"
+            ? "0 18px 45px rgba(24, 39, 57, 0.16)"
+            : "0 18px 45px rgba(0, 0, 0, 0.28)"};
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 50% 42%, var(--overlay-accent-soft), transparent 32%),
+        linear-gradient(180deg, var(--overlay-shell), var(--overlay-shell-strong));
+    backdrop-filter: blur(6px);
+    animation: overlayFadeIn 0.28s ease both;
+
+    .start-loader {
+        min-width: min(360px, 100%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 20px;
+        border: 1px solid ${({theme}) => theme.tournamentDashboard?.border || theme.bg4};
+        border-radius: 10px;
+        background: ${({theme}) => theme.tournamentDashboard?.surface || theme.bgcards};
+        box-shadow: var(--overlay-shadow);
+        color: ${({theme}) => theme.text};
+        animation: loaderFloatIn 0.42s cubic-bezier(0.18, 0.9, 0.24, 1) both;
+    }
+
+    .loader-ring {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        border-radius: 50%;
+        border: 4px solid var(--overlay-accent-soft);
+        border-top-color: var(--overlay-accent);
+        animation: startSpin 0.82s linear infinite;
+    }
+
+    strong,
+    small {
+        display: block;
+    }
+
+    strong {
+        font-size: 0.92rem;
+        font-weight: 950;
+        letter-spacing: 0;
+    }
+
+    small {
+        margin-top: 4px;
+        color: ${({theme}) => theme.tournamentDashboard?.muted || `${theme.text}9a`};
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+
+    @keyframes overlayFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes loaderFloatIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    @keyframes startSpin {
+        to { transform: rotate(360deg); }
+    }
+`;
+
 const ActiveTournamentPanel = styled.div`
     width: 100%;
     max-width: 1180px;
@@ -1483,9 +1719,41 @@ const ActiveTournamentPanel = styled.div`
     opacity: ${({ $isExiting }) => ($isExiting ? 0 : 1)};
     transform: ${({ $isExiting }) => ($isExiting ? "translateY(10px)" : "translateY(0)")};
     transition: opacity 0.45s ease, transform 0.45s ease;
-    animation: ${({ $isExiting }) => ($isExiting ? "none" : "panelEnter 0.45s ease both")};
+    animation: ${({ $isExiting, $isEntering }) => {
+        if ($isExiting) return "none";
+        return $isEntering
+            ? "activePanelReveal 0.72s cubic-bezier(0.18, 0.9, 0.24, 1) both"
+            : "panelEnter 0.45s ease both";
+    }};
 
     @keyframes panelEnter {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes activePanelReveal {
+        from {
+            opacity: 0;
+            transform: translateY(18px) scale(0.985);
+            filter: blur(2px);
+        }
+        60% {
+            filter: blur(0);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+    }
+
+    @keyframes activeCardReveal {
         from {
             opacity: 0;
             transform: translateY(12px);
@@ -1532,7 +1800,13 @@ const ActiveTournamentPanel = styled.div`
         box-shadow: ${v.boxshadowGray};
         color: ${({theme}) => theme.text};
         overflow: hidden;
+        animation: ${({ $isEntering }) => ($isEntering ? "activeCardReveal 0.55s ease both" : "none")};
     }
+
+    .active-card:nth-child(1) { animation-delay: ${({ $isEntering }) => ($isEntering ? "70ms" : "0ms")}; }
+    .active-card:nth-child(2) { animation-delay: ${({ $isEntering }) => ($isEntering ? "130ms" : "0ms")}; }
+    .active-card:nth-child(3) { animation-delay: ${({ $isEntering }) => ($isEntering ? "190ms" : "0ms")}; }
+    .active-card:nth-child(4) { animation-delay: ${({ $isEntering }) => ($isEntering ? "250ms" : "0ms")}; }
 
     .active-hero {
         --panel-accent: ${({theme}) => theme.tournamentDashboard?.hero?.accent || v.colorPrincipal};

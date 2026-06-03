@@ -408,7 +408,7 @@ export const useTorneosLogic = () => {
       }, fixtureData);
 
       showToast("¡Torneo iniciado correctamente!", "success");
-      fetchData(); 
+      await fetchData(); 
 
     } catch (error) {
       console.error(error);
