@@ -61,6 +61,16 @@ export const useTorneosLogic = () => {
       clasificados: 4, 
       hasRepechaje: false,
       repechajeTeams: 0,
+      playoffReseed: true,
+      playoffTieBreaker: "bestSeed",
+      repechajeLegs: "single",
+      playoffLegsRound32: "single",
+      playoffLegsRound16: "single",
+      playoffLegsQuarterfinals: "single",
+      playoffLegsSemifinals: "single",
+      playoffLegsFinal: "single",
+      countGoalsPlayoffs: false,
+      countGoalsRepechaje: false,
       maxTeams: 16,
       ascensos: 0,
       descensos: 0
@@ -105,22 +115,23 @@ export const useTorneosLogic = () => {
     
     setIsLoadingData(true); 
     try {
-      if (selectedDivision.league_id) {
-          const lData = await getLeagueById(selectedDivision.league_id);
-          setLeagueData(lData);
-      }
+      const torneoPromise = getTorneoActivo(selectedDivision.id);
+      const teamsPromise = getEquiposDivision(selectedDivision.id);
+      const leaguePromise = selectedDivision.league_id
+          ? getLeagueById(selectedDivision.league_id)
+          : Promise.resolve(null);
 
-      const [torneo, teams] = await Promise.all([
-        getTorneoActivo(selectedDivision.id),
-        getEquiposDivision(selectedDivision.id)
-      ]);
+      const torneo = await torneoPromise;
+      setActiveTournament(torneo);
+
+      const [teams, lData] = await Promise.all([teamsPromise, leaguePromise]);
+      setLeagueData(lData);
 
       const processedTeams = teams.map(t => ({
         ...t,
         playerCount: t.players?.length || 0
       }));
       setAllTeams(processedTeams);
-      setActiveTournament(torneo);
 
       if (torneo) {
         setForm(prev => ({
@@ -139,6 +150,16 @@ export const useTorneosLogic = () => {
             clasificados: torneo.config?.clasificados || 4,
             hasRepechaje: torneo.config?.hasRepechaje ?? (parseInt(torneo.config?.repechajeTeams, 10) || 0) > 0,
             repechajeTeams: torneo.config?.repechajeTeams || 0,
+            playoffReseed: torneo.config?.playoffReseed ?? true,
+            playoffTieBreaker: torneo.config?.playoffTieBreaker || "bestSeed",
+            repechajeLegs: torneo.config?.repechajeLegs || "single",
+            playoffLegsRound32: torneo.config?.playoffLegsRound32 || "single",
+            playoffLegsRound16: torneo.config?.playoffLegsRound16 || "single",
+            playoffLegsQuarterfinals: torneo.config?.playoffLegsQuarterfinals || "single",
+            playoffLegsSemifinals: torneo.config?.playoffLegsSemifinals || "single",
+            playoffLegsFinal: torneo.config?.playoffLegsFinal || "single",
+            countGoalsPlayoffs: torneo.config?.countGoalsPlayoffs ?? false,
+            countGoalsRepechaje: torneo.config?.countGoalsRepechaje ?? false,
             ascensos: torneo.config?.ascensos || 0, 
             descensos: torneo.config?.descensos || 0
         }));
@@ -308,6 +329,16 @@ export const useTorneosLogic = () => {
           clasificados: form.clasificados,
           hasRepechaje: form.hasRepechaje || (parseInt(form.repechajeTeams, 10) || 0) > 0,
           repechajeTeams: parseInt(form.repechajeTeams, 10) || 0,
+          playoffReseed: form.playoffReseed !== false,
+          playoffTieBreaker: form.playoffTieBreaker || "bestSeed",
+          repechajeLegs: form.repechajeLegs || "single",
+          playoffLegsRound32: form.playoffLegsRound32 || "single",
+          playoffLegsRound16: form.playoffLegsRound16 || "single",
+          playoffLegsQuarterfinals: form.playoffLegsQuarterfinals || "single",
+          playoffLegsSemifinals: form.playoffLegsSemifinals || "single",
+          playoffLegsFinal: form.playoffLegsFinal || "single",
+          countGoalsPlayoffs: !!form.countGoalsPlayoffs,
+          countGoalsRepechaje: !!form.countGoalsRepechaje,
           ascensos: form.ascensos,
           descensos: form.descensos,
           ...reglas 

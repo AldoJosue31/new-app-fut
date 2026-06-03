@@ -6,6 +6,7 @@ import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
+import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
 
 // Componentes Modularizados
 import { ScoreHeader } from "./result_modal_components/ScoreHeader";
@@ -100,8 +101,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   
   const isExtraPointEnabled = useMemo(() => {
     const type = (tournamentConfig.tieBreakType || "").toLowerCase();
-    return ['penalties', 'shoutouts', 'shouts', 'penales'].includes(type);
-  }, [tournamentConfig]);
+    const isLeaguePenalty = ['penalties', 'shoutouts', 'shouts', 'penales'].includes(type);
+    const playoffTieBreaker = String(tournamentConfig.playoffTieBreaker || "").toLowerCase();
+    const isPlayoffMatch = isPlayoffJornadaName(match?.jornadas?.name || match?.jornada?.name || "");
+    return isLeaguePenalty || (isPlayoffMatch && playoffTieBreaker === "penalties");
+  }, [tournamentConfig, match]);
 
   // Cálculos de goles
   const totalGoalsLocal = useMemo(() => {

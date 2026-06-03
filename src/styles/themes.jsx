@@ -20,7 +20,7 @@ export const Light = {
     bgAlpha: "#f2f2f2",
     bg2: "rgb(245,245,245)",
     bg3: "#fff",
-    primary: "rgb(52, 131, 235)",
+    primary: "#1cb0f6",
     bg4: "#eaeaea",
     bg5: "#84d8ff",
     bg6: "rgba(132, 216, 255, 0.3)",
@@ -38,7 +38,38 @@ export const Light = {
     colortitlecard: "#363637",
     colorsubtitlecard: "#080808",
     color1: "#1cb0f6",
-    color2: "#E5E5E5"
+    color2: "#E5E5E5",
+    tournamentDashboard: {
+        primary: "#1cb0f6",
+        primarySoft: "#e0f6ff",
+        surface: "#ffffff",
+        itemSurface: "#EDF3FB",
+        border: "#d9e6f2",
+        muted: "#5f7285",
+        hero: {
+            accent: "#1cb0f6",
+            accentSoft: "#e0f6ff",
+            accentStrong: "#0f7fb6",
+            glow: "rgba(28, 176, 246, 0.18)"
+        },
+        rules: {
+            accent: "#7c3aed",
+            accentSoft: "#f1e8ff",
+            accentStrong: "#5b21b6"
+        },
+        jornada: {
+            accent: "#06b6d4",
+            accentSoft: "#d8f7fb",
+            accentStrong: "#0e7490"
+        },
+        metrics: {
+            accent: "#22c55e",
+            accentSoft: "#dcfce7",
+            accentStrong: "#15803d",
+            warning: "#f59e0b",
+            danger: "#ef4444"
+        }
+    }
 };
 export const Dark = {
     colortitlecard: "#8C9298",
@@ -66,7 +97,7 @@ export const Dark = {
     bgAlpha: "rgba(0,0,0,.3)",
     bg2: "rgb(30,30,30)",
     bg3: "#162329ff",
-    primary: "rgb(52, 131, 235)",
+    primary: "#1cb0f6",
     bg4: "#4E4E50",
     bg5: "#84d8ff",
     bg6: "rgba(132, 216, 255, 0.1)",
@@ -80,5 +111,36 @@ export const Dark = {
     colorSubtitle: "#b7b7b7",
     colorScroll: "#434343",
     color1: "#1cb0f6",
-    color2: "#37464F"
+    color2: "#37464F",
+    tournamentDashboard: {
+        primary: "#1cb0f6",
+        primarySoft: "rgba(28, 176, 246, 0.16)",
+        surface: "#10191d",
+        itemSurface: "#131F24",
+        border: "#263740",
+        muted: "rgba(255, 255, 255, 0.62)",
+        hero: {
+            accent: "#1cb0f6",
+            accentSoft: "rgba(28, 176, 246, 0.16)",
+            accentStrong: "#38d4ff",
+            glow: "rgba(28, 176, 246, 0.18)"
+        },
+        rules: {
+            accent: "#a78bfa",
+            accentSoft: "rgba(167, 139, 250, 0.16)",
+            accentStrong: "#c4b5fd"
+        },
+        jornada: {
+            accent: "#22d3ee",
+            accentSoft: "rgba(34, 211, 238, 0.16)",
+            accentStrong: "#67e8f9"
+        },
+        metrics: {
+            accent: "#4ade80",
+            accentSoft: "rgba(74, 222, 128, 0.16)",
+            accentStrong: "#86efac",
+            warning: "#fbbf24",
+            danger: "#f87171"
+        }
+    }
 };

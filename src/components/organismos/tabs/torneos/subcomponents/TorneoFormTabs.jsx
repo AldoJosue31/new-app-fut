@@ -13,6 +13,9 @@ export const INITIAL_TOURNAMENT_CONFIG = {
     winPoints: 3, drawPoints: 1, lossPoints: 0, tieBreakType: "normal", // <-- REGRESADO A NORMAL
     // Format
     vueltas: "1", ascensos: 0, descensos: 0, zonaLiguilla: false, clasificados: 8, hasRepechaje: false, repechajeTeams: 0,
+    playoffReseed: true, playoffTieBreaker: "bestSeed", repechajeLegs: "single",
+    playoffLegsRound32: "single", playoffLegsRound16: "single", playoffLegsQuarterfinals: "single", playoffLegsSemifinals: "single", playoffLegsFinal: "single",
+    countGoalsPlayoffs: false, countGoalsRepechaje: false,
     // Rules
     horaInicio: "08:00", horaFin: "22:00", minutosPorTiempo: 45, minutosDescanso: 15, cambios: "Ilimitados", observaciones: ""
 };
@@ -26,6 +29,7 @@ const Divider = styled.div` height: 1px; background: ${({theme})=>theme.bg4}; wi
 const SelectStyled = styled.select` width: 100%; border: 2px solid ${({ theme }) => theme.color2}; border-radius: 12px; padding: 10px; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; outline: none; font-size: 14px; &:focus { border-color: ${v.colorPrincipal}; } `;
 const ControlBox = styled.div` border: 1px solid ${({theme, $isActive}) => $isActive ? theme.primary : theme.bg4}; border-radius: 12px; padding: 15px; background: ${({theme, $isActive}) => $isActive ? `${theme.primary}08` : 'transparent'}; transition: all 0.3s ease; .header-control { display: flex; justify-content: space-between; align-items: center; margin-bottom: ${({$isActive}) => $isActive ? '15px' : '0'}; } .checkbox-wrapper { display: flex; gap: 10px; align-items: center; cursor: pointer; width: 100%; input { accent-color: ${v.colorPrincipal}; transform: scale(1.1); } label { font-weight: 600; font-size: 14px; flex: 1; } }`;
 const TextAreaStyled = styled.textarea` width: 100%; border: 2px solid ${({ theme }) => theme.color2}; border-radius: 15px; padding: 12px; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; outline: none; font-size: 14px; resize: none; &:focus { border-color: ${v.colorPrincipal}; } `;
+const CheckboxPanel = styled.div` display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 10px 12px; border: 1px solid ${({theme})=>theme.bg4}; border-radius: 12px; label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; } input { accent-color: ${v.colorPrincipal}; } `;
 
 export const TabGeneral = ({ form, onChange, isStarted }) => {
   const currentMinPlayers = parseInt(form.minPlayers) || 5;
@@ -142,10 +146,47 @@ export const TabFormat = ({ form, onChange, vueltasDisabled }) => {
       <ControlBox $isActive={form.zonaLiguilla}>
         <div className="header-control"><div className="checkbox-wrapper"><input type="checkbox" id="zonaLiguilla" name="zonaLiguilla" checked={!!form.zonaLiguilla} onChange={handlePlayoffsToggle} /><label htmlFor="zonaLiguilla">Fase Final (Playoffs)</label></div></div>
         {form.zonaLiguilla && (
-          <Row2>
-            <InputWithTooltip label="Clasificados Directos"><InputNumber name="clasificados" value={currentClas} onChange={onChange} min={2} max={maxTeams} /></InputWithTooltip>
-            <InputWithTooltip label="Equipos Repechaje"><InputNumber name="repechajeTeams" value={currentRep} onChange={handleRepechajeChange} max={maxTeams} /></InputWithTooltip>
-          </Row2>
+          <>
+            <Row2>
+              <InputWithTooltip label="Clasificados Directos"><InputNumber name="clasificados" value={currentClas} onChange={onChange} min={2} max={maxTeams} /></InputWithTooltip>
+              <InputWithTooltip label="Equipos Repechaje"><InputNumber name="repechajeTeams" value={currentRep} onChange={handleRepechajeChange} max={maxTeams} /></InputWithTooltip>
+            </Row2>
+            <Divider />
+            <SectionLabel>Ajustes de Fase Final</SectionLabel>
+            <Row2>
+              <InputWithTooltip label="Resiembra">
+                <SelectStyled name="playoffReseed" value={form.playoffReseed === false ? "false" : "true"} onChange={(e) => onChange({ target: { name: "playoffReseed", value: e.target.value === "true" } })}>
+                  <option value="true">Primeros vs ultimos cada ronda</option>
+                  <option value="false">Mantener llave fija</option>
+                </SelectStyled>
+              </InputWithTooltip>
+              <InputWithTooltip label="Empate global">
+                <SelectStyled name="playoffTieBreaker" value={form.playoffTieBreaker || "bestSeed"} onChange={onChange}>
+                  <option value="bestSeed">Avanza mejor posicion de tabla</option>
+                  <option value="penalties">Penales / shootouts</option>
+                </SelectStyled>
+              </InputWithTooltip>
+            </Row2>
+            <Row2>
+              <InputWithTooltip label="Repechaje">
+                <SelectStyled name="repechajeLegs" value={form.repechajeLegs || "single"} onChange={onChange}>
+                  <option value="single">Partido unico</option>
+                  <option value="double">Ida y vuelta</option>
+                </SelectStyled>
+              </InputWithTooltip>
+              <CheckboxPanel>
+                {currentRep > 0 && <label><input type="checkbox" name="countGoalsRepechaje" checked={!!form.countGoalsRepechaje} onChange={onChange} /> Contar goles de repechaje</label>}
+                <label><input type="checkbox" name="countGoalsPlayoffs" checked={!!form.countGoalsPlayoffs} onChange={onChange} /> Contar goles de liguilla</label>
+              </CheckboxPanel>
+            </Row2>
+            <Row3>
+              <InputWithTooltip label="Dieciseisavos"><SelectStyled name="playoffLegsRound32" value={form.playoffLegsRound32 || "single"} onChange={onChange}><option value="single">Unico</option><option value="double">Ida y vuelta</option></SelectStyled></InputWithTooltip>
+              <InputWithTooltip label="Octavos"><SelectStyled name="playoffLegsRound16" value={form.playoffLegsRound16 || "single"} onChange={onChange}><option value="single">Unico</option><option value="double">Ida y vuelta</option></SelectStyled></InputWithTooltip>
+              <InputWithTooltip label="Cuartos"><SelectStyled name="playoffLegsQuarterfinals" value={form.playoffLegsQuarterfinals || "single"} onChange={onChange}><option value="single">Unico</option><option value="double">Ida y vuelta</option></SelectStyled></InputWithTooltip>
+              <InputWithTooltip label="Semifinal"><SelectStyled name="playoffLegsSemifinals" value={form.playoffLegsSemifinals || "single"} onChange={onChange}><option value="single">Unico</option><option value="double">Ida y vuelta</option></SelectStyled></InputWithTooltip>
+              <InputWithTooltip label="Final"><SelectStyled name="playoffLegsFinal" value={form.playoffLegsFinal || "single"} onChange={onChange}><option value="single">Unico</option><option value="double">Ida y vuelta</option></SelectStyled></InputWithTooltip>
+            </Row3>
+          </>
         )}
       </ControlBox>
     </TabContainer>

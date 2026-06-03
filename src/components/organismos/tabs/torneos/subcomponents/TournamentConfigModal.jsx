@@ -122,6 +122,16 @@ export function TournamentConfigModal({
 
             vueltas: String(editedConfig.vueltas || "1"),
             zonaLiguilla: !!editedConfig.zonaLiguilla,
+            playoffReseed: editedConfig.playoffReseed !== false,
+            playoffTieBreaker: String(editedConfig.playoffTieBreaker || "bestSeed"),
+            repechajeLegs: String(editedConfig.repechajeLegs || "single"),
+            playoffLegsRound32: String(editedConfig.playoffLegsRound32 || "single"),
+            playoffLegsRound16: String(editedConfig.playoffLegsRound16 || "single"),
+            playoffLegsQuarterfinals: String(editedConfig.playoffLegsQuarterfinals || "single"),
+            playoffLegsSemifinals: String(editedConfig.playoffLegsSemifinals || "single"),
+            playoffLegsFinal: String(editedConfig.playoffLegsFinal || "single"),
+            countGoalsPlayoffs: !!editedConfig.countGoalsPlayoffs,
+            countGoalsRepechaje: !!editedConfig.countGoalsRepechaje,
             tieBreakType: String(editedConfig.tieBreakType || "normal"),
             cambios: String(editedConfig.cambios || "Ilimitados"),
             observaciones: String(editedConfig.observaciones || "")
