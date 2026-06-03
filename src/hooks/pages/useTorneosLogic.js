@@ -17,6 +17,60 @@ import {
 } from "../../utils/constants";
 import { addDaysToDate, isValidDate } from "../../utils/dateUtils";
 
+const getParsedLeagueConfig = (leagueData) => {
+  if (!leagueData?.default_config) return {};
+  if (typeof leagueData.default_config === "string") {
+    try {
+      return JSON.parse(leagueData.default_config);
+    } catch {
+      return {};
+    }
+  }
+  return leagueData.default_config || {};
+};
+
+const createLeagueRuleDraft = (leagueData) => {
+  const parsed = getParsedLeagueConfig(leagueData);
+
+  return {
+    form: {
+      season: "",
+      startDate: "",
+      vueltas: "1",
+      minPlayers: parsed.minPlayers ?? 7,
+      maxPlayers: parsed.maxPlayers ?? 25,
+      maxTeams: parsed.maxTeams ?? 20,
+      format: TOURNAMENT_FORMAT.LEAGUE,
+      tieBreakType: parsed.tieBreakType ?? "normal",
+      winPoints: parsed.winPoints ?? 3,
+      drawPoints: parsed.drawPoints ?? 1,
+      lossPoints: parsed.lossPoints ?? 0,
+      zonaLiguilla: false,
+      clasificados: 4,
+      hasRepechaje: false,
+      repechajeTeams: 0,
+      playoffReseed: true,
+      playoffTieBreaker: "bestSeed",
+      repechajeLegs: "single",
+      playoffLegsRound32: "single",
+      playoffLegsRound16: "single",
+      playoffLegsQuarterfinals: "single",
+      playoffLegsSemifinals: "single",
+      playoffLegsFinal: "single",
+      countGoalsPlayoffs: false,
+      countGoalsRepechaje: false,
+      ascensos: 0,
+      descensos: 0,
+    },
+    reglas: {
+      minutosPorTiempo: parsed.minutosPorTiempo ?? 45,
+      minutosDescanso: parsed.minutosDescanso ?? 15,
+      cambios: parsed.cambios ?? "Ilimitados",
+      observaciones: "",
+    },
+  };
+};
+
 export const useTorneosLogic = () => {
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -279,6 +333,13 @@ export const useTorneosLogic = () => {
     setForm(prevForm => ({ ...prevForm, [name]: val }));
   };
 
+  const resetDraftToLeagueRules = useCallback(() => {
+    const nextDraft = createLeagueRuleDraft(leagueData);
+    localStorage.removeItem("torneo_reglas_draft");
+    setForm(nextDraft.form);
+    setReglas(nextDraft.reglas);
+  }, [leagueData]);
+
   const handleSubmit = async (fixtureData = null) => {
     if (activeTournament) return; 
 
@@ -347,7 +408,7 @@ export const useTorneosLogic = () => {
       }, fixtureData);
 
       showToast("¡Torneo iniciado correctamente!", "success");
-      fetchData(); 
+      await fetchData(); 
 
     } catch (error) {
       console.error(error);
@@ -375,6 +436,7 @@ export const useTorneosLogic = () => {
       onInclude: moveTeamToParticipating,
       onExclude: moveTeamToExcluded,
       setReglas,
+      resetDraftToLeagueRules,
       refreshData: fetchData,
       syncTournamentDates,
       updateJornadaDatesLocal
