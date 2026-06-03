@@ -14,8 +14,8 @@ import { TableRowSkeleton } from "../../../../../components/atomos/Skeleton";
 const DashboardGrid = styled.div` 
     display: grid; 
     /* Desktop: Sidebar fijo + Contenido flexible restringido */
-    grid-template-columns: 350px minmax(0, 1fr); 
-    gap: 30px; 
+    grid-template-columns: ${({ $showSummary }) => ($showSummary ? "350px minmax(0, 1fr)" : "minmax(0, 1fr)")}; 
+    gap: ${({ $showSummary }) => ($showSummary ? "30px" : "0")}; 
     width: 100%; /* Asegura que no exceda el padre */
     
     @media (max-width: 900px) { 
@@ -69,7 +69,7 @@ const SlidePage = styled.div`
     min-width: 100%; /* Ocupa exactamente el 100% del SliderContainer */
     display: grid;
     /* Lógica visual de columnas */
-    grid-template-columns: ${({ $cols }) => $cols === 2 ? '1fr 1fr' : '1fr'};
+    grid-template-columns: ${({ $cols }) => `repeat(${$cols || 1}, minmax(0, 1fr))`};
     grid-auto-rows: min-content; 
     gap: 10px 15px; 
     padding: 15px;
@@ -167,7 +167,8 @@ const SummaryItem = ({icon, label, value}) => (
 export const TorneoDashboard = ({ 
     form, reglas, onEditConfig, 
     participatingTeams, excludedTeams, 
-    onInclude, onExclude, isLoading, minPlayers 
+    onInclude, onExclude, isLoading, minPlayers,
+    showSummary = true,
 }) => {
     const [showExcluded, setShowExcluded] = useState(false);
     
@@ -186,8 +187,8 @@ export const TorneoDashboard = ({
 
     // MÓVIL: 1 Columna, 6 items (más compacto)
     // DESKTOP: 2 Columnas, 12 items (6 por columna)
-    const ITEMS_PER_PAGE = isMobile ? 6 : 12;
-    const columns = isMobile ? 1 : 2;
+    const ITEMS_PER_PAGE = showSummary ? (isMobile ? 6 : 12) : (isMobile ? 8 : 18);
+    const columns = showSummary ? (isMobile ? 1 : 2) : (isMobile ? 1 : 3);
 
     const totalPages = Math.ceil(participatingTeams.length / ITEMS_PER_PAGE) || 1;
     const slides = [];
@@ -195,7 +196,10 @@ export const TorneoDashboard = ({
         slides.push(participatingTeams.slice(i * ITEMS_PER_PAGE, (i + 1) * ITEMS_PER_PAGE));
     }
 
-    useEffect(() => setPage(0), [isMobile, participatingTeams.length]);
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => setPage(0), 0);
+        return () => window.clearTimeout(timeoutId);
+    }, [isMobile, participatingTeams.length, showSummary]);
 
     const handlePrev = () => setPage(p => Math.max(0, p - 1));
     const handleNext = () => setPage(p => Math.min(totalPages - 1, p + 1));
@@ -207,8 +211,9 @@ export const TorneoDashboard = ({
     };
 
     return (
-        <DashboardGrid>
+        <DashboardGrid $showSummary={showSummary}>
             {/* Panel Resumen (Arriba en móvil, Izquierda en PC) */}
+            {showSummary && (
             <div className="summary-col">
                 <SectionTitle>Configuración</SectionTitle>
                 <SummaryBox>
@@ -221,6 +226,7 @@ export const TorneoDashboard = ({
                     <BtnNormal titulo="Configurar Reglas" width="100%" icono={<IoMdSettings />} funcion={onEditConfig} />
                 </div>
             </div>
+            )}
 
             {/* Gestión Equipos */}
             <div className="teams-col">

@@ -6,9 +6,8 @@ import {
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
-import { 
-    TabGeneral, TabScoring, TabFormat, TabGameRules, INITIAL_TOURNAMENT_CONFIG 
-} from "./TorneoFormTabs";
+import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./TorneoFormTabs";
+import { INITIAL_TOURNAMENT_CONFIG } from "./tournamentDefaults";
 
 export function TournamentConfigModal({ 
     isOpen, 
@@ -40,18 +39,13 @@ export function TournamentConfigModal({
             }
 
             // 2. Función para leer valor existente o mantener el actual del form si es undefined
-            const getVal = (key, fallback) => {
-                if (dbConfig[key] !== undefined && dbConfig[key] !== null) return dbConfig[key];
-                return fallback;
-            };
-
             const getNum = (val, fallback) => {
                 const parsed = parseInt(val, 10);
                 return isNaN(parsed) ? fallback : parsed;
             };
 
             // 3. Construir el estado inicial mezclando TODO
-            setEditedConfig({
+            const nextConfig = {
                 ...INITIAL_TOURNAMENT_CONFIG, 
                 ...dbConfig, // Lo que venga de la BD tiene prioridad absoluta
                 
@@ -68,8 +62,12 @@ export function TournamentConfigModal({
 
                 season: activeTournament.season || dbConfig.season || "",
                 startDate: activeTournament.start_date || dbConfig.startDate || "",
-            });
+            };
+
+            const loadTimer = window.setTimeout(() => setEditedConfig(nextConfig), 0);
+            return () => window.clearTimeout(loadTimer);
         }
+        return undefined;
     }, [isOpen, activeTournament]);
 
     const handleChange = (e) => {

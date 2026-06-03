@@ -1,25 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { InputNumber, InputText2 } from "../../../../../index";
 import { InputWithTooltip } from "../../../../atomos/InputWithTooltip";
+import { RiCloseCircleLine } from "react-icons/ri";
 
 // --- CONFIGURACIÓN INICIAL CORREGIDA ---
-export const INITIAL_TOURNAMENT_CONFIG = {
-    // General
-    season: "", startDate: "", 
-    minPlayers: 7, maxPlayers: 25, maxTeams: 20,
-    // Scoring
-    winPoints: 3, drawPoints: 1, lossPoints: 0, tieBreakType: "normal", // <-- REGRESADO A NORMAL
-    // Format
-    vueltas: "1", ascensos: 0, descensos: 0, zonaLiguilla: false, clasificados: 8, hasRepechaje: false, repechajeTeams: 0,
-    playoffReseed: true, playoffTieBreaker: "bestSeed", repechajeLegs: "single",
-    playoffLegsRound32: "single", playoffLegsRound16: "single", playoffLegsQuarterfinals: "single", playoffLegsSemifinals: "single", playoffLegsFinal: "single",
-    countGoalsPlayoffs: false, countGoalsRepechaje: false,
-    // Rules
-    horaInicio: "08:00", horaFin: "22:00", minutosPorTiempo: 45, minutosDescanso: 15, cambios: "Ilimitados", observaciones: ""
-};
-
 // --- STYLED COMPONENTS ---
 const TabContainer = styled.div` display: flex; flex-direction: column; gap: 15px; animation: fadeIn 0.3s ease; `;
 const Row2 = styled.div` display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; `;
@@ -30,6 +16,41 @@ const SelectStyled = styled.select` width: 100%; border: 2px solid ${({ theme })
 const ControlBox = styled.div` border: 1px solid ${({theme, $isActive}) => $isActive ? theme.primary : theme.bg4}; border-radius: 12px; padding: 15px; background: ${({theme, $isActive}) => $isActive ? `${theme.primary}08` : 'transparent'}; transition: all 0.3s ease; .header-control { display: flex; justify-content: space-between; align-items: center; margin-bottom: ${({$isActive}) => $isActive ? '15px' : '0'}; } .checkbox-wrapper { display: flex; gap: 10px; align-items: center; cursor: pointer; width: 100%; input { accent-color: ${v.colorPrincipal}; transform: scale(1.1); } label { font-weight: 600; font-size: 14px; flex: 1; } }`;
 const TextAreaStyled = styled.textarea` width: 100%; border: 2px solid ${({ theme }) => theme.color2}; border-radius: 15px; padding: 12px; background: ${({theme}) => theme.bgtotal}; color: ${({theme}) => theme.text}; outline: none; font-size: 14px; resize: none; &:focus { border-color: ${v.colorPrincipal}; } `;
 const CheckboxPanel = styled.div` display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 10px 12px; border: 1px solid ${({theme})=>theme.bg4}; border-radius: 12px; label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; } input { accent-color: ${v.colorPrincipal}; } `;
+const ClearableInput = styled.div`
+  position: relative;
+
+  input {
+    padding-right: 38px;
+  }
+
+  .clear-input {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    color: ${({ theme }) => theme.text};
+    background: ${({ theme }) => theme.bg4};
+    opacity: 0.72;
+    cursor: pointer;
+    transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  }
+
+  .clear-input:hover {
+    opacity: 1;
+    background: ${v.colorPrincipal}22;
+    transform: translateY(-50%) scale(1.06);
+  }
+
+  .clear-input:disabled {
+    display: none;
+  }
+`;
 
 export const TabGeneral = ({ form, onChange, isStarted }) => {
   const currentMinPlayers = parseInt(form.minPlayers) || 5;
@@ -46,7 +67,22 @@ export const TabGeneral = ({ form, onChange, isStarted }) => {
   return (
     <TabContainer>
       <Row2>
-        <InputWithTooltip label="Temporada"><InputText2><input className="form__field" name="season" value={form.season || ""} onChange={onChange} placeholder="Ej: Apertura 2024" readOnly={isStarted} disabled={isStarted} /></InputText2></InputWithTooltip>
+        <InputWithTooltip label="Temporada">
+          <InputText2>
+            <ClearableInput>
+              <input className="form__field" name="season" value={form.season || ""} onChange={onChange} placeholder="Ej: Apertura 2024" readOnly={isStarted} disabled={isStarted} />
+              <button
+                type="button"
+                className="clear-input"
+                disabled={isStarted || !form.season}
+                aria-label="Borrar temporada"
+                onClick={() => onChange({ target: { name: "season", value: "" } })}
+              >
+                <RiCloseCircleLine />
+              </button>
+            </ClearableInput>
+          </InputText2>
+        </InputWithTooltip>
         <InputWithTooltip label="Fecha Inicio"><InputText2><input className="form__field" type="date" name="startDate" value={form.startDate || ""} onChange={onChange} readOnly={isStarted} disabled={isStarted} /></InputText2></InputWithTooltip>
       </Row2>
       <Divider />
@@ -61,11 +97,10 @@ export const TabGeneral = ({ form, onChange, isStarted }) => {
 };
 
 export const TabScoring = ({ form, onChange }) => {
-    const [useCustom, setUseCustom] = useState(false);
-    useEffect(() => {
+    const [useCustom, setUseCustom] = useState(() => {
         const isCustom = (parseInt(form.winPoints)||3) !== 3 || (parseInt(form.drawPoints)||1) !== 1 || (parseInt(form.lossPoints)||0) !== 0;
-        setUseCustom(isCustom);
-    }, [form.winPoints, form.drawPoints, form.lossPoints]); 
+        return isCustom;
+    }); 
 
     const handleCheck = (e) => {
         setUseCustom(e.target.checked);
@@ -104,9 +139,8 @@ export const TabFormat = ({ form, onChange, vueltasDisabled }) => {
   const maxTeams = parseInt(form.maxTeams) || 20; 
   const currentAsc = parseInt(form.ascensos) || 0;
   const currentDesc = parseInt(form.descensos) || 0;
-  const [enablePromotions, setEnablePromotions] = useState(false);
+  const [enablePromotions, setEnablePromotions] = useState(() => currentAsc > 0 || currentDesc > 0);
 
-  useEffect(() => { setEnablePromotions(currentAsc > 0 || currentDesc > 0); }, [currentAsc, currentDesc]); 
   const handlePromotionsToggle = (e) => {
       setEnablePromotions(e.target.checked);
       if(!e.target.checked) { onChange({ target: { name: 'ascensos', value: 0 } }); onChange({ target: { name: 'descensos', value: 0 } }); }

@@ -21,6 +21,7 @@ export function TorneosTemplate({
   allTeams, participatingIds, onInclude, onExclude, minPlayers,
   isLoadingData, standings, reglas, setReglas, refreshStandings,
   onTournamentReset, state, setState, partidos,
+  onResetSetupDraft,
   leagueData // <-- AHORA RECIBE LA LIGA DESDE LA PÁGINA
 }) {
   const navigate = useNavigate();
@@ -40,10 +41,34 @@ export function TorneosTemplate({
   const activeTab = isValidTab ? tab : defaultTab;
   const isResolvingInitialTab = !isValidTab && isLoadingData;
   const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
+  const activeTournamentRef = useRef(activeTournament);
+  const resetSetupDraftRef = useRef(onResetSetupDraft);
+  const canResetOnUnmountRef = useRef(false);
+
+  useEffect(() => {
+    activeTournamentRef.current = activeTournament;
+    resetSetupDraftRef.current = onResetSetupDraft;
+  }, [activeTournament, onResetSetupDraft]);
 
   const handleTabChange = (newTabId) => {
+    if (!activeTournament && activeTab === "definir" && newTabId !== "definir") {
+      onResetSetupDraft?.();
+    }
     navigate(`/torneos/${newTabId}`);
   };
+
+  useEffect(() => {
+    const resetReadyTimer = window.setTimeout(() => {
+      canResetOnUnmountRef.current = true;
+    }, 0);
+
+    return () => {
+      window.clearTimeout(resetReadyTimer);
+      if (canResetOnUnmountRef.current && !activeTournamentRef.current) {
+        resetSetupDraftRef.current?.();
+      }
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (isValidTab) return;
