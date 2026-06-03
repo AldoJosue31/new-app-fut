@@ -8,6 +8,8 @@ import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { EmptyState } from "../organismos/EmptyState"; 
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
+import { TorneoDefinitionModeLoading } from "../TorneoDefinitionMode";
+import { getTournamentAutoRedirectPreference } from "../../utils/tournamentPreferences";
 import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
 import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
 import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
@@ -25,15 +27,16 @@ export function TorneosTemplate({
   const { tab } = useParams();
   
   const tabList = [
-    { id: "definir", label: "Definir Torneo", icon: <v.iconocorona /> },
+    { id: "definir", label: "Torneo", icon: <v.iconocorona /> },
     { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
-    { id: "standings", label: "Tabla General", icon: <RiBarChartGroupedLine /> },
+    { id: "standings", label: "Clasificacion", icon: <RiBarChartGroupedLine /> },
     { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> } 
   ];
 
   const validTabIds = tabList.map(t => t.id);
   const isValidTab = validTabIds.includes(tab);
-  const defaultTab = activeTournament ? "jornadas" : "definir";
+  const shouldAutoRedirectToJornadas = getTournamentAutoRedirectPreference();
+  const defaultTab = activeTournament && shouldAutoRedirectToJornadas ? "jornadas" : "definir";
   const activeTab = isValidTab ? tab : defaultTab;
   const isResolvingInitialTab = !isValidTab && isLoadingData;
   const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
@@ -43,15 +46,16 @@ export function TorneosTemplate({
   };
 
   useLayoutEffect(() => {
-    if (isLoadingData || isValidTab) return;
+    if (isValidTab) return;
+    if (isLoadingData && !activeTournament) return;
 
     navigate(`/torneos/${defaultTab}`, { replace: true });
-  }, [defaultTab, isLoadingData, isValidTab, navigate]);
+  }, [activeTournament, defaultTab, isLoadingData, isValidTab, navigate]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
+  const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;
 
   const [goleadores, setGoleadores] = useState([]);
-  const [loadingGoleadores, setLoadingGoleadores] = useState(false);
   const headerMeasureRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(118);
 
@@ -61,19 +65,17 @@ export function TorneosTemplate({
       return;
     }
     try {
-      setLoadingGoleadores(true);
       const data = await getTopScorersService({ tournamentId: activeTournament.id, limit: 50 });
       setGoleadores(data || []);
     } catch (err) {
       console.error("Error fetchGoleadores:", err);
       setGoleadores([]);
-    } finally {
-      setLoadingGoleadores(false);
     }
   };
 
   useEffect(() => {
-    fetchGoleadores();
+    const timeoutId = window.setTimeout(fetchGoleadores, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [activeTournament?.id]);
 
   useEffect(() => {
@@ -109,7 +111,28 @@ export function TorneosTemplate({
   }, [activeTab]);
 
   if (isResolvingInitialTab) {
-    return null;
+    return (
+      <>
+        <HeaderMeasure ref={headerMeasureRef}>
+          <PageHeader 
+            title="Torneos" 
+            maxWidth="1000px" 
+            marginBottom="0"
+            state={state}
+            setState={setState}
+            tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+          />
+        </HeaderMeasure>
+
+        <StyledContentContainer $activeTab={activeTab} $headerHeight={headerHeight}>
+          <ContentGrid $isWide={isWideView}>
+            <FullWidthTab $isConstrained={activeTab === "jornadas"}>
+              <TorneoDefinitionModeLoading />
+            </FullWidthTab>
+          </ContentGrid>
+        </StyledContentContainer>
+      </>
+    );
   }
 
   return (
@@ -139,6 +162,9 @@ export function TorneosTemplate({
                   onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                   isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
                   onTournamentReset={onTournamentReset}
+                  standings={standings}
+                  partidos={partidos}
+                  goleadores={goleadores}
                   leagueData={leagueData} // <-- PASAMOS LA LIGA AL TAB DEFINITIVO
               />
             </FullWidthTab>
@@ -146,7 +172,11 @@ export function TorneosTemplate({
 
           {activeTab === "jornadas" && (
             <FullWidthTab $isConstrained>
-              {activeTournament ? (
+              {isLoadingData && !activeTournament ? (
+                 <TorneoDefinitionModeLoading />
+              ) : isPreparingActiveTab ? (
+                 <TorneoDefinitionModeLoading />
+              ) : activeTournament ? (
                  <TorneoJornadasTab 
                     activeTournament={activeTournament} 
                     participatingTeams={participatingTeamsObj} 
@@ -160,7 +190,9 @@ export function TorneosTemplate({
 
           {activeTab === "standings" && (
             <FullWidthTab>
-              {activeTournament ? (
+              {isLoadingData && !activeTournament ? (
+                <TorneoDefinitionModeLoading />
+              ) : activeTournament ? (
                 <TorneosStandingsTab 
                     division={{ name: divisionName }} 
                     torneo={activeTournament} 
@@ -182,7 +214,9 @@ export function TorneosTemplate({
 
           {activeTab === "goleadores" && (
             <FullWidthTab>
-              {activeTournament ? (
+              {isLoadingData && !activeTournament ? (
+                <TorneoDefinitionModeLoading />
+              ) : activeTournament ? (
                 <GoleadoresTab
                    torneo={activeTournament}
                    goleadores={goleadores}

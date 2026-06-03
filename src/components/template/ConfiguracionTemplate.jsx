@@ -18,6 +18,7 @@ import {
   unlinkGoogleIdentity,
   updateProfileName,
 } from "../../services/account";
+import { TournamentAutoRedirectPreference } from "../TournamentAutoRedirectPreference";
 
 export function ConfiguracionTemplate({ state, setState }) {
   const { user, profile, fetchProfile } = useAuthStore();
@@ -163,6 +164,13 @@ export function ConfiguracionTemplate({ state, setState }) {
 
             <Divider />
 
+            <PreferencesSection>
+              <h4>Preferencias</h4>
+              <TournamentAutoRedirectPreference />
+            </PreferencesSection>
+
+            <Divider />
+
             <LinkedAccounts>
               <h4>Cuentas Vinculadas</h4>
               <div className="account-item">
@@ -259,6 +267,13 @@ const Divider = styled.div`
   height: 1px;
   background: ${({ theme }) => theme.bg4 || "#e1e1e1"};
   margin: 30px 0;
+`;
+
+const PreferencesSection = styled.div`
+  h4 {
+    margin: 0 0 14px 0;
+    font-size: 16px;
+  }
 `;
 
 const LinkedAccounts = styled.div`
