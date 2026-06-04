@@ -206,7 +206,7 @@ export function TorneoDefinicionTab({
     setIsSetupExiting(false);
     setIsStartingTournament(false);
     setIsActiveEntering(true);
-    hideTransitionOverlayAfter(720);
+    hideTransitionOverlayAfter(960);
 
     if (activeEnterTimerRef.current) clearTimeout(activeEnterTimerRef.current);
     activeEnterTimerRef.current = setTimeout(() => {
@@ -227,7 +227,7 @@ export function TorneoDefinicionTab({
     setIsEndingTournament(false);
     setIsDeleting(false);
     setIsSetupEntering(true);
-    hideTransitionOverlayAfter(720);
+    hideTransitionOverlayAfter(960);
 
     if (setupEnterTimerRef.current) clearTimeout(setupEnterTimerRef.current);
     setupEnterTimerRef.current = setTimeout(() => {
@@ -1723,19 +1723,8 @@ const ActiveTournamentPanel = styled.div`
         if ($isExiting) return "none";
         return $isEntering
             ? "activePanelReveal 0.72s cubic-bezier(0.18, 0.9, 0.24, 1) both"
-            : "panelEnter 0.45s ease both";
+            : "none";
     }};
-
-    @keyframes panelEnter {
-        from {
-            opacity: 0;
-            transform: translateY(12px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
 
     @keyframes activePanelReveal {
         from {
