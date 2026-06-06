@@ -220,23 +220,17 @@ const MatchCard = ({ row }) => {
   );
 };
 
-const splitStageMatches = (matches = [], alternateBySeed = false) => {
-  if (alternateBySeed) {
-    return matches.reduce(
-      (sides, match, index) => {
-        const side = index % 2 === 0 ? "left" : "right";
-        sides[side].push(match);
-        return sides;
-      },
-      { left: [], right: [] }
-    );
-  }
+const FutureMatchCard = ({ row, index }) => {
+  const { pair } = row;
+  const homeName = pair?.home?.name || `Ganador ${index * 2 + 1}`;
+  const awayName = pair?.away?.name || `Ganador ${index * 2 + 2}`;
 
-  const midpoint = Math.ceil(matches.length / 2);
-  return {
-    left: matches.slice(0, midpoint),
-    right: matches.slice(midpoint),
-  };
+  return (
+    <FutureMatchShell>
+      <span>{homeName}</span>
+      <span>{awayName}</span>
+    </FutureMatchShell>
+  );
 };
 
 export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoading = false }) {
@@ -245,12 +239,6 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
     [torneo, partidos, jornadas]
   );
   const currentPhaseKey = parseConfig(torneo).playoffState?.currentPhaseKey || null;
-  const primaryStage =
-    stages.find((stage) => stage.key === currentPhaseKey && stage.isCreated) ||
-    stages.find((stage) => stage.isCreated) ||
-    stages[0] ||
-    null;
-  const splitMatches = splitStageMatches(primaryStage?.matches || [], primaryStage?.reseed);
 
   if (isLoading) {
     return (
@@ -278,47 +266,50 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
   return (
     <BracketShell>
       <BracketScroller>
-        <BracketArena>
-          <BracketSide $side="left">
-            {splitMatches.left.map((row) => (
-              <MatchSlot key={row.pair.id || `${primaryStage.key}-${row.pairIndex}`} $side="left">
-                <MatchCard row={row} />
-                <Connector $side="left" />
-              </MatchSlot>
+        <BracketHeaderRail>
+          <span className="stage-label">BRACKET</span>
+          <PhaseRail>
+            {stages.map((stage) => (
+              <span
+                key={stage.key}
+                className={[
+                  stage.key === currentPhaseKey ? "current" : "",
+                  stage.isCreated ? "created" : "",
+                ].filter(Boolean).join(" ")}
+                title={stage.label}
+              >
+                {stage.shortLabel}
+              </span>
             ))}
-          </BracketSide>
+          </PhaseRail>
+        </BracketHeaderRail>
 
-          <CenterStage>
-            <span className="stage-label">BRACKET</span>
-            <div className="stage-icon">
-              <RiGitBranchLine />
-            </div>
-            <strong>{primaryStage?.label || "Fase final"}</strong>
-            <PhaseRail>
-              {stages.map((stage) => (
-                <span
-                  key={stage.key}
-                  className={[
-                    stage.key === primaryStage?.key ? "current" : "",
-                    stage.isCreated ? "created" : "",
-                  ].filter(Boolean).join(" ")}
-                  title={stage.label}
-                >
-                  {stage.shortLabel}
-                </span>
-              ))}
-            </PhaseRail>
-          </CenterStage>
+        <ConnectedBracketGrid $columns={stages.length}>
+          {stages.map((stage, stageIndex) => (
+            <ConnectedStageColumn key={stage.key}>
+              <FutureStageHeader>
+                <span>{stage.shortLabel}</span>
+                <strong>{stage.label}</strong>
+              </FutureStageHeader>
+              <ConnectedMatchList>
+                {stage.matches.map((row, index) => {
+                  const matchKey = row.pair.id || `${stage.key}-${row.pairIndex}`;
+                  const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
 
-          <BracketSide $side="right">
-            {splitMatches.right.map((row) => (
-              <MatchSlot key={row.pair.id || `${primaryStage.key}-${row.pairIndex}`} $side="right">
-                <Connector $side="right" />
-                <MatchCard row={row} />
-              </MatchSlot>
-            ))}
-          </BracketSide>
-        </BracketArena>
+                  return (
+                    <ConnectedMatchSlot
+                      key={matchKey}
+                      $hasNext={stageIndex < stages.length - 1}
+                    >
+                      <MatchComponent row={row} index={index} />
+                      {stageIndex < stages.length - 1 && <ConnectedConnector />}
+                    </ConnectedMatchSlot>
+                  );
+                })}
+              </ConnectedMatchList>
+            </ConnectedStageColumn>
+          ))}
+        </ConnectedBracketGrid>
       </BracketScroller>
     </BracketShell>
   );
@@ -420,19 +411,163 @@ const BracketScroller = styled.div`
   }
 `;
 
+const BracketHeaderRail = styled.div`
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--bracket-border);
+  background: var(--bracket-surface);
+
+  .stage-label {
+    color: var(--bracket-primary);
+    font-size: 0.72rem;
+    font-weight: 950;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+`;
+
+const ConnectedBracketGrid = styled.div`
+  min-width: ${({ $columns }) => Math.max(760, $columns * 228)}px;
+  display: grid;
+  grid-template-columns: repeat(${({ $columns }) => $columns}, minmax(190px, 1fr));
+  align-items: stretch;
+  gap: 34px;
+
+  @media (max-width: 1024px) {
+    min-width: ${({ $columns }) => Math.max(700, $columns * 210)}px;
+    gap: 28px;
+  }
+
+  @media (max-width: 640px) {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+`;
+
+const ConnectedStageColumn = styled.div`
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const ConnectedMatchList = styled.div`
+  flex: 1;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 18px;
+
+  @media (max-width: 640px) {
+    min-height: auto;
+    gap: 12px;
+  }
+`;
+
+const ConnectedMatchSlot = styled.div`
+  position: relative;
+  min-width: 0;
+
+  > article,
+  > div:first-child {
+    position: relative;
+    z-index: 2;
+  }
+
+  @media (max-width: 640px) {
+    ${({ $hasNext }) => $hasNext && `
+      padding-bottom: 18px;
+
+      &::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: 3px;
+        height: 16px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, var(--bracket-primary), transparent);
+        transform: translateX(-50%);
+      }
+    `}
+  }
+`;
+
+const ConnectedConnector = styled.div`
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 100%;
+  width: 34px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--bracket-primary),
+    ${({ theme }) => theme.tournamentDashboard?.jornada?.accentStrong || theme.primary}
+  );
+  opacity: 0.92;
+  transform: translateY(-50%);
+  pointer-events: none;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--bracket-primary);
+    box-shadow: 0 0 12px var(--bracket-primary);
+    transform: translateY(-50%);
+  }
+
+  @media (max-width: 1024px) {
+    width: 28px;
+  }
+
+  @media (max-width: 640px) {
+    display: none;
+  }
+`;
+
 const BracketArena = styled.div`
   --arena-gap: 48px;
+  --future-gap: 24px;
   min-width: 920px;
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(190px, 230px) minmax(280px, 1fr);
+  grid-template-columns:
+    minmax(250px, 1fr)
+    minmax(165px, 0.78fr)
+    minmax(180px, 220px)
+    minmax(165px, 0.78fr)
+    minmax(250px, 1fr);
   align-items: center;
   gap: var(--arena-gap);
   min-height: 430px;
 
   @media (max-width: 1024px) {
     --arena-gap: 36px;
-    min-width: 780px;
-    grid-template-columns: minmax(245px, 1fr) minmax(170px, 200px) minmax(245px, 1fr);
+    --future-gap: 18px;
+    min-width: 960px;
+    grid-template-columns:
+      minmax(220px, 1fr)
+      minmax(150px, 0.78fr)
+      minmax(165px, 190px)
+      minmax(150px, 0.78fr)
+      minmax(220px, 1fr);
   }
 
   @media (max-width: 640px) {
@@ -454,6 +589,87 @@ const BracketSide = styled.div`
   @media (max-width: 640px) {
     order: ${({ $side }) => ($side === "left" ? 1 : 3)};
     gap: 12px;
+  }
+`;
+
+const FutureRounds = styled.div`
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(${({ $columns }) => Math.max(1, $columns || 1)}, minmax(145px, 1fr));
+  gap: var(--future-gap);
+  align-items: center;
+
+  @media (max-width: 640px) {
+    order: ${({ $side }) => ($side === "left" ? 2 : 4)};
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+`;
+
+const FutureStageLane = styled.div`
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 12px;
+`;
+
+const FutureStageHeader = styled.div`
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+
+  span {
+    min-height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--bracket-primary-soft);
+    color: var(--bracket-primary);
+    font-size: 0.64rem;
+    font-weight: 950;
+  }
+
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${({ theme }) => theme.text};
+    font-size: 0.7rem;
+    font-weight: 950;
+  }
+`;
+
+const FutureMatchList = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 16px;
+`;
+
+const FutureMatchSlot = styled.div`
+  position: relative;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+
+  > div {
+    flex: 1;
+  }
+`;
+
+const CenterLane = styled.div`
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+
+  @media (max-width: 640px) {
+    order: 3;
   }
 `;
 
@@ -624,6 +840,83 @@ const PhaseRail = styled.div`
   span.current {
     background: var(--bracket-primary);
     color: ${({ theme }) => theme.body};
+  }
+`;
+
+const UpcomingStages = styled.div`
+  width: 100%;
+  display: grid;
+  gap: 9px;
+  margin-top: 6px;
+`;
+
+const UpcomingStage = styled.div`
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--bracket-border);
+  background: var(--bracket-item);
+
+  .upcoming-title {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .upcoming-title span {
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--bracket-primary-soft);
+    color: var(--bracket-primary);
+    font-size: 0.62rem;
+    font-weight: 950;
+  }
+
+  .upcoming-title strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${({ theme }) => theme.text};
+    font-size: 0.68rem;
+    font-weight: 950;
+  }
+
+  .upcoming-matches {
+    display: grid;
+    gap: 5px;
+  }
+`;
+
+const FutureMatchShell = styled.div`
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  border-radius: 7px;
+  border: 1px dashed var(--bracket-border);
+  background: var(--bracket-surface);
+  opacity: 0.9;
+
+  span {
+    min-height: 21px;
+    display: flex;
+    align-items: center;
+    padding: 0 7px;
+    border-radius: 6px;
+    background: var(--bracket-item);
+    color: var(--bracket-muted);
+    font-size: 0.66rem;
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;
 
