@@ -4,8 +4,22 @@ import { getPartidosExternosRango } from "../services/torneos";
 import {
   getJornadaReferenceNumber,
   isRepositionJornadaName,
+  normalizeJornadaName,
   parseJornadaNumber,
 } from "../utils/jornadaUtils";
+import { isPlayoffJornadaName } from "../utils/playoffUtils";
+
+const getPlayoffJornadaBaseName = (name = "") =>
+  normalizeJornadaName(name).replace(/\s*\((ida|vuelta)\)\s*$/i, "").trim();
+
+const isSamePlayoffJornadaScope = (originName = "", currentName = "") => {
+  const normalizedOrigin = normalizeJornadaName(originName);
+  const normalizedCurrent = normalizeJornadaName(currentName);
+  if (!normalizedOrigin || !normalizedCurrent) return false;
+  if (normalizedOrigin === normalizedCurrent) return true;
+  if (/\((ida|vuelta)\)\s*$/i.test(normalizedCurrent)) return false;
+  return getPlayoffJornadaBaseName(normalizedOrigin) === getPlayoffJornadaBaseName(normalizedCurrent);
+};
 
 export const usePlanificacionMatches = (
     activeTournament, 
@@ -35,6 +49,7 @@ export const usePlanificacionMatches = (
   const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
   const currentJornadaNumber = getJornadaReferenceNumber(jornadaData, jornadaIndex);
   const isRepositionJornada = isRepositionJornadaName(currentJornadaName);
+  const isPlayoffJornada = isPlayoffJornadaName(currentJornadaName);
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   
   const targetJornadaIndex = useMemo(() => {
@@ -46,7 +61,7 @@ export const usePlanificacionMatches = (
           }
       }
       return lastConfirmedIdx + 1;
-  }, [jornadasList, jornadaStatus]); 
+  }, [jornadasList]);
 
   const storageKey = useMemo(() => {
     if (!activeTournament?.id) return null;
@@ -274,7 +289,7 @@ export const usePlanificacionMatches = (
     const matchesDBList = (matchesDB || []).map(m => ({ ...m, _source: 'db' }));
     const officialJornadaIds = new Set(matchesDBList.map(m => String(m.id)));
     
-    const cleanGlobalMatches = (globalPendingMatches || []).reduce((acc, gm) => {
+    const cleanGlobalMatches = isPlayoffJornada ? [] : (globalPendingMatches || []).reduce((acc, gm) => {
         const gmId = String(gm.id);
         const gmOriginName = (gm.jornadas?.name || gm.originJornada || "").trim();
 
@@ -325,6 +340,10 @@ export const usePlanificacionMatches = (
 
     const currentPending = mergedMatches.filter(m => {
         if (m.date || m.status === 'Finalizado' || (m.resolution && m.resolution.type === 'default')) return false;
+        if (isPlayoffJornada) {
+            if (!m.originJornada) return true;
+            return isSamePlayoffJornadaScope(m.originJornada, currentJornadaName);
+        }
         if (isRepositionJornada) return true;
         if (!m.originJornada) return true; 
         const mNum = getJornadaNum(m.originJornada);
@@ -333,7 +352,7 @@ export const usePlanificacionMatches = (
     });
 
     let currentSuggestions = [];
-    if (!isRepositionJornada && teams.length % 2 !== 0) {
+    if (!isRepositionJornada && !isPlayoffJornada && teams.length % 2 !== 0) {
         const teamsPlaying = new Set();
         currentScheduled.forEach(m => {
              if (m.local?.id) teamsPlaying.add(m.local.id);
@@ -364,7 +383,7 @@ export const usePlanificacionMatches = (
       teams, matchesDB, globalPendingMatches, 
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
-      targetJornadaIndex, currentJornadaNumber, isRepositionJornada
+      targetJornadaIndex, currentJornadaNumber, isRepositionJornada, isPlayoffJornada
   ]); 
 
   useEffect(() => {

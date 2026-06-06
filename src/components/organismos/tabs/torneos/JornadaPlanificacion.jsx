@@ -25,6 +25,7 @@ import {
   getSuggestedRepositionWindow,
 } from "../../../../utils/repositionUtils";
 import { buildRepositionPreview } from "../../../../utils/jornadaUtils";
+import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
 
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
@@ -128,6 +129,10 @@ export function JornadaPlanificacion({
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const isConfirmed = jornadaData?.status === "Confirmada";
+  const isPlayoffJornada = useMemo(
+    () => isPlayoffJornadaName(currentJornadaName),
+    [currentJornadaName]
+  );
   const chronologicalJornadas = useMemo(
     () => sortJornadas(jornadas),
     [jornadas]
@@ -694,6 +699,7 @@ export function JornadaPlanificacion({
               onOpenResolution={handleOpenResolution}
               onClearResolution={handleClearResolution}
               isRepositionMode={isRepositionMode}
+              isPlayoffMode={isPlayoffJornada}
               onSelectMatch={toggleSelectedPendingMatch}
               selectedMatchId={selectedPendingMatch?.id || null}
               isTapSelectionEnabled={isTapSelectionEnabled}

@@ -1,12 +1,13 @@
 ﻿// src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { v } from '../../../../styles/variables';
 import { BiShareAlt, BiCheck } from "react-icons/bi"; 
-import { RiImageLine } from "react-icons/ri"; 
+import { RiBarChartGroupedLine, RiGitBranchLine, RiImageLine } from "react-icons/ri";
 
 import StandingsExportModal from './exports/standings/StandingsExportModal';
 import StandingsTable from './subcomponents/StandingsTable';
+import { PlayoffBracketView } from './subcomponents/PlayoffBracketView';
 import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { Skeleton } from '../../../atomos/Skeleton';
 
@@ -29,6 +30,7 @@ export const TorneosStandingsTab = ({
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [activeView, setActiveView] = useState('table');
   const [selectedJornadaView, setSelectedJornadaView] = useState(() => {
     if (!torneo?.id || typeof window === 'undefined') return 'recent';
     return localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent';
@@ -66,6 +68,7 @@ export const TorneosStandingsTab = ({
     jornadasConfirmadasForDropdown,
     tablaGeneral,
     activeJornadaName,
+    mergedJornadas,
     isCalculating
   } = useTorneoStandingsLogic({
     torneo,
@@ -78,6 +81,35 @@ export const TorneosStandingsTab = ({
 
   const isDataLoading = isLoading || isCalculating;
   const [showSkeleton, setShowSkeleton] = useState(true);
+  const tournamentConfig = useMemo(() => {
+    if (typeof torneo?.config === 'string') {
+      try {
+        return JSON.parse(torneo.config) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    return torneo?.config || {};
+  }, [torneo?.config]);
+  const playoffStages = Array.isArray(tournamentConfig.playoffState?.stages)
+    ? tournamentConfig.playoffState.stages
+    : [];
+  const hasPlayoffView = Boolean(tournamentConfig.zonaLiguilla || playoffStages.length > 0);
+  const activePlayoffPhaseKey = tournamentConfig.playoffState?.currentPhaseKey || "";
+  const hasStartedPlayoffPhase = Boolean(activePlayoffPhaseKey || playoffStages.length > 0);
+
+  useEffect(() => {
+    if (!hasPlayoffView && activeView !== 'table') {
+      setActiveView('table');
+    }
+  }, [activeView, hasPlayoffView]);
+
+  useEffect(() => {
+    if (!isPublic && hasStartedPlayoffPhase) {
+      setActiveView('bracket');
+    }
+  }, [hasStartedPlayoffPhase, isPublic, torneo?.id]);
 
   useEffect(() => {
     if (isDataLoading) {
@@ -128,17 +160,44 @@ export const TorneosStandingsTab = ({
             </ToggleContainer>
 
             <SelectorShell>
-              {showSkeleton ? (
-                <Skeleton width="100%" height="36px" radius="8px" />
-              ) : (
-                <SelectorWrapper>
-                  <StandingsJornadaSelector 
-                    selected={selectedJornadaView}
-                    onChange={handleSelectedJornadaViewChange}
-                    effectiveJornada={effectiveJornada}
-                    jornadasOptions={jornadasConfirmadasForDropdown}
-                  />
-                </SelectorWrapper>
+              {hasPlayoffView && (
+                <ViewSwitcher role="tablist" aria-label="Vista de clasificacion">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeView === 'table'}
+                    className={activeView === 'table' ? 'active' : ''}
+                    onClick={() => setActiveView('table')}
+                  >
+                    <RiBarChartGroupedLine />
+                    <span>Tabla</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeView === 'bracket'}
+                    className={activeView === 'bracket' ? 'active' : ''}
+                    onClick={() => setActiveView('bracket')}
+                  >
+                    <RiGitBranchLine />
+                    <span>Cuadro</span>
+                  </button>
+                </ViewSwitcher>
+              )}
+
+              {activeView === 'table' && (
+                showSkeleton ? (
+                  <Skeleton width="100%" height="36px" radius="8px" />
+                ) : (
+                  <SelectorWrapper>
+                    <StandingsJornadaSelector
+                      selected={selectedJornadaView}
+                      onChange={handleSelectedJornadaViewChange}
+                      effectiveJornada={effectiveJornada}
+                      jornadasOptions={jornadasConfirmadasForDropdown}
+                    />
+                  </SelectorWrapper>
+                )
               )}
             </SelectorShell>
 
@@ -158,12 +217,21 @@ export const TorneosStandingsTab = ({
         </ControlPanel>
       )}
 
-      <StandingsTable 
-        tablaGeneral={tablaGeneral} 
-        config={config} 
-        isPublic={isPublic} 
-        isLoading={showSkeleton} 
-      />
+      {activeView === 'bracket' && hasPlayoffView ? (
+        <PlayoffBracketView
+          torneo={torneo}
+          partidos={partidos}
+          jornadas={mergedJornadas}
+          isLoading={showSkeleton}
+        />
+      ) : (
+        <StandingsTable
+          tablaGeneral={tablaGeneral}
+          config={config}
+          isPublic={isPublic}
+          isLoading={showSkeleton}
+        />
+      )}
 
       <StandingsExportModal
         isOpen={showExportModal}
@@ -202,7 +270,7 @@ const ControlPanel = styled.div`
   grid-template-columns: auto minmax(180px, 1fr) auto;
   align-items: center;
   width: 98%;
-  max-width: 900px;
+  max-width: 1180px;
   margin: 0 auto 10px auto;
   background: ${({ theme }) => theme.bg};
   padding: 8px 12px;
@@ -215,24 +283,90 @@ const ControlPanel = styled.div`
 
   @media (max-width: 768px) {
     width: 100%;
-    max-width: 360px;
+    max-width: 420px;
     grid-template-columns: auto minmax(0, 1fr) auto;
     padding: 7px 10px;
     border-radius: 10px;
+  }
+
+  @media (max-width: 520px) {
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
   }
 `;
 
 const SelectorShell = styled.div`
   width: 100%;
   min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const SelectorWrapper = styled.div`
-  max-width: 360px;
+  max-width: 300px;
   width: 100%;
 
   @media (max-width: 768px) {
     max-width: none;
+  }
+`;
+
+const ViewSwitcher = styled.div`
+  min-height: 36px;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(82px, 1fr));
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+  background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  flex: 0 0 auto;
+
+  button {
+    min-width: 0;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 900;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+
+  button.active {
+    background: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+    color: ${({ theme }) => theme.body};
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+  }
+
+  svg {
+    flex: 0 0 auto;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 520px) {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    button {
+      font-size: 0.7rem;
+      gap: 4px;
+    }
   }
 `;
 

@@ -31,10 +31,14 @@ import {
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 import {
+  PLAYOFF_PHASES,
   buildNextPlayoffPreview,
   buildPhaseJornadaNames,
+  getPhaseByParticipants,
   getPendingPhaseCounts,
+  getPhaseLabelByKey,
   getPlayoffSettings,
+  getStageMatches,
 } from "../../../../utils/playoffUtils";
 import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandingsLogic";
 import {
@@ -55,6 +59,20 @@ const isTrackableMatch = (match) =>
     match?.team1_id != null &&
     match?.team2_id != null &&
     !match?.isByeMatch;
+const getPhaseAbbreviation = (phaseKey) => ({
+    repechaje: "Rep",
+    round32: "16F",
+    round16: "OF",
+    quarterfinals: "CF",
+    semifinals: "SF",
+    final: "F",
+})[phaseKey] || "FF";
+const MAIN_PLAYOFF_PHASE_KEYS = PLAYOFF_PHASES.map((phase) => phase.key);
+const getMainPhaseIndex = (phaseKey) => MAIN_PLAYOFF_PHASE_KEYS.indexOf(phaseKey);
+const isConfirmedJornadaStatus = (status) => {
+    const normalized = normalizeMatchStatus(status);
+    return normalized.includes("confirmad") || normalized.includes("finaliz") || normalized.includes("complet");
+};
 const formatSetupDate = (dateString, includeYear = false) => {
     if (!dateString) return "Pendiente";
     const date = new Date(`${dateString}T00:00:00`);
@@ -206,7 +224,7 @@ export function TorneoDefinicionTab({
     setIsSetupExiting(false);
     setIsStartingTournament(false);
     setIsActiveEntering(true);
-    hideTransitionOverlayAfter(720);
+    hideTransitionOverlayAfter(960);
 
     if (activeEnterTimerRef.current) clearTimeout(activeEnterTimerRef.current);
     activeEnterTimerRef.current = setTimeout(() => {
@@ -227,7 +245,7 @@ export function TorneoDefinicionTab({
     setIsEndingTournament(false);
     setIsDeleting(false);
     setIsSetupEntering(true);
-    hideTransitionOverlayAfter(720);
+    hideTransitionOverlayAfter(960);
 
     if (setupEnterTimerRef.current) clearTimeout(setupEnterTimerRef.current);
     setupEnterTimerRef.current = setTimeout(() => {
@@ -642,6 +660,12 @@ export function TorneoDefinicionTab({
   }, [activeTournament?.config]);
 
   const playoffEnabled = !!(tournamentConfigForUi.zonaLiguilla ?? form.zonaLiguilla);
+  const playoffStateForUi = tournamentConfigForUi.playoffState || {};
+  const currentPlayoffPhaseKey = playoffEnabled ? playoffStateForUi.currentPhaseKey || null : null;
+  const currentPlayoffPhaseLabel = currentPlayoffPhaseKey
+      ? getPhaseLabelByKey(currentPlayoffPhaseKey)
+      : "";
+  const isInPlayoffPhase = Boolean(currentPlayoffPhaseKey);
 
   useEffect(() => {
       let ignore = false;
@@ -668,11 +692,20 @@ export function TorneoDefinicionTab({
       };
   }, [activeTournament?.id]);
 
-  const activeJornadas = useMemo(() => {
+  const allTournamentJornadas = useMemo(() => {
       const jornadas = dashboardJornadas.length > 0
           ? dashboardJornadas
           : Array.isArray(activeTournament?.jornadas) ? activeTournament.jornadas : [];
-      return jornadas
+      return [...jornadas].sort((a, b) => {
+          const aNumber = parseJornadaNumber(a?.name, Number.MAX_SAFE_INTEGER);
+          const bNumber = parseJornadaNumber(b?.name, Number.MAX_SAFE_INTEGER);
+          if (aNumber !== bNumber) return aNumber - bNumber;
+          return String(a?.name || "").localeCompare(String(b?.name || ""), "es", { sensitivity: "base" });
+      });
+  }, [activeTournament?.jornadas, dashboardJornadas]);
+
+  const activeJornadas = useMemo(() => {
+      return allTournamentJornadas
           .filter((jornada) => isOfficialJornadaName(jornada?.name))
           .map((jornada) => ({
               ...jornada,
@@ -680,13 +713,12 @@ export function TorneoDefinicionTab({
           }))
           .filter((jornada) => jornada.number > 0)
           .sort((a, b) => a.number - b.number);
-  }, [activeTournament?.jornadas, dashboardJornadas]);
+  }, [allTournamentJornadas]);
 
   const tournamentProgress = useMemo(() => {
       const total = activeJornadas.length;
       const completed = activeJornadas.filter((jornada) => {
-          const status = String(jornada.status || "").toLowerCase();
-          return status.includes("confirmad") || status.includes("finaliz") || status.includes("complet");
+          return isConfirmedJornadaStatus(jornada.status);
       }).length;
       const current = total > 0 ? Math.max(1, Math.min(completed + 1, total)) : 1;
       const next = total > 0 ? Math.min(current + 1, total) : 1;
@@ -694,6 +726,98 @@ export function TorneoDefinicionTab({
 
       return { total, completed, current, next, percent };
   }, [activeJornadas]);
+
+  const currentPhaseMatches = useMemo(() => {
+      if (!currentPlayoffPhaseKey) return [];
+      return getStageMatches({
+          phaseKey: currentPlayoffPhaseKey,
+          matches: partidos,
+          jornadas: allTournamentJornadas,
+      });
+  }, [allTournamentJornadas, currentPlayoffPhaseKey, partidos]);
+
+  const currentPhaseResultProgress = useMemo(() => {
+      const confirmableMatches = currentPhaseMatches.filter(isTrackableMatch);
+      const confirmedMatches = confirmableMatches.filter(hasRegisteredMatchResult);
+      const total = confirmableMatches.length;
+      const confirmed = confirmedMatches.length;
+
+      return {
+          confirmed,
+          total,
+          pending: Math.max(total - confirmed, 0),
+          percent: total > 0 ? Math.round((confirmed / total) * 100) : 0,
+      };
+  }, [currentPhaseMatches]);
+
+  const playoffPhaseProgress = useMemo(() => {
+      if (!isInPlayoffPhase) return null;
+
+      const stages = Array.isArray(playoffStateForUi.stages) ? playoffStateForUi.stages : [];
+      const createdMainStage = stages.find((stage) => stage?.phaseKey && stage.phaseKey !== "repechaje");
+      const currentMainStage = currentPlayoffPhaseKey !== "repechaje"
+          ? stages.find((stage) => stage?.phaseKey === currentPlayoffPhaseKey)
+          : null;
+      const mainParticipantsFromStage =
+          Number(createdMainStage?.pairs?.length || currentMainStage?.pairs?.length || 0) * 2;
+      const directCount = Number.parseInt(tournamentConfigForUi.clasificados, 10) || 0;
+      const repechajeCount = Number.parseInt(tournamentConfigForUi.repechajeTeams, 10) || 0;
+      const estimatedMainParticipants = mainParticipantsFromStage ||
+          directCount + (repechajeCount > 0 ? Math.floor(repechajeCount / 2) : 0) ||
+          directCount ||
+          2;
+      const estimatedPhaseKey = getPhaseByParticipants(estimatedMainParticipants).key;
+      const mainPhaseCandidates = [
+          createdMainStage?.phaseKey,
+          currentPlayoffPhaseKey !== "repechaje" ? currentPlayoffPhaseKey : null,
+          estimatedPhaseKey,
+          ...stages.map((stage) => stage?.phaseKey),
+      ]
+          .map(getMainPhaseIndex)
+          .filter((index) => index >= 0);
+      const firstMainIndex = mainPhaseCandidates.length > 0
+          ? Math.min(...mainPhaseCandidates)
+          : 0;
+      const hasRepechaje = stages.some((stage) => stage?.phaseKey === "repechaje") ||
+          currentPlayoffPhaseKey === "repechaje" ||
+          repechajeCount > 0;
+      const phaseKeys = [
+          ...(hasRepechaje ? ["repechaje"] : []),
+          ...MAIN_PLAYOFF_PHASE_KEYS.slice(firstMainIndex),
+      ];
+      const currentIndex = Math.max(0, phaseKeys.indexOf(currentPlayoffPhaseKey));
+      const total = phaseKeys.length || 1;
+      const currentPhaseWeight = currentPhaseResultProgress.percent / 100;
+      const percent = Math.min(
+          100,
+          Math.round(((currentIndex + currentPhaseWeight) / total) * 100)
+      );
+
+      return {
+          total,
+          currentIndex,
+          percent,
+          label: currentPlayoffPhaseLabel,
+          subtitle: `Fase ${currentIndex + 1} de ${total}`,
+          markers: phaseKeys.map((phaseKey, index) => ({
+              key: phaseKey,
+              label: getPhaseLabelByKey(phaseKey),
+              shortLabel: getPhaseAbbreviation(phaseKey),
+              position: total <= 1 ? 100 : Math.round((index / (total - 1)) * 100),
+              isCurrent: phaseKey === currentPlayoffPhaseKey,
+              isComplete: index < currentIndex ||
+                  (phaseKey === currentPlayoffPhaseKey && currentPhaseResultProgress.percent === 100),
+          })),
+      };
+  }, [
+      currentPhaseResultProgress.percent,
+      currentPlayoffPhaseKey,
+      currentPlayoffPhaseLabel,
+      isInPlayoffPhase,
+      playoffStateForUi.stages,
+      tournamentConfigForUi.clasificados,
+      tournamentConfigForUi.repechajeTeams,
+  ]);
 
   useEffect(() => {
       let ignore = false;
@@ -751,7 +875,7 @@ export function TorneoDefinicionTab({
           return teamIds.length === 2 ? teamIds.join("-") : String(match?.id || "");
       };
 
-      return activeJornadas.map((jornada) => {
+      const regularRows = activeJornadas.map((jornada) => {
           const jornadaId = jornada?.id != null ? String(jornada.id) : null;
           const matchesMap = new Map();
 
@@ -819,8 +943,10 @@ export function TorneoDefinicionTab({
 
           return {
               id: jornada.id,
+              key: `jornada-${jornada.number}`,
               number: jornada.number,
               name: jornada.name,
+              shortLabel: `J${jornada.number}`,
               played,
               total,
               pending,
@@ -828,7 +954,46 @@ export function TorneoDefinicionTab({
               isConfirmed,
           };
       });
-  }, [activeJornadas, dashboardJornadas, partidos, tournamentConfigForUi]);
+
+      if (!isInPlayoffPhase) return regularRows;
+
+      const isConfirmed = currentPhaseResultProgress.total > 0
+          ? currentPhaseResultProgress.pending === 0
+          : allTournamentJornadas
+              .filter((jornada) => {
+                  const name = String(jornada?.name || "").toLowerCase();
+                  const label = String(currentPlayoffPhaseLabel || "").toLowerCase();
+                  if (currentPlayoffPhaseKey === "repechaje") return name.includes("repechaje");
+                  return label && name.startsWith(label);
+              })
+              .every((jornada) => isConfirmedJornadaStatus(jornada.status));
+
+      return [
+          ...regularRows,
+          {
+              id: `phase-${currentPlayoffPhaseKey}`,
+              key: `phase-${currentPlayoffPhaseKey}`,
+              number: `phase-${currentPlayoffPhaseKey}`,
+              name: currentPlayoffPhaseLabel,
+              shortLabel: getPhaseAbbreviation(currentPlayoffPhaseKey),
+              played: currentPhaseResultProgress.confirmed,
+              total: currentPhaseResultProgress.total,
+              pending: currentPhaseResultProgress.pending,
+              percent: currentPhaseResultProgress.percent,
+              isConfirmed,
+              isPlayoff: true,
+          },
+      ];
+  }, [
+      activeJornadas,
+      allTournamentJornadas,
+      currentPhaseResultProgress,
+      currentPlayoffPhaseKey,
+      currentPlayoffPhaseLabel,
+      isInPlayoffPhase,
+      partidos,
+      tournamentConfigForUi,
+  ]);
 
   const currentStatusJornada = useMemo(() => (
       jornadaStatusRows[jornadaStatusRows.length - 1] ||
@@ -836,20 +1001,22 @@ export function TorneoDefinicionTab({
   ), [jornadaStatusRows]);
 
   useEffect(() => {
-      if (!currentStatusJornada?.number) return;
+      if (!currentStatusJornada?.key) return;
       setSelectedStatusJornada((current) => {
-          const stillExists = jornadaStatusRows.some((jornada) => jornada.number === current);
-          return stillExists ? current : currentStatusJornada.number;
+          const stillExists = jornadaStatusRows.some((jornada) => jornada.key === current);
+          return stillExists ? current : currentStatusJornada.key;
       });
-  }, [currentStatusJornada?.number, jornadaStatusRows]);
+  }, [currentStatusJornada?.key, jornadaStatusRows]);
 
   const currentJornadaSummary = useMemo(() => {
-      const selectedRow = jornadaStatusRows.find((jornada) => jornada.number === selectedStatusJornada);
+      const selectedRow = jornadaStatusRows.find((jornada) => jornada.key === selectedStatusJornada);
       const row = selectedRow || currentStatusJornada;
 
       return row || {
           name: `Jornada ${tournamentProgress.current}`,
+          key: `jornada-${tournamentProgress.current}`,
           number: tournamentProgress.current,
+          shortLabel: `J${tournamentProgress.current}`,
           played: 0,
           total: 0,
           pending: 0,
@@ -859,12 +1026,14 @@ export function TorneoDefinicionTab({
 
   const jornadaStatusTitle = useMemo(() => {
       const name = currentJornadaSummary.name || `Jornada ${currentJornadaSummary.number}`;
+      if (currentJornadaSummary.isPlayoff) return `Estatus de ${name}`;
+
       const jornadaNumber = String(name).match(/jornada\s+(\d+)/i)?.[1] || currentJornadaSummary.number;
 
       return jornadaNumber
           ? `Estatus de la Jornada ${jornadaNumber}`
           : `Estatus de ${name}`;
-  }, [currentJornadaSummary.name, currentJornadaSummary.number]);
+  }, [currentJornadaSummary.isPlayoff, currentJornadaSummary.name, currentJornadaSummary.number]);
 
   useEffect(() => {
       const targetPercent = Number(currentJornadaSummary.percent) || 0;
@@ -947,16 +1116,16 @@ export function TorneoDefinicionTab({
       }
   };
 
-  const handleJornadaBarClick = (event, jornadaNumber) => {
+  const handleJornadaBarClick = (event, jornadaKey) => {
       if (jornadaBarsWasDraggingRef.current) {
           event.preventDefault();
           event.stopPropagation();
           return;
       }
-      setSelectedStatusJornada(jornadaNumber);
+      setSelectedStatusJornada(jornadaKey);
   };
 
-  const resultConfirmationProgress = useMemo(() => {
+  const regularResultConfirmationProgress = useMemo(() => {
       const confirmableMatches = (partidos || []).filter(isTrackableMatch);
       const confirmedMatches = confirmableMatches.filter(hasRegisteredMatchResult);
       const total = confirmableMatches.length;
@@ -968,6 +1137,23 @@ export function TorneoDefinicionTab({
           percent: total > 0 ? Math.round((confirmed / total) * 100) : 0,
       };
   }, [partidos]);
+
+  const resultConfirmationProgress = isInPlayoffPhase
+      ? currentPhaseResultProgress
+      : regularResultConfirmationProgress;
+
+  const dashboardTournamentProgress = playoffPhaseProgress || {
+      label: `Jornada ${tournamentProgress.current}`,
+      subtitle: `de ${tournamentProgress.total || "--"}`,
+      percent: tournamentProgress.percent,
+      markers: [],
+  };
+
+  const isAdvancePhaseLocked = isInPlayoffPhase && currentPhaseResultProgress.pending > 0;
+  const advancePhaseDisabled = isAdvancingPhase || isAdvancePhaseLocked;
+  const advancePhaseTitle = isAdvancePhaseLocked
+      ? "Confirma todos los resultados de la fase actual para avanzar."
+      : "Avanzar de fase";
 
   const currentTopScorer = useMemo(() => {
       const scorer = Array.isArray(goleadores) ? goleadores[0] : null;
@@ -1214,19 +1400,52 @@ export function TorneoDefinicionTab({
                         </div>
                         <div className="progress-copy">
                             <span>Progreso del Torneo</span>
-                            <strong>Jornada {tournamentProgress.current} <small>de {tournamentProgress.total || "--"}</small></strong>
+                            <strong>{dashboardTournamentProgress.label} <small>{dashboardTournamentProgress.subtitle}</small></strong>
                         </div>
                     </div>
 
                     <div className="progress-track-area">
                         <div className="progress-labels">
                             <span>Inicio</span>
-                            <strong>{tournamentProgress.percent}% Completado</strong>
+                            <strong>{dashboardTournamentProgress.percent}% Completado</strong>
                             <span>Final</span>
                         </div>
                         <div className="progress-track">
-                            <span style={{ width: `${tournamentProgress.percent}%` }} />
+                            <span className="progress-fill" style={{ width: `${dashboardTournamentProgress.percent}%` }} />
+                            {dashboardTournamentProgress.markers.map((marker) => (
+                                <i
+                                    key={marker.key}
+                                    className={[
+                                        "phase-marker",
+                                        marker.isCurrent ? "current" : "",
+                                        marker.isComplete ? "complete" : "",
+                                    ].filter(Boolean).join(" ")}
+                                    style={{ left: `${marker.position}%` }}
+                                    title={marker.label}
+                                >
+                                    <span>{marker.shortLabel}</span>
+                                </i>
+                            ))}
                         </div>
+                        {dashboardTournamentProgress.markers.length > 0 && (
+                            <div
+                                className="phase-marker-labels"
+                                style={{ "--phase-count": dashboardTournamentProgress.markers.length }}
+                            >
+                                {dashboardTournamentProgress.markers.map((marker) => (
+                                    <span
+                                        key={`phase-label-${marker.key}`}
+                                        className={[
+                                            marker.isCurrent ? "current" : "",
+                                            marker.isComplete ? "complete" : "",
+                                        ].filter(Boolean).join(" ")}
+                                        title={marker.label}
+                                    >
+                                        {marker.shortLabel}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                         <div className="result-progress-row">
                             <span>Resultados confirmados</span>
                             <strong>{resultConfirmationProgress.confirmed} de {resultConfirmationProgress.total}</strong>
@@ -1242,7 +1461,13 @@ export function TorneoDefinicionTab({
                             <span>Definir jornadas</span>
                         </button>
                         {playoffEnabled && (
-                            <button className="secondary-action" type="button" onClick={() => preparePlayoffPreview()} disabled={isAdvancingPhase}>
+                            <button
+                                className="secondary-action"
+                                type="button"
+                                onClick={() => preparePlayoffPreview()}
+                                disabled={advancePhaseDisabled}
+                                title={advancePhaseTitle}
+                            >
                                 <RiFlagLine />
                                 <span>{isAdvancingPhase ? "Preparando..." : "Avanzar de fase"}</span>
                             </button>
@@ -1312,20 +1537,21 @@ export function TorneoDefinicionTab({
                         {jornadaStatusRows.map((jornada, index) => (
                             <button
                                 type="button"
-                                key={jornada.id || jornada.number}
+                                key={jornada.key || jornada.id || jornada.number}
                                 className={[
-                                    jornada.number === currentJornadaSummary.number ? "selected" : "",
-                                    jornada.number === currentStatusJornada?.number ? "current" : "",
+                                    jornada.key === currentJornadaSummary.key ? "selected" : "",
+                                    jornada.key === currentStatusJornada?.key ? "current" : "",
+                                    jornada.isPlayoff ? "playoff-phase" : "",
                                 ].filter(Boolean).join(" ")}
                                 style={{
                                     "--bar-height": `${Math.max(jornada.percent, jornada.total > 0 ? 8 : 0)}%`,
                                     "--bar-index": index,
                                 }}
-                                onClick={(event) => handleJornadaBarClick(event, jornada.number)}
+                                onClick={(event) => handleJornadaBarClick(event, jornada.key)}
                                 title={`${jornada.name}: ${jornada.played} de ${jornada.total} partidos jugados`}
                             >
                                 <span className="bar-track"><span /></span>
-                                <small>J{jornada.number}</small>
+                                <small>{jornada.shortLabel || `J${jornada.number}`}</small>
                             </button>
                         ))}
                     </div>
@@ -1723,19 +1949,8 @@ const ActiveTournamentPanel = styled.div`
         if ($isExiting) return "none";
         return $isEntering
             ? "activePanelReveal 0.72s cubic-bezier(0.18, 0.9, 0.24, 1) both"
-            : "panelEnter 0.45s ease both";
+            : "none";
     }};
-
-    @keyframes panelEnter {
-        from {
-            opacity: 0;
-            transform: translateY(12px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
 
     @keyframes activePanelReveal {
         from {
@@ -1945,14 +2160,17 @@ const ActiveTournamentPanel = styled.div`
     }
 
     .progress-track {
+        position: relative;
         height: 8px;
         border-radius: 999px;
         background: var(--panel-item-bg);
         border: 1px solid var(--panel-border);
-        overflow: hidden;
+        overflow: visible;
     }
 
-    .progress-track span {
+    .progress-track .progress-fill {
+        position: relative;
+        z-index: 1;
         display: block;
         height: 100%;
         min-width: 8px;
@@ -1962,12 +2180,66 @@ const ActiveTournamentPanel = styled.div`
         transition: width 0.35s ease;
     }
 
+    .phase-marker {
+        position: absolute;
+        z-index: 2;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 2px solid var(--panel-border);
+        background: ${({ theme }) => theme.bgcards};
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+    }
+
+    .phase-marker.complete {
+        border-color: var(--panel-accent-strong);
+        background: var(--panel-accent-strong);
+    }
+
+    .phase-marker.current {
+        width: 18px;
+        height: 18px;
+        border-color: var(--panel-accent);
+        background: var(--panel-accent);
+    }
+
+    .phase-marker span {
+        display: none;
+    }
+
+    .phase-marker-labels {
+        display: grid;
+        grid-template-columns: repeat(var(--phase-count), minmax(26px, 1fr));
+        align-items: center;
+        gap: 4px;
+        margin-top: 10px;
+        color: var(--panel-muted);
+        font-size: 0.58rem;
+        font-weight: 950;
+        line-height: 1;
+        text-align: center;
+    }
+
+    .phase-marker-labels span {
+        min-width: 0;
+        padding-top: 2px;
+        white-space: nowrap;
+    }
+
+    .phase-marker-labels .current,
+    .phase-marker-labels .complete {
+        color: var(--panel-accent);
+    }
+
     .result-progress-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin: 11px 0 7px;
+        margin: 12px 0 7px;
         color: var(--panel-muted);
         font-size: 0.68rem;
         font-weight: 900;
@@ -2274,6 +2546,14 @@ const ActiveTournamentPanel = styled.div`
 
     .jornada-bars button.current .bar-track span {
         background: var(--panel-accent);
+    }
+
+    .jornada-bars button.playoff-phase .bar-track {
+        width: 18px;
+    }
+
+    .jornada-bars button.playoff-phase .bar-track span {
+        background: linear-gradient(180deg, var(--panel-accent), var(--panel-accent-strong));
     }
 
     .jornada-bars button.selected .bar-track {

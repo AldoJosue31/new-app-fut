@@ -66,6 +66,8 @@ export const Modal = ({
   onClose,
   title,
   children,
+  headerActions = null,
+  showCloseButton = true,
   closeOnOverlayClick = true,
   width = "500px",
 }) => {
@@ -80,15 +82,18 @@ export const Modal = ({
 
   return createPortal(
     <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
-      <ModalContainer $width={width} onClick={(e) => e.stopPropagation()}>
+      <ModalContainer $width={width} $allowOverflow={!!headerActions} onClick={(e) => e.stopPropagation()}>
         <Header>
           <h3>{title || ""}</h3>
 
-          {onClose && (
-            <button className="close-btn" onClick={onClose}>
-              <AiOutlineClose />
-            </button>
-          )}
+          <div className="header-actions">
+            {headerActions}
+            {showCloseButton && onClose && (
+              <button className="close-btn" onClick={onClose}>
+                <AiOutlineClose />
+              </button>
+            )}
+          </div>
         </Header>
         <Body>{children}</Body>
       </ModalContainer>
@@ -125,11 +130,11 @@ const ModalContainer = styled.div`
   max-width: ${({ $width }) => $width};
   max-height: calc(100dvh - 40px);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
   animation: ${slideIn} 0.3s ease-out;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: ${({ $allowOverflow }) => ($allowOverflow ? "visible" : "hidden")};
   color: ${({ theme }) => theme.text};
   transition: max-width 0.3s ease;
   touch-action: auto;
@@ -141,11 +146,22 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 
   h3 {
     margin: 0;
     font-size: 1.2rem;
     font-weight: 700;
+    min-width: 0;
+  }
+
+  .header-actions {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
   }
 
   .close-btn {
@@ -162,7 +178,7 @@ const Header = styled.div`
     transition: background 0.2s;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: ${({ theme }) => theme.bg4};
     }
   }
 `;
