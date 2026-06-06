@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import styled from "styled-components";
-import { RiArrowRightLine, RiGitBranchLine, RiRefreshLine, RiSettings3Line } from "react-icons/ri";
+import { RiArrowRightLine, RiGitBranchLine, RiRefreshLine } from "react-icons/ri";
 import { Modal } from "../../../../../index";
 import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
 import {
@@ -17,11 +17,24 @@ const phaseLegFieldMap = {
   final: "playoffLegsFinal",
 };
 
-const splitPairsForBracket = (pairs = []) => {
+const splitPairsForBracket = (pairs = [], alternateBySeed = false) => {
+  const indexedPairs = pairs.map((pair, pairIndex) => ({ pair, pairIndex }));
+
+  if (alternateBySeed) {
+    return indexedPairs.reduce(
+      (sides, indexedPair) => {
+        const side = indexedPair.pairIndex % 2 === 0 ? "left" : "right";
+        sides[side].push(indexedPair);
+        return sides;
+      },
+      { left: [], right: [] }
+    );
+  }
+
   const midpoint = Math.ceil(pairs.length / 2);
   return {
-    left: pairs.slice(0, midpoint),
-    right: pairs.slice(midpoint),
+    left: indexedPairs.slice(0, midpoint),
+    right: indexedPairs.slice(midpoint),
   };
 };
 
@@ -95,17 +108,18 @@ export function PlayoffAdvanceModal({
   );
   const [settings, setSettings] = useState(initialSettings);
   const [pairs, setPairs] = useState(preview?.pairs || []);
-  const [draggedSlot, setDraggedSlot] = useState(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [, setDraggedSlot] = useState(null);
 
   React.useEffect(() => {
     setSettings(initialSettings);
     setPairs(preview?.pairs || []);
     setDraggedSlot(null);
-    setSettingsOpen(false);
   }, [initialSettings, preview]);
 
-  const bracketSides = useMemo(() => splitPairsForBracket(pairs), [pairs]);
+  const bracketSides = useMemo(
+    () => splitPairsForBracket(pairs, settings.reseed),
+    [pairs, settings.reseed]
+  );
   const hasRepechaje = Number(preview?.repechajeCount || 0) > 0 || preview?.phaseKey === "repechaje";
   const availableLegPhases = useMemo(
     () => getAvailableLegPhases({
@@ -160,66 +174,6 @@ export function PlayoffAdvanceModal({
         <RiGitBranchLine />
         {pairs.length} cruces
       </SummaryPill>
-      <SettingsMenu>
-        <IconButton
-          type="button"
-          onClick={() => setSettingsOpen((current) => !current)}
-          title="Ajustes de liguilla"
-          aria-label="Ajustes de liguilla"
-          aria-expanded={settingsOpen}
-        >
-          <RiSettings3Line />
-        </IconButton>
-        {settingsOpen && (
-          <SettingsDropdown>
-            <SettingBox>
-              <label>Resiembra por ronda</label>
-              <select
-                value={settings.reseed ? "yes" : "no"}
-                onChange={(event) => updateSetting("reseed", event.target.value === "yes")}
-              >
-                <option value="yes">Primeros vs ultimos</option>
-                <option value="no">Mantener llave</option>
-              </select>
-            </SettingBox>
-
-            <SettingBox>
-              <label>Criterio en empate global</label>
-              <select
-                value={settings.tieBreaker}
-                onChange={(event) => updateSetting("tieBreaker", event.target.value)}
-              >
-                <option value="bestSeed">Avanza mejor posicion</option>
-                <option value="penalties">Penales / shootouts</option>
-              </select>
-            </SettingBox>
-
-            <SettingBox>
-              <label>Goles en tabla de goleo</label>
-              <div className="checks">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={!!settings.countGoalsPlayoffs}
-                    onChange={(event) => updateSetting("countGoalsPlayoffs", event.target.checked)}
-                  />
-                  Liguilla
-                </label>
-                {hasRepechaje && (
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={!!settings.countGoalsRepechaje}
-                      onChange={(event) => updateSetting("countGoalsRepechaje", event.target.checked)}
-                    />
-                    Repechaje
-                  </label>
-                )}
-              </div>
-            </SettingBox>
-          </SettingsDropdown>
-        )}
-      </SettingsMenu>
       <IconButton type="button" onClick={resetPairs} title="Rehacer cruces por siembra" aria-label="Rehacer cruces por siembra">
         <RiRefreshLine />
       </IconButton>
@@ -266,12 +220,12 @@ export function PlayoffAdvanceModal({
 
         <BracketCanvas>
           <BracketColumn $side="left">
-            {bracketSides.left.map((pair, index) => (
-              <MatchNode key={pair.id || `left-${index}`} $side="left">
+            {bracketSides.left.map(({ pair, pairIndex }) => (
+              <MatchNode key={pair.id || `left-${pairIndex}`} $side="left">
                 <TeamBadge
                   team={pair.home}
                   side="home"
-                  pairIndex={index}
+                  pairIndex={pairIndex}
                   onDragStart={setDraggedSlot}
                   onDropTeam={swapSlots}
                 />
@@ -279,7 +233,7 @@ export function PlayoffAdvanceModal({
                 <TeamBadge
                   team={pair.away}
                   side="away"
-                  pairIndex={index}
+                  pairIndex={pairIndex}
                   onDragStart={setDraggedSlot}
                   onDropTeam={swapSlots}
                 />
@@ -293,16 +247,57 @@ export function PlayoffAdvanceModal({
               <RiGitBranchLine />
             </div>
             <strong>{preview.phaseLabel}</strong>
-            <small>
-              {draggedSlot ? "Suelta sobre otro equipo para intercambiar" : "Arrastra equipos para ajustar cruces"}
-            </small>
+            <CenterSettings>
+              <CenterSettingBox>
+                <label>Resiembra</label>
+                <select
+                  value={settings.reseed ? "yes" : "no"}
+                  onChange={(event) => updateSetting("reseed", event.target.value === "yes")}
+                >
+                  <option value="yes">Primeros vs ultimos</option>
+                  <option value="no">Mantener llave</option>
+                </select>
+              </CenterSettingBox>
+              <CenterSettingBox>
+                <label>Empate global</label>
+                <select
+                  value={settings.tieBreaker}
+                  onChange={(event) => updateSetting("tieBreaker", event.target.value)}
+                >
+                  <option value="bestSeed">Mejor posicion</option>
+                  <option value="penalties">Penales</option>
+                </select>
+              </CenterSettingBox>
+              <CenterSettingBox>
+                <label>Goles en tabla</label>
+                <CenterChecks>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!settings.countGoalsPlayoffs}
+                      onChange={(event) => updateSetting("countGoalsPlayoffs", event.target.checked)}
+                    />
+                    Liguilla
+                  </label>
+                  {hasRepechaje && (
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!settings.countGoalsRepechaje}
+                        onChange={(event) => updateSetting("countGoalsRepechaje", event.target.checked)}
+                      />
+                      Repechaje
+                    </label>
+                  )}
+                </CenterChecks>
+              </CenterSettingBox>
+            </CenterSettings>
           </CenterStage>
 
           <BracketColumn $side="right">
-            {bracketSides.right.map((pair, rightIndex) => {
-              const pairIndex = rightIndex + bracketSides.left.length;
+            {bracketSides.right.map(({ pair, pairIndex }) => {
               return (
-                <MatchNode key={pair.id || `right-${rightIndex}`} $side="right">
+                <MatchNode key={pair.id || `right-${pairIndex}`} $side="right">
                   <TeamBadge
                     team={pair.home}
                     side="home"
@@ -432,76 +427,6 @@ const IconButton = styled.button`
   }
 `;
 
-const SettingsMenu = styled.div`
-  position: relative;
-  display: inline-flex;
-`;
-
-const SettingsDropdown = styled.div`
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 40;
-  width: min(340px, calc(100vw - 48px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
-  background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards};
-  box-shadow: none;
-`;
-
-const SettingBox = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--playoff-border);
-  background: var(--playoff-item);
-
-  label {
-    font-size: 0.78rem;
-    font-weight: 800;
-    color: ${({ theme }) => theme.text};
-  }
-
-  select {
-    width: 100%;
-    border: 1px solid var(--playoff-border);
-    border-radius: 8px;
-    padding: 9px;
-    background: var(--playoff-surface);
-    color: ${({ theme }) => theme.text};
-    outline: none;
-
-    &:focus {
-      border-color: var(--playoff-primary);
-      box-shadow: 0 0 0 2px var(--playoff-primary-soft);
-    }
-  }
-
-  .checks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-
-    label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.78rem;
-      font-weight: 700;
-    }
-
-    input {
-      accent-color: var(--playoff-primary);
-    }
-  }
-`;
-
 const LegsMatrix = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -533,10 +458,10 @@ const LegsMatrix = styled.div`
 
 const BracketCanvas = styled.div`
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(150px, 190px) minmax(260px, 1fr);
-  gap: 22px;
-  min-height: 430px;
-  padding: 18px;
+  grid-template-columns: minmax(275px, 1fr) minmax(230px, 260px) minmax(275px, 1fr);
+  gap: 44px;
+  min-height: 452px;
+  padding: 22px 28px;
   border-radius: 8px;
   border: 1px solid var(--playoff-border);
   background:
@@ -546,6 +471,8 @@ const BracketCanvas = styled.div`
   @media (max-width: 860px) {
     grid-template-columns: 1fr;
     min-height: auto;
+    gap: 18px;
+    padding: 18px;
   }
 `;
 
@@ -553,40 +480,69 @@ const BracketColumn = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  gap: 18px;
+  gap: 26px;
+  min-width: 0;
 `;
 
 const MatchNode = styled.div`
+  --seed-card-height: 46px;
+  --connector-arm: 24px;
+  --connector-out: 20px;
   position: relative;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 34px;
+  overflow: visible;
+  z-index: 2;
 `;
 
 const Connector = styled.div`
-  height: 24px;
-  width: 58%;
-  justify-self: ${({ $side }) => ($side === "left" ? "end" : "start")};
+  position: absolute;
+  top: calc(var(--seed-card-height) / 2);
+  bottom: calc(var(--seed-card-height) / 2);
+  ${({ $side }) => ($side === "left" ? "right: calc(var(--connector-arm) * -1);" : "left: calc(var(--connector-arm) * -1);")}
+  width: var(--connector-arm);
   border-top: 3px solid var(--playoff-primary);
   border-bottom: 3px solid var(--playoff-primary);
   border-${({ $side }) => ($side === "left" ? "right" : "left")}: 3px solid var(--playoff-primary);
   border-radius: ${({ $side }) => ($side === "left" ? "0 8px 8px 0" : "8px 0 0 8px")};
-  opacity: 0.86;
+  opacity: 0.95;
+  pointer-events: none;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    ${({ $side }) => ($side === "left" ? "right: calc(var(--connector-out) * -1);" : "left: calc(var(--connector-out) * -1);")}
+    width: var(--connector-out);
+    border-top: 3px solid var(--playoff-primary);
+    transform: translateY(-50%);
+  }
+
+  @media (max-width: 860px) {
+    display: none;
+  }
 `;
 
 const CenterStage = styled.div`
-  align-self: center;
-  min-height: 260px;
+  align-self: stretch;
+  position: relative;
+  min-height: 330px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 18px 14px;
+  gap: 9px;
+  padding: 18px 14px 16px;
   border-radius: 8px;
   background: var(--playoff-surface);
   border: 1px solid var(--playoff-border);
   text-align: center;
+  z-index: 3;
+
+  @media (max-width: 860px) {
+    min-height: auto;
+  }
 
   .stage-label {
     font-size: 0.76rem;
@@ -596,15 +552,15 @@ const CenterStage = styled.div`
   }
 
   .trophy {
-    width: 76px;
-    height: 76px;
+    width: 62px;
+    height: 62px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     background: var(--playoff-stage-accent);
     color: ${({ theme }) => theme.body};
-    font-size: 2.3rem;
+    font-size: 1.9rem;
   }
 
   strong {
@@ -619,8 +575,75 @@ const CenterStage = styled.div`
   }
 `;
 
+const CenterSettings = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+`;
+
+const CenterSettingBox = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--playoff-border);
+  background: var(--playoff-item);
+  text-align: left;
+
+  label {
+    color: var(--playoff-muted);
+    font-size: 0.64rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  select {
+    width: 100%;
+    min-height: 32px;
+    border: 1px solid var(--playoff-border);
+    border-radius: 7px;
+    padding: 6px 8px;
+    background: var(--playoff-surface);
+    color: ${({ theme }) => theme.text};
+    font-size: 0.72rem;
+    font-weight: 850;
+    outline: none;
+
+    &:focus {
+      border-color: var(--playoff-primary);
+      box-shadow: 0 0 0 2px var(--playoff-primary-soft);
+    }
+  }
+`;
+
+const CenterChecks = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  label {
+    min-height: 26px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: var(--playoff-surface);
+    color: ${({ theme }) => theme.text};
+    font-size: 0.68rem;
+    font-weight: 850;
+  }
+
+  input {
+    accent-color: var(--playoff-primary);
+  }
+`;
+
 const SeedCard = styled.div`
-  min-height: 44px;
+  min-height: var(--seed-card-height, 46px);
   display: grid;
   grid-template-columns: 42px 34px minmax(0, 1fr);
   align-items: center;
