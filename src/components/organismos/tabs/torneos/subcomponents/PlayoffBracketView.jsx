@@ -13,6 +13,11 @@ import {
 } from "../../../../../utils/playoffUtils";
 
 const MAIN_PHASE_KEYS = PLAYOFF_PHASES.map((phase) => phase.key);
+const BRACKET_CARD_WIDTH = 238;
+const BRACKET_CARD_HEIGHT = 112;
+const BRACKET_COLUMN_GAP = 74;
+const BRACKET_ROW_HEIGHT = 124;
+const BRACKET_HEADER_HEIGHT = 42;
 
 const getPhaseShortLabel = (phaseKey) => ({
   repechaje: "Rep",
@@ -75,7 +80,14 @@ const getPairResult = ({ pair, matches, settings }) => {
 
   const homeId = getTeamId(pair.home);
   const awayId = getTeamId(pair.away);
-  const legs = matches.map((match) => {
+  const orderedMatches = [...matches].sort((a, b) => {
+    const aLabel = String(a?.jornadas?.name || a?.jornada?.name || "");
+    const bLabel = String(b?.jornadas?.name || b?.jornada?.name || "");
+    if (/\bida\b/i.test(aLabel) && /\bvuelta\b/i.test(bLabel)) return -1;
+    if (/\bvuelta\b/i.test(aLabel) && /\bida\b/i.test(bLabel)) return 1;
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+  });
+  const legs = orderedMatches.map((match) => {
     const hasScore = hasScoreValue(match.goals1) && hasScoreValue(match.goals2);
     return {
       id: match.id,
@@ -117,6 +129,25 @@ const getInitialPairCount = (phaseKey, repechajeCount) => {
   return Math.max(1, Math.ceil((phase?.participants || 2) / 2));
 };
 
+const getPairPrimarySeed = (pair = {}, fallback = 999) => {
+  const seeds = [pair.home?.seed, pair.away?.seed]
+    .map((seed) => Number(seed))
+    .filter((seed) => Number.isFinite(seed));
+
+  return seeds.length > 0 ? Math.min(...seeds) : fallback;
+};
+
+const orderPairsByReseedCup = (pairs = [], reseed = false) => {
+  if (!reseed) return pairs;
+
+  return [...pairs].sort((a, b) => {
+    const aSeed = getPairPrimarySeed(a, 999);
+    const bSeed = getPairPrimarySeed(b, 999);
+    if (aSeed !== bSeed) return aSeed - bSeed;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+};
+
 const buildBracketStages = ({ torneo, partidos, jornadas }) => {
   const config = parseConfig(torneo);
   const playoffState = config.playoffState || {};
@@ -147,9 +178,10 @@ const buildBracketStages = ({ torneo, partidos, jornadas }) => {
   return phaseKeys.map((phaseKey, phaseIndex) => {
     const savedStage = savedStagesByPhase.get(phaseKey);
     const previousCount = phaseIndex > 0 ? nextPlaceholderCount : 0;
-    const pairs = savedStage?.pairs?.length
+    const rawPairs = savedStage?.pairs?.length
       ? savedStage.pairs
       : buildPlaceholderPairs(previousCount || getInitialPairCount(phaseKey, repechajeCount));
+    const pairs = orderPairsByReseedCup(rawPairs, settings.reseed);
     const stageMatches = getStageMatches({ phaseKey, matches: partidos, jornadas });
 
     nextPlaceholderCount = Math.max(1, Math.ceil(pairs.length / 2));
@@ -165,6 +197,7 @@ const buildBracketStages = ({ torneo, partidos, jornadas }) => {
         return {
           pair,
           pairIndex,
+          cupNumber: pairIndex + 1,
           result: getPairResult({ pair, matches: pairMatches, settings }),
         };
       }),
@@ -193,28 +226,46 @@ const MatchCard = ({ row }) => {
   const { pair, result } = row;
   const homeId = getTeamId(pair.home);
   const awayId = getTeamId(pair.away);
+  const showLegBreakdown = result.legs.length > 1;
+  const [firstLeg, secondLeg] = result.legs;
+  const formatLegScore = (leg) => {
+    if (!leg) return "-";
+    return leg.hasScore ? `${leg.homeGoals}-${leg.awayGoals}` : "Pend.";
+  };
+  const formatGlobalScore = () => {
+    if (result.homeGoals === null || result.awayGoals === null) return "-";
+    return `${result.homeGoals}-${result.awayGoals}`;
+  };
 
   return (
-    <MatchCardShell $complete={result.isComplete}>
-      <TeamRow
-        team={pair.home}
-        goals={result.homeGoals}
-        isWinner={result.winnerId && result.winnerId === homeId}
-      />
-      <TeamRow
-        team={pair.away}
-        goals={result.awayGoals}
-        isWinner={result.winnerId && result.winnerId === awayId}
-      />
-      {result.legs.length > 0 && (
-        <LegScores>
-          {result.legs.map((leg, index) => (
-            <span key={leg.id || index}>
-              {result.legs.length > 1 ? `${index + 1}: ` : ""}
-              {leg.hasScore ? `${leg.homeGoals}-${leg.awayGoals}` : "Pendiente"}
-            </span>
-          ))}
-        </LegScores>
+    <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown}>
+      <TeamRows>
+        <TeamRow
+          team={pair.home}
+          goals={result.homeGoals}
+          isWinner={result.winnerId && result.winnerId === homeId}
+        />
+        <TeamRow
+          team={pair.away}
+          goals={result.awayGoals}
+          isWinner={result.winnerId && result.winnerId === awayId}
+        />
+      </TeamRows>
+      {showLegBreakdown && (
+        <LegBreakdown>
+          <span>
+            <small>Ida</small>
+            <strong>{formatLegScore(firstLeg)}</strong>
+          </span>
+          <span>
+            <small>Vuelta</small>
+            <strong>{formatLegScore(secondLeg)}</strong>
+          </span>
+          <span>
+            <small>Global</small>
+            <strong>{formatGlobalScore()}</strong>
+          </span>
+        </LegBreakdown>
       )}
     </MatchCardShell>
   );
@@ -222,8 +273,8 @@ const MatchCard = ({ row }) => {
 
 const FutureMatchCard = ({ row, index }) => {
   const { pair } = row;
-  const homeName = pair?.home?.name || `Ganador ${index * 2 + 1}`;
-  const awayName = pair?.away?.name || `Ganador ${index * 2 + 2}`;
+  const homeName = pair?.home?.name || `Ganador cupo ${index * 2 + 1}`;
+  const awayName = pair?.away?.name || `Ganador cupo ${index * 2 + 2}`;
 
   return (
     <FutureMatchShell>
@@ -233,12 +284,88 @@ const FutureMatchCard = ({ row, index }) => {
   );
 };
 
+const buildBracketGeometry = (stages = []) => {
+  const baseCount = Math.max(1, stages[0]?.matches?.length || 1);
+  const width = stages.length * BRACKET_CARD_WIDTH + Math.max(0, stages.length - 1) * BRACKET_COLUMN_GAP;
+  const height = BRACKET_HEADER_HEIGHT + baseCount * BRACKET_ROW_HEIGHT;
+
+  const getMatchRect = (stageIndex, matchIndex) => {
+    const stage = stages[stageIndex];
+    const matchCount = Math.max(1, stage?.matches?.length || 1);
+    const rowSpan = baseCount / matchCount;
+    const centerY = BRACKET_HEADER_HEIGHT + ((matchIndex * rowSpan) + (rowSpan / 2)) * BRACKET_ROW_HEIGHT;
+
+    return {
+      x: stageIndex * (BRACKET_CARD_WIDTH + BRACKET_COLUMN_GAP),
+      y: centerY - (BRACKET_CARD_HEIGHT / 2),
+      centerY,
+    };
+  };
+
+  const segments = [];
+
+  stages.slice(0, -1).forEach((stage, stageIndex) => {
+    const nextStage = stages[stageIndex + 1];
+    const sourceCount = Math.max(1, stage.matches.length);
+    const targetCount = Math.max(1, nextStage.matches.length);
+    const mergeRatio = Math.max(1, sourceCount / targetCount);
+
+    nextStage.matches.forEach((_, targetIndex) => {
+      const targetRect = getMatchRect(stageIndex + 1, targetIndex);
+      const sourceStart = Math.floor(targetIndex * mergeRatio);
+      const sourceEnd = Math.min(sourceCount - 1, Math.max(sourceStart, Math.floor((targetIndex + 1) * mergeRatio) - 1));
+      const sourceRects = [];
+
+      for (let sourceIndex = sourceStart; sourceIndex <= sourceEnd; sourceIndex += 1) {
+        sourceRects.push(getMatchRect(stageIndex, sourceIndex));
+      }
+
+      const firstSource = sourceRects[0];
+      if (!firstSource) return;
+
+      const sourceRightX = firstSource.x + BRACKET_CARD_WIDTH;
+      const targetLeftX = targetRect.x;
+      const mergeX = sourceRightX + (targetLeftX - sourceRightX) / 2;
+      const sourceCenters = sourceRects.map((rect) => rect.centerY);
+      const minSourceY = Math.min(...sourceCenters);
+      const maxSourceY = Math.max(...sourceCenters);
+
+      sourceRects.forEach((rect) => {
+        segments.push({
+          x1: sourceRightX,
+          y1: rect.centerY,
+          x2: mergeX,
+          y2: rect.centerY,
+        });
+      });
+
+      if (sourceRects.length > 1) {
+        segments.push({
+          x1: mergeX,
+          y1: minSourceY,
+          x2: mergeX,
+          y2: maxSourceY,
+        });
+      }
+
+      segments.push({
+        x1: mergeX,
+        y1: targetRect.centerY,
+        x2: targetLeftX,
+        y2: targetRect.centerY,
+      });
+    });
+  });
+
+  return { baseCount, width, height, getMatchRect, segments };
+};
+
 export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoading = false }) {
   const stages = useMemo(
     () => buildBracketStages({ torneo, partidos, jornadas }),
     [torneo, partidos, jornadas]
   );
-  const currentPhaseKey = parseConfig(torneo).playoffState?.currentPhaseKey || null;
+  const geometry = useMemo(() => buildBracketGeometry(stages), [stages]);
 
   if (isLoading) {
     return (
@@ -266,25 +393,69 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
   return (
     <BracketShell>
       <BracketScroller>
-        <BracketHeaderRail>
-          <span className="stage-label">BRACKET</span>
-          <PhaseRail>
-            {stages.map((stage) => (
-              <span
-                key={stage.key}
-                className={[
-                  stage.key === currentPhaseKey ? "current" : "",
-                  stage.isCreated ? "created" : "",
-                ].filter(Boolean).join(" ")}
-                title={stage.label}
-              >
-                {stage.shortLabel}
-              </span>
+        <DesktopBracketCanvas style={{ width: geometry.width, height: geometry.height }}>
+          <BracketLines viewBox={`0 0 ${geometry.width} ${geometry.height}`} aria-hidden="true">
+            {geometry.segments.map((segment, index) => (
+              <React.Fragment key={`segment-${index}`}>
+                <line
+                  className="line-base"
+                  pathLength="1"
+                  x1={segment.x1}
+                  y1={segment.y1}
+                  x2={segment.x2}
+                  y2={segment.y2}
+                  style={{ "--line-index": index }}
+                />
+                <line
+                  className="line-energy"
+                  x1={segment.x1}
+                  y1={segment.y1}
+                  x2={segment.x2}
+                  y2={segment.y2}
+                  style={{ "--line-index": index }}
+                />
+              </React.Fragment>
             ))}
-          </PhaseRail>
-        </BracketHeaderRail>
+          </BracketLines>
 
-        <ConnectedBracketGrid $columns={stages.length}>
+          {stages.map((stage, stageIndex) => {
+            const x = stageIndex * (BRACKET_CARD_WIDTH + BRACKET_COLUMN_GAP);
+
+            return (
+              <AbsoluteStageHeader
+                key={`header-${stage.key}`}
+                style={{ left: x, width: BRACKET_CARD_WIDTH }}
+              >
+                <span>{stage.shortLabel}</span>
+                <strong>{stage.label}</strong>
+              </AbsoluteStageHeader>
+            );
+          })}
+
+          {stages.map((stage, stageIndex) => (
+            stage.matches.map((row, index) => {
+              const rect = geometry.getMatchRect(stageIndex, index);
+              const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+
+              return (
+                <AbsoluteMatchNode
+                  key={`desktop-${stage.key}-${row.pair.id || row.pairIndex}`}
+                  style={{
+                    left: rect.x,
+                    top: rect.y,
+                    width: BRACKET_CARD_WIDTH,
+                    height: BRACKET_CARD_HEIGHT,
+                  }}
+                >
+                  <MatchComponent row={row} index={index} />
+                </AbsoluteMatchNode>
+              );
+            })
+          ))}
+        </DesktopBracketCanvas>
+
+        <MobileBracketCanvas>
+          <ConnectedBracketGrid $columns={stages.length}>
           {stages.map((stage, stageIndex) => (
             <ConnectedStageColumn key={stage.key}>
               <FutureStageHeader>
@@ -309,7 +480,8 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
               </ConnectedMatchList>
             </ConnectedStageColumn>
           ))}
-        </ConnectedBracketGrid>
+          </ConnectedBracketGrid>
+        </MobileBracketCanvas>
       </BracketScroller>
     </BracketShell>
   );
@@ -383,6 +555,35 @@ const BracketShell = styled.section`
     }
   }
 
+  @keyframes bracketSvgLineIn {
+    from {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    to {
+      stroke-dashoffset: 0;
+      opacity: 0.88;
+    }
+  }
+
+  @keyframes bracketSvgEnergy {
+    from {
+      stroke-dashoffset: 56;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes bracketSvgEnergyFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 0.72;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * {
       animation-duration: 1ms !important;
@@ -411,27 +612,101 @@ const BracketScroller = styled.div`
   }
 `;
 
-const BracketHeaderRail = styled.div`
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  margin: 0 0 18px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--bracket-border);
-  background: var(--bracket-surface);
+const DesktopBracketCanvas = styled.div`
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
 
-  .stage-label {
+  @media (max-width: 640px) {
+    display: none;
+  }
+`;
+
+const MobileBracketCanvas = styled.div`
+  display: none;
+
+  @media (max-width: 640px) {
+    display: block;
+  }
+`;
+
+const BracketLines = styled.svg`
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+
+  line {
+    fill: none;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .line-base {
+    stroke: var(--bracket-primary);
+    stroke-width: 3;
+    opacity: 0.88;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: bracketSvgLineIn 760ms cubic-bezier(0.2, 0.84, 0.24, 1) forwards;
+    animation-delay: calc(var(--line-index) * 46ms);
+  }
+
+  .line-energy {
+    stroke: ${({ theme }) => theme.tournamentDashboard?.jornada?.accentStrong || theme.primary};
+    stroke-width: 5;
+    opacity: 0;
+    stroke-dasharray: 10 18;
+    filter: drop-shadow(0 0 7px var(--bracket-primary));
+    animation:
+      bracketSvgEnergy 1.35s linear infinite,
+      bracketSvgEnergyFade 420ms ease forwards;
+    animation-delay: calc(520ms + (var(--line-index) * 46ms)), calc(520ms + (var(--line-index) * 46ms));
+  }
+`;
+
+const AbsoluteStageHeader = styled.div`
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+
+  span {
+    min-height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--bracket-primary-soft);
     color: var(--bracket-primary);
-    font-size: 0.72rem;
+    font-size: 0.64rem;
     font-weight: 950;
   }
 
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${({ theme }) => theme.text};
+    font-size: 0.72rem;
+    font-weight: 950;
+  }
+`;
+
+const AbsoluteMatchNode = styled.div`
+  position: absolute;
+  z-index: 2;
+
+  > article,
+  > div {
+    height: 100%;
   }
 `;
 
@@ -809,95 +1084,11 @@ const CenterStage = styled.div`
   }
 `;
 
-const PhaseRail = styled.div`
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-
-  span {
-    min-width: 34px;
-    min-height: 26px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 8px;
-    border-radius: 999px;
-    border: 1px solid var(--bracket-border);
-    color: var(--bracket-muted);
-    background: var(--bracket-item);
-    font-size: 0.68rem;
-    font-weight: 950;
-  }
-
-  span.created {
-    border-color: var(--bracket-primary);
-    color: var(--bracket-primary);
-  }
-
-  span.current {
-    background: var(--bracket-primary);
-    color: ${({ theme }) => theme.body};
-  }
-`;
-
-const UpcomingStages = styled.div`
-  width: 100%;
-  display: grid;
-  gap: 9px;
-  margin-top: 6px;
-`;
-
-const UpcomingStage = styled.div`
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--bracket-border);
-  background: var(--bracket-item);
-
-  .upcoming-title {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
-    align-items: center;
-    gap: 6px;
-    text-align: left;
-  }
-
-  .upcoming-title span {
-    min-height: 24px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background: var(--bracket-primary-soft);
-    color: var(--bracket-primary);
-    font-size: 0.62rem;
-    font-weight: 950;
-  }
-
-  .upcoming-title strong {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: ${({ theme }) => theme.text};
-    font-size: 0.68rem;
-    font-weight: 950;
-  }
-
-  .upcoming-matches {
-    display: grid;
-    gap: 5px;
-  }
-`;
-
 const FutureMatchShell = styled.div`
   display: grid;
   gap: 3px;
+  height: 100%;
+  align-content: center;
   padding: 6px;
   border-radius: 7px;
   border: 1px dashed var(--bracket-border);
@@ -923,7 +1114,11 @@ const FutureMatchShell = styled.div`
 const MatchCardShell = styled.article`
   position: relative;
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) ${({ $withBreakdown }) => ($withBreakdown ? "88px" : "0")};
+  gap: ${({ $withBreakdown }) => ($withBreakdown ? "8px" : "0")};
+  align-items: stretch;
+  min-height: 100%;
+  height: 100%;
   padding: 8px;
   border-radius: 8px;
   border: 1px solid ${({ $complete }) => ($complete ? "var(--bracket-primary)" : "var(--bracket-border)")};
@@ -991,24 +1186,52 @@ const MatchCardShell = styled.article`
     font-size: 0.9rem;
     font-weight: 950;
   }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: ${({ $withBreakdown }) => ($withBreakdown ? "8px" : "0")};
+  }
 `;
 
-const LegScores = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 0 6px 2px;
+const TeamRows = styled.div`
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+`;
+
+const LegBreakdown = styled.div`
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
 
   span {
-    min-height: 20px;
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    border-radius: 999px;
+    min-width: 0;
+    display: grid;
+    place-items: center;
+    gap: 1px;
+    padding: 4px;
+    border-radius: 7px;
     background: var(--bracket-item);
+    border: 1px solid var(--bracket-border);
+  }
+
+  small {
     color: var(--bracket-muted);
-    font-size: 0.64rem;
-    font-weight: 850;
+    font-size: 0.54rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  strong {
+    color: ${({ theme }) => theme.text};
+    font-size: 0.7rem;
+    font-weight: 950;
+    line-height: 1.1;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 `;
 

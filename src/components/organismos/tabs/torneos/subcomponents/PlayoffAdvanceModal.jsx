@@ -131,6 +131,9 @@ export function PlayoffAdvanceModal({
 
   const updateSetting = (name, value) => {
     setSettings((prev) => ({ ...prev, [name]: value }));
+    if (name === "reseed" && value) {
+      setPairs(pairHighLow(preview?.participants || []));
+    }
   };
 
   const swapSlots = (from, to) => {
