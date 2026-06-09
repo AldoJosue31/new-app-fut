@@ -40,7 +40,6 @@ import {
   getPlayoffSettings,
   getStageMatches,
 } from "../../../../utils/playoffUtils";
-import { getStandingsViewStorageKey } from "../../../../hooks/useTorneoStandingsLogic";
 import {
   isOfficialJornadaName,
   parseJornadaNumber,
@@ -517,9 +516,7 @@ export function TorneoDefinicionTab({
               matches,
               jornadas,
               config: freshConfig,
-              selectedJornadaView: activeTournament?.id && typeof window !== "undefined"
-                  ? localStorage.getItem(getStandingsViewStorageKey(activeTournament.id)) || "recent"
-                  : "recent",
+              selectedJornadaView: "recent",
           });
 
           if (preview.error) {
