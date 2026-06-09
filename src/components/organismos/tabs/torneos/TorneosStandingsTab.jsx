@@ -154,12 +154,20 @@ export const TorneosStandingsTab = ({
     <StandingsTabContainer>
       {!isPublic && (
         <ControlPanel>
-            <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
-                <div className="track"><div className="thumb" /></div>
-                <span className="label">Publico</span>
-            </ToggleContainer>
+            <SelectorWrapper>
+              {showSkeleton ? (
+                <Skeleton width="100%" height="36px" radius="8px" />
+              ) : (
+                <StandingsJornadaSelector
+                  selected={selectedJornadaView}
+                  onChange={handleSelectedJornadaViewChange}
+                  effectiveJornada={effectiveJornada}
+                  jornadasOptions={jornadasConfirmadasForDropdown}
+                />
+              )}
+            </SelectorWrapper>
 
-            <SelectorShell>
+            <ViewSwitcherShell>
               {hasPlayoffView && (
                 <ViewSwitcher role="tablist" aria-label="Vista de clasificacion">
                   <button
@@ -170,7 +178,7 @@ export const TorneosStandingsTab = ({
                     onClick={() => setActiveView('table')}
                   >
                     <RiBarChartGroupedLine />
-                    <span>Tabla</span>
+                    <span>Liga</span>
                   </button>
                   <button
                     type="button"
@@ -184,28 +192,18 @@ export const TorneosStandingsTab = ({
                   </button>
                 </ViewSwitcher>
               )}
-
-              {activeView === 'table' && (
-                showSkeleton ? (
-                  <Skeleton width="100%" height="36px" radius="8px" />
-                ) : (
-                  <SelectorWrapper>
-                    <StandingsJornadaSelector
-                      selected={selectedJornadaView}
-                      onChange={handleSelectedJornadaViewChange}
-                      effectiveJornada={effectiveJornada}
-                      jornadasOptions={jornadasConfirmadasForDropdown}
-                    />
-                  </SelectorWrapper>
-                )
-              )}
-            </SelectorShell>
+            </ViewSwitcherShell>
 
             <ActionsGroup>
                 <ShareButton onClick={() => setShowExportModal(true)} title="Exportar Tabla">
                     <RiImageLine size={20}/>
                     <span>Exportar</span>
                 </ShareButton>
+
+                <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
+                    <div className="track"><div className="thumb" /></div>
+                    <span className="label">Publico</span>
+                </ToggleContainer>
 
                 {isPublicEnabled && (
                     <ShareButton onClick={handleShare} $copied={copied} title="Copiar Enlace">
@@ -270,7 +268,7 @@ const StandingsTabContainer = styled.div`
 
 const ControlPanel = styled.div`
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(190px, 300px) minmax(180px, 1fr) auto;
   align-items: center;
   width: 98%;
   max-width: 1180px;
@@ -287,34 +285,36 @@ const ControlPanel = styled.div`
   @media (max-width: 768px) {
     width: 100%;
     max-width: 420px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 7px 10px;
     border-radius: 10px;
   }
 
   @media (max-width: 520px) {
-    grid-template-columns: auto 1fr auto;
-    align-items: start;
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 `;
 
-const SelectorShell = styled.div`
+const ViewSwitcherShell = styled.div`
   width: 100%;
   min-width: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
 
   @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 520px) {
+    justify-content: center;
   }
 `;
 
 const SelectorWrapper = styled.div`
-  max-width: 300px;
   width: 100%;
+  min-width: 0;
 
   @media (max-width: 768px) {
     max-width: none;
@@ -394,6 +394,10 @@ const ActionsGroup = styled.div`
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
+
+  @media (max-width: 768px) {
+    grid-column: 1 / -1;
+  }
 `;
 
 const ToggleContainer = styled.div`

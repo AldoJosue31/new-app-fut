@@ -111,15 +111,6 @@ export const GoleadoresTab = ({
     <Container>
       {!isPublic && (
         <ControlPanel>
-          <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
-            <div className="track">
-              <div className="thumb" />
-            </div>
-            <span className="label">
-              Publico
-            </span>
-          </ToggleContainer>
-
           <SelectorWrapper>
             {showSkeleton ? (
               <Skeleton width="100%" height="36px" radius="8px" />
@@ -138,6 +129,8 @@ export const GoleadoresTab = ({
             )}
           </SelectorWrapper>
 
+          <HeaderSpacer />
+
           <ControlsGroup>
             <ExportButton
               onClick={() => setShowExportModal(true)}
@@ -146,6 +139,14 @@ export const GoleadoresTab = ({
               <RiImageLine size={18} />
               <span>Exportar</span>
             </ExportButton>
+            <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
+              <div className="track">
+                <div className="thumb" />
+              </div>
+              <span className="label">
+                Publico
+              </span>
+            </ToggleContainer>
             <StatusIcon $active={isPublicEnabled}>
               {isPublicEnabled ? <BiLockOpen /> : <BiLock />}
             </StatusIcon>
@@ -281,7 +282,7 @@ const Container = styled.div`
 
 const ControlPanel = styled.div`
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(190px, 360px) minmax(0, 1fr) auto;
   align-items: center;
   width: 98%;
   max-width: 980px;
@@ -297,19 +298,31 @@ const ControlPanel = styled.div`
   @media (max-width: 768px) {
     width: 100%;
     max-width: 100%;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 7px 10px;
     border-radius: 10px;
+  }
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 `;
 
 const SelectorWrapper = styled.div`
   width: 100%;
-  max-width: 360px;
   min-width: 0;
 
   @media (max-width: 768px) {
     max-width: none;
+  }
+`;
+
+const HeaderSpacer = styled.div`
+  min-width: 0;
+
+  @media (max-width: 768px) {
+    display: none;
   }
 `;
 
@@ -319,6 +332,10 @@ const ControlsGroup = styled.div`
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
+
+  @media (max-width: 768px) {
+    grid-column: 1 / -1;
+  }
 `;
 
 const ExportButton = styled.button`
