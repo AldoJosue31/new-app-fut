@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import styled from "styled-components";
+import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
 
 export function TabsNavigation({
@@ -96,18 +97,16 @@ export function TabsNavigation({
 
 export const TabContent = styled.div`
   width: 100%;
-  animation: fadeSlideUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  animation: fadeTabContent ${v.tabTransitionDuration} ${v.tabTransitionTiming} forwards;
   overflow-x: hidden;
 
-  @keyframes fadeSlideUp {
+  @keyframes fadeTabContent {
     from {
       opacity: 0;
-      transform: translateY(15px);
     }
 
     to {
       opacity: 1;
-      transform: translateY(0);
     }
   }
 `;
@@ -144,7 +143,7 @@ const Glider = styled.div`
   border: 1px solid ${({ theme }) => theme.color2};
   border-radius: 20px;
   z-index: 0;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform ${v.tabTransition}, width ${v.tabTransition}, opacity ${v.tabTransition};
   pointer-events: none;
 `;
 
@@ -164,7 +163,7 @@ const TabButton = styled.button`
   cursor: pointer;
   font-weight: 600;
   font-size: 0.9rem;
-  transition: all 0.3s ease;
+  transition: color ${v.tabTransition}, border-color ${v.tabTransition}, background-color ${v.tabTransition};
 
   .label {
     display: ${({ $showLabelsOnMobile }) => ($showLabelsOnMobile ? "block" : "none")};
