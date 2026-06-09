@@ -183,6 +183,61 @@ export function PlayoffAdvanceModal({
     </HeaderActions>
   );
 
+  const centerStage = (
+    <CenterStage>
+      <span className="stage-label">BRACKET</span>
+      <div className="trophy">
+        <RiGitBranchLine />
+      </div>
+      <strong>{preview.phaseLabel}</strong>
+      <CenterSettings>
+        <CenterSettingBox>
+          <label>Resiembra</label>
+          <select
+            value={settings.reseed ? "yes" : "no"}
+            onChange={(event) => updateSetting("reseed", event.target.value === "yes")}
+          >
+            <option value="yes">Primeros vs ultimos</option>
+            <option value="no">Mantener llave</option>
+          </select>
+        </CenterSettingBox>
+        <CenterSettingBox>
+          <label>Empate global</label>
+          <select
+            value={settings.tieBreaker}
+            onChange={(event) => updateSetting("tieBreaker", event.target.value)}
+          >
+            <option value="bestSeed">Mejor posicion</option>
+            <option value="penalties">Penales</option>
+          </select>
+        </CenterSettingBox>
+        <CenterSettingBox>
+          <label>Goles en tabla</label>
+          <CenterChecks>
+            <label>
+              <input
+                type="checkbox"
+                checked={!!settings.countGoalsPlayoffs}
+                onChange={(event) => updateSetting("countGoalsPlayoffs", event.target.checked)}
+              />
+              Liguilla
+            </label>
+            {hasRepechaje && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={!!settings.countGoalsRepechaje}
+                  onChange={(event) => updateSetting("countGoalsRepechaje", event.target.checked)}
+                />
+                Repechaje
+              </label>
+            )}
+          </CenterChecks>
+        </CenterSettingBox>
+      </CenterSettings>
+    </CenterStage>
+  );
+
   return (
     <Modal
       isOpen={isOpen}
@@ -244,58 +299,7 @@ export function PlayoffAdvanceModal({
             ))}
           </BracketColumn>
 
-          <CenterStage>
-            <span className="stage-label">BRACKET</span>
-            <div className="trophy">
-              <RiGitBranchLine />
-            </div>
-            <strong>{preview.phaseLabel}</strong>
-            <CenterSettings>
-              <CenterSettingBox>
-                <label>Resiembra</label>
-                <select
-                  value={settings.reseed ? "yes" : "no"}
-                  onChange={(event) => updateSetting("reseed", event.target.value === "yes")}
-                >
-                  <option value="yes">Primeros vs ultimos</option>
-                  <option value="no">Mantener llave</option>
-                </select>
-              </CenterSettingBox>
-              <CenterSettingBox>
-                <label>Empate global</label>
-                <select
-                  value={settings.tieBreaker}
-                  onChange={(event) => updateSetting("tieBreaker", event.target.value)}
-                >
-                  <option value="bestSeed">Mejor posicion</option>
-                  <option value="penalties">Penales</option>
-                </select>
-              </CenterSettingBox>
-              <CenterSettingBox>
-                <label>Goles en tabla</label>
-                <CenterChecks>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={!!settings.countGoalsPlayoffs}
-                      onChange={(event) => updateSetting("countGoalsPlayoffs", event.target.checked)}
-                    />
-                    Liguilla
-                  </label>
-                  {hasRepechaje && (
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!!settings.countGoalsRepechaje}
-                        onChange={(event) => updateSetting("countGoalsRepechaje", event.target.checked)}
-                      />
-                      Repechaje
-                    </label>
-                  )}
-                </CenterChecks>
-              </CenterSettingBox>
-            </CenterSettings>
-          </CenterStage>
+          {centerStage}
 
           <BracketColumn $side="right">
             {bracketSides.right.map(({ pair, pairIndex }) => {

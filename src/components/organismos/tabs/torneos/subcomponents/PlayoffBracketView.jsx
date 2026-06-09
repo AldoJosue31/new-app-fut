@@ -137,15 +137,43 @@ const getPairPrimarySeed = (pair = {}, fallback = 999) => {
   return seeds.length > 0 ? Math.min(...seeds) : fallback;
 };
 
+const getNextPowerOfTwo = (value) => {
+  let size = 1;
+  while (size < value) size *= 2;
+  return size;
+};
+
+const buildBalancedBracketOrder = (slotCount) => {
+  const targetSize = getNextPowerOfTwo(Math.max(1, slotCount));
+  let order = [1];
+
+  while (order.length < targetSize) {
+    const nextSize = order.length * 2;
+    order = order.flatMap((seed) => [seed, nextSize + 1 - seed]);
+  }
+
+  return order.filter((seed) => seed <= slotCount);
+};
+
 const orderPairsByReseedCup = (pairs = [], reseed = false) => {
   if (!reseed) return pairs;
 
-  return [...pairs].sort((a, b) => {
+  const sortedPairs = [...pairs].sort((a, b) => {
     const aSeed = getPairPrimarySeed(a, 999);
     const bSeed = getPairPrimarySeed(b, 999);
     if (aSeed !== bSeed) return aSeed - bSeed;
     return String(a.id || "").localeCompare(String(b.id || ""));
   });
+
+  if (sortedPairs.length <= 2) return sortedPairs;
+
+  const pairsBySeedRank = new Map(
+    sortedPairs.map((pair, index) => [index + 1, pair])
+  );
+
+  return buildBalancedBracketOrder(sortedPairs.length)
+    .map((seedRank) => pairsBySeedRank.get(seedRank))
+    .filter(Boolean);
 };
 
 const buildBracketStages = ({ torneo, partidos, jornadas }) => {
@@ -239,6 +267,7 @@ const MatchCard = ({ row }) => {
 
   return (
     <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown}>
+      <MatchNumberBadge>#{row?.cupNumber || (Number.isFinite(row?.pairIndex) ? row.pairIndex + 1 : 1)}</MatchNumberBadge>
       <TeamRows>
         <TeamRow
           team={pair.home}
@@ -273,15 +302,57 @@ const MatchCard = ({ row }) => {
 
 const FutureMatchCard = ({ row, index }) => {
   const { pair } = row;
-  const homeName = pair?.home?.name || `Ganador cupo ${index * 2 + 1}`;
-  const awayName = pair?.away?.name || `Ganador cupo ${index * 2 + 2}`;
+  const homeName = pair?.home?.name || row?.slotLabels?.home || `Ganador cupo ${index * 2 + 1}`;
+  const awayName = pair?.away?.name || row?.slotLabels?.away || `Ganador cupo ${index * 2 + 2}`;
 
   return (
     <FutureMatchShell>
+      <MatchNumberBadge>#{row?.cupNumber || index + 1}</MatchNumberBadge>
       <span>{homeName}</span>
       <span>{awayName}</span>
     </FutureMatchShell>
   );
+};
+
+const getRankLabel = (rank, total) => {
+  if (rank <= 1) return "Mejor";
+  if (rank >= total) return "Peor";
+  if (rank === 2) return "2do mejor";
+  if (rank === 3) return "3er mejor";
+  return `${rank}o mejor`;
+};
+
+const getFixedWinnerLabel = (previousStage, sourceIndex) => {
+  const previousShortLabel = previousStage?.shortLabel || "fase";
+  const sourceNumber = previousStage?.matches?.[sourceIndex]?.cupNumber || sourceIndex + 1;
+  return `Ganador de ${previousShortLabel} ${sourceNumber}`;
+};
+
+const getReseedWinnerLabel = (previousStage, rank) => {
+  const previousShortLabel = previousStage?.shortLabel || "fase";
+  const total = Math.max(1, previousStage?.matches?.length || 1);
+  return `${getRankLabel(rank, total)} ganador de ${previousShortLabel}`;
+};
+
+const getFutureSlotLabels = ({ stages, stageIndex, matchIndex }) => {
+  const previousStage = stages[stageIndex - 1];
+  if (!previousStage) return null;
+
+  if (previousStage.reseed) {
+    const total = Math.max(1, previousStage.matches.length);
+    const homeRank = matchIndex + 1;
+    const awayRank = total - matchIndex;
+    return {
+      home: getReseedWinnerLabel(previousStage, homeRank),
+      away: getReseedWinnerLabel(previousStage, awayRank),
+    };
+  }
+
+  const sourceStart = matchIndex * 2;
+  return {
+    home: getFixedWinnerLabel(previousStage, sourceStart),
+    away: getFixedWinnerLabel(previousStage, sourceStart + 1),
+  };
 };
 
 const buildBracketGeometry = (stages = []) => {
@@ -303,12 +374,14 @@ const buildBracketGeometry = (stages = []) => {
   };
 
   const segments = [];
+  const reseedBridgeSegments = [];
 
   stages.slice(0, -1).forEach((stage, stageIndex) => {
     const nextStage = stages[stageIndex + 1];
     const sourceCount = Math.max(1, stage.matches.length);
     const targetCount = Math.max(1, nextStage.matches.length);
     const mergeRatio = Math.max(1, sourceCount / targetCount);
+    const reseedGroups = [];
 
     nextStage.matches.forEach((_, targetIndex) => {
       const targetRect = getMatchRect(stageIndex + 1, targetIndex);
@@ -329,6 +402,8 @@ const buildBracketGeometry = (stages = []) => {
       const sourceCenters = sourceRects.map((rect) => rect.centerY);
       const minSourceY = Math.min(...sourceCenters);
       const maxSourceY = Math.max(...sourceCenters);
+
+      reseedGroups.push({ mergeX, minSourceY, maxSourceY });
 
       sourceRects.forEach((rect) => {
         segments.push({
@@ -355,9 +430,24 @@ const buildBracketGeometry = (stages = []) => {
         y2: targetRect.centerY,
       });
     });
+
+    if (stage.reseed && reseedGroups.length > 1) {
+      reseedGroups
+        .sort((a, b) => a.minSourceY - b.minSourceY)
+        .slice(0, -1)
+        .forEach((group, index) => {
+          const nextGroup = reseedGroups[index + 1];
+          reseedBridgeSegments.push({
+            x1: group.mergeX,
+            y1: group.maxSourceY,
+            x2: nextGroup.mergeX,
+            y2: nextGroup.minSourceY,
+          });
+        });
+    }
   });
 
-  return { baseCount, width, height, getMatchRect, segments };
+  return { baseCount, width, height, getMatchRect, segments, reseedBridgeSegments };
 };
 
 export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoading = false }) {
@@ -416,6 +506,27 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
                 />
               </React.Fragment>
             ))}
+            {geometry.reseedBridgeSegments.map((segment, index) => (
+              <React.Fragment key={`reseed-bridge-${index}`}>
+                <line
+                  className="line-base"
+                  pathLength="1"
+                  x1={segment.x1}
+                  y1={segment.y1}
+                  x2={segment.x2}
+                  y2={segment.y2}
+                  style={{ "--line-index": geometry.segments.length + index }}
+                />
+                <line
+                  className="line-energy"
+                  x1={segment.x1}
+                  y1={segment.y1}
+                  x2={segment.x2}
+                  y2={segment.y2}
+                  style={{ "--line-index": geometry.segments.length + index }}
+                />
+              </React.Fragment>
+            ))}
           </BracketLines>
 
           {stages.map((stage, stageIndex) => {
@@ -436,6 +547,12 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
             stage.matches.map((row, index) => {
               const rect = geometry.getMatchRect(stageIndex, index);
               const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+              const displayRow = stage.isCreated
+                ? row
+                : {
+                    ...row,
+                    slotLabels: getFutureSlotLabels({ stages, stageIndex, matchIndex: index }),
+                  };
 
               return (
                 <AbsoluteMatchNode
@@ -447,7 +564,7 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
                     height: BRACKET_CARD_HEIGHT,
                   }}
                 >
-                  <MatchComponent row={row} index={index} />
+                  <MatchComponent row={displayRow} index={index} />
                 </AbsoluteMatchNode>
               );
             })
@@ -466,13 +583,19 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
                 {stage.matches.map((row, index) => {
                   const matchKey = row.pair.id || `${stage.key}-${row.pairIndex}`;
                   const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+                  const displayRow = stage.isCreated
+                    ? row
+                    : {
+                        ...row,
+                        slotLabels: getFutureSlotLabels({ stages, stageIndex, matchIndex: index }),
+                      };
 
                   return (
                     <ConnectedMatchSlot
                       key={matchKey}
                       $hasNext={stageIndex < stages.length - 1}
                     >
-                      <MatchComponent row={row} index={index} />
+                      <MatchComponent row={displayRow} index={index} />
                       {stageIndex < stages.length - 1 && <ConnectedConnector />}
                     </ConnectedMatchSlot>
                   );
@@ -512,15 +635,6 @@ const BracketShell = styled.section`
     to {
       opacity: 0.92;
       transform: scaleX(1);
-    }
-  }
-
-  @keyframes bracketEnergyFlow {
-    from {
-      background-position: 120% 0;
-    }
-    to {
-      background-position: -80% 0;
     }
   }
 
@@ -566,21 +680,30 @@ const BracketShell = styled.section`
     }
   }
 
-  @keyframes bracketSvgEnergy {
-    from {
-      stroke-dashoffset: 56;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
   @keyframes bracketSvgEnergyFade {
     from {
       opacity: 0;
     }
     to {
       opacity: 0.72;
+    }
+  }
+
+  @keyframes bracketSvgEnergyFlow {
+    from {
+      stroke-dashoffset: 0;
+    }
+    to {
+      stroke-dashoffset: -28;
+    }
+  }
+
+  @keyframes bracketConnectorGlow {
+    0%, 100% {
+      opacity: 0.24;
+    }
+    50% {
+      opacity: 0.56;
     }
   }
 
@@ -656,15 +779,16 @@ const BracketLines = styled.svg`
   }
 
   .line-energy {
-    stroke: ${({ theme }) => theme.tournamentDashboard?.jornada?.accentStrong || theme.primary};
+    stroke: var(--bracket-primary);
     stroke-width: 5;
     opacity: 0;
     stroke-dasharray: 10 18;
+    stroke-dashoffset: 0;
     filter: drop-shadow(0 0 7px var(--bracket-primary));
     animation:
-      bracketSvgEnergy 1.35s linear infinite,
-      bracketSvgEnergyFade 420ms ease forwards;
-    animation-delay: calc(520ms + (var(--line-index) * 46ms)), calc(520ms + (var(--line-index) * 46ms));
+      bracketSvgEnergyFade 420ms ease forwards,
+      bracketSvgEnergyFlow 1.35s linear infinite;
+    animation-delay: calc(520ms + (var(--line-index) * 46ms)), calc(940ms + (var(--line-index) * 46ms));
   }
 `;
 
@@ -790,7 +914,7 @@ const ConnectedConnector = styled.div`
   background: linear-gradient(
     90deg,
     var(--bracket-primary),
-    ${({ theme }) => theme.tournamentDashboard?.jornada?.accentStrong || theme.primary}
+    var(--bracket-primary)
   );
   opacity: 0.92;
   transform: translateY(-50%);
@@ -970,7 +1094,7 @@ const MatchSlot = styled.div`
       background: linear-gradient(
         180deg,
         var(--bracket-primary),
-        ${({ theme }) => theme.tournamentDashboard?.jornada?.accentStrong || theme.primary},
+        var(--bracket-primary),
         var(--bracket-primary)
       );
       opacity: 0.82;
@@ -1012,13 +1136,12 @@ const Connector = styled.div`
       90deg,
       transparent 0%,
       rgba(255, 255, 255, 0.0) 26%,
-      ${({ theme }) => theme.tournamentDashboard?.jornada?.accentStrong || theme.primary} 48%,
+      var(--bracket-primary) 48%,
       rgba(255, 255, 255, 0.0) 70%,
       transparent 100%
     );
-    opacity: 0.95;
-    background-size: 180% 100%;
-    animation: bracketEnergyFlow 1.75s linear infinite;
+    opacity: 0.24;
+    animation: bracketConnectorGlow 1.8s ease-in-out infinite 620ms;
   }
 
   &::after {
@@ -1085,6 +1208,7 @@ const CenterStage = styled.div`
 `;
 
 const FutureMatchShell = styled.div`
+  position: relative;
   display: grid;
   gap: 3px;
   height: 100%;
@@ -1109,6 +1233,27 @@ const FutureMatchShell = styled.div`
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+`;
+
+const MatchNumberBadge = styled.small`
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 4;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--bracket-primary);
+  background: var(--bracket-item);
+  color: var(--bracket-primary);
+  font-size: 0.62rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--bracket-primary) 44%, transparent);
 `;
 
 const MatchCardShell = styled.article`
