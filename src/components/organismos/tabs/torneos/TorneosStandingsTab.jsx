@@ -222,6 +222,7 @@ export const TorneosStandingsTab = ({
           torneo={torneo}
           partidos={partidos}
           jornadas={mergedJornadas}
+          projectedStandings={tablaGeneral}
           isLoading={showSkeleton}
         />
       ) : (

@@ -73,8 +73,8 @@ const getPairResult = ({ pair, matches, settings }) => {
       homeGoals: null,
       awayGoals: null,
       legs: [],
-      winnerId: pair?.home ? getTeamId(pair.home) : null,
-      isComplete: Boolean(pair?.bye),
+      winnerId: pair?.bye && pair?.home ? getTeamId(pair.home) : null,
+      isComplete: Boolean(pair?.bye && pair?.home),
     };
   }
 
@@ -176,7 +176,71 @@ const orderPairsByReseedCup = (pairs = [], reseed = false) => {
     .filter(Boolean);
 };
 
-const buildBracketStages = ({ torneo, partidos, jornadas }) => {
+const hasClinchedStatus = (row = {}, key) =>
+  Array.isArray(row.clinchedStatuses) &&
+  row.clinchedStatuses.some((status) => status?.key === key);
+
+const toProjectedSeedTeam = (row = {}, index = 0) => ({
+  teamId: row.teamId || row.id,
+  id: row.teamId || row.id,
+  name: row.name || row.nombre || "Equipo",
+  seed: row.seed || index + 1,
+  logo_url: row.logo_url || row.logo || null,
+  color: row.color || null,
+});
+
+const buildSeedSlotPairs = ({ slotCount = 0, teamsBySeed = new Map() }) => {
+  const pairs = [];
+  let leftSeed = 1;
+  let rightSeed = Math.max(0, slotCount);
+
+  while (leftSeed < rightSeed) {
+    pairs.push({
+      id: `projected-${leftSeed}-${rightSeed}`,
+      home: teamsBySeed.get(leftSeed) || null,
+      away: teamsBySeed.get(rightSeed) || null,
+      projected: true,
+    });
+    leftSeed += 1;
+    rightSeed -= 1;
+  }
+
+  if (leftSeed === rightSeed && leftSeed > 0) {
+    const home = teamsBySeed.get(leftSeed) || null;
+    pairs.push({
+      id: `projected-bye-${leftSeed}`,
+      home,
+      away: null,
+      bye: Boolean(home),
+      projected: true,
+    });
+  }
+
+  return pairs;
+};
+
+const buildProjectedMainStage = ({ standings = [], phaseKey, participantCount = 0 }) => {
+  const slotCount = Number.parseInt(participantCount, 10) || 0;
+  if (!phaseKey || slotCount <= 0) return null;
+
+  const clinchedTeams = standings
+    .map((row, index) => toProjectedSeedTeam(row, index))
+    .filter((team, index) => {
+      const sourceRow = standings[index];
+      return team.seed <= slotCount && hasClinchedStatus(sourceRow, "liguilla");
+    });
+
+  if (clinchedTeams.length === 0) return null;
+
+  const teamsBySeed = new Map(clinchedTeams.map((team) => [team.seed, team]));
+  return {
+    phaseKey,
+    phaseLabel: `${getPhaseLabelByKey(phaseKey)} provisional`,
+    pairs: buildSeedSlotPairs({ slotCount, teamsBySeed }),
+  };
+};
+
+const buildBracketStages = ({ torneo, partidos, jornadas, projectedStandings = [] }) => {
   const config = parseConfig(torneo);
   const playoffState = config.playoffState || {};
   const savedStages = Array.isArray(playoffState.stages) ? playoffState.stages : [];
@@ -187,13 +251,20 @@ const buildBracketStages = ({ torneo, partidos, jornadas }) => {
   const savedStagesByPhase = new Map(savedStages.map((stage) => [stage.phaseKey, stage]));
   const directCount = Number.parseInt(config.clasificados, 10) || 0;
   const repechajeCount = Number.parseInt(config.repechajeTeams, 10) || 0;
+  const projectedMainParticipantCount =
+    directCount + (repechajeCount > 0 ? Math.floor(repechajeCount / 2) : 0);
   const savedMainIndexes = savedStages
     .map((stage) => MAIN_PHASE_KEYS.indexOf(stage?.phaseKey))
     .filter((index) => index >= 0);
   const firstSavedMainIndex = savedMainIndexes.length > 0 ? Math.min(...savedMainIndexes) : -1;
   const firstEstimatedMainKey = getPhaseByParticipants(
-    directCount + (repechajeCount > 0 ? Math.floor(repechajeCount / 2) : 0) || directCount || 2
+    projectedMainParticipantCount || directCount || 2
   ).key;
+  const projectedMainStage = buildProjectedMainStage({
+    standings: projectedStandings,
+    phaseKey: firstEstimatedMainKey,
+    participantCount: projectedMainParticipantCount || directCount,
+  });
   const estimatedMainIndex = Math.max(0, MAIN_PHASE_KEYS.indexOf(firstEstimatedMainKey));
   const firstMainIndex = firstSavedMainIndex >= 0 ? Math.min(firstSavedMainIndex, estimatedMainIndex) : estimatedMainIndex;
   const hasRepechaje = repechajeCount > 0 || savedStagesByPhase.has("repechaje");
@@ -205,9 +276,13 @@ const buildBracketStages = ({ torneo, partidos, jornadas }) => {
   let nextPlaceholderCount = 0;
   return phaseKeys.map((phaseKey, phaseIndex) => {
     const savedStage = savedStagesByPhase.get(phaseKey);
+    const projectedStage =
+      !savedStage && projectedMainStage?.phaseKey === phaseKey ? projectedMainStage : null;
     const previousCount = phaseIndex > 0 ? nextPlaceholderCount : 0;
     const rawPairs = savedStage?.pairs?.length
       ? savedStage.pairs
+      : projectedStage?.pairs?.length
+      ? projectedStage.pairs
       : buildPlaceholderPairs(previousCount || getInitialPairCount(phaseKey, repechajeCount));
     const pairs = orderPairsByReseedCup(rawPairs, settings.reseed);
     const stageMatches = getStageMatches({ phaseKey, matches: partidos, jornadas });
@@ -216,9 +291,10 @@ const buildBracketStages = ({ torneo, partidos, jornadas }) => {
 
     return {
       key: phaseKey,
-      label: savedStage?.phaseLabel || getPhaseLabelByKey(phaseKey),
+      label: savedStage?.phaseLabel || projectedStage?.phaseLabel || getPhaseLabelByKey(phaseKey),
       shortLabel: getPhaseShortLabel(phaseKey),
       isCreated: Boolean(savedStage),
+      isProjected: Boolean(projectedStage),
       reseed: settings.reseed,
       matches: pairs.map((pair, pairIndex) => {
         const pairMatches = getPairMatches(pair, stageMatches);
@@ -490,10 +566,16 @@ const buildBracketGeometry = (stages = []) => {
   return { baseCount, width, height, getMatchRect, segments, reseedBridgeSegments };
 };
 
-export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoading = false }) {
+export function PlayoffBracketView({
+  torneo,
+  partidos = [],
+  jornadas = [],
+  projectedStandings = [],
+  isLoading = false,
+}) {
   const stages = useMemo(
-    () => buildBracketStages({ torneo, partidos, jornadas }),
-    [torneo, partidos, jornadas]
+    () => buildBracketStages({ torneo, partidos, jornadas, projectedStandings }),
+    [torneo, partidos, jornadas, projectedStandings]
   );
   const geometry = useMemo(() => buildBracketGeometry(stages), [stages]);
 
@@ -586,9 +668,10 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
           {stages.map((stage, stageIndex) => (
             stage.matches.map((row, index) => {
               const rect = geometry.getMatchRect(stageIndex, index);
-              const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+              const usesTeamCard = stage.isCreated || stage.isProjected;
+              const MatchComponent = usesTeamCard ? MatchCard : FutureMatchCard;
               const isFinal = stage.key === "final";
-              const displayRow = stage.isCreated
+              const displayRow = usesTeamCard
                 ? { ...row, isFinal }
                 : {
                     ...row,
@@ -625,9 +708,10 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
               <ConnectedMatchList>
                 {stage.matches.map((row, index) => {
                   const matchKey = row.pair.id || `${stage.key}-${row.pairIndex}`;
-                  const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+                  const usesTeamCard = stage.isCreated || stage.isProjected;
+                  const MatchComponent = usesTeamCard ? MatchCard : FutureMatchCard;
                   const isFinal = stage.key === "final";
-                  const displayRow = stage.isCreated
+                  const displayRow = usesTeamCard
                     ? { ...row, isFinal }
                     : {
                         ...row,
