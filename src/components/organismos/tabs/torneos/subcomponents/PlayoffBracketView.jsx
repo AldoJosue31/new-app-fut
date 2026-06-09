@@ -267,7 +267,9 @@ const MatchCard = ({ row }) => {
 
   return (
     <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown}>
-      <MatchNumberBadge>#{row?.cupNumber || (Number.isFinite(row?.pairIndex) ? row.pairIndex + 1 : 1)}</MatchNumberBadge>
+      {!row?.isFinal && (
+        <MatchNumberBadge>#{row?.cupNumber || (Number.isFinite(row?.pairIndex) ? row.pairIndex + 1 : 1)}</MatchNumberBadge>
+      )}
       <TeamRows>
         <TeamRow
           team={pair.home}
@@ -302,14 +304,16 @@ const MatchCard = ({ row }) => {
 
 const FutureMatchCard = ({ row, index }) => {
   const { pair } = row;
-  const homeName = pair?.home?.name || row?.slotLabels?.home || `Ganador cupo ${index * 2 + 1}`;
-  const awayName = pair?.away?.name || row?.slotLabels?.away || `Ganador cupo ${index * 2 + 2}`;
+  const homeProjection = row?.projectedTeams?.home;
+  const awayProjection = row?.projectedTeams?.away;
+  const homeName = pair?.home?.name || homeProjection?.name || row?.slotLabels?.home || `Ganador cupo ${index * 2 + 1}`;
+  const awayName = pair?.away?.name || awayProjection?.name || row?.slotLabels?.away || `Ganador cupo ${index * 2 + 2}`;
 
   return (
     <FutureMatchShell>
-      <MatchNumberBadge>#{row?.cupNumber || index + 1}</MatchNumberBadge>
-      <span>{homeName}</span>
-      <span>{awayName}</span>
+      {!row?.isFinal && <MatchNumberBadge>#{row?.cupNumber || index + 1}</MatchNumberBadge>}
+      <span className={homeProjection && !pair?.home ? "projected" : ""}>{homeName}</span>
+      <span className={awayProjection && !pair?.away ? "projected" : ""}>{awayName}</span>
     </FutureMatchShell>
   );
 };
@@ -352,6 +356,42 @@ const getFutureSlotLabels = ({ stages, stageIndex, matchIndex }) => {
   return {
     home: getFixedWinnerLabel(previousStage, sourceStart),
     away: getFixedWinnerLabel(previousStage, sourceStart + 1),
+  };
+};
+
+const getWinnerTeamFromRow = (row) => {
+  const winnerId = row?.result?.winnerId;
+  if (!winnerId) return null;
+  const homeId = getTeamId(row?.pair?.home);
+  const awayId = getTeamId(row?.pair?.away);
+  if (winnerId === homeId) return row.pair.home;
+  if (winnerId === awayId) return row.pair.away;
+  return null;
+};
+
+const getFutureProjectedTeams = ({ stages, stageIndex, matchIndex }) => {
+  const previousStage = stages[stageIndex - 1];
+  if (!previousStage) return null;
+
+  const winners = previousStage.matches.map((match) => getWinnerTeamFromRow(match));
+
+  if (previousStage.reseed) {
+    const sortedWinners = winners
+      .filter(Boolean)
+      .sort((a, b) => (a.seed || 999) - (b.seed || 999));
+    const homeRank = matchIndex;
+    const awayRank = sortedWinners.length - 1 - matchIndex;
+
+    return {
+      home: sortedWinners[homeRank] || null,
+      away: awayRank >= 0 && awayRank !== homeRank ? sortedWinners[awayRank] : null,
+    };
+  }
+
+  const sourceStart = matchIndex * 2;
+  return {
+    home: winners[sourceStart] || null,
+    away: winners[sourceStart + 1] || null,
   };
 };
 
@@ -547,11 +587,14 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
             stage.matches.map((row, index) => {
               const rect = geometry.getMatchRect(stageIndex, index);
               const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+              const isFinal = stage.key === "final";
               const displayRow = stage.isCreated
-                ? row
+                ? { ...row, isFinal }
                 : {
                     ...row,
+                    isFinal,
                     slotLabels: getFutureSlotLabels({ stages, stageIndex, matchIndex: index }),
+                    projectedTeams: getFutureProjectedTeams({ stages, stageIndex, matchIndex: index }),
                   };
 
               return (
@@ -583,11 +626,14 @@ export function PlayoffBracketView({ torneo, partidos = [], jornadas = [], isLoa
                 {stage.matches.map((row, index) => {
                   const matchKey = row.pair.id || `${stage.key}-${row.pairIndex}`;
                   const MatchComponent = stage.isCreated ? MatchCard : FutureMatchCard;
+                  const isFinal = stage.key === "final";
                   const displayRow = stage.isCreated
-                    ? row
+                    ? { ...row, isFinal }
                     : {
                         ...row,
+                        isFinal,
                         slotLabels: getFutureSlotLabels({ stages, stageIndex, matchIndex: index }),
+                        projectedTeams: getFutureProjectedTeams({ stages, stageIndex, matchIndex: index }),
                       };
 
                   return (
@@ -1232,6 +1278,13 @@ const FutureMatchShell = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  span.projected {
+    color: color-mix(in srgb, ${({ theme }) => theme.text} 46%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--bracket-border) 78%, transparent);
+    background: color-mix(in srgb, var(--bracket-item) 64%, transparent);
+    font-style: italic;
   }
 `;
 
