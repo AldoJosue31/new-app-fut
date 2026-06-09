@@ -217,21 +217,24 @@ export const TorneosStandingsTab = ({
         </ControlPanel>
       )}
 
-      {activeView === 'bracket' && hasPlayoffView ? (
-        <PlayoffBracketView
-          torneo={torneo}
-          partidos={partidos}
-          jornadas={mergedJornadas}
-          isLoading={showSkeleton}
-        />
-      ) : (
-        <StandingsTable
-          tablaGeneral={tablaGeneral}
-          config={config}
-          isPublic={isPublic}
-          isLoading={showSkeleton}
-        />
-      )}
+      <ViewContent key={activeView}>
+        {activeView === 'bracket' && hasPlayoffView ? (
+          <PlayoffBracketView
+            torneo={torneo}
+            partidos={partidos}
+            jornadas={mergedJornadas}
+            projectedStandings={tablaGeneral}
+            isLoading={showSkeleton}
+          />
+        ) : (
+          <StandingsTable
+            tablaGeneral={tablaGeneral}
+            config={config}
+            isPublic={isPublic}
+            isLoading={showSkeleton}
+          />
+        )}
+      </ViewContent>
 
       <StandingsExportModal
         isOpen={showExportModal}
@@ -342,7 +345,7 @@ const ViewSwitcher = styled.div`
     cursor: pointer;
     font-size: 0.76rem;
     font-weight: 900;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    transition: background-color ${v.tabTransition}, color ${v.tabTransition}, transform ${v.tabTransition};
   }
 
   button.active {
@@ -366,6 +369,21 @@ const ViewSwitcher = styled.div`
     button {
       font-size: 0.7rem;
       gap: 4px;
+    }
+  }
+`;
+
+const ViewContent = styled.div`
+  width: 100%;
+  animation: standingsViewFadeIn ${v.tabTransitionDuration} ${v.tabTransitionTiming} forwards;
+
+  @keyframes standingsViewFadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
     }
   }
 `;

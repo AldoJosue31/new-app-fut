@@ -310,7 +310,7 @@ const ContentGrid = styled.div`
   margin-top: 0; 
   margin-bottom: 0;
   
-  transition: max-width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: max-width ${v.tabTransition};
   max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
   @media ${Device.desktop} { max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")}; }
 `;
