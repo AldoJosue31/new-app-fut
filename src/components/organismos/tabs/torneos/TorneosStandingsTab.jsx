@@ -271,6 +271,7 @@ const StandingsTabContainer = styled.div`
   --standings-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
   --standings-success: ${({ theme }) => theme.tournamentDashboard?.metrics?.accent || v.verde};
   --standings-success-soft: ${({ theme }) => theme.tournamentDashboard?.metrics?.accentSoft || 'rgba(83, 178, 87, 0.14)'};
+  --standings-success-strong: ${({ theme }) => theme.tournamentDashboard?.metrics?.accentStrong || v.verde};
   --standings-warning: ${({ theme }) => theme.tournamentDashboard?.metrics?.warning || '#f59e0b'};
 
   width: 100%;
@@ -465,7 +466,7 @@ const PublicShareControl = styled.div`
   padding: 2px;
   border-radius: 999px;
   border: 1px solid ${({ $active }) => ($active ? 'var(--standings-success)' : 'var(--standings-border)')};
-  background: var(--standings-item-surface);
+  background: ${({ $active }) => ($active ? 'var(--standings-success-soft)' : 'var(--standings-item-surface)')};
   transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s ease, border-color 0.3s ease, gap 0.3s ease;
 
   @media (max-width: 768px) {
@@ -490,7 +491,7 @@ const PublicToggleButton = styled.button`
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: ${({ $active }) => ($active ? 'var(--standings-success)' : 'var(--standings-muted)')};
+  color: ${({ $active }) => ($active ? 'var(--standings-success-strong)' : 'var(--standings-muted)')};
   cursor: pointer;
   user-select: none;
   font-size: 0.72rem;
@@ -504,7 +505,7 @@ const PublicToggleButton = styled.button`
     border-radius: 20px;
     position: relative;
     flex: 0 0 auto;
-    background-color: #131f24;
+    background-color: ${({ $active }) => ($active ? 'var(--standings-success-soft)' : 'var(--standings-surface)')};
     border: 1px solid ${({ $active }) =>
       $active ? 'var(--standings-success)' : 'var(--standings-border)'};
     transition: background-color 0.3s ease, border-color 0.3s ease;
@@ -562,12 +563,12 @@ const InlineLinkButton = styled.button`
   gap: 6px;
   padding: ${({ $active }) => ($active ? '0 10px' : '0')};
   border: 0;
-  border-left: 1px solid ${({ $active }) => ($active ? 'var(--standings-success)' : 'transparent')};
+  border-left: 1px solid ${({ $active }) => ($active ? 'var(--standings-border)' : 'transparent')};
   border-radius: 999px;
   background: ${({ $copied }) =>
-    $copied ? 'var(--standings-success)' : '#131f24'};
+    $copied ? 'var(--standings-success-soft)' : 'var(--standings-primary-soft)'};
   color: ${({ $copied }) =>
-    $copied ? '#fff' : '#fff'};
+    $copied ? 'var(--standings-success-strong)' : 'var(--standings-primary-strong)'};
   cursor: ${({ $active }) => ($active ? 'pointer' : 'default')};
   font-size: 0.72rem;
   font-weight: 800;
@@ -595,9 +596,9 @@ const InlineLinkButton = styled.button`
   &:hover,
   &:focus-visible {
     background: ${({ $copied }) =>
-      $copied ? 'var(--standings-success)' : '#1d2b32'};
+      $copied ? 'var(--standings-success-soft)' : 'var(--standings-primary)'};
     color: ${({ $copied }) =>
-      $copied ? '#fff' : '#fff'};
+      $copied ? 'var(--standings-success-strong)' : '#fff'};
     outline: none;
   }
 
