@@ -248,6 +248,17 @@ export const TorneosStandingsTab = ({
 
 /* ---------- Estilos ---------- */
 const StandingsTabContainer = styled.div`
+  --standings-primary: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+  --standings-primary-soft: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
+  --standings-primary-strong: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.primary};
+  --standings-surface: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg};
+  --standings-item-surface: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  --standings-border: ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+  --standings-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
+  --standings-success: ${({ theme }) => theme.tournamentDashboard?.metrics?.accent || v.verde};
+  --standings-success-soft: ${({ theme }) => theme.tournamentDashboard?.metrics?.accentSoft || 'rgba(83, 178, 87, 0.14)'};
+  --standings-warning: ${({ theme }) => theme.tournamentDashboard?.metrics?.warning || '#f59e0b'};
+
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -273,26 +284,27 @@ const ControlPanel = styled.div`
   width: 98%;
   max-width: 1180px;
   margin: 0 auto 10px auto;
-  background: ${({ theme }) => theme.bg};
+  background: var(--standings-surface);
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid ${({ theme }) => theme.color2};
-  box-shadow: ${v.boxshadowGray};
+  border: 1px solid var(--standings-border);
   gap: 8px;
   min-width: 0;
   box-sizing: border-box;
 
   @media (max-width: 768px) {
     width: 100%;
-    max-width: 420px;
-    grid-template-columns: minmax(0, 1fr) auto;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr) max-content;
     padding: 7px 10px;
     border-radius: 10px;
   }
 
   @media (max-width: 520px) {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 8px;
   }
 `;
 
@@ -304,7 +316,13 @@ const ViewSwitcherShell = styled.div`
   align-items: center;
 
   @media (max-width: 768px) {
-    justify-content: flex-end;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+
+    &:empty {
+      display: none;
+    }
   }
 
   @media (max-width: 520px) {
@@ -316,7 +334,20 @@ const SelectorWrapper = styled.div`
   width: 100%;
   min-width: 0;
 
+  select {
+    border-color: var(--standings-border);
+    background-color: var(--standings-item-surface);
+    color: ${({ theme }) => theme.text};
+  }
+
+  select:focus {
+    border-color: var(--standings-primary);
+    box-shadow: 0 0 0 3px var(--standings-primary-soft);
+  }
+
   @media (max-width: 768px) {
+    grid-column: 1;
+    grid-row: 1;
     max-width: none;
   }
 `;
@@ -327,8 +358,8 @@ const ViewSwitcher = styled.div`
   grid-template-columns: repeat(2, minmax(82px, 1fr));
   padding: 3px;
   border-radius: 10px;
-  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
-  background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  border: 1px solid var(--standings-border);
+  background: var(--standings-item-surface);
   flex: 0 0 auto;
 
   button {
@@ -341,20 +372,23 @@ const ViewSwitcher = styled.div`
     border: 0;
     border-radius: 8px;
     background: transparent;
-    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
+    color: var(--standings-muted);
     cursor: pointer;
     font-size: 0.76rem;
     font-weight: 900;
-    transition: background-color ${v.tabTransition}, color ${v.tabTransition}, transform ${v.tabTransition};
+    transition: background-color ${v.tabTransition}, color ${v.tabTransition}, border-color ${v.tabTransition};
   }
 
   button.active {
-    background: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
-    color: ${({ theme }) => theme.body};
+    background: var(--standings-primary-soft);
+    color: var(--standings-primary-strong);
   }
 
-  button:hover {
-    transform: translateY(-1px);
+  button:hover,
+  button:focus-visible {
+    color: var(--standings-primary-strong);
+    background: var(--standings-primary-soft);
+    outline: none;
   }
 
   svg {
@@ -394,27 +428,35 @@ const ActionsGroup = styled.div`
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
+  flex-wrap: wrap;
 
   @media (max-width: 768px) {
-    grid-column: 1 / -1;
+    grid-column: 2;
+    grid-row: 1;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 380px) {
+    gap: 6px;
   }
 `;
 
 const ToggleContainer = styled.div`
     display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; user-select: none; min-width: 0;
     .track {
-        width: 44px; height: 24px; background-color: ${({ $active, theme }) => $active ? v.verde : theme.bg3};
-        border-radius: 20px; position: relative; transition: background-color 0.3s ease; border: 1px solid ${({ theme }) => theme.color2};
+        width: 44px; height: 24px; background-color: ${({ $active }) => $active ? 'var(--standings-success-soft)' : 'var(--standings-item-surface)'};
+        border-radius: 20px; position: relative; transition: background-color 0.3s ease, border-color 0.3s ease; border: 1px solid ${({ $active }) => $active ? 'var(--standings-success)' : 'var(--standings-border)'};
     }
     .thumb {
-        width: 20px; height: 20px; background-color: #fff; border-radius: 50%; position: absolute; top: 1px; left: 1px;
+        width: 20px; height: 20px; background-color: ${({ $active }) => $active ? 'var(--standings-success)' : 'var(--standings-muted)'}; border-radius: 50%; position: absolute; top: 1px; left: 1px;
         transform: ${({ $active }) => $active ? 'translateX(20px)' : 'translateX(0)'};
-        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.3s ease;
     }
     .label {
         font-size: 0.68rem;
         font-weight: 600;
-        color: ${({ $active, theme }) => $active ? theme.text : theme.text + '80'};
+        color: ${({ $active }) => $active ? 'var(--standings-success)' : 'var(--standings-muted)'};
         line-height: 1;
         max-width: 48px;
         overflow: hidden;
@@ -426,16 +468,19 @@ const ToggleContainer = styled.div`
 
 const ShareButton = styled.button`
   display: flex; align-items: center; gap: 8px;
-  background-color: ${({ $copied, theme }) => $copied ? v.verde : theme.bg2};
-  color: ${({ $copied, theme }) => $copied ? '#fff' : theme.text};
-  border: 1px solid ${({ theme }) => theme.color2};
+  background-color: ${({ $copied }) => $copied ? 'var(--standings-success-soft)' : 'var(--standings-item-surface)'};
+  color: ${({ $copied, theme }) => $copied ? 'var(--standings-success)' : theme.text};
+  border: 1px solid ${({ $copied }) => $copied ? 'var(--standings-success)' : 'var(--standings-border)'};
   padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
-  transition: all 0.3s ease; white-space: nowrap;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, transform 0.3s ease; white-space: nowrap;
   
-  &:hover {
-    transform: translateY(-2px);
-    background-color: ${({ $copied, theme }) => $copied ? v.verde : theme.bg3};
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-1px);
+    background-color: ${({ $copied }) => $copied ? 'var(--standings-success-soft)' : 'var(--standings-primary-soft)'};
+    border-color: ${({ $copied }) => $copied ? 'var(--standings-success)' : 'var(--standings-primary)'};
+    color: ${({ $copied }) => $copied ? 'var(--standings-success)' : 'var(--standings-primary-strong)'};
+    outline: none;
   }
 
   @media (max-width: 768px) {

@@ -273,6 +273,17 @@ export const GoleadoresTab = ({
 };
 
 const Container = styled.div`
+  --goleadores-primary: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+  --goleadores-primary-soft: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
+  --goleadores-primary-strong: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.primary};
+  --goleadores-surface: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg};
+  --goleadores-item-surface: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  --goleadores-border: ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+  --goleadores-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
+  --goleadores-success: ${({ theme }) => theme.tournamentDashboard?.metrics?.accent || v.verde};
+  --goleadores-success-soft: ${({ theme }) => theme.tournamentDashboard?.metrics?.accentSoft || 'rgba(83, 178, 87, 0.14)'};
+  --goleadores-warning: ${({ theme }) => theme.tournamentDashboard?.metrics?.warning || '#f59e0b'};
+
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -287,25 +298,26 @@ const ControlPanel = styled.div`
   width: 98%;
   max-width: 980px;
   margin: 0 auto;
-  background: ${({ theme }) => theme.bg};
+  background: var(--goleadores-surface);
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid ${({ theme }) => theme.color2};
-  box-shadow: ${v.boxshadowGray};
+  border: 1px solid var(--goleadores-border);
   gap: 8px;
   min-width: 0;
 
   @media (max-width: 768px) {
     width: 100%;
     max-width: 100%;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) max-content;
     padding: 7px 10px;
     border-radius: 10px;
   }
 
   @media (max-width: 520px) {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 8px;
   }
 `;
 
@@ -313,7 +325,20 @@ const SelectorWrapper = styled.div`
   width: 100%;
   min-width: 0;
 
+  select {
+    border-color: var(--goleadores-border);
+    background-color: var(--goleadores-item-surface);
+    color: ${({ theme }) => theme.text};
+  }
+
+  select:focus {
+    border-color: var(--goleadores-primary);
+    box-shadow: 0 0 0 3px var(--goleadores-primary-soft);
+  }
+
   @media (max-width: 768px) {
+    grid-column: 1;
+    grid-row: 1;
     max-width: none;
   }
 `;
@@ -332,9 +357,17 @@ const ControlsGroup = styled.div`
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
+  flex-wrap: wrap;
 
   @media (max-width: 768px) {
-    grid-column: 1 / -1;
+    grid-column: 2;
+    grid-row: 1;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 380px) {
+    gap: 6px;
   }
 `;
 
@@ -342,19 +375,23 @@ const ExportButton = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  background: ${({ theme }) => theme.bg2};
-  border: 1px solid ${({ theme }) => theme.color2};
+  background: var(--goleadores-item-surface);
+  border: 1px solid var(--goleadores-border);
   padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
   color: ${({ theme }) => theme.text};
-  transition: all 0.2s;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 
-  &:hover {
-    background: ${({ theme }) => theme.bg3};
-    transform: translateY(-2px);
+  &:hover,
+  &:focus-visible {
+    background: var(--goleadores-primary-soft);
+    border-color: var(--goleadores-primary);
+    color: var(--goleadores-primary-strong);
+    transform: translateY(-1px);
+    outline: none;
   }
 
   @media (max-width: 600px) {
@@ -382,30 +419,34 @@ const ToggleContainer = styled.div`
   .track {
     width: 44px;
     height: 24px;
-    background-color: ${({ $active, theme }) => ($active ? v.verde : theme.bg3)};
+    background-color: ${({ $active }) =>
+      $active ? 'var(--goleadores-success-soft)' : 'var(--goleadores-item-surface)'};
     border-radius: 20px;
     position: relative;
-    transition: background-color 0.3s ease;
-    border: 1px solid ${({ theme }) => theme.color2};
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+    border: 1px solid ${({ $active }) =>
+      $active ? 'var(--goleadores-success)' : 'var(--goleadores-border)'};
   }
 
   .thumb {
     width: 20px;
     height: 20px;
-    background-color: #fff;
+    background-color: ${({ $active }) =>
+      $active ? 'var(--goleadores-success)' : 'var(--goleadores-muted)'};
     border-radius: 50%;
     position: absolute;
     top: 1px;
     left: 1px;
     transform: ${({ $active }) =>
       $active ? 'translateX(20px)' : 'translateX(0)'};
-    transition: transform 0.3s;
+    transition: transform 0.3s, background-color 0.3s ease;
   }
 
   .label {
     font-size: 0.68rem;
     font-weight: 600;
-    color: ${({ theme }) => theme.text};
+    color: ${({ $active }) =>
+      $active ? 'var(--goleadores-success)' : 'var(--goleadores-muted)'};
     line-height: 1;
     max-width: 48px;
     overflow: hidden;
@@ -427,22 +468,22 @@ const ToggleContainer = styled.div`
 
 const StatusIcon = styled.div`
   font-size: 1.4rem;
-  color: ${({ $active, theme }) => ($active ? v.verde : theme.text)};
-  opacity: ${({ $active }) => ($active ? 1 : 0.5)};
+  color: ${({ $active }) =>
+    $active ? 'var(--goleadores-success)' : 'var(--goleadores-muted)'};
+  opacity: ${({ $active }) => ($active ? 1 : 0.75)};
   display: flex;
   align-items: center;
   flex-shrink: 0;
 `;
 
 const TableCard = styled.div`
-  background-color: ${({ theme }) => theme.bg};
-  border-radius: 16px;
+  background-color: var(--goleadores-surface);
+  border-radius: 12px;
   margin: 0 auto;
   width: 98%;
   max-width: 980px;
   overflow: hidden;
-  border: 1px solid ${({ theme }) => theme.color2};
-  box-shadow: ${v.boxshadowGray};
+  border: 1px solid var(--goleadores-border);
 
   @media (max-width: 768px) {
     width: 100%;
@@ -518,7 +559,7 @@ const StyledTable = styled.table`
 `;
 
 const Th = styled.th`
-  background: ${({ theme }) => theme.bgtotal};
+  background: var(--goleadores-item-surface);
   color: ${({ theme }) => theme.text};
   padding: 12px;
   text-align: left;
@@ -532,7 +573,7 @@ const Th = styled.th`
 
   &.goals {
     text-align: center;
-    color: ${({ theme }) => theme.primary};
+    color: var(--goleadores-primary-strong);
   }
 
   @media (max-width: 768px) {
@@ -545,8 +586,8 @@ const ThRank = styled.th`
   width: 56px;
   padding: 12px 8px;
   text-align: center;
-  background: ${({ theme }) => theme.bgtotal};
-  color: ${({ theme }) => theme.text};
+  background: var(--goleadores-item-surface);
+  color: var(--goleadores-muted);
   position: sticky;
   top: 0;
   z-index: 11;
@@ -560,7 +601,7 @@ const ThRank = styled.th`
 
 const Td = styled.td`
   padding: 10px 12px;
-  border-bottom: 1px solid ${({ theme }) => theme.color2};
+  border-bottom: 1px solid var(--goleadores-border);
   color: ${({ theme }) => theme.text};
   font-size: 0.9rem;
   min-width: 0;
@@ -569,7 +610,7 @@ const Td = styled.td`
   &.goals {
     text-align: center;
     font-weight: 800;
-    color: ${({ theme }) => theme.primary};
+    color: var(--goleadores-primary-strong);
     font-size: 1.1rem;
     white-space: nowrap;
   }
@@ -619,7 +660,8 @@ const RankBadge = styled.div`
   border-radius: 50%;
   font-weight: 800;
   color: white;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: ${({ $pos }) =>
+    $pos <= 3 ? '0 2px 8px rgba(0, 0, 0, 0.14)' : 'none'};
   transition: 0.18s;
   ${({ $pos }) =>
     $pos === 1
@@ -628,13 +670,14 @@ const RankBadge = styled.div`
         ? 'background: linear-gradient(180deg,#e6eaf0 0%, #c6ccd6 100%); color: rgba(0,0,0,0.85);'
         : $pos === 3
           ? 'background: linear-gradient(180deg,#d7a17a 0%, #b97745 100%); color: rgba(0,0,0,0.85);'
-          : 'background: transparent; color: inherit; border: 1px solid #ccc; width: 30px; height: 30px;'}
+          : 'background: var(--goleadores-primary-soft); color: var(--goleadores-primary-strong); border: 1px solid var(--goleadores-border); width: 30px; height: 30px;'}
 
   @media (max-width: 768px) {
     width: 32px;
     height: 32px;
     font-size: 0.85rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: ${({ $pos }) =>
+      $pos <= 3 ? '0 2px 6px rgba(0, 0, 0, 0.12)' : 'none'};
     ${({ $pos }) =>
       $pos > 3 &&
       'width: 28px; height: 28px;'}
@@ -652,7 +695,11 @@ const RankBadge = styled.div`
 
 const Tr = styled.tr`
   &:nth-child(even) {
-    background-color: ${({ theme }) => theme.bgAlpha};
+    background-color: var(--goleadores-item-surface);
+  }
+
+  &:hover {
+    background-color: var(--goleadores-primary-soft);
   }
 `;
 
@@ -678,7 +725,7 @@ const PlayerCell = styled.div`
 
   .dorsal {
     font-size: 0.75rem;
-    opacity: 0.6;
+    color: var(--goleadores-muted);
   }
 
   @media (max-width: 768px) {
@@ -710,10 +757,10 @@ const AvatarCircle = styled.div`
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid ${({ theme }) => theme.color2};
+  border: 1px solid var(--goleadores-border);
   background: ${({ $hasImage, theme }) =>
-    $hasImage ? theme.bg2 : `${v.verde}18`};
-  color: ${v.verde};
+    $hasImage ? theme.bg2 : 'var(--goleadores-success-soft)'};
+  color: var(--goleadores-success);
   flex-shrink: 0;
 
   img {
@@ -753,7 +800,7 @@ const TeamCell = styled.div`
 
   .tname {
     font-size: 0.85rem;
-    opacity: 0.8;
+    color: var(--goleadores-muted);
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
