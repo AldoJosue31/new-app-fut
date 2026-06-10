@@ -200,17 +200,31 @@ export const TorneosStandingsTab = ({
                     <span>Exportar</span>
                 </ShareButton>
 
-                <ToggleContainer onClick={handleTogglePublic} $active={isPublicEnabled}>
-                    <div className="track"><div className="thumb" /></div>
-                    <span className="label">Publico</span>
-                </ToggleContainer>
+                <PublicShareControl $active={isPublicEnabled}>
+                    <PublicToggleButton
+                      type="button"
+                      onClick={handleTogglePublic}
+                      $active={isPublicEnabled}
+                      aria-pressed={isPublicEnabled}
+                      title={isPublicEnabled ? "Desactivar enlace publico" : "Activar enlace publico"}
+                    >
+                      <span className="track"><span className="thumb" /></span>
+                      <span className="label">{isPublicEnabled ? "Publico" : "Privado"}</span>
+                    </PublicToggleButton>
 
-                {isPublicEnabled && (
-                    <ShareButton onClick={handleShare} $copied={copied} title="Copiar Enlace">
-                        {copied ? <BiCheck size={20}/> : <BiShareAlt size={20}/>}
-                        <span>{copied ? "Copiado" : "Link"}</span>
-                    </ShareButton>
-                )}
+                    <InlineLinkButton
+                      type="button"
+                      onClick={handleShare}
+                      $active={isPublicEnabled}
+                      $copied={copied}
+                      aria-hidden={!isPublicEnabled}
+                      tabIndex={isPublicEnabled ? 0 : -1}
+                      title="Copiar Enlace"
+                    >
+                      {copied ? <BiCheck size={18}/> : <BiShareAlt size={18}/>}
+                      <span>{copied ? "Copiado" : "Link"}</span>
+                    </InlineLinkButton>
+                </PublicShareControl>
             </ActionsGroup>
         </ControlPanel>
       )}
@@ -442,28 +456,161 @@ const ActionsGroup = styled.div`
   }
 `;
 
-const ToggleContainer = styled.div`
-    display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; user-select: none; min-width: 0;
-    .track {
-        width: 44px; height: 24px; background-color: ${({ $active }) => $active ? 'var(--standings-success-soft)' : 'var(--standings-item-surface)'};
-        border-radius: 20px; position: relative; transition: background-color 0.3s ease, border-color 0.3s ease; border: 1px solid ${({ $active }) => $active ? 'var(--standings-success)' : 'var(--standings-border)'};
-    }
-    .thumb {
-        width: 20px; height: 20px; background-color: ${({ $active }) => $active ? 'var(--standings-success)' : 'var(--standings-muted)'}; border-radius: 50%; position: absolute; top: 1px; left: 1px;
-        transform: ${({ $active }) => $active ? 'translateX(20px)' : 'translateX(0)'};
-        transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.3s ease;
-    }
+const PublicShareControl = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ $active }) => ($active ? '6px' : '0')};
+  width: ${({ $active }) => ($active ? '138px' : '58px')};
+  min-width: 0;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--standings-success)' : 'var(--standings-border)')};
+  background: var(--standings-item-surface);
+  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s ease, border-color 0.3s ease, gap 0.3s ease;
+
+  @media (max-width: 768px) {
+    width: ${({ $active }) => ($active ? '98px' : '58px')};
+  }
+
+  @media (max-width: 380px) {
+    width: ${({ $active }) => ($active ? '86px' : '48px')};
+  }
+`;
+
+const PublicToggleButton = styled.button`
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 52px;
+  min-width: 52px;
+  height: 30px;
+  padding: 1px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: ${({ $active }) => ($active ? 'var(--standings-success)' : 'var(--standings-muted)')};
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.3s ease;
+
+  .track {
+    width: 34px;
+    height: 18px;
+    border-radius: 20px;
+    position: relative;
+    flex: 0 0 auto;
+    background-color: #131f24;
+    border: 1px solid ${({ $active }) =>
+      $active ? 'var(--standings-success)' : 'var(--standings-border)'};
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .thumb {
+    width: 14px;
+    height: 14px;
+    background-color: ${({ $active }) =>
+      $active ? 'var(--standings-success)' : 'var(--standings-muted)'};
+    border-radius: 50%;
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    transform: ${({ $active }) => ($active ? 'translateX(16px)' : 'translateX(0)')};
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+  }
+
+  .label {
+    display: inline-block;
+    max-width: 54px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.52rem;
+    letter-spacing: 0;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--standings-primary-soft);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 52px;
+    width: 52px;
+  }
+
+  @media (max-width: 380px) {
+    min-width: 40px;
+    width: 40px;
+
     .label {
-        font-size: 0.68rem;
-        font-weight: 600;
-        color: ${({ $active }) => $active ? 'var(--standings-success)' : 'var(--standings-muted)'};
-        line-height: 1;
-        max-width: 48px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      display: none;
     }
-    @media (max-width: 380px) { .label { font-size: 0.62rem; max-width: 46px; } }
+  }
+`;
+
+const InlineLinkButton = styled.button`
+  width: ${({ $active }) => ($active ? '76px' : '0')};
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: ${({ $active }) => ($active ? '0 10px' : '0')};
+  border: 0;
+  border-left: 1px solid ${({ $active }) => ($active ? 'var(--standings-success)' : 'transparent')};
+  border-radius: 999px;
+  background: ${({ $copied }) =>
+    $copied ? 'var(--standings-success)' : '#131f24'};
+  color: ${({ $copied }) =>
+    $copied ? '#fff' : '#fff'};
+  cursor: ${({ $active }) => ($active ? 'pointer' : 'default')};
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: ${({ $active }) => ($active ? 1 : 0)};
+  pointer-events: ${({ $active }) => ($active ? 'auto' : 'none')};
+  transform: ${({ $active }) => ($active ? 'translateX(0) scale(1)' : 'translateX(-8px) scale(0.92)')};
+  transform-origin: left center;
+  transition:
+    width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    padding 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    opacity 0.2s ease,
+    transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+
+  svg,
+  span {
+    flex: 0 0 auto;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: ${({ $copied }) =>
+      $copied ? 'var(--standings-success)' : '#1d2b32'};
+    color: ${({ $copied }) =>
+      $copied ? '#fff' : '#fff'};
+    outline: none;
+  }
+
+  @media (max-width: 768px) {
+    width: ${({ $active }) => ($active ? '34px' : '0')};
+    padding: 0;
+    border-left: 0;
+    border-radius: 50%;
+
+    span {
+      display: none;
+    }
+  }
 `;
 
 const ShareButton = styled.button`
