@@ -8,7 +8,7 @@ import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";
 import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
 
 export function PlanningSidebar({
-  matches,
+  matches = [],
   isConfirmed,
   setDraggedMatch,
   onDragEnd,
@@ -23,13 +23,22 @@ export function PlanningSidebar({
   isCollapsed = false,
   onToggleCollapse,
   canCollapse = false,
+  isPlayoffMode = false,
 }) {
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
   const { delayed, current } = useMemo(() => {
+    const visibleMatches = isPlayoffMode
+      ? matches.filter((match) => !match.isByeMatch)
+      : matches;
+
+    if (isPlayoffMode) {
+      return { delayed: [], current: visibleMatches };
+    }
+
     const currentNum = currentJornadaNumber;
     
-    const result = matches.reduce((acc, m) => {
+    const result = visibleMatches.reduce((acc, m) => {
         if (!m.originJornada) {
              acc.current.push(m);
              return acc;
@@ -52,12 +61,14 @@ export function PlanningSidebar({
     });
 
     return result;
-  }, [matches, currentJornadaNumber]);
+  }, [isPlayoffMode, matches, currentJornadaNumber]);
+
+  const visibleMatchesCount = delayed.length + current.length;
 
   return (
     <SidebarContainer $isCollapsed={isCollapsed}>
       <div className="sb-header">
-        <span>Por Asignar ({matches.length})</span>
+        <span>Por Asignar ({visibleMatchesCount})</span>
         {canCollapse && (
           <button
             type="button"
@@ -128,7 +139,11 @@ export function PlanningSidebar({
             )}
 
             <div className="section-group">
-                {(delayed.length > 0 && current.length > 0) && <span className="section-title">De esta Jornada</span>}
+                {(delayed.length > 0 && current.length > 0) && (
+                    <span className="section-title">
+                        {isPlayoffMode ? "De esta Fase" : "De esta Jornada"}
+                    </span>
+                )}
                 
                 {current.map((match) => {
                     if (match.isByeMatch) {
@@ -167,7 +182,7 @@ export function PlanningSidebar({
                 })}
             </div>
 
-            {matches.length === 0 && <div className="empty">Todo asignado ✅</div>}
+            {visibleMatchesCount === 0 && <div className="empty">Todo asignado</div>}
           </div>
         </ContainerScroll>
       </div>

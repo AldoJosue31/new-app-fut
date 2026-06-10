@@ -43,6 +43,7 @@ export function Torneos({ state: sidebarState, setState: setSidebarState }) {
         onExclude={actions.onExclude}
         refreshStandings={actions.refreshData}
         onTournamentReset={actions.refreshData}
+        onResetSetupDraft={actions.resetDraftToLeagueRules}
       />
     </>
   );

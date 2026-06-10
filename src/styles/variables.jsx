@@ -74,6 +74,9 @@ export const v = {
     xlSpacing: `32px`,
     xxlSpacing: `48px`,
     borderRadius: `6px`,
+    tabTransitionDuration: `300ms`,
+    tabTransitionTiming: `cubic-bezier(0.25, 0.8, 0.25, 1)`,
+    tabTransition: `300ms cubic-bezier(0.25, 0.8, 0.25, 1)`,
 
     paletacolores: CiPalette,
     emoji: BsEmojiLaughing,

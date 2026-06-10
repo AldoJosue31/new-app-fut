@@ -221,7 +221,7 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
 
 // --- ESTILOS ---
 const TableCard = styled.div`
-  background-color: ${({ theme }) => theme.bg}; 
+  background-color: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg}; 
   border-radius: 12px; 
   box-shadow: ${v.boxshadowGray};
   margin: 0 auto 20px auto; 
@@ -314,7 +314,7 @@ const StyledTable = styled.table`
 `;
 
 const Th = styled.th`
-  background-color: ${({ theme }) => theme.bgtotal}; 
+  background-color: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bgtotal}; 
   color: ${({ theme }) => theme.text}; 
   opacity: 0.8;
   font-weight: 700;
@@ -343,7 +343,7 @@ const Th = styled.th`
     font-size: 0.58rem;
     line-height: 1;
     opacity: 1;
-    background-color: ${({ theme }) => theme.bgtotal};
+    background-color: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bgtotal};
     border-bottom: 2px solid ${({ theme }) => theme.color2};
     border-right: none;
     box-sizing: border-box;
@@ -358,7 +358,7 @@ const Th = styled.th`
       position: sticky;
       left: 0;
       z-index: 12;
-      background-color: ${({ theme }) => theme.bgtotal};
+      background-color: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bgtotal};
       box-shadow: 8px 0 10px -12px rgba(0, 0, 0, 0.75);
     }
 
@@ -473,19 +473,19 @@ const TrBase = styled.tr`
   /* AHORA USAMOS LA PROP $isEven PARA APLICAR EL FONDO EXPLICITAMENTE */
   /* Esto asegura que la librería de captura de imagen detecte el estilo */
   background-color: ${({ $isEven, theme }) => 
-    $isEven ? (theme.bg2 || 'rgba(128, 128, 128, 0.04)') : 'transparent'};
+    $isEven ? (theme.tournamentDashboard?.itemSurface || theme.bg2 || 'rgba(128, 128, 128, 0.04)') : (theme.tournamentDashboard?.surface || theme.bg)};
 
   td { border-bottom: 1px solid ${({ $zoneColor, theme }) => $zoneColor ? `${$zoneColor}60` : theme.color2}; }
 
   @media (max-width: 768px) {
     td.team-col {
       background-color: ${({ $isEven, theme }) => 
-        $isEven ? (theme.bg2 || 'rgba(128, 128, 128, 0.04)') : theme.bg};
+        $isEven ? (theme.tournamentDashboard?.itemSurface || theme.bg2 || 'rgba(128, 128, 128, 0.04)') : (theme.tournamentDashboard?.surface || theme.bg)};
     }
   }
   
   &:hover { 
-    background-color: ${({ theme }) => theme.bgAlpha}; 
+    background-color: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bgAlpha}; 
   }
   
   &:last-child td { border-bottom: none; }
