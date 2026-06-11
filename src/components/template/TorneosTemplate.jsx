@@ -22,10 +22,11 @@ export function TorneosTemplate({
   isLoadingData, standings, reglas, setReglas, refreshStandings,
   onTournamentReset, state, setState, partidos,
   onResetSetupDraft,
+  currentDivisionId,
   leagueData // <-- AHORA RECIBE LA LIGA DESDE LA PÁGINA
 }) {
   const navigate = useNavigate();
-  const { tab } = useParams();
+  const { divisionId: routeDivisionId, tab } = useParams();
   
   const tabList = [
     { id: "definir", label: "Torneo", icon: <v.iconocorona /> },
@@ -44,6 +45,9 @@ export function TorneosTemplate({
   const activeTournamentRef = useRef(activeTournament);
   const resetSetupDraftRef = useRef(onResetSetupDraft);
   const canResetOnUnmountRef = useRef(false);
+  const visibleDivisionId = routeDivisionId || currentDivisionId;
+  const getTorneosPath = (nextTabId) =>
+    visibleDivisionId ? `/division/${visibleDivisionId}/torneos/${nextTabId}` : `/torneos/${nextTabId}`;
 
   useEffect(() => {
     activeTournamentRef.current = activeTournament;
@@ -54,7 +58,7 @@ export function TorneosTemplate({
     if (!activeTournament && activeTab === "definir" && newTabId !== "definir") {
       onResetSetupDraft?.();
     }
-    navigate(`/torneos/${newTabId}`);
+    navigate(getTorneosPath(newTabId));
   };
 
   useEffect(() => {
@@ -71,11 +75,16 @@ export function TorneosTemplate({
   }, []);
 
   useLayoutEffect(() => {
+    if (!routeDivisionId && currentDivisionId && activeTab) {
+      navigate(`/division/${currentDivisionId}/torneos/${activeTab}`, { replace: true });
+      return;
+    }
+
     if (isValidTab) return;
     if (isLoadingData && !activeTournament) return;
 
-    navigate(`/torneos/${defaultTab}`, { replace: true });
-  }, [activeTournament, defaultTab, isLoadingData, isValidTab, navigate]);
+    navigate(getTorneosPath(defaultTab), { replace: true });
+  }, [activeTab, activeTournament, currentDivisionId, defaultTab, isLoadingData, isValidTab, navigate, routeDivisionId, visibleDivisionId]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
   const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;

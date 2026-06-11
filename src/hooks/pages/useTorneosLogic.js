@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { 
-    getTorneoActivo, 
-    getEquiposDivision, 
     iniciarTorneoService, 
     updateJornadaFechas, 
-    bulkUpdateJornadaFechas,
-    getAllMatchesByTournament
+    bulkUpdateJornadaFechas
 } from "../../services/torneos"; 
-import { getTablaPosicionesService } from "../../services/estadisticas";
-import { getLeagueById } from "../../services/leagues";
+import { getDivisionWorkspace } from "../../services/divisionWorkspace";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { 
-  TOURNAMENT_STATUS, 
   TOURNAMENT_FORMAT, 
   TEAM_STATUS 
 } from "../../utils/constants";
@@ -72,12 +68,19 @@ const createLeagueRuleDraft = (leagueData) => {
 };
 
 export const useTorneosLogic = () => {
+  const { divisionId: routeDivisionId } = useParams();
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const { selectedDivision } = useDivisionStore();
+  const { selectedDivision, setDivision } = useDivisionStore();
+  const routeDivisionIdNumber = Number(routeDivisionId);
+  const activeDivisionId =
+    Number.isInteger(routeDivisionIdNumber) && routeDivisionIdNumber > 0
+      ? routeDivisionIdNumber
+      : selectedDivision?.id;
   
   const [activeTournament, setActiveTournament] = useState(null);
   const [leagueData, setLeagueData] = useState(null); 
+  const [divisionContext, setDivisionContext] = useState(null);
   const [allTeams, setAllTeams] = useState([]);
   const [participatingIds, setParticipatingIds] = useState([]); 
   const [standings, setStandings] = useState([]);
@@ -145,6 +148,9 @@ export const useTorneosLogic = () => {
     
     return defaultForm;
   });
+  const effectiveDivision =
+    divisionContext ||
+    (activeDivisionId && selectedDivision?.id !== activeDivisionId ? null : selectedDivision);
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
   const closeToast = () => setToastConfig({ ...toastConfig, show: false });
@@ -165,20 +171,24 @@ export const useTorneosLogic = () => {
   }, [form.maxTeams, participatingIds.length]);
 
   const fetchData = useCallback(async () => {
-    if (!selectedDivision) return;
+    if (!activeDivisionId) {
+      setIsLoadingData(false);
+      return;
+    }
     
     setIsLoadingData(true); 
     try {
-      const torneoPromise = getTorneoActivo(selectedDivision.id);
-      const teamsPromise = getEquiposDivision(selectedDivision.id);
-      const leaguePromise = selectedDivision.league_id
-          ? getLeagueById(selectedDivision.league_id)
-          : Promise.resolve(null);
+      const workspace = await getDivisionWorkspace(activeDivisionId);
+      const resolvedDivision = workspace?.division || selectedDivision;
+      const torneo = workspace?.activeTournament || null;
+      const teams = workspace?.teams || [];
+      const lData = workspace?.league || resolvedDivision?.league || null;
 
-      const torneo = await torneoPromise;
+      setDivisionContext(resolvedDivision);
+      if (resolvedDivision && selectedDivision?.id !== resolvedDivision.id) {
+        setDivision(resolvedDivision);
+      }
       setActiveTournament(torneo);
-
-      const [teams, lData] = await Promise.all([teamsPromise, leaguePromise]);
       setLeagueData(lData);
 
       const processedTeams = teams.map(t => ({
@@ -230,20 +240,12 @@ export const useTorneosLogic = () => {
           }
         }
 
-        try {
-            const dataStats = await getTablaPosicionesService(selectedDivision.name);
-            setStandings(dataStats || []);
-
-            const dataMatches = await getAllMatchesByTournament(torneo.id);
-            setPartidos(dataMatches || []);
-        } catch (err) {
-            console.error("Error posiciones/partidos:", err);
-            setStandings([]);
-            setPartidos([]);
-        }
+        setStandings(workspace?.standings || []);
+        setPartidos(workspace?.matches || []);
 
       } else {
         setStandings([]);
+        setPartidos([]);
         const defaultParticipating = processedTeams
             .filter(t => t.status === TEAM_STATUS.ACTIVE && t.playerCount >= form.minPlayers)
             .map(t => t.id);
@@ -252,11 +254,12 @@ export const useTorneosLogic = () => {
 
     } catch (error) {
       console.error("Error fetching data:", error);
+      setDivisionContext(null);
       showToast("Error al cargar datos: " + error.message, "error");
     } finally {
       setIsLoadingData(false);
     }
-  }, [selectedDivision, form.minPlayers]);
+  }, [activeDivisionId, form.minPlayers, selectedDivision, setDivision]);
 
   useEffect(() => {
     fetchData();
@@ -352,7 +355,7 @@ export const useTorneosLogic = () => {
         return;
     }
 
-    if (!selectedDivision || !form.startDate) {
+    if (!effectiveDivision || !form.startDate) {
       showToast("Faltan datos: División o Fecha", "warning");
       return;
     }
@@ -371,8 +374,8 @@ export const useTorneosLogic = () => {
       }
 
       await iniciarTorneoService({
-        divisionId: selectedDivision.id,
-        divisionName: selectedDivision.name,
+        divisionId: effectiveDivision.id,
+        divisionName: effectiveDivision.name,
         season: form.season,
         startDate: form.startDate,
         config: {
@@ -428,7 +431,8 @@ export const useTorneosLogic = () => {
       participatingIds,
       standings,
       partidos,
-      divisionName: selectedDivision?.name
+      divisionId: effectiveDivision?.id || activeDivisionId,
+      divisionName: effectiveDivision?.name
     },
     actions: {
       handleSubmit, 

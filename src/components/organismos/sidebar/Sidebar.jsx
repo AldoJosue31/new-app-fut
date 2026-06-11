@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "../../../store/AuthStore";
+import { useDivisionStore } from "../../../store/DivisionStore";
 import { v } from "../../../styles/variables";
 import { Device } from "../../../styles/breakpoints";
 import { ToggleTema } from "../../../index";
@@ -29,6 +30,7 @@ const AdminLinksArray = [
 
 export function Sidebar({ state, setState }) {
   const { cerrarSesion, profile } = useAuthStore(); // Obtenemos el perfil para checar el rol
+  const { selectedDivision } = useDivisionStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
@@ -39,6 +41,13 @@ export function Sidebar({ state, setState }) {
 
   // Helper para saber si es admin
   const isAdmin = profile?.role === 'admin';
+  const getManagerLinkTo = (to) => {
+    if (to === "/torneos" && selectedDivision?.id) {
+      return `/division/${selectedDivision.id}/torneos`;
+    }
+
+    return to;
+  };
 
   return (
     <Main $isOpen={state}>
@@ -81,7 +90,7 @@ export function Sidebar({ state, setState }) {
             {ManagerLinksArray.map(({ icon, label, to }) => (
               <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
                 <NavLink 
-                  to={to} 
+                  to={getManagerLinkTo(to)}
                   className={({ isActive }) => `Links${isActive ? ` active` : ``}`} 
                   onClick={() => setState(false)}
                 >

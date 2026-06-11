@@ -82,7 +82,17 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
         } 
       />
       
-      {/* 4. TORNEOS (Ya estaba, lo mantenemos) */}
+      {/* 4. TORNEOS por divisiÃ³n */}
+      <Route
+        path="/division/:divisionId/torneos/:tab?"
+        element={
+          <ProtectedRoute>
+            <Torneos state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 4b. TORNEOS legacy */}
       <Route 
         path="/torneos/:tab?" 
         element={

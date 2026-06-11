@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import styled, { css } from "styled-components";
+import { useLocation, useNavigate } from "react-router-dom";
 import { v } from "../../styles/variables";
 import { useDivisionStore } from "../../store/DivisionStore";
 import {
@@ -15,6 +16,8 @@ import { RiDeleteBinLine } from "react-icons/ri";
 import { BiTransfer } from "react-icons/bi";
 
 export function DivisionSelector({ isOpen }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     divisiones,
     selectedDivision,
@@ -76,6 +79,12 @@ export function DivisionSelector({ isOpen }) {
 
     showDivisionProgress(division);
     setDivision(division);
+
+    const torneosMatch = location.pathname.match(/(?:\/division\/\d+)?\/torneos\/?([^/]*)?/);
+    if (torneosMatch) {
+      const currentTab = torneosMatch[1] || "definir";
+      navigate(`/division/${division.id}/torneos/${currentTab}`, { replace: true });
+    }
   };
 
   const handleChange = (e) => {
