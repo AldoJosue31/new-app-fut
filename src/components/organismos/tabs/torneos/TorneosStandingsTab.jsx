@@ -23,7 +23,8 @@ export const TorneosStandingsTab = ({
   reglas = {},
   onRefresh,
   isPublic = false,
-  isLoading = false 
+  isLoading = false,
+  forcedView = null,
 }) => {
 
   const [copied, setCopied] = useState(false);
@@ -31,6 +32,8 @@ export const TorneosStandingsTab = ({
   const [updating, setUpdating] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [activeView, setActiveView] = useState('table');
+  const normalizedForcedView = ['table', 'bracket'].includes(forcedView) ? forcedView : null;
+  const renderedView = normalizedForcedView || activeView;
   const [selectedJornadaView, setSelectedJornadaView] = useState(() => {
     if (!torneo?.id || typeof window === 'undefined') return 'recent';
     return localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent';
@@ -100,10 +103,11 @@ export const TorneosStandingsTab = ({
   const hasStartedPlayoffPhase = Boolean(activePlayoffPhaseKey || playoffStages.length > 0);
 
   useEffect(() => {
+    if (normalizedForcedView) return;
     if (!hasPlayoffView && activeView !== 'table') {
       setActiveView('table');
     }
-  }, [activeView, hasPlayoffView]);
+  }, [activeView, hasPlayoffView, normalizedForcedView]);
 
   useEffect(() => {
     if (!isPublic && hasStartedPlayoffPhase) {
@@ -229,8 +233,8 @@ export const TorneosStandingsTab = ({
         </ControlPanel>
       )}
 
-      <ViewContent key={activeView}>
-        {activeView === 'bracket' && hasPlayoffView ? (
+      <ViewContent key={renderedView}>
+        {renderedView === 'bracket' && hasPlayoffView ? (
           <PlayoffBracketView
             torneo={torneo}
             partidos={partidos}

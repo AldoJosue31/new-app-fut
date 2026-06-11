@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../styles/variables";
 import { useDivisionStore } from "../../store/DivisionStore";
@@ -25,15 +25,63 @@ export function DivisionSelector({ isOpen }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [newDivisionName, setNewDivisionName] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
+  const [switchProgress, setSwitchProgress] = useState({
+    isVisible: false,
+    isDone: false,
+    divisionName: "",
+  });
+  const progressTimers = useRef([]);
 
   useEffect(() => {
     fetchDivisiones();
   }, [fetchDivisiones]);
 
+  useEffect(() => {
+    return () => {
+      progressTimers.current.forEach(clearTimeout);
+    };
+  }, []);
+
+  const clearProgressTimers = () => {
+    progressTimers.current.forEach(clearTimeout);
+    progressTimers.current = [];
+  };
+
+  const showDivisionProgress = (division) => {
+    clearProgressTimers();
+    setSwitchProgress({
+      isVisible: true,
+      isDone: false,
+      divisionName: division?.name || "",
+    });
+
+    progressTimers.current = [
+      setTimeout(() => {
+        setSwitchProgress((current) => ({
+          ...current,
+          isDone: true,
+        }));
+      }, 420),
+      setTimeout(() => {
+        setSwitchProgress((current) => ({
+          ...current,
+          isVisible: false,
+        }));
+      }, 1250),
+    ];
+  };
+
+  const changeDivision = (division) => {
+    if (!division || division.id === selectedDivision?.id) return;
+
+    showDivisionProgress(division);
+    setDivision(division);
+  };
+
   const handleChange = (e) => {
     const id = Number(e.target.value);
     const divisionEncontrada = divisiones.find((div) => div.id === id);
-    if (divisionEncontrada) setDivision(divisionEncontrada);
+    changeDivision(divisionEncontrada);
   };
 
   const handleCycle = (e) => {
@@ -41,7 +89,7 @@ export function DivisionSelector({ isOpen }) {
     if (divisiones.length < 2) return;
     const currentIndex = divisiones.findIndex((div) => div.id === selectedDivision?.id);
     const newIndex = currentIndex < divisiones.length - 1 ? currentIndex + 1 : 0;
-    setDivision(divisiones[newIndex]);
+    changeDivision(divisiones[newIndex]);
   };
 
   const getInitials = (name) => {
@@ -137,6 +185,21 @@ export function DivisionSelector({ isOpen }) {
           </CompactView>
         </ViewStack>
       </MainContainer>
+
+      <DivisionProgressBar
+        $isVisible={switchProgress.isVisible}
+        $isDone={switchProgress.isDone}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="progress-copy">
+          {switchProgress.isDone ? "Division cambiada" : "Cambiando division"}
+          {switchProgress.divisionName ? `: ${switchProgress.divisionName}` : ""}
+        </div>
+        <div className="progress-track">
+          <div className="progress-fill" />
+        </div>
+      </DivisionProgressBar>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Gestionar Divisiones">
         <CrudContainer>
@@ -372,6 +435,65 @@ const SelectWrapper = styled.div`
     pointer-events: none;
     color: ${({ theme }) => theme.primary || v.colorPrincipal};
     font-size: 1.1rem;
+  }
+`;
+
+const DivisionProgressBar = styled.div`
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 120;
+  pointer-events: none;
+  opacity: ${({ $isVisible }) => ($isVisible ? 1 : 0)};
+  transform: translateY(${({ $isVisible }) => ($isVisible ? "0" : "10px")});
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+  .progress-copy {
+    position: absolute;
+    right: 16px;
+    bottom: 10px;
+    max-width: min(320px, calc(100vw - 32px));
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: ${({ theme }) => theme.bgcards};
+    border: 1px solid ${({ theme, $isDone }) => ($isDone ? v.verde : theme.primary || v.colorPrincipal)};
+    color: ${({ theme }) => theme.text};
+    box-shadow: ${({ theme }) => theme.boxshadowGray || "0 8px 20px rgba(0, 0, 0, 0.16)"};
+    font-size: 0.78rem;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 4px;
+    background: ${({ theme }) => theme.bg4};
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: ${({ $isDone }) => ($isDone ? "100%" : "72%")};
+    background: ${({ theme, $isDone }) =>
+      $isDone ? v.verde : `linear-gradient(90deg, ${theme.primary || v.colorPrincipal}, ${v.colorselector})`};
+    box-shadow: 0 0 12px ${({ $isDone }) => ($isDone ? `${v.verde}80` : `${v.colorPrincipal}80`)};
+    transition: width 0.42s ease, background 0.2s ease;
+    animation: ${({ $isDone }) => ($isDone ? "none" : "divisionProgress 0.9s ease-in-out infinite")};
+  }
+
+  @keyframes divisionProgress {
+    0% {
+      transform: translateX(-24%);
+    }
+    50% {
+      transform: translateX(18%);
+    }
+    100% {
+      transform: translateX(0);
+    }
   }
 `;
 
