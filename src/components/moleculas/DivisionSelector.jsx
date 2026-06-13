@@ -80,9 +80,11 @@ export function DivisionSelector({ isOpen }) {
     showDivisionProgress(division);
     setDivision(division);
 
-    const torneosMatch = location.pathname.match(/(?:\/division\/\d+)?\/torneos\/?([^/]*)?/);
+    const torneosMatch = location.pathname.match(/(?:\/division\/\d+)?\/torneos\/?([^/]*)?\/?([^/]*)?/);
     if (torneosMatch) {
-      const currentTab = torneosMatch[1] || "definir";
+      const firstSegment = torneosMatch[1] || "";
+      const secondSegment = torneosMatch[2] || "";
+      const currentTab = /^\d+$/.test(firstSegment) ? secondSegment || "definir" : firstSegment || "definir";
       navigate(`/division/${division.id}/torneos/${currentTab}`, { replace: true });
       return;
     }
