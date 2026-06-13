@@ -84,6 +84,12 @@ export function DivisionSelector({ isOpen }) {
     if (torneosMatch) {
       const currentTab = torneosMatch[1] || "definir";
       navigate(`/division/${division.id}/torneos/${currentTab}`, { replace: true });
+      return;
+    }
+
+    const equiposMatch = location.pathname.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
+    if (equiposMatch) {
+      navigate(`/division/${division.id}/equipos`, { replace: true });
     }
   };
 

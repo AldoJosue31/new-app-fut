@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import styled from "styled-components";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "../../../store/AuthStore";
 import { useDivisionStore } from "../../../store/DivisionStore";
@@ -29,6 +29,7 @@ const AdminLinksArray = [
 ];
 
 export function Sidebar({ state, setState }) {
+  const location = useLocation();
   const { cerrarSesion, profile } = useAuthStore(); // Obtenemos el perfil para checar el rol
   const { selectedDivision } = useDivisionStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -46,8 +47,22 @@ export function Sidebar({ state, setState }) {
       return `/division/${selectedDivision.id}/torneos`;
     }
 
+    if (to === "/equipos" && selectedDivision?.id) {
+      return `/division/${selectedDivision.id}/equipos`;
+    }
+
     return to;
   };
+  const isTorneosRoute = /^\/(?:division\/\d+\/)?torneos(?:\/|$)/.test(location.pathname);
+  const isEquiposRoute = /^\/(?:division\/\d+\/)?equipos(?:\/|$)/.test(location.pathname);
+  const getManagerLinkClass = (label, isActive) =>
+    `Links${
+      isActive ||
+      (label === "Torneos" && isTorneosRoute) ||
+      (label === "Equipos" && isEquiposRoute)
+        ? ` active`
+        : ``
+    }`;
 
   return (
     <Main $isOpen={state}>
@@ -91,7 +106,7 @@ export function Sidebar({ state, setState }) {
               <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
                 <NavLink 
                   to={getManagerLinkTo(to)}
-                  className={({ isActive }) => `Links${isActive ? ` active` : ``}`} 
+                  className={({ isActive }) => getManagerLinkClass(label, isActive)} 
                   onClick={() => setState(false)}
                 >
                   <section className={state ? "content open" : "content"}>
