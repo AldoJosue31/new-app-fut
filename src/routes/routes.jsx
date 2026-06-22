@@ -94,7 +94,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       
       {/* 4. TORNEOS por divisiÃ³n */}
       <Route
-        path="/division/:divisionId/torneos/:torneoOrTab?/:tab?"
+        path="/division/:divisionId/torneos/:torneoOrTab?/:tab?/:jornadaId?"
         element={
           <ProtectedRoute>
             <Torneos state={sidebarState} setState={setSidebarState} />
@@ -104,7 +104,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
 
       {/* 4b. TORNEOS legacy */}
       <Route 
-        path="/torneos/:torneoOrTab?/:tab?"
+        path="/torneos/:torneoOrTab?/:tab?/:jornadaId?"
         element={
           <ProtectedRoute>
             <Torneos state={sidebarState} setState={setSidebarState} />

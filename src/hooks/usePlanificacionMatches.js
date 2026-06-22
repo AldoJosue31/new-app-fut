@@ -33,7 +33,7 @@ export const usePlanificacionMatches = (
 ) => {
   const [scheduledMatches, setScheduledMatches] = useState([]);
   const [allPendingMatches, setAllPendingMatches] = useState([]); 
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadedContextKey, setLoadedContextKey] = useState(null);
 
   // --- LOGICA DE FECHAS ---
   const [jornadaDates, setJornadaDates] = useState({});
@@ -65,8 +65,56 @@ export const usePlanificacionMatches = (
 
   const storageKey = useMemo(() => {
     if (!activeTournament?.id) return null;
-    return `planning_draft_${activeTournament.id}_J${jornadaIndex}_v${dataVersion}`;
-  }, [activeTournament?.id, jornadaIndex, dataVersion]);
+    const jornadaKey = jornadaData?.id ? `id_${jornadaData.id}` : `J${jornadaIndex}`;
+    return `planning_draft_${activeTournament.id}_${jornadaKey}_v${dataVersion}`;
+  }, [activeTournament?.id, jornadaData?.id, jornadaIndex, dataVersion]);
+
+  const dataContextKey = useMemo(() => {
+    const compactMatches = (items = []) =>
+      items
+        .map((match) => [
+          match?.id,
+          match?.jornada_id,
+          match?.date,
+          match?.status,
+          match?.originJornada,
+          match?.jornadas?.name,
+        ].join(":"))
+        .join("|");
+
+    return [
+      activeTournament?.id || "",
+      jornadaData?.id || jornadaIndex,
+      currentJornadaName,
+      currentJornadaNumber,
+      dataVersion,
+      isConfirmed ? "confirmed" : "open",
+      isRepositionJornada ? "reposition" : "regular",
+      isPlayoffJornada ? "playoff" : "league",
+      targetJornadaIndex,
+      (teams || []).map((team) => team?.id).join(","),
+      compactMatches(matchesDB),
+      compactMatches(globalPendingMatches),
+      storageKey || "",
+    ].join("::");
+  }, [
+    activeTournament?.id,
+    currentJornadaName,
+    currentJornadaNumber,
+    dataVersion,
+    globalPendingMatches,
+    isConfirmed,
+    isPlayoffJornada,
+    isRepositionJornada,
+    jornadaData?.id,
+    jornadaIndex,
+    matchesDB,
+    storageKey,
+    targetJornadaIndex,
+    teams,
+  ]);
+
+  const isPlanningDataReady = loadedContextKey === dataContextKey;
 
   const datesStorageKey = useMemo(() => {
       if (!activeTournament?.id) return null;
@@ -175,7 +223,7 @@ export const usePlanificacionMatches = (
 
   const clearDraft = useCallback(() => {
     if (storageKey) localStorage.removeItem(storageKey);
-    setIsLoaded(false); 
+    setLoadedContextKey(null);
   }, [storageKey]);
 
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
@@ -267,7 +315,12 @@ export const usePlanificacionMatches = (
 
   // --- CARGA DATOS LOCALES ---
   useLayoutEffect(() => {
-    if (!teams || teams.length < 2) return;
+    if (!teams || teams.length < 2) {
+      setScheduledMatches([]);
+      setAllPendingMatches([]);
+      setLoadedContextKey(dataContextKey);
+      return;
+    }
 
     let hasDraft = false;
     let draftMap = new Map();
@@ -377,21 +430,22 @@ export const usePlanificacionMatches = (
 
     setScheduledMatches(currentScheduled);
     setAllPendingMatches([...currentPending, ...currentSuggestions]);
-    setIsLoaded(true);
+    setLoadedContextKey(dataContextKey);
 
   }, [
       teams, matchesDB, globalPendingMatches, 
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
-      targetJornadaIndex, currentJornadaNumber, isRepositionJornada, isPlayoffJornada
+      targetJornadaIndex, currentJornadaNumber, isRepositionJornada, isPlayoffJornada,
+      dataContextKey
   ]); 
 
   useEffect(() => {
-    if (isLoaded && storageKey && !isConfirmed) {
+    if (isPlanningDataReady && storageKey && !isConfirmed) {
         const draftData = { scheduledMatches, allPendingMatches };
         localStorage.setItem(storageKey, JSON.stringify(draftData));
     }
-  }, [scheduledMatches, allPendingMatches, storageKey, isLoaded, isConfirmed]);
+  }, [scheduledMatches, allPendingMatches, storageKey, isPlanningDataReady, isConfirmed]);
 
   const sidebarMatches = useMemo(() => {
     const scheduledIds = new Set(scheduledMatches.map(m => String(m.id)));
@@ -405,6 +459,7 @@ export const usePlanificacionMatches = (
     weekStartDate, setWeekStartDate: handleSetWeekStartDate,
     durationMatch, autoAdjustTimes, currentJornadaName, currentJornadaNumber,
     clearDraft,
+    isPlanningDataReady,
     showExternalMatches, toggleExternalMatches, 
     externalMatches, loadingExternal,
     fetchExternalMatches

@@ -16,14 +16,11 @@ import { addDaysToDate, formatDateWithWeekday } from "../../../../utils/dateUtil
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import {
   isOfficialJornadaName,
+  isRepositionJornadaName,
   parseJornadaNumber,
   sortJornadas,
 } from "../../../../utils/jornadaUtils";
-import {
-  REPOSITION_MODE,
-  getRepositionMode,
-  getSuggestedRepositionWindow,
-} from "../../../../utils/repositionUtils";
+import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
 import { buildRepositionPreview } from "../../../../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
 
@@ -41,6 +38,7 @@ import { EmptyDropZone } from "./planificacion/EmptyDropZone";
 import { ConfirmModal } from "../../ConfirmModal";
 import { MatchResolutionModal } from "./planificacion/MatchResolutionModal";
 import { RepositionPlannerModal } from "./planificacion/RepositionPlannerModal";
+import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 
 const getMatchTeamsLabel = (match) => {
   if (!match) return "";
@@ -83,6 +81,7 @@ export function JornadaPlanificacion({
     currentJornadaName,
     currentJornadaNumber,
     clearDraft,
+    isPlanningDataReady,
     showExternalMatches,
     toggleExternalMatches,
     externalMatches,
@@ -129,6 +128,10 @@ export function JornadaPlanificacion({
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const isConfirmed = jornadaData?.status === "Confirmada";
+  const isRepositionMode = useMemo(
+    () => isRepositionJornadaName(jornadaData?.name),
+    [jornadaData?.name]
+  );
   const isPlayoffJornada = useMemo(
     () => isPlayoffJornadaName(currentJornadaName),
     [currentJornadaName]
@@ -188,13 +191,6 @@ export function JornadaPlanificacion({
     return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
   }).length;
 
-  const repositionMode = getRepositionMode({
-    scheduledMatches,
-    currentJornadaNumber,
-  });
-
-  const isRepositionMode = repositionMode === REPOSITION_MODE.ONLY_DELAYED;
-
   const suggestedRepositionWindow = useMemo(
     () =>
       getSuggestedRepositionWindow({
@@ -229,6 +225,10 @@ export function JornadaPlanificacion({
       endDate: newEnd,
     });
   }, []);
+
+  useEffect(() => {
+    setRepositionWeek({ startDate: "", endDate: "" });
+  }, [jornadaData?.id]);
 
   useEffect(() => {
     if (!isRepositionMode) {
@@ -620,6 +620,10 @@ export function JornadaPlanificacion({
     },
     [chronologicalJornadas, jornadas, onChangeJornada]
   );
+
+  if (!isPlanningDataReady) {
+    return <JornadaPlanificacionSkeleton />;
+  }
 
   return (
     <Container>

@@ -26,7 +26,12 @@ export function TorneosTemplate({
   leagueData // <-- AHORA RECIBE LA LIGA DESDE LA PÁGINA
 }) {
   const navigate = useNavigate();
-  const { divisionId: routeDivisionId, torneoOrTab, tab } = useParams();
+  const {
+    divisionId: routeDivisionId,
+    torneoOrTab,
+    tab: tabOrJornadaId,
+    jornadaId: jornadaIdParam,
+  } = useParams();
   
   const tabList = [
     { id: "definir", label: "Torneo", icon: <v.iconocorona /> },
@@ -38,7 +43,13 @@ export function TorneosTemplate({
   const validTabIds = tabList.map(t => t.id);
   const routeHasTournamentId = /^\d+$/.test(String(torneoOrTab || ""));
   const routeTournamentId = routeHasTournamentId ? torneoOrTab : null;
-  const routeTab = routeHasTournamentId ? tab : torneoOrTab;
+  const routeTab = routeHasTournamentId ? tabOrJornadaId : torneoOrTab;
+  const routeJornadaId =
+    routeTab === "jornadas"
+      ? routeHasTournamentId
+        ? jornadaIdParam
+        : tabOrJornadaId
+      : null;
   const isValidTab = validTabIds.includes(routeTab);
   const shouldAutoRedirectToJornadas = getTournamentAutoRedirectPreference();
   const defaultTab = activeTournament && shouldAutoRedirectToJornadas ? "jornadas" : "definir";
@@ -50,10 +61,13 @@ export function TorneosTemplate({
   const canResetOnUnmountRef = useRef(false);
   const visibleDivisionId = routeDivisionId || currentDivisionId;
   const visibleTournamentId = activeTournament?.id || routeTournamentId;
-  const getTorneosPath = (nextTabId) =>
-    visibleDivisionId
-      ? `/division/${visibleDivisionId}/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}`
-      : `/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}`;
+  const getTorneosPath = (nextTabId) => {
+    const jornadaSuffix =
+      nextTabId === "jornadas" && routeJornadaId ? `/${routeJornadaId}` : "";
+    return visibleDivisionId
+      ? `/division/${visibleDivisionId}/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}${jornadaSuffix}`
+      : `/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}${jornadaSuffix}`;
+  };
 
   useEffect(() => {
     activeTournamentRef.current = activeTournament;
@@ -99,7 +113,7 @@ export function TorneosTemplate({
     if (isLoadingData && !activeTournament) return;
 
     navigate(getTorneosPath(defaultTab), { replace: true });
-  }, [activeTab, activeTournament, currentDivisionId, defaultTab, isLoadingData, isValidTab, navigate, routeDivisionId, routeTournamentId, visibleDivisionId, visibleTournamentId]);
+  }, [activeTab, activeTournament, currentDivisionId, defaultTab, isLoadingData, isValidTab, navigate, routeDivisionId, routeJornadaId, routeTournamentId, visibleDivisionId, visibleTournamentId]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
   const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;
