@@ -1,6 +1,6 @@
 // src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import styled, { keyframes } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import {
   RiCheckDoubleLine,
@@ -46,6 +46,33 @@ const getMatchTeamsLabel = (match) => {
   const awayName = match.awayTeam?.name || match.visitante?.name || "Visitante";
   return `${homeName} vs ${awayName}`;
 };
+
+const customScrollbar = css`
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+    margin: 5px 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colorScroll};
+    border-radius: 4px;
+    transition: background 0.3s ease;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: ${({ theme }) => theme.text};
+  }
+`;
 
 export function JornadaPlanificacion({
   matchesDB = [],
@@ -1167,14 +1194,18 @@ const DropZone = styled.div`
   border-radius: 10px;
   padding: 10px;
   overflow-y: auto;
+  overflow-x: auto;
+  padding-right: 15px;
   position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   transition: all 0.3s ease;
+  ${customScrollbar}
 
   @media (min-width: 768px) {
     padding: 15px;
+    padding-right: 20px;
   }
 `;
 
