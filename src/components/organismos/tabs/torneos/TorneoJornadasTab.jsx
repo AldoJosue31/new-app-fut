@@ -1305,6 +1305,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             isTournamentActive={true} 
             dataVersion={dataVersion}
             jornadas={jornadas} 
+            allTournamentMatches={allTournamentMatches}
             onUpdateDates={handleCascadingDateUpdate}
             needsDateNormalization={
               sevenDayPreview.needsAdjustment || matchWeekPreview.needsAdjustment

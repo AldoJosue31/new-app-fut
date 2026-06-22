@@ -64,6 +64,7 @@ export function JornadaPlanificacion({
   isTournamentActive,
   dataVersion,
   jornadas = [],
+  allTournamentMatches = [],
   onUpdateDates,
   onAutoFill,
   needsDateNormalization = false,
@@ -150,6 +151,47 @@ export function JornadaPlanificacion({
 
     return foundIndex === -1 ? jornadaIndex : foundIndex;
   }, [chronologicalJornadas, jornadaData?.id, jornadaIndex]);
+  const matchProgressByJornada = useMemo(() => {
+    return (allTournamentMatches || []).reduce((acc, match) => {
+      const jornadaId = match?.jornada_id || match?.jornadas?.id || match?.jornada?.id;
+      if (!jornadaId || !match?.team1_id || !match?.team2_id) return acc;
+
+      const key = String(jornadaId);
+      const current = acc.get(key) || { completed: 0, total: 0 };
+      current.total += 1;
+      if (match.status === "Finalizado") {
+        current.completed += 1;
+      }
+      acc.set(key, current);
+      return acc;
+    }, new Map());
+  }, [allTournamentMatches]);
+
+  const selectableJornadas = useMemo(() => {
+    const lastConfirmedIndex = chronologicalJornadas.reduce((lastIndex, jornada, index) => {
+      return ["Confirmada", "Finalizada"].includes(jornada?.status) ? index : lastIndex;
+    }, -1);
+    const nextAvailableIndex = lastConfirmedIndex + 1;
+    const currentJornadaId = jornadaData?.id ? String(jornadaData.id) : null;
+
+    return chronologicalJornadas
+      .filter((jornada, index) => {
+        const isConfirmedOrFinished = ["Confirmada", "Finalizada"].includes(jornada?.status);
+        const isNextAvailable = index === nextAvailableIndex;
+        const isCurrent = currentJornadaId && String(jornada?.id) === currentJornadaId;
+
+        return isConfirmedOrFinished || isNextAvailable || isCurrent;
+      })
+      .map((jornada) => {
+        const isConfirmedOrFinished = ["Confirmada", "Finalizada"].includes(jornada?.status);
+        return {
+          ...jornada,
+          progress: isConfirmedOrFinished
+            ? matchProgressByJornada.get(String(jornada.id)) || { completed: 0, total: 0 }
+            : null,
+        };
+      });
+  }, [chronologicalJornadas, jornadaData?.id, matchProgressByJornada]);
   const officialJornadasCount = jornadas.filter((jornada) =>
     isOfficialJornadaName(jornada?.name)
   ).length || totalJornadas;
@@ -621,6 +663,19 @@ export function JornadaPlanificacion({
     [chronologicalJornadas, jornadas, onChangeJornada]
   );
 
+  const handleSelectJornada = useCallback(
+    (jornadaId) => {
+      const targetIndex = chronologicalJornadas.findIndex(
+        (jornada) => String(jornada.id) === String(jornadaId)
+      );
+
+      if (targetIndex !== -1) {
+        handleChronologicalNavigation(targetIndex);
+      }
+    },
+    [chronologicalJornadas, handleChronologicalNavigation]
+  );
+
   if (!isPlanningDataReady) {
     return <JornadaPlanificacionSkeleton />;
   }
@@ -638,7 +693,7 @@ export function JornadaPlanificacion({
         jornadaIndex={jornadaIndex}
         jornadaData={headerJornadaData}
         status={
-          isRepositionMode
+          isRepositionMode && !["Confirmada", "Finalizada"].includes(jornadaData?.status)
             ? "Jornada de Reposicion"
             : jornadaData?.status || "Pendiente"
         }
@@ -653,6 +708,9 @@ export function JornadaPlanificacion({
         totalJornadas={totalJornadas}
         navigationIndex={chronologicalJornadaIndex}
         totalNavigationItems={chronologicalJornadas.length}
+        jornadaOptions={selectableJornadas}
+        selectedJornadaId={jornadaData?.id}
+        onSelectJornada={handleSelectJornada}
         onSaveDates={onUpdateDates}
         onDateChange={handleRepositionHeaderDates}
         isRepositionMode={isRepositionMode}
