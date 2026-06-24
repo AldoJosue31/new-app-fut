@@ -17,11 +17,11 @@ const HeaderContainer = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.bg3 || '#eee'};
   
   /* CAMBIO: Padding inferior a 0 para pegar los tabs al borde */
-  padding: 10px 20px 0 20px;
+  padding: 0 20px;
 
   @media (max-width: 768px) {
     /* En móvil también quitamos el padding inferior */
-    padding: 10px 15px 0 15px; 
+    padding: 0 15px;
   }
 `;
 
@@ -31,7 +31,7 @@ const ContentWrapper = styled.div`
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   /* Aseguramos que el wrapper ocupe altura completa si es necesario */
   padding-bottom: 0;
 `;
@@ -42,7 +42,8 @@ const TopRow = styled.div`
   justify-content: space-between;
   width: 100%;
   position: relative;
-  min-height: 40px;
+  height: 36px;
+  min-height: 36px;
   /* Añadimos un pequeño margen bottom si NO hay tabs, pero si hay tabs, el gap del wrapper lo maneja */
 `;
 
@@ -54,8 +55,12 @@ const LeftArea = styled.div`
 
 const CenterArea = styled.div`
   position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   width: auto;
   max-width: 60%;
@@ -65,14 +70,19 @@ const CenterArea = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
 
-  & > h1, & > div {
+  & > h1, & > div, & > span {
+    display: block;
+    transform: translateY(-1px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     margin: 0;
+    padding-bottom: 0;
+    font-size: 24px;
+    line-height: 1;
     
     @media (max-width: 768px) {
-      font-size: 18px;
+      font-size: 17px;
     }
   }
 `;
@@ -90,8 +100,9 @@ const MenuButton = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  margin-left: -8px;
+  width: 36px;
+  height: 36px;
+  margin-left: -6px;
   border-radius: 50%;
   transition: background-color 0.2s;
   color: ${({ theme }) => theme.text};
@@ -101,7 +112,7 @@ const MenuButton = styled.div`
   }
 
   svg {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   @media (min-width: 768px) { 

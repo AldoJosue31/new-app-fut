@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import styled from "styled-components";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ContentContainer } from "../atomos/ContentContainer";
@@ -27,18 +27,38 @@ export const EquiposTemplate = ({
   onConfirmDelete, tabs, participatingIds = [],
   state, setState
 }) => {
-    const { teamId } = useParams();
+    const { divisionId: routeDivisionId, teamId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     const initialView = location.state?.initialView;
-    const teamFromUrl = equipos?.find(t => String(t.id) === String(teamId));
+    const visibleDivisionId = routeDivisionId || division?.id;
+    const isCreateRoute = teamId === "crear";
+    const teamFromUrl = isCreateRoute ? null : equipos?.find(t => String(t.id) === String(teamId));
     
+    const getEquiposPath = (nextTeamId = "") => {
+        const suffix = nextTeamId ? `/${nextTeamId}` : "";
+        return visibleDivisionId ? `/division/${visibleDivisionId}/equipos${suffix}` : `/equipos${suffix}`;
+    };
+
     const handleViewTeam = (team) => {
-        navigate(`/equipos/${team.id}`);
+        navigate(getEquiposPath(team.id));
     };
 
     const handleCloseDetail = () => {
-        navigate('/equipos');
+        navigate(getEquiposPath());
+    };
+
+    const handleOpenCreate = () => {
+        hasOpenedCreateRouteRef.current = true;
+        onCreate();
+        navigate(getEquiposPath("crear"));
+    };
+
+    const handleCloseForm = () => {
+        setIsFormOpen(false);
+        if (isCreateRoute) {
+            navigate(getEquiposPath());
+        }
     };
 
     const modalTabs = [
@@ -46,14 +66,44 @@ export const EquiposTemplate = ({
       { id: "players", label: "Jugadores", icon: <RiGroupLine/> }
     ];
     const [activeTab, setActiveTab] = useState("info");
+    const hasOpenedCreateRouteRef = useRef(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [teamToTransfer, setTeamToTransfer] = useState(null);
     const { divisiones } = useDivisionStore();
     const [toast, setToast] = useState({ show: false, msg: '', type: 'success' });
     const showToast = (msg, type = "success") => setToast({ show: true, msg, type });
 
+    useEffect(() => {
+      if (!routeDivisionId && division?.id) {
+        navigate(getEquiposPath(teamId), { replace: true, state: location.state });
+      }
+    }, [division?.id, routeDivisionId, teamId, navigate, location.state]);
+
+    useEffect(() => {
+      if (!isCreateRoute) {
+        hasOpenedCreateRouteRef.current = false;
+        return;
+      }
+
+      if (isFormOpen) {
+        hasOpenedCreateRouteRef.current = true;
+        return;
+      }
+
+      if (!hasOpenedCreateRouteRef.current && !isFormOpen) {
+        hasOpenedCreateRouteRef.current = true;
+        onCreate();
+      }
+    }, [isCreateRoute, isFormOpen, onCreate]);
+
     const handleSaveWrapper = async (e) => {
-      try { await onSave(e); showToast(teamToEdit ? "Equipo actualizado" : "Equipo creado", "success"); } 
+      try {
+        await onSave(e);
+        showToast(teamToEdit ? "Equipo actualizado" : "Equipo creado", "success");
+        if (isCreateRoute) {
+          navigate(getEquiposPath());
+        }
+      } 
       catch (error) { showToast("Error al guardar: " + error.message, "error"); }
     };
 
@@ -88,7 +138,7 @@ export const EquiposTemplate = ({
           
           <FloatingBtnWrapper>
             <BtnGreen 
-                onClick={onCreate} 
+                onClick={handleOpenCreate} 
                 disabled={!division} 
                 icono={<IoMdFootball size={18}/>}
             >
@@ -123,7 +173,7 @@ export const EquiposTemplate = ({
                                     icon={<IoMdFootball size={48} />} 
                                     title="Sin Equipos" 
                                     description={division ? `No hay equipos en ${division.name}` : "Selecciona una división"} 
-                                    actionComponent={<BtnNormal onClick={onCreate} disabled={!division}>Crear Primer Equipo</BtnNormal>} 
+                                    actionComponent={<BtnNormal onClick={handleOpenCreate} disabled={!division}>Crear Primer Equipo</BtnNormal>} 
                                 />
                               </div>
                             )}
@@ -134,7 +184,7 @@ export const EquiposTemplate = ({
           </Card>
         </MainContainer>
 
-        <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={teamToEdit ? `Editar: ${teamToEdit.name}` : "Nuevo Equipo"} closeOnOverlayClick={false}>
+        <Modal isOpen={isFormOpen} onClose={handleCloseForm} title={teamToEdit ? `Editar: ${teamToEdit.name}` : "Nuevo Equipo"} closeOnOverlayClick={false}>
           {teamToEdit && (<TabsWrapper><TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} /></TabsWrapper>)}
           {activeTab === "info" && (
               <TabContent>

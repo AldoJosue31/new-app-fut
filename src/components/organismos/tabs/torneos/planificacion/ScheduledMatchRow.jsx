@@ -21,6 +21,33 @@ import { RiArrowLeftUpLine, RiLinksLine, RiRouteLine } from "react-icons/ri";
 import MatchSheetModal from "../exports/match-sheets/MatchSheetModal";
 import { PreMatchSheetModal } from "../exports/match-sheets/PreMatchSheetModal";
 
+const customScrollbar = css`
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
+
+    &::-webkit-scrollbar {
+        width: 5px;
+        height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 4px;
+        margin: 5px 0;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: ${({ theme }) => theme.colorScroll};
+        border-radius: 4px;
+        transition: background 0.3s ease;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: ${({ theme }) => theme.text};
+    }
+`;
+
 const getPenaltyScore = (observations) => {
     if (!observations) return null;
     const regex = /Pen.*:\s*(\d+)\s*-\s*(\d+)/i;
@@ -595,6 +622,10 @@ const Container = styled.div`
 
     .settings { 
         display: flex; gap: 8px; width: 100%; justify-content: space-between; min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 3px;
+        ${customScrollbar}
         @media ${Device.tablet} { width: auto; max-width: 100%; justify-content: flex-end; align-items: center; flex-shrink: 0; }
         @media (min-width: 768px) and (max-width: 1024px) {
             display: grid;

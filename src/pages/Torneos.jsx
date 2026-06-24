@@ -21,6 +21,7 @@ export function Torneos({ state: sidebarState, setState: setSidebarState }) {
 
         loading={state.loading}
         isLoadingData={state.isLoadingData}
+        currentDivisionId={state.divisionId}
         divisionName={state.divisionName}
         activeTournament={state.activeTournament}
         standings={state.standings}
