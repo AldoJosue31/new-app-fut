@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>Bracket Promo 10s</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #131F24;
+        color: #F6FAFC;
+        font-family: sans-serif;
+      }
+
+      #main {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #131F24;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background-color: #131F24;
+      }
+
+      #scene1 { z-index: 1; }
+      #scene2, #scene3, #scene4 { opacity: 0; }
+      #scene2 { z-index: 2; }
+      #scene3 { z-index: 3; }
+      #scene4 { z-index: 4; }
+
+      .field-grid {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 72% 20%, rgba(28,176,246,0.2), rgba(19,31,36,0) 30%),
+          radial-gradient(circle at 20% 88%, rgba(83,178,87,0.14), rgba(19,31,36,0) 26%),
+          linear-gradient(90deg, rgba(56,212,255,0.08) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(56,212,255,0.06) 1px, transparent 1px);
+        background-size: auto, auto, 96px 96px, 96px 96px;
+      }
+
+      .field-lines {
+        position: absolute;
+        inset: 82px 120px;
+        border: 2px solid rgba(56,212,255,0.18);
+        border-radius: 28px;
+      }
+
+      .field-lines::before, .field-lines::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        width: 360px;
+        height: 360px;
+        border: 2px solid rgba(83,178,87,0.16);
+        border-radius: 50%;
+        transform: translateY(-50%);
+      }
+      .field-lines::before { left: -180px; }
+      .field-lines::after { right: -180px; }
+
+      .logo {
+        width: 150px;
+        height: 150px;
+        object-fit: contain;
+        filter: drop-shadow(0 24px 45px rgba(28,176,246,0.38));
+      }
+
+      .intro-content {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+        padding: 142px 170px 128px;
+        display: grid;
+        grid-template-columns: 1fr 1.25fr;
+        align-items: center;
+        gap: 90px;
+      }
+
+      .intro-logo-lock {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 520px;
+      }
+
+      .brand-word {
+        margin-top: 26px;
+        font-size: 66px;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .intro-title {
+        max-width: 860px;
+        font-size: 92px;
+        line-height: 0.98;
+        font-weight: 900;
+        letter-spacing: 0.01em;
+      }
+
+      .intro-subline {
+        margin-top: 34px;
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        color: #A9BBC4;
+        font-family: monospace;
+        font-size: 24px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #53B257;
+        box-shadow: 0 0 24px rgba(83,178,87,0.75);
+      }
+
+      .bracket-lines {
+        position: absolute;
+        left: 682px;
+        top: 236px;
+        width: 242px;
+        height: 516px;
+        opacity: 0.8;
+      }
+
+      .bracket-lines div {
+        position: absolute;
+        background: #38D4FF;
+        transform-origin: left center;
+        box-shadow: 0 0 20px rgba(56,212,255,0.5);
+      }
+
+      .bracket-lines .h1 { top: 0; left: 0; width: 190px; height: 4px; }
+      .bracket-lines .h2 { bottom: 0; left: 0; width: 190px; height: 4px; }
+      .bracket-lines .v1 { top: 0; left: 188px; width: 4px; height: 520px; transform-origin: top center; }
+      .bracket-lines .h3 { top: 258px; left: 188px; width: 56px; height: 4px; }
+
+      .scene-content {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        padding: 92px 128px 104px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+
+      .section-top {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 38px;
+      }
+
+      .eyebrow {
+        font-family: monospace;
+        font-size: 22px;
+        font-weight: 800;
+        color: #38D4FF;
+        text-transform: uppercase;
+      }
+
+      .headline {
+        margin-top: 10px;
+        font-size: 76px;
+        line-height: 0.98;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .support-chips {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .chip {
+        border: 1px solid #263740;
+        background: rgba(16,25,29,0.86);
+        color: #F6FAFC;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .interface-stage {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 426px;
+        gap: 26px;
+      }
+
+      .capture-frame {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 1px solid #263740;
+        background: #10191D;
+        box-shadow: 0 28px 74px rgba(0,0,0,0.34);
+      }
+
+      .capture-frame img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .teams-main img { transform: scale(1.03); transform-origin: 50% 42%; }
+      .team-form img { transform: scale(1.08); transform-origin: 58% 46%; }
+      .tournament-main img { transform: scale(1.02); transform-origin: 52% 40%; }
+      .standings-side img { transform: scale(1.04); transform-origin: 52% 40%; }
+
+      .side-stack {
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 24px;
+      }
+
+      .callout {
+        position: absolute;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-radius: 8px;
+        color: #F6FAFC;
+        background: rgba(16,25,29,0.92);
+        border: 1px solid rgba(56,212,255,0.35);
+        box-shadow: 0 12px 34px rgba(0,0,0,0.25);
+        font-family: monospace;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .callout::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #53B257;
+      }
+
+      .callout::after {
+        content: attr(data-label);
+      }
+
+      .teams-callout-1 { left: 72px; top: 76px; }
+      .teams-callout-2 { right: 44px; top: 92px; }
+      .teams-callout-3 { left: 92px; bottom: 72px; }
+      .tour-callout-1 { left: 74px; top: 96px; }
+      .tour-callout-2 { right: 66px; top: 86px; }
+      .tour-callout-3 { left: 90px; bottom: 76px; }
+
+      .cursor {
+        position: absolute;
+        z-index: 7;
+        width: 34px;
+        height: 34px;
+        border-radius: 50% 50% 50% 6px;
+        background: #F6FAFC;
+        transform: rotate(-18deg);
+        box-shadow: 0 0 0 8px rgba(28,176,246,0.22), 0 16px 34px rgba(0,0,0,0.32);
+      }
+
+      .cursor::after {
+        content: "";
+        position: absolute;
+        left: 9px;
+        top: 9px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #1CB0F6;
+      }
+
+      .score-line {
+        position: absolute;
+        height: 5px;
+        background: #38D4FF;
+        box-shadow: 0 0 20px rgba(56,212,255,0.75);
+        transform-origin: left center;
+      }
+
+      .line-a { left: 128px; top: 184px; width: 450px; }
+      .line-b { right: 128px; bottom: 128px; width: 540px; }
+
+      .transition-cover {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateX(-110%);
+      }
+
+      .transition-cover .band {
+        position: absolute;
+        inset: 0;
+        background: #1CB0F6;
+        clip-path: polygon(0 0, 86% 0, 100% 100%, 0 100%);
+      }
+
+      .transition-cover .band-dark {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 68%;
+        background: #10191D;
+        clip-path: polygon(0 0, 82% 0, 100% 100%, 0 100%);
+      }
+
+      .transition-cover .band-green {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 26%;
+        background: #53B257;
+        clip-path: polygon(0 0, 76% 0, 100% 100%, 0 100%);
+      }
+
+      .collage {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 1.08fr 0.92fr;
+        gap: 26px;
+      }
+
+      .closing-card {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #263740;
+        background: #10191D;
+        min-height: 0;
+      }
+
+      .closing-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .final-lock {
+        position: absolute;
+        inset: 0;
+        z-index: 8;
+        opacity: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background:
+          radial-gradient(circle at 50% 36%, rgba(28,176,246,0.20), rgba(19,31,36,0) 30%),
+          rgba(19,31,36,0.84);
+        text-align: center;
+      }
+
+      .final-logo {
+        width: 172px;
+        height: 172px;
+        object-fit: contain;
+        filter: drop-shadow(0 18px 46px rgba(28,176,246,0.46));
+      }
+
+      .final-title {
+        margin-top: 28px;
+        font-size: 94px;
+        line-height: 0.95;
+        font-weight: 900;
+      }
+
+      .final-subtitle {
+        margin-top: 18px;
+        color: #A9BBC4;
+        font-size: 34px;
+        font-weight: 700;
+      }
+
+      .demo-strip {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .demo-name {
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: rgba(28,176,246,0.16);
+        border: 1px solid rgba(56,212,255,0.28);
+        font-family: monospace;
+        font-size: 17px;
+        font-weight: 800;
+        color: #DFF7FF;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-jaby" id="main" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="10">
+      <audio data-hf-id="hf-n7to" id="music" data-start="0" data-duration="10" data-track-index="1" data-volume="0.58" src="assets/audio/bracket-tech-sport.mp3"></audio>
+
+      <div data-hf-id="hf-zet7" id="scene1" class="scene">
+        <div data-hf-id="hf-jdlk" class="field-grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-gief" class="field-lines" data-layout-ignore=""></div>
+        <div data-hf-id="hf-5s13" class="bracket-lines" data-layout-ignore="">
+          <div data-hf-id="hf-t9z5" class="h1"></div><div data-hf-id="hf-x836" class="h2"></div><div data-hf-id="hf-8g5f" class="v1"></div><div data-hf-id="hf-1677" class="h3"></div>
+        </div>
+        <div data-hf-id="hf-pnbq" class="intro-content">
+          <div data-hf-id="hf-gwla" class="intro-logo-lock">
+            <img data-hf-id="hf-ow2p" class="logo intro-logo" src="assets/logo_app.png" alt="Bracket logo">
+            <div data-hf-id="hf-yv64" class="brand-word">Bracket</div>
+          </div>
+          <div data-hf-id="hf-yeow">
+            <div data-hf-id="hf-88s1" class="intro-title">Gestiona tu liga. Todo en un solo lugar.</div>
+            <div data-hf-id="hf-bwut" class="intro-subline"><span data-hf-id="hf-9gry" class="dot"></span> Fútbol, datos y control</div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-qqxc" id="scene2" class="scene">
+        <div data-hf-id="hf-szxs" class="field-grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-cn5c" class="scene-content">
+          <div data-hf-id="hf-3v8f" class="section-top" data-layout-allow-overlap="">
+            <div data-hf-id="hf-y7yw">
+              <div data-hf-id="hf-t81s" class="eyebrow">Equipos y jugadores</div>
+              <div data-hf-id="hf-rwqk" class="headline">Control total de tus equipos</div>
+            </div>
+            <div data-hf-id="hf-qk73" class="support-chips">
+              <div data-hf-id="hf-ktyy" class="chip">Plantillas</div>
+              <div data-hf-id="hf-bjss" class="chip">Jugadores</div>
+              <div data-hf-id="hf-e3hb" class="chip">Información</div>
+            </div>
+          </div>
+          <div data-hf-id="hf-om2c" class="interface-stage">
+            <div data-hf-id="hf-4xbb" class="capture-frame teams-main" data-layout-allow-overflow="">
+              <img data-hf-id="hf-an5h" src="assets/captures/equipos-list.png" alt="Lista real de equipos en Bracket">
+              <div data-hf-id="hf-72tg" class="callout teams-callout-1" data-label="Tarjetas de equipo" data-layout-ignore=""></div>
+              <div data-hf-id="hf-5avh" class="callout teams-callout-2" data-label="Crear Equipo" data-layout-ignore=""></div>
+              <div data-hf-id="hf-l7yi" class="callout teams-callout-3" data-label="Editar · transferir · eliminar" data-layout-ignore=""></div>
+              <div data-hf-id="hf-yr4j" class="cursor teams-cursor"></div>
+            </div>
+            <div data-hf-id="hf-hwie" class="side-stack">
+              <div data-hf-id="hf-a9e5" class="capture-frame team-form" data-layout-allow-overflow="">
+                <img data-hf-id="hf-5hib" src="assets/captures/equipo-form.png" alt="Formulario real de equipo">
+              </div>
+              <div data-hf-id="hf-ccky" class="capture-frame">
+                <div data-hf-id="hf-cuji" style="padding: 32px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div data-hf-id="hf-qssb" class="eyebrow">Datos demo</div>
+                  <div data-hf-id="hf-zjuz" class="demo-strip" style="flex-wrap: wrap;">
+                    <span data-hf-id="hf-ty3e" class="demo-name">Halcones FC</span>
+                    <span data-hf-id="hf-6pya" class="demo-name">Titanes</span>
+                    <span data-hf-id="hf-4vrn" class="demo-name">Atlético Norte</span>
+                    <span data-hf-id="hf-jdud" class="demo-name">Deportivo Central</span>
+                  </div>
+                  <div data-hf-id="hf-bt0r" class="demo-strip" style="flex-wrap: wrap;">
+                    <span data-hf-id="hf-focy" class="demo-name">Mateo López</span>
+                    <span data-hf-id="hf-qmmh" class="demo-name">Diego Torres</span>
+                    <span data-hf-id="hf-xmyv" class="demo-name">Carlos Méndez</span>
+                    <span data-hf-id="hf-7oy4" class="demo-name">Luis Herrera</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-6dim" class="score-line line-a" data-layout-ignore=""></div>
+      </div>
+
+      <div data-hf-id="hf-ril5" id="scene3" class="scene">
+        <div data-hf-id="hf-rt0p" class="field-grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-o0eg" class="scene-content">
+          <div data-hf-id="hf-aogv" class="section-top" data-layout-allow-overlap="">
+            <div data-hf-id="hf-x11t">
+              <div data-hf-id="hf-nw4p" class="eyebrow">Torneos</div>
+              <div data-hf-id="hf-4hr3" class="headline">Organiza torneos fácilmente</div>
+            </div>
+            <div data-hf-id="hf-mh8f" class="support-chips">
+              <div data-hf-id="hf-adq3" class="chip">Liga Apertura 2026</div>
+              <div data-hf-id="hf-9868" class="chip">Jornadas</div>
+              <div data-hf-id="hf-1lpk" class="chip">Clasificación</div>
+            </div>
+          </div>
+          <div data-hf-id="hf-nefg" class="interface-stage">
+            <div data-hf-id="hf-cqpy" class="capture-frame tournament-main" data-layout-allow-overflow="">
+              <img data-hf-id="hf-siw2" src="assets/captures/torneos-definir.png" alt="Dashboard real de torneos">
+              <div data-hf-id="hf-b1bm" class="callout tour-callout-1" data-label="Progreso y reglas" data-layout-ignore=""></div>
+              <div data-hf-id="hf-ntvv" class="callout tour-callout-2" data-label="Métricas del torneo" data-layout-ignore=""></div>
+              <div data-hf-id="hf-qaal" class="callout tour-callout-3" data-label="Definir jornadas" data-layout-ignore=""></div>
+              <div data-hf-id="hf-ue33" class="cursor tour-cursor"></div>
+            </div>
+            <div data-hf-id="hf-f7wa" class="side-stack">
+              <div data-hf-id="hf-u6ai" class="capture-frame standings-side" data-layout-allow-overflow="">
+                <img data-hf-id="hf-lsgi" src="assets/captures/torneos-clasificacion.png" alt="Clasificación real de torneo">
+              </div>
+              <div data-hf-id="hf-iqny" class="capture-frame standings-side" data-layout-allow-overflow="">
+                <img data-hf-id="hf-0jqa" src="assets/captures/torneos-dashboard.png" alt="Jornadas reales del torneo">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-a1rp" class="score-line line-b" data-layout-ignore=""></div>
+      </div>
+
+      <div data-hf-id="hf-gn3i" id="scene4" class="scene">
+        <div data-hf-id="hf-s7bq" class="field-grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-jxbw" class="scene-content" data-layout-allow-occlusion="">
+          <div data-hf-id="hf-aa5u" class="section-top" data-layout-allow-overlap="">
+            <div data-hf-id="hf-xfcu">
+              <div data-hf-id="hf-vecb" class="eyebrow">Todo conectado</div>
+              <div data-hf-id="hf-roxr" class="headline">Equipos, jornadas y tablas en una sola plataforma</div>
+            </div>
+          </div>
+          <div data-hf-id="hf-coin" class="collage">
+            <div data-hf-id="hf-qk0d" class="closing-card" data-layout-allow-overflow=""><img data-hf-id="hf-lg7h" src="assets/captures/equipos-close.png" alt="Equipos en Bracket"></div>
+            <div data-hf-id="hf-mu4h" class="closing-card" data-layout-allow-overflow=""><img data-hf-id="hf-j6p2" src="assets/captures/torneos-close.png" alt="Tabla de posiciones en Bracket"></div>
+          </div>
+        </div>
+        <div data-hf-id="hf-90y0" class="final-lock">
+          <img data-hf-id="hf-qiln" class="final-logo" src="assets/logo_app_final.png" alt="Bracket logo final">
+          <div data-hf-id="hf-rg03" class="final-title">Bracket</div>
+          <div data-hf-id="hf-errc" class="final-subtitle">Tu liga, bajo control.</div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-qfba" class="transition-cover" id="transitionCover" data-layout-ignore="">
+        <div data-hf-id="hf-a71x" class="band"></div>
+        <div data-hf-id="hf-2jna" class="band-dark"></div>
+        <div data-hf-id="hf-cft7" class="band-green"></div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+
+      function bracketTransition(nextScene, previousScene, at) {
+        tl.set("#transitionCover", { opacity: 1, xPercent: -110 }, at);
+        tl.to("#transitionCover", { xPercent: 0, duration: 0.22, ease: "power4.inOut" }, at);
+        tl.set(nextScene, { opacity: 1 }, at + 0.12);
+        tl.set(previousScene, { opacity: 0 }, at + 0.24);
+        tl.to("#transitionCover", { xPercent: 112, duration: 0.26, ease: "expo.inOut" }, at + 0.24);
+        tl.set("#transitionCover", { opacity: 0 }, at + 0.52);
+      }
+
+      tl.from(".intro-logo", { scale: 0.72, y: 22, opacity: 0, duration: 0.46, ease: "back.out(1.7)" }, 0.16);
+      tl.from(".brand-word", { y: 28, opacity: 0, duration: 0.38, ease: "power3.out" }, 0.32);
+      tl.from(".intro-title", { x: 64, opacity: 0, duration: 0.52, ease: "expo.out" }, 0.42);
+      tl.from(".intro-subline", { scale: 0.92, opacity: 0, duration: 0.42, ease: "circ.out" }, 0.78);
+      tl.from(".bracket-lines .h1, .bracket-lines .h2, .bracket-lines .h3", { scaleX: 0, duration: 0.46, stagger: 0.08, ease: "power4.out" }, 0.22);
+      tl.from(".bracket-lines .v1", { scaleY: 0, duration: 0.58, ease: "sine.out" }, 0.42);
+
+      bracketTransition("#scene2", "#scene1", 1.32);
+      tl.from("#scene2 .eyebrow", { x: -42, opacity: 0, duration: 0.34, ease: "power3.out" }, 1.62);
+      tl.from("#scene2 .headline", { y: 36, opacity: 0, duration: 0.46, ease: "expo.out" }, 1.72);
+      tl.from("#scene2 .chip", { y: -24, opacity: 0, duration: 0.32, stagger: 0.07, ease: "back.out(1.6)" }, 1.78);
+      tl.from("#scene2 .teams-main", { x: -54, scale: 0.965, opacity: 0, duration: 0.56, ease: "power4.out" }, 1.92);
+      tl.from("#scene2 .side-stack .capture-frame", { x: 40, opacity: 0, duration: 0.48, stagger: 0.12, ease: "circ.out" }, 2.1);
+      tl.from("#scene2 .callout", { scale: 0.9, opacity: 0, duration: 0.34, stagger: 0.12, ease: "back.out(1.45)" }, 2.36);
+      tl.from(".line-a", { scaleX: 0, duration: 0.42, ease: "power3.out" }, 2.52);
+      tl.from(".teams-cursor", { x: 1350, y: 100, opacity: 0, duration: 0.01 }, 2.12);
+      tl.to(".teams-cursor", { x: 1275, y: 53, duration: 0.46, ease: "sine.inOut" }, 2.18);
+      tl.to(".teams-cursor", { x: 79, y: 69, duration: 0.58, ease: "power2.inOut" }, 3.08);
+      tl.to(".teams-main img", { scale: 1.09, x: -28, y: -16, duration: 2.05, ease: "sine.inOut" }, 2.1);
+
+      bracketTransition("#scene3", "#scene2", 4.42);
+      tl.from("#scene3 .eyebrow", { x: 46, opacity: 0, duration: 0.35, ease: "power4.out" }, 4.74);
+      tl.from("#scene3 .headline", { y: 44, opacity: 0, duration: 0.48, ease: "expo.out" }, 4.84);
+      tl.from("#scene3 .chip", { scale: 0.86, opacity: 0, duration: 0.31, stagger: 0.08, ease: "back.out(1.8)" }, 4.94);
+      tl.from("#scene3 .tournament-main", { y: 44, scale: 0.97, opacity: 0, duration: 0.56, ease: "circ.out" }, 5.08);
+      tl.from("#scene3 .side-stack .capture-frame", { x: 54, opacity: 0, duration: 0.48, stagger: 0.12, ease: "power3.out" }, 5.22);
+      tl.from("#scene3 .callout", { y: 20, opacity: 0, duration: 0.34, stagger: 0.1, ease: "back.out(1.35)" }, 5.62);
+      tl.from(".line-b", { scaleX: 0, duration: 0.44, ease: "power4.out" }, 5.74);
+      tl.from(".tour-cursor", { x: 985, y: 385, opacity: 0, duration: 0.01 }, 5.18);
+      tl.to(".tour-cursor", { x: 682, y: 352, duration: 0.58, ease: "sine.inOut" }, 5.6);
+      tl.to(".tournament-main img", { scale: 1.075, x: -20, y: -20, duration: 2.12, ease: "sine.inOut" }, 5.24);
+
+      bracketTransition("#scene4", "#scene3", 7.58);
+      tl.from("#scene4 .eyebrow", { x: -38, opacity: 0, duration: 0.32, ease: "power3.out" }, 7.88);
+      tl.from("#scene4 .headline", { y: 34, opacity: 0, duration: 0.42, ease: "expo.out" }, 7.98);
+      tl.from("#scene4 .closing-card", { y: 42, scale: 0.96, opacity: 0, duration: 0.48, stagger: 0.12, ease: "circ.out" }, 8.08);
+      tl.to(".final-lock", { opacity: 1, duration: 0.46, ease: "sine.inOut" }, 8.24);
+      tl.from(".final-logo", { scale: 0.78, rotation: -5, opacity: 0, duration: 0.46, ease: "back.out(1.5)" }, 8.34);
+      tl.from(".final-title", { y: 30, opacity: 0, duration: 0.38, ease: "power4.out" }, 8.5);
+      tl.from(".final-subtitle", { y: 24, opacity: 0, duration: 0.34, ease: "circ.out" }, 8.66);
+      tl.to(".final-lock", { backgroundColor: "rgba(19,31,36,0.92)", duration: 0.52, ease: "sine.inOut" }, 9.32);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
