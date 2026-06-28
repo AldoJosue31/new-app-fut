@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { useEquiposStore } from "../../store/EquiposStore";
 import { supabase } from "../../supabase/supabase.config";
@@ -6,6 +7,7 @@ import { generateTeamLogo } from "../../utils/logoGenerator";
 import { removeBackground } from "../../utils/imageProcessor";
 import { TEAM_STATUS } from "../../utils/constants";
 import { getTorneoActivo } from "../../services/torneos";
+import { getDivisionWorkspace } from "../../services/divisionWorkspace";
 import { uploadImageToSupabase } from "../../utils/uploadHandler";
 
 // Utilidad infalible para extraer la ruta exacta del archivo desde la URL pública
@@ -50,7 +52,17 @@ const uploadTeamLogo = async ({ file, originalFile, ownerId, leagueId, teamId })
 };
 
 export const useEquiposLogic = () => {
-  const { selectedDivision } = useDivisionStore();
+  const { divisionId: routeDivisionId } = useParams();
+  const { selectedDivision, setDivision } = useDivisionStore();
+  const routeDivisionIdNumber = Number(routeDivisionId);
+  const activeDivisionId =
+    Number.isInteger(routeDivisionIdNumber) && routeDivisionIdNumber > 0
+      ? routeDivisionIdNumber
+      : selectedDivision?.id;
+  const [divisionContext, setDivisionContext] = useState(null);
+  const effectiveDivision =
+    divisionContext ||
+    (activeDivisionId && selectedDivision?.id !== activeDivisionId ? null : selectedDivision);
   const {
     equipos,
     loading,
@@ -90,22 +102,55 @@ export const useEquiposLogic = () => {
   const [preview, setPreview] = useState(null);
   const isSavingRef = useRef(false);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const syncDivisionFromRoute = async () => {
+      if (!activeDivisionId || selectedDivision?.id === activeDivisionId) {
+        setDivisionContext(null);
+        return;
+      }
+
+      try {
+        const workspace = await getDivisionWorkspace(activeDivisionId);
+        if (ignore) return;
+
+        const resolvedDivision = workspace?.division || null;
+        setDivisionContext(resolvedDivision);
+        if (resolvedDivision) {
+          setDivision(resolvedDivision);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("Error cargando division desde ruta:", error);
+          setDivisionContext(null);
+        }
+      }
+    };
+
+    syncDivisionFromRoute();
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeDivisionId, selectedDivision?.id, setDivision]);
+
   // Carga de equipos
   useEffect(() => {
-    if (selectedDivision?.id) {
-      fetchEquipos(selectedDivision.id);
+    if (activeDivisionId) {
+      fetchEquipos(activeDivisionId);
     } else {
       resetStore();
     }
-  }, [selectedDivision, fetchEquipos, resetStore]);
+  }, [activeDivisionId, fetchEquipos, resetStore]);
 
   // Verificación de torneos
   useEffect(() => {
     const fetchTournamentStatus = async () => {
       setParticipatingIds([]); 
-      if (selectedDivision?.id) {
+      if (activeDivisionId) {
         try {
-          const torneo = await getTorneoActivo(selectedDivision.id);
+          const torneo = await getTorneoActivo(activeDivisionId);
           if (torneo && torneo.config && Array.isArray(torneo.config.participatingIds)) {
             setParticipatingIds(torneo.config.participatingIds);
           }
@@ -113,9 +158,9 @@ export const useEquiposLogic = () => {
           console.error("Error verificando estado de torneo:", error);
         }
       }
-    };
+  };
     fetchTournamentStatus();
-  }, [selectedDivision]);
+  }, [activeDivisionId]);
 
   // Limpieza de memoria
   useEffect(() => {
@@ -246,7 +291,7 @@ export const useEquiposLogic = () => {
 
   const handleSave = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!selectedDivision) {
+    if (!effectiveDivision) {
       alert("Selecciona una división");
       return;
     }
@@ -258,7 +303,7 @@ export const useEquiposLogic = () => {
       let logoUrl = form.logo_url;
       let originalLogoUrl = form.original_logo_url || teamToEdit?.original_logo_url;
       const ownerId = file ? await getCurrentOwnerId() : null;
-      const leagueId = selectedDivision?.league_id;
+      const leagueId = effectiveDivision?.league_id;
 
       // 2. LÓGICA DE BORRADO: Si el usuario le dio a la X y no subió nada nuevo
       if (!file && !preview && !form.logo_url) {
@@ -283,7 +328,7 @@ export const useEquiposLogic = () => {
         status: form.status,
         logo_url: logoUrl,
         original_logo_url: originalLogoUrl, 
-        division_id: selectedDivision.id
+        division_id: effectiveDivision.id
       };
 
       if (teamToEdit) {
@@ -429,7 +474,7 @@ export const useEquiposLogic = () => {
     data: {
       equipos,
       loading,
-      selectedDivision,
+      selectedDivision: effectiveDivision,
       uploading,
       participatingIds
     },

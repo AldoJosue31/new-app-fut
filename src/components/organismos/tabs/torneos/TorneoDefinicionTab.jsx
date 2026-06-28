@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { v } from "../../../../styles/variables";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine,
@@ -89,6 +89,7 @@ export function TorneoDefinicionTab({
     partidos = [], goleadores = [], standings = []
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false); 
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
@@ -1365,6 +1366,13 @@ export function TorneoDefinicionTab({
   const isVueltasLocked = tournamentProgress.current > Math.ceil((activeJornadas.length || tournamentProgress.total || 1) / 2);
 
   const handleGoToJornadas = () => {
+      const torneosMatch = location.pathname.match(/(\/division\/\d+\/torneos)(?:\/(\d+))?/);
+      if (torneosMatch) {
+          const [, basePath, torneoId] = torneosMatch;
+          navigate(`${basePath}${torneoId ? `/${torneoId}` : ""}/jornadas`);
+          return;
+      }
+
       navigate("/torneos/jornadas");
   };
 

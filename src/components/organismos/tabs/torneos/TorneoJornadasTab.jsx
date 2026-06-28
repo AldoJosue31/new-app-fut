@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import styled, { keyframes } from "styled-components";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Toast } from "../../../../index";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
@@ -303,12 +304,28 @@ const buildMatchWeekPreview = ({
 };
 
 export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const {
+    torneoOrTab,
+    tab: tabOrJornadaId,
+    jornadaId: jornadaIdParam,
+  } = useParams();
+  const routeHasTournamentId = /^\d+$/.test(String(torneoOrTab || ""));
+  const routeTab = routeHasTournamentId ? tabOrJornadaId : torneoOrTab;
+  const routeJornadaId =
+    routeTab === "jornadas"
+      ? routeHasTournamentId
+        ? jornadaIdParam
+        : tabOrJornadaId
+      : null;
   const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
   const [repositionMappings, setRepositionMappings] = useState([]);
   const [repositionMatchMappings, setRepositionMatchMappings] = useState([]);
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
   const [currentMatches, setCurrentMatches] = useState([]); 
+  const [currentMatchesJornadaId, setCurrentMatchesJornadaId] = useState(null);
   const [allTournamentMatches, setAllTournamentMatches] = useState([]);
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
@@ -318,6 +335,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
+  const currentJornadaMatchesRequestRef = useRef(0);
 
   useEffect(() => {
     setActiveTournament(initialTournament);
@@ -328,6 +346,34 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         loadTournamentData();
     }
   }, [activeTournament?.id]);
+
+  const buildJornadaPath = useCallback(
+    (jornadaId) => {
+      if (!jornadaId) return location.pathname;
+
+      const cleanPath = location.pathname.replace(/\/+$/, "");
+      const nextJornadaPath = `/jornadas/${jornadaId}`;
+
+      if (/\/jornadas(?:\/[^/]+)?$/.test(cleanPath)) {
+        return cleanPath.replace(/\/jornadas(?:\/[^/]+)?$/, nextJornadaPath);
+      }
+
+      return `${cleanPath}${nextJornadaPath}`;
+    },
+    [location.pathname]
+  );
+
+  const syncJornadaPath = useCallback(
+    (jornadaId, options = {}) => {
+      if (!jornadaId || !location.pathname.includes("/jornadas")) return;
+
+      const nextPath = buildJornadaPath(jornadaId);
+      if (nextPath !== location.pathname.replace(/\/+$/, "")) {
+        navigate(nextPath, options);
+      }
+    },
+    [buildJornadaPath, location.pathname, navigate]
+  );
 
   const resolveSelectedJornada = useCallback((sortedJornadas = [], preferredJornadaId = null) => {
     if (!Array.isArray(sortedJornadas) || sortedJornadas.length === 0) {
@@ -387,8 +433,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       if (!targetJornada?.id) return;
 
       setCurrentMatches([]); 
+      setCurrentMatchesJornadaId(null);
       setLoading(true);
       setCurrentJornadaIndex(newIndex);
+      syncJornadaPath(targetJornada.id);
 
       try {
         await fetchCurrentJornadaMatches(
@@ -407,13 +455,14 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       if (!preserveData) {
         setJornadas([]);
         setCurrentMatches([]);
+        setCurrentMatchesJornadaId(null);
         setAllTournamentMatches([]);
         setGlobalPendingMatches([]);
       }
 
       try {
           const updatedMappings = await fetchTournamentConfig();
-          const jornadasResult = await fetchJornadas();
+          const jornadasResult = await fetchJornadas(routeJornadaId);
         const sortedJornadas = jornadasResult?.jornadas || [];
         const selectedJornada = jornadasResult?.selectedJornada || null;
 
@@ -432,7 +481,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       } finally {
         setLoading(false);
       }
-  }, [activeTournament?.id, currentJornadaIndex]);
+  }, [activeTournament?.id, currentJornadaIndex, routeJornadaId]);
 
   const fetchAllTournamentMatches = async () => {
       try {
@@ -506,6 +555,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     mappingsSource = repositionMappings,
     matchMappingsSource = repositionMatchMappings
   ) => {
+    const requestId = currentJornadaMatchesRequestRef.current + 1;
+    currentJornadaMatchesRequestRef.current = requestId;
+
     try {
       const selectedJornada =
         (jornadasSource || []).find((jornada) => String(jornada.id) === String(jornadaId)) ||
@@ -577,9 +629,19 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         return match;
       });
 
-      setCurrentMatches(enhancedMatches);
+      if (requestId === currentJornadaMatchesRequestRef.current) {
+        setCurrentMatches(enhancedMatches);
+        setCurrentMatchesJornadaId(jornadaId);
+      }
+
+      return enhancedMatches;
     } catch (e) { 
         console.error(e);
+        if (requestId === currentJornadaMatchesRequestRef.current) {
+          setCurrentMatches([]);
+          setCurrentMatchesJornadaId(null);
+        }
+        return [];
     }
   };
 
@@ -898,6 +960,25 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       }
   };
 
+  useEffect(() => {
+    const selectedJornadaId = jornadas[currentJornadaIndex]?.id || null;
+    if (!activeTournament?.id || !selectedJornadaId) return;
+    if (String(routeJornadaId || "") === String(selectedJornadaId)) return;
+
+    const routePointsToKnownJornada =
+      routeJornadaId &&
+      jornadas.some((jornada) => String(jornada.id) === String(routeJornadaId));
+    if (routePointsToKnownJornada) return;
+
+    syncJornadaPath(selectedJornadaId, { replace: true });
+  }, [
+    activeTournament?.id,
+    currentJornadaIndex,
+    jornadas,
+    routeJornadaId,
+    syncJornadaPath,
+  ]);
+
   const sevenDayPreview = useMemo(
     () =>
       buildSevenDayPreview(
@@ -958,6 +1039,45 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!activeTournament?.id || !routeJornadaId || jornadas.length === 0) return;
+
+    const targetIndex = jornadas.findIndex(
+      (jornada) => String(jornada.id) === String(routeJornadaId)
+    );
+    if (targetIndex === -1 || targetIndex === currentJornadaIndex) return;
+
+    const targetJornada = jornadas[targetIndex];
+    let isCancelled = false;
+
+    setCurrentMatches([]);
+    setCurrentMatchesJornadaId(null);
+    setLoading(true);
+    setCurrentJornadaIndex(targetIndex);
+
+    fetchCurrentJornadaMatches(
+      targetJornada.id,
+      jornadas,
+      repositionMappings,
+      repositionMatchMappings
+    ).finally(() => {
+      if (!isCancelled) {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    activeTournament?.id,
+    currentJornadaIndex,
+    jornadas,
+    repositionMappings,
+    repositionMatchMappings,
+    routeJornadaId,
+  ]);
 
   const handleNormalizeMatchDates = async () => {
     if (!matchWeekPreview.rows.length) return;
@@ -1116,8 +1236,18 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
+
+  const currentJornada = jornadas[currentJornadaIndex] || null;
+  const isCurrentJornadaMatchesReady =
+    currentJornada?.id &&
+    String(currentMatchesJornadaId || "") === String(currentJornada.id);
   
-  if (jornadas.length === 0 || (loading && !isEditorOpen)) {
+  if (
+    jornadas.length === 0 ||
+    !currentJornada ||
+    (loading && !isEditorOpen) ||
+    (currentJornada?.id && !isCurrentJornadaMatchesReady)
+  ) {
       return (
         <TabContainer>
              <JornadaPlanificacionSkeleton />
@@ -1125,7 +1255,6 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       );
   }
 
-  const currentJornada = jornadas[currentJornadaIndex];
   const isPhaseAssignment = currentJornada.status !== 'Finalizada'; 
   const prevJornada = currentJornadaIndex > 0 ? jornadas[currentJornadaIndex - 1] : null;
   const canConfirm = !prevJornada || ['Confirmada', 'Finalizada'].includes(prevJornada.status);
@@ -1176,6 +1305,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             isTournamentActive={true} 
             dataVersion={dataVersion}
             jornadas={jornadas} 
+            allTournamentMatches={allTournamentMatches}
             onUpdateDates={handleCascadingDateUpdate}
             needsDateNormalization={
               sevenDayPreview.needsAdjustment || matchWeekPreview.needsAdjustment

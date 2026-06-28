@@ -52,15 +52,7 @@ export const createUserScopedClient = (accessToken) =>
     },
   });
 
-export const readJsonBody = async (req) => {
-  if (!req.body) return {};
-  if (typeof req.body === "string") {
-    return req.body ? JSON.parse(req.body) : {};
-  }
-  return req.body;
-};
-
-export const requireAdmin = async (req) => {
+export const requireUser = async (req) => {
   const accessToken = parseAuthorizationHeader(req);
   if (!accessToken) {
     const error = new Error("Unauthorized");
@@ -72,13 +64,27 @@ export const requireAdmin = async (req) => {
   const {
     data: { user },
     error: userError,
-  } = await client.auth.getUser();
+  } = await client.auth.getUser(accessToken);
 
   if (userError || !user) {
     const error = new Error("Unauthorized");
     error.statusCode = 401;
     throw error;
   }
+
+  return { user, accessToken, client };
+};
+
+export const readJsonBody = async (req) => {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    return req.body ? JSON.parse(req.body) : {};
+  }
+  return req.body;
+};
+
+export const requireAdmin = async (req) => {
+  const { user } = await requireUser(req);
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")

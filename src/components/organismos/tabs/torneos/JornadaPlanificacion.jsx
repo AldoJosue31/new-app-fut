@@ -1,6 +1,6 @@
 // src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import styled, { keyframes } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import {
   RiCheckDoubleLine,
@@ -16,14 +16,11 @@ import { addDaysToDate, formatDateWithWeekday } from "../../../../utils/dateUtil
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import {
   isOfficialJornadaName,
+  isRepositionJornadaName,
   parseJornadaNumber,
   sortJornadas,
 } from "../../../../utils/jornadaUtils";
-import {
-  REPOSITION_MODE,
-  getRepositionMode,
-  getSuggestedRepositionWindow,
-} from "../../../../utils/repositionUtils";
+import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
 import { buildRepositionPreview } from "../../../../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
 
@@ -41,6 +38,7 @@ import { EmptyDropZone } from "./planificacion/EmptyDropZone";
 import { ConfirmModal } from "../../ConfirmModal";
 import { MatchResolutionModal } from "./planificacion/MatchResolutionModal";
 import { RepositionPlannerModal } from "./planificacion/RepositionPlannerModal";
+import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 
 const getMatchTeamsLabel = (match) => {
   if (!match) return "";
@@ -48,6 +46,33 @@ const getMatchTeamsLabel = (match) => {
   const awayName = match.awayTeam?.name || match.visitante?.name || "Visitante";
   return `${homeName} vs ${awayName}`;
 };
+
+const customScrollbar = css`
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+    margin: 5px 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colorScroll};
+    border-radius: 4px;
+    transition: background 0.3s ease;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: ${({ theme }) => theme.text};
+  }
+`;
 
 export function JornadaPlanificacion({
   matchesDB = [],
@@ -66,6 +91,7 @@ export function JornadaPlanificacion({
   isTournamentActive,
   dataVersion,
   jornadas = [],
+  allTournamentMatches = [],
   onUpdateDates,
   onAutoFill,
   needsDateNormalization = false,
@@ -83,6 +109,7 @@ export function JornadaPlanificacion({
     currentJornadaName,
     currentJornadaNumber,
     clearDraft,
+    isPlanningDataReady,
     showExternalMatches,
     toggleExternalMatches,
     externalMatches,
@@ -129,6 +156,10 @@ export function JornadaPlanificacion({
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const isConfirmed = jornadaData?.status === "Confirmada";
+  const isRepositionMode = useMemo(
+    () => isRepositionJornadaName(jornadaData?.name),
+    [jornadaData?.name]
+  );
   const isPlayoffJornada = useMemo(
     () => isPlayoffJornadaName(currentJornadaName),
     [currentJornadaName]
@@ -147,6 +178,47 @@ export function JornadaPlanificacion({
 
     return foundIndex === -1 ? jornadaIndex : foundIndex;
   }, [chronologicalJornadas, jornadaData?.id, jornadaIndex]);
+  const matchProgressByJornada = useMemo(() => {
+    return (allTournamentMatches || []).reduce((acc, match) => {
+      const jornadaId = match?.jornada_id || match?.jornadas?.id || match?.jornada?.id;
+      if (!jornadaId || !match?.team1_id || !match?.team2_id) return acc;
+
+      const key = String(jornadaId);
+      const current = acc.get(key) || { completed: 0, total: 0 };
+      current.total += 1;
+      if (match.status === "Finalizado") {
+        current.completed += 1;
+      }
+      acc.set(key, current);
+      return acc;
+    }, new Map());
+  }, [allTournamentMatches]);
+
+  const selectableJornadas = useMemo(() => {
+    const lastConfirmedIndex = chronologicalJornadas.reduce((lastIndex, jornada, index) => {
+      return ["Confirmada", "Finalizada"].includes(jornada?.status) ? index : lastIndex;
+    }, -1);
+    const nextAvailableIndex = lastConfirmedIndex + 1;
+    const currentJornadaId = jornadaData?.id ? String(jornadaData.id) : null;
+
+    return chronologicalJornadas
+      .filter((jornada, index) => {
+        const isConfirmedOrFinished = ["Confirmada", "Finalizada"].includes(jornada?.status);
+        const isNextAvailable = index === nextAvailableIndex;
+        const isCurrent = currentJornadaId && String(jornada?.id) === currentJornadaId;
+
+        return isConfirmedOrFinished || isNextAvailable || isCurrent;
+      })
+      .map((jornada) => {
+        const isConfirmedOrFinished = ["Confirmada", "Finalizada"].includes(jornada?.status);
+        return {
+          ...jornada,
+          progress: isConfirmedOrFinished
+            ? matchProgressByJornada.get(String(jornada.id)) || { completed: 0, total: 0 }
+            : null,
+        };
+      });
+  }, [chronologicalJornadas, jornadaData?.id, matchProgressByJornada]);
   const officialJornadasCount = jornadas.filter((jornada) =>
     isOfficialJornadaName(jornada?.name)
   ).length || totalJornadas;
@@ -188,13 +260,6 @@ export function JornadaPlanificacion({
     return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
   }).length;
 
-  const repositionMode = getRepositionMode({
-    scheduledMatches,
-    currentJornadaNumber,
-  });
-
-  const isRepositionMode = repositionMode === REPOSITION_MODE.ONLY_DELAYED;
-
   const suggestedRepositionWindow = useMemo(
     () =>
       getSuggestedRepositionWindow({
@@ -229,6 +294,10 @@ export function JornadaPlanificacion({
       endDate: newEnd,
     });
   }, []);
+
+  useEffect(() => {
+    setRepositionWeek({ startDate: "", endDate: "" });
+  }, [jornadaData?.id]);
 
   useEffect(() => {
     if (!isRepositionMode) {
@@ -621,6 +690,23 @@ export function JornadaPlanificacion({
     [chronologicalJornadas, jornadas, onChangeJornada]
   );
 
+  const handleSelectJornada = useCallback(
+    (jornadaId) => {
+      const targetIndex = chronologicalJornadas.findIndex(
+        (jornada) => String(jornada.id) === String(jornadaId)
+      );
+
+      if (targetIndex !== -1) {
+        handleChronologicalNavigation(targetIndex);
+      }
+    },
+    [chronologicalJornadas, handleChronologicalNavigation]
+  );
+
+  if (!isPlanningDataReady) {
+    return <JornadaPlanificacionSkeleton />;
+  }
+
   return (
     <Container>
       <Toast
@@ -634,7 +720,7 @@ export function JornadaPlanificacion({
         jornadaIndex={jornadaIndex}
         jornadaData={headerJornadaData}
         status={
-          isRepositionMode
+          isRepositionMode && !["Confirmada", "Finalizada"].includes(jornadaData?.status)
             ? "Jornada de Reposicion"
             : jornadaData?.status || "Pendiente"
         }
@@ -649,6 +735,9 @@ export function JornadaPlanificacion({
         totalJornadas={totalJornadas}
         navigationIndex={chronologicalJornadaIndex}
         totalNavigationItems={chronologicalJornadas.length}
+        jornadaOptions={selectableJornadas}
+        selectedJornadaId={jornadaData?.id}
+        onSelectJornada={handleSelectJornada}
         onSaveDates={onUpdateDates}
         onDateChange={handleRepositionHeaderDates}
         isRepositionMode={isRepositionMode}
@@ -1105,14 +1194,18 @@ const DropZone = styled.div`
   border-radius: 10px;
   padding: 10px;
   overflow-y: auto;
+  overflow-x: auto;
+  padding-right: 15px;
   position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   transition: all 0.3s ease;
+  ${customScrollbar}
 
   @media (min-width: 768px) {
     padding: 15px;
+    padding-right: 20px;
   }
 `;
 

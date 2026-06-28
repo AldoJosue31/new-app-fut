@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useLayoutEffect, useState } from "react";
+import React, { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import {
@@ -26,6 +26,9 @@ export const PlanningHeader = memo(
     totalJornadas,
     navigationIndex = jornadaIndex,
     totalNavigationItems = totalJornadas,
+    jornadaOptions = [],
+    selectedJornadaId,
+    onSelectJornada,
     onSaveDates,
     onAutoFill,
     onConfig,
@@ -50,6 +53,8 @@ export const PlanningHeader = memo(
       return window.innerWidth <= 768;
     });
     const [isMobileControlsOpen, setIsMobileControlsOpen] = useState(false);
+    const [isJornadaMenuOpen, setIsJornadaMenuOpen] = useState(false);
+    const jornadaMenuRef = useRef(null);
 
     useLayoutEffect(() => {
       setLocalStart(jornadaData?.start_date || "");
@@ -71,6 +76,33 @@ export const PlanningHeader = memo(
       window.addEventListener("resize", handleResize);
       return () => window.removeEventListener("resize", handleResize);
     }, []);
+
+    useEffect(() => {
+      if (!isJornadaMenuOpen || typeof window === "undefined") return undefined;
+
+      const handlePointerDown = (event) => {
+        if (
+          jornadaMenuRef.current &&
+          !jornadaMenuRef.current.contains(event.target)
+        ) {
+          setIsJornadaMenuOpen(false);
+        }
+      };
+
+      const handleKeyDown = (event) => {
+        if (event.key === "Escape") {
+          setIsJornadaMenuOpen(false);
+        }
+      };
+
+      window.addEventListener("pointerdown", handlePointerDown);
+      window.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        window.removeEventListener("pointerdown", handlePointerDown);
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }, [isJornadaMenuOpen]);
 
     const hasChanges =
       !isRepositionMode &&
@@ -110,6 +142,29 @@ export const PlanningHeader = memo(
       isConfirmed && confirmedResultsProgress.total > 0
         ? `(${confirmedResultsProgress.completed}/${confirmedResultsProgress.total})`
         : null;
+    const selectedValue = String(selectedJornadaId || jornadaData?.id || "");
+    const selectedJornadaOption = jornadaOptions.find(
+      (jornada) => String(jornada.id) === selectedValue
+    );
+    const canSelectJornada =
+      typeof onSelectJornada === "function" && jornadaOptions.length > 1;
+    const getJornadaLabel = (jornada) => {
+      const baseLabel = jornada?.name || `Jornada ${jornadaIndex + 1}`;
+      if (!jornada?.progress) return baseLabel;
+      return `${baseLabel} (${jornada.progress.completed}/${jornada.progress.total})`;
+    };
+    const getSelectedJornadaLabel = (jornada) =>
+      jornada?.name || `Jornada ${jornadaIndex + 1}`;
+
+    const handleJornadaSelect = (nextJornadaId) => {
+      if (!nextJornadaId || String(nextJornadaId) === selectedValue) {
+        setIsJornadaMenuOpen(false);
+        return;
+      }
+
+      setIsJornadaMenuOpen(false);
+      onSelectJornada(nextJornadaId);
+    };
 
     const dateControls = (
       <DateRow $hasChanges={hasChanges}>
@@ -200,7 +255,45 @@ export const PlanningHeader = memo(
               <RiArrowLeftSLine size={24} />
             </NavBtn>
             <Title $status={status}>
-              <span>{jornadaData?.name || `Jornada ${jornadaIndex + 1}`}</span>
+              {canSelectJornada ? (
+                <JornadaDropdown ref={jornadaMenuRef}>
+                  <JornadaButton
+                    type="button"
+                    onClick={() => setIsJornadaMenuOpen((prev) => !prev)}
+                    aria-expanded={isJornadaMenuOpen}
+                    aria-haspopup="listbox"
+                    aria-label="Seleccionar jornada"
+                    title="Seleccionar jornada"
+                  >
+                    <span>{getSelectedJornadaLabel(selectedJornadaOption || jornadaData)}</span>
+                    <RiArrowDownSLine size={18} />
+                  </JornadaButton>
+
+                  {isJornadaMenuOpen && (
+                    <JornadaMenu role="listbox">
+                      {jornadaOptions.map((jornada) => {
+                        const optionValue = String(jornada.id);
+                        const isSelected = optionValue === selectedValue;
+
+                        return (
+                          <JornadaOption
+                            key={jornada.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            $isSelected={isSelected}
+                            onClick={() => handleJornadaSelect(optionValue)}
+                          >
+                            <span>{getJornadaLabel(jornada)}</span>
+                          </JornadaOption>
+                        );
+                      })}
+                    </JornadaMenu>
+                  )}
+                </JornadaDropdown>
+              ) : (
+                <span>{jornadaData?.name || `Jornada ${jornadaIndex + 1}`}</span>
+              )}
               <small>{status}</small>
               {confirmedResultsLabel && (
                 <StatusCounter>{confirmedResultsLabel}</StatusCounter>
@@ -376,7 +469,8 @@ const Title = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 120px;
+  min-width: 128px;
+  max-width: 190px;
 
   span {
     font-weight: 800;
@@ -393,6 +487,122 @@ const Title = styled.div`
       $status === "Confirmada" ? "#2ecc71" : theme.text};
     opacity: ${({ $status }) => ($status === "Confirmada" ? 1 : 0.6)};
     line-height: 1;
+  }
+`;
+
+const JornadaDropdown = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+`;
+
+const JornadaButton = styled.button`
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.text};
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.2s ease;
+
+  svg {
+    grid-column: 3;
+    flex-shrink: 0;
+    opacity: 0.65;
+  }
+
+  span {
+    grid-column: 2;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  &:hover {
+    color: ${v.colorPrincipal};
+  }
+
+  &:focus-visible {
+    color: ${v.colorPrincipal};
+  }
+`;
+
+const JornadaMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: max-content;
+  min-width: 150px;
+  max-width: min(260px, 82vw);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid ${({ theme }) => theme.bg4};
+  background: ${({ theme }) => theme.bgcards};
+  color: ${({ theme }) => theme.text};
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colorScroll};
+    border-radius: 999px;
+  }
+`;
+
+const JornadaOption = styled.button`
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: ${({ $isSelected, theme }) =>
+    $isSelected ? theme.bg6 : "transparent"};
+  color: ${({ $isSelected, theme }) =>
+    $isSelected ? theme.color1 : theme.text};
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: ${({ $isSelected }) => ($isSelected ? 800 : 700)};
+  text-align: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: ${({ theme }) => theme.bgAlpha};
+    border-color: ${({ theme }) => theme.bg5};
+    color: ${({ theme }) => theme.color1};
   }
 `;
 

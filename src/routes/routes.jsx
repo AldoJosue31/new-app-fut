@@ -72,7 +72,17 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
         } 
       />
 
-      {/* 3. EQUIPOS: Agregamos props */}
+      {/* 3. EQUIPOS por divisiÃ³n */}
+      <Route
+        path="/division/:divisionId/equipos/:teamId?"
+        element={
+          <ProtectedRoute>
+            <Equipos state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 3b. EQUIPOS legacy */}
       <Route 
         path="/equipos/:teamId?" 
         element={
@@ -82,9 +92,19 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
         } 
       />
       
-      {/* 4. TORNEOS (Ya estaba, lo mantenemos) */}
+      {/* 4. TORNEOS por divisiÃ³n */}
+      <Route
+        path="/division/:divisionId/torneos/:torneoOrTab?/:tab?/:jornadaId?"
+        element={
+          <ProtectedRoute>
+            <Torneos state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* 4b. TORNEOS legacy */}
       <Route 
-        path="/torneos/:tab?" 
+        path="/torneos/:torneoOrTab?/:tab?/:jornadaId?"
         element={
           <ProtectedRoute>
             <Torneos state={sidebarState} setState={setSidebarState} />

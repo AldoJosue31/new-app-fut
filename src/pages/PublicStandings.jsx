@@ -5,10 +5,52 @@ import { supabase } from "../supabase/supabase.config";
 import { TorneosStandingsTab } from "../components/organismos/tabs/torneos/TorneosStandingsTab";
 import { GoleadoresTab } from "../components/organismos/tabs/torneos/GoleadoresTab";
 import { PantallaCarga } from "../components/organismos/PantallaCarga";
+import { useTorneoStandingsLogic } from "../hooks/useTorneoStandingsLogic";
 import { useThemeStore } from "../store/ThemeStore";
 import { GlobalStyles } from "../styles/GlobalStyles";
 import { v } from "../styles/variables";
 import { BiLockAlt, BiErrorCircle, BiTrophy, BiFootball } from "react-icons/bi"; 
+import { RiGitBranchLine } from "react-icons/ri";
+
+const parseTournamentConfig = (torneo = {}) => {
+  if (typeof torneo?.config === "string") {
+    try {
+      return JSON.parse(torneo.config) || {};
+    } catch {
+      return {};
+    }
+  }
+
+  return torneo?.config || {};
+};
+
+const hasClinchedLiguilla = (row = {}) =>
+  Array.isArray(row.clinchedStatuses) &&
+  row.clinchedStatuses.some((status) => status?.key === "liguilla");
+
+const hasSavedBracketTeams = (config = {}) => {
+  const stages = Array.isArray(config.playoffState?.stages)
+    ? config.playoffState.stages
+    : [];
+
+  return stages.some((stage) =>
+    Array.isArray(stage?.pairs) &&
+    stage.pairs.some((pair) => Boolean(pair?.home || pair?.away))
+  );
+};
+
+const hasProjectedBracketTeams = (config = {}, standings = []) => {
+  const directCount = Number.parseInt(config.clasificados, 10) || 0;
+  const repechajeCount = Number.parseInt(config.repechajeTeams, 10) || 0;
+  const participantCount = directCount + (repechajeCount > 0 ? Math.floor(repechajeCount / 2) : 0);
+  const bracketLimit = participantCount || directCount;
+
+  if (!config.zonaLiguilla || bracketLimit <= 0) return false;
+
+  return standings.some((row, index) =>
+    index < bracketLimit && hasClinchedLiguilla(row)
+  );
+};
 
 export const PublicStandings = () => {
   const { torneoId } = useParams();
@@ -16,13 +58,31 @@ export const PublicStandings = () => {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('tabla'); // 'tabla' | 'goleadores'
+  const [activeTab, setActiveTab] = useState('tabla'); // 'tabla' | 'cuadro' | 'goleadores'
   
   // Data
   const [torneo, setTorneo] = useState(null);
   const [partidos, setPartidos] = useState([]);
   const [equipos, setEquipos] = useState([]);
+  const [jornadas, setJornadas] = useState([]);
   const [goleadores, setGoleadores] = useState([]);
+
+  const {
+    tablaGeneral: publicTablaGeneral,
+  } = useTorneoStandingsLogic({
+    torneo,
+    equipos,
+    partidos,
+    jornadasProp: jornadas,
+    reglas: torneo?.config,
+    selectedJornadaView: 'recent',
+  });
+
+  const showPublicBracketTab = useMemo(() => (
+    hasSavedBracketTeams(parseTournamentConfig(torneo)) ||
+    hasProjectedBracketTeams(parseTournamentConfig(torneo), publicTablaGeneral)
+  ), [torneo, publicTablaGeneral]);
+  const visibleActiveTab = activeTab === 'cuadro' && !showPublicBracketTab ? 'tabla' : activeTab;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,6 +121,15 @@ export const PublicStandings = () => {
           
         if (matchesError) throw matchesError;
         setPartidos(matchesData || []);
+
+        const { data: jornadasData, error: jornadasError } = await supabase
+          .from('jornadas')
+          .select('*')
+          .eq('tournament_id', torneoId)
+          .order('id', { ascending: true });
+
+        if (jornadasError) throw jornadasError;
+        setJornadas(jornadasData || []);
 
         // 3. Obtener Equipos
         let equiposData = [];
@@ -176,16 +245,25 @@ export const PublicStandings = () => {
         {/* --- NAVEGACIÓN TABS --- */}
         <TabNavigation>
             <TabButton 
-                $active={activeTab === 'tabla'} 
+                $active={visibleActiveTab === 'tabla'}
                 onClick={() => setActiveTab('tabla')}
             >
                 <BiTrophy /> Tabla General
             </TabButton>
             
             {/* Solo mostramos el botón si la configuración lo permite */}
+            {showPublicBracketTab && (
+                <TabButton
+                    $active={visibleActiveTab === 'cuadro'}
+                    onClick={() => setActiveTab('cuadro')}
+                >
+                    <RiGitBranchLine /> Cuadro del torneo
+                </TabButton>
+            )}
+
             {torneo?.is_goleadores_public && (
                 <TabButton 
-                    $active={activeTab === 'goleadores'} 
+                    $active={visibleActiveTab === 'goleadores'}
                     onClick={() => setActiveTab('goleadores')}
                 >
                     <BiFootball /> Goleadores
@@ -194,17 +272,31 @@ export const PublicStandings = () => {
         </TabNavigation>
         
         <Content>
-            {activeTab === 'tabla' && (
+            {visibleActiveTab === 'tabla' && (
                 <TorneosStandingsTab 
                     torneo={torneo}
                     partidos={partidos} 
                     equipos={equipos}
+                    jornadas={jornadas}
                     reglas={torneo?.config}
                     isPublic={true} 
+                    forcedView="table"
                 />
             )}
 
-            {activeTab === 'goleadores' && torneo?.is_goleadores_public && (
+            {visibleActiveTab === 'cuadro' && showPublicBracketTab && (
+                <TorneosStandingsTab
+                    torneo={torneo}
+                    partidos={partidos}
+                    equipos={equipos}
+                    jornadas={jornadas}
+                    reglas={torneo?.config}
+                    isPublic={true}
+                    forcedView="bracket"
+                />
+            )}
+
+            {visibleActiveTab === 'goleadores' && torneo?.is_goleadores_public && (
                 <GoleadoresTab 
                     torneo={torneo}
                     goleadores={goleadores}
@@ -263,25 +355,35 @@ const Subtitle = styled.p`
 const TabNavigation = styled.div`
     display: flex;
     justify-content: center;
-    gap: 15px;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: min(100%, 920px);
     margin-bottom: 20px;
     background: ${({ theme }) => theme.bg};
     padding: 5px;
-    border-radius: 30px;
+    border-radius: 18px;
     border: 1px solid ${({ theme }) => theme.color2};
+
+    @media (max-width: 640px) {
+        justify-content: stretch;
+    }
 `;
 
 const TabButton = styled.button`
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    flex: 1 1 150px;
+    min-width: 0;
     padding: 8px 20px;
-    border-radius: 20px;
+    border-radius: 14px;
     border: none;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     font-size: 0.9rem;
+    text-align: center;
     
     background-color: ${({ $active, theme }) => $active ? theme.primary : 'transparent'};
     color: ${({ $active }) => $active ? '#fff' : 'inherit'};
@@ -293,6 +395,16 @@ const TabButton = styled.button`
     }
 
     svg { font-size: 1.1rem; }
+
+    @media (max-width: 640px) {
+        flex-basis: calc(50% - 4px);
+        padding: 8px 10px;
+        font-size: 0.82rem;
+    }
+
+    @media (max-width: 360px) {
+        flex-basis: 100%;
+    }
 `;
 
 const Content = styled.main`
