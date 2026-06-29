@@ -69,6 +69,7 @@ export const Modal = ({
   headerActions = null,
   showCloseButton = true,
   closeOnOverlayClick = true,
+  compactHeader = false,
   width = "500px",
 }) => {
   useEffect(() => {
@@ -83,7 +84,7 @@ export const Modal = ({
   return createPortal(
     <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
       <ModalContainer $width={width} $allowOverflow={!!headerActions} onClick={(e) => e.stopPropagation()}>
-        <Header>
+        <Header $compact={compactHeader}>
           <h3>{title || ""}</h3>
 
           <div className="header-actions">
@@ -141,18 +142,20 @@ const ModalContainer = styled.div`
 `;
 
 const Header = styled.div`
-  padding: 20px 25px;
+  padding: ${({ $compact }) => ($compact ? "10px 18px" : "20px 25px")};
   border-bottom: 1px solid ${({ theme }) => theme.bg4};
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: ${({ $compact }) => ($compact ? "12px" : "16px")};
+  min-height: ${({ $compact }) => ($compact ? "52px" : "auto")};
 
   h3 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: ${({ $compact }) => ($compact ? "1.05rem" : "1.2rem")};
     font-weight: 700;
     min-width: 0;
+    line-height: 1.2;
   }
 
   .header-actions {

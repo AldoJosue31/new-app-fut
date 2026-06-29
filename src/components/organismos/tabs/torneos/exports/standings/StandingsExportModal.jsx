@@ -4,7 +4,7 @@ import styled, { useTheme } from "styled-components";
 import { Modal } from "../../../../../../index";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { supabase } from "../../../../../../supabase/supabase.config";
-import { ExportPreviewHeader } from "../shared/ExportPreviewHeader";
+import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
 import StandingsExportLayout from "./StandingsExportLayout";
 
 export default function StandingsExportModal({
@@ -126,11 +126,24 @@ export default function StandingsExportModal({
 
     if (!isOpen) return null;
 
-    const modalDynamicWidth = `${(1080 * previewScale) + 60}px`;
+    const modalDynamicWidth = `${Math.max((1080 * previewScale) + 60, 760)}px`;
     const exportHeight = isMobileLayout ? 1920 : 1350;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Exportar Tabla General" width={modalDynamicWidth}>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Exportar Tabla General"
+            width={modalDynamicWidth}
+            showCloseButton={false}
+            compactHeader
+            headerActions={
+                <ExportDownloadButton
+                    onExport={handleExportPNG}
+                    isExporting={isExporting}
+                />
+            }
+        >
             <PreviewWrapper>
                 <ExportPreviewHeader
                     isDark={isDarkExport}
@@ -139,6 +152,7 @@ export default function StandingsExportModal({
                     setIsMobile={setIsMobileLayout}
                     onExport={handleExportPNG}
                     isExporting={isExporting}
+                    showExportAction={false}
                     title="Configura la imagen"
                     inactiveFormatLabel="Post (4:5)"
                     activeFormatLabel="Historia (9:16)"

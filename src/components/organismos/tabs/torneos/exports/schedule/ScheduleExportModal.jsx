@@ -10,7 +10,7 @@ import {
   buildDivisionColorMap,
   normalizeDivisionName,
 } from "../../../../../../utils/divisionColors";
-import { ExportPreviewHeader } from "../shared/ExportPreviewHeader";
+import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
 import ScheduleExportLayout from "./ScheduleExportLayout";
 
 const LOGO_BASE_SCALE = 1.25;
@@ -479,10 +479,23 @@ export default function ScheduleExportModal({
 
   if (!isOpen) return null;
 
-  const modalDynamicWidth = `${exportSize.width * previewScale + 60}px`;
+  const modalDynamicWidth = `${Math.max(exportSize.width * previewScale + 60, 920)}px`;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Exportar Rol" width={modalDynamicWidth}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Exportar Rol"
+      width={modalDynamicWidth}
+      showCloseButton={false}
+      compactHeader
+      headerActions={
+        <ExportDownloadButton
+          onExport={handleExportPNG}
+          isExporting={isExporting}
+        />
+      }
+    >
       <PreviewWrapper>
         <ExportPreviewHeader
           isDark={isDarkExport}
@@ -491,6 +504,7 @@ export default function ScheduleExportModal({
           setIsMobile={setIsMobileLayout}
           onExport={handleExportPNG}
           isExporting={isExporting}
+          showExportAction={false}
           title="Configura la imagen del rol"
           inactiveFormatLabel={layoutMode === "grid" ? "Post horizontal" : "Post (4:5)"}
           activeFormatLabel={layoutMode === "grid" ? "Historia horizontal" : "Historia (9:16)"}
@@ -636,11 +650,11 @@ const ModeBar = styled.div`
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  background: ${({ theme }) => theme.bg};
-  border-bottom: 1px solid ${({ theme }) => theme.bg3};
+  background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg};
+  border-bottom: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg3};
 
   > span {
-    color: ${({ theme }) => theme.text};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
     font-size: 0.86rem;
     font-weight: 800;
   }
@@ -660,15 +674,22 @@ const LogoSizeControl = styled.div`
   button {
     width: 34px;
     height: 34px;
-    border: 1px solid ${({ theme }) => theme.bg4};
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
     border-radius: 10px;
-    background: ${({ theme }) => theme.bg2};
-    color: ${({ theme }) => theme.text};
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     font-size: 1rem;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  button:not(:disabled):hover {
+    background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
+    border-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+    color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
   }
 
   button:disabled {
@@ -679,14 +700,19 @@ const LogoSizeControl = styled.div`
   select {
     min-width: 82px;
     height: 34px;
-    border: 1px solid ${({ theme }) => theme.bg4};
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
     border-radius: 10px;
-    background: ${({ theme }) => theme.bg2};
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
     color: ${({ theme }) => theme.text};
     padding: 0 8px;
     font-size: 0.78rem;
     font-weight: 900;
     cursor: pointer;
+  }
+
+  select:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+    outline-offset: 2px;
   }
 
   select:disabled {
@@ -701,8 +727,8 @@ const ModeSwitch = styled.div`
   min-width: 220px;
   padding: 3px;
   border-radius: 13px;
-  background: ${({ theme }) => theme.bg2};
-  border: 1px solid ${({ theme }) => theme.bg4};
+  background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
   opacity: ${({ $disabled }) => ($disabled ? 0.58 : 1)};
 
   button {
@@ -712,7 +738,7 @@ const ModeSwitch = styled.div`
     border: 0;
     border-radius: 10px;
     background: transparent;
-    color: ${({ theme }) => theme.text};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
     cursor: pointer;
     font-size: 0.78rem;
     font-weight: 900;
@@ -721,14 +747,24 @@ const ModeSwitch = styled.div`
     justify-content: center;
     gap: 6px;
     opacity: 0.64;
-    transition: 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
   }
 
   button.active {
-    background: ${({ theme }) => theme.bg};
-    color: #2563eb;
+    background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6 || `${v.colorPrincipal}18`};
+    color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
     opacity: 1;
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
+  }
+
+  button:not(.active):hover {
+    background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg};
+    color: ${({ theme }) => theme.text};
+    opacity: 0.86;
+  }
+
+  button:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+    outline-offset: 1px;
   }
 
   button:disabled {

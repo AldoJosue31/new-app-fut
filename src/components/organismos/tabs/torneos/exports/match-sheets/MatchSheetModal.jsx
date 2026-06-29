@@ -3,7 +3,7 @@ import styled, { useTheme } from "styled-components";
 import { v, Modal } from "../../../../../../index"; 
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
-import { ExportPreviewHeader } from '../shared/ExportPreviewHeader';
+import { ExportDownloadButton, ExportPreviewHeader } from '../shared/ExportPreviewHeader';
 import MatchSheetExportLayout from "./MatchSheetExportLayout";
 
 const MatchSheetModal = ({ isOpen, onClose, match }) => {
@@ -156,10 +156,24 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
 
     if (!isOpen) return null;
 
-    const modalWidth = `${((isMobileLayout ? 480 : 1240) * previewScale) + 60}px`;
+    const modalWidth = `${Math.max(((isMobileLayout ? 480 : 1240) * previewScale) + 60, 760)}px`;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Vista Previa Cédula" width={modalWidth}>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Vista Previa Cédula"
+            width={modalWidth}
+            showCloseButton={false}
+            compactHeader
+            headerActions={
+                <ExportDownloadButton
+                    onExport={handleExportPNG}
+                    isExporting={isExporting}
+                    disabled={loading || !exportData}
+                />
+            }
+        >
             {loading ? (
                 <LoadingContainer><div className="spinner" /><span>Cargando datos...</span></LoadingContainer>
             ) : (
@@ -168,6 +182,7 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
                         isDark={isDarkExport} setIsDark={setIsDarkExport} 
                         isMobile={isMobileLayout} setIsMobile={setIsMobileLayout} 
                         onExport={handleExportPNG} isExporting={isExporting}
+                        showExportAction={false}
                         title="Revisa los datos antes de exportar"
                         inactiveFormatLabel="Escritorio"
                         activeFormatLabel="Movil"
