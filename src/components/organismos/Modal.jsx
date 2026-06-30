@@ -70,6 +70,10 @@ export const Modal = ({
   showCloseButton = true,
   closeOnOverlayClick = true,
   compactHeader = false,
+  overlayPadding = "20px",
+  maxHeight = "calc(100dvh - 40px)",
+  bodyPadding = "25px",
+  bodyOverflowY = "auto",
   width = "500px",
 }) => {
   useEffect(() => {
@@ -82,8 +86,13 @@ export const Modal = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
-      <ModalContainer $width={width} $allowOverflow={!!headerActions} onClick={(e) => e.stopPropagation()}>
+    <Overlay $padding={overlayPadding} onClick={closeOnOverlayClick ? onClose : undefined}>
+      <ModalContainer
+        $width={width}
+        $maxHeight={maxHeight}
+        $allowOverflow={!!headerActions}
+        onClick={(e) => e.stopPropagation()}
+      >
         <Header $compact={compactHeader}>
           <h3>{title || ""}</h3>
 
@@ -96,7 +105,7 @@ export const Modal = ({
             )}
           </div>
         </Header>
-        <Body>{children}</Body>
+        <Body $padding={bodyPadding} $overflowY={bodyOverflowY}>{children}</Body>
       </ModalContainer>
     </Overlay>,
     document.getElementById("root")
@@ -119,7 +128,7 @@ const Overlay = styled.div`
   justify-content: center;
   z-index: 100000;
   animation: ${fadeIn} 0.2s ease-out;
-  padding: 20px;
+  padding: ${({ $padding }) => $padding};
   overflow: hidden;
   overscroll-behavior: contain;
   touch-action: none;
@@ -129,7 +138,7 @@ const ModalContainer = styled.div`
   background-color: ${({ theme }) => theme.bgcards};
   width: 100%;
   max-width: ${({ $width }) => $width};
-  max-height: calc(100dvh - 40px);
+  max-height: ${({ $maxHeight }) => $maxHeight};
   border-radius: 16px;
   box-shadow: none;
   animation: ${slideIn} 0.3s ease-out;
@@ -187,12 +196,16 @@ const Header = styled.div`
 `;
 
 const Body = styled.div`
-  padding: 25px;
+  padding: ${({ $padding }) => $padding};
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: ${({ $overflowY }) => $overflowY};
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  
+  /* NUEVO: Forzamos a que el cuerpo respete el tamaño del Modal */
+  display: flex;
+  flex-direction: column;
 
   &::-webkit-scrollbar {
     width: 8px;

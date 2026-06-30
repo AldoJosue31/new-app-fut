@@ -11,6 +11,7 @@ export const ExportPreviewHeader = ({
     onExport,
     isExporting,
     showExportAction = true,
+    showInfo = true,
     title = "Configura la imagen",
     inactiveFormatLabel = "Post (4:5)",
     activeFormatLabel = "Historia (9:16)",
@@ -20,13 +21,15 @@ export const ExportPreviewHeader = ({
     beforeFormatControls = null
 }) => {
     return (
-        <HeaderContainer>
-            <div className="left-group">
-                <span className="header-icon">
-                    <RiImageLine size={17} />
-                </span>
-                <span className="info-text">{title}</span>
-            </div>
+        <HeaderContainer $showInfo={showInfo}>
+            {showInfo && (
+                <div className="left-group">
+                    <span className="header-icon">
+                        <RiImageLine size={17} />
+                    </span>
+                    <span className="info-text">{title}</span>
+                </div>
+            )}
 
             <div className="right-group">
                 {beforeFormatControls}
@@ -115,12 +118,12 @@ const HeaderContainer = styled.div`
     --export-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle || theme.text};
 
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: ${({ $showInfo }) => ($showInfo ? "minmax(0, 1fr) auto" : "1fr")};
     align-items: center;
     gap: 12px;
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 16px;
+    padding: ${({ $showInfo }) => ($showInfo ? "12px 16px" : "8px 12px")};
     background: var(--export-surface);
     border-bottom: 1px solid var(--export-border);
 
