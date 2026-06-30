@@ -69,6 +69,12 @@ export const Modal = ({
   headerActions = null,
   showCloseButton = true,
   closeOnOverlayClick = true,
+  compactHeader = false,
+  overlayPadding = "20px",
+  maxHeight = "calc(100dvh - 40px)",
+  minHeight = "auto",
+  bodyPadding = "25px",
+  bodyOverflowY = "auto",
   width = "500px",
 }) => {
   useEffect(() => {
@@ -81,9 +87,15 @@ export const Modal = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <Overlay onClick={closeOnOverlayClick ? onClose : undefined}>
-      <ModalContainer $width={width} $allowOverflow={!!headerActions} onClick={(e) => e.stopPropagation()}>
-        <Header>
+    <Overlay $padding={overlayPadding} onClick={closeOnOverlayClick ? onClose : undefined}>
+      <ModalContainer
+        $width={width}
+        $maxHeight={maxHeight}
+        $minHeight={minHeight}
+        $allowOverflow={!!headerActions}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Header $compact={compactHeader}>
           <h3>{title || ""}</h3>
 
           <div className="header-actions">
@@ -95,7 +107,7 @@ export const Modal = ({
             )}
           </div>
         </Header>
-        <Body>{children}</Body>
+        <Body $padding={bodyPadding} $overflowY={bodyOverflowY}>{children}</Body>
       </ModalContainer>
     </Overlay>,
     document.getElementById("root")
@@ -118,7 +130,7 @@ const Overlay = styled.div`
   justify-content: center;
   z-index: 100000;
   animation: ${fadeIn} 0.2s ease-out;
-  padding: 20px;
+  padding: ${({ $padding }) => $padding};
   overflow: hidden;
   overscroll-behavior: contain;
   touch-action: none;
@@ -128,7 +140,8 @@ const ModalContainer = styled.div`
   background-color: ${({ theme }) => theme.bgcards};
   width: 100%;
   max-width: ${({ $width }) => $width};
-  max-height: calc(100dvh - 40px);
+  max-height: ${({ $maxHeight }) => $maxHeight};
+  min-height: ${({ $minHeight }) => $minHeight};
   border-radius: 16px;
   box-shadow: none;
   animation: ${slideIn} 0.3s ease-out;
@@ -141,18 +154,20 @@ const ModalContainer = styled.div`
 `;
 
 const Header = styled.div`
-  padding: 20px 25px;
+  padding: ${({ $compact }) => ($compact ? "10px 18px" : "20px 25px")};
   border-bottom: 1px solid ${({ theme }) => theme.bg4};
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: ${({ $compact }) => ($compact ? "12px" : "16px")};
+  min-height: ${({ $compact }) => ($compact ? "52px" : "auto")};
 
   h3 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: ${({ $compact }) => ($compact ? "1.05rem" : "1.2rem")};
     font-weight: 700;
     min-width: 0;
+    line-height: 1.2;
   }
 
   .header-actions {
@@ -184,12 +199,16 @@ const Header = styled.div`
 `;
 
 const Body = styled.div`
-  padding: 25px;
+  padding: ${({ $padding }) => $padding};
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: ${({ $overflowY }) => $overflowY};
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  
+  /* NUEVO: Forzamos a que el cuerpo respete el tamaño del Modal */
+  display: flex;
+  flex-direction: column;
 
   &::-webkit-scrollbar {
     width: 8px;

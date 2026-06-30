@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
-import { Modal, Btnsave, v } from '../../../../../../index';
+import { Modal, v } from '../../../../../../index';
 import {
-  RiFileDownloadLine,
-  RiImageLine,
+  RiCloseLine,
   RiMoonLine,
+  RiSettings3Line,
   RiSettings4Line,
   RiSunLine,
 } from 'react-icons/ri';
 import { exportElementAsPNG } from '../../../../../../utils/imageExporter';
 import { supabase } from '../../../../../../supabase/supabase.config';
 import GoleadoresExportLayout from './GoleadoresExportLayout';
+import { ExportDownloadButton } from '../shared/ExportPreviewHeader';
 
 const FIXED_LIMIT_OPTIONS = [3, 5, 10, 15, 20, 50];
 const CUSTOM_LIMIT_VALUE = 'custom';
+const MIN_MODAL_WIDTH = 820;
 const VISUALIZATION_OPTIONS = [
   { value: 'table', label: 'Tabla' },
   { value: 'bars', label: 'Barras' },
@@ -69,6 +71,7 @@ export default function GoleadoresExportModal({
   const [playerLimitMode, setPlayerLimitMode] = useState('10');
   const [customPlayerLimit, setCustomPlayerLimit] = useState(10);
   const [visualizationMode, setVisualizationMode] = useState('table');
+  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [contentHeight, setContentHeight] = useState(560);
   const [metaInfo, setMetaInfo] = useState({
     league: '',
@@ -150,6 +153,12 @@ export default function GoleadoresExportModal({
     if (!isOpen || !torneo?.id) return;
     fetchMetaInfo();
   }, [isOpen, torneo?.id, activeJornadaName, activeJornadaSummary]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsConfigPanelOpen(false);
+    }
+  }, [isOpen]);
 
   const fetchMetaInfo = async () => {
     try {
@@ -294,119 +303,129 @@ export default function GoleadoresExportModal({
     setCustomPlayerLimit(clampPlayerLimit(rawValue));
   };
 
+  const renderConfigControls = (idSuffix = 'desktop') => {
+    const limitId = `goleadores-limit-${idSuffix}`;
+    const customLimitId = `goleadores-limit-custom-${idSuffix}`;
+
+    return (
+    <ConfigControls>
+      <ModeSwitchGroup>
+        {VISUALIZATION_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={option.value === visualizationMode ? 'active' : ''}
+            onClick={() => setVisualizationMode(option.value)}
+            disabled={isExporting}
+          >
+            {option.label}
+          </button>
+        ))}
+      </ModeSwitchGroup>
+
+      <LimitControl>
+        <label htmlFor={limitId}>Jugadores</label>
+        <select
+          id={limitId}
+          value={playerLimitMode}
+          onChange={handleLimitModeChange}
+          disabled={isExporting}
+        >
+          {FIXED_LIMIT_OPTIONS.map((option) => (
+            <option key={option} value={String(option)}>
+              Top {option}
+            </option>
+          ))}
+          <option value={CUSTOM_LIMIT_VALUE}>Personalizado</option>
+        </select>
+      </LimitControl>
+
+      {playerLimitMode === CUSTOM_LIMIT_VALUE && (
+        <CustomLimitControl>
+          <label htmlFor={customLimitId}>
+            <RiSettings4Line size={14} />
+            <span>3 a 50</span>
+          </label>
+          <input
+            id={customLimitId}
+            type="number"
+            min="3"
+            max="50"
+            value={customPlayerLimit}
+            onChange={handleCustomLimitChange}
+            disabled={isExporting}
+          />
+        </CustomLimitControl>
+      )}
+
+      <div className="separator" />
+
+      <ToggleContainer
+        onClick={() => !isExporting && setIsMobileLayout(!isMobileLayout)}
+        $active={isMobileLayout}
+        title="Cambiar formato"
+        $disabled={isExporting}
+      >
+        <span className="label-side left">Post</span>
+        <div className="track">
+          <div className="thumb" />
+        </div>
+        <span className="label-side right">Historia</span>
+      </ToggleContainer>
+
+      <div className="separator" />
+
+      <ThemeToggleBtn
+        type="button"
+        onClick={() => !isExporting && setIsDarkExport(!isDarkExport)}
+        title="Cambiar tema"
+        aria-label="Cambiar tema de la imagen"
+        disabled={isExporting}
+      >
+        {isDarkExport ? <RiSunLine /> : <RiMoonLine />}
+      </ThemeToggleBtn>
+    </ConfigControls>
+    );
+  };
+
   if (!isOpen) return null;
 
   const baseWidth = isMobileLayout ? 480 : 900;
   const safeContentHeight = Math.max(contentHeight, 220);
-  const modalWidth = `${baseWidth * previewScale + 42}px`;
+  const modalWidth = `${Math.max(baseWidth * previewScale + 72, MIN_MODAL_WIDTH)}px`;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Exportar Goleadores" width={modalWidth}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Exportar Goleadores"
+      width={modalWidth}
+      compactHeader
+      overlayPadding="6px 18px"
+      maxHeight="calc(100dvh - 24px)"
+      minHeight="90dvh"
+      bodyOverflowY="hidden"
+      bodyPadding="0"
+    >
       <PreviewWrapper>
-        <div className="preview-header">
-          <div className="left-group">
-            <RiImageLine size={18} />
-            <span className="info-text">Vista previa para exportar</span>
-          </div>
-
-          <div className="right-group">
-            <ModeSwitchGroup>
-              {VISUALIZATION_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={option.value === visualizationMode ? 'active' : ''}
-                  onClick={() => setVisualizationMode(option.value)}
-                  disabled={isExporting}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </ModeSwitchGroup>
-
-            <LimitControl>
-              <label htmlFor="goleadores-limit">Jugadores</label>
-              <select
-                id="goleadores-limit"
-                value={playerLimitMode}
-                onChange={handleLimitModeChange}
-                disabled={isExporting}
-              >
-                {FIXED_LIMIT_OPTIONS.map((option) => (
-                  <option key={option} value={String(option)}>
-                    Top {option}
-                  </option>
-                ))}
-                <option value={CUSTOM_LIMIT_VALUE}>Personalizado</option>
-              </select>
-            </LimitControl>
-
-            {playerLimitMode === CUSTOM_LIMIT_VALUE && (
-              <CustomLimitControl>
-                <label htmlFor="goleadores-limit-custom">
-                  <RiSettings4Line size={14} />
-                  <span>3 a 50</span>
-                </label>
-                <input
-                  id="goleadores-limit-custom"
-                  type="number"
-                  min="3"
-                  max="50"
-                  value={customPlayerLimit}
-                  onChange={handleCustomLimitChange}
-                  disabled={isExporting}
-                />
-              </CustomLimitControl>
-            )}
-
-            <div className="separator" />
-
-            <ToggleContainer
-              onClick={() => !isExporting && setIsMobileLayout(!isMobileLayout)}
-              $active={isMobileLayout}
-              title="Cambiar formato"
-              style={{
-                opacity: isExporting ? 0.5 : 1,
-                pointerEvents: isExporting ? 'none' : 'auto',
-              }}
-            >
-              <span className="label-side left">Post</span>
-              <div className="track">
-                <div className="thumb" />
-              </div>
-              <span className="label-side right">Historia</span>
-            </ToggleContainer>
-
-            <div className="separator" />
-
-            <ThemeToggleBtn
-              onClick={() => !isExporting && setIsDarkExport(!isDarkExport)}
-              title="Cambiar tema"
-              style={{
-                opacity: isExporting ? 0.5 : 1,
-                pointerEvents: isExporting ? 'none' : 'auto',
-              }}
-            >
-              {isDarkExport ? <RiSunLine /> : <RiMoonLine />}
-            </ThemeToggleBtn>
-
-            <div className="separator" />
-
-            <div
-              style={{
-                opacity: isExporting ? 0.6 : 1,
-                pointerEvents: isExporting ? 'none' : 'auto',
-              }}
-            >
-              <Btnsave
-                titulo={isExporting ? 'Exportando...' : 'Descargar'}
-                bgcolor={isExporting ? '#7f8c8d' : '#27ae60'}
-                icono={isExporting ? <div className="spinner-mini" /> : <RiFileDownloadLine />}
-                funcion={handleExportPNG}
-              />
-            </div>
-          </div>
+        <div className="mobile-config-bar">
+          {renderConfigControls('mobile')}
         </div>
+
+        <FloatingConfigPanel $open={isConfigPanelOpen}>
+          <button
+            type="button"
+            className="config-trigger"
+            onClick={() => setIsConfigPanelOpen((prev) => !prev)}
+            aria-label={isConfigPanelOpen ? "Cerrar configuracion" : "Abrir configuracion"}
+            title="Configurar imagen"
+          >
+            {isConfigPanelOpen ? <RiCloseLine /> : <RiSettings3Line />}
+          </button>
+          <div className="config-content">
+            {renderConfigControls('desktop')}
+          </div>
+        </FloatingConfigPanel>
 
         <div className="preview-viewport">
           <div
@@ -422,6 +441,7 @@ export default function GoleadoresExportModal({
                 transformOrigin: 'top left',
                 width: `${baseWidth}px`,
                 height: `${safeContentHeight}px`,
+                transition: 'transform 260ms ease, width 260ms ease, height 260ms ease',
               }}
             >
               <GoleadoresExportLayout
@@ -436,29 +456,76 @@ export default function GoleadoresExportModal({
             </div>
           </div>
         </div>
+
+        <ModalFooter>
+          <button type="button" className="cancel-btn" onClick={onClose}>
+            Cancelar
+          </button>
+          <ExportDownloadButton
+            onExport={handleExportPNG}
+            isExporting={isExporting}
+            disabled={isExporting}
+          />
+        </ModalFooter>
       </PreviewWrapper>
     </Modal>
   );
 }
 
+const ConfigControls = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 640px;
+  height: 100%;
+  padding: 3px;
+  box-sizing: border-box;
+
+  .separator {
+    width: 1px;
+    height: 22px;
+    flex: 0 0 auto;
+    background: ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+  }
+
+  @media (max-width: 720px) {
+    min-width: 0;
+    height: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+`;
+
 const ThemeToggleBtn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid ${({ theme }) => theme.bg4};
-  background: ${({ theme }) => theme.bg2};
-  color: ${({ theme }) => theme.text};
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+  background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
   font-size: 1.1rem;
-  flex-shrink: 0;
 
   &:hover {
-    background: ${({ theme }) => theme.bg3};
-    color: ${v.colorPrincipal};
+    background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6 || theme.bg3};
+    border-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+    color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
   }
 `;
 
@@ -468,21 +535,27 @@ const ToggleContainer = styled.div`
   gap: 8px;
   cursor: pointer;
   user-select: none;
+  opacity: ${({ $disabled }) => ($disabled ? 0.55 : 1)};
+  pointer-events: ${({ $disabled }) => ($disabled ? 'none' : 'auto')};
+  transition: opacity 0.2s ease;
 
   .track {
     width: 36px;
     height: 20px;
-    background: ${({ theme }) => theme.bg3};
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
     border-radius: 20px;
     position: relative;
-    transition: background-color 0.3s;
-    border: 1px solid ${({ theme }) => theme.color2};
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
   }
 
   .thumb {
     width: 16px;
     height: 16px;
-    background: ${({ $active, theme }) => ($active ? v.verde : theme.text)};
+    background: ${({ $active, theme }) =>
+      $active
+        ? theme.tournamentDashboard?.metrics?.accent || v.verde
+        : theme.tournamentDashboard?.muted || theme.text};
     border-radius: 50%;
     position: absolute;
     top: 1px;
@@ -497,17 +570,19 @@ const ToggleContainer = styled.div`
     font-weight: 700;
     color: ${({ theme }) => theme.text};
     opacity: 0.6;
-    transition: 0.3s;
+    transition: color 0.25s ease, opacity 0.25s ease;
   }
 
   .left {
     opacity: ${({ $active }) => ($active ? 0.6 : 1)};
-    color: ${({ $active }) => ($active ? 'inherit' : v.colorPrincipal)};
+    color: ${({ $active, theme }) =>
+      $active ? 'inherit' : theme.tournamentDashboard?.primary || v.colorPrincipal};
   }
 
   .right {
     opacity: ${({ $active }) => ($active ? 1 : 0.6)};
-    color: ${({ $active }) => ($active ? v.verde : 'inherit')};
+    color: ${({ $active, theme }) =>
+      $active ? theme.tournamentDashboard?.metrics?.accent || v.verde : 'inherit'};
   }
 
   @media (max-width: 600px) {
@@ -521,27 +596,41 @@ const ModeSwitchGroup = styled.div`
   display: inline-flex;
   align-items: center;
   padding: 3px;
-  border-radius: 12px;
-  background: ${({ theme }) => theme.bg2};
-  border: 1px solid ${({ theme }) => theme.color2};
+  border-radius: 13px;
+  background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+  flex: 0 0 auto;
 
   button {
     border: none;
     background: transparent;
-    color: ${({ theme }) => theme.text};
-    font-size: 0.8rem;
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
+    font-size: 0.78rem;
     font-weight: 700;
+    line-height: 1;
+    min-height: 32px;
     padding: 7px 10px;
-    border-radius: 9px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
     opacity: 0.72;
   }
 
   button.active {
-    background: ${({ theme }) => theme.bg};
+    background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6 || theme.bg};
+    color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
     opacity: 1;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  }
+
+  button:not(.active):hover {
+    background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg};
+    color: ${({ theme }) => theme.text};
+    opacity: 0.9;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
   }
 `;
 
@@ -549,18 +638,20 @@ const LimitControl = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 
   label {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    color: ${({ theme }) => theme.text};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
     opacity: 0.75;
   }
 
   select {
-    border: 1px solid ${({ theme }) => theme.color2};
-    border-radius: 8px;
-    background: ${({ theme }) => theme.bg2};
+    min-height: 34px;
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+    border-radius: 10px;
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
     color: ${({ theme }) => theme.text};
     padding: 7px 10px;
     font-size: 0.8rem;
@@ -573,6 +664,7 @@ const CustomLimitControl = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 
   label {
     display: flex;
@@ -580,16 +672,17 @@ const CustomLimitControl = styled.div`
     gap: 5px;
     font-size: 0.78rem;
     font-weight: 700;
-    color: ${({ theme }) => theme.text};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
     opacity: 0.75;
     white-space: nowrap;
   }
 
   input {
     width: 64px;
-    border: 1px solid ${({ theme }) => theme.color2};
-    border-radius: 8px;
-    background: ${({ theme }) => theme.bg2};
+    min-height: 34px;
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+    border-radius: 10px;
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
     color: ${({ theme }) => theme.text};
     padding: 7px 8px;
     font-size: 0.8rem;
@@ -600,67 +693,54 @@ const CustomLimitControl = styled.div`
 `;
 
 const PreviewWrapper = styled.div`
-  margin: -16px;
-  width: calc(100% + 32px);
+  width: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: ${({ theme }) => theme.bgtotal || theme.bg};
+  position: relative;
+  transition: background 220ms ease;
 
-  .preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: ${({ theme }) => theme.bg};
-    border-bottom: 1px solid ${({ theme }) => theme.bg3};
-    flex-wrap: wrap;
-    gap: 10px;
-
-    .left-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: ${({ theme }) => theme.text};
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    .right-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .separator {
-      width: 1px;
-      height: 20px;
-      background: ${({ theme }) => theme.bg3};
-    }
-
-    .spinner-mini {
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin-export 1s ease-in-out infinite;
-    }
-
-    @keyframes spin-export {
-      to {
-        transform: rotate(360deg);
-      }
-    }
+  .mobile-config-bar {
+    display: none;
   }
 
   .preview-viewport {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 12px;
-    overflow: auto;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 18px 24px;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable both-edges;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
+
+    &::-webkit-scrollbar {
+      width: 5px;
+      height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+      border-radius: 4px;
+      margin: 5px 0;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: ${({ theme }) => theme.colorScroll};
+      border-radius: 4px;
+      transition: background 0.3s ease;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: ${({ theme }) => theme.text};
+    }
   }
 
   .scale-box {
@@ -668,5 +748,134 @@ const PreviewWrapper = styled.div`
     border-radius: 8px;
     background: transparent;
     overflow: hidden;
+    flex: 0 0 auto;
+    margin: auto;
+    max-width: 100%;
+    transition: width 260ms ease, height 260ms ease, box-shadow 220ms ease;
+    will-change: width, height;
+  }
+
+  .scale-box,
+  .scale-box * {
+    transition-property: background-color, border-color, color, opacity, box-shadow, transform;
+    transition-duration: 220ms;
+    transition-timing-function: ease;
+  }
+
+  @media (max-width: 520px) {
+    .mobile-config-bar {
+      display: block;
+      padding: 8px 12px;
+      background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
+      border-bottom: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+    }
+
+    .preview-viewport {
+      padding: 12px;
+    }
+  }
+`;
+
+const FloatingConfigPanel = styled.div`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 42px;
+  height: 42px;
+
+  .config-trigger {
+    width: 42px;
+    height: 42px;
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+    border-radius: 14px;
+    background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
+    color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || theme.primary};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.15rem;
+    box-shadow: ${({ $open }) => ($open ? '0 10px 24px rgba(0, 0, 0, 0.12)' : 'none')};
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .config-trigger:hover {
+    background: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+    color: #fff;
+  }
+
+  .config-content {
+    position: absolute;
+    top: 0;
+    right: 48px;
+    width: ${({ $open }) => ($open ? 'min(720px, calc(100vw - 140px))' : '0')};
+    height: 46px;
+    overflow: hidden;
+    opacity: ${({ $open }) => ($open ? 1 : 0)};
+    pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+    border-radius: 14px;
+    background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
+    box-shadow: ${({ $open }) => ($open ? '0 14px 34px rgba(0, 0, 0, 0.14)' : 'none')};
+    transition: width 0.22s ease, opacity 0.18s ease, box-shadow 0.22s ease;
+  }
+
+  @media (max-width: 720px) {
+    .config-content {
+      height: auto;
+      max-height: 96px;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+  }
+
+  @media (max-width: 520px) {
+    display: none;
+  }
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
+  border-top: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+
+  .cancel-btn {
+    min-height: 40px;
+    padding: 9px 20px;
+    border-radius: 12px;
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+    background: transparent;
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 800;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .cancel-btn:hover {
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+    color: ${({ theme }) => theme.text};
+  }
+
+  .export-action > button {
+    min-height: 42px;
+    padding: 10px 22px;
+    font-size: 0.92rem;
+  }
+
+  @media (max-width: 520px) {
+    padding: 12px;
+
+    .cancel-btn,
+    .export-action,
+    .export-action > button {
+      flex: 1 1 0;
+      width: 100%;
+    }
   }
 `;

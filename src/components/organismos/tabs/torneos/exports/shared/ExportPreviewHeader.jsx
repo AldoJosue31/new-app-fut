@@ -1,5 +1,5 @@
 import React from "react";
-import styled from "styled-components";
+import styled, { useTheme } from "styled-components";
 import { v, Btnsave } from "../../../../../../index";
 import { RiFileDownloadLine, RiImageLine, RiSunLine, RiMoonLine } from "react-icons/ri";
 
@@ -10,6 +10,8 @@ export const ExportPreviewHeader = ({
     setIsMobile,
     onExport,
     isExporting,
+    showExportAction = true,
+    showInfo = true,
     title = "Configura la imagen",
     inactiveFormatLabel = "Post (4:5)",
     activeFormatLabel = "Historia (9:16)",
@@ -19,13 +21,15 @@ export const ExportPreviewHeader = ({
     beforeFormatControls = null
 }) => {
     return (
-        <HeaderContainer>
-            <div className="left-group">
-                <span className="header-icon">
-                    <RiImageLine size={17} />
-                </span>
-                <span className="info-text">{title}</span>
-            </div>
+        <HeaderContainer $showInfo={showInfo}>
+            {showInfo && (
+                <div className="left-group">
+                    <span className="header-icon">
+                        <RiImageLine size={17} />
+                    </span>
+                    <span className="info-text">{title}</span>
+                </div>
+            )}
 
             <div className="right-group">
                 {beforeFormatControls}
@@ -63,31 +67,65 @@ export const ExportPreviewHeader = ({
                     {isDark ? <RiSunLine /> : <RiMoonLine />}
                 </ThemeToggleBtn>
 
-                <div className="export-action">
-                    <Btnsave
-                        titulo={isExporting ? exportingLabel : exportLabel}
-                        bgcolor={isExporting ? "#7f8c8d" : v.verde}
-                        icono={isExporting ? <div className="spinner-mini" /> : <RiFileDownloadLine />}
-                        funcion={onExport}
-                        disabled={isExporting}
-                        color="255,255,255"
+                {showExportAction && (
+                    <ExportDownloadButton
+                        onExport={onExport}
+                        isExporting={isExporting}
+                        exportLabel={exportLabel}
+                        exportingLabel={exportingLabel}
                     />
-                </div>
+                )}
             </div>
         </HeaderContainer>
     );
 };
 
+export const ExportDownloadButton = ({
+    onExport,
+    isExporting,
+    disabled = false,
+    exportLabel = "Descargar",
+    exportingLabel = "Exportando..."
+}) => {
+    const theme = useTheme();
+    const palette = theme?.tournamentDashboard || {};
+    const metricsPalette = palette.metrics || {};
+    const exportButtonColor = isExporting || disabled
+        ? (theme?.bg4 || "#7f8c8d")
+        : (metricsPalette.accent || v.verde);
+
+    return (
+        <DownloadButtonFrame className="export-action">
+            <Btnsave
+                titulo={isExporting ? exportingLabel : exportLabel}
+                bgcolor={exportButtonColor}
+                icono={isExporting ? <div className="spinner-mini" /> : <RiFileDownloadLine />}
+                funcion={onExport}
+                disabled={isExporting || disabled}
+                color="255,255,255"
+            />
+        </DownloadButtonFrame>
+    );
+};
+
 const HeaderContainer = styled.div`
+    --export-accent: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+    --export-accent-soft: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6 || `${v.colorPrincipal}18`};
+    --export-accent-strong: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
+    --export-surface: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
+    --export-item-surface: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+    --export-border: ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+    --export-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle || theme.text};
+
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: ${({ $showInfo }) => ($showInfo ? "minmax(0, 1fr) auto" : "1fr")};
     align-items: center;
     gap: 12px;
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 16px;
-    background: ${({ theme }) => theme.bg};
-    border-bottom: 1px solid ${({ theme }) => theme.bg3};
+    padding: ${({ $showInfo }) => ($showInfo ? "12px 16px" : "8px 12px")};
+    background: var(--export-surface);
+    border-bottom: 1px solid var(--export-border);
 
     .left-group {
         min-width: 0;
@@ -107,9 +145,9 @@ const HeaderContainer = styled.div`
         justify-content: center;
         flex: 0 0 auto;
         border-radius: 10px;
-        background: ${({ theme }) => theme.bg2};
-        border: 1px solid ${({ theme }) => theme.bg4};
-        color: ${v.colorPrincipal};
+        background: var(--export-accent-soft);
+        border: 1px solid var(--export-border);
+        color: var(--export-accent-strong);
     }
 
     .info-text {
@@ -127,31 +165,7 @@ const HeaderContainer = styled.div`
         min-width: 0;
     }
 
-    .export-action {
-        display: flex;
-
-        > button {
-            min-height: 38px;
-            padding: 9px 18px;
-            border-radius: 14px;
-            white-space: nowrap;
-        }
-    }
-
-    .spinner-mini {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-radius: 50%;
-        border-top-color: #fff;
-        animation: spin-export 1s linear infinite;
-    }
-
-    @keyframes spin-export {
-        to { transform: rotate(360deg); }
-    }
-
-    @media (max-width: 720px) {
+    @media (max-width: 860px) {
         grid-template-columns: 1fr;
         align-items: stretch;
 
@@ -184,6 +198,46 @@ const HeaderContainer = styled.div`
     }
 `;
 
+const DownloadButtonFrame = styled.div`
+    display: flex;
+
+    > button {
+        min-height: 34px;
+        padding: 7px 14px;
+        border-radius: 12px;
+        border-bottom-width: 3px;
+        font-size: 0.86rem;
+        transform: translate(0, -1px);
+        white-space: nowrap;
+    }
+
+    > button:active {
+        transform: translate(0, 0);
+    }
+
+    > button[disabled] {
+        transform: translate(0, 0);
+        border-bottom-width: 2px;
+    }
+
+    .content {
+        gap: 8px;
+    }
+
+    .spinner-mini {
+        width: 15px;
+        height: 15px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin-export 1s linear infinite;
+    }
+
+    @keyframes spin-export {
+        to { transform: rotate(360deg); }
+    }
+`;
+
 const ThemeToggleBtn = styled.button`
     display: flex;
     align-items: center;
@@ -192,16 +246,22 @@ const ThemeToggleBtn = styled.button`
     height: 38px;
     flex: 0 0 38px;
     border-radius: 12px;
-    border: 1px solid ${({ theme }) => theme.bg4};
-    background: ${({ theme }) => theme.bg2};
-    color: ${({ theme }) => theme.text};
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     font-size: 1.1rem;
 
     &:hover {
-        background: ${({ theme }) => theme.bg3};
-        color: ${v.colorPrincipal};
+        background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6 || theme.bg3};
+        border-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+        color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
+    }
+
+    &:focus-visible {
+        outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+        outline-offset: 2px;
     }
 
     &:disabled {
@@ -216,8 +276,8 @@ const FormatSwitch = styled.div`
     min-width: 230px;
     padding: 3px;
     border-radius: 13px;
-    background: ${({ theme }) => theme.bg2};
-    border: 1px solid ${({ theme }) => theme.bg4};
+    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
     opacity: ${({ $disabled }) => $disabled ? 0.58 : 1};
 
     button {
@@ -227,7 +287,7 @@ const FormatSwitch = styled.div`
         border: 0;
         border-radius: 10px;
         background: transparent;
-        color: ${({ theme }) => theme.text};
+        color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
         cursor: pointer;
         font-size: 0.78rem;
         font-weight: 800;
@@ -236,21 +296,31 @@ const FormatSwitch = styled.div`
         text-overflow: ellipsis;
         white-space: nowrap;
         opacity: 0.64;
-        transition: 0.2s ease;
+        transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
     }
 
     button.active {
-        background: ${({ theme }) => theme.bg};
-        color: ${v.colorPrincipal};
+        background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6 || `${v.colorPrincipal}18`};
+        color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || v.colorPrincipal};
         opacity: 1;
-        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
+    }
+
+    button:not(.active):hover {
+        background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bg};
+        color: ${({ theme }) => theme.text};
+        opacity: 0.86;
+    }
+
+    button:focus-visible {
+        outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary || v.colorPrincipal};
+        outline-offset: 1px;
     }
 
     button:disabled {
         cursor: not-allowed;
     }
 
-    @media (max-width: 720px) {
+    @media (max-width: 860px) {
         flex: 1 1 230px;
     }
 

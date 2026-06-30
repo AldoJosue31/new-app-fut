@@ -63,9 +63,9 @@ export const Light = {
             accentStrong: "#0e7490"
         },
         metrics: {
-            accent: "#22c55e",
-            accentSoft: "#dcfce7",
-            accentStrong: "#15803d",
+            accent: "#2f855a",
+            accentSoft: "#e6f4ec",
+            accentStrong: "#276749",
             warning: "#f59e0b",
             danger: "#ef4444"
         }
@@ -136,9 +136,9 @@ export const Dark = {
             accentStrong: "#67e8f9"
         },
         metrics: {
-            accent: "#4ade80",
-            accentSoft: "rgba(74, 222, 128, 0.16)",
-            accentStrong: "#86efac",
+            accent: "#3fbf8a",
+            accentSoft: "rgba(63, 191, 138, 0.16)",
+            accentStrong: "#7ee2b8",
             warning: "#fbbf24",
             danger: "#f87171"
         }
