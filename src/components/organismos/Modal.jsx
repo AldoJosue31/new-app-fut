@@ -72,6 +72,7 @@ export const Modal = ({
   compactHeader = false,
   overlayPadding = "20px",
   maxHeight = "calc(100dvh - 40px)",
+  minHeight = "auto",
   bodyPadding = "25px",
   bodyOverflowY = "auto",
   width = "500px",
@@ -90,6 +91,7 @@ export const Modal = ({
       <ModalContainer
         $width={width}
         $maxHeight={maxHeight}
+        $minHeight={minHeight}
         $allowOverflow={!!headerActions}
         onClick={(e) => e.stopPropagation()}
       >
@@ -139,6 +141,7 @@ const ModalContainer = styled.div`
   width: 100%;
   max-width: ${({ $width }) => $width};
   max-height: ${({ $maxHeight }) => $maxHeight};
+  min-height: ${({ $minHeight }) => $minHeight};
   border-radius: 16px;
   box-shadow: none;
   animation: ${slideIn} 0.3s ease-out;

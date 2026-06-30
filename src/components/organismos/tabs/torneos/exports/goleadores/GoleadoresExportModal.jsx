@@ -15,6 +15,7 @@ import { ExportDownloadButton } from '../shared/ExportPreviewHeader';
 
 const FIXED_LIMIT_OPTIONS = [3, 5, 10, 15, 20, 50];
 const CUSTOM_LIMIT_VALUE = 'custom';
+const MIN_MODAL_WIDTH = 820;
 const VISUALIZATION_OPTIONS = [
   { value: 'table', label: 'Tabla' },
   { value: 'bars', label: 'Barras' },
@@ -391,7 +392,7 @@ export default function GoleadoresExportModal({
 
   const baseWidth = isMobileLayout ? 480 : 900;
   const safeContentHeight = Math.max(contentHeight, 220);
-  const modalWidth = `${baseWidth * previewScale + 72}px`;
+  const modalWidth = `${Math.max(baseWidth * previewScale + 72, MIN_MODAL_WIDTH)}px`;
 
   return (
     <Modal
@@ -402,6 +403,7 @@ export default function GoleadoresExportModal({
       compactHeader
       overlayPadding="6px 18px"
       maxHeight="calc(100dvh - 24px)"
+      minHeight="90dvh"
       bodyOverflowY="hidden"
       bodyPadding="0"
     >
@@ -707,13 +709,38 @@ const PreviewWrapper = styled.div`
   .preview-viewport {
     flex: 1 1 auto;
     min-height: 0;
-    display: grid;
-    place-items: center;
-    padding: 16px 22px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 18px 24px;
     overflow-x: auto;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable both-edges;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
+
+    &::-webkit-scrollbar {
+      width: 5px;
+      height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+      border-radius: 4px;
+      margin: 5px 0;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: ${({ theme }) => theme.colorScroll};
+      border-radius: 4px;
+      transition: background 0.3s ease;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: ${({ theme }) => theme.text};
+    }
   }
 
   .scale-box {
@@ -723,8 +750,6 @@ const PreviewWrapper = styled.div`
     overflow: hidden;
     flex: 0 0 auto;
     margin: auto;
-    justify-self: center;
-    align-self: center;
     max-width: 100%;
     transition: width 260ms ease, height 260ms ease, box-shadow 220ms ease;
     will-change: width, height;
