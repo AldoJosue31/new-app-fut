@@ -56,12 +56,10 @@ function AppContent() {
     );
   }
 
-  const isStandAlonePage =
-    pathname === "/login" ||
-    pathname.startsWith("/invitation") ||
-    pathname.startsWith("/share") ||
-    pathname.startsWith("/landing") ||
-    (pathname === "/" && !user);
+  const isStandAlonePage = 
+    pathname === "/login" || 
+    pathname.startsWith("/invitation") || 
+    pathname.startsWith("/share");
 
   return (
     <ThemeProvider theme={themeStyle}>

@@ -1,19 +1,18 @@
 import React, { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import {
-  Home,
-  Login,
-  Partidos,
-  Equipos,
-  Torneos,
-  Liga,
+import { 
+  Home, 
+  Login, 
+  Partidos, 
+  Equipos, 
+  Torneos, 
+  Liga, 
   Configuracion,
   RegisterManager
 } from "../index";
 import { UserAuth } from "../context/AuthContent";
 import { ROLES } from "../utils/constants";
 import { PublicStandings } from '../pages/PublicStandings';
-import Landing from '../pages/Landing';
 
 const AdminManagersLazy = React.lazy(() => 
   import("../pages/AdminManagers").then(module => {
@@ -34,16 +33,6 @@ function ProtectedRoute({ children, allowedRoles }) {
   return children;
 }
 
-// Home inteligente: sin sesión muestra Landing pública, con sesión muestra Dashboard
-function HomeGate({ sidebarState, setSidebarState }) {
-  const { user, isLoading } = UserAuth();
-
-  if (isLoading) return <div>Cargando...</div>;
-  if (!user) return <Landing />;
-
-  return <Home state={sidebarState} setState={setSidebarState} />;
-}
-
 // --- RECIBIMOS LAS PROPS DEL SIDEBAR AQUÍ ---
 export function MyRoutes({ sidebarState, setSidebarState }) {
   const { user } = UserAuth();
@@ -53,23 +42,24 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route path="/share/standings/:torneoId" element={<PublicStandings />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
 
-      {/* Landing pública accesible directamente */}
-      <Route path="/landing" element={<Landing />} />
-
-      {/* HOME: usuarios sin sesión ven Landing, con sesión ven Dashboard */}
-      <Route
-        path="/"
-        element={<HomeGate sidebarState={sidebarState} setSidebarState={setSidebarState} />}
-      />
-
       {/* --- RUTAS PROTEGIDAS --- */}
-      <Route
-        path="/dashboard"
+      
+      {/* 1. HOME: Agregamos props */}
+      <Route 
+        path="/" 
         element={
           <ProtectedRoute>
             <Home state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
-        }
+        } 
+      />
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Home state={sidebarState} setState={setSidebarState} />
+          </ProtectedRoute>
+        } 
       />
 
       {/* 2. PARTIDOS: Agregamos props */}
