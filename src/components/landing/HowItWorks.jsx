@@ -55,7 +55,7 @@ export default function HowItWorks() {
         }
         .landing-scope .lp-step-card {
           position: relative;
-          padding: 40px 32px;
+          padding: clamp(28px, 3vw, 40px) clamp(24px, 3vw, 32px);
           border-radius: var(--lp-radius-lg);
           background: linear-gradient(180deg, rgba(212, 175, 55, 0.05), transparent);
           border: 1px solid rgba(212, 175, 55, 0.12);
@@ -64,10 +64,7 @@ export default function HowItWorks() {
           font-size: 68px;
           font-weight: 900;
           line-height: 1;
-          background: linear-gradient(135deg, var(--lp-gold-bright), var(--lp-gold-deep));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          color: var(--lp-gold-bright);
           margin-bottom: 20px;
           letter-spacing: -0.03em;
         }
@@ -79,7 +76,7 @@ export default function HowItWorks() {
         }
         .landing-scope .lp-step-text {
           font-size: 15px;
-          color: rgba(245, 239, 224, 0.72);
+          color: rgba(245, 239, 224, 0.78);
           margin: 0;
           line-height: 1.6;
         }

@@ -26,11 +26,12 @@ export default function LandingHeader() {
         left: 0,
         right: 0,
         zIndex: 50,
-        transition: "all 0.3s ease",
-        background: scrolled ? "rgba(10, 42, 32, 0.85)" : "transparent",
+        transition:
+          "background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease",
+        background: scrolled ? "var(--lp-header-bg)" : "transparent",
         backdropFilter: scrolled ? "blur(12px)" : "none",
         borderBottom: scrolled
-          ? "1px solid rgba(212, 175, 55, 0.15)"
+          ? "1px solid rgba(212, 175, 55, 0.2)"
           : "1px solid transparent",
       }}
     >
@@ -45,6 +46,7 @@ export default function LandingHeader() {
       >
         <a
           href="#top"
+          className="lp-brand-link"
           style={{
             display: "flex",
             alignItems: "center",
@@ -54,6 +56,7 @@ export default function LandingHeader() {
           }}
         >
           <div
+            className="lp-brand-mark"
             style={{
               width: 38,
               height: 38,
@@ -63,12 +66,12 @@ export default function LandingHeader() {
               placeItems: "center",
               fontWeight: 900,
               color: "var(--lp-carbon)",
-              boxShadow: "0 6px 20px -6px rgba(212, 175, 55, 0.6)",
+              boxShadow: "0 6px 20px -10px rgba(212, 175, 55, 0.6)",
             }}
           >
             B
           </div>
-          <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: -0.3 }}>
+          <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>
             {landingCopy.nav.logo}
           </span>
         </a>
@@ -78,17 +81,12 @@ export default function LandingHeader() {
             <a
               key={l.href}
               href={l.href}
+              className="lp-nav-link"
               style={{
-                color: "rgba(245, 239, 224, 0.75)",
                 textDecoration: "none",
                 fontWeight: 500,
                 fontSize: 14,
-                transition: "color 0.2s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--lp-gold-bright)")}
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = "rgba(245, 239, 224, 0.75)")
-              }
             >
               {l.label}
             </a>
@@ -115,8 +113,8 @@ export default function LandingHeader() {
             className="lp-nav-mobile-toggle"
             style={{
               display: "none",
-              background: "transparent",
-              border: "1px solid rgba(245, 239, 224, 0.3)",
+              background: "rgba(245, 239, 224, 0.03)",
+              border: "1px solid rgba(245, 239, 224, 0.24)",
               color: "var(--lp-cream)",
               padding: "8px 10px",
               borderRadius: 8,
@@ -130,6 +128,24 @@ export default function LandingHeader() {
       </div>
 
       <style>{`
+        .landing-scope .lp-brand-mark {
+          transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 180ms ease;
+        }
+        .landing-scope .lp-brand-link:hover .lp-brand-mark {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 24px -10px rgba(212, 175, 55, 0.55);
+        }
+        .landing-scope .lp-nav-link {
+          color: rgba(245, 239, 224, 0.8);
+          transition: color 180ms ease;
+        }
+        .landing-scope .lp-nav-link:hover {
+          color: var(--lp-gold-bright);
+        }
+        .landing-scope .lp-nav-mobile-toggle:hover {
+          border-color: rgba(212, 175, 55, 0.38);
+          color: var(--lp-gold-bright);
+        }
         @media (max-width: 900px) {
           .landing-scope .lp-nav-desktop { display: none !important; }
           .landing-scope .lp-nav-mobile-toggle { display: inline-flex !important; }

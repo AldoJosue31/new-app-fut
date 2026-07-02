@@ -57,7 +57,7 @@ export default function FeaturesStrip() {
               <p
                 style={{
                   fontSize: 15,
-                  color: "rgba(245, 239, 224, 0.7)",
+                  color: "rgba(245, 239, 224, 0.76)",
                   lineHeight: 1.55,
                   margin: 0,
                 }}
@@ -79,13 +79,16 @@ export default function FeaturesStrip() {
           background: linear-gradient(180deg, rgba(245, 239, 224, 0.04), rgba(245, 239, 224, 0.02));
           border: 1px solid rgba(212, 175, 55, 0.15);
           border-radius: var(--lp-radius-lg);
-          padding: 28px 24px;
-          transition: all 0.25s ease;
+          padding: var(--lp-card-padding);
+          transition:
+            transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+            border-color 180ms ease,
+            box-shadow 180ms ease;
         }
         .landing-scope .lp-feature-card:hover {
-          transform: translateY(-4px);
-          border-color: rgba(212, 175, 55, 0.5);
-          box-shadow: 0 20px 40px -20px rgba(212, 175, 55, 0.25);
+          transform: translateY(-3px);
+          border-color: rgba(212, 175, 55, 0.36);
+          box-shadow: 0 18px 34px -24px rgba(212, 175, 55, 0.24);
         }
         .landing-scope .lp-feature-icon {
           width: 52px;

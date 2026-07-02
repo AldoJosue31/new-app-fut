@@ -22,23 +22,28 @@
 
   --lp-shadow-gold: 0 20px 60px -20px rgba(212, 175, 55, 0.45);
   --lp-shadow-deep: 0 30px 80px -30px rgba(10, 42, 32, 0.75);
+  --lp-panel-radius: 16px;
+  --lp-card-padding: clamp(22px, 2vw, 32px);
 
   --lp-font-display: 'Poppins', system-ui, sans-serif;
   --lp-font-body: 'Poppins', system-ui, sans-serif;
 
   color: var(--lp-cream);
-  background: var(--lp-forest-deep);
+  background: var(--lp-page-bg, var(--lp-forest-deep));
   font-family: var(--lp-font-body);
   line-height: 1.55;
 }
 
 .landing-scope * { box-sizing: border-box; }
+.landing-scope :where(h1, h2, h3) { text-wrap: balance; }
+.landing-scope :where(p, li) { text-wrap: pretty; }
+.landing-scope :where(a, button) { -webkit-tap-highlight-color: transparent; }
 
 .landing-scope .lp-container {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 20px;
 }
 
 @media (min-width: 768px) {
@@ -57,7 +62,13 @@
   font-size: 15px;
   letter-spacing: 0.3px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  min-height: 48px;
+  transition:
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
   border: 2px solid transparent;
   text-decoration: none;
   white-space: nowrap;
@@ -69,16 +80,22 @@
 }
 .landing-scope .lp-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 26px 70px -20px rgba(212, 175, 55, 0.65);
+  box-shadow: 0 22px 48px -22px rgba(212, 175, 55, 0.58);
 }
 .landing-scope .lp-btn-ghost {
-  background: transparent;
+  background: rgba(245, 239, 224, 0.03);
   color: var(--lp-cream);
-  border-color: rgba(245, 239, 224, 0.35);
+  border-color: rgba(245, 239, 224, 0.24);
 }
 .landing-scope .lp-btn-ghost:hover {
   border-color: var(--lp-gold);
   color: var(--lp-gold-bright);
+  background: rgba(245, 239, 224, 0.06);
+}
+.landing-scope .lp-btn:active { transform: scale(0.98); }
+.landing-scope :where(a, button):focus-visible {
+  outline: none;
+  box-shadow: var(--lp-focus-ring);
 }
 
 /* Tipografía de secciones */
@@ -102,14 +119,14 @@
   font-family: var(--lp-font-display);
   font-size: clamp(32px, 5vw, 56px);
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1.08;
   letter-spacing: -0.02em;
   color: var(--lp-cream);
   margin: 16px 0 20px;
 }
 .landing-scope .lp-lead {
   font-size: 18px;
-  color: rgba(245, 239, 224, 0.75);
+  color: rgba(245, 239, 224, 0.82);
   max-width: 640px;
 }
 
@@ -120,4 +137,20 @@
     radial-gradient(1px 1px at 70% 60%, rgba(143, 188, 143, 0.1) 0, transparent 50%),
     radial-gradient(1px 1px at 40% 80%, rgba(212, 175, 55, 0.08) 0, transparent 50%);
   background-size: 300px 300px, 220px 220px, 260px 260px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .landing-scope .lp-btn:hover {
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-scope *,
+  .landing-scope *::before,
+  .landing-scope *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

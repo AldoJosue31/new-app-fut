@@ -66,7 +66,7 @@ export default function HeroSection() {
             transition={{ duration: 0.7, delay: 0.15 }}
             style={{
               fontSize: "clamp(44px, 8vw, 96px)",
-              lineHeight: 0.98,
+              lineHeight: 1,
               fontWeight: 900,
               letterSpacing: "-0.03em",
               margin: "24px 0 24px",
@@ -77,11 +77,7 @@ export default function HeroSection() {
             <br />
             <span
               style={{
-                background:
-                  "linear-gradient(135deg, var(--lp-gold-bright), var(--lp-gold))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
+                color: "var(--lp-gold-bright)",
               }}
             >
               {hero.titleAccent}
@@ -94,7 +90,7 @@ export default function HeroSection() {
             transition={{ duration: 0.6, delay: 0.3 }}
             style={{
               fontSize: 19,
-              color: "rgba(245, 239, 224, 0.8)",
+              color: "rgba(245, 239, 224, 0.84)",
               maxWidth: 620,
               marginBottom: 40,
             }}
@@ -120,9 +116,9 @@ export default function HeroSection() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.7 }}
+            className="lp-hero-stats"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
               gap: 32,
               marginTop: 64,
               maxWidth: 560,
@@ -145,7 +141,7 @@ export default function HeroSection() {
                 <div
                   style={{
                     fontSize: 13,
-                    color: "rgba(245, 239, 224, 0.6)",
+                    color: "rgba(245, 239, 224, 0.68)",
                     marginTop: 6,
                     letterSpacing: 0.3,
                   }}
@@ -157,6 +153,24 @@ export default function HeroSection() {
           </motion.div>
         </div>
       </div>
+
+      <style>{`
+        .landing-scope .lp-hero-stats {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        @media (max-width: 640px) {
+          .landing-scope .lp-hero-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px 18px;
+            margin-top: 48px !important;
+          }
+        }
+        @media (max-width: 420px) {
+          .landing-scope .lp-hero-stats {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </section>
   );
 }

@@ -17,8 +17,8 @@ export default function BenefitsSection() {
     <section
       style={{
         padding: "120px 0",
-        background: "var(--lp-cream)",
-        color: "var(--lp-carbon)",
+        background: "var(--lp-app-surface-soft)",
+        color: "var(--lp-app-ink)",
         position: "relative",
       }}
     >
@@ -26,13 +26,13 @@ export default function BenefitsSection() {
         <div style={{ maxWidth: 780, marginBottom: 64 }}>
           <span
             className="lp-eyebrow"
-            style={{ color: "var(--lp-forest)" }}
+            style={{ color: "var(--lp-app-accent)" }}
           >
             {benefits.eyebrow}
           </span>
           <h2
             className="lp-h2"
-            style={{ color: "var(--lp-carbon)" }}
+            style={{ color: "var(--lp-app-ink)" }}
           >
             {benefits.title}
           </h2>
@@ -65,16 +65,19 @@ export default function BenefitsSection() {
           gap: 24px;
         }
         .landing-scope .lp-benefit-card {
-          background: #fff;
+          background: var(--lp-app-surface);
           border-radius: var(--lp-radius-lg);
-          padding: 36px 32px;
-          border: 1px solid rgba(15, 61, 46, 0.08);
-          box-shadow: 0 20px 40px -30px rgba(15, 61, 46, 0.3);
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          padding: clamp(28px, 3vw, 36px) clamp(24px, 3vw, 32px);
+          border: 1px solid var(--lp-app-border);
+          box-shadow: var(--lp-app-shadow);
+          transition:
+            transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+            box-shadow 180ms ease,
+            border-color 180ms ease;
         }
         .landing-scope .lp-benefit-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 30px 60px -25px rgba(15, 61, 46, 0.35);
+          transform: translateY(-4px);
+          box-shadow: var(--lp-app-shadow-strong);
         }
         .landing-scope .lp-benefit-icon {
           width: 60px;
@@ -88,12 +91,12 @@ export default function BenefitsSection() {
         .landing-scope .lp-benefit-title {
           font-size: 22px;
           font-weight: 800;
-          color: var(--lp-forest);
+          color: var(--lp-app-ink);
           margin: 20px 0 10px;
         }
         .landing-scope .lp-benefit-text {
           font-size: 15px;
-          color: rgba(10, 10, 10, 0.65);
+          color: var(--lp-app-ink-muted);
           line-height: 1.6;
           margin: 0;
         }

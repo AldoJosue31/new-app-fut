@@ -24,11 +24,11 @@ export default function TestimonialSection() {
           style={{
             maxWidth: 900,
             margin: "0 auto",
-            padding: "56px 48px",
+            padding: "clamp(36px, 4vw, 56px) clamp(24px, 4vw, 48px)",
             background:
               "linear-gradient(135deg, rgba(212, 175, 55, 0.08), rgba(46, 125, 50, 0.08))",
             border: "1px solid rgba(212, 175, 55, 0.25)",
-            borderRadius: "var(--lp-radius-xl)",
+            borderRadius: "28px",
             position: "relative",
             overflow: "hidden",
           }}
@@ -50,7 +50,7 @@ export default function TestimonialSection() {
               fontSize: "clamp(20px, 2.4vw, 26px)",
               fontWeight: 500,
               color: "var(--lp-cream)",
-              lineHeight: 1.55,
+              lineHeight: 1.62,
               margin: 0,
               paddingLeft: 24,
               fontStyle: "italic",
@@ -102,6 +102,7 @@ export default function TestimonialSection() {
                 style={{
                   color: "rgba(245, 239, 224, 0.6)",
                   fontSize: 13,
+                  lineHeight: 1.5,
                 }}
               >
                 {testimonial.role}

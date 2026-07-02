@@ -10,7 +10,7 @@ export default function LandingFooter() {
       style={{
         background: "var(--lp-carbon)",
         padding: "80px 0 32px",
-        color: "rgba(245, 239, 224, 0.7)",
+        color: "rgba(245, 239, 224, 0.74)",
       }}
     >
       <div className="lp-container">
@@ -65,18 +65,11 @@ export default function LandingFooter() {
                   <li key={l.label} style={{ marginBottom: 10 }}>
                     <a
                       href={l.href}
+                      className="lp-footer-link"
                       style={{
-                        color: "rgba(245, 239, 224, 0.65)",
                         textDecoration: "none",
                         fontSize: 14,
-                        transition: "color 0.2s",
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.color = "var(--lp-gold-bright)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.color = "rgba(245, 239, 224, 0.65)")
-                      }
                     >
                       {l.label}
                     </a>
@@ -107,6 +100,13 @@ export default function LandingFooter() {
       </div>
 
       <style>{`
+        .landing-scope .lp-footer-link {
+          color: rgba(245, 239, 224, 0.7);
+          transition: color 180ms ease;
+        }
+        .landing-scope .lp-footer-link:hover {
+          color: var(--lp-gold-bright);
+        }
         .landing-scope .lp-footer-grid {
           display: grid;
           grid-template-columns: 1.8fr repeat(3, 1fr);

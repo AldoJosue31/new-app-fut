@@ -41,7 +41,7 @@ export default function ProductShowcase() {
                   alignItems: "flex-start",
                   gap: 12,
                   marginBottom: 14,
-                  color: "rgba(245, 239, 224, 0.85)",
+                  color: "rgba(245, 239, 224, 0.88)",
                   fontSize: 15,
                 }}
               >
@@ -169,10 +169,10 @@ export default function ProductShowcase() {
         }
         .landing-scope .lp-mockup { position: relative; }
         .landing-scope .lp-mockup-frame {
-          background: linear-gradient(180deg, #0F2620, #0A1F1A);
+          background: linear-gradient(180deg, rgba(8, 31, 26, 0.96), rgba(7, 23, 19, 0.98));
           border-radius: var(--lp-radius-lg);
           border: 1px solid rgba(212, 175, 55, 0.25);
-          box-shadow: var(--lp-shadow-deep), 0 0 0 1px rgba(212, 175, 55, 0.15);
+          box-shadow: 0 24px 50px -32px rgba(0, 0, 0, 0.55);
           overflow: hidden;
         }
         .landing-scope .lp-mockup-topbar {
@@ -199,7 +199,7 @@ export default function ProductShowcase() {
           gap: 12px;
         }
         .landing-scope .lp-mockup-card {
-          background: rgba(245, 239, 224, 0.04);
+          background: color-mix(in srgb, var(--lp-app-surface) 82%, transparent);
           border: 1px solid rgba(212, 175, 55, 0.15);
           border-radius: 12px;
           padding: 14px;
@@ -209,7 +209,7 @@ export default function ProductShowcase() {
         }
         .landing-scope .lp-mockup-card-label {
           font-size: 11px;
-          color: rgba(245, 239, 224, 0.55);
+          color: rgba(245, 239, 224, 0.62);
           letter-spacing: 0.5px;
           text-transform: uppercase;
         }
@@ -224,7 +224,7 @@ export default function ProductShowcase() {
           font-weight: 700;
         }
         .landing-scope .lp-mockup-table {
-          background: rgba(0, 0, 0, 0.2);
+          background: rgba(0, 0, 0, 0.16);
           border-radius: 12px;
           padding: 8px 4px;
         }
@@ -247,6 +247,16 @@ export default function ProductShowcase() {
         }
         @media (max-width: 900px) {
           .landing-scope .lp-showcase-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 560px) {
+          .landing-scope .lp-mockup-cards {
+            grid-template-columns: 1fr;
+          }
+          .landing-scope .lp-mockup-table-head,
+          .landing-scope .lp-mockup-table-row {
+            grid-template-columns: 32px 1fr 42px 42px;
+            padding: 10px 10px;
+          }
         }
       `}</style>
     </section>

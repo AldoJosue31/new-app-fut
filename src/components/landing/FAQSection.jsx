@@ -45,7 +45,11 @@ export default function FAQSection() {
                     ? "linear-gradient(180deg, rgba(212, 175, 55, 0.06), transparent)"
                     : "rgba(245, 239, 224, 0.02)",
                   overflow: "hidden",
-                  transition: "border-color 0.25s ease",
+                  transition:
+                    "border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease",
+                  boxShadow: isOpen
+                    ? "0 16px 30px -24px rgba(0, 0, 0, 0.32)"
+                    : "none",
                 }}
               >
                 <button
@@ -100,7 +104,7 @@ export default function FAQSection() {
                         style={{
                           padding: "0 26px 24px",
                           margin: 0,
-                          color: "rgba(245, 239, 224, 0.75)",
+                          color: "rgba(245, 239, 224, 0.8)",
                           fontSize: 15,
                           lineHeight: 1.65,
                         }}

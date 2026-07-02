@@ -23,14 +23,14 @@ export default function FinalCTA() {
           transition={{ duration: 0.6 }}
           style={{
             position: "relative",
-            padding: "72px 48px",
-            borderRadius: "var(--lp-radius-xl)",
+            padding: "clamp(44px, 5vw, 72px) clamp(24px, 5vw, 48px)",
+            borderRadius: "28px",
             background:
               "linear-gradient(135deg, var(--lp-gold-deep), var(--lp-gold-bright))",
             color: "var(--lp-carbon)",
             overflow: "hidden",
             textAlign: "center",
-            boxShadow: "0 40px 80px -30px rgba(212, 175, 55, 0.6)",
+            boxShadow: "0 28px 56px -32px rgba(212, 175, 55, 0.52)",
           }}
         >
           {/* Textura decorativa */}
@@ -77,6 +77,7 @@ export default function FinalCTA() {
                 marginBottom: 36,
                 fontWeight: 700,
                 color: "var(--lp-forest-deep)",
+                lineHeight: 1.3,
               }}
             >
               {finalCta.subtitle}

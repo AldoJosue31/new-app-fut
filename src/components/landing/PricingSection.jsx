@@ -166,19 +166,26 @@ export default function PricingSection() {
         .landing-scope .lp-cycle-btn {
           padding: 10px 22px;
           background: transparent;
-          color: rgba(245, 239, 224, 0.65);
+          color: rgba(245, 239, 224, 0.72);
           border: none;
           border-radius: 999px;
           cursor: pointer;
           font-family: inherit;
           font-size: 14px;
-          transition: all 0.25s ease;
+          transition:
+            background-color 180ms ease,
+            color 180ms ease,
+            transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+            box-shadow 180ms ease;
           min-width: 130px;
+        }
+        .landing-scope .lp-cycle-btn:hover {
+          color: var(--lp-cream);
         }
         .landing-scope .lp-cycle-btn.active {
           background: linear-gradient(135deg, var(--lp-gold-bright), var(--lp-gold-deep));
           color: var(--lp-carbon);
-          box-shadow: 0 8px 24px -8px rgba(212, 175, 55, 0.6);
+          box-shadow: 0 10px 24px -10px rgba(212, 175, 55, 0.52);
         }
 
         .landing-scope .lp-plans-grid {
@@ -194,18 +201,22 @@ export default function PricingSection() {
           border-radius: var(--lp-radius-lg);
           padding: 28px 22px;
           gap: 20px;
-          transition: transform 0.25s ease, border-color 0.25s ease;
+          transition:
+            transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+            border-color 180ms ease,
+            box-shadow 180ms ease;
           position: relative;
         }
         .landing-scope .lp-plan-card:hover {
-          transform: translateY(-4px);
-          border-color: rgba(212, 175, 55, 0.45);
+          transform: translateY(-3px);
+          border-color: rgba(212, 175, 55, 0.34);
+          box-shadow: 0 18px 34px -26px rgba(212, 175, 55, 0.18);
         }
         .landing-scope .lp-plan-card.highlight {
           background: linear-gradient(180deg, rgba(212, 175, 55, 0.14), rgba(46, 125, 50, 0.1));
           border-color: rgba(212, 175, 55, 0.55);
-          box-shadow: 0 30px 60px -30px rgba(212, 175, 55, 0.4);
-          transform: translateY(-8px);
+          box-shadow: 0 24px 46px -28px rgba(212, 175, 55, 0.28);
+          transform: translateY(-6px);
         }
         .landing-scope .lp-plan-badge {
           position: absolute;
@@ -246,7 +257,7 @@ export default function PricingSection() {
         }
         .landing-scope .lp-plan-divisions {
           font-size: 11px;
-          color: rgba(245, 239, 224, 0.55);
+          color: rgba(245, 239, 224, 0.62);
           margin-top: 2px;
         }
         .landing-scope .lp-plan-price {
@@ -273,13 +284,13 @@ export default function PricingSection() {
         }
         .landing-scope .lp-plan-mxn {
           font-size: 11px;
-          color: rgba(245, 239, 224, 0.5);
+          color: rgba(245, 239, 224, 0.58);
           margin-top: 6px;
           margin-left: 4px;
         }
         .landing-scope .lp-plan-period {
           font-size: 12px;
-          color: rgba(245, 239, 224, 0.55);
+          color: rgba(245, 239, 224, 0.62);
           margin-top: 4px;
         }
         .landing-scope .lp-plan-savings {
@@ -301,6 +312,18 @@ export default function PricingSection() {
         @media (max-width: 720px) {
           .landing-scope .lp-plans-grid { grid-template-columns: repeat(2, 1fr); }
           .landing-scope .lp-cycle-btn { min-width: 100px; padding: 10px 14px; }
+        }
+        @media (max-width: 560px) {
+          .landing-scope .lp-cycle-toggle {
+            display: grid;
+            width: 100%;
+            transform: none;
+            left: auto;
+          }
+          .landing-scope .lp-cycle-btn {
+            min-width: 0;
+            width: 100%;
+          }
         }
         @media (max-width: 480px) {
           .landing-scope .lp-plans-grid { grid-template-columns: 1fr; }
