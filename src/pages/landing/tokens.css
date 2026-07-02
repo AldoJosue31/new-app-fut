@@ -1,0 +1,123 @@
+/* Tokens de la Landing (aislados del theme del dashboard) */
+.landing-scope {
+  --lp-forest: #0F3D2E;
+  --lp-forest-deep: #0A2A20;
+  --lp-grass: #2E7D32;
+  --lp-grass-bright: #4CAF50;
+  --lp-sage: #8FBC8F;
+
+  --lp-gold: #D4AF37;
+  --lp-gold-bright: #F1CB4A;
+  --lp-gold-deep: #B8860B;
+
+  --lp-cream: #F5EFE0;
+  --lp-cream-soft: #FBF7EC;
+  --lp-carbon: #0A0A0A;
+  --lp-carbon-soft: #1A1F1B;
+
+  --lp-radius-sm: 8px;
+  --lp-radius: 14px;
+  --lp-radius-lg: 22px;
+  --lp-radius-xl: 32px;
+
+  --lp-shadow-gold: 0 20px 60px -20px rgba(212, 175, 55, 0.45);
+  --lp-shadow-deep: 0 30px 80px -30px rgba(10, 42, 32, 0.75);
+
+  --lp-font-display: 'Poppins', system-ui, sans-serif;
+  --lp-font-body: 'Poppins', system-ui, sans-serif;
+
+  color: var(--lp-cream);
+  background: var(--lp-forest-deep);
+  font-family: var(--lp-font-body);
+  line-height: 1.55;
+}
+
+.landing-scope * { box-sizing: border-box; }
+
+.landing-scope .lp-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (min-width: 768px) {
+  .landing-scope .lp-container { padding: 0 40px; }
+}
+
+/* Botones base */
+.landing-scope .lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 28px;
+  border-radius: var(--lp-radius);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  border: 2px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.landing-scope .lp-btn-primary {
+  background: linear-gradient(135deg, var(--lp-gold-bright), var(--lp-gold));
+  color: var(--lp-carbon);
+  box-shadow: var(--lp-shadow-gold);
+}
+.landing-scope .lp-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 26px 70px -20px rgba(212, 175, 55, 0.65);
+}
+.landing-scope .lp-btn-ghost {
+  background: transparent;
+  color: var(--lp-cream);
+  border-color: rgba(245, 239, 224, 0.35);
+}
+.landing-scope .lp-btn-ghost:hover {
+  border-color: var(--lp-gold);
+  color: var(--lp-gold-bright);
+}
+
+/* Tipografía de secciones */
+.landing-scope .lp-eyebrow {
+  color: var(--lp-gold);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.landing-scope .lp-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 2px;
+  background: var(--lp-gold);
+}
+.landing-scope .lp-h2 {
+  font-family: var(--lp-font-display);
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--lp-cream);
+  margin: 16px 0 20px;
+}
+.landing-scope .lp-lead {
+  font-size: 18px;
+  color: rgba(245, 239, 224, 0.75);
+  max-width: 640px;
+}
+
+/* Texturas y fondos */
+.landing-scope .lp-grass-noise {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(212, 175, 55, 0.12) 0, transparent 50%),
+    radial-gradient(1px 1px at 70% 60%, rgba(143, 188, 143, 0.1) 0, transparent 50%),
+    radial-gradient(1px 1px at 40% 80%, rgba(212, 175, 55, 0.08) 0, transparent 50%);
+  background-size: 300px 300px, 220px 220px, 260px 260px;
+}
