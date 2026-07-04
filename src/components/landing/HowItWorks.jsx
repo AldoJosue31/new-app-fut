@@ -1,414 +1,371 @@
-﻿// src/components/landing/HowItWorks.jsx
+// src/components/landing/HowItWorks.jsx
 import React, { useEffect, useRef, useState } from "react";
-import styled, { keyframes } from "styled-components";
+import { RiSettings3Line, RiGroupLine, RiCalendarCheckLine } from "react-icons/ri";
 import { landingCopy } from "../../pages/landing/copy";
 
-const STEP_ICONS = ["⚙️", "👥", "📅"];
-const STEP_COLORS = ["#1CB0F6", "#2ed573", "#EC4899"];
+// ─── Datos estáticos por paso ──────────────────────────────────────────────
+const STEP_ICONS = [RiSettings3Line, RiGroupLine, RiCalendarCheckLine];
+
 const STEP_DETAILS = [
-  ["Define el nombre y logo de tu liga", "Elige el formato del torneo", "Establece reglas de puntuación", "Configura categorías y divisiones"],
-  ["Agrega equipos con su color y delegado", "Registra jugadores con foto y datos", "Asigna dorsales automáticamente", "Valida documentación desde el panel"],
-  ["El sistema genera el calendario solo", "Comparte el enlace público con tu liga", "Los resultados se actualizan en tiempo real", "Exporta tablas y cédulas con un clic"],
+  [
+    "Define el nombre y logo de tu liga",
+    "Elige el formato del torneo",
+    "Establece reglas de puntuación",
+    "Configura categorías y divisiones",
+  ],
+  [
+    "Agrega equipos con su color y delegado",
+    "Registra jugadores con foto y datos",
+    "Asigna dorsales automáticamente",
+    "Valida documentación desde el panel",
+  ],
+  [
+    "El sistema genera el calendario solo",
+    "Comparte el enlace público con tu liga",
+    "Los resultados se actualizan en tiempo real",
+    "Exporta tablas y cédulas con un clic",
+  ],
 ];
 
-function useReveal(threshold = 0.1) {
+// ─── Intersection Observer hook ────────────────────────────────────────────
+function useReveal(threshold = 0.12) {
   const [visible, setVisible] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVisible(true); observer.disconnect(); } },
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
       { threshold }
     );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
   }, []);
   return [ref, visible];
 }
 
+// ─── Componente principal ──────────────────────────────────────────────────
 export default function HowItWorks() {
   const { howItWorks } = landingCopy;
   const [hRef, hVisible] = useReveal();
   const [activeStep, setActiveStep] = useState(0);
 
+  const activeStepData = howItWorks.steps[activeStep];
+  const ActiveIcon = STEP_ICONS[activeStep];
+
   return (
-    <Section id="como-funciona">
-      <BgGrid />
-      <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
+    <section
+      id="como-funciona"
+      style={{ background: "var(--lp-surface)", minHeight: "100dvh" }}
+      className="relative flex flex-col justify-center py-28 overflow-hidden"
+    >
+      {/* ── Fondo: rejilla sutil ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "linear-gradient(var(--lp-border) 1px, transparent 1px), linear-gradient(90deg, var(--lp-border) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }}
+        className="pointer-events-none absolute inset-0 opacity-20"
+      />
 
-        {/* HEADER */}
-        <SectionHeader ref={hRef} className={hVisible ? "visible" : ""}>
-          <SectionEyebrow>Proceso</SectionEyebrow>
-          <h2 className="lp-h2">{howItWorks.title}</h2>
-          <SectionLead>Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.</SectionLead>
-        </SectionHeader>
+      {/* ── Radial glow ambiental ── */}
+      <div
+        aria-hidden="true"
+        style={{ background: "var(--lp-primary)" }}
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full opacity-[0.04] blur-[160px]"
+      />
 
-        {/* STEPS LAYOUT */}
-        <StepsLayout>
-          {/* Columna izquierda: tabs de pasos */}
-          <StepTabs>
-            {howItWorks.steps.map((s, i) => (
-              <StepTab
-                key={s.n}
-                isactive={activeStep === i ? "true" : undefined}
-                accentcolor={STEP_COLORS[i]}
-                onClick={() => setActiveStep(i)}
-                className={hVisible ? "visible" : ""}
-                style={{ transitionDelay: `${i * 120}ms` }}
-              >
-                <StepNum isactive={activeStep === i ? "true" : undefined} accentcolor={STEP_COLORS[i]}>
-                  {s.n}
-                </StepNum>
-                <StepMeta>
-                  <span className="step-icon">{STEP_ICONS[i]}</span>
-                  <h3 className="step-title">{s.title}</h3>
-                  <p className="step-desc">{s.text}</p>
-                </StepMeta>
-              </StepTab>
-            ))}
+      <div className="lp-container relative z-10">
+
+        {/* ── Encabezado ── */}
+        <div
+          ref={hRef}
+          className="text-center max-w-2xl mx-auto mb-20"
+          style={{
+            opacity: hVisible ? 1 : 0,
+            transform: hVisible ? "none" : "translateY(24px)",
+            transition: "opacity 0.7s ease, transform 0.7s ease",
+          }}
+        >
+          <p
+            className="text-xs font-bold uppercase tracking-widest mb-3"
+            style={{ color: "var(--lp-primary)" }}
+          >
+            Proceso
+          </p>
+          <h2
+            className="text-4xl font-bold leading-tight mb-4"
+            style={{ color: "var(--lp-text)" }}
+          >
+            {howItWorks.title}
+          </h2>
+          <p
+            className="text-lg leading-relaxed max-w-lg mx-auto"
+            style={{ color: "var(--lp-text-muted)" }}
+          >
+            Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.
+          </p>
+        </div>
+
+        {/* ── Layout dos columnas ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+
+          {/* ── Columna izquierda: lista de pasos ── */}
+          <div className="flex flex-col gap-4 relative pl-5">
 
             {/* Línea de progreso */}
-            <ProgressLine>
-              <ProgressFill style={{ height: `${((activeStep + 1) / howItWorks.steps.length) * 100}%` }} />
-            </ProgressLine>
-          </StepTabs>
+            <div
+              aria-hidden="true"
+              className="absolute left-0 top-5 bottom-5 w-0.5 rounded-full"
+              style={{ background: "var(--lp-border)" }}
+            >
+              <div
+                className="w-full rounded-full transition-all duration-500 ease-out"
+                style={{
+                  height: `${((activeStep + 1) / howItWorks.steps.length) * 100}%`,
+                  background: "var(--lp-primary)",
+                }}
+              />
+            </div>
 
-          {/* Columna derecha: detalle del paso activo */}
-          <StepDetail>
-            <DetailCard accentcolor={STEP_COLORS[activeStep]}>
-              <DetailCardHeader accentcolor={STEP_COLORS[activeStep]}>
-                <span className="step-num-big">{howItWorks.steps[activeStep].n}</span>
-                <span className="step-name">{howItWorks.steps[activeStep].title}</span>
-              </DetailCardHeader>
+            {howItWorks.steps.map((s, i) => {
+              const Icon = STEP_ICONS[i];
+              const isActive = activeStep === i;
 
-              <DetailBody>
+              return (
+                <button
+                  key={s.n}
+                  type="button"
+                  onClick={() => setActiveStep(i)}
+                  aria-pressed={isActive}
+                  className="relative flex items-start gap-4 text-left w-full rounded-2xl p-6 backdrop-blur-md border transition-all duration-300 cursor-pointer focus-visible:outline-none"
+                  style={{
+                    background: isActive
+                      ? "rgba(255,255,255,0.05)"
+                      : "rgba(255,255,255,0.02)",
+                    borderColor: isActive
+                      ? "var(--lp-primary)"
+                      : "var(--lp-border)",
+                    opacity: hVisible ? (isActive ? 1 : 0.55) : 0,
+                    transform: hVisible ? "none" : "translateX(-20px)",
+                    boxShadow: isActive
+                      ? "0 0 28px -8px var(--lp-primary)"
+                      : "none",
+                    transition: `opacity 0.6s ${i * 120}ms ease, transform 0.6s ${i * 120}ms ease, box-shadow 0.3s ease, border-color 0.3s ease`,
+                  }}
+                >
+                  {/* Borde izquierdo acento activo */}
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/5 rounded-full"
+                      style={{ background: "var(--lp-primary)" }}
+                    />
+                  )}
+
+                  {/* Número grande */}
+                  <span
+                    className="font-black text-3xl leading-none tracking-tight min-w-[44px] tabular-nums transition-colors duration-300"
+                    style={{ color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)" }}
+                  >
+                    {s.n}
+                  </span>
+
+                  {/* Icono + título + descripción */}
+                  <span className="flex flex-col gap-1 pt-0.5">
+                    <span className="flex items-center gap-2">
+                      <Icon
+                        size={18}
+                        aria-hidden="true"
+                        style={{ color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)", flexShrink: 0, transition: "color 0.3s" }}
+                      />
+                      <span
+                        className="font-bold text-base transition-colors duration-300"
+                        style={{ color: isActive ? "var(--lp-text)" : "var(--lp-text-muted)" }}
+                      >
+                        {s.title}
+                      </span>
+                    </span>
+                    <span
+                      className="text-sm leading-snug"
+                      style={{ color: "var(--lp-text-muted)" }}
+                    >
+                      {s.text}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Columna derecha: tarjeta de detalle ── */}
+          <div className="flex flex-col gap-5">
+
+            {/* Tarjeta glassmorphism principal */}
+            <div
+              className="rounded-2xl overflow-hidden border backdrop-blur-md"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                borderColor: "var(--lp-border)",
+                boxShadow: "var(--lp-shadow)",
+              }}
+            >
+              {/* Header de la tarjeta */}
+              <div
+                className="flex items-center gap-4 px-7 py-6 border-b"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  borderColor: "var(--lp-border)",
+                }}
+              >
+                <span
+                  className="font-black text-5xl leading-none tracking-tight tabular-nums"
+                  style={{ color: "var(--lp-primary)" }}
+                >
+                  {activeStepData.n}
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-2">
+                    <ActiveIcon
+                      size={20}
+                      aria-hidden="true"
+                      style={{ color: "var(--lp-primary)", flexShrink: 0 }}
+                    />
+                    <span
+                      className="font-bold text-xl"
+                      style={{ color: "var(--lp-text)" }}
+                    >
+                      {activeStepData.title}
+                    </span>
+                  </span>
+                  <span
+                    className="text-sm"
+                    style={{ color: "var(--lp-text-muted)" }}
+                  >
+                    {activeStepData.text}
+                  </span>
+                </div>
+              </div>
+
+              {/* Lista de detalles */}
+              <div className="flex flex-col gap-3 px-7 py-6">
                 {STEP_DETAILS[activeStep].map((detail, i) => (
-                  <DetailItem key={i} accentcolor={STEP_COLORS[activeStep]}>
-                    <span className="detail-idx">{i + 1}</span>
-                    <span>{detail}</span>
-                  </DetailItem>
+                  <div
+                    key={i}
+                    className="flex items-center gap-4 px-4 py-3.5 rounded-xl border text-sm font-semibold backdrop-blur-sm transition-colors duration-200"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      borderColor: "var(--lp-border)",
+                      color: "var(--lp-text)",
+                    }}
+                  >
+                    <span
+                      className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-black tabular-nums"
+                      style={{
+                        background: "rgba(255,255,255,0.08)",
+                        color: "var(--lp-primary)",
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    {detail}
+                  </div>
                 ))}
-              </DetailBody>
+              </div>
 
-              {/* Mini ilustracion de pantalla de app */}
-              <MiniAppScreen accentcolor={STEP_COLORS[activeStep]}>
-                <div className="screen-bar">
-                  <span className="dot" /><span className="dot" /><span className="dot" />
-                  <span className="screen-title">Bracket App</span>
+              {/* Mini pantalla de app */}
+              <div
+                className="mx-7 mb-7 rounded-xl overflow-hidden border"
+                style={{ borderColor: "var(--lp-border)" }}
+              >
+                {/* Barra de título */}
+                <div
+                  className="flex items-center gap-2 px-4 py-2.5 border-b"
+                  style={{ background: "rgba(0,0,0,0.2)", borderColor: "var(--lp-border)" }}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--lp-border)" }} aria-hidden="true" />
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--lp-border)" }} aria-hidden="true" />
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--lp-border)" }} aria-hidden="true" />
+                  <span className="ml-2 text-xs font-semibold" style={{ color: "var(--lp-text-muted)" }}>
+                    Bracket App
+                  </span>
                 </div>
-                <div className="screen-body">
-                  <ScreenItem accentcolor={STEP_COLORS[activeStep]}>
-                    <span className="si-icon">{STEP_ICONS[activeStep]}</span>
-                    <span className="si-text">Paso {howItWorks.steps[activeStep].n} — {howItWorks.steps[activeStep].title}</span>
-                    <span className="si-badge">Listo ✓</span>
-                  </ScreenItem>
+                {/* Fila de estado */}
+                <div className="px-4 py-3" style={{ background: "rgba(0,0,0,0.1)" }}>
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg border"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      borderColor: "var(--lp-border)",
+                    }}
+                  >
+                    <ActiveIcon
+                      size={16}
+                      aria-hidden="true"
+                      style={{ color: "var(--lp-primary)", flexShrink: 0 }}
+                    />
+                    <span className="flex-1 text-sm font-semibold" style={{ color: "var(--lp-text)" }}>
+                      Paso {activeStepData.n} — {activeStepData.title}
+                    </span>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-md" style={{ color: "#22c55e", background: "rgba(34,197,94,0.1)" }}>
+                      Listo ✓
+                    </span>
+                  </div>
                 </div>
-              </MiniAppScreen>
-            </DetailCard>
+              </div>
+            </div>
 
-            {/* Nav botones */}
-            <StepNav>
-              <NavBtn
+            {/* ── Navegación: anterior / dots / siguiente ── */}
+            <div className="flex items-center justify-between gap-4">
+              <button
+                type="button"
                 onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
                 disabled={activeStep === 0}
-              >← Anterior</NavBtn>
-              <NavDots>
+                className="px-5 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition-all duration-150 disabled:opacity-30 disabled:cursor-default focus-visible:outline-none"
+                style={{
+                  borderColor: "var(--lp-border)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "var(--lp-text)",
+                }}
+              >
+                ← Anterior
+              </button>
+
+              <div className="flex gap-2" role="tablist" aria-label="Pasos del proceso">
                 {howItWorks.steps.map((_, i) => (
-                  <NavDot key={i} active={i === activeStep ? "true" : undefined} onClick={() => setActiveStep(i)} />
+                  <button
+                    key={i}
+                    type="button"
+                    role="tab"
+                    aria-selected={i === activeStep}
+                    aria-label={`Ir al paso ${i + 1}`}
+                    onClick={() => setActiveStep(i)}
+                    className="h-2 rounded-full cursor-pointer transition-all duration-300 ease-out focus-visible:outline-none"
+                    style={{
+                      width: i === activeStep ? "28px" : "8px",
+                      background: i === activeStep ? "var(--lp-primary)" : "var(--lp-border)",
+                    }}
+                  />
                 ))}
-              </NavDots>
-              <NavBtn
+              </div>
+
+              <button
+                type="button"
                 onClick={() => setActiveStep(Math.min(howItWorks.steps.length - 1, activeStep + 1))}
                 disabled={activeStep === howItWorks.steps.length - 1}
-              >Siguiente →</NavBtn>
-            </StepNav>
-          </StepDetail>
-        </StepsLayout>
+                className="px-5 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition-all duration-150 disabled:opacity-30 disabled:cursor-default focus-visible:outline-none"
+                style={{
+                  borderColor: "var(--lp-border)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "var(--lp-text)",
+                }}
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </Section>
+    </section>
   );
 }
-
-// ─── STYLED ──────────────────────────────
-const Section = styled.section`
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  padding: 100px 0;
-  background: var(--lp-surface);
-  overflow: hidden;
-`;
-
-const BgGrid = styled.div`
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(28, 176, 246, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(28, 176, 246, 0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
-  pointer-events: none;
-`;
-
-const SectionHeader = styled.div`
-  text-align: center;
-  max-width: 700px;
-  margin: 0 auto 72px;
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s ease, transform 0.7s ease;
-  &.visible { opacity: 1; transform: none; }
-`;
-
-const SectionEyebrow = styled.p`
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--lp-primary);
-  margin: 0 0 12px;
-`;
-
-const SectionLead = styled.p`
-  font-size: 17px;
-  color: var(--lp-text-muted);
-  line-height: 1.65;
-  margin: 12px auto 0;
-  max-width: 520px;
-`;
-
-const StepsLayout = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1.3fr;
-  gap: 48px;
-  align-items: start;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const StepTabs = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  position: relative;
-  padding-left: 24px;
-`;
-
-const ProgressLine = styled.div`
-  position: absolute;
-  left: 0;
-  top: 24px;
-  bottom: 24px;
-  width: 3px;
-  background: var(--lp-border);
-  border-radius: 3px;
-`;
-
-const ProgressFill = styled.div`
-  width: 100%;
-  background: var(--lp-primary);
-  border-radius: 3px;
-  transition: height 0.4s ease;
-`;
-
-const StepTab = styled.div`
-  display: flex;
-  gap: 16px;
-  padding: 20px 24px;
-  border-radius: 16px;
-  border: 1px solid ${({ isactive, accentcolor }) => isactive ? `${accentcolor}44` : "var(--lp-border)"};
-  background: ${({ isactive, accentcolor }) => isactive ? `${accentcolor}0D` : "transparent"};
-  cursor: pointer;
-  transition: all 200ms ease;
-  opacity: 0;
-  transform: translateX(-20px);
-
-  &.visible { opacity: 1; transform: none; }
-  &:hover {
-    border-color: ${({ accentcolor }) => accentcolor}44;
-    background: ${({ accentcolor }) => accentcolor}0D;
-  }
-
-  .step-icon { font-size: 22px; }
-  .step-title {
-    font-size: 17px;
-    font-weight: 800;
-    color: var(--lp-text);
-    margin: 0 0 4px;
-  }
-  .step-desc {
-    font-size: 13px;
-    color: var(--lp-text-muted);
-    margin: 0;
-    line-height: 1.5;
-  }
-`;
-
-const StepNum = styled.div`
-  font-size: 28px;
-  font-weight: 900;
-  color: ${({ isactive, accentcolor }) => isactive ? accentcolor : "var(--lp-text-muted)"};
-  min-width: 48px;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  transition: color 200ms;
-`;
-
-const StepMeta = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`;
-
-const StepDetail = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-`;
-
-const DetailCard = styled.div`
-  background: var(--lp-bg);
-  border: 1px solid ${({ accentcolor }) => `${accentcolor}33`};
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 24px 48px -16px rgba(0,0,0,0.2);
-`;
-
-const DetailCardHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 24px 28px;
-  background: ${({ accentcolor }) => `${accentcolor}11`};
-  border-bottom: 1px solid ${({ accentcolor }) => `${accentcolor}22`};
-
-  .step-num-big {
-    font-size: 48px;
-    font-weight: 900;
-    color: ${({ accentcolor }) => accentcolor};
-    line-height: 1;
-    letter-spacing: -0.04em;
-  }
-  .step-name {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--lp-text);
-  }
-`;
-
-const DetailBody = styled.div`
-  padding: 24px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-`;
-
-const DetailItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  background: var(--lp-surface);
-  border-radius: 10px;
-  border: 1px solid var(--lp-border);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--lp-text);
-  transition: border-color 150ms;
-
-  &:hover { border-color: ${({ accentcolor }) => accentcolor}44; }
-
-  .detail-idx {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    background: ${({ accentcolor }) => accentcolor}1A;
-    color: ${({ accentcolor }) => accentcolor};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    font-size: 12px;
-    flex-shrink: 0;
-  }
-`;
-
-const MiniAppScreen = styled.div`
-  margin: 0 28px 28px;
-  background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
-  border-radius: 12px;
-  overflow: hidden;
-
-  .screen-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 14px;
-    background: var(--lp-bg);
-    border-bottom: 1px solid var(--lp-border);
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lp-border); }
-    .screen-title { font-size: 11px; color: var(--lp-text-muted); font-weight: 600; margin-left: 6px; }
-  }
-  .screen-body { padding: 14px; }
-`;
-
-const ScreenItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: ${({ accentcolor }) => accentcolor}11;
-  border: 1px solid ${({ accentcolor }) => accentcolor}33;
-  border-radius: 8px;
-  font-size: 13px;
-
-  .si-icon { font-size: 16px; }
-  .si-text { flex: 1; font-weight: 600; color: var(--lp-text); }
-  .si-badge {
-    font-size: 11px;
-    font-weight: 700;
-    color: #2ed573;
-    background: rgba(46, 213, 115, 0.1);
-    padding: 3px 8px;
-    border-radius: 6px;
-  }
-`;
-
-const StepNav = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-`;
-
-const NavBtn = styled.button`
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: 1px solid var(--lp-border);
-  background: var(--lp-surface);
-  color: var(--lp-text);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 150ms ease;
-  font-family: inherit;
-
-  &:disabled { opacity: 0.35; cursor: default; }
-  &:not(:disabled):hover { border-color: var(--lp-primary); color: var(--lp-primary); }
-`;
-
-const NavDots = styled.div`
-  display: flex;
-  gap: 8px;
-`;
-
-const NavDot = styled.div`
-  width: ${({ active }) => active ? "24px" : "8px"};
-  height: 8px;
-  border-radius: 4px;
-  background: ${({ active }) => active ? "var(--lp-primary)" : "var(--lp-border)"};
-  cursor: pointer;
-  transition: all 250ms ease;
-`;
