@@ -19,12 +19,12 @@ export default function PricingSection() {
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",
-        paddingTop: "calc(74px + clamp(40px, 6vh, 80px))",
-        paddingBottom: "clamp(40px, 6vh, 80px)",
+        padding: "clamp(40px, 6vh, 80px) 0",
         background: "var(--lp-bg)",
         position: "relative",
         overflow: "hidden",
         boxSizing: "border-box",
+        scrollMarginTop: "40px",
       }}
     >
       {/* Fondo decorativo */}

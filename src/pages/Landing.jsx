@@ -143,10 +143,10 @@ const PreviewWrapper = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding-top: calc(74px + clamp(40px, 6vh, 80px));
-  padding-bottom: clamp(40px, 6vh, 80px);
+  padding: clamp(40px, 6vh, 80px) 0;
   background: var(--lp-bg);
   box-sizing: border-box;
+  scroll-margin-top: 40px;
 `;
 
 const AppWindow = styled.div`

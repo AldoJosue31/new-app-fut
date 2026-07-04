@@ -60,11 +60,11 @@ export default function HowItWorks() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        paddingTop: "calc(74px + clamp(40px, 6vh, 80px))",
-        paddingBottom: "clamp(40px, 6vh, 80px)",
+        padding: "clamp(40px, 6vh, 80px) 0",
         overflow: "hidden",
         position: "relative",
         boxSizing: "border-box",
+        scrollMarginTop: "40px",
       }}
     >
       {/* ── Fondo: rejilla sutil ── */}
