@@ -1,109 +1,318 @@
-import React from "react";
-// eslint-disable-next-line no-unused-vars
-import { motion } from "framer-motion";
-import { Icon } from "@iconify/react";
+﻿// src/components/landing/BenefitsSection.jsx
+import React, { useEffect, useRef, useState } from "react";
+import styled, { keyframes } from "styled-components";
 import { landingCopy } from "../../pages/landing/copy";
 
-const ICONS = {
-  shield: "mdi:shield-check",
-  savings: "mdi:cash-multiple",
-  "chart-up": "mdi:trending-up",
-};
+const BENEFIT_EXTRA = [
+  {
+    icon: "🛡️",
+    color: "#1CB0F6",
+    bigStat: "100%",
+    statLabel: "en la nube",
+    bullets: ["Acceso desde cualquier dispositivo", "Sin instalar nada", "Backup automático diario", "Multi-usuario por liga"],
+  },
+  {
+    icon: "📈",
+    color: "#2ed573",
+    bigStat: "∞",
+    statLabel: "escalabilidad",
+    bullets: ["Crece sin límites de equipos", "Agrega divisiones fácilmente", "Historial permanente", "Datos históricos por temporada"],
+  },
+  {
+    icon: "🔒",
+    color: "#EC4899",
+    bigStat: "256",
+    statLabel: "bits cifrado",
+    bullets: ["Datos cifrados en tránsito", "Acceso por roles", "Registro de auditoría", "Privacidad de jugadores"],
+  },
+];
+
+function useReveal() {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.08 }
+    );
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+  return [ref, visible];
+}
 
 export default function BenefitsSection() {
   const { benefits } = landingCopy;
+  const [hRef, hVisible] = useReveal();
 
   return (
-    <section
-      style={{
-        padding: "120px 0",
-        background: "var(--lp-app-surface-soft)",
-        color: "var(--lp-app-ink)",
-        position: "relative",
-      }}
-    >
-      <div className="lp-container">
-        <div style={{ maxWidth: 780, marginBottom: 64 }}>
-          <span
-            className="lp-eyebrow"
-            style={{ color: "var(--lp-app-accent)" }}
-          >
-            {benefits.eyebrow}
-          </span>
-          <h2
-            className="lp-h2"
-            style={{ color: "var(--lp-app-ink)" }}
-          >
-            {benefits.title}
-          </h2>
-        </div>
+    <Section>
+      <BgOrb style={{ top: "10%", left: "-5%" }} />
+      <BgOrb style={{ bottom: "10%", right: "-5%", background: "radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%)" }} />
 
-        <div className="lp-benefits-grid">
-          {benefits.cards.map((c, i) => (
-            <motion.div
-              key={c.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="lp-benefit-card"
+      <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
+        {/* HEADER */}
+        <SectionHeader ref={hRef} className={hVisible ? "visible" : ""}>
+          <SectionEyebrow>Ventajas</SectionEyebrow>
+          <h2 className="lp-h2">{benefits.title}</h2>
+          <SectionLead>Tu liga merece herramientas modernas. Olvídate de los grupos de WhatsApp y las hojas de cálculo.</SectionLead>
+        </SectionHeader>
+
+        {/* CARDS GRID */}
+        <BenGrid>
+          {BENEFIT_EXTRA.map((b, i) => (
+            <BenCard
+              key={i}
+              accentcolor={b.color}
+              className={hVisible ? "visible" : ""}
+              style={{ transitionDelay: `${i * 100}ms` }}
             >
-              <div className="lp-benefit-icon">
-                <Icon icon={ICONS[c.icon]} width={30} />
-              </div>
-              <h3 className="lp-benefit-title">{c.title}</h3>
-              <p className="lp-benefit-text">{c.text}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+              <BenCardTop accentcolor={b.color}>
+                <BigStat>
+                  <span className="stat-num">{b.bigStat}</span>
+                  <span className="stat-label">{b.statLabel}</span>
+                </BigStat>
+                <BenIcon>{b.icon}</BenIcon>
+              </BenCardTop>
 
-      <style>{`
-        .landing-scope .lp-benefits-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 24px;
-        }
-        .landing-scope .lp-benefit-card {
-          background: var(--lp-app-surface);
-          border-radius: var(--lp-radius-lg);
-          padding: clamp(28px, 3vw, 36px) clamp(24px, 3vw, 32px);
-          border: 1px solid var(--lp-app-border);
-          box-shadow: var(--lp-app-shadow);
-          transition:
-            transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
-            box-shadow 180ms ease,
-            border-color 180ms ease;
-        }
-        .landing-scope .lp-benefit-card:hover {
-          transform: translateY(-4px);
-          box-shadow: var(--lp-app-shadow-strong);
-        }
-        .landing-scope .lp-benefit-icon {
-          width: 60px;
-          height: 60px;
-          border-radius: 16px;
-          background: linear-gradient(135deg, var(--lp-forest), var(--lp-grass));
-          display: grid;
-          place-items: center;
-          color: var(--lp-gold-bright);
-        }
-        .landing-scope .lp-benefit-title {
-          font-size: 22px;
-          font-weight: 800;
-          color: var(--lp-app-ink);
-          margin: 20px 0 10px;
-        }
-        .landing-scope .lp-benefit-text {
-          font-size: 15px;
-          color: var(--lp-app-ink-muted);
-          line-height: 1.6;
-          margin: 0;
-        }
-        @media (max-width: 900px) {
-          .landing-scope .lp-benefits-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
-    </section>
+              <BenCardBody>
+                <h3 className="ben-title">{benefits.cards[i]?.title || "Beneficio"}</h3>
+                <p className="ben-text">{benefits.cards[i]?.text || ""}</p>
+                <BulletList accentcolor={b.color}>
+                  {b.bullets.map((bullet) => (
+                    <li key={bullet}>
+                      <span className="bullet-dot" />
+                      {bullet}
+                    </li>
+                  ))}
+                </BulletList>
+              </BenCardBody>
+            </BenCard>
+          ))}
+        </BenGrid>
+
+        {/* COMPARATIVA */}
+        <CompareSection className={hVisible ? "visible" : ""}>
+          <CompareTitle>¿Por qué Bracket App y no una hoja de cálculo?</CompareTitle>
+          <CompareGrid>
+            <CompareCol bad>
+              <ColHeader>❌ Excel / WhatsApp</ColHeader>
+              {["Errores manuales de cálculo", "Difícil de compartir", "Sin historial de cambios", "Solo tú puedes editarlo", "Imposible en móvil"].map(t => (
+                <CompareItem key={t} bad>{t}</CompareItem>
+              ))}
+            </CompareCol>
+            <CompareDivider />
+            <CompareCol>
+              <ColHeader>✅ Bracket App</ColHeader>
+              {["Cálculo automático e instantáneo", "Enlace público compartible", "Historial completo por partido", "Multi-usuario con roles", "100% responsive en móvil"].map(t => (
+                <CompareItem key={t}>{t}</CompareItem>
+              ))}
+            </CompareCol>
+          </CompareGrid>
+        </CompareSection>
+      </div>
+    </Section>
   );
 }
+
+// ─── STYLED ──────────────────────────────
+const Section = styled.section`
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 100px 0;
+  background: var(--lp-bg);
+  overflow: hidden;
+`;
+
+const BgOrb = styled.div`
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(28, 176, 246, 0.07) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+`;
+
+const SectionHeader = styled.div`
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto 72px;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  &.visible { opacity: 1; transform: none; }
+`;
+
+const SectionEyebrow = styled.p`
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--lp-primary);
+  margin: 0 0 12px;
+`;
+
+const SectionLead = styled.p`
+  font-size: 17px;
+  color: var(--lp-text-muted);
+  line-height: 1.65;
+  margin: 12px auto 0;
+  max-width: 520px;
+`;
+
+const BenGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 56px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+`;
+
+const BenCard = styled.div`
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 24px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease, border-color 200ms, box-shadow 200ms;
+
+  &.visible { opacity: 1; transform: none; }
+  &:hover {
+    border-color: ${({ accentcolor }) => accentcolor}55;
+    box-shadow: 0 20px 48px -16px ${({ accentcolor }) => accentcolor}22;
+    transform: translateY(-4px);
+  }
+`;
+
+const BenCardTop = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 28px;
+  background: ${({ accentcolor }) => accentcolor}0D;
+  border-bottom: 1px solid ${({ accentcolor }) => accentcolor}22;
+`;
+
+const BigStat = styled.div`
+  display: flex;
+  flex-direction: column;
+
+  .stat-num {
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--lp-text);
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--lp-text-muted);
+    margin-top: 4px;
+  }
+`;
+
+const BenIcon = styled.div`
+  font-size: 40px;
+  line-height: 1;
+`;
+
+const BenCardBody = styled.div`
+  padding: 24px 28px;
+
+  .ben-title { font-size: 20px; font-weight: 800; color: var(--lp-text); margin: 0 0 8px; }
+  .ben-text  { font-size: 14px; color: var(--lp-text-muted); line-height: 1.6; margin: 0 0 20px; }
+`;
+
+const BulletList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--lp-text-muted);
+  }
+
+  .bullet-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: ${({ accentcolor }) => accentcolor};
+    flex-shrink: 0;
+  }
+`;
+
+const CompareSection = styled.div`
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.7s ease 0.3s, transform 0.7s ease 0.3s;
+  &.visible { opacity: 1; transform: none; }
+`;
+
+const CompareTitle = styled.h3`
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--lp-text);
+  text-align: center;
+  margin: 0 0 32px;
+`;
+
+const CompareGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  background: var(--lp-surface);
+  border: 1px solid var(--lp-border);
+  border-radius: 20px;
+  overflow: hidden;
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+    .compare-divider { display: none; }
+  }
+`;
+
+const CompareCol = styled.div`
+  padding: 24px 28px;
+  background: ${({ bad }) => bad ? "rgba(255, 107, 107, 0.04)" : "rgba(46, 213, 115, 0.04)"};
+`;
+
+const ColHeader = styled.div`
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--lp-text);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--lp-border);
+`;
+
+const CompareDivider = styled.div`
+  width: 1px;
+  background: var(--lp-border);
+`;
+
+const CompareItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${({ bad }) => bad ? "#ff6b6b" : "#2ed573"};
+  border-bottom: 1px solid var(--lp-border);
+  &:last-child { border-bottom: none; }
+`;

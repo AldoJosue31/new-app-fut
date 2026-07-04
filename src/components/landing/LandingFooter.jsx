@@ -8,38 +8,30 @@ export default function LandingFooter() {
   return (
     <footer
       style={{
-        background: "var(--lp-carbon)",
+        background: "var(--lp-surface)", // Integrado con el color del dashboard
+        borderTop: "1px solid var(--lp-border)",
         padding: "80px 0 32px",
-        color: "rgba(245, 239, 224, 0.74)",
+        color: "var(--lp-text-muted)",
       }}
     >
       <div className="lp-container">
         <div className="lp-footer-grid">
           <div>
+            {/* LOGO REAL INYECTADO AQUÍ */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  background:
-                    "linear-gradient(135deg, var(--lp-gold-bright), var(--lp-gold-deep))",
-                  display: "grid",
-                  placeItems: "center",
-                  fontWeight: 900,
-                  color: "var(--lp-carbon)",
-                }}
-              >
-                B
-              </div>
+              <img 
+                src={nav.logoImg} 
+                alt={nav.logoText} 
+                style={{ height: "36px", width: "auto", objectFit: "contain" }} 
+              />
               <span
                 style={{
                   fontWeight: 800,
                   fontSize: 18,
-                  color: "var(--lp-cream)",
+                  color: "var(--lp-text)",
                 }}
               >
-                {nav.logo}
+                {nav.logoText}
               </span>
             </div>
             <p style={{ fontSize: 14, maxWidth: 280, margin: 0 }}>
@@ -51,11 +43,12 @@ export default function LandingFooter() {
             <div key={col.title}>
               <h4
                 style={{
-                  color: "var(--lp-gold-bright)",
+                  color: "var(--lp-primary)", // Color primario (Azul)
                   fontSize: 12,
                   letterSpacing: 2,
                   textTransform: "uppercase",
                   margin: "0 0 18px",
+                  fontWeight: 800
                 }}
               >
                 {col.title}
@@ -69,6 +62,7 @@ export default function LandingFooter() {
                       style={{
                         textDecoration: "none",
                         fontSize: 14,
+                        fontWeight: 500
                       }}
                     >
                       {l.label}
@@ -82,14 +76,14 @@ export default function LandingFooter() {
 
         <div
           style={{
-            borderTop: "1px solid rgba(245, 239, 224, 0.08)",
+            borderTop: "1px solid var(--lp-border)",
             marginTop: 48,
             paddingTop: 24,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             fontSize: 13,
-            color: "rgba(245, 239, 224, 0.5)",
+            color: "var(--lp-text-muted)",
             flexWrap: "wrap",
             gap: 12,
           }}
@@ -101,11 +95,13 @@ export default function LandingFooter() {
 
       <style>{`
         .landing-scope .lp-footer-link {
-          color: rgba(245, 239, 224, 0.7);
-          transition: color 180ms ease;
+          color: var(--lp-text-muted);
+          transition: color 180ms ease, transform 180ms ease;
+          display: inline-block;
         }
         .landing-scope .lp-footer-link:hover {
-          color: var(--lp-gold-bright);
+          color: var(--lp-primary);
+          transform: translateX(4px);
         }
         .landing-scope .lp-footer-grid {
           display: grid;

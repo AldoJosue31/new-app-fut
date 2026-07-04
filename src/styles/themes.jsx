@@ -1,9 +1,11 @@
+// src/styles/themes.jsx
+
 export const Light = {
-    rgbafondoanimado: "rgba(102, 102, 102, 0.2)",
-    body: "#fff",
-    text: "#3C3C3C",
+    rgbafondoanimado: "rgba(102, 102, 102, 0.05)",
+    body: "#FFFFFF",
+    text: "#1E293B",
     bodyRgba: "255, 255, 255",
-    textRgba: "32,32,32",
+    textRgba: "30, 41, 59",
     carouselColor: "#9955ff",
     fontxs: "0.75em",
     fontsm: "0.875em",
@@ -12,75 +14,60 @@ export const Light = {
     fontlg: "1.25em",
     fontxl: "2em",
     fontxxl: "3em",
-    fontxxxl: "4em",
     fontButton: "0.875em",
     navHeight: "5rem",
-    whiteBg: "#f7b272",
-    bg: "rgb(255,255,255)",
-    bgAlpha: "#f2f2f2",
-    bg2: "rgb(245,245,245)",
-    bg3: "#fff",
-    primary: "#1cb0f6",
-    bg4: "#eaeaea",
+    whiteBg: "#FFFFFF",
+    bg: "#F1F5F9",
+    bgAlpha: "rgba(241, 245, 249, 0.7)",
+    bg2: "#E2E8F0",
+    bg3: "#FFFFFF",
+    primary: "#1cb0f6", // Tu azul principal
+    bg4: "#CBD5E1",
     bg5: "#84d8ff",
-    bg6: "rgba(132, 216, 255, 0.3)",
-    bgtotal: "#EDF3FB",
-    bgtgderecha: "#eeeeee",
+    bg6: "rgba(28, 176, 246, 0.1)",
+    bgtotal: "#F8FAFC", // Este es el fondo del Login y de la Landing ahora
+    bgtgderecha: "#FFFFFF",
     colorToggle: "#F9743B",
     translateToggle: "-12px",
-
     logorotate: "360deg",
     slideroffset: "0.3em",
     sizeoficon: "1.4em",
-    colorSubtitle: "#2c2c2c",
-    colorScroll: "#cac9ca",
-    bgcards: "#ffffff",
-    colortitlecard: "#363637",
-    colorsubtitlecard: "#080808",
+    colorSubtitle: "#475569",
+    colorScroll: "#CBD5E1",
+    bgcards: "#FFFFFF",
+    colortitlecard: "#0F172A",
+    colorsubtitlecard: "#334155",
     color1: "#1cb0f6",
-    color2: "#E5E5E5",
+    color2: "#E2E8F0",
     tournamentDashboard: {
         primary: "#1cb0f6",
-        primarySoft: "#e0f6ff",
-        surface: "#ffffff",
-        itemSurface: "#EDF3FB",
-        border: "#d9e6f2",
-        muted: "#5f7285",
+        primarySoft: "#E0F2FE",
+        surface: "#FFFFFF",
+        itemSurface: "#F8FAFC",
+        border: "#E2E8F0",
+        muted: "#64748B",
         hero: {
             accent: "#1cb0f6",
-            accentSoft: "#e0f6ff",
-            accentStrong: "#0f7fb6",
-            glow: "rgba(28, 176, 246, 0.18)"
+            accentSoft: "#E0F2FE",
+            accentStrong: "#0284C7",
+            glow: "rgba(28, 176, 246, 0.12)"
         },
-        rules: {
-            accent: "#7c3aed",
-            accentSoft: "#f1e8ff",
-            accentStrong: "#5b21b6"
-        },
-        jornada: {
-            accent: "#06b6d4",
-            accentSoft: "#d8f7fb",
-            accentStrong: "#0e7490"
-        },
-        metrics: {
-            accent: "#2f855a",
-            accentSoft: "#e6f4ec",
-            accentStrong: "#276749",
-            warning: "#f59e0b",
-            danger: "#ef4444"
-        }
+        rules: { accent: "#8B5CF6", accentSoft: "#EDE9FE", accentStrong: "#6D28D9" },
+        jornada: { accent: "#06B6D4", accentSoft: "#CFFAFE", accentStrong: "#0891B2" },
+        metrics: { accent: "#10B981", accentSoft: "#D1FAE5", accentStrong: "#059669", warning: "#F59E0B", danger: "#EF4444" }
     }
 };
+
 export const Dark = {
-    colortitlecard: "#8C9298",
-    colorsubtitlecard: "#F0F0F0",
-    bgcards: "#10191dff",
-    rgbafondoanimado: "rgba(198, 198, 198, 0.2)",
-    bgtgderecha: "#21252B",
-    body: "#202020",
-    text: "#fff",
-    bodyRgba: "32,32,32",
-    textRgba: "255, 255, 255",
+    colortitlecard: "#F8FAFC",
+    colorsubtitlecard: "#94A3B8",
+    bgcards: "#1E293B", // Tarjetas oscuras del login
+    rgbafondoanimado: "rgba(255, 255, 255, 0.02)",
+    bgtgderecha: "#1E293B",
+    body: "#0F172A",
+    text: "#F8FAFC",
+    bodyRgba: "15, 23, 42",
+    textRgba: "248, 250, 252",
     carouselColor: "#9955ff",
     fontxs: "0.75em",
     fontsm: "0.875em",
@@ -89,58 +76,42 @@ export const Dark = {
     fontlg: "1.25em",
     fontxl: "2em",
     fontxxl: "3em",
-    fontxxxl: "4em",
     fontButton: "0.875em",
     navHeight: "5rem",
-    whiteBg: "#f59674",
-    bg: "#272727",
-    bgAlpha: "rgba(0,0,0,.3)",
-    bg2: "rgb(30,30,30)",
-    bg3: "#162329ff",
+    whiteBg: "#1E293B",
+    bg: "#1E293B",
+    bgAlpha: "rgba(30, 41, 59, 0.7)",
+    bg2: "#334155",
+    bg3: "#1E293B",
     primary: "#1cb0f6",
-    bg4: "#4E4E50",
-    bg5: "#84d8ff",
-    bg6: "rgba(132, 216, 255, 0.1)",
-    bgtotal: "#131F24",
-    colorToggle: "rgb(52, 131, 235)",
+    bg4: "#475569",
+    bg5: "#38BDF8",
+    bg6: "rgba(28, 176, 246, 0.15)",
+    bgtotal: "#0B1121", // Fondo ultra oscuro continuo con el login
+    colorToggle: "#38BDF8",
     translateToggle: "26px",
-
     logorotate: "-360deg",
     slideroffset: "0.3em",
     sizeoficon: "1.4em",
-    colorSubtitle: "#b7b7b7",
-    colorScroll: "#434343",
+    colorSubtitle: "#94A3B8",
+    colorScroll: "#334155",
     color1: "#1cb0f6",
-    color2: "#37464F",
+    color2: "#334155",
     tournamentDashboard: {
         primary: "#1cb0f6",
         primarySoft: "rgba(28, 176, 246, 0.16)",
-        surface: "#10191d",
-        itemSurface: "#131F24",
-        border: "#263740",
-        muted: "rgba(255, 255, 255, 0.62)",
+        surface: "#1E293B",
+        itemSurface: "#0F172A",
+        border: "#334155",
+        muted: "#94A3B8",
         hero: {
             accent: "#1cb0f6",
             accentSoft: "rgba(28, 176, 246, 0.16)",
-            accentStrong: "#38d4ff",
+            accentStrong: "#38BDF8",
             glow: "rgba(28, 176, 246, 0.18)"
         },
-        rules: {
-            accent: "#a78bfa",
-            accentSoft: "rgba(167, 139, 250, 0.16)",
-            accentStrong: "#c4b5fd"
-        },
-        jornada: {
-            accent: "#22d3ee",
-            accentSoft: "rgba(34, 211, 238, 0.16)",
-            accentStrong: "#67e8f9"
-        },
-        metrics: {
-            accent: "#3fbf8a",
-            accentSoft: "rgba(63, 191, 138, 0.16)",
-            accentStrong: "#7ee2b8",
-            warning: "#fbbf24",
-            danger: "#f87171"
-        }
+        rules: { accent: "#A78BFA", accentSoft: "rgba(167, 139, 250, 0.16)", accentStrong: "#C4B5FD" },
+        jornada: { accent: "#22D3EE", accentSoft: "rgba(34, 211, 238, 0.16)", accentStrong: "#67E8F9" },
+        metrics: { accent: "#34D399", accentSoft: "rgba(52, 211, 153, 0.16)", accentStrong: "#6EE7B7", warning: "#FBBF24", danger: "#F87171" }
     }
 };

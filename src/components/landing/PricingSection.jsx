@@ -16,8 +16,11 @@ export default function PricingSection() {
     <section
       id="planes"
       style={{
-        padding: "120px 0",
-        background: "var(--lp-forest-deep)",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        padding: "100px 0",
+        background: "var(--lp-bg)",
         position: "relative",
         overflow: "hidden",
       }}
