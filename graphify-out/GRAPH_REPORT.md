@@ -1,113 +1,122 @@
 # Graph Report - .  (2026-07-03)
 
 ## Corpus Check
-- 222 files · ~167,808 words
+- 4 files · ~163,696 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1592 nodes · 2979 edges · 104 communities (93 shown, 11 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 24 edges (avg confidence: 0.74)
-- Token cost: 2,392 input · 1,040 output
+- 1613 nodes · 2973 edges · 114 communities (101 shown, 13 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 26 edges (avg confidence: 0.74)
+- Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_Skeleton Liga Tab|Skeleton Liga Tab]]
-- [[_COMMUNITY_Bracket Connected Match|Bracket Connected Match]]
-- [[_COMMUNITY_Build Round Action|Build Round Action]]
-- [[_COMMUNITY_Section Landing Benefits|Section Landing Benefits]]
-- [[_COMMUNITY_Bracket Amateur Football|Bracket Amateur Football]]
-- [[_COMMUNITY_Manager Badge Tab|Manager Badge Tab]]
-- [[_COMMUNITY_Empty State Torneo|Empty State Torneo]]
-- [[_COMMUNITY_React Eslint Dependencies|React Eslint Dependencies]]
-- [[_COMMUNITY_Assemble Step Welcome|Assemble Step Welcome]]
-- [[_COMMUNITY_Get Date Service|Get Date Service]]
-- [[_COMMUNITY_Toggle Icono Linea|Toggle Icono Linea]]
-- [[_COMMUNITY_Handler Create Normalize|Handler Create Normalize]]
-- [[_COMMUNITY_Zone Match Jornada|Zone Match Jornada]]
-- [[_COMMUNITY_Center Bracket Actions|Center Bracket Actions]]
-- [[_COMMUNITY_Btnsave Icon Manager|Btnsave Icon Manager]]
-- [[_COMMUNITY_Get Torneo Matches|Get Torneo Matches]]
-- [[_COMMUNITY_Toast Footer Fade|Toast Footer Fade]]
-- [[_COMMUNITY_Player Roster Clear|Player Roster Clear]]
-- [[_COMMUNITY_Table Avatar Player|Table Avatar Player]]
-- [[_COMMUNITY_Jornada Date Reposition|Jornada Date Reposition]]
-- [[_COMMUNITY_Input Btn Normal|Input Btn Normal]]
-- [[_COMMUNITY_Liga Configuracion Template|Liga Configuracion Template]]
-- [[_COMMUNITY_Content Header Area|Content Header Area]]
-- [[_COMMUNITY_Jornada Grid Range|Jornada Grid Range]]
-- [[_COMMUNITY_Btn Jornada Planning|Btn Jornada Planning]]
-- [[_COMMUNITY_Filter Compact Rail|Filter Compact Rail]]
-- [[_COMMUNITY_Get Phase Build|Get Phase Build]]
-- [[_COMMUNITY_View Team Stats|View Team Stats]]
-- [[_COMMUNITY_Dashboard Stat Stats|Dashboard Stat Stats]]
-- [[_COMMUNITY_Tab Tournament Config|Tab Tournament Config]]
-- [[_COMMUNITY_Equipos Upload Get|Equipos Upload Get]]
-- [[_COMMUNITY_Grid Division Build|Grid Division Build]]
-- [[_COMMUNITY_In Team Info|In Team Info]]
-- [[_COMMUNITY_Division Links Sidebar|Division Links Sidebar]]
-- [[_COMMUNITY_Dashboard Torneo Slider|Dashboard Torneo Slider]]
-- [[_COMMUNITY_Limit Goleadores Export|Limit Goleadores Export]]
-- [[_COMMUNITY_Get Schedule Export|Get Schedule Export]]
-- [[_COMMUNITY_Range Reposition Planner|Range Reposition Planner]]
-- [[_COMMUNITY_Wrapper Skeleton Header|Wrapper Skeleton Header]]
-- [[_COMMUNITY_Table Standings Clinched|Table Standings Clinched]]
-- [[_COMMUNITY_Tournament Match Panel|Tournament Match Panel]]
-- [[_COMMUNITY_Skeleton Table Match|Skeleton Table Match]]
-- [[_COMMUNITY_Public Has Standings|Public Has Standings]]
-- [[_COMMUNITY_Sheet Match Print|Sheet Match Print]]
-- [[_COMMUNITY_View Standings Tab|View Standings Tab]]
-- [[_COMMUNITY_Fixture Generar Seven|Fixture Generar Seven]]
-- [[_COMMUNITY_Division View State|Division View State]]
-- [[_COMMUNITY_Team Confirm Transfer|Team Confirm Transfer]]
-- [[_COMMUNITY_Export Standings Preview|Export Standings Preview]]
-- [[_COMMUNITY_Time Scheduled Match|Time Scheduled Match]]
-- [[_COMMUNITY_Badge Name Google|Badge Name Google]]
-- [[_COMMUNITY_Player Manager Btn|Player Manager Btn]]
-- [[_COMMUNITY_Auth Config Store|Auth Config Store]]
-- [[_COMMUNITY_Error Boundary Did|Error Boundary Did]]
-- [[_COMMUNITY_Manager League Badge|Manager League Badge]]
-- [[_COMMUNITY_Tooltip Input With|Tooltip Input With]]
-- [[_COMMUNITY_Match Badge Sheet|Match Badge Sheet]]
-- [[_COMMUNITY_Export Day Schedule|Export Day Schedule]]
-- [[_COMMUNITY_Drop Week Days|Drop Week Days]]
-- [[_COMMUNITY_Roster Result Unassigned|Roster Result Unassigned]]
-- [[_COMMUNITY_Conflict List Divider|Conflict List Divider]]
-- [[_COMMUNITY_Detail Team Playe|Detail Team Playe]]
-- [[_COMMUNITY_Badge Team Action|Badge Team Action]]
-- [[_COMMUNITY_Export Build Render|Export Build Render]]
-- [[_COMMUNITY_Jornada Is Name|Jornada Is Name]]
-- [[_COMMUNITY_Register Manager Template|Register Manager Template]]
-- [[_COMMUNITY_Get Division Workspace|Get Division Workspace]]
-- [[_COMMUNITY_Input Number Penalties|Input Number Penalties]]
-- [[_COMMUNITY_Match Sheet Expor|Match Sheet Expor]]
-- [[_COMMUNITY_Get Match Team|Get Match Team]]
-- [[_COMMUNITY_Official Jornada Number|Official Jornada Number]]
-- [[_COMMUNITY_Admin Manager Service|Admin Manager Service]]
-- [[_COMMUNITY_In Page Scroll|In Page Scroll]]
-- [[_COMMUNITY_Goleadores Goal Torneo|Goleadores Goal Torneo]]
-- [[_COMMUNITY_General Tab Walkover|General Tab Walkover]]
-- [[_COMMUNITY_Remove Background Logo|Remove Background Logo]]
-- [[_COMMUNITY_Vitejs Plugin React|Vitejs Plugin React]]
-- [[_COMMUNITY_Score Header Block|Score Header Block]]
-- [[_COMMUNITY_Fixture Match Lock|Fixture Match Lock]]
-- [[_COMMUNITY_Build Stage Get|Build Stage Get]]
-- [[_COMMUNITY_Match Resolution Actions|Match Resolution Actions]]
-- [[_COMMUNITY_Team Get Lookup|Team Get Lookup]]
-- [[_COMMUNITY_Match Validation Check|Match Validation Check]]
-- [[_COMMUNITY_Ball Mark Diagonal|Ball Mark Diagonal]]
-- [[_COMMUNITY_Team Logo Dynamic|Team Logo Dynamic]]
-- [[_COMMUNITY_Overlay Confirm Result|Overlay Confirm Result]]
-- [[_COMMUNITY_Selector Standings Jornada|Selector Standings Jornada]]
-- [[_COMMUNITY_Update Config Service|Update Config Service]]
-- [[_COMMUNITY_From Get Jugadores|From Get Jugadores]]
+- [[_COMMUNITY_PlayoffBracketView|PlayoffBracketView]]
+- [[_COMMUNITY_FixturePreviewModal|FixturePreviewModal]]
+- [[_COMMUNITY_LandingCopy|LandingCopy]]
+- [[_COMMUNITY_LigaDivisionsTab|LigaDivisionsTab]]
+- [[_COMMUNITY_React + Vite|React + Vite]]
+- [[_COMMUNITY_ManagerDetailModal|ManagerDetailModal]]
+- [[_COMMUNITY_Dependencies|Dependencies]]
+- [[_COMMUNITY_JornadaPlanificacion|JornadaPlanificacion]]
+- [[_COMMUNITY_TorneoJornadasTab|TorneoJornadasTab]]
+- [[_COMMUNITY_SupabaseAdmin|SupabaseAdmin]]
+- [[_COMMUNITY_PlayerForm|PlayerForm]]
+- [[_COMMUNITY_PlayoffUtils|PlayoffUtils]]
+- [[_COMMUNITY_AdminManagersTemplate|AdminManagersTemplate]]
+- [[_COMMUNITY_PlayoffAdvanceModal|PlayoffAdvanceModal]]
+- [[_COMMUNITY_RosterTab|RosterTab]]
+- [[_COMMUNITY_V|V]]
+- [[_COMMUNITY_GoleadoresTab|GoleadoresTab]]
+- [[_COMMUNITY_Index|Index]]
+- [[_COMMUNITY_TeamDetailStatsView|TeamDetailStatsView]]
+- [[_COMMUNITY_LoginTemplate|LoginTemplate]]
+- [[_COMMUNITY_PlanningHeader|PlanningHeader]]
+- [[_COMMUNITY_TeamResultsTab|TeamResultsTab]]
+- [[_COMMUNITY_TorneoDefinicionTab|TorneoDefinicionTab]]
+- [[_COMMUNITY_SummaryDashboard|SummaryDashboard]]
+- [[_COMMUNITY_ScheduledMatchRow|ScheduledMatchRow]]
+- [[_COMMUNITY_JornadaUtils|JornadaUtils]]
+- [[_COMMUNITY_PublicStandings|PublicStandings]]
+- [[_COMMUNITY_PlayerManager|PlayerManager]]
+- [[_COMMUNITY_UseEquiposLogic|UseEquiposLogic]]
+- [[_COMMUNITY_WeeklyGridView|WeeklyGridView]]
+- [[_COMMUNITY_Styles|Styles]]
+- [[_COMMUNITY_Supabase|Supabase]]
+- [[_COMMUNITY_Validation Workflow|Validation Workflow]]
+- [[_COMMUNITY_GoleadoresExportModal|GoleadoresExportModal]]
+- [[_COMMUNITY_NormalizeJornadaDatesModal|NormalizeJornadaDatesModal]]
+- [[_COMMUNITY_RepositionPlannerModal|RepositionPlannerModal]]
+- [[_COMMUNITY_Skeletons|Skeletons]]
+- [[_COMMUNITY_StandingsTable|StandingsTable]]
+- [[_COMMUNITY_Skeletons|Skeletons]]
+- [[_COMMUNITY_DateUtils|DateUtils]]
+- [[_COMMUNITY_Routes|Routes]]
+- [[_COMMUNITY_ScheduleExportModal|ScheduleExportModal]]
+- [[_COMMUNITY_TorneoDashboard|TorneoDashboard]]
+- [[_COMMUNITY_DivisionSelector|DivisionSelector]]
+- [[_COMMUNITY_EquiposTemplate|EquiposTemplate]]
+- [[_COMMUNITY_StandingsExportModal|StandingsExportModal]]
+- [[_COMMUNITY_ConfiguracionTemplate|ConfiguracionTemplate]]
+- [[_COMMUNITY_ScheduleExportLayout|ScheduleExportLayout]]
+- [[_COMMUNITY_ParseJornadaNumber()|ParseJornadaNumber()]]
+- [[_COMMUNITY_TeamDetailModal|TeamDetailModal]]
+- [[_COMMUNITY_ErrorBoundary|ErrorBoundary]]
+- [[_COMMUNITY_Sidebar|Sidebar]]
+- [[_COMMUNITY_ManagerCard|ManagerCard]]
+- [[_COMMUNITY_WelcomeDashboard|WelcomeDashboard]]
+- [[_COMMUNITY_GetTeamId()|GetTeamId()]]
+- [[_COMMUNITY_TorneosStandingsTab|TorneosStandingsTab]]
+- [[_COMMUNITY_InputWithTooltip|InputWithTooltip]]
+- [[_COMMUNITY_DynamicTeamLogo|DynamicTeamLogo]]
+- [[_COMMUNITY_PantallaCarga|PantallaCarga]]
+- [[_COMMUNITY_WeekDaysDropLayout|WeekDaysDropLayout]]
+- [[_COMMUNITY_ResultModal|ResultModal]]
+- [[_COMMUNITY_ConflictModal|ConflictModal]]
+- [[_COMMUNITY_FixtureAlgorithms|FixtureAlgorithms]]
+- [[_COMMUNITY_PageHeader|PageHeader]]
+- [[_COMMUNITY_TeamCard|TeamCard]]
+- [[_COMMUNITY_GoleadoresExportLayout|GoleadoresExportLayout]]
+- [[_COMMUNITY_TorneosTemplate|TorneosTemplate]]
+- [[_COMMUNITY_RegisterManagerTemplate|RegisterManagerTemplate]]
+- [[_COMMUNITY_DivisionWorkspace|DivisionWorkspace]]
+- [[_COMMUNITY_HomeTemplate|HomeTemplate]]
+- [[_COMMUNITY_InputNumber|InputNumber]]
+- [[_COMMUNITY_MatchSheetModal|MatchSheetModal]]
+- [[_COMMUNITY_ResolveRepositionMappings()|ResolveRepositionMappings()]]
+- [[_COMMUNITY_UseAuthStore|UseAuthStore]]
+- [[_COMMUNITY_UseTorneoStandingsLogic|UseTorneoStandingsLogic]]
+- [[_COMMUNITY_Modal|Modal]]
+- [[_COMMUNITY_BatchPrintModal|BatchPrintModal]]
+- [[_COMMUNITY_UseTorneoGoleadoresLogic|UseTorneoGoleadoresLogic]]
+- [[_COMMUNITY_GeneralTab|GeneralTab]]
+- [[_COMMUNITY_RemoveLogoBackground()|RemoveLogoBackground()]]
+- [[_COMMUNITY_PartidosTemplate|PartidosTemplate]]
+- [[_COMMUNITY_MatchSheetExportLayout|MatchSheetExportLayout]]
+- [[_COMMUNITY_TorneoDefinitionMode|TorneoDefinitionMode]]
+- [[_COMMUNITY_DataEstatica|DataEstatica]]
+- [[_COMMUNITY_@vitejs Plugin React|@vitejs Plugin React]]
+- [[_COMMUNITY_PostMatchDetailsView|PostMatchDetailsView]]
+- [[_COMMUNITY_FixtureMatchCard|FixtureMatchCard]]
+- [[_COMMUNITY_TournamentAutoRedirectPreference|TournamentAutoRedirectPreference]]
+- [[_COMMUNITY_EmptyState|EmptyState]]
+- [[_COMMUNITY_MatchResolutionModal|MatchResolutionModal]]
+- [[_COMMUNITY_NormalizeLookupValue()|NormalizeLookupValue()]]
+- [[_COMMUNITY_MatchValidation|MatchValidation]]
+- [[_COMMUNITY_Logo Gen.png|Logo Gen.png]]
+- [[_COMMUNITY_ConfirmResultOverlay|ConfirmResultOverlay]]
+- [[_COMMUNITY_StandingsJornadaSelector|StandingsJornadaSelector]]
+- [[_COMMUNITY_UpdateTournamentFieldsService()|UpdateTournamentFieldsService()]]
+- [[_COMMUNITY_ConfiguracionTemplate()|ConfiguracionTemplate()]]
+- [[_COMMUNITY_LoginTemplate()|LoginTemplate()]]
+- [[_COMMUNITY_Dependency Constraint|Dependency Constraint]]
 - [[_COMMUNITY_Prefers Reduced Motion|Prefers Reduced Motion]]
-- [[_COMMUNITY_Build Pieces Highlighted|Build Pieces Highlighted]]
-- [[_COMMUNITY_Build Team Lookup|Build Team Lookup]]
-- [[_COMMUNITY_Playable Count Matches|Playable Count Matches]]
-- [[_COMMUNITY_Playable Count Pairs|Playable Count Pairs]]
-- [[_COMMUNITY_Fixture Preview|Fixture Preview]]
-- [[_COMMUNITY_Format Text Match|Format Text Match]]
-- [[_COMMUNITY_Get Team Key|Get Team Key]]
-- [[_COMMUNITY_Vercel Json Rewrites|Vercel Json Rewrites]]
+- [[_COMMUNITY_BuildTextPieces()|BuildTextPieces()]]
+- [[_COMMUNITY_GetRecognizedMatchMarkers()|GetRecognizedMatchMarkers()]]
+- [[_COMMUNITY_IsPlayableMatch()|IsPlayableMatch()]]
+- [[_COMMUNITY_IsPlayablePair()|IsPlayablePair()]]
+- [[_COMMUNITY_FormatRoundText()|FormatRoundText()]]
+- [[_COMMUNITY_NormalizeTextMatch()|NormalizeTextMatch()]]
+- [[_COMMUNITY_Vercel|Vercel]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `v` - 75 edges
@@ -134,401 +143,431 @@
   index.html → public/logo_app.png
 
 ## Import Cycles
-- 3-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
-- 3-file cycle: `src/components/organismos/tabs/liga/LigaConfigTab.jsx -> src/index.js -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaConfigTab.jsx`
-- 3-file cycle: `src/components/template/RegisterManagerTemplate.jsx -> src/index.js -> src/pages/RegisterManager.jsx -> src/components/template/RegisterManagerTemplate.jsx`
-- 3-file cycle: `src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx`
 - 3-file cycle: `src/components/organismos/tabs/liga/LigaRefereesTab.jsx -> src/index.js -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaRefereesTab.jsx`
-- 3-file cycle: `src/components/organismos/tabs/liga/LigaDivisionsTab.jsx -> src/index.js -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaDivisionsTab.jsx`
+- 3-file cycle: `src/components/organismos/tabs/liga/LigaConfigTab.jsx -> src/index.js -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaConfigTab.jsx`
+- 3-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
 - 3-file cycle: `src/components/organismos/tabs/liga/LigaRulesTab.jsx -> src/index.js -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaRulesTab.jsx`
+- 3-file cycle: `src/components/template/RegisterManagerTemplate.jsx -> src/index.js -> src/pages/RegisterManager.jsx -> src/components/template/RegisterManagerTemplate.jsx`
+- 3-file cycle: `src/components/organismos/tabs/liga/LigaDivisionsTab.jsx -> src/index.js -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaDivisionsTab.jsx`
 - 3-file cycle: `src/index.js -> src/router.jsx -> src/routes/routes.jsx -> src/index.js`
-- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/index.js -> src/pages/Torneos.jsx -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx -> src/index.js -> src/pages/Torneos.jsx -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx`
+- 3-file cycle: `src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/liga/LigaConfigTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaConfigTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/liga/LigaDivisionsTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaDivisionsTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/liga/LigaRefereesTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaRefereesTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/liga/LigaRulesTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaRulesTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/TournamentConfigModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/PlayoffAdvanceModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
 - 4-file cycle: `src/components/organismos/tabs/torneos/GoleadoresTab.jsx -> src/components/organismos/tabs/torneos/exports/goleadores/GoleadoresExportModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/GoleadoresTab.jsx`
 - 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/FixturePreviewModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/PlayoffAdvanceModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/TournamentConfigModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx -> src/components/organismos/tabs/torneos/exports/standings/StandingsExportModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/liga/LigaConfigTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaConfigTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/FixturePreviewModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx -> src/index.js -> src/pages/Torneos.jsx -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoDefinicionTab.jsx`
 - 4-file cycle: `src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx -> src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx`
-- 4-file cycle: `src/components/organismos/tabs/liga/LigaRefereesTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaRefereesTab.jsx`
-- 4-file cycle: `src/components/organismos/tabs/liga/LigaDivisionsTab.jsx -> src/index.js -> src/pages/Liga.jsx -> src/components/template/LigaTemplate.jsx -> src/components/organismos/tabs/liga/LigaDivisionsTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx -> src/components/organismos/tabs/torneos/subcomponents/FixturePreviewModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneoJornadasTab.jsx`
+- 4-file cycle: `src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx -> src/components/organismos/tabs/torneos/exports/standings/StandingsExportModal.jsx -> src/index.js -> src/components/template/TorneosTemplate.jsx -> src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx`
 
 ## Hyperedges (group relationships)
+- **Landing Contract Required Scope** — agents_docs_landing_contract_md, agents_landing_page, agents_required_landing_routes_data_navigation_authentication_actions [EXTRACTED 1.00]
+- **Landing Validation Requirements** — agents_validation_workflow, agents_npm_run_build, agents_lint_script, agents_desktop_mobile_landing_check [EXTRACTED 1.00]
 - **Product Experience Guidelines** — product_operational_friction_reduction, product_clarity_and_visible_state, product_unified_public_private_brand, product_confidence_through_feedback, product_mobile_desktop_legibility, product_wcag_aa_accessibility [EXTRACTED 1.00]
 - **React Vite Tooling Options** — readme_vite_plugin_react, readme_babel, readme_vite_plugin_react_swc, readme_swc, readme_fast_refresh [EXTRACTED 1.00]
 - **App Shell Bootstrap** — index_html, index_root, index_src_main_jsx, index_bracket_app [EXTRACTED 1.00]
 
-## Communities (104 total, 11 thin omitted)
+## Communities (114 total, 13 thin omitted)
 
-### Community 0 - "Skeleton Liga Tab"
-Cohesion: 0.05
-Nodes (42): Base, shimmer, Skeleton(), SkeletonRowWrapper, Card(), CardStyled, CardHeader(), Container (+34 more)
-
-### Community 1 - "Bracket Connected Match"
+### Community 0 - "PlayoffBracketView"
 Cohesion: 0.04
 Nodes (37): AbsoluteMatchNode, AbsoluteStageHeader, BracketArena, BracketLines, BracketScroller, BracketShell, BracketSide, buildBalancedBracketOrder() (+29 more)
 
-### Community 2 - "Build Round Action"
+### Community 1 - "FixturePreviewModal"
 Cohesion: 0.04
 Nodes (40): ActionButton, ActionWrapper, BadgeError, BadgeSuccess, BYE_TEAM, CaretMirror, CloseBtn, Content (+32 more)
 
-### Community 3 - "Section Landing Benefits"
-Cohesion: 0.10
-Nodes (26): BenefitsSection(), ICONS, FAQSection(), FeaturesStrip(), ICONS, FinalCTA(), HeroSection(), operations (+18 more)
+### Community 2 - "LandingCopy"
+Cohesion: 0.06
+Nodes (18): ICONS, ICONS, operations, rounds, LandingHeader(), exports, standings, Container (+10 more)
 
-### Community 4 - "Bracket Amateur Football"
+### Community 3 - "LigaDivisionsTab"
+Cohesion: 0.06
+Nodes (35): Base, shimmer, Skeleton(), SkeletonRowWrapper, TableRowSkeleton(), Card(), CardStyled, ContentWrapper (+27 more)
+
+### Community 4 - "React + Vite"
 Cohesion: 0.06
 Nodes (37): Bracket app, HTML App Shell, logo_app.png, root, Spanish Locale, /src/main.jsx, Viewport Meta, Amateur Football League Operators (+29 more)
 
-### Community 5 - "Manager Badge Tab"
+### Community 5 - "ManagerDetailModal"
 Cohesion: 0.06
-Nodes (33): Badge, Container, Glider, TabButton, TabContent, FooterActions, Form, HistoryContainer (+25 more)
+Nodes (32): Badge, Container, Glider, TabButton, TabsNavigation(), FooterActions, Form, HistoryContainer (+24 more)
 
-### Community 6 - "Empty State Torneo"
-Cohesion: 0.07
-Nodes (28): Container, Description, EmptyState(), IconWrapper, Title, TorneoJornadasTab(), ActionButton, ContentGrid (+20 more)
-
-### Community 7 - "React Eslint Dependencies"
+### Community 6 - "Dependencies"
 Cohesion: 0.06
 Nodes (34): dependencies, framer-motion, html-to-image, @iconify/react, @imgly/background-removal, react, react-dom, react-icons (+26 more)
 
-### Community 8 - "Assemble Step Welcome"
-Cohesion: 0.07
-Nodes (30): ActionButtons, Arrow, Container, Content, Description, float, IconContainer, Step (+22 more)
+### Community 7 - "JornadaPlanificacion"
+Cohesion: 0.09
+Nodes (25): ConfirmNote, Container, ControlsBar, customScrollbar, DropZone, Footer, GhostButton, GridList (+17 more)
 
-### Community 9 - "Get Date Service"
+### Community 8 - "TorneoJornadasTab"
 Cohesion: 0.10
 Nodes (20): Container, Grid, JornadaResultados(), MatchRow, EmptyState, fadeIn, getDateTimeValue(), getDaysBetweenDates() (+12 more)
 
-### Community 10 - "Toggle Icono Linea"
-Cohesion: 0.10
-Nodes (20): Icono, Linea, BtnGreen(), Container, Container, SortButton, Card, ResolutionBadge (+12 more)
-
-### Community 11 - "Handler Create Normalize"
+### Community 9 - "SupabaseAdmin"
 Cohesion: 0.22
 Nodes (19): handler(), handler(), handler(), normalizeLimit(), handler(), handler(), ACTIVE_TOURNAMENT_STATUSES, fetchTournamentStandings() (+11 more)
 
-### Community 12 - "Zone Match Jornada"
-Cohesion: 0.09
-Nodes (23): ConfirmNote, Container, ControlsBar, customScrollbar, DropZone, Footer, GhostButton, GridList (+15 more)
+### Community 10 - "PlayerForm"
+Cohesion: 0.10
+Nodes (19): Icono, BtnGreen(), BtnNormal(), Container, Container, CropModalOverlay, fillClosedTransparentAreas(), hexToRgb() (+11 more)
 
-### Community 13 - "Center Bracket Actions"
+### Community 11 - "PlayoffUtils"
+Cohesion: 0.13
+Nodes (24): buildBracketStages(), buildProjectedMainStage(), buildSeedSlotPairs(), parseConfig(), TorneoDefinicionTab(), buildTorneoStandingsSnapshot(), isOfficialJornadaName(), buildNextPlayoffPreview() (+16 more)
+
+### Community 12 - "AdminManagersTemplate"
+Cohesion: 0.09
+Nodes (22): Btnsave(), Container, spin, SpinnerIcon, ManagerCreateModal(), Actions, AvatarFallback, CancelButton (+14 more)
+
+### Community 13 - "PlayoffAdvanceModal"
 Cohesion: 0.08
-Nodes (21): ActionButton, BracketCanvas, BracketColumn, CancelButton, CenterChecks, CenterSettingBox, CenterSettings, CenterStage (+13 more)
+Nodes (20): ActionButton, BracketCanvas, BracketColumn, CancelButton, CenterChecks, CenterSettingBox, CenterSettings, CenterStage (+12 more)
 
-### Community 14 - "Btnsave Icon Manager"
-Cohesion: 0.09
-Nodes (22): Btnsave(), Container, spin, SpinnerIcon, Actions, AvatarFallback, CancelButton, FloatingInputContainer (+14 more)
-
-### Community 15 - "Get Torneo Matches"
-Cohesion: 0.10
-Nodes (10): createLeagueRuleDraft(), getParsedLeagueConfig(), iniciarTorneoService(), PLAYER_STATUS, ROLES, TEAM_STATUS, TIE_BREAK_TYPE, TOURNAMENT_FORMAT (+2 more)
-
-### Community 16 - "Toast Footer Fade"
-Cohesion: 0.10
-Nodes (20): fadeOut, slideIn, Toast(), ToastContainer, Footer(), FooterContainer, BackgroundLayer, Card (+12 more)
-
-### Community 17 - "Player Roster Clear"
+### Community 14 - "RosterTab"
 Cohesion: 0.09
 Nodes (22): AutoFillButton, CardCheck, clearButtonIn, ClearPlayerButton, ClearRosterButton, EmptyOptionsMessage, getPlayerLabel(), GoalInputShell (+14 more)
 
-### Community 18 - "Table Avatar Player"
+### Community 15 - "V"
+Cohesion: 0.12
+Nodes (17): fadeOut, slideIn, Toast(), ToastContainer, Container, CardHeader(), Container, Divider (+9 more)
+
+### Community 16 - "GoleadoresTab"
 Cohesion: 0.09
 Nodes (21): AvatarCircle, Container, ControlPanel, ControlsGroup, ExportButton, GoalsSkeletonWrap, HeaderSpacer, PlayerCell (+13 more)
 
-### Community 19 - "Jornada Date Reposition"
-Cohesion: 0.14
-Nodes (12): DaySeparatorDropZone(), SeparatorContainer, Spacer, guardarJornadaService(), addDaysToDate(), formatShortDate(), formatTimeTo12Hour(), buildRepositionJornadaName() (+4 more)
-
-### Community 20 - "Input Btn Normal"
-Cohesion: 0.12
-Nodes (16): BtnNormal(), Container, Container, CropModalOverlay, fillClosedTransparentAreas(), hexToRgb(), PhotoUploader, ToggleLabel (+8 more)
-
-### Community 21 - "Liga Configuracion Template"
+### Community 17 - "Index"
 Cohesion: 0.13
-Nodes (15): ConfiguracionTemplate(), LigaTemplate(), LoginTemplate(), UserAuth(), ligaCache, useLigaLogic(), ProtectedRoute(), Configuracion() (+7 more)
+Nodes (17): Linea, CheckboxPanel, ClearableInput, ControlBox, Divider, Row2, Row3, SectionLabel (+9 more)
 
-### Community 22 - "Content Header Area"
+### Community 18 - "TeamDetailStatsView"
+Cohesion: 0.13
+Nodes (16): ContainerScroll, Container, SortButton, SortControl(), TabContent, InternalViewHeader(), PlayerSkeleton(), BackButton (+8 more)
+
+### Community 19 - "LoginTemplate"
 Cohesion: 0.11
-Nodes (16): ContentContainer(), StyledContainer, Title, CenterArea, ContentWrapper, HeaderContainer, LeftArea, MenuButton (+8 more)
+Nodes (17): StyledContainer, Footer(), FooterContainer, BackgroundLayer, Card, Container, ContentLogo, Divider (+9 more)
 
-### Community 23 - "Jornada Grid Range"
-Cohesion: 0.10
-Nodes (18): JornadaPlanificacion(), CalendarGrid, CardHeader, CompareRow, DateBadge, Footer, formatRange(), JornadaCard (+10 more)
-
-### Community 24 - "Btn Jornada Planning"
+### Community 20 - "PlanningHeader"
 Cohesion: 0.10
 Nodes (20): ActionsGroup, AutoFillBtn, BtnAction, CompactControlsWrap, CompactToggleButton, ConfirmBtn, Container, DateRow (+12 more)
 
-### Community 25 - "Filter Compact Rail"
+### Community 21 - "TeamResultsTab"
 Cohesion: 0.10
 Nodes (16): CompactFilterButton, CompactFilterGroup, CompactFilterPopover, CompactFilterTrigger, CompactFilterWrapper, EmptyBox, MatchesGrid, RailArrowButton (+8 more)
 
-### Community 26 - "Get Phase Build"
-Cohesion: 0.14
-Nodes (19): buildTorneoStandingsSnapshot(), buildNextPlayoffPreview(), buildPhaseJornadaNames(), buildSeedRows(), calculateRegularStandings(), FINISHED_STATUSES, getMatchJornadaName(), getOfficialJornadaNumberForPlayoffMatch() (+11 more)
-
-### Community 27 - "View Team Stats"
-Cohesion: 0.13
-Nodes (16): ContainerScroll, SortControl(), TabsNavigation(), InternalViewHeader(), PlayerSkeleton(), BackButton, EmptyMessage, HeaderActions (+8 more)
-
-### Community 28 - "Dashboard Stat Stats"
+### Community 22 - "TorneoDefinicionTab"
 Cohesion: 0.11
-Nodes (18): CardContainer, Content, DashboardCard(), Footer, IconWrapper, Stat, StatsRow, Subtitle (+10 more)
+Nodes (15): PlayoffAdvanceModal(), TournamentConfigModal(), ActiveTournamentPanel, hasRegisteredMatchResult(), hasRegisteredScoreValue(), isConfirmedJornadaStatus(), MAIN_PLAYOFF_PHASE_KEYS, ModalContentStyled (+7 more)
 
-### Community 29 - "Tab Tournament Config"
+### Community 23 - "SummaryDashboard"
+Cohesion: 0.11
+Nodes (17): CardContainer, Content, DashboardCard(), Footer, IconWrapper, Stat, StatsRow, Subtitle (+9 more)
+
+### Community 24 - "ScheduledMatchRow"
+Cohesion: 0.12
+Nodes (13): ModalContentWrapper, PreMatchSheetModal(), PrintStyles, Container, customScrollbar, DateDivider, DropOverlay, normalizeTimeValue() (+5 more)
+
+### Community 25 - "JornadaUtils"
+Cohesion: 0.19
+Nodes (13): isRepositionRound(), getPlayoffJornadaBaseName(), isSamePlayoffJornadaScope(), usePlanificacionMatches(), guardarJornadaService(), guardarJornadaService(), buildRepositionJornadaName(), buildRepositionPreview() (+5 more)
+
+### Community 26 - "PublicStandings"
+Cohesion: 0.12
+Nodes (13): TorneosStandingsTab(), useTorneoStandingsLogic(), Content, ErrorContainer, Footer, Header, PublicContainer, PublicStandings() (+5 more)
+
+### Community 27 - "PlayerManager"
 Cohesion: 0.13
-Nodes (17): CheckboxPanel, ClearableInput, ControlBox, Divider, Row2, Row3, SectionLabel, SelectStyled (+9 more)
+Nodes (14): BtnSmall, BtnToggle, Container, DeleteContent, ErrorBadge, Form, ListContainer, PlayerManager() (+6 more)
 
-### Community 30 - "Equipos Upload Get"
-Cohesion: 0.18
-Nodes (12): uploadPlayerPhoto(), EquiposTemplate(), getStoragePathFromUrl(), getUniquePaths(), uploadTeamLogo(), useEquiposLogic(), Equipos(), compressImage() (+4 more)
+### Community 28 - "UseEquiposLogic"
+Cohesion: 0.20
+Nodes (11): uploadPlayerPhoto(), getStoragePathFromUrl(), getUniquePaths(), uploadTeamLogo(), useEquiposLogic(), Equipos(), useEquiposStore, compressImage() (+3 more)
 
-### Community 31 - "Grid Division Build"
+### Community 29 - "WeeklyGridView"
 Cohesion: 0.14
 Nodes (16): buildJornadaSummary(), Container, DayColumn, DayWrapper, DesktopHeader, EmptyState, GridContainer, Legend (+8 more)
 
-### Community 32 - "In Team Info"
+### Community 30 - "Styles"
 Cohesion: 0.17
 Nodes (16): Banner, DivisionBadge, IconBox, InfoBody, InfoItem, LogoWrapper, OverviewView, popoverEnterDown (+8 more)
 
-### Community 33 - "Division Links Sidebar"
-Cohesion: 0.16
-Nodes (14): AppContent(), Container, DivisionSelector(), AdminLinksArray, Container, Divider, Main, ManagerLinksArray (+6 more)
+### Community 31 - "Supabase"
+Cohesion: 0.22
+Nodes (10): AdminManagersTemplate(), AdminManagers(), callAdminEndpoint(), createManagerAdminService(), deleteManagerAdminService(), getAccessToken(), updateManagerCredentialsService(), updateManagerLimitsService() (+2 more)
 
-### Community 34 - "Dashboard Torneo Slider"
+### Community 32 - "Validation Workflow"
 Cohesion: 0.12
-Nodes (15): TableRowSkeleton(), ActionButton, DashboardGrid, ExcludedHeader, MiniNavBtn, PaginationMinimal, ReasonBadge, SectionTitle (+7 more)
+Nodes (17): Bracket App Instructions, Complete Redesign Principle, Desktop and Mobile Landing Check, docs/LANDING_CONTRACT.md, Functional Logic Reuse, Landing Functional Contract, Landing Page, Light/Dark Theme System (+9 more)
 
-### Community 35 - "Limit Goleadores Export"
+### Community 33 - "GoleadoresExportModal"
 Cohesion: 0.12
 Nodes (12): ConfigControls, CustomLimitControl, FIXED_LIMIT_OPTIONS, FloatingConfigPanel, GoleadoresExportModal(), LimitControl, ModalFooter, ModeSwitchGroup (+4 more)
 
-### Community 36 - "Get Schedule Export"
-Cohesion: 0.14
-Nodes (12): ScheduleExportLayout, getCornerColor(), getLogoScaleOptionIndex(), getPixelIndex(), getTournamentDivision(), getTournamentLeague(), LOGO_SCALE_OPTIONS, LogoSizeControl (+4 more)
+### Community 34 - "NormalizeJornadaDatesModal"
+Cohesion: 0.12
+Nodes (14): CalendarGrid, CardHeader, CompareRow, DateBadge, Footer, JornadaCard, MatchGrid, months (+6 more)
 
-### Community 37 - "Range Reposition Planner"
+### Community 35 - "RepositionPlannerModal"
 Cohesion: 0.13
 Nodes (15): AdvancedSection, CalendarCard, EditorGrid, Footer, formatRange(), hasInvalidRange(), InputCard, PreviewCard (+7 more)
 
-### Community 38 - "Wrapper Skeleton Header"
+### Community 36 - "Skeletons"
 Cohesion: 0.12
 Nodes (13): ActionsWrapper, ControlsGroup, DateInputsWrapper, HeaderTopMobile, HeaderWrapper, JornadaPlanificacionSkeleton(), MainContainer, MainZone (+5 more)
 
-### Community 39 - "Table Standings Clinched"
+### Community 37 - "StandingsTable"
 Cohesion: 0.12
 Nodes (16): Badge, BottomInfoContainer, ClinchedStatus, ClinchedStatusList, LeyendaContainer, MotionTr, ResponsiveTableWrapper, StandingsTable() (+8 more)
 
-### Community 40 - "Tournament Match Panel"
-Cohesion: 0.13
-Nodes (12): ActiveTournamentPanel, hasRegisteredMatchResult(), hasRegisteredScoreValue(), isConfirmedJornadaStatus(), MAIN_PLAYOFF_PHASE_KEYS, ModalContentStyled, normalizeMatchStatus(), SetupTournamentPanel (+4 more)
-
-### Community 41 - "Skeleton Table Match"
+### Community 38 - "Skeletons"
 Cohesion: 0.13
 Nodes (14): MatchCardSkeleton(), StatTableRowSkeleton(), UpcomingRivalSkeleton(), CardIcon, MatchCard, PlayerCell, PlayerSkeletonWrapper, SectionContainer (+6 more)
 
-### Community 42 - "Public Has Standings"
+### Community 39 - "DateUtils"
+Cohesion: 0.18
+Nodes (10): createLeagueRuleDraft(), getParsedLeagueConfig(), PLAYER_STATUS, ROLES, TEAM_STATUS, TIE_BREAK_TYPE, TOURNAMENT_FORMAT, TOURNAMENT_STATUS (+2 more)
+
+### Community 40 - "Routes"
+Cohesion: 0.19
+Nodes (10): AppContent(), Container, PantallaCarga(), AuthContext, AuthContextProvider(), UserAuth(), AdminManagersLazy, HomeGate() (+2 more)
+
+### Community 41 - "ScheduleExportModal"
+Cohesion: 0.15
+Nodes (11): getCornerColor(), getLogoScaleOptionIndex(), getPixelIndex(), getTournamentDivision(), getTournamentLeague(), LOGO_SCALE_OPTIONS, LogoSizeControl, ModeBar (+3 more)
+
+### Community 42 - "TorneoDashboard"
 Cohesion: 0.12
-Nodes (11): Content, ErrorContainer, Footer, Header, PublicContainer, PublicStandings(), Subtitle, TabButton (+3 more)
+Nodes (14): ActionButton, DashboardGrid, ExcludedHeader, MiniNavBtn, PaginationMinimal, ReasonBadge, SectionTitle, SlidePage (+6 more)
 
-### Community 43 - "Sheet Match Print"
-Cohesion: 0.14
-Nodes (13): BatchPrintModal(), Container, Controls, LoadingState, PreviewContainer, MatchSheetA4(), SheetContainer, transparencyCache (+5 more)
-
-### Community 44 - "View Standings Tab"
-Cohesion: 0.13
-Nodes (15): PlayoffBracketView(), ActionsGroup, ControlPanel, InlineLinkButton, PublicShareControl, PublicToggleButton, SelectorWrapper, ShareButton (+7 more)
-
-### Community 45 - "Fixture Generar Seven"
-Cohesion: 0.25
-Nodes (13): buildSevenDayPreview(), hasValidSevenDayCadence(), sortJornadasForDateNormalization(), generarFixture(), autoCorregirFixture(), countConflictsForMatchInRound(), generarEstructuraInicial(), generarJornadaExtra() (+5 more)
-
-### Community 46 - "Division View State"
+### Community 43 - "DivisionSelector"
 Cohesion: 0.15
 Nodes (12): activeState, CompactView, CrudContainer, Divider, DivisionProgressBar, FullView, InitialsContainer, MainContainer (+4 more)
 
-### Community 47 - "Team Confirm Transfer"
+### Community 44 - "EquiposTemplate"
 Cohesion: 0.16
 Nodes (11): ConfirmModal(), Container, SelectStyled, TeamTransferModal(), Modal(), FloatingBtnWrapper, Grid, MainContainer (+3 more)
 
-### Community 48 - "Export Standings Preview"
+### Community 45 - "StandingsExportModal"
 Cohesion: 0.16
 Nodes (12): DownloadButtonFrame, ExportDownloadButton(), ExportPreviewHeader(), FormatSwitch, HeaderContainer, ThemeToggleBtn, StandingsExportLayout, FloatingConfigPanel (+4 more)
 
-### Community 49 - "Time Scheduled Match"
-Cohesion: 0.14
-Nodes (10): Container, customScrollbar, DateDivider, DropOverlay, normalizeTimeValue(), ScheduledMatchRow, ScoreWrapper, TapDropOverlay (+2 more)
-
-### Community 50 - "Badge Name Google"
+### Community 46 - "ConfiguracionTemplate"
 Cohesion: 0.17
 Nodes (13): ActionsGroup, Divider, Label, LinkedAccounts, MainContainer, PreferencesSection, RoleBadge, StatusBadge (+5 more)
 
-### Community 51 - "Player Manager Btn"
-Cohesion: 0.15
-Nodes (12): BtnSmall, BtnToggle, Container, DeleteContent, ErrorBadge, Form, ListContainer, PlayerManager() (+4 more)
+### Community 47 - "ScheduleExportLayout"
+Cohesion: 0.14
+Nodes (10): DayColumn, EmptyState, ExportCanvas, Grid, Header, Legend, MatchCard, Rows (+2 more)
 
-### Community 52 - "Auth Config Store"
-Cohesion: 0.24
-Nodes (3): AuthContext, useEquiposStore, supabase
+### Community 48 - "ParseJornadaNumber()"
+Cohesion: 0.18
+Nodes (12): Card, PendingMatchCard(), ResolutionBadge, TapHint, ExpandedContent, ModeHint, PlanningSidebar(), RestingCard (+4 more)
 
-### Community 53 - "Error Boundary Did"
+### Community 49 - "TeamDetailModal"
+Cohesion: 0.20
+Nodes (11): MATCH_RESULT_FILTERS, PLAYER_POSITION_RANK, PLAYER_SORT_OPTIONS, STATS_TABS, TEAM_DETAIL_VIEWS, DetailContainer, TeamDetailOverviewView(), TeamDetailPlayersView() (+3 more)
+
+### Community 50 - "ErrorBoundary"
 Cohesion: 0.17
 Nodes (6): App(), Button, ErrorBoundary, ErrorContainer, Message, Title
 
-### Community 54 - "Manager League Badge"
+### Community 51 - "Sidebar"
+Cohesion: 0.18
+Nodes (12): DivisionSelector(), AdminLinksArray, Container, Divider, Main, ManagerLinksArray, ManagerSecondaryLinks, MenuLabel (+4 more)
+
+### Community 52 - "ManagerCard"
 Cohesion: 0.15
 Nodes (12): ActionButton, Actions, AvatarContainer, CardContainer, Email, InfoGroup, LeagueBadge, ManagerCard() (+4 more)
 
-### Community 55 - "Tooltip Input With"
+### Community 53 - "WelcomeDashboard"
+Cohesion: 0.15
+Nodes (12): ActionButtons, Arrow, Container, Content, Description, float, IconContainer, Step (+4 more)
+
+### Community 54 - "GetTeamId()"
+Cohesion: 0.15
+Nodes (13): getMatchTeamGoals(), getPairMatches(), getPairResult(), getTeamId(), getWinnerTeamFromRow(), MatchCard(), toId(), intercambiarPartidosService() (+5 more)
+
+### Community 55 - "TorneosStandingsTab"
+Cohesion: 0.15
+Nodes (12): PlayoffBracketView(), ActionsGroup, ControlPanel, InlineLinkButton, PublicShareControl, PublicToggleButton, SelectorWrapper, ShareButton (+4 more)
+
+### Community 56 - "InputWithTooltip"
 Cohesion: 0.18
 Nodes (10): Container, FloatingIconWrapper, IconBox, InputWithTooltip(), Label, RelativeWrapper, Arrow, Tooltip() (+2 more)
 
-### Community 56 - "Match Badge Sheet"
-Cohesion: 0.18
-Nodes (4): MatchSheetExportLayout, MOBILE_EXPORT_SIZE, POST_EXPORT_SIZE, PostMatchDetailsView()
+### Community 57 - "DynamicTeamLogo"
+Cohesion: 0.24
+Nodes (9): DynamicTeamLogo(), getHash(), shadeColor(), CenterBlock, Container, formatTimeAMPM(), LogoWrapper, ScoreHeader() (+1 more)
 
-### Community 57 - "Export Day Schedule"
+### Community 58 - "PantallaCarga"
 Cohesion: 0.17
-Nodes (8): DayColumn, EmptyState, ExportCanvas, Grid, Header, Legend, MatchCard, Rows
+Nodes (11): assembleBL, assembleBR, assembleTL, assembleTR, Container, Cuadrante, flash, Glow (+3 more)
 
-### Community 58 - "Drop Week Days"
+### Community 59 - "WeekDaysDropLayout"
 Cohesion: 0.20
 Nodes (8): Container, EmptyDropZone(), float, pulseGlow, buildWeekDays(), Container, getMatchLabel(), WeekDaysDropLayout()
 
-### Community 59 - "Roster Result Unassigned"
+### Community 60 - "ResultModal"
 Cohesion: 0.18
 Nodes (9): RosterTab(), addUnassignedGoalsToRoster(), Container, ContentBody, Footer, LoadingState, ResultModal(), ToastContainerFix (+1 more)
 
-### Community 60 - "Conflict List Divider"
+### Community 61 - "ConflictModal"
 Cohesion: 0.17
 Nodes (11): Button, ConflictCard, ConflictList, ConflictModal(), Container, Divider, Footer, HeaderAlert (+3 more)
 
-### Community 61 - "Detail Team Playe"
-Cohesion: 0.24
-Nodes (9): MATCH_RESULT_FILTERS, PLAYER_POSITION_RANK, PLAYER_SORT_OPTIONS, STATS_TABS, TEAM_DETAIL_VIEWS, DetailContainer, TeamDetailOverviewView(), TeamDetailModal() (+1 more)
+### Community 62 - "FixtureAlgorithms"
+Cohesion: 0.30
+Nodes (9): FixturePreviewModal(), useFixturePreview(), generarFixture(), autoCorregirFixture(), countConflictsForMatchInRound(), generarEstructuraInicial(), generarJornadaExtra(), performSwap() (+1 more)
 
-### Community 62 - "Badge Team Action"
+### Community 63 - "PageHeader"
+Cohesion: 0.20
+Nodes (9): Title, CenterArea, ContentWrapper, HeaderContainer, LeftArea, MenuButton, RightArea, TabsContainer (+1 more)
+
+### Community 64 - "TeamCard"
 Cohesion: 0.18
 Nodes (10): ActionButtons, BadgePosition, BadgeStack, CardContainer, fadeIn, LogoWrapper, sharedBadgeStyles, StatusBadge (+2 more)
 
-### Community 63 - "Export Build Render"
+### Community 65 - "GoleadoresExportLayout"
 Cohesion: 0.22
 Nodes (5): buildDonutSegments(), buildPieRows(), CHART_COLORS, GoleadoresExportLayout, renderPieView()
 
-### Community 64 - "Jornada Is Name"
-Cohesion: 0.35
-Nodes (10): isRepositionRound(), getPlayoffJornadaBaseName(), isSamePlayoffJornadaScope(), usePlanificacionMatches(), getPartidosExternosRango(), getJornadaReferenceNumber(), isRepositionJornadaName(), normalizeJornadaName() (+2 more)
+### Community 66 - "TorneosTemplate"
+Cohesion: 0.22
+Nodes (9): TorneoJornadasTab(), ActionButton, ContentGrid, FullWidthTab, HeaderMeasure, StyledContentContainer, TorneosTemplate(), useTorneosLogic() (+1 more)
 
-### Community 65 - "Register Manager Template"
+### Community 67 - "RegisterManagerTemplate"
 Cohesion: 0.20
 Nodes (9): ActionArea, Form, FullScreenContainer, Header, InvitationInfo, RegisterManagerTemplate(), SuccessContent, ThemeButtonWrapper (+1 more)
 
-### Community 66 - "Get Division Workspace"
+### Community 68 - "DivisionWorkspace"
 Cohesion: 0.35
 Nodes (9): getDivisionWorkspace(), getDivisionWorkspaceFromSupabase(), getStandingsByTournament(), parseApiError(), withDivisionAliases(), getLeagueById(), getAllMatchesByTournament(), getEquiposDivision() (+1 more)
 
-### Community 67 - "Input Number Penalties"
+### Community 69 - "HomeTemplate"
+Cohesion: 0.27
+Nodes (7): SummaryDashboard(), WelcomeDashboard(), HomeTemplate(), MainContainer, StyledContentContainer, useHomeDashboard(), Home()
+
+### Community 70 - "InputNumber"
 Cohesion: 0.20
 Nodes (8): ArrowBtn, Container, Controls, InputNumber(), popAnimation, StyledInput, Container, PenaltiesTab()
 
-### Community 68 - "Match Sheet Expor"
+### Community 71 - "MatchSheetModal"
 Cohesion: 0.24
 Nodes (8): FloatingConfigPanel, LoadingContainer, MatchSheetModal(), MOBILE_EXPORT_SIZE, ModalFooter, POST_EXPORT_SIZE, PreviewWrapper, exportElementAsPNG()
 
-### Community 69 - "Get Match Team"
-Cohesion: 0.20
-Nodes (10): getMatchTeamGoals(), getPairMatches(), getPairResult(), getTeamId(), getWinnerTeamFromRow(), MatchCard(), toId(), intercambiarPartidosService() (+2 more)
+### Community 72 - "ResolveRepositionMappings()"
+Cohesion: 0.29
+Nodes (8): buildSevenDayPreview(), hasValidSevenDayCadence(), sortJornadasForDateNormalization(), getTeamTournamentStats(), getTopScorersService(), transformarPartidosExistentes(), resolveRepositionMappings(), sortJornadas()
 
-### Community 70 - "Official Jornada Number"
+### Community 73 - "UseAuthStore"
 Cohesion: 0.33
-Nodes (7): findRepositionMapping(), findRepositionMatchMapping(), FINISHED_STATUSES, getOfficialJornadaNumberForMatch(), getOfficialJornadaNumberFromMapping(), getOfficialJornadaNumberFromName(), isOfficialJornadaName()
+Nodes (6): LigaTemplate(), ligaCache, useLigaLogic(), ProtectedRoute(), Liga(), useAuthStore
 
-### Community 71 - "Admin Manager Service"
-Cohesion: 0.44
-Nodes (8): AdminManagers(), callAdminEndpoint(), createManagerAdminService(), deleteManagerAdminService(), getAccessToken(), updateManagerCredentialsService(), updateManagerLimitsService(), updateManagerSuspensionService()
+### Community 74 - "UseTorneoStandingsLogic"
+Cohesion: 0.31
+Nodes (7): findRepositionMapping(), findRepositionMatchMapping(), FINISHED_STATUSES, getOfficialJornadaNumberForMatch(), getOfficialJornadaNumberFromMapping(), getOfficialJornadaNumberFromName(), getStandingsViewStorageKey()
 
-### Community 72 - "In Page Scroll"
+### Community 76 - "Modal"
 Cohesion: 0.22
 Nodes (6): Body, fadeIn, Header, ModalContainer, Overlay, slideIn
 
-### Community 73 - "Goleadores Goal Torneo"
+### Community 77 - "BatchPrintModal"
+Cohesion: 0.22
+Nodes (7): BatchPrintModal(), Container, Controls, LoadingState, PreviewContainer, SheetContainer, transparencyCache
+
+### Community 78 - "UseTorneoGoleadoresLogic"
 Cohesion: 0.28
 Nodes (6): GoleadoresTab(), buildFullName(), isGoalEventType(), normalizeGoalEventType(), sortScorers(), useTorneoGoleadoresLogic()
 
-### Community 74 - "General Tab Walkover"
+### Community 79 - "GeneralTab"
 Cohesion: 0.22
 Nodes (8): CharCount, Container, GeneralTab(), GridInputs, InputGroup, TextArea, WalkoverBox, WalkoverOptionButton
 
-### Community 75 - "Remove Background Logo"
+### Community 80 - "RemoveLogoBackground()"
 Cohesion: 0.42
 Nodes (6): removeBackground(), getPixel(), loadImage(), matchesPalette(), removeLogoBackground(), removePersonBackground()
 
-### Community 76 - "Vitejs Plugin React"
+### Community 81 - "PartidosTemplate"
+Cohesion: 0.29
+Nodes (6): ContentContainer(), PageHeader(), Container, PartidosTemplate(), StyledContentContainer, Partidos()
+
+### Community 82 - "MatchSheetExportLayout"
+Cohesion: 0.29
+Nodes (6): MatchSheetA4(), formatDate(), formatTime(), MatchSheetExportLayout, MOBILE_EXPORT_SIZE, POST_EXPORT_SIZE
+
+### Community 83 - "TorneoDefinitionMode"
+Cohesion: 0.25
+Nodes (7): loaderEnter, loaderExit, LoadingShell, ModeTransitionFrame, spin, TorneoDefinitionMode(), TorneoDefinitionModeLoading()
+
+### Community 84 - "DataEstatica"
+Cohesion: 0.25
+Nodes (7): DataModulosConfiguracion, DesplegableUser, LinksArray, SecondarylinksArray, TemasData, TipoDocData, TipouserData
+
+### Community 85 - "@vitejs Plugin React"
 Cohesion: 0.29
 Nodes (7): Babel, Fast Refresh, oxc, rolldown-vite, SWC, @vitejs/plugin-react, @vitejs/plugin-react-swc
 
-### Community 77 - "Score Header Block"
-Cohesion: 0.33
-Nodes (6): CenterBlock, Container, formatTimeAMPM(), LogoWrapper, ScoreHeader(), TeamBlock
-
-### Community 78 - "Fixture Match Lock"
+### Community 87 - "FixtureMatchCard"
 Cohesion: 0.29
 Nodes (6): CardContainer, FixtureMatchCard(), LockIcon, TeamName, TeamsRow, VersusBadge
 
-### Community 79 - "Build Stage Get"
-Cohesion: 0.38
-Nodes (7): buildBracketStages(), buildProjectedMainStage(), buildSeedSlotPairs(), parseConfig(), TorneoDefinicionTab(), getPhaseLabelByKey(), getStageMatches()
+### Community 88 - "TournamentAutoRedirectPreference"
+Cohesion: 0.43
+Nodes (5): CheckboxButton, PreferenceCard, TournamentAutoRedirectPreference(), getTournamentAutoRedirectPreference(), setTournamentAutoRedirectPreference()
 
-### Community 80 - "Match Resolution Actions"
+### Community 89 - "EmptyState"
+Cohesion: 0.33
+Nodes (5): Container, Description, EmptyState(), IconWrapper, Title
+
+### Community 90 - "MatchResolutionModal"
 Cohesion: 0.33
 Nodes (5): Actions, Content, MatchResolutionModal(), OptionCard, OptionsGrid
 
-### Community 81 - "Team Get Lookup"
+### Community 91 - "NormalizeLookupValue()"
 Cohesion: 0.40
 Nodes (6): getActiveTeamQuery(), getTeamLookupAliases(), getTeamSuggestions(), normalizeLookupValue(), normalizeTeamToken(), resolveTeamToken()
 
-### Community 82 - "Match Validation Check"
+### Community 92 - "MatchValidation"
 Cohesion: 0.47
 Nodes (5): checkOverlap(), findScheduleConflicts(), getMinutes(), isSameMatchIdentity(), normalizeDate()
 
-### Community 83 - "Ball Mark Diagonal"
+### Community 93 - "Logo Gen.png"
 Cohesion: 0.50
 Nodes (4): ball mark, diagonal stripes, shield crest, sports identity
 
-### Community 84 - "Team Logo Dynamic"
-Cohesion: 0.70
-Nodes (3): DynamicTeamLogo(), getHash(), shadeColor()
-
-### Community 85 - "Overlay Confirm Result"
+### Community 94 - "ConfirmResultOverlay"
 Cohesion: 0.40
 Nodes (4): ConfirmResultOverlay(), Overlay, TeamBadge, TeamsContainer
 
-### Community 86 - "Selector Standings Jornada"
+### Community 95 - "StandingsJornadaSelector"
 Cohesion: 0.40
 Nodes (4): SelectorContainer, SelectWrapper, StandingsJornadaSelector(), StyledSelect
 
 ## Knowledge Gaps
-- **755 isolated node(s):** `ACTIVE_TOURNAMENT_STATUSES`, `name`, `private`, `version`, `type` (+750 more)
+- **767 isolated node(s):** `ACTIVE_TOURNAMENT_STATUSES`, `name`, `private`, `version`, `type` (+762 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **11 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **13 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `v` connect `Toggle Icono Linea` to `Skeleton Liga Tab`, `Build Round Action`, `Manager Badge Tab`, `Empty State Torneo`, `Assemble Step Welcome`, `Get Date Service`, `Zone Match Jornada`, `Btnsave Icon Manager`, `Toast Footer Fade`, `Player Roster Clear`, `Table Avatar Player`, `Jornada Date Reposition`, `Input Btn Normal`, `Content Header Area`, `Jornada Grid Range`, `Btn Jornada Planning`, `Dashboard Stat Stats`, `Tab Tournament Config`, `Grid Division Build`, `In Team Info`, `Division Links Sidebar`, `Dashboard Torneo Slider`, `Limit Goleadores Export`, `Range Reposition Planner`, `Table Standings Clinched`, `Tournament Match Panel`, `Public Has Standings`, `Sheet Match Print`, `View Standings Tab`, `Division View State`, `Team Confirm Transfer`, `Export Standings Preview`, `Time Scheduled Match`, `Badge Name Google`, `Player Manager Btn`, `Error Boundary Did`, `Manager League Badge`, `Drop Week Days`, `Roster Result Unassigned`, `Conflict List Divider`, `Badge Team Action`, `Register Manager Template`, `Match Sheet Expor`, `General Tab Walkover`, `Score Header Block`, `Fixture Match Lock`, `Match Resolution Actions`, `Overlay Confirm Result`, `Selector Standings Jornada`?**
-  _High betweenness centrality (0.183) - this node is a cross-community bridge._
-- **Why does `supabase` connect `Auth Config Store` to `Skeleton Liga Tab`, `Manager Badge Tab`, `Empty State Torneo`, `Get Date Service`, `Get Torneo Matches`, `Jornada Date Reposition`, `Liga Configuracion Template`, `Equipos Upload Get`, `Division Links Sidebar`, `Limit Goleadores Export`, `Get Schedule Export`, `Tournament Match Panel`, `Public Has Standings`, `Sheet Match Print`, `Division View State`, `Team Confirm Transfer`, `Export Standings Preview`, `Badge Name Google`, `Player Manager Btn`, `Roster Result Unassigned`, `Detail Team Playe`, `Register Manager Template`, `Get Division Workspace`, `Match Sheet Expor`, `Admin Manager Service`, `Goleadores Goal Torneo`, `From Get Jugadores`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
-- **Why does `removeBackground()` connect `Remove Background Logo` to `Input Btn Normal`, `Equipos Upload Get`?**
-  _High betweenness centrality (0.022) - this node is a cross-community bridge._
+- **Why does `v` connect `V` to `FixturePreviewModal`, `LigaDivisionsTab`, `ManagerDetailModal`, `JornadaPlanificacion`, `TorneoJornadasTab`, `PlayerForm`, `AdminManagersTemplate`, `RosterTab`, `GoleadoresTab`, `Index`, `TeamDetailStatsView`, `LoginTemplate`, `PlanningHeader`, `TorneoDefinicionTab`, `SummaryDashboard`, `ScheduledMatchRow`, `PublicStandings`, `PlayerManager`, `WeeklyGridView`, `Styles`, `GoleadoresExportModal`, `NormalizeJornadaDatesModal`, `RepositionPlannerModal`, `StandingsTable`, `Routes`, `TorneoDashboard`, `DivisionSelector`, `EquiposTemplate`, `StandingsExportModal`, `ConfiguracionTemplate`, `ParseJornadaNumber()`, `ErrorBoundary`, `Sidebar`, `ManagerCard`, `WelcomeDashboard`, `TorneosStandingsTab`, `DynamicTeamLogo`, `WeekDaysDropLayout`, `ResultModal`, `ConflictModal`, `PageHeader`, `TeamCard`, `TorneosTemplate`, `RegisterManagerTemplate`, `MatchSheetModal`, `BatchPrintModal`, `GeneralTab`, `DataEstatica`, `FixtureMatchCard`, `MatchResolutionModal`, `ConfirmResultOverlay`, `StandingsJornadaSelector`?**
+  _High betweenness centrality (0.176) - this node is a cross-community bridge._
+- **Why does `supabase` connect `Supabase` to `LigaDivisionsTab`, `ManagerDetailModal`, `TorneoJornadasTab`, `TorneoDefinicionTab`, `ScheduledMatchRow`, `JornadaUtils`, `PublicStandings`, `PlayerManager`, `UseEquiposLogic`, `GoleadoresExportModal`, `DateUtils`, `Routes`, `ScheduleExportModal`, `DivisionSelector`, `EquiposTemplate`, `StandingsExportModal`, `ConfiguracionTemplate`, `TeamDetailModal`, `ResultModal`, `RegisterManagerTemplate`, `DivisionWorkspace`, `HomeTemplate`, `MatchSheetModal`, `ResolveRepositionMappings()`, `UseAuthStore`, `Torneos.read`, `BatchPrintModal`, `UseTorneoGoleadoresLogic`?**
+  _High betweenness centrality (0.028) - this node is a cross-community bridge._
+- **Why does `DynamicTeamLogo()` connect `DynamicTeamLogo` to `TeamCard`, `GoleadoresExportLayout`, `PlayoffBracketView`, `StandingsTable`, `StandingsExportModal`, `PlayoffAdvanceModal`, `GoleadoresTab`, `MatchSheetExportLayout`, `PostMatchDetailsView`, `TorneoDefinicionTab`, `ConfirmResultOverlay`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **What connects `ACTIVE_TOURNAMENT_STATUSES`, `name`, `private` to the rest of the system?**
-  _761 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Skeleton Liga Tab` be split into smaller, more focused modules?**
-  _Cohesion score 0.053877551020408164 - nodes in this community are weakly interconnected._
-- **Should `Bracket Connected Match` be split into smaller, more focused modules?**
+  _776 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `PlayoffBracketView` be split into smaller, more focused modules?**
   _Cohesion score 0.044081632653061226 - nodes in this community are weakly interconnected._
-- **Should `Build Round Action` be split into smaller, more focused modules?**
+- **Should `FixturePreviewModal` be split into smaller, more focused modules?**
   _Cohesion score 0.04081632653061224 - nodes in this community are weakly interconnected._
+- **Should `LandingCopy` be split into smaller, more focused modules?**
+  _Cohesion score 0.06363636363636363 - nodes in this community are weakly interconnected._

@@ -13,9 +13,9 @@ export const landingCopy = {
   },
   hero: {
     eyebrow: "Plataforma para ligas amateur de futbol",
-    title: "Gestion de torneos, equipos, partidos y tablas publicas.",
+    title: "Gestiona la liga completa sin perder el ritmo de la jornada.",
     summary:
-      "Base neutral para comunicar las funciones principales de Bracket App sin decisiones visuales definitivas.",
+      "Bracket App centraliza torneos, equipos, partidos y tablas publicas para que cada manager opere con claridad desde la primera fecha.",
   },
   functions: [
     { title: "Torneos", text: "Crear, configurar y dar seguimiento a torneos por division." },
@@ -29,10 +29,11 @@ export const landingCopy = {
     { title: "Operar", text: "Administrar jornadas, resultados, estados y revisiones." },
     { title: "Publicar", text: "Mostrar informacion publica para equipos, jugadores y aficion." },
   ],
-  pricing: "Seccion reservada para explicar planes por division y condiciones comerciales.",
+  pricing: "Seccion reservada para explicar planes por division, volumen operativo y condiciones comerciales.",
   faq: [
     { q: "Como entra un usuario?", a: "Las acciones principales llevan a /login." },
+    { q: "Que puede publicarse?", a: "Tablas, goleadores y calendarios pueden compartirse con enlaces publicos." },
     { q: "Que datos alimentan la landing?", a: "La landing usa copy local y conserva el sistema de tema global." },
   ],
-  footer: "Bracket App. Base neutral para futuros redisenos.",
+  footer: "Bracket App. Gestion operativa para ligas de futbol.",
 };

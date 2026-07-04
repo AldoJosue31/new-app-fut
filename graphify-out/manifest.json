@@ -114,61 +114,6 @@
     "ast_hash": "81460de94c714b606e554a488c011853",
     "semantic_hash": "81460de94c714b606e554a488c011853"
   },
-  "src/components/landing/BenefitsSection.jsx": {
-    "mtime": 1783102551.488307,
-    "ast_hash": "38968385aa77bd152a0d19b95e2921a8",
-    "semantic_hash": "38968385aa77bd152a0d19b95e2921a8"
-  },
-  "src/components/landing/FAQSection.jsx": {
-    "mtime": 1783102615.3887904,
-    "ast_hash": "48e90aecd7f0d458b34800f727b552f2",
-    "semantic_hash": "48e90aecd7f0d458b34800f727b552f2"
-  },
-  "src/components/landing/FeaturesStrip.jsx": {
-    "mtime": 1783102501.1268444,
-    "ast_hash": "c0bc432c4d57a74dca243ca466ec35e2",
-    "semantic_hash": "c0bc432c4d57a74dca243ca466ec35e2"
-  },
-  "src/components/landing/FinalCTA.jsx": {
-    "mtime": 1783102615.3907938,
-    "ast_hash": "9352f1cbab42a0c76d8977bf2296914f",
-    "semantic_hash": "9352f1cbab42a0c76d8977bf2296914f"
-  },
-  "src/components/landing/HeroSection.jsx": {
-    "mtime": 1783102812.4294026,
-    "ast_hash": "d30059a92d0d80069d32bfc3cd627362",
-    "semantic_hash": "d30059a92d0d80069d32bfc3cd627362"
-  },
-  "src/components/landing/HowItWorks.jsx": {
-    "mtime": 1783102501.128845,
-    "ast_hash": "27f14eaac88fbb3be5251f3c194d88ea",
-    "semantic_hash": "27f14eaac88fbb3be5251f3c194d88ea"
-  },
-  "src/components/landing/LandingFooter.jsx": {
-    "mtime": 1783102615.3927937,
-    "ast_hash": "f24b22170489c3575e02d0abe51a8553",
-    "semantic_hash": "f24b22170489c3575e02d0abe51a8553"
-  },
-  "src/components/landing/LandingHeader.jsx": {
-    "mtime": 1783102431.6128287,
-    "ast_hash": "855e9aae870c3b37b9b6dfd1ae17022f",
-    "semantic_hash": "855e9aae870c3b37b9b6dfd1ae17022f"
-  },
-  "src/components/landing/PricingSection.jsx": {
-    "mtime": 1783102626.5227203,
-    "ast_hash": "2cc1f861fb269316d0d3f2d1f3d18602",
-    "semantic_hash": "2cc1f861fb269316d0d3f2d1f3d18602"
-  },
-  "src/components/landing/ProductShowcase.jsx": {
-    "mtime": 1783102551.4832728,
-    "ast_hash": "c6ddfb444ef35fc487f539e058dc5e66",
-    "semantic_hash": "c6ddfb444ef35fc487f539e058dc5e66"
-  },
-  "src/components/landing/TestimonialSection.jsx": {
-    "mtime": 1783102551.4933057,
-    "ast_hash": "bad30a3f9a1e8f8138e4992ca382090c",
-    "semantic_hash": "bad30a3f9a1e8f8138e4992ca382090c"
-  },
   "src/components/moleculas/BtnGreen.jsx": {
     "mtime": 1776032419.1587625,
     "ast_hash": "cb2b93f3ccb5190684f3f434b0edcc0c",
@@ -790,9 +735,9 @@
     "semantic_hash": "477b9cd270eef66ef6ea18019e969ef1"
   },
   "src/pages/Landing.jsx": {
-    "mtime": 1783101640.9652407,
-    "ast_hash": "b53900aedaa17992660b2d91cf86e23b",
-    "semantic_hash": "b53900aedaa17992660b2d91cf86e23b"
+    "mtime": 1783126870.2718575,
+    "ast_hash": "656c2230b2e23555141b53b677dbf144",
+    "semantic_hash": "656c2230b2e23555141b53b677dbf144"
   },
   "src/pages/Liga.jsx": {
     "mtime": 1776032419.3526416,
@@ -825,9 +770,9 @@
     "semantic_hash": "99d1e2d8edcbeb4ec984fafcbec58304"
   },
   "src/pages/landing/copy.js": {
-    "mtime": 1783052007.1816747,
-    "ast_hash": "d5b352577254e36df20573ce877aa313",
-    "semantic_hash": "d5b352577254e36df20573ce877aa313"
+    "mtime": 1783126407.7280297,
+    "ast_hash": "4547250921d7c804627b006b89c14597",
+    "semantic_hash": "4547250921d7c804627b006b89c14597"
   },
   "src/router.jsx": {
     "mtime": 1766196357.044773,
@@ -1070,9 +1015,9 @@
     "semantic_hash": "854af7689869f456e2e4bee84a1b2946"
   },
   "vite.config.js": {
-    "mtime": 1776032419.4256215,
-    "ast_hash": "174a11d35ca6a7ba7d44075258cdb7fd",
-    "semantic_hash": "174a11d35ca6a7ba7d44075258cdb7fd"
+    "mtime": 1783126686.564948,
+    "ast_hash": "60b22c6831f3f0493394a9ffb67a7852",
+    "semantic_hash": "60b22c6831f3f0493394a9ffb67a7852"
   },
   "PRODUCT.md": {
     "mtime": 1782977950.0918055,
@@ -1085,9 +1030,9 @@
     "semantic_hash": "a31104e28674bb50682be532a7362525"
   },
   "index.html": {
-    "mtime": 1783101608.4494426,
-    "ast_hash": "a0db8e92a59ef722dd9d68357ddf3fe6",
-    "semantic_hash": "a0db8e92a59ef722dd9d68357ddf3fe6"
+    "mtime": 1783105641.7887635,
+    "ast_hash": "836672c5ddcf3d073c28064a6eddfd9a",
+    "semantic_hash": "836672c5ddcf3d073c28064a6eddfd9a"
   },
   "public/logo_app.png": {
     "mtime": 1776032419.143047,
@@ -1108,5 +1053,15 @@
     "mtime": 1765330810.0643065,
     "ast_hash": "f0402b67b6ce880f65666bb49e841696",
     "semantic_hash": "f0402b67b6ce880f65666bb49e841696"
+  },
+  "AGENTS.md": {
+    "mtime": 1783126290.788246,
+    "ast_hash": "d2e19340b2ada18dea52530ac6467829",
+    "semantic_hash": "d2e19340b2ada18dea52530ac6467829"
+  },
+  "docs/LANDING_CONTRACT.md": {
+    "mtime": 1783105641.7917612,
+    "ast_hash": "5362b7bd71aad259e1d294ad190339df",
+    "semantic_hash": "5362b7bd71aad259e1d294ad190339df"
   }
 }

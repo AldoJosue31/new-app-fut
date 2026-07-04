@@ -1,0 +1,382 @@
+{
+  "new_nodes": [
+    {
+      "id": "agents_public_logo_app_png",
+      "label": "public/logo_app.png"
+    },
+    {
+      "id": "agents_complete_redesign_principle",
+      "label": "Complete Redesign Principle"
+    },
+    {
+      "id": "agents_validation_workflow",
+      "label": "Validation Workflow"
+    },
+    {
+      "id": "agents_required_landing_routes_data_navigation_authentication_actions",
+      "label": "Required Landing Routes, Data, Navigation, Authentication, and Actions"
+    },
+    {
+      "id": "agents_light_dark_theme_system",
+      "label": "Light/Dark Theme System"
+    },
+    {
+      "id": "agents_landing_page",
+      "label": "Landing Page"
+    },
+    {
+      "id": "agents_response_constraints",
+      "label": "Response Constraints"
+    },
+    {
+      "id": "agents_landing_functional_contract",
+      "label": "Landing Functional Contract"
+    },
+    {
+      "id": "agents_tailwind_css",
+      "label": "Tailwind CSS"
+    },
+    {
+      "id": "agents_src_styles_themes_jsx",
+      "label": "src/styles/themes.jsx"
+    },
+    {
+      "id": "src_pages_landing_publicmetrics",
+      "label": "publicMetrics"
+    },
+    {
+      "id": "agents_bracket_app_instructions",
+      "label": "Bracket App Instructions"
+    },
+    {
+      "id": "agents_responsive_accessible_code",
+      "label": "Responsive and Accessible Code"
+    },
+    {
+      "id": "agents_anime_js",
+      "label": "Anime.js"
+    },
+    {
+      "id": "agents_npm_run_build",
+      "label": "npm run build"
+    },
+    {
+      "id": "src_pages_landing_dashboardrows",
+      "label": "dashboardRows"
+    },
+    {
+      "id": "agents_lint_script",
+      "label": "Lint Script"
+    },
+    {
+      "id": "agents_desktop_mobile_landing_check",
+      "label": "Desktop and Mobile Landing Check"
+    },
+    {
+      "id": "agents_dependency_constraint",
+      "label": "Dependency Constraint"
+    },
+    {
+      "id": "agents_functional_logic_reuse",
+      "label": "Functional Logic Reuse"
+    },
+    {
+      "id": "agents_docs_landing_contract_md",
+      "label": "docs/LANDING_CONTRACT.md"
+    }
+  ],
+  "removed_nodes": [],
+  "new_edges": [
+    {
+      "source": "src_pages_landing",
+      "target": "src_pages_landing_copy",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_pages_landing_copy_landingcopy",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_pages_landing_dashboardrows",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_pages_landing_publicmetrics",
+      "relation": "contains",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_bracket_app_instructions",
+      "target": "agents_docs_landing_contract_md",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_bracket_app_instructions",
+      "target": "agents_light_dark_theme_system",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_bracket_app_instructions",
+      "target": "agents_public_logo_app_png",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_bracket_app_instructions",
+      "target": "agents_tailwind_css",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_light_dark_theme_system",
+      "target": "agents_src_styles_themes_jsx",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_docs_landing_contract_md",
+      "target": "agents_landing_functional_contract",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_docs_landing_contract_md",
+      "target": "agents_landing_page",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_landing_page",
+      "target": "agents_complete_redesign_principle",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_landing_page",
+      "target": "agents_functional_logic_reuse",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_landing_page",
+      "target": "agents_responsive_accessible_code",
+      "relation": "implements",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "agents_landing_page",
+      "target": "agents_validation_workflow",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_landing_functional_contract",
+      "target": "agents_required_landing_routes_data_navigation_authentication_actions",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_dependency_constraint",
+      "target": "agents_anime_js",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_validation_workflow",
+      "target": "agents_response_constraints",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "agents_validation_workflow",
+      "target": "agents_desktop_mobile_landing_check",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_validation_workflow",
+      "target": "agents_lint_script",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agents_validation_workflow",
+      "target": "agents_npm_run_build",
+      "relation": "references",
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "removed_edges": [
+    {
+      "source": "src_components_landing_benefitssection",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_benefitssection_benefitssection",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_faqsection",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_faqsection_faqsection",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_featuresstrip",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_featuresstrip_featuresstrip",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_finalcta",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_finalcta_finalcta",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_herosection",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_herosection_herosection",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_howitworks",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_howitworks_howitworks",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_landingfooter",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_landingfooter_landingfooter",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_landingheader",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_landingheader_landingheader",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_pricingsection",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_pricingsection_pricingsection",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_productshowcase",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_productshowcase_productshowcase",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_testimonialsection",
+      "target": "src_pages_landing",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_components_landing_testimonialsection_testimonialsection",
+      "target": "src_pages_landing",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_store_themestore",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_store_themestore_usethemestore",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_styles_themes",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing",
+      "target": "src_styles_themes_light",
+      "relation": "imports",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "src_pages_landing_landing",
+      "target": "src_store_themestore_usethemestore",
+      "relation": "calls",
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "summary": "21 new nodes, 21 new edges, 27 edges removed"
+}
