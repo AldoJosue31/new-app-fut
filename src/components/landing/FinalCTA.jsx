@@ -1,4 +1,4 @@
-﻿// src/components/landing/FinalCTA.jsx
+// src/components/landing/FinalCTA.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { Link } from "react-router-dom";
@@ -122,9 +122,10 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 100px 0;
+  padding: clamp(60px, 8vh, 100px) 0;
   background: var(--lp-surface);
   overflow: hidden;
+  box-sizing: border-box;
 `;
 
 const BgMesh = styled.div`

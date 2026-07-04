@@ -299,12 +299,13 @@ const liveBlink = keyframes`
 // ─── ESTILOS ─────────────────────────────
 const HeroWrapper = styled.section`
   position: relative;
-  padding: 150px 0 100px;
+  padding: clamp(120px, 15vh, 150px) 0 clamp(60px, 10vh, 100px);
   overflow: hidden;
   background: var(--lp-bg);
   min-height: 100vh;
   display: flex;
   align-items: center;
+  box-sizing: border-box;
 `;
 
 const GlowOrb = styled.div`

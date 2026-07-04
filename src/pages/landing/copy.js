@@ -16,7 +16,7 @@ export const landingCopy = {
   },
   hero: {
     eyebrow: "",
-    titleLine1: "Gestión de ligas",
+    titleLine1: "Gestiona tu liga de fútbol",
     titleAccent: "sin complicaciones",
     subtitle: "Automatiza torneos, controla equipos y publica estadísticas en tiempo real. La herramienta definitiva para dirigentes de fútbol.",
     ctaPrimary: "Crear mi liga gratis",

@@ -1,4 +1,4 @@
-﻿// src/components/landing/BenefitsSection.jsx
+// src/components/landing/BenefitsSection.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { landingCopy } from "../../pages/landing/copy";
@@ -121,9 +121,10 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 100px 0;
+  padding: clamp(60px, 8vh, 100px) 0;
   background: var(--lp-bg);
   overflow: hidden;
+  box-sizing: border-box;
 `;
 
 const BgOrb = styled.div`
@@ -138,7 +139,7 @@ const BgOrb = styled.div`
 const SectionHeader = styled.div`
   text-align: center;
   max-width: 700px;
-  margin: 0 auto 72px;
+  margin: 0 auto clamp(40px, 6vh, 72px);
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.7s ease, transform 0.7s ease;
@@ -166,7 +167,7 @@ const BenGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  margin-bottom: 56px;
+  margin-bottom: clamp(32px, 4vh, 56px);
 
   @media (max-width: 900px) { grid-template-columns: 1fr; }
 `;

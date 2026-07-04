@@ -1,4 +1,4 @@
-﻿// src/components/landing/FeaturesStrip.jsx
+// src/components/landing/FeaturesStrip.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { Icon } from "@iconify/react";
@@ -119,9 +119,10 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 100px 0;
+  padding: clamp(60px, 8vh, 100px) 0;
   background: var(--lp-bg);
   overflow: hidden;
+  box-sizing: border-box;
 `;
 
 const BgGlow = styled.div`
@@ -137,7 +138,7 @@ const BgGlow = styled.div`
 const SectionHeader = styled.div`
   text-align: center;
   max-width: 700px;
-  margin: 0 auto 72px;
+  margin: 0 auto clamp(40px, 6vh, 72px);
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.7s ease, transform 0.7s ease;
@@ -274,7 +275,7 @@ const InfoBanner = styled.div`
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-top: 56px;
+  margin-top: clamp(28px, 4vh, 56px);
   padding: 18px 32px;
   background: var(--lp-surface);
   border: 1px solid var(--lp-border);

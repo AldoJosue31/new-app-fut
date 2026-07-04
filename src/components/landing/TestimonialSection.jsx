@@ -1,4 +1,4 @@
-﻿// src/components/landing/TestimonialSection.jsx
+// src/components/landing/TestimonialSection.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { landingCopy } from "../../pages/landing/copy";
@@ -149,9 +149,10 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 100px 0;
+  padding: clamp(60px, 8vh, 100px) 0;
   background: var(--lp-surface);
   overflow: hidden;
+  box-sizing: border-box;
 `;
 
 const BgGlow = styled.div`
@@ -167,7 +168,7 @@ const BgGlow = styled.div`
 const SectionHeader = styled.div`
   text-align: center;
   max-width: 700px;
-  margin: 0 auto 64px;
+  margin: 0 auto clamp(32px, 5vh, 64px);
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.7s ease, transform 0.7s ease;

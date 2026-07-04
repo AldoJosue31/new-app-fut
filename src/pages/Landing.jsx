@@ -140,8 +140,12 @@ export default function Landing() {
 }
 
 const PreviewWrapper = styled.section`
-  padding: 80px 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: clamp(60px, 8vh, 100px) 0;
   background: var(--lp-bg);
+  box-sizing: border-box;
 `;
 
 const AppWindow = styled.div`

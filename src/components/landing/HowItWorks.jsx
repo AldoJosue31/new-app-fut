@@ -54,8 +54,17 @@ export default function HowItWorks() {
   return (
     <section
       id="como-funciona"
-      style={{ background: "var(--lp-surface)", minHeight: "100dvh" }}
-      className="relative flex flex-col justify-center py-28 overflow-hidden"
+      style={{
+        background: "var(--lp-surface)",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "clamp(60px, 8vh, 112px) 0",
+        overflow: "hidden",
+        position: "relative",
+        boxSizing: "border-box",
+      }}
     >
       {/* ── Fondo: rejilla sutil ── */}
       <div
@@ -64,64 +73,79 @@ export default function HowItWorks() {
           backgroundImage:
             "linear-gradient(var(--lp-border) 1px, transparent 1px), linear-gradient(90deg, var(--lp-border) 1px, transparent 1px)",
           backgroundSize: "64px 64px",
+          position: "absolute",
+          inset: 0,
+          opacity: 0.2,
+          pointerEvents: "none",
         }}
-        className="pointer-events-none absolute inset-0 opacity-20"
       />
 
       {/* ── Radial glow ambiental ── */}
       <div
         aria-hidden="true"
-        style={{ background: "var(--lp-primary)" }}
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full opacity-[0.04] blur-[160px]"
+        style={{
+          background: "var(--lp-primary)",
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "800px",
+          height: "400px",
+          borderRadius: "50%",
+          opacity: 0.04,
+          filter: "blur(160px)",
+          pointerEvents: "none",
+        }}
       />
 
-      <div className="lp-container relative z-10">
+      <div className="lp-container" style={{ position: "relative", zIndex: 10 }}>
 
         {/* ── Encabezado ── */}
         <div
           ref={hRef}
-          className="text-center max-w-2xl mx-auto mb-20"
           style={{
+            textAlign: "center",
+            maxWidth: "672px",
+            margin: "0 auto",
+            marginBottom: "clamp(32px, 5vh, 80px)",
             opacity: hVisible ? 1 : 0,
             transform: hVisible ? "none" : "translateY(24px)",
             transition: "opacity 0.7s ease, transform 0.7s ease",
           }}
         >
           <p
-            className="text-xs font-bold uppercase tracking-widest mb-3"
-            style={{ color: "var(--lp-primary)" }}
+            style={{ color: "var(--lp-primary)", fontSize: "12px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "12px" }}
           >
             Proceso
           </p>
           <h2
-            className="text-4xl font-bold leading-tight mb-4"
-            style={{ color: "var(--lp-text)" }}
+            style={{ color: "var(--lp-text)", fontSize: "clamp(28px,4vw,40px)", fontWeight: 800, lineHeight: 1.2, marginBottom: "16px" }}
           >
             {howItWorks.title}
           </h2>
           <p
-            className="text-lg leading-relaxed max-w-lg mx-auto"
-            style={{ color: "var(--lp-text-muted)" }}
+            style={{ color: "var(--lp-text-muted)", fontSize: "17px", lineHeight: 1.65, maxWidth: "512px", margin: "0 auto" }}
           >
             Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.
           </p>
         </div>
 
         {/* ── Layout dos columnas ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px", alignItems: "start" }}>
 
           {/* ── Columna izquierda: lista de pasos ── */}
-          <div className="flex flex-col gap-4 relative pl-5">
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", position: "relative", paddingLeft: "20px" }}>
 
             {/* Línea de progreso */}
             <div
               aria-hidden="true"
-              className="absolute left-0 top-5 bottom-5 w-0.5 rounded-full"
-              style={{ background: "var(--lp-border)" }}
+              style={{ position: "absolute", left: 0, top: "20px", bottom: "20px", width: "2px", borderRadius: "9999px", background: "var(--lp-border)" }}
             >
               <div
-                className="w-full rounded-full transition-all duration-500 ease-out"
                 style={{
+                  width: "100%",
+                  borderRadius: "9999px",
+                  transition: "height 500ms ease-out",
                   height: `${((activeStep + 1) / howItWorks.steps.length) * 100}%`,
                   background: "var(--lp-primary)",
                 }}
@@ -138,57 +162,55 @@ export default function HowItWorks() {
                   type="button"
                   onClick={() => setActiveStep(i)}
                   aria-pressed={isActive}
-                  className="relative flex items-start gap-4 text-left w-full rounded-2xl p-6 backdrop-blur-md border transition-all duration-300 cursor-pointer focus-visible:outline-none"
                   style={{
-                    background: isActive
-                      ? "rgba(255,255,255,0.05)"
-                      : "rgba(255,255,255,0.02)",
-                    borderColor: isActive
-                      ? "var(--lp-primary)"
-                      : "var(--lp-border)",
+                    position: "relative", display: "flex", alignItems: "flex-start", gap: "16px",
+                    textAlign: "left", width: "100%", borderRadius: "16px", padding: "24px",
+                    border: "1px solid",
+                    background: isActive ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)",
+                    borderColor: isActive ? "var(--lp-primary)" : "var(--lp-border)",
                     opacity: hVisible ? (isActive ? 1 : 0.55) : 0,
                     transform: hVisible ? "none" : "translateX(-20px)",
-                    boxShadow: isActive
-                      ? "0 0 28px -8px var(--lp-primary)"
-                      : "none",
+                    boxShadow: isActive ? "0 0 28px -8px var(--lp-primary)" : "none",
                     transition: `opacity 0.6s ${i * 120}ms ease, transform 0.6s ${i * 120}ms ease, box-shadow 0.3s ease, border-color 0.3s ease`,
+                    cursor: "pointer",
+                    outline: "none",
+                    fontFamily: "inherit",
                   }}
                 >
                   {/* Borde izquierdo acento activo */}
                   {isActive && (
                     <span
                       aria-hidden="true"
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/5 rounded-full"
-                      style={{ background: "var(--lp-primary)" }}
+                      style={{
+                        position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                        width: "4px", height: "60%", borderRadius: "9999px", background: "var(--lp-primary)",
+                      }}
                     />
                   )}
 
                   {/* Número grande */}
                   <span
-                    className="font-black text-3xl leading-none tracking-tight min-w-[44px] tabular-nums transition-colors duration-300"
-                    style={{ color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)" }}
+                    style={{ fontWeight: 900, fontSize: "30px", lineHeight: 1, letterSpacing: "-0.04em", minWidth: "44px", color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)", transition: "color 0.3s", fontVariantNumeric: "tabular-nums" }}
                   >
                     {s.n}
                   </span>
 
                   {/* Icono + título + descripción */}
-                  <span className="flex flex-col gap-1 pt-0.5">
-                    <span className="flex items-center gap-2">
+                  <span style={{ display: "flex", flexDirection: "column", gap: "4px", paddingTop: "2px" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <Icon
                         size={18}
                         aria-hidden="true"
                         style={{ color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)", flexShrink: 0, transition: "color 0.3s" }}
                       />
                       <span
-                        className="font-bold text-base transition-colors duration-300"
-                        style={{ color: isActive ? "var(--lp-text)" : "var(--lp-text-muted)" }}
+                        style={{ fontWeight: 700, fontSize: "15px", color: isActive ? "var(--lp-text)" : "var(--lp-text-muted)", transition: "color 0.3s" }}
                       >
                         {s.title}
                       </span>
                     </span>
                     <span
-                      className="text-sm leading-snug"
-                      style={{ color: "var(--lp-text-muted)" }}
+                      style={{ fontSize: "13px", lineHeight: 1.5, color: "var(--lp-text-muted)" }}
                     >
                       {s.text}
                     </span>
@@ -199,48 +221,47 @@ export default function HowItWorks() {
           </div>
 
           {/* ── Columna derecha: tarjeta de detalle ── */}
-          <div className="flex flex-col gap-5">
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
             {/* Tarjeta glassmorphism principal */}
             <div
-              className="rounded-2xl overflow-hidden border backdrop-blur-md"
               style={{
+                borderRadius: "16px",
+                overflow: "hidden",
+                border: "1px solid var(--lp-border)",
                 background: "rgba(255,255,255,0.05)",
-                borderColor: "var(--lp-border)",
                 boxShadow: "var(--lp-shadow)",
               }}
             >
               {/* Header de la tarjeta */}
               <div
-                className="flex items-center gap-4 px-7 py-6 border-b"
                 style={{
+                  display: "flex", alignItems: "center", gap: "16px",
+                  padding: "24px 28px",
+                  borderBottom: "1px solid var(--lp-border)",
                   background: "rgba(255,255,255,0.04)",
-                  borderColor: "var(--lp-border)",
                 }}
               >
                 <span
-                  className="font-black text-5xl leading-none tracking-tight tabular-nums"
-                  style={{ color: "var(--lp-primary)" }}
+                  style={{ color: "var(--lp-primary)", fontWeight: 900, fontSize: "48px", lineHeight: 1, letterSpacing: "-0.04em" }}
                 >
                   {activeStepData.n}
                 </span>
-                <div className="flex flex-col gap-0.5">
-                  <span className="flex items-center gap-2">
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <ActiveIcon
                       size={20}
                       aria-hidden="true"
                       style={{ color: "var(--lp-primary)", flexShrink: 0 }}
                     />
                     <span
-                      className="font-bold text-xl"
-                      style={{ color: "var(--lp-text)" }}
+                      style={{ fontWeight: 700, fontSize: "18px", color: "var(--lp-text)" }}
                     >
                       {activeStepData.title}
                     </span>
                   </span>
                   <span
-                    className="text-sm"
-                    style={{ color: "var(--lp-text-muted)" }}
+                    style={{ fontSize: "14px", color: "var(--lp-text-muted)" }}
                   >
                     {activeStepData.text}
                   </span>
@@ -248,20 +269,24 @@ export default function HowItWorks() {
               </div>
 
               {/* Lista de detalles */}
-              <div className="flex flex-col gap-3 px-7 py-6">
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "24px 28px" }}>
                 {STEP_DETAILS[activeStep].map((detail, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-4 px-4 py-3.5 rounded-xl border text-sm font-semibold backdrop-blur-sm transition-colors duration-200"
                     style={{
+                      display: "flex", alignItems: "center", gap: "16px",
+                      padding: "12px 16px", borderRadius: "12px",
+                      border: "1px solid var(--lp-border)",
+                      fontSize: "14px", fontWeight: 600,
                       background: "rgba(255,255,255,0.04)",
-                      borderColor: "var(--lp-border)",
                       color: "var(--lp-text)",
                     }}
                   >
                     <span
-                      className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-black tabular-nums"
                       style={{
+                        flexShrink: 0, width: "24px", height: "24px", borderRadius: "8px",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "12px", fontWeight: 900,
                         background: "rgba(255,255,255,0.08)",
                         color: "var(--lp-primary)",
                       }}
@@ -273,30 +298,26 @@ export default function HowItWorks() {
                 ))}
               </div>
 
-              {/* Mini pantalla de app */}
               <div
-                className="mx-7 mb-7 rounded-xl overflow-hidden border"
-                style={{ borderColor: "var(--lp-border)" }}
+                style={{ margin: "0 28px 28px", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--lp-border)" }}
               >
-                {/* Barra de título */}
                 <div
-                  className="flex items-center gap-2 px-4 py-2.5 border-b"
-                  style={{ background: "rgba(0,0,0,0.2)", borderColor: "var(--lp-border)" }}
+                  style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderBottom: "1px solid var(--lp-border)", background: "rgba(0,0,0,0.2)" }}
                 >
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--lp-border)" }} aria-hidden="true" />
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--lp-border)" }} aria-hidden="true" />
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: "var(--lp-border)" }} aria-hidden="true" />
-                  <span className="ml-2 text-xs font-semibold" style={{ color: "var(--lp-text-muted)" }}>
+                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--lp-border)", display: "inline-block" }} aria-hidden="true" />
+                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--lp-border)", display: "inline-block" }} aria-hidden="true" />
+                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--lp-border)", display: "inline-block" }} aria-hidden="true" />
+                  <span style={{ marginLeft: "8px", fontSize: "12px", fontWeight: 600, color: "var(--lp-text-muted)" }}>
                     Bracket App
                   </span>
                 </div>
-                {/* Fila de estado */}
-                <div className="px-4 py-3" style={{ background: "rgba(0,0,0,0.1)" }}>
+                <div style={{ padding: "12px", background: "rgba(0,0,0,0.1)" }}>
                   <div
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg border"
                     style={{
+                      display: "flex", alignItems: "center", gap: "12px",
+                      padding: "12px 16px", borderRadius: "8px",
+                      border: "1px solid var(--lp-border)",
                       background: "rgba(255,255,255,0.04)",
-                      borderColor: "var(--lp-border)",
                     }}
                   >
                     <ActiveIcon
@@ -304,10 +325,10 @@ export default function HowItWorks() {
                       aria-hidden="true"
                       style={{ color: "var(--lp-primary)", flexShrink: 0 }}
                     />
-                    <span className="flex-1 text-sm font-semibold" style={{ color: "var(--lp-text)" }}>
+                    <span style={{ flex: 1, fontSize: "14px", fontWeight: 600, color: "var(--lp-text)" }}>
                       Paso {activeStepData.n} — {activeStepData.title}
                     </span>
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-md" style={{ color: "#22c55e", background: "rgba(34,197,94,0.1)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, padding: "4px 10px", borderRadius: "6px", color: "#22c55e", background: "rgba(34,197,94,0.1)" }}>
                       Listo ✓
                     </span>
                   </div>
@@ -316,22 +337,25 @@ export default function HowItWorks() {
             </div>
 
             {/* ── Navegación: anterior / dots / siguiente ── */}
-            <div className="flex items-center justify-between gap-4">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
               <button
                 type="button"
                 onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
                 disabled={activeStep === 0}
-                className="px-5 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition-all duration-150 disabled:opacity-30 disabled:cursor-default focus-visible:outline-none"
                 style={{
-                  borderColor: "var(--lp-border)",
+                  padding: "10px 20px", borderRadius: "12px", border: "1px solid var(--lp-border)",
+                  fontSize: "14px", fontWeight: 700, cursor: "pointer",
+                  transition: "all 150ms ease",
                   background: "rgba(255,255,255,0.04)",
                   color: "var(--lp-text)",
+                  opacity: activeStep === 0 ? 0.3 : 1,
+                  fontFamily: "inherit",
                 }}
               >
                 ← Anterior
               </button>
 
-              <div className="flex gap-2" role="tablist" aria-label="Pasos del proceso">
+              <div style={{ display: "flex", gap: "8px" }} role="tablist" aria-label="Pasos del proceso">
                 {howItWorks.steps.map((_, i) => (
                   <button
                     key={i}
@@ -340,8 +364,10 @@ export default function HowItWorks() {
                     aria-selected={i === activeStep}
                     aria-label={`Ir al paso ${i + 1}`}
                     onClick={() => setActiveStep(i)}
-                    className="h-2 rounded-full cursor-pointer transition-all duration-300 ease-out focus-visible:outline-none"
                     style={{
+                      height: "8px", borderRadius: "9999px", cursor: "pointer",
+                      transition: "all 300ms ease",
+                      border: "none",
                       width: i === activeStep ? "28px" : "8px",
                       background: i === activeStep ? "var(--lp-primary)" : "var(--lp-border)",
                     }}
@@ -353,11 +379,14 @@ export default function HowItWorks() {
                 type="button"
                 onClick={() => setActiveStep(Math.min(howItWorks.steps.length - 1, activeStep + 1))}
                 disabled={activeStep === howItWorks.steps.length - 1}
-                className="px-5 py-2.5 rounded-xl border text-sm font-bold cursor-pointer transition-all duration-150 disabled:opacity-30 disabled:cursor-default focus-visible:outline-none"
                 style={{
-                  borderColor: "var(--lp-border)",
+                  padding: "10px 20px", borderRadius: "12px", border: "1px solid var(--lp-border)",
+                  fontSize: "14px", fontWeight: 700, cursor: "pointer",
+                  transition: "all 150ms ease",
                   background: "rgba(255,255,255,0.04)",
                   color: "var(--lp-text)",
+                  opacity: activeStep === howItWorks.steps.length - 1 ? 0.3 : 1,
+                  fontFamily: "inherit",
                 }}
               >
                 Siguiente →
