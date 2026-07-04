@@ -19,7 +19,8 @@ export default function PricingSection() {
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",
-        padding: "clamp(60px, 8vh, 100px) 0",
+        paddingTop: "calc(74px + clamp(40px, 6vh, 80px))",
+        paddingBottom: "clamp(40px, 6vh, 80px)",
         background: "var(--lp-bg)",
         position: "relative",
         overflow: "hidden",
@@ -40,9 +41,6 @@ export default function PricingSection() {
 
       <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
         <div style={{ textAlign: "center", maxWidth: 780, margin: "0 auto 44px" }}>
-          <span className="lp-eyebrow" style={{ justifyContent: "center" }}>
-            {pricing.eyebrow}
-          </span>
           <h2 className="lp-h2">{pricing.title}</h2>
           <p className="lp-lead" style={{ margin: "0 auto" }}>
             {pricing.subtitle}

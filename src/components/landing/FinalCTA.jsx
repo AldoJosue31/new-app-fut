@@ -43,7 +43,6 @@ export default function FinalCTA() {
           <CardBody>
             {/* Left */}
             <CTALeft>
-              <CTAEyebrow>Empieza hoy</CTAEyebrow>
               <h2 className="cta-title">{finalCta.title}</h2>
               <p className="cta-subtitle">{finalCta.subtitle}</p>
 
@@ -122,7 +121,8 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: clamp(60px, 8vh, 100px) 0;
+  padding-top: calc(74px + clamp(40px, 6vh, 80px));
+  padding-bottom: clamp(40px, 6vh, 80px);
   background: var(--lp-surface);
   overflow: hidden;
   box-sizing: border-box;
@@ -208,15 +208,6 @@ const CTALeft = styled.div`
     border-right: none;
     border-bottom: 1px solid var(--lp-border);
   }
-`;
-
-const CTAEyebrow = styled.p`
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--lp-primary);
-  margin: 0;
 `;
 
 const ChecklistGrid = styled.div`

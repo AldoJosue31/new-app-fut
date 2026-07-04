@@ -55,11 +55,10 @@ export default function TestimonialSection() {
   const initials = t.author.split(" ").map(n => n[0]).join("").slice(0, 2);
 
   return (
-    <Section>
+    <Section id="testimonios">
       <BgGlow />
       <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
         <SectionHeader ref={hRef} className={hVisible ? "visible" : ""}>
-          <SectionEyebrow>Testimonios</SectionEyebrow>
           <h2 className="lp-h2">Organizadores que ya confían en nosotros</h2>
           <SectionLead>No palabras nuestras, sino de quienes usan Bracket App cada semana.</SectionLead>
         </SectionHeader>
@@ -149,7 +148,8 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: clamp(60px, 8vh, 100px) 0;
+  padding-top: calc(74px + clamp(40px, 6vh, 80px));
+  padding-bottom: clamp(40px, 6vh, 80px);
   background: var(--lp-surface);
   overflow: hidden;
   box-sizing: border-box;
@@ -175,14 +175,7 @@ const SectionHeader = styled.div`
   &.visible { opacity: 1; transform: none; }
 `;
 
-const SectionEyebrow = styled.p`
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--lp-primary);
-  margin: 0 0 12px;
-`;
+
 
 const SectionLead = styled.p`
   font-size: 17px;

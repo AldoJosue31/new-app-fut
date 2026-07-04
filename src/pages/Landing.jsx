@@ -61,7 +61,7 @@ const LiveAppPreview = () => {
   };
 
   return (
-    <PreviewWrapper>
+    <PreviewWrapper id="preview">
       <div className="lp-container">
         <h2 className="lp-h2" style={{ textAlign: 'center' }}>Así se ve tu liga por dentro</h2>
         <p className="lp-lead" style={{ textAlign: 'center', margin: '0 auto 40px' }}>
@@ -143,7 +143,8 @@ const PreviewWrapper = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: clamp(60px, 8vh, 100px) 0;
+  padding-top: calc(74px + clamp(40px, 6vh, 80px));
+  padding-bottom: clamp(40px, 6vh, 80px);
   background: var(--lp-bg);
   box-sizing: border-box;
 `;

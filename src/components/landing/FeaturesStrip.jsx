@@ -45,7 +45,6 @@ export default function FeaturesStrip() {
       <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
         {/* Header */}
         <SectionHeader ref={sRef} className={sVisible ? "visible" : ""}>
-          <SectionEyebrow>Plataforma</SectionEyebrow>
           <h2 className="lp-h2">{features.title}</h2>
           <SectionLead>Cada herramienta diseñada para que organices tu liga con precisión profesional, sin complicaciones técnicas.</SectionLead>
         </SectionHeader>
@@ -119,7 +118,8 @@ const Section = styled.section`
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: clamp(60px, 8vh, 100px) 0;
+  padding-top: calc(74px + clamp(40px, 6vh, 80px));
+  padding-bottom: clamp(40px, 6vh, 80px);
   background: var(--lp-bg);
   overflow: hidden;
   box-sizing: border-box;
@@ -145,14 +145,7 @@ const SectionHeader = styled.div`
   &.visible { opacity: 1; transform: none; }
 `;
 
-const SectionEyebrow = styled.p`
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--lp-primary);
-  margin: 0 0 12px;
-`;
+
 
 const SectionLead = styled.p`
   font-size: 17px;

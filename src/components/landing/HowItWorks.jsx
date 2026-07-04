@@ -60,7 +60,8 @@ export default function HowItWorks() {
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        padding: "clamp(60px, 8vh, 112px) 0",
+        paddingTop: "calc(74px + clamp(40px, 6vh, 80px))",
+        paddingBottom: "clamp(40px, 6vh, 80px)",
         overflow: "hidden",
         position: "relative",
         boxSizing: "border-box",
@@ -113,11 +114,6 @@ export default function HowItWorks() {
             transition: "opacity 0.7s ease, transform 0.7s ease",
           }}
         >
-          <p
-            style={{ color: "var(--lp-primary)", fontSize: "12px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "12px" }}
-          >
-            Proceso
-          </p>
           <h2
             style={{ color: "var(--lp-text)", fontSize: "clamp(28px,4vw,40px)", fontWeight: 800, lineHeight: 1.2, marginBottom: "16px" }}
           >

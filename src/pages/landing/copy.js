@@ -7,9 +7,13 @@ export const landingCopy = {
     logoText: "Bracket App",
     logoImg: v.logo, // <--- Inyectamos el logo real de public/logo_app.png
     links: [
-      { label: "Producto", href: "#producto" },
-      { label: "Cómo funciona", href: "#como-funciona" },
-      { label: "Planes", href: "#planes" },
+      { label: "Plataforma", href: "#producto" },
+      { label: "Proceso", href: "#como-funciona" },
+      { label: "App", href: "#preview" },
+      { label: "Ventajas", href: "#ventajas" },
+      { label: "Testimonios", href: "#testimonios" },
+      { label: "Precios", href: "#planes" },
+      { label: "FAQ", href: "#faq" },
     ],
     ctaLogin: "Iniciar sesión",
     ctaStart: "Empieza gratis",

@@ -68,7 +68,7 @@ export default function LandingHeader() {
           </span>
         </a>
 
-        <nav className="lp-nav-desktop" style={{ display: "flex", gap: 32 }}>
+        <nav className="lp-nav-desktop" style={{ display: "flex", gap: 20 }}>
           {landingCopy.nav.links.map((l) => (
             <a
               key={l.href}
