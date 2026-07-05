@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo } from "react";
+// src/pages/Landing.jsx
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import styled from "styled-components";
 import "./landing/tokens.css";
 import { useThemeStore } from "../store/ThemeStore";
+import { v } from "../styles/variables";
 
+// Componentes de la Landing
 import LandingHeader from "../components/landing/LandingHeader";
 import HeroSection from "../components/landing/HeroSection";
 import FeaturesStrip from "../components/landing/FeaturesStrip";
 import HowItWorks from "../components/landing/HowItWorks";
-import ProductShowcase from "../components/landing/ProductShowcase";
 import BenefitsSection from "../components/landing/BenefitsSection";
 import TestimonialSection from "../components/landing/TestimonialSection";
 import PricingSection from "../components/landing/PricingSection";
@@ -14,146 +18,95 @@ import FAQSection from "../components/landing/FAQSection";
 import FinalCTA from "../components/landing/FinalCTA";
 import LandingFooter from "../components/landing/LandingFooter";
 
-const clampChannel = (value) => Math.max(0, Math.min(255, Math.round(value)));
+// COMPONENTES REALES DE LA APP PARA EL PREVIEW
+import { TeamCard } from "../components/organismos/equipos/TeamCard";
 
-const parseColor = (value) => {
-  if (!value) return { r: 0, g: 0, b: 0 };
+// --- ANIMACIONES SCROLL ---
+const ScrollReveal = ({ children, delay = 0 }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef(null);
 
-  const normalized = value.trim();
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
 
-  if (normalized.startsWith("#")) {
-    let hex = normalized.slice(1);
-
-    if (hex.length === 3 || hex.length === 4) {
-      hex = hex
-        .slice(0, 3)
-        .split("")
-        .map((part) => part + part)
-        .join("");
-    }
-
-    if (hex.length === 6 || hex.length === 8) {
-      return {
-        r: Number.parseInt(hex.slice(0, 2), 16),
-        g: Number.parseInt(hex.slice(2, 4), 16),
-        b: Number.parseInt(hex.slice(4, 6), 16),
-      };
-    }
-  }
-
-  const rgbMatch = normalized.match(/rgba?\(([^)]+)\)/i);
-  if (rgbMatch) {
-    const [r = 0, g = 0, b = 0] = rgbMatch[1]
-      .split(",")
-      .map((part) => Number.parseFloat(part.trim()));
-
-    return { r, g, b };
-  }
-
-  return { r: 0, g: 0, b: 0 };
+  return (
+    <div ref={ref} className={`lp-reveal ${isVisible ? "is-visible" : ""}`} style={{ transitionDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  );
 };
 
-const toRgbString = ({ r, g, b }) =>
-  `rgb(${clampChannel(r)}, ${clampChannel(g)}, ${clampChannel(b)})`;
+// --- PREVIEW EN VIVO DE LA APP ---
+const LiveAppPreview = () => {
+  // Usamos datos de demostración vibrantes para ilustrar el componente real
+  const mockTeam = {
+    id: "demo-1",
+    name: "AFC Kravitt",
+    color: "#F9743B",
+    logo_url: v.logo,
+    delegate_name: "Aldo García",
+    status: "Activo",
+    players: new Array(15).fill({}),
+  };
 
-const toRgbaString = (color, alpha) => {
-  const { r, g, b } = parseColor(color);
-  return `rgba(${clampChannel(r)}, ${clampChannel(g)}, ${clampChannel(b)}, ${alpha})`;
-};
-
-const mixColors = (base, tint, baseWeight = 0.5) => {
-  const baseColor = parseColor(base);
-  const tintColor = parseColor(tint);
-  const tintWeight = 1 - baseWeight;
-
-  return toRgbString({
-    r: baseColor.r * baseWeight + tintColor.r * tintWeight,
-    g: baseColor.g * baseWeight + tintColor.g * tintWeight,
-    b: baseColor.b * baseWeight + tintColor.b * tintWeight,
-  });
+  return (
+    <PreviewWrapper id="preview">
+      <div className="lp-container">
+        <h2 className="lp-h2" style={{ textAlign: 'center' }}>Así se ve tu liga por dentro</h2>
+        <p className="lp-lead" style={{ textAlign: 'center', margin: '0 auto 40px' }}>
+          No usamos imágenes falsas. Experimenta la misma interfaz limpia y profesional que verán tú y tus equipos.
+        </p>
+        
+        <AppWindow>
+          <div className="window-header">
+            <span className="dot close"></span>
+            <span className="dot min"></span>
+            <span className="dot max"></span>
+          </div>
+          <div className="window-body">
+             {/* Renderizamos el componente real de tu App */}
+             <TeamCard 
+               team={mockTeam} 
+               onClick={() => {}} 
+               onDelete={() => {}} 
+               onEdit={() => {}} 
+             />
+          </div>
+        </AppWindow>
+      </div>
+    </PreviewWrapper>
+  );
 };
 
 export default function Landing() {
   const { theme, themeStyle } = useThemeStore();
-  const landingVars = useMemo(
-    () => {
-      const isDark = theme === "dark";
-      const pageSurface = themeStyle.bgtotal;
-      const panelSurface = themeStyle.bgcards ?? themeStyle.bg3 ?? themeStyle.bg;
-      const softSurface = themeStyle.bg3 ?? themeStyle.bg2 ?? themeStyle.bg;
-      const sidebarSurface = themeStyle.bgtgderecha ?? softSurface;
-      const accent = themeStyle.primary;
-      const accentStrong = themeStyle.bg5 ?? accent;
-      const ink = themeStyle.text;
-      const paper = themeStyle.body;
 
-      const forestDeep = isDark
-        ? mixColors(panelSurface, accent, 0.78)
-        : mixColors(ink, accent, 0.72);
-      const forest = isDark
-        ? mixColors(sidebarSurface, accentStrong, 0.7)
-        : mixColors(ink, accentStrong, 0.58);
-      const grass = mixColors(accent, accentStrong, 0.72);
-      const grassBright = accentStrong;
-      const sage = mixColors(softSurface, accentStrong, isDark ? 0.72 : 0.84);
-      const gold = accent;
-      const goldBright = accentStrong;
-      const goldDeep = isDark
-        ? mixColors(accent, pageSurface, 0.72)
-        : mixColors(accent, ink, 0.66);
-      const cream = isDark ? themeStyle.text : mixColors(paper, themeStyle.bg3 ?? paper, 0.3);
-      const creamSoft = isDark
-        ? mixColors(themeStyle.text, sidebarSurface, 0.78)
-        : mixColors(themeStyle.bg3 ?? paper, softSurface, 0.86);
-      const carbon = isDark ? themeStyle.body : themeStyle.text;
-      const carbonSoft = isDark
-        ? mixColors(sidebarSurface, pageSurface, 0.58)
-        : themeStyle.colorSubtitle ?? ink;
-
-      return {
-        "--lp-page-bg": pageSurface,
-        "--lp-forest": forest,
-        "--lp-forest-deep": forestDeep,
-        "--lp-grass": grass,
-        "--lp-grass-bright": grassBright,
-        "--lp-sage": sage,
-        "--lp-gold": gold,
-        "--lp-gold-bright": goldBright,
-        "--lp-gold-deep": goldDeep,
-        "--lp-cream": cream,
-        "--lp-cream-soft": creamSoft,
-        "--lp-carbon": carbon,
-        "--lp-carbon-soft": carbonSoft,
-        "--lp-shadow-gold": `0 20px 44px -24px ${toRgbaString(gold, 0.48)}`,
-        "--lp-shadow-deep": `0 28px 60px -34px ${toRgbaString(forestDeep, isDark ? 0.72 : 0.3)}`,
-        "--lp-app-surface": panelSurface,
-        "--lp-app-surface-soft": softSurface,
-        "--lp-app-surface-muted": themeStyle.bg2 ?? themeStyle.bgAlpha,
-        "--lp-app-ink": ink,
-        "--lp-app-ink-muted": toRgbaString(ink, isDark ? 0.72 : 0.68),
-        "--lp-app-ink-soft": toRgbaString(ink, isDark ? 0.58 : 0.54),
-        "--lp-app-border": toRgbaString(sidebarSurface, isDark ? 0.46 : 0.12),
-        "--lp-app-border-strong": toRgbaString(sidebarSurface, isDark ? 0.62 : 0.18),
-        "--lp-app-border-subtle": toRgbaString(sidebarSurface, isDark ? 0.28 : 0.08),
-        "--lp-app-accent": accent,
-        "--lp-app-accent-soft": themeStyle.bg6,
-        "--lp-app-accent-strong": accentStrong,
-        "--lp-app-shadow": isDark
-          ? "0 24px 48px -32px rgba(0, 0, 0, 0.55)"
-          : `0 24px 48px -32px ${toRgbaString(forestDeep, 0.24)}`,
-        "--lp-app-shadow-strong": isDark
-          ? "0 28px 60px -34px rgba(0, 0, 0, 0.62)"
-          : `0 28px 60px -36px ${toRgbaString(forestDeep, 0.28)}`,
-        "--lp-header-bg": toRgbaString(mixColors(sidebarSurface, forestDeep, 0.54), 0.88),
-        "--lp-focus-ring": `0 0 0 3px ${toRgbaString(paper, isDark ? 0.16 : 0.22)}, 0 0 0 6px ${toRgbaString(accent, 0.34)}`,
-      };
-    },
-    [theme, themeStyle]
-  );
+  const landingVars = useMemo(() => {
+    return {
+      "--lp-primary": themeStyle.primary,
+      "--lp-bg": themeStyle.bgtotal,
+      "--lp-surface": themeStyle.bgcards,
+      "--lp-text": themeStyle.text,
+      "--lp-text-muted": themeStyle.colorSubtitle,
+      "--lp-border": themeStyle.bg4,
+      "--lp-shadow": theme === 'dark' ? "0 24px 48px -12px rgba(0,0,0,0.5)" : "0 24px 48px -12px rgba(28, 176, 246, 0.15)",
+    };
+  }, [theme, themeStyle]);
 
   useEffect(() => {
     const prev = document.body.style.background;
-    document.body.style.background = landingVars["--lp-page-bg"];
+    document.body.style.background = landingVars["--lp-bg"];
     return () => {
       document.body.style.background = prev;
     };
@@ -161,19 +114,71 @@ export default function Landing() {
 
   return (
     <div className="landing-scope" data-theme={theme} style={landingVars}>
-      <LandingHeader />
+      {/* Puedes pasarle v.logo a tu LandingHeader si lo recibe por props */}
+      <LandingHeader logo={v.logo} /> 
+      
       <main>
-        <HeroSection />
-        <FeaturesStrip />
-        <HowItWorks />
-        <ProductShowcase />
-        <BenefitsSection />
-        <TestimonialSection />
-        <PricingSection />
-        <FAQSection />
-        <FinalCTA />
+        <ScrollReveal delay={0}><HeroSection /></ScrollReveal>
+        <ScrollReveal delay={100}><FeaturesStrip /></ScrollReveal>
+        <ScrollReveal delay={150}><HowItWorks /></ScrollReveal>
+        
+        {/* Reemplazamos el ProductShowcase genérico por el interactivo */}
+        <ScrollReveal delay={150}>
+          <LiveAppPreview />
+        </ScrollReveal>
+        
+        <ScrollReveal delay={150}><BenefitsSection /></ScrollReveal>
+        <ScrollReveal delay={150}><TestimonialSection /></ScrollReveal>
+        <ScrollReveal delay={150}><PricingSection /></ScrollReveal>
+        <ScrollReveal delay={150}><FAQSection /></ScrollReveal>
+        <ScrollReveal delay={100}><FinalCTA /></ScrollReveal>
       </main>
+      
       <LandingFooter />
     </div>
   );
 }
+
+const PreviewWrapper = styled.section`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: clamp(40px, 6vh, 80px) 0;
+  background: var(--lp-bg);
+  box-sizing: border-box;
+  scroll-margin-top: 40px;
+`;
+
+const AppWindow = styled.div`
+  max-width: 500px;
+  margin: 0 auto;
+  background: var(--lp-surface);
+  border-radius: 16px;
+  box-shadow: var(--lp-shadow);
+  border: 1px solid var(--lp-border);
+  overflow: hidden;
+
+  .window-header {
+    background: var(--lp-bg);
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--lp-border);
+    
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      &.close { background: #ff5f56; }
+      &.min { background: #ffbd2e; }
+      &.max { background: #27c93f; }
+    }
+  }
+
+  .window-body {
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    background: var(--lp-bg);
+  }
+`;

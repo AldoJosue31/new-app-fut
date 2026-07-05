@@ -1,18 +1,45 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
+import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
 export default function LandingHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const isClickScrolling = useRef(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isClickScrolling.current) return;
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-80px 0px -40% 0px" }
+    );
+
+    const ids = ["top", ...landingCopy.nav.links.map(l => l.href.replace("#", ""))];
+    
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -28,11 +55,12 @@ export default function LandingHeader() {
         zIndex: 50,
         transition:
           "background-color 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease",
-        background: scrolled ? "var(--lp-header-bg)" : "transparent",
+        background: scrolled ? "var(--lp-bg)" : "transparent",
         backdropFilter: scrolled ? "blur(12px)" : "none",
         borderBottom: scrolled
-          ? "1px solid rgba(212, 175, 55, 0.2)"
+          ? "1px solid var(--lp-border)"
           : "1px solid transparent",
+        boxShadow: scrolled ? "0 4px 20px rgba(0,0,0,0.05)" : "none"
       }}
     >
       <div
@@ -44,53 +72,79 @@ export default function LandingHeader() {
           height: 74,
         }}
       >
+        {/* LOGO REAL INYECTADO AQUÍ */}
         <a
           href="#top"
+          onClick={() => {
+            setActiveSection("top");
+            isClickScrolling.current = true;
+            setTimeout(() => { isClickScrolling.current = false; }, 800);
+          }}
           className="lp-brand-link"
           style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
             textDecoration: "none",
-            color: "var(--lp-cream)",
+            color: "var(--lp-text)",
           }}
         >
-          <div
+          <img 
+            src={landingCopy.nav.logoImg} 
+            alt={landingCopy.nav.logoText} 
             className="lp-brand-mark"
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, var(--lp-gold-bright), var(--lp-gold-deep))",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 900,
-              color: "var(--lp-carbon)",
-              boxShadow: "0 6px 20px -10px rgba(212, 175, 55, 0.6)",
-            }}
-          >
-            B
-          </div>
+            style={{ height: "36px", width: "auto", objectFit: "contain" }} 
+          />
           <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>
-            {landingCopy.nav.logo}
+            {landingCopy.nav.logoText}
           </span>
         </a>
 
-        <nav className="lp-nav-desktop" style={{ display: "flex", gap: 32 }}>
-          {landingCopy.nav.links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="lp-nav-link"
-              style={{
-                textDecoration: "none",
-                fontWeight: 500,
-                fontSize: 14,
-              }}
-            >
-              {l.label}
-            </a>
-          ))}
+        <nav className="lp-nav-desktop" style={{ display: "flex", gap: 24 }}>
+          {landingCopy.nav.links.map((l) => {
+            const id = l.href.replace("#", "");
+            const isActive = activeSection === id;
+            return (
+              <a
+                key={l.href}
+                href={l.href}
+                onClick={() => {
+                  setActiveSection(id);
+                  isClickScrolling.current = true;
+                  setTimeout(() => { isClickScrolling.current = false; }, 800);
+                }}
+                className="lp-nav-link"
+                style={{
+                  position: "relative",
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)",
+                  padding: "4px 0",
+                  transition: "color 200ms ease"
+                }}
+              >
+                {l.label}
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-indicator"
+                    style={{
+                      position: "absolute",
+                      bottom: -2,
+                      left: 0,
+                      right: 0,
+                      margin: "0 auto",
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      backgroundColor: "var(--lp-primary)",
+                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </a>
+            );
+          })}
         </nav>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -108,43 +162,42 @@ export default function LandingHeader() {
           >
             {landingCopy.nav.ctaStart}
           </Link>
+          
           <button
             onClick={() => setOpen(!open)}
             className="lp-nav-mobile-toggle"
             style={{
               display: "none",
-              background: "rgba(245, 239, 224, 0.03)",
-              border: "1px solid rgba(245, 239, 224, 0.24)",
-              color: "var(--lp-cream)",
+              background: "var(--lp-surface)",
+              border: "1px solid var(--lp-border)",
+              color: "var(--lp-text)",
               padding: "8px 10px",
               borderRadius: 8,
               cursor: "pointer",
             }}
             aria-label="Menú"
           >
-            ☰
+            <Icon icon="mdi:menu" width={24} />
           </button>
         </div>
       </div>
 
       <style>{`
         .landing-scope .lp-brand-mark {
-          transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 180ms ease;
+          transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .landing-scope .lp-brand-link:hover .lp-brand-mark {
-          transform: translateY(-1px);
-          box-shadow: 0 10px 24px -10px rgba(212, 175, 55, 0.55);
+          transform: translateY(-2px) scale(1.05);
         }
         .landing-scope .lp-nav-link {
-          color: rgba(245, 239, 224, 0.8);
           transition: color 180ms ease;
         }
         .landing-scope .lp-nav-link:hover {
-          color: var(--lp-gold-bright);
+          color: var(--lp-primary) !important;
         }
         .landing-scope .lp-nav-mobile-toggle:hover {
-          border-color: rgba(212, 175, 55, 0.38);
-          color: var(--lp-gold-bright);
+          border-color: var(--lp-primary);
+          color: var(--lp-primary);
         }
         @media (max-width: 900px) {
           .landing-scope .lp-nav-desktop { display: none !important; }

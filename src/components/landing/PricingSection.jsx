@@ -16,10 +16,15 @@ export default function PricingSection() {
     <section
       id="planes"
       style={{
-        padding: "120px 0",
-        background: "var(--lp-forest-deep)",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        padding: "clamp(30px, 5vh, 60px) 0",
+        background: "var(--lp-bg)",
         position: "relative",
         overflow: "hidden",
+        boxSizing: "border-box",
+        scrollMarginTop: "40px",
       }}
     >
       {/* Fondo decorativo */}
@@ -35,10 +40,7 @@ export default function PricingSection() {
       />
 
       <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
-        <div style={{ textAlign: "center", maxWidth: 780, margin: "0 auto 44px" }}>
-          <span className="lp-eyebrow" style={{ justifyContent: "center" }}>
-            {pricing.eyebrow}
-          </span>
+        <div style={{ textAlign: "center", maxWidth: 780, margin: "0 auto 32px" }}>
           <h2 className="lp-h2">{pricing.title}</h2>
           <p className="lp-lead" style={{ margin: "0 auto" }}>
             {pricing.subtitle}
@@ -74,6 +76,7 @@ export default function PricingSection() {
             const price = plan.prices[cycle];
             return (
               <motion.div
+                layout
                 key={plan.id}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -86,7 +89,9 @@ export default function PricingSection() {
                 )}
 
                 <div className="lp-plan-header">
-                  <div className="lp-plan-shield">{plan.badge}</div>
+                  <div className="lp-plan-shield">
+                    <Icon icon={plan.icon || "mdi:shield-star"} width={22} />
+                  </div>
                   <div>
                     <div className="lp-plan-name">{plan.name}</div>
                     <div className="lp-plan-divisions">{plan.divisions}</div>
@@ -124,6 +129,17 @@ export default function PricingSection() {
                   </motion.div>
                 </AnimatePresence>
 
+                {plan.features && (
+                  <ul className="lp-plan-features">
+                    {plan.features.map((feat, fidx) => (
+                      <li key={fidx}>
+                        <Icon icon="mdi:check-circle" width={16} className="lp-feat-icon" />
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 <Link
                   to="/login"
                   className={`lp-btn ${
@@ -157,7 +173,7 @@ export default function PricingSection() {
           border: 1px solid rgba(212, 175, 55, 0.2);
           border-radius: 999px;
           padding: 6px;
-          margin: 0 auto 56px;
+          margin: 0 auto 40px;
           gap: 4px;
           left: 50%;
           transform: translateX(-50%);
@@ -192,6 +208,31 @@ export default function PricingSection() {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
           gap: 16px;
+          max-width: 100%;
+          margin: 0 auto;
+        }
+        
+        .landing-scope .lp-plan-features {
+          list-style: none;
+          padding: 0;
+          margin: 12px 0 16px 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex-grow: 1;
+        }
+        .landing-scope .lp-plan-features li {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          font-size: 13px;
+          color: rgba(245, 239, 224, 0.7);
+          line-height: 1.4;
+        }
+        .landing-scope .lp-feat-icon {
+          color: var(--lp-grass-bright);
+          flex-shrink: 0;
+          margin-top: 1px;
         }
         .landing-scope .lp-plan-card {
           display: flex;
@@ -199,8 +240,8 @@ export default function PricingSection() {
           background: linear-gradient(180deg, rgba(245, 239, 224, 0.04), rgba(245, 239, 224, 0.01));
           border: 1px solid rgba(212, 175, 55, 0.15);
           border-radius: var(--lp-radius-lg);
-          padding: 28px 22px;
-          gap: 20px;
+          padding: 24px 20px;
+          gap: 16px;
           transition:
             transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
             border-color 180ms ease,
@@ -239,14 +280,13 @@ export default function PricingSection() {
         }
         .landing-scope .lp-plan-shield {
           width: 44px;
-          height: 50px;
+          height: 44px;
+          border-radius: 50%;
           background: linear-gradient(135deg, var(--lp-forest), var(--lp-grass));
-          clip-path: polygon(50% 0, 100% 20%, 100% 75%, 50% 100%, 0 75%, 0 20%);
-          display: grid;
-          place-items: center;
+          display: flex;
+          justify-content: center;
+          align-items: center;
           color: var(--lp-gold-bright);
-          font-weight: 900;
-          font-size: 14px;
           flex-shrink: 0;
         }
         .landing-scope .lp-plan-name {
@@ -261,9 +301,13 @@ export default function PricingSection() {
           margin-top: 2px;
         }
         .landing-scope .lp-plan-price {
-          padding: 16px 0 8px;
+          padding: 12px 0 8px;
           border-top: 1px solid rgba(212, 175, 55, 0.15);
           border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+          min-height: 94px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
         .landing-scope .lp-plan-amount {
           display: flex;
@@ -306,11 +350,13 @@ export default function PricingSection() {
           border-radius: 999px;
         }
 
-        @media (max-width: 1100px) {
-          .landing-scope .lp-plans-grid { grid-template-columns: repeat(3, 1fr); }
+        @media (max-width: 1200px) {
+          .landing-scope .lp-plans-grid { grid-template-columns: repeat(3, 1fr); max-width: 900px; }
+        }
+        @media (max-width: 800px) {
+          .landing-scope .lp-plans-grid { grid-template-columns: repeat(2, 1fr); max-width: 700px; }
         }
         @media (max-width: 720px) {
-          .landing-scope .lp-plans-grid { grid-template-columns: repeat(2, 1fr); }
           .landing-scope .lp-cycle-btn { min-width: 100px; padding: 10px 14px; }
         }
         @media (max-width: 560px) {
@@ -325,8 +371,8 @@ export default function PricingSection() {
             width: 100%;
           }
         }
-        @media (max-width: 480px) {
-          .landing-scope .lp-plans-grid { grid-template-columns: 1fr; }
+        @media (max-width: 600px) {
+          .landing-scope .lp-plans-grid { grid-template-columns: 1fr; max-width: 400px; }
         }
       `}</style>
     </section>

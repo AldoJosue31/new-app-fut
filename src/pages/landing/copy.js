@@ -1,124 +1,103 @@
-/**
- * Textos centralizados de la Landing.
- * Estructura pensada para migrar a react-i18next después:
- * cada key aquí = una key en locales/es/landing.json
- */
+// src/pages/landing/copy.js
+
+import { v } from "../../styles/variables";
+
 export const landingCopy = {
   nav: {
-    logo: "Bracket App",
+    logoText: "Bracket App",
+    logoImg: v.logo,
     links: [
-      { label: "Producto", href: "#producto" },
-      { label: "Cómo funciona", href: "#como-funciona" },
-      { label: "Planes", href: "#planes" },
-      { label: "Preguntas", href: "#faq" },
+      { label: "Plataforma", href: "#producto" },
+      { label: "Proceso", href: "#como-funciona" },
+      { label: "App", href: "#preview" },
+      { label: "Ventajas", href: "#ventajas" },
+      { label: "Testimonios", href: "#testimonios" },
+      { label: "Precios", href: "#planes" },
+      { label: "FAQ", href: "#faq" },
     ],
     ctaLogin: "Iniciar sesión",
     ctaStart: "Empieza gratis",
   },
   hero: {
-    eyebrow: "Plataforma para ligas amateur",
-    titleLine1: "Domina tu liga",
-    titleAccent: "como un profesional",
+    eyebrow: "",
+    titleLine1: "Gestiona tu liga de fútbol",
+    titleAccent: "sin complicaciones",
     subtitle:
-      "Gestiona torneos, equipos, jornadas y estadísticas de tu liga amateur de fútbol desde un solo lugar. Diseñado para dirigentes que aman el juego.",
-    ctaPrimary: "Empieza gratis",
-    ctaSecondary: "Ver demo",
+      "Automatiza torneos, controla equipos y publica estadísticas en tiempo real. La herramienta definitiva para dirigentes de fútbol.",
+    ctaPrimary: "Crear mi liga gratis",
+    ctaSecondary: "Inicia sesión",
     stats: [
-      { value: "+120", label: "Ligas gestionadas" },
-      { value: "+1,800", label: "Equipos activos" },
-      { value: "+42k", label: "Partidos registrados" },
+      { value: "+120", label: "Ligas" },
+      { value: "+1,800", label: "Equipos" },
+      { value: "+42k", label: "Partidos" },
     ],
   },
   features: {
-    eyebrow: "Todo lo que necesitas",
-    title: "Un ecosistema completo para tu liga",
+    eyebrow: "",
+    title: "Control total de tu torneo",
     items: [
       {
         icon: "trophy",
         title: "Torneos",
-        text: "Crea torneos con formato personalizado: puntos, empates, desempates y reglas propias.",
+        text: "Formatos personalizados, liguillas y repechajes automáticos.",
       },
       {
         icon: "team",
         title: "Equipos",
-        text: "Registro de jugadores, cambios de plantilla, transferencias y sanciones.",
+        text: "Plantillas, transferencias y control de dorsales centralizado.",
       },
       {
         icon: "calendar",
         title: "Partidos",
-        text: "Programación de jornadas, resultados en vivo y cédulas oficiales.",
+        text: "Resultados, goles y cédulas listas para imprimir.",
       },
       {
         icon: "chart",
         title: "Estadísticas",
-        text: "Tabla general, goleadores, tarjetas y métricas que impresionan.",
+        text: "Tabla general y goleadores en tiempo real.",
       },
     ],
   },
   howItWorks: {
-    eyebrow: "Simple, rápido, potente",
-    title: "Tu liga corriendo en 3 pasos",
+    eyebrow: "",
+    title: "Comienza en 3 pasos",
     steps: [
-      {
-        n: "01",
-        title: "Crea tu liga",
-        text: "Configura tu organización, divisiones y estilo de competencia en minutos.",
-      },
-      {
-        n: "02",
-        title: "Registra equipos",
-        text: "Invita managers, sube plantillas y organiza los grupos según tu formato.",
-      },
-      {
-        n: "03",
-        title: "Compite y publica",
-        text: "Programa jornadas, captura resultados y comparte la tabla pública con tu comunidad.",
-      },
-    ],
-  },
-  showcase: {
-    eyebrow: "Producto",
-    title: "Un panel pensado para dirigentes que van en serio",
-    text: "Interfaz limpia, responsive y con todas las herramientas al alcance. Dashboards, cédulas, alineaciones y estadísticas listas para compartir.",
-    bullets: [
-      "Dashboard con métricas clave en tiempo real",
-      "Cédulas de partido oficiales imprimibles",
-      "Enlace público de tabla general para tu afición",
-      "Modo texto para compartir en WhatsApp y redes",
+      { n: "01", title: "Configura", text: "Crea tu liga y define tus reglas." },
+      { n: "02", title: "Registra", text: "Agrega equipos y jugadores." },
+      { n: "03", title: "Publica", text: "Genera el calendario y comparte el enlace público." },
     ],
   },
   benefits: {
-    eyebrow: "Por qué Bracket App",
-    title: "Menos hojas de cálculo, más fútbol",
+    eyebrow: "",
+    title: "Olvídate de las hojas de cálculo",
     cards: [
       {
         icon: "shield",
-        title: "Precios por división",
-        text: "Paga solo por lo que necesitas. Escala cuando crezca tu liga.",
+        title: "Multi-división",
+        text: "Administra múltiples categorías desde un solo panel.",
       },
       {
         icon: "savings",
-        title: "Ahorra más",
-        text: "Con nuestros planes semestrales y anuales ahorras hasta un 16.7%.",
+        title: "Escalable",
+        text: "La plataforma crece al ritmo de tu liga.",
       },
       {
         icon: "chart-up",
-        title: "Fácil y seguro",
-        text: "Administra tu liga de forma rápida y eficiente, respaldada en la nube.",
+        title: "Datos Seguros",
+        text: "Respaldo en la nube y acceso desde cualquier dispositivo.",
       },
     ],
   },
   testimonial: {
     quote:
-      "Antes gestionaba 3 divisiones con Excel y WhatsApp. Con Bracket App todo está en un solo lugar y mis equipos saben qué pasa en tiempo real. Cambió mi forma de dirigir la liga.",
-    author: "Carlos Méndez",
-    role: "Presidente · Liga Sabatina Kravitt",
+      "Antes gestionaba la liga con Excel y WhatsApp. Con Bracket App todo está en un solo lugar y mis equipos saben qué pasa en tiempo real. Cambió mi forma de dirigir.",
+    author: "Aldo García",
+    role: "Administrador de Liga",
   },
   pricing: {
-    eyebrow: "Planes",
-    title: "Elige el plan ideal para tu liga",
-    subtitle:
-      "Precios por división. Paga solo por lo que necesitas. Cambia de plan cuando quieras.",
+    eyebrow: "",
+    title: "Precios transparentes",
+    subtitle: "Elige el plan ideal para tu liga y paga solo por las divisiones que necesitas.",
     cycles: {
       monthly: { key: "monthly", label: "Mensual", note: "Pago cada mes" },
       semester: { key: "semester", label: "Semestral", note: "Pago cada 6 meses" },
@@ -131,29 +110,37 @@ export const landingCopy = {
       {
         id: "basico",
         name: "BÁSICO",
-        badge: "1",
+        icon: "mdi:leaf",
         divisions: "1 División",
         prices: {
           monthly: { amount: 600 },
           semester: { amount: 3300, save: 300, percent: "8.3%" },
           annual: { amount: 6000, save: 1200, percent: "16.7%" },
         },
+        features: ["Gestión de 1 división", "Plantillas ilimitadas", "Estadísticas básicas", "Soporte estándar"],
       },
       {
         id: "intermedio",
         name: "INTERMEDIO",
-        badge: "2",
+        icon: "mdi:star-four-points",
         divisions: "2 Divisiones",
         prices: {
           monthly: { amount: 1050 },
           semester: { amount: 5100, save: 400, percent: "6.3%" },
           annual: { amount: 10800, save: 1800, percent: "14.3%" },
         },
+        features: [
+          "Gestión de 2 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Soporte prioritario",
+        ],
       },
       {
         id: "profesional",
         name: "PROFESIONAL",
-        badge: "3",
+        icon: "mdi:shield-star",
         divisions: "3 Divisiones",
         highlight: true,
         prices: {
@@ -161,93 +148,75 @@ export const landingCopy = {
           semester: { amount: 8000, save: 700, percent: "8.0%" },
           annual: { amount: 15000, save: 2400, percent: "13.8%" },
         },
+        features: [
+          "Gestión de 3 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Exportación a PDF",
+          "Soporte 24/7",
+        ],
       },
       {
         id: "regional",
         name: "REGIONAL",
-        badge: "4-5",
+        icon: "mdi:trophy",
         divisions: "4 a 5 Divisiones",
         prices: {
           monthly: { amount: 1900 },
           semester: { amount: 10500, save: 900, percent: "7.9%" },
           annual: { amount: 19500, save: 3300, percent: "14.5%" },
         },
+        features: [
+          "Gestión de 4 a 5 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Exportación a PDF",
+          "Soporte prioritario",
+        ],
       },
       {
         id: "elite",
         name: "ÉLITE",
-        badge: "6-8",
+        icon: "mdi:crown",
         divisions: "6 a 8 Divisiones",
         prices: {
           monthly: { amount: 2600 },
           semester: { amount: 14500, save: 1100, percent: "7.1%" },
           annual: { amount: 27000, save: 4200, percent: "13.9%" },
         },
+        features: [
+          "Gestión de 6 a 8 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Exportación a PDF",
+          "Soporte 24/7",
+        ],
       },
     ],
-    finePrint: "Todos los precios en pesos mexicanos (MXN). IVA incluido.",
+    finePrint: "Precios en MXN. IVA incluido.",
   },
   faq: {
-    eyebrow: "Preguntas frecuentes",
-    title: "Resolvamos tus dudas",
+    eyebrow: "",
+    title: "Preguntas Frecuentes",
     items: [
-      {
-        q: "¿Puedo cambiar de plan cuando quiera?",
-        a: "Sí. Puedes subir o bajar de plan en cualquier momento desde tu panel. El cambio se aplica en el siguiente ciclo de facturación.",
-      },
-      {
-        q: "¿Necesito tarjeta de crédito para empezar?",
-        a: "No. Puedes crear tu cuenta y explorar la plataforma antes de contratar un plan.",
-      },
-      {
-        q: "¿Qué pasa si mi liga crece durante el año?",
-        a: "Cambias al plan superior en cualquier momento. Solo pagas la diferencia proporcional al tiempo restante.",
-      },
-      {
-        q: "¿Los datos de mi liga están seguros?",
-        a: "Sí. Toda la información se almacena en la nube con Supabase y respaldos automáticos.",
-      },
-      {
-        q: "¿Puedo compartir la tabla con mi afición?",
-        a: "Por supuesto. Cada torneo tiene un enlace público que puedes compartir en redes o WhatsApp.",
-      },
+      { q: "¿Puedo cambiar de plan?", a: "Sí, puedes ajustar tu plan en cualquier momento desde el panel." },
+      { q: "¿Necesito tarjeta para empezar?", a: "No, crea tu cuenta y explora gratis." },
+      { q: "¿Puedo compartir la tabla?", a: "Sí, obtienes un enlace público para tu afición." },
     ],
   },
   finalCta: {
-    tagline: "Más organización · Más control · Más pasión por el fútbol",
+    tagline: "Gestión Profesional",
     title: "Lleva tu liga al siguiente nivel",
-    subtitle: "¡Elige tu plan hoy!",
-    ctaPrimary: "Empieza gratis",
+    subtitle: "Comienza a profesionalizar tu torneo hoy mismo.",
+    ctaPrimary: "Crear cuenta",
     ctaSecondary: "Hablar con ventas",
   },
   footer: {
-    tagline: "Gestión profesional para ligas amateur de fútbol.",
-    columns: [
-      {
-        title: "Producto",
-        links: [
-          { label: "Funciones", href: "#producto" },
-          { label: "Planes", href: "#planes" },
-          { label: "Cómo funciona", href: "#como-funciona" },
-        ],
-      },
-      {
-        title: "Empresa",
-        links: [
-          { label: "Sobre nosotros", href: "#" },
-          { label: "Contacto", href: "#" },
-          { label: "Blog", href: "#" },
-        ],
-      },
-      {
-        title: "Legal",
-        links: [
-          { label: "Términos", href: "#" },
-          { label: "Privacidad", href: "#" },
-          { label: "Cookies", href: "#" },
-        ],
-      },
-    ],
+    tagline: "Bracket App - Plataforma de gestión deportiva.",
+    columns: [],
     copyright: "© {year} Bracket App. Todos los derechos reservados.",
   },
 };
