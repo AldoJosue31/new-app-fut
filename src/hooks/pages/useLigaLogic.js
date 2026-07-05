@@ -79,7 +79,7 @@ export const useLigaLogic = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchData();
