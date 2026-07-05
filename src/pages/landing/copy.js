@@ -77,9 +77,9 @@ export const landingCopy = {
     ctaLabel: "Elegir plan",
     currency: "MXN",
     plans: [
-      { id: "basico", name: "BÁSICO", badge: "1", divisions: "1 División", prices: { monthly: { amount: 600 }, semester: { amount: 3300, save: 300, percent: "8.3%" }, annual: { amount: 6000, save: 1200, percent: "16.7%" } } },
-      { id: "intermedio", name: "INTERMEDIO", badge: "2", divisions: "2 Divisiones", prices: { monthly: { amount: 1050 }, semester: { amount: 5100, save: 400, percent: "6.3%" }, annual: { amount: 10800, save: 1800, percent: "14.3%" } } },
-      { id: "profesional", name: "PROFESIONAL", badge: "3", divisions: "3 Divisiones", highlight: true, prices: { monthly: { amount: 1450 }, semester: { amount: 8000, save: 700, percent: "8.0%" }, annual: { amount: 15000, save: 2400, percent: "13.8%" } } },
+      { id: "basico", name: "BÁSICO", badge: "1", divisions: "1 División", prices: { monthly: { amount: 600 }, semester: { amount: 3300, save: 300, percent: "8.3%" }, annual: { amount: 6000, save: 1200, percent: "16.7%" } }, features: ["Gestión de 1 división", "Plantillas ilimitadas", "Estadísticas básicas", "Soporte estándar"] },
+      { id: "intermedio", name: "INTERMEDIO", badge: "2", divisions: "2 Divisiones", prices: { monthly: { amount: 1050 }, semester: { amount: 5100, save: 400, percent: "6.3%" }, annual: { amount: 10800, save: 1800, percent: "14.3%" } }, features: ["Gestión de 2 divisiones", "Plantillas ilimitadas", "Estadísticas avanzadas", "Cédulas de juego", "Soporte prioritario"] },
+      { id: "profesional", name: "PROFESIONAL", badge: "3", divisions: "3 Divisiones", highlight: true, prices: { monthly: { amount: 1450 }, semester: { amount: 8000, save: 700, percent: "8.0%" }, annual: { amount: 15000, save: 2400, percent: "13.8%" } }, features: ["Gestión de 3 divisiones", "Plantillas ilimitadas", "Estadísticas avanzadas", "Cédulas de juego", "Exportación a PDF", "Soporte 24/7"] },
     ],
     finePrint: "Precios en MXN. IVA incluido.",
   },
