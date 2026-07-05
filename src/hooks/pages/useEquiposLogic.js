@@ -2,23 +2,26 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { useEquiposStore } from "../../store/EquiposStore";
+import { useAuthStore } from "../../store/AuthStore";
 import { supabase } from "../../supabase/supabase.config";
 import { generateTeamLogo } from "../../utils/logoGenerator";
 import { removeBackground } from "../../utils/imageProcessor";
-import { TEAM_STATUS } from "../../utils/constants";
+import { TEAM_STATUS, ROLES } from "../../utils/constants";
 import { getTorneoActivo } from "../../services/torneos";
 import { getDivisionWorkspace } from "../../services/divisionWorkspace";
 import { uploadImageToSupabase } from "../../utils/uploadHandler";
+import {
+  getDelegateAssignments,
+  getTeamDelegateRequestSummaries,
+  submitDelegateChangeRequest,
+} from "../../services/delegates";
 
-// Utilidad infalible para extraer la ruta exacta del archivo desde la URL pública
 const getStoragePathFromUrl = (url) => {
   if (!url) return null;
-  // Buscamos a partir de '/logos/' para obtener la ruta interna (ej: 'teams/mi-logo.png' o 'logo.png')
-  if (url.includes('/logos/')) {
-    return decodeURIComponent(url.split('/logos/')[1].split(/[?#]/)[0]);
+  if (url.includes("/logos/")) {
+    return decodeURIComponent(url.split("/logos/")[1].split(/[?#]/)[0]);
   }
-  // Fallback por si la URL tiene un formato inesperado
-  return decodeURIComponent(url.split('/').pop().split(/[?#]/)[0]);
+  return decodeURIComponent(url.split("/").pop().split(/[?#]/)[0]);
 };
 
 const getUniquePaths = (...urls) => {
@@ -26,21 +29,50 @@ const getUniquePaths = (...urls) => {
   return [...new Set(paths)];
 };
 
-const getCurrentOwnerId = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  if (!user?.id) throw new Error("No se pudo identificar al usuario actual");
-  return user.id;
-};
+const buildDelegateRequestKey = (prefix = "request") =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const uploadTeamLogo = async ({ file, originalFile, ownerId, leagueId, teamId }) => {
+const createEmptyDelegateRequestSummary = () => ({
+  totalCount: 0,
+  pendingCount: 0,
+  latestPendingAt: null,
+  latestReviewedStatus: null,
+  latestReviewedAt: null,
+  latestReviewNotes: null,
+});
+
+const uploadTeamLogo = async ({ file, originalFile, leagueId, teamId }) => {
   if (!leagueId) throw new Error("No se pudo identificar la liga del equipo");
 
   return uploadImageToSupabase(
     file,
     originalFile,
     "logos",
-    `teams/${ownerId}/${leagueId}/${teamId}`,
+    `teams/${leagueId}/${teamId}`,
+    {
+      fileName: "crop.webp",
+      originalFileName: "original.webp",
+      upsert: true,
+      cacheBuster: true,
+      requireOriginal: true,
+    }
+  );
+};
+
+const uploadDelegateTeamLogo = async ({
+  file,
+  originalFile,
+  leagueId,
+  teamId,
+  requestKey,
+}) => {
+  if (!leagueId) throw new Error("No se pudo identificar la liga del equipo");
+
+  return uploadImageToSupabase(
+    file,
+    originalFile,
+    "logos",
+    `teams/${leagueId}/${teamId}/delegate-requests/${requestKey}`,
     {
       fileName: "crop.webp",
       originalFileName: "original.webp",
@@ -54,15 +86,7 @@ const uploadTeamLogo = async ({ file, originalFile, ownerId, leagueId, teamId })
 export const useEquiposLogic = () => {
   const { divisionId: routeDivisionId } = useParams();
   const { selectedDivision, setDivision } = useDivisionStore();
-  const routeDivisionIdNumber = Number(routeDivisionId);
-  const activeDivisionId =
-    Number.isInteger(routeDivisionIdNumber) && routeDivisionIdNumber > 0
-      ? routeDivisionIdNumber
-      : selectedDivision?.id;
-  const [divisionContext, setDivisionContext] = useState(null);
-  const effectiveDivision =
-    divisionContext ||
-    (activeDivisionId && selectedDivision?.id !== activeDivisionId ? null : selectedDivision);
+  const { profile } = useAuthStore();
   const {
     equipos,
     loading,
@@ -70,19 +94,31 @@ export const useEquiposLogic = () => {
     addEquipoLocal,
     updateEquipoLocal,
     deleteEquipoLocal,
-    resetStore
+    resetStore,
   } = useEquiposStore();
 
+  const isDelegate = profile?.role === ROLES.DELEGATE;
+  const routeDivisionIdNumber = Number(routeDivisionId);
+  const hasRouteDivision =
+    Number.isInteger(routeDivisionIdNumber) && routeDivisionIdNumber > 0;
+  const activeDivisionId = hasRouteDivision
+    ? routeDivisionIdNumber
+    : selectedDivision?.id;
+
+  const [divisionContext, setDivisionContext] = useState(null);
+  const [delegateTeams, setDelegateTeams] = useState([]);
+  const [delegateLoading, setDelegateLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-
   const [teamToEdit, setTeamToEdit] = useState(null);
   const [teamToView, setTeamToView] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
   const [participatingIds, setParticipatingIds] = useState([]);
+  const [teamRequestSummaries, setTeamRequestSummaries] = useState({});
+  const [requestSummariesLoading, setRequestSummariesLoading] = useState(false);
+  const [requestSummaryRefreshKey, setRequestSummaryRefreshKey] = useState(0);
 
   const initialForm = {
     name: "",
@@ -91,21 +127,60 @@ export const useEquiposLogic = () => {
     contact_phone: "",
     status: TEAM_STATUS?.ACTIVE || "Activo",
     logo_url: null,
-    original_logo_url: null 
+    original_logo_url: null,
   };
 
   const [form, setForm] = useState(initialForm);
-  
-  // ESTADOS DE IMAGEN
-  const [file, setFile] = useState(null); 
-  const [originalFile, setOriginalFile] = useState(null); 
+  const [file, setFile] = useState(null);
+  const [originalFile, setOriginalFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const isSavingRef = useRef(false);
+
+  const delegateFilteredTeams = Array.isArray(delegateTeams)
+    ? hasRouteDivision
+      ? delegateTeams.filter(
+          (team) => Number(team.division_id) === routeDivisionIdNumber
+        )
+      : delegateTeams
+    : [];
+
+  const delegateVisibleDivision = hasRouteDivision
+    ? delegateFilteredTeams[0]?.division || null
+    : delegateFilteredTeams.length === 1
+      ? delegateFilteredTeams[0]?.division || null
+      : null;
+
+  const effectiveDivision = isDelegate
+    ? delegateVisibleDivision
+    : divisionContext ||
+      (activeDivisionId && selectedDivision?.id !== activeDivisionId
+        ? null
+        : selectedDivision);
+
+  const rawVisibleTeams = isDelegate ? delegateFilteredTeams : equipos;
+  const visibleTeamIdsKey = JSON.stringify(
+    Array.isArray(rawVisibleTeams)
+      ? [...new Set(rawVisibleTeams.map((team) => team?.id).filter(Boolean))]
+      : []
+  );
+  const visibleTeams = Array.isArray(rawVisibleTeams)
+    ? rawVisibleTeams.map((team) => ({
+        ...team,
+        delegateRequestSummary:
+          teamRequestSummaries[team.id] || createEmptyDelegateRequestSummary(),
+      }))
+    : [];
+  const visibleLoading = isDelegate ? delegateLoading : loading;
 
   useEffect(() => {
     let ignore = false;
 
     const syncDivisionFromRoute = async () => {
+      if (isDelegate) {
+        setDivisionContext(null);
+        return;
+      }
+
       if (!activeDivisionId || selectedDivision?.id === activeDivisionId) {
         setDivisionContext(null);
         return;
@@ -133,50 +208,133 @@ export const useEquiposLogic = () => {
     return () => {
       ignore = true;
     };
-  }, [activeDivisionId, selectedDivision?.id, setDivision]);
+  }, [activeDivisionId, isDelegate, selectedDivision?.id, setDivision]);
 
-  // Carga de equipos
   useEffect(() => {
+    if (!isDelegate || !profile?.id) {
+      setDelegateTeams([]);
+      return;
+    }
+
+    let ignore = false;
+
+    const loadDelegateTeams = async () => {
+      setDelegateLoading(true);
+      try {
+        const assignedTeams = await getDelegateAssignments(profile.id);
+        if (!ignore) {
+          setDelegateTeams(assignedTeams);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("Error cargando equipos del delegado:", error);
+          setDelegateTeams([]);
+        }
+      } finally {
+        if (!ignore) {
+          setDelegateLoading(false);
+        }
+      }
+    };
+
+    loadDelegateTeams();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isDelegate, profile?.id]);
+
+  useEffect(() => {
+    if (isDelegate) {
+      return;
+    }
+
     if (activeDivisionId) {
       fetchEquipos(activeDivisionId);
     } else {
       resetStore();
     }
-  }, [activeDivisionId, fetchEquipos, resetStore]);
+  }, [activeDivisionId, fetchEquipos, isDelegate, resetStore]);
 
-  // Verificación de torneos
   useEffect(() => {
+    const tournamentDivisionId = isDelegate ? effectiveDivision?.id : activeDivisionId;
+
     const fetchTournamentStatus = async () => {
-      setParticipatingIds([]); 
-      if (activeDivisionId) {
-        try {
-          const torneo = await getTorneoActivo(activeDivisionId);
-          if (torneo && torneo.config && Array.isArray(torneo.config.participatingIds)) {
-            setParticipatingIds(torneo.config.participatingIds);
-          }
-        } catch (error) {
-          console.error("Error verificando estado de torneo:", error);
+      setParticipatingIds([]);
+
+      if (!tournamentDivisionId) return;
+
+      try {
+        const torneo = await getTorneoActivo(tournamentDivisionId);
+        if (torneo?.config && Array.isArray(torneo.config.participatingIds)) {
+          setParticipatingIds(torneo.config.participatingIds);
+        }
+      } catch (error) {
+        console.error("Error verificando estado de torneo:", error);
+      }
+    };
+
+    fetchTournamentStatus();
+  }, [activeDivisionId, effectiveDivision?.id, isDelegate]);
+
+  useEffect(() => {
+    let ignore = false;
+    const teamIds = visibleTeamIdsKey ? JSON.parse(visibleTeamIdsKey) : [];
+
+    if (!teamIds.length) {
+      setRequestSummariesLoading(false);
+      setTeamRequestSummaries({});
+      return () => {
+        ignore = true;
+      };
+    }
+
+    const loadTeamRequestSummaries = async () => {
+      setRequestSummariesLoading(true);
+
+      try {
+        const summaries = await getTeamDelegateRequestSummaries(teamIds);
+        if (!ignore) {
+          setTeamRequestSummaries(summaries);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("Error cargando resumen de solicitudes del delegado:", error);
+          setTeamRequestSummaries({});
+        }
+      } finally {
+        if (!ignore) {
+          setRequestSummariesLoading(false);
         }
       }
-  };
-    fetchTournamentStatus();
-  }, [activeDivisionId]);
+    };
 
-  // Limpieza de memoria
+    loadTeamRequestSummaries();
+
+    return () => {
+      ignore = true;
+    };
+  }, [profile?.role, requestSummaryRefreshKey, visibleTeamIdsKey]);
+
   useEffect(() => {
     return () => {
       if (preview && preview.startsWith("blob:")) {
-        try { URL.revokeObjectURL(preview); } catch (e) { /* ignore */ }
+        try {
+          URL.revokeObjectURL(preview);
+        } catch {
+          /* ignore */
+        }
       }
     };
   }, [preview]);
 
-  const getDominantColor = (imageFile) => {
-    return new Promise((resolve) => {
+  const getDominantColor = (imageFile) =>
+    new Promise((resolve) => {
       const img = new Image();
       const objectUrl = URL.createObjectURL(imageFile);
       img.crossOrigin = "Anonymous";
       img.src = objectUrl;
+
       img.onload = () => {
         try {
           const canvas = document.createElement("canvas");
@@ -185,64 +343,74 @@ export const useEquiposLogic = () => {
           canvas.height = 1;
           ctx.drawImage(img, 0, 0, 1, 1);
           const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-          const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+          const hex =
+            "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
           URL.revokeObjectURL(objectUrl);
           resolve(hex);
-        } catch (err) {
+        } catch {
           URL.revokeObjectURL(objectUrl);
           resolve("#000000");
         }
       };
+
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
         resolve("#000000");
       };
     });
-  };
 
   const handleFileChange = async (eOrData) => {
     let selectedFile = null;
     let selectedOriginal = null;
 
     if (eOrData?.original) {
-        selectedFile = eOrData.target.files[0];
-        selectedOriginal = eOrData.original;
-    } 
-    else if (eOrData?.target?.files) {
-        selectedFile = eOrData.target.files[0];
-        selectedOriginal = eOrData.target.files[0]; 
+      selectedFile = eOrData.target.files[0];
+      selectedOriginal = eOrData.original;
+    } else if (eOrData?.target?.files) {
+      selectedFile = eOrData.target.files[0];
+      selectedOriginal = eOrData.target.files[0];
     }
 
-    if (selectedFile) {
-      if (preview && preview.startsWith("blob:")) {
-        try { URL.revokeObjectURL(preview); } catch (e) { /* ignore */ }
-      }
-      
-      setFile(selectedFile);
-      setOriginalFile(selectedOriginal); 
-      
-      const newPreview = URL.createObjectURL(selectedFile);
-      setPreview(newPreview);
+    if (!selectedFile) return;
 
-      if (!teamToEdit) {
-        try {
-          const dominantColor = await getDominantColor(selectedFile);
-          setForm((prev) => ({ ...prev, color: dominantColor }));
-        } catch (error) {
-          console.error("No se pudo extraer color dominante:", error);
-        }
+    if (preview && preview.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(preview);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    setFile(selectedFile);
+    setOriginalFile(selectedOriginal);
+
+    const newPreview = URL.createObjectURL(selectedFile);
+    setPreview(newPreview);
+
+    if (!teamToEdit) {
+      try {
+        const dominantColor = await getDominantColor(selectedFile);
+        setForm((prev) => ({ ...prev, color: dominantColor }));
+      } catch (error) {
+        console.error("No se pudo extraer color dominante:", error);
       }
     }
   };
 
-  const handleClearImage = (e) => {
-    if (e && e.preventDefault) {
-      e.preventDefault();
-      e.stopPropagation();
+  const handleClearImage = (event) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+      event.stopPropagation();
     }
+
     if (preview && preview.startsWith("blob:")) {
-      try { URL.revokeObjectURL(preview); } catch (err) { /* ignore */ }
+      try {
+        URL.revokeObjectURL(preview);
+      } catch {
+        /* ignore */
+      }
     }
+
     setFile(null);
     setOriginalFile(null);
     setPreview(null);
@@ -251,153 +419,268 @@ export const useEquiposLogic = () => {
 
   const handleGenerateLogo = async () => {
     if (!form.name) {
-      alert("Escribe el nombre del equipo primero");
-      return;
+      throw new Error("Escribe el nombre del equipo primero.");
     }
-    try {
-      const { file: genFile, preview: genPreview } = await generateTeamLogo(form.name, form.color);
-      if (preview && preview.startsWith("blob:")) {
-        try { URL.revokeObjectURL(preview); } catch (e) {}
+
+    const { file: genFile, preview: genPreview } = await generateTeamLogo(
+      form.name,
+      form.color
+    );
+
+    if (preview && preview.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(preview);
+      } catch {
+        /* ignore */
       }
-      setFile(genFile);
-      setOriginalFile(genFile); 
-      setPreview(genPreview);
-    } catch (error) {
-      console.error("Error generando logo:", error);
-      alert("Error generando logo");
     }
+
+    setFile(genFile);
+    setOriginalFile(genFile);
+    setPreview(genPreview);
   };
 
   const handleRemoveBg = async () => {
     if (!file) {
-      alert("Sube una imagen primero");
-      return;
+      throw new Error("Sube una imagen primero.");
     }
-    try {
-      const sourceFile = originalFile || file;
-      const { file: cleanFile, preview: cleanPreview } = await removeBackground(sourceFile);
-      
-      if (preview && preview.startsWith("blob:")) {
-        try { URL.revokeObjectURL(preview); } catch (e) {}
+
+    const sourceFile = originalFile || file;
+    const { file: cleanFile, preview: cleanPreview } = await removeBackground(
+      sourceFile
+    );
+
+    if (preview && preview.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(preview);
+      } catch {
+        /* ignore */
       }
-      
-      setFile(cleanFile);
-      setPreview(cleanPreview);
-    } catch (error) {
-      console.error("Error en removeBackground:", error);
-      alert("Error procesando imagen");
     }
+
+    setFile(cleanFile);
+    setPreview(cleanPreview);
   };
 
-  const handleSave = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!effectiveDivision) {
-      alert("Selecciona una división");
-      return;
+  const refreshDelegateTeam = async (teamId, fallbackTeam) => {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*")
+      .eq("id", teamId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return;
+
+    const mergedTeam = {
+      ...fallbackTeam,
+      ...data,
+      division: fallbackTeam?.division || null,
+      league: fallbackTeam?.league || null,
+      delegateAssignment: fallbackTeam?.delegateAssignment || null,
+    };
+
+    setDelegateTeams((current) =>
+      current.map((team) => (team.id === teamId ? mergedTeam : team))
+    );
+  };
+
+  const handleDelegateTeamSave = async () => {
+    if (!teamToEdit?.id) {
+      throw new Error("Como delegado solo puedes editar equipos asignados.");
     }
-    if (isSavingRef.current) return;
+
+    const leagueId = teamToEdit?.league?.id || effectiveDivision?.league_id;
+    if (!leagueId) {
+      throw new Error("No se pudo identificar la liga del equipo.");
+    }
+
+    let logoUrl = form.logo_url;
+    let originalLogoUrl = form.original_logo_url || teamToEdit.original_logo_url || null;
+
+    if (!file && !preview && !form.logo_url) {
+      logoUrl = null;
+      originalLogoUrl = null;
+    }
+
+    if (file) {
+      const uploadResult = await uploadDelegateTeamLogo({
+        file,
+        originalFile,
+        leagueId,
+        teamId: teamToEdit.id,
+        requestKey: buildDelegateRequestKey("team"),
+      });
+
+      logoUrl = uploadResult.url;
+      originalLogoUrl = uploadResult.originalUrl;
+    }
+
+    const payload = {
+      name: form.name,
+      color: form.color,
+      delegate_name: form.delegate_name || null,
+      contact_phone: form.contact_phone || null,
+      logo_url: logoUrl,
+      original_logo_url: originalLogoUrl,
+    };
+
+    const result = await submitDelegateChangeRequest({
+      teamId: teamToEdit.id,
+      entityType: "team",
+      actionType: "update",
+      payload,
+    });
+
+    if (result.status === "applied") {
+      await refreshDelegateTeam(teamToEdit.id, teamToEdit);
+    }
+
+    setRequestSummaryRefreshKey((current) => current + 1);
+
+    setIsFormOpen(false);
+    setTeamToEdit(null);
+    handleClearImage();
+    setForm(initialForm);
+
+    return {
+      successMessage:
+        result.status === "pending"
+          ? "Cambios enviados a aprobacion del manager"
+          : "Equipo actualizado",
+    };
+  };
+
+  const handleManagerTeamSave = async () => {
+    if (!effectiveDivision) {
+      throw new Error("Selecciona una division.");
+    }
+
+    let logoUrl = form.logo_url;
+    let originalLogoUrl = form.original_logo_url || teamToEdit?.original_logo_url;
+    const leagueId = effectiveDivision?.league_id;
+
+    if (!file && !preview && !form.logo_url) {
+      logoUrl = null;
+      originalLogoUrl = null;
+
+      if (teamToEdit?.logo_url) {
+        const filesToRemove = getUniquePaths(
+          teamToEdit.logo_url,
+          teamToEdit.original_logo_url
+        );
+
+        if (filesToRemove.length > 0) {
+          await supabase.storage.from("logos").remove(filesToRemove);
+        }
+      }
+    }
+
+    const teamData = {
+      name: form.name,
+      color: form.color,
+      delegate_name: form.delegate_name,
+      contact_phone: form.contact_phone,
+      status: form.status,
+      logo_url: logoUrl,
+      original_logo_url: originalLogoUrl,
+      division_id: effectiveDivision.id,
+    };
+
+    if (teamToEdit) {
+      if (file) {
+        const oldFilesToRemove = getUniquePaths(
+          teamToEdit.logo_url,
+          teamToEdit.original_logo_url
+        );
+
+        if (oldFilesToRemove.length > 0) {
+          await supabase.storage.from("logos").remove(oldFilesToRemove);
+        }
+
+        const uploadResult = await uploadTeamLogo({
+          file,
+          originalFile,
+          leagueId,
+          teamId: teamToEdit.id,
+        });
+
+        teamData.logo_url = uploadResult.url;
+        teamData.original_logo_url = uploadResult.originalUrl;
+      }
+
+      const { data, error } = await supabase
+        .from("teams")
+        .update(teamData)
+        .eq("id", teamToEdit.id)
+        .select();
+
+      if (error) throw error;
+      updateEquipoLocal(data[0]);
+    } else {
+      const { data, error } = await supabase.from("teams").insert(teamData).select();
+      if (error) throw error;
+
+      let savedTeam = data[0];
+
+      if (file) {
+        try {
+          const uploadResult = await uploadTeamLogo({
+            file,
+            originalFile,
+            leagueId,
+            teamId: savedTeam.id,
+          });
+
+          const { data: updatedData, error: updateError } = await supabase
+            .from("teams")
+            .update({
+              logo_url: uploadResult.url,
+              original_logo_url: uploadResult.originalUrl,
+            })
+            .eq("id", savedTeam.id)
+            .select();
+
+          if (updateError) throw updateError;
+          savedTeam = updatedData[0];
+        } catch (uploadError) {
+          await supabase.from("teams").delete().eq("id", savedTeam.id);
+          throw uploadError;
+        }
+      }
+
+      addEquipoLocal(savedTeam);
+    }
+
+    setIsFormOpen(false);
+    setTeamToEdit(null);
+    handleClearImage();
+    setForm(initialForm);
+
+    return {
+      successMessage: teamToEdit ? "Equipo actualizado" : "Equipo creado",
+    };
+  };
+
+  const handleSave = async (event) => {
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
+
+    if (isSavingRef.current) return { successMessage: null };
+
     isSavingRef.current = true;
     setUploading(true);
 
     try {
-      let logoUrl = form.logo_url;
-      let originalLogoUrl = form.original_logo_url || teamToEdit?.original_logo_url;
-      const ownerId = file ? await getCurrentOwnerId() : null;
-      const leagueId = effectiveDivision?.league_id;
-
-      // 2. LÓGICA DE BORRADO: Si el usuario le dio a la X y no subió nada nuevo
-      if (!file && !preview && !form.logo_url) {
-          logoUrl = null;
-          originalLogoUrl = null;
-
-          // Borrado físico exacto gracias a la nueva función
-          if (teamToEdit && teamToEdit.logo_url) {
-             const filesToRemove = getUniquePaths(teamToEdit.logo_url, teamToEdit.original_logo_url);
-             
-             if (filesToRemove.length > 0) {
-                 await supabase.storage.from("logos").remove(filesToRemove);
-             }
-          }
+      if (isDelegate) {
+        return await handleDelegateTeamSave();
       }
 
-      const teamData = {
-        name: form.name,
-        color: form.color,
-        delegate_name: form.delegate_name,
-        contact_phone: form.contact_phone,
-        status: form.status,
-        logo_url: logoUrl,
-        original_logo_url: originalLogoUrl, 
-        division_id: effectiveDivision.id
-      };
-
-      if (teamToEdit) {
-        if (file) {
-          const oldFilesToRemove = getUniquePaths(teamToEdit.logo_url, teamToEdit.original_logo_url);
-
-          if (oldFilesToRemove.length > 0) {
-            await supabase.storage.from("logos").remove(oldFilesToRemove);
-          }
-
-          const uploadResult = await uploadTeamLogo({
-            file,
-            originalFile,
-            ownerId,
-            leagueId,
-            teamId: teamToEdit.id,
-          });
-
-          teamData.logo_url = uploadResult.url;
-          teamData.original_logo_url = uploadResult.originalUrl;
-        }
-
-        const { data, error } = await supabase.from("teams").update(teamData).eq("id", teamToEdit.id).select();
-        if (error) throw error;
-        updateEquipoLocal(data[0]);
-      } else {
-        const { data, error } = await supabase.from("teams").insert(teamData).select();
-        if (error) throw error;
-        let savedTeam = data[0];
-
-        if (file) {
-          try {
-            const uploadResult = await uploadTeamLogo({
-              file,
-              originalFile,
-              ownerId,
-              leagueId,
-              teamId: savedTeam.id,
-            });
-
-            const { data: updatedData, error: updateError } = await supabase
-              .from("teams")
-              .update({
-                logo_url: uploadResult.url,
-                original_logo_url: uploadResult.originalUrl,
-              })
-              .eq("id", savedTeam.id)
-              .select();
-
-            if (updateError) throw updateError;
-            savedTeam = updatedData[0];
-          } catch (uploadError) {
-            await supabase.from("teams").delete().eq("id", savedTeam.id);
-            throw uploadError;
-          }
-        }
-
-        addEquipoLocal(savedTeam);
-      }
-
-      // Reset
-      setIsFormOpen(false);
-      setTeamToEdit(null);
-      handleClearImage();
-      setForm(initialForm);
-
+      return await handleManagerTeamSave();
     } catch (error) {
       console.error("Error guardando equipo:", error);
-      alert("Error: " + (error?.message || "No se pudo guardar el equipo"));
+      throw error;
     } finally {
       isSavingRef.current = false;
       setUploading(false);
@@ -406,15 +689,14 @@ export const useEquiposLogic = () => {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+
     try {
-      const team = equipos?.find((t) => t.id === deleteId);
-      
-      // Intentar borrar imágenes (Corregido también aquí para evitar basura al eliminar equipo)
+      const team = equipos?.find((currentTeam) => currentTeam.id === deleteId);
+
       if (team?.logo_url) {
         const filesToRemove = getUniquePaths(team.logo_url, team.original_logo_url);
-        
         if (filesToRemove.length > 0) {
-            await supabase.storage.from("logos").remove(filesToRemove);
+          await supabase.storage.from("logos").remove(filesToRemove);
         }
       }
 
@@ -426,17 +708,19 @@ export const useEquiposLogic = () => {
       setDeleteId(null);
     } catch (error) {
       console.error("Error al eliminar equipo:", error);
-      alert("Error al eliminar: " + (error?.message || "No se pudo eliminar"));
+      throw error;
     }
   };
 
-  const handleFormChange = (e) => {
-    if (!e) return;
-    const { name, value } = e.target;
+  const handleFormChange = (event) => {
+    if (!event) return;
+    const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const openCreateModal = () => {
+    if (isDelegate) return;
+
     setTeamToEdit(null);
     setForm(initialForm);
     handleClearImage();
@@ -452,10 +736,10 @@ export const useEquiposLogic = () => {
       contact_phone: team.contact_phone || "",
       status: team.status || initialForm.status,
       logo_url: team.logo_url || null,
-      original_logo_url: team.original_logo_url || null
+      original_logo_url: team.original_logo_url || null,
     });
     setFile(null);
-    setOriginalFile(null); 
+    setOriginalFile(null);
     setPreview(team.logo_url || null);
     setIsFormOpen(true);
   };
@@ -466,28 +750,69 @@ export const useEquiposLogic = () => {
   };
 
   const openDeleteConfirmation = (id) => {
+    if (isDelegate) return;
+
     setDeleteId(id);
     setIsDeleteModalOpen(true);
   };
 
+  const refreshDelegateRequestSummaries = () => {
+    setRequestSummaryRefreshKey((current) => current + 1);
+  };
+
+  const delegateRequestOverview = visibleTeams.reduce(
+    (summary, team) => {
+      const requestSummary =
+        team?.delegateRequestSummary || createEmptyDelegateRequestSummary();
+
+      if (requestSummary.pendingCount > 0) {
+        summary.pendingTeamsCount += 1;
+        summary.pendingCount += requestSummary.pendingCount;
+      }
+
+      if (requestSummary.latestReviewedStatus === "applied") {
+        summary.approvedTeamsCount += 1;
+      }
+
+      if (requestSummary.latestReviewedStatus === "rejected") {
+        summary.rejectedTeamsCount += 1;
+      }
+
+      return summary;
+    },
+    {
+      pendingCount: 0,
+      pendingTeamsCount: 0,
+      approvedTeamsCount: 0,
+      rejectedTeamsCount: 0,
+    }
+  );
+
   return {
     data: {
-      equipos,
-      loading,
+      equipos: visibleTeams,
+      loading: visibleLoading,
       selectedDivision: effectiveDivision,
       uploading,
-      participatingIds
+      participatingIds,
+      accessRole: profile?.role || null,
+      canCreateTeams: !isDelegate,
+      canDeleteTeams: !isDelegate,
+      canTransferTeams: !isDelegate,
+      canInviteDelegates: !isDelegate,
+      requestSummariesLoading,
+      delegateRequestOverview,
     },
     form: {
       data: form,
       file,
-      originalFile, 
+      originalFile,
       preview,
       handleChange: handleFormChange,
       handleFileChange,
       handleClearImage,
       handleGenerateLogo,
-      handleRemoveBg
+      handleRemoveBg,
     },
     modals: {
       isFormOpen,
@@ -497,7 +822,7 @@ export const useEquiposLogic = () => {
       isDeleteModalOpen,
       setIsDeleteModalOpen,
       teamToEdit,
-      teamToView
+      teamToView,
     },
     actions: {
       handleSave,
@@ -505,7 +830,8 @@ export const useEquiposLogic = () => {
       openCreateModal,
       openEditModal,
       openDetailModal,
-      openDeleteConfirmation
-    }
+      openDeleteConfirmation,
+      refreshDelegateRequestSummaries,
+    },
   };
 };

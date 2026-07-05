@@ -9,31 +9,23 @@ export function Liga({ state, setState }) {
     <LigaTemplate
       state={state}
       setState={setState}
-
       loading={logicState.loading}
-      standings={logicState.standings}
-      division={logicState.allDivisions[0]}
-      season={logicState.season}
       leagueData={logicState.leagueData}
-      allDivisions={logicState.allDivisions}
       referees={logicState.referees}
-      
+      delegateRequests={logicState.delegateRequests}
+      delegateRequestsLoading={logicState.delegateRequestsLoading}
       onUpdateLeague={actions.handleUpdateLeague}
-      
-      // -- NUEVAS PROPS DE CATEGORÍA --
       onAddCategory={actions.handleAddCategory}
       onEditCategory={actions.handleEditCategory}
       onDeleteCategory={actions.handleDeleteCategory}
-
-      // -- DIVISIONES --
       onAddDivision={actions.handleAddDivision}
       onEditDivision={actions.handleEditDivision}
       onDeleteDivision={actions.handleDeleteDivision}
-      
-      // -- ÁRBITROS --
       onAddReferee={actions.handleAddReferee}
       onEditReferee={actions.handleEditReferee}
       onDeleteReferee={actions.handleDeleteReferee}
+      onReviewDelegateRequest={actions.handleReviewDelegateRequest}
+      onRefreshDelegateRequests={actions.refreshDelegateRequests}
     />
   );
 }

@@ -8,12 +8,13 @@ export function TeamForm({
   onSave, 
   isUploading, 
   preview, 
-  file, 
   originalFile,
   onFileChange, 
   onClearImage, 
   showToast, 
-  teamToEdit 
+  teamToEdit,
+  allowStatusEdit = true,
+  saveLabel = "Guardar Equipo",
 }) {
   const containerRef = useRef(null);
   const colorTextRef = useRef(null);
@@ -49,7 +50,7 @@ export function TeamForm({
             originalUrl={teamToEdit?.original_logo_url || teamToEdit?.logo_url} 
             originalFile={originalFile} 
             
-            onImageSelect={(croppedFile, originalFile, newPreviewUrl) => { 
+            onImageSelect={(croppedFile, originalFile) => { 
                 onFileChange({ 
                     target: { files: [croppedFile] }, 
                     original: originalFile 
@@ -96,16 +97,23 @@ export function TeamForm({
         </div>
         <div>
           <span className="label">Estado</span>
-          <SelectStyled name="status" value={form.status} onChange={onFormChange}>
-            <option value="Activo">Activo</option>
-            <option value="Inactivo">Inactivo</option>
-            <option value="Suspendido">Suspendido</option>
-          </SelectStyled>
+          {allowStatusEdit ? (
+            <SelectStyled name="status" value={form.status} onChange={onFormChange}>
+              <option value="Activo">Activo</option>
+              <option value="Inactivo">Inactivo</option>
+              <option value="Suspendido">Suspendido</option>
+            </SelectStyled>
+          ) : (
+            <ReadonlyField>
+              <strong>{form.status || "Activo"}</strong>
+              <span>Solo el manager puede cambiar el estado del equipo.</span>
+            </ReadonlyField>
+          )}
         </div>
       </div>
       
       <div className="actions">
-        <Btnsave titulo={isUploading ? "Guardando..." : "Guardar Equipo"} bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} disabled={isUploading} width="100%"/>
+        <Btnsave titulo={isUploading ? "Guardando..." : saveLabel} bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} disabled={isUploading} width="100%"/>
       </div>
     </FormContainer>
   );
@@ -196,4 +204,24 @@ const SelectStyled = styled.select`
   color: ${({theme}) => theme.text}; 
   font-family: inherit; 
   outline: none;
+`;
+
+const ReadonlyField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 15px;
+  background: ${({ theme }) => theme.bgtotal};
+  border: 2px solid ${({ theme }) => theme.color2};
+
+  strong {
+    font-size: 0.95rem;
+  }
+
+  span {
+    font-size: 0.78rem;
+    opacity: 0.72;
+    line-height: 1.35;
+  }
 `;

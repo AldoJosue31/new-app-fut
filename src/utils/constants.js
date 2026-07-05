@@ -3,6 +3,7 @@
 export const ROLES = {
   ADMIN: 'admin',
   MANAGER: 'manager',
+  DELEGATE: 'delegate',
   PLAYER: 'player'
 };
 
