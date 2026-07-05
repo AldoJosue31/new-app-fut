@@ -5,7 +5,7 @@ import { v } from "../../styles/variables";
 export const landingCopy = {
   nav: {
     logoText: "Bracket App",
-    logoImg: v.logo, // <--- Inyectamos el logo real de public/logo_app.png
+    logoImg: v.logo,
     links: [
       { label: "Plataforma", href: "#producto" },
       { label: "Proceso", href: "#como-funciona" },
@@ -22,7 +22,8 @@ export const landingCopy = {
     eyebrow: "",
     titleLine1: "Gestiona tu liga de fútbol",
     titleAccent: "sin complicaciones",
-    subtitle: "Automatiza torneos, controla equipos y publica estadísticas en tiempo real. La herramienta definitiva para dirigentes de fútbol.",
+    subtitle:
+      "Automatiza torneos, controla equipos y publica estadísticas en tiempo real. La herramienta definitiva para dirigentes de fútbol.",
     ctaPrimary: "Crear mi liga gratis",
     ctaSecondary: "Inicia sesión",
     stats: [
@@ -35,10 +36,26 @@ export const landingCopy = {
     eyebrow: "",
     title: "Control total de tu torneo",
     items: [
-      { icon: "trophy", title: "Torneos", text: "Formatos personalizados, liguillas y repechajes automáticos." },
-      { icon: "team", title: "Equipos", text: "Plantillas, transferencias y control de dorsales centralizado." },
-      { icon: "calendar", title: "Partidos", text: "Resultados, goles y cédulas listas para imprimir." },
-      { icon: "chart", title: "Estadísticas", text: "Tabla general y goleadores en tiempo real." },
+      {
+        icon: "trophy",
+        title: "Torneos",
+        text: "Formatos personalizados, liguillas y repechajes automáticos.",
+      },
+      {
+        icon: "team",
+        title: "Equipos",
+        text: "Plantillas, transferencias y control de dorsales centralizado.",
+      },
+      {
+        icon: "calendar",
+        title: "Partidos",
+        text: "Resultados, goles y cédulas listas para imprimir.",
+      },
+      {
+        icon: "chart",
+        title: "Estadísticas",
+        text: "Tabla general y goleadores en tiempo real.",
+      },
     ],
   },
   howItWorks: {
@@ -54,20 +71,33 @@ export const landingCopy = {
     eyebrow: "",
     title: "Olvídate de las hojas de cálculo",
     cards: [
-      { icon: "shield", title: "Multi-división", text: "Administra múltiples categorías desde un solo panel." },
-      { icon: "savings", title: "Escalable", text: "La plataforma crece al ritmo de tu liga." },
-      { icon: "chart-up", title: "Datos Seguros", text: "Respaldo en la nube y acceso desde cualquier dispositivo." },
+      {
+        icon: "shield",
+        title: "Multi-división",
+        text: "Administra múltiples categorías desde un solo panel.",
+      },
+      {
+        icon: "savings",
+        title: "Escalable",
+        text: "La plataforma crece al ritmo de tu liga.",
+      },
+      {
+        icon: "chart-up",
+        title: "Datos Seguros",
+        text: "Respaldo en la nube y acceso desde cualquier dispositivo.",
+      },
     ],
   },
   testimonial: {
-    quote: "Antes gestionaba la liga con Excel y WhatsApp. Con Bracket App todo está en un solo lugar y mis equipos saben qué pasa en tiempo real. Cambió mi forma de dirigir.",
+    quote:
+      "Antes gestionaba la liga con Excel y WhatsApp. Con Bracket App todo está en un solo lugar y mis equipos saben qué pasa en tiempo real. Cambió mi forma de dirigir.",
     author: "Aldo García",
     role: "Administrador de Liga",
   },
   pricing: {
     eyebrow: "",
     title: "Precios transparentes",
-    subtitle: "Paga solo por las divisiones que necesitas.",
+    subtitle: "Elige el plan ideal para tu liga y paga solo por las divisiones que necesitas.",
     cycles: {
       monthly: { key: "monthly", label: "Mensual", note: "Pago cada mes" },
       semester: { key: "semester", label: "Semestral", note: "Pago cada 6 meses" },
@@ -77,9 +107,94 @@ export const landingCopy = {
     ctaLabel: "Elegir plan",
     currency: "MXN",
     plans: [
-      { id: "basico", name: "BÁSICO", badge: "1", divisions: "1 División", prices: { monthly: { amount: 600 }, semester: { amount: 3300, save: 300, percent: "8.3%" }, annual: { amount: 6000, save: 1200, percent: "16.7%" } }, features: ["Gestión de 1 división", "Plantillas ilimitadas", "Estadísticas básicas", "Soporte estándar"] },
-      { id: "intermedio", name: "INTERMEDIO", badge: "2", divisions: "2 Divisiones", prices: { monthly: { amount: 1050 }, semester: { amount: 5100, save: 400, percent: "6.3%" }, annual: { amount: 10800, save: 1800, percent: "14.3%" } }, features: ["Gestión de 2 divisiones", "Plantillas ilimitadas", "Estadísticas avanzadas", "Cédulas de juego", "Soporte prioritario"] },
-      { id: "profesional", name: "PROFESIONAL", badge: "3", divisions: "3 Divisiones", highlight: true, prices: { monthly: { amount: 1450 }, semester: { amount: 8000, save: 700, percent: "8.0%" }, annual: { amount: 15000, save: 2400, percent: "13.8%" } }, features: ["Gestión de 3 divisiones", "Plantillas ilimitadas", "Estadísticas avanzadas", "Cédulas de juego", "Exportación a PDF", "Soporte 24/7"] },
+      {
+        id: "basico",
+        name: "BÁSICO",
+        badge: "1",
+        divisions: "1 División",
+        prices: {
+          monthly: { amount: 600 },
+          semester: { amount: 3300, save: 300, percent: "8.3%" },
+          annual: { amount: 6000, save: 1200, percent: "16.7%" },
+        },
+        features: ["Gestión de 1 división", "Plantillas ilimitadas", "Estadísticas básicas", "Soporte estándar"],
+      },
+      {
+        id: "intermedio",
+        name: "INTERMEDIO",
+        badge: "2",
+        divisions: "2 Divisiones",
+        prices: {
+          monthly: { amount: 1050 },
+          semester: { amount: 5100, save: 400, percent: "6.3%" },
+          annual: { amount: 10800, save: 1800, percent: "14.3%" },
+        },
+        features: [
+          "Gestión de 2 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Soporte prioritario",
+        ],
+      },
+      {
+        id: "profesional",
+        name: "PROFESIONAL",
+        badge: "3",
+        divisions: "3 Divisiones",
+        highlight: true,
+        prices: {
+          monthly: { amount: 1450 },
+          semester: { amount: 8000, save: 700, percent: "8.0%" },
+          annual: { amount: 15000, save: 2400, percent: "13.8%" },
+        },
+        features: [
+          "Gestión de 3 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Exportación a PDF",
+          "Soporte 24/7",
+        ],
+      },
+      {
+        id: "regional",
+        name: "REGIONAL",
+        badge: "4-5",
+        divisions: "4 a 5 Divisiones",
+        prices: {
+          monthly: { amount: 1900 },
+          semester: { amount: 10500, save: 900, percent: "7.9%" },
+          annual: { amount: 19500, save: 3300, percent: "14.5%" },
+        },
+        features: [
+          "Gestión de 4 a 5 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Exportación a PDF",
+          "Soporte prioritario",
+        ],
+      },
+      {
+        id: "elite",
+        name: "ÉLITE",
+        badge: "6-8",
+        divisions: "6 a 8 Divisiones",
+        prices: {
+          monthly: { amount: 2600 },
+          semester: { amount: 14500, save: 1100, percent: "7.1%" },
+          annual: { amount: 27000, save: 4200, percent: "13.9%" },
+        },
+        features: [
+          "Gestión de 6 a 8 divisiones",
+          "Plantillas ilimitadas",
+          "Estadísticas avanzadas",
+          "Cédulas de juego",
+          "Exportación a PDF",
+          "Soporte 24/7",
+        ],
+      },
     ],
     finePrint: "Precios en MXN. IVA incluido.",
   },
