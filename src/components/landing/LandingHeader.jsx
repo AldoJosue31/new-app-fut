@@ -7,12 +7,35 @@ import { landingCopy } from "../../pages/landing/copy";
 export default function LandingHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { rootMargin: "-100px 0px -60% 0px" }
+    );
+
+    const ids = ["top", ...landingCopy.nav.links.map(l => l.href.replace("#", ""))];
+    
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -68,22 +91,46 @@ export default function LandingHeader() {
           </span>
         </a>
 
-        <nav className="lp-nav-desktop" style={{ display: "flex", gap: 20 }}>
-          {landingCopy.nav.links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="lp-nav-link"
-              style={{
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: 14,
-                color: "var(--lp-text-muted)"
-              }}
-            >
-              {l.label}
-            </a>
-          ))}
+        <nav className="lp-nav-desktop" style={{ display: "flex", gap: 24 }}>
+          {landingCopy.nav.links.map((l) => {
+            const id = l.href.replace("#", "");
+            const isActive = activeSection === id;
+            return (
+              <a
+                key={l.href}
+                href={l.href}
+                className="lp-nav-link"
+                style={{
+                  position: "relative",
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: isActive ? "var(--lp-primary)" : "var(--lp-text-muted)",
+                  padding: "4px 0",
+                  transition: "color 200ms ease"
+                }}
+              >
+                {l.label}
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-indicator"
+                    style={{
+                      position: "absolute",
+                      bottom: -2,
+                      left: 0,
+                      right: 0,
+                      margin: "0 auto",
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      backgroundColor: "var(--lp-primary)",
+                    }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </a>
+            );
+          })}
         </nav>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
