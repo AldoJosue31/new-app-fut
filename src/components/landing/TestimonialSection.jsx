@@ -219,6 +219,9 @@ const QuoteText = styled.p`
   line-height: 1.65;
   font-style: italic;
   margin: 0 0 32px;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
   animation: ${fadeIn} 0.4s ease;
 `;
 

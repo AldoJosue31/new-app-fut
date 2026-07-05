@@ -88,7 +88,9 @@ export default function FAQSection() {
 
                   <FaqAnswer isopen={isOpen ? "true" : undefined}>
                     <div className="answer-inner">
-                      <p>{item.a}</p>
+                      <div className="answer-content">
+                        <p>{item.a}</p>
+                      </div>
                     </div>
                   </FaqAnswer>
                 </FaqItem>
@@ -227,14 +229,18 @@ const FaqChevron = styled.span`
 `;
 
 const FaqAnswer = styled.div`
-  max-height: ${({ isopen }) => isopen ? "300px" : "0"};
-  overflow: hidden;
-  transition: max-height 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  display: grid;
+  grid-template-rows: ${({ isopen }) => isopen ? "1fr" : "0fr"};
+  transition: grid-template-rows 350ms cubic-bezier(0.16, 1, 0.3, 1);
 
   .answer-inner {
+    overflow: hidden;
+  }
+  
+  .answer-content {
     padding: 0 24px 20px 58px;
     animation: ${({ isopen }) => isopen ? expandAnim : "none"} 0.3s ease;
-
+    
     p {
       font-size: 15px;
       color: var(--lp-text-muted);

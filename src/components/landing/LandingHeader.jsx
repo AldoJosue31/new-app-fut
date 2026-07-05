@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
@@ -16,16 +16,19 @@ export default function LandingHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const isClickScrolling = useRef(false);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
+        if (isClickScrolling.current) return;
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             setActiveSection(entry.target.id);
           }
         });
       },
-      { rootMargin: "-100px 0px -60% 0px" }
+      { rootMargin: "-80px 0px -40% 0px" }
     );
 
     const ids = ["top", ...landingCopy.nav.links.map(l => l.href.replace("#", ""))];
@@ -71,6 +74,11 @@ export default function LandingHeader() {
         {/* LOGO REAL INYECTADO AQUÍ */}
         <a
           href="#top"
+          onClick={() => {
+            setActiveSection("top");
+            isClickScrolling.current = true;
+            setTimeout(() => { isClickScrolling.current = false; }, 800);
+          }}
           className="lp-brand-link"
           style={{
             display: "flex",
@@ -99,6 +107,11 @@ export default function LandingHeader() {
               <a
                 key={l.href}
                 href={l.href}
+                onClick={() => {
+                  setActiveSection(id);
+                  isClickScrolling.current = true;
+                  setTimeout(() => { isClickScrolling.current = false; }, 800);
+                }}
                 className="lp-nav-link"
                 style={{
                   position: "relative",

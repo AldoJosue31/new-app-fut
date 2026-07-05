@@ -76,6 +76,7 @@ export default function PricingSection() {
             const price = plan.prices[cycle];
             return (
               <motion.div
+                layout
                 key={plan.id}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -88,7 +89,9 @@ export default function PricingSection() {
                 )}
 
                 <div className="lp-plan-header">
-                  <div className="lp-plan-shield">{plan.badge}</div>
+                  <div className="lp-plan-shield">
+                    <Icon icon={plan.icon || "mdi:shield-star"} width={22} />
+                  </div>
                   <div>
                     <div className="lp-plan-name">{plan.name}</div>
                     <div className="lp-plan-divisions">{plan.divisions}</div>
@@ -203,9 +206,9 @@ export default function PricingSection() {
 
         .landing-scope .lp-plans-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 20px;
-          max-width: 1040px;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 16px;
+          max-width: 100%;
           margin: 0 auto;
         }
         
@@ -277,14 +280,13 @@ export default function PricingSection() {
         }
         .landing-scope .lp-plan-shield {
           width: 44px;
-          height: 50px;
+          height: 44px;
+          border-radius: 50%;
           background: linear-gradient(135deg, var(--lp-forest), var(--lp-grass));
-          clip-path: polygon(50% 0, 100% 20%, 100% 75%, 50% 100%, 0 75%, 0 20%);
-          display: grid;
-          place-items: center;
+          display: flex;
+          justify-content: center;
+          align-items: center;
           color: var(--lp-gold-bright);
-          font-weight: 900;
-          font-size: 14px;
           flex-shrink: 0;
         }
         .landing-scope .lp-plan-name {
@@ -302,6 +304,10 @@ export default function PricingSection() {
           padding: 12px 0 8px;
           border-top: 1px solid rgba(212, 175, 55, 0.15);
           border-bottom: 1px solid rgba(212, 175, 55, 0.08);
+          min-height: 94px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
         .landing-scope .lp-plan-amount {
           display: flex;
@@ -344,7 +350,10 @@ export default function PricingSection() {
           border-radius: 999px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1200px) {
+          .landing-scope .lp-plans-grid { grid-template-columns: repeat(3, 1fr); max-width: 900px; }
+        }
+        @media (max-width: 800px) {
           .landing-scope .lp-plans-grid { grid-template-columns: repeat(2, 1fr); max-width: 700px; }
         }
         @media (max-width: 720px) {

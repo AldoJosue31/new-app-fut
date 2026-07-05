@@ -110,7 +110,7 @@ export const landingCopy = {
       {
         id: "basico",
         name: "BÁSICO",
-        badge: "1",
+        icon: "mdi:leaf",
         divisions: "1 División",
         prices: {
           monthly: { amount: 600 },
@@ -122,7 +122,7 @@ export const landingCopy = {
       {
         id: "intermedio",
         name: "INTERMEDIO",
-        badge: "2",
+        icon: "mdi:star-four-points",
         divisions: "2 Divisiones",
         prices: {
           monthly: { amount: 1050 },
@@ -140,7 +140,7 @@ export const landingCopy = {
       {
         id: "profesional",
         name: "PROFESIONAL",
-        badge: "3",
+        icon: "mdi:shield-star",
         divisions: "3 Divisiones",
         highlight: true,
         prices: {
@@ -160,7 +160,7 @@ export const landingCopy = {
       {
         id: "regional",
         name: "REGIONAL",
-        badge: "4-5",
+        icon: "mdi:trophy",
         divisions: "4 a 5 Divisiones",
         prices: {
           monthly: { amount: 1900 },
@@ -179,7 +179,7 @@ export const landingCopy = {
       {
         id: "elite",
         name: "ÉLITE",
-        badge: "6-8",
+        icon: "mdi:crown",
         divisions: "6 a 8 Divisiones",
         prices: {
           monthly: { amount: 2600 },
