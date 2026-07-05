@@ -77,7 +77,9 @@ export default function FeaturesStrip() {
                 <DetailList>
                   {detail.preview.map((d) => (
                     <li key={d}>
-                      <CheckIcon accentcolor={detail.color}>✓</CheckIcon>
+                      <CheckIcon accentcolor={detail.color}>
+                        <Icon icon="mdi:check-bold" width={14} />
+                      </CheckIcon>
                       {d}
                     </li>
                   ))}
@@ -93,7 +95,7 @@ export default function FeaturesStrip() {
 
         {/* Banner informativo */}
         <InfoBanner>
-          <span className="ib-icon">⚡</span>
+          <span className="ib-icon"><Icon icon="mdi:lightning-bolt" /></span>
           <span className="ib-text">Todas las funciones disponibles desde el primer día, sin configuración técnica</span>
         </InfoBanner>
       </div>

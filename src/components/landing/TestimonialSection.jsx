@@ -1,6 +1,7 @@
 // src/components/landing/TestimonialSection.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
+import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
 const TESTIMONIALS = [
@@ -69,7 +70,7 @@ export default function TestimonialSection() {
             {/* Stars */}
             <Stars>
               {Array.from({ length: t.stars }).map((_, i) => (
-                <span key={i}>★</span>
+                <span key={i}><Icon icon="mdi:star" /></span>
               ))}
             </Stars>
 
@@ -84,7 +85,7 @@ export default function TestimonialSection() {
                 <span className="author-role">{t.role}</span>
               </AuthorInfo>
               <LeaguePill>
-                🏆 {t.league}
+                <Icon icon="mdi:trophy" width={14} /> {t.league}
               </LeaguePill>
             </AuthorRow>
 

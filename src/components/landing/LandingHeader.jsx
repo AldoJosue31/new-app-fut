@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
+import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
 export default function LandingHeader() {
@@ -176,7 +177,7 @@ export default function LandingHeader() {
             }}
             aria-label="Menú"
           >
-            ☰
+            <Icon icon="mdi:menu" width={24} />
           </button>
         </div>
       </div>

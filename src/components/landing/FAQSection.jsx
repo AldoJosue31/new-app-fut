@@ -1,6 +1,7 @@
 // src/components/landing/FAQSection.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
+import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
 // FAQ ampliado con más preguntas ricas en contenido
@@ -8,32 +9,32 @@ const FAQ_EXTENDED = [
   {
     q: "¿Puedo cambiar de plan en cualquier momento?",
     a: "Sí, puedes ajustar tu plan en cualquier momento desde el panel de configuración. El cambio se aplica al siguiente ciclo de facturación. Si subes de plan, el acceso a las nuevas funciones es inmediato.",
-    icon: "💳",
+    icon: "mdi:credit-card",
   },
   {
     q: "¿Necesito tarjeta para empezar?",
     a: "No. Puedes crear tu cuenta y explorar la plataforma de forma gratuita durante el período de prueba sin ingresar ningún método de pago. Solo se solicita al momento de elegir un plan de pago.",
-    icon: "🆓",
+    icon: "mdi:gift",
   },
   {
     q: "¿Puedo compartir la tabla con mi afición?",
     a: "Sí. Cada liga genera un enlace público único que puedes compartir por WhatsApp, redes sociales o incluso pegar en una página web. La tabla se actualiza en tiempo real sin que los visitantes necesiten cuenta.",
-    icon: "🔗",
+    icon: "mdi:link-variant",
   },
   {
     q: "¿Cuántos equipos puedo registrar por división?",
     a: "No hay límite de equipos por división. Puedes registrar desde 4 hasta los que necesites. El sistema genera el calendario de forma automática independientemente del número de participantes.",
-    icon: "👥",
+    icon: "mdi:account-group",
   },
   {
     q: "¿Mis datos están seguros?",
     a: "Totalmente. Todos los datos se almacenan con cifrado de 256 bits en servidores en la nube con respaldo diario automático. Tú eres el dueño de tu información y puedes exportarla en cualquier momento.",
-    icon: "🔒",
+    icon: "mdi:lock",
   },
   {
     q: "¿Funciona en teléfono móvil?",
     a: "Sí, la plataforma está diseñada para ser 100% responsive. Puedes gestionar partidos, ver resultados y actualizar tablas desde cualquier teléfono o tableta sin necesidad de instalar ninguna aplicación.",
-    icon: "📱",
+    icon: "mdi:cellphone",
   },
 ];
 
@@ -81,7 +82,7 @@ export default function FAQSection() {
                     onClick={() => setOpenIdx(isOpen ? -1 : i)}
                     isopen={isOpen ? "true" : undefined}
                   >
-                    <FaqIcon>{item.icon}</FaqIcon>
+                    <FaqIcon><Icon icon={item.icon} /></FaqIcon>
                     <span className="q-text">{item.q}</span>
                     <FaqChevron isopen={isOpen ? "true" : undefined}>▾</FaqChevron>
                   </FaqBtn>
@@ -104,7 +105,7 @@ export default function FAQSection() {
               <h3>¿Sigues con dudas?</h3>
               <p>Nuestro equipo responde en menos de 24 horas hábiles.</p>
               <ContactBtn href="mailto:soporte@bracketapp.mx">
-                ✉️ Escríbenos
+                <Icon icon="mdi:email" width={18} /> Escríbenos
               </ContactBtn>
             </SideCard>
 
@@ -112,7 +113,7 @@ export default function FAQSection() {
               <h3>Demo gratuita</h3>
               <p>¿Quieres ver cómo funciona antes de registrarte? Agenda una demo con nosotros.</p>
               <ContactBtn href="/login" secondary>
-                📅 Agendar demo
+                <Icon icon="mdi:calendar" width={18} /> Agendar demo
               </ContactBtn>
             </SideCard>
 

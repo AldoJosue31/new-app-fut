@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { Link } from "react-router-dom";
+import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
 // --- CONTADOR ANIMADO ---
@@ -108,10 +109,10 @@ export default function HeroSection() {
 
             <ButtonGroup>
               <Link to="/login" className="lp-btn lp-btn-primary" id="hero-cta-primary">
-                {hero.ctaPrimary} <span className="arrow-icon">&#8594;</span>
+                {hero.ctaPrimary} <span className="arrow-icon"><Icon icon="mdi:arrow-right" /></span>
               </Link>
               <Link to="/login" className="lp-btn lp-btn-ghost" id="hero-cta-secondary">
-                &#9658; {hero.ctaSecondary}
+                <Icon icon="mdi:play" width={16} /> {hero.ctaSecondary}
               </Link>
             </ButtonGroup>
 
@@ -191,7 +192,7 @@ export default function HeroSection() {
                           </ScorerInfo>
                           <GoalCount>
                             <span className="num">{s.goals}</span>
-                            <span className="icon">&#9917;</span>
+                            <span className="icon"><Icon icon="mdi:soccer" /></span>
                           </GoalCount>
                         </ScorerRow>
                       ))}
@@ -202,7 +203,7 @@ export default function HeroSection() {
 
               {/* WIDGET NOTIFICACION */}
               <NotifCard>
-                <span className="n-icon">🏆</span>
+                <span className="n-icon"><Icon icon="mdi:trophy" /></span>
                 <div className="n-body">
                   <span className="n-title">¡Jornada 13 programada!</span>
                   <span className="n-sub">Dom &middot; 10:00 AM &middot; Campo Norte</span>

@@ -1,25 +1,26 @@
 // src/components/landing/BenefitsSection.jsx
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
+import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
 const BENEFIT_EXTRA = [
   {
-    icon: "🛡️",
+    icon: "mdi:shield-check",
     color: "#1CB0F6",
     bigStat: "100%",
     statLabel: "en la nube",
     bullets: ["Acceso desde cualquier dispositivo", "Sin instalar nada", "Backup automático diario", "Multi-usuario por liga"],
   },
   {
-    icon: "📈",
+    icon: "mdi:chart-line-up",
     color: "#2ed573",
     bigStat: "∞",
     statLabel: "escalabilidad",
     bullets: ["Crece sin límites de equipos", "Agrega divisiones fácilmente", "Historial permanente", "Datos históricos por temporada"],
   },
   {
-    icon: "🔒",
+    icon: "mdi:lock",
     color: "#EC4899",
     bigStat: "256",
     statLabel: "bits cifrado",
@@ -71,7 +72,7 @@ export default function BenefitsSection() {
                   <span className="stat-num">{b.bigStat}</span>
                   <span className="stat-label">{b.statLabel}</span>
                 </BigStat>
-                <BenIcon>{b.icon}</BenIcon>
+                <BenIcon><Icon icon={b.icon} /></BenIcon>
               </BenCardTop>
 
               <BenCardBody>
