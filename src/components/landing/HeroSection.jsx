@@ -156,9 +156,9 @@ export default function HeroSection() {
                   ))}
                 </TabRow>
 
-                <TabContent>
+                <TabContent $noPadding={activeTab === 0}>
                   {activeTab === 0 ? (
-                    <div style={{ width: "100%", overflowX: "hidden" }}>
+                    <div className="hero-table-wrapper" style={{ width: "100%", overflowX: "hidden" }}>
                       <RealStandingsTable tablaGeneral={STANDINGS} config={tableConfig} isPublic={true} hideBottomInfo={true} />
                     </div>
                   ) : (
@@ -292,6 +292,19 @@ const HeroWrapper = styled.section`
     right: auto !important;
     z-index: 10 !important;
     min-width: 260px !important;
+  }
+
+  .hero-table-wrapper #standings-table-card {
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: none !important;
+  }
+  
+  .hero-table-wrapper th,
+  .hero-table-wrapper td {
+    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
   }
   padding: clamp(120px, 15vh, 150px) 0 clamp(60px, 10vh, 100px);
   overflow: hidden;
@@ -461,7 +474,7 @@ const RightColumn = styled.div`
 const VisualContainer = styled.div`
   position: relative;
   width: 100%;
-  max-width: 500px;
+  max-width: 650px;
   transition: transform 0.08s linear;
 
   .inner-glow {
@@ -534,7 +547,7 @@ const TabBtn = styled.button`
 `;
 
 const TabContent = styled.div`
-  padding: 16px;
+  padding: ${({ $noPadding }) => $noPadding ? "0" : "16px"};
   background: var(--lp-surface);
   min-height: 200px;
 `;
