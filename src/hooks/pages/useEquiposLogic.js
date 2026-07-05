@@ -12,6 +12,7 @@ import { getDivisionWorkspace } from "../../services/divisionWorkspace";
 import { uploadImageToSupabase } from "../../utils/uploadHandler";
 import {
   getDelegateAssignments,
+  getTeamDelegateBindings,
   getTeamDelegateRequestSummaries,
   submitDelegateChangeRequest,
 } from "../../services/delegates";
@@ -116,8 +117,10 @@ export const useEquiposLogic = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [participatingIds, setParticipatingIds] = useState([]);
+  const [teamDelegateBindings, setTeamDelegateBindings] = useState({});
   const [teamRequestSummaries, setTeamRequestSummaries] = useState({});
   const [requestSummariesLoading, setRequestSummariesLoading] = useState(false);
+  const [delegateBindingRefreshKey, setDelegateBindingRefreshKey] = useState(0);
   const [requestSummaryRefreshKey, setRequestSummaryRefreshKey] = useState(0);
 
   const initialForm = {
@@ -166,6 +169,9 @@ export const useEquiposLogic = () => {
   const visibleTeams = Array.isArray(rawVisibleTeams)
     ? rawVisibleTeams.map((team) => ({
         ...team,
+        delegateAssignment: isDelegate
+          ? team.delegateAssignment || null
+          : teamDelegateBindings[team.id] || null,
         delegateRequestSummary:
           teamRequestSummaries[team.id] || createEmptyDelegateRequestSummary(),
       }))
@@ -315,6 +321,43 @@ export const useEquiposLogic = () => {
       ignore = true;
     };
   }, [profile?.role, requestSummaryRefreshKey, visibleTeamIdsKey]);
+
+  useEffect(() => {
+    if (isDelegate) {
+      setTeamDelegateBindings({});
+      return;
+    }
+
+    let ignore = false;
+    const teamIds = visibleTeamIdsKey ? JSON.parse(visibleTeamIdsKey) : [];
+
+    if (!teamIds.length) {
+      setTeamDelegateBindings({});
+      return () => {
+        ignore = true;
+      };
+    }
+
+    const loadTeamDelegateBindings = async () => {
+      try {
+        const bindings = await getTeamDelegateBindings(teamIds);
+        if (!ignore) {
+          setTeamDelegateBindings(bindings);
+        }
+      } catch (error) {
+        if (!ignore) {
+          console.error("Error cargando delegados vinculados:", error);
+          setTeamDelegateBindings({});
+        }
+      }
+    };
+
+    loadTeamDelegateBindings();
+
+    return () => {
+      ignore = true;
+    };
+  }, [delegateBindingRefreshKey, isDelegate, visibleTeamIdsKey]);
 
   useEffect(() => {
     return () => {
@@ -756,8 +799,55 @@ export const useEquiposLogic = () => {
     setIsDeleteModalOpen(true);
   };
 
+  const updateManagerTeamSnapshot = (teamId, patch = {}) => {
+    if (!teamId) return;
+
+    const currentTeam =
+      equipos.find((team) => team.id === teamId) ||
+      teamToEdit ||
+      teamToView ||
+      null;
+
+    if (currentTeam) {
+      updateEquipoLocal({ ...currentTeam, ...patch });
+    }
+
+    setTeamToEdit((current) =>
+      current?.id === teamId ? { ...current, ...patch } : current
+    );
+    setTeamToView((current) =>
+      current?.id === teamId ? { ...current, ...patch } : current
+    );
+  };
+
   const refreshDelegateRequestSummaries = () => {
     setRequestSummaryRefreshKey((current) => current + 1);
+  };
+
+  const refreshDelegateBindings = () => {
+    setDelegateBindingRefreshKey((current) => current + 1);
+  };
+
+  const handleDelegateLinkStateChanged = ({
+    teamId,
+    delegateName,
+    contactPhone,
+    delegateAssignment = null,
+  }) => {
+    if (!teamId) return;
+
+    updateManagerTeamSnapshot(teamId, {
+      delegate_name: delegateName,
+      contact_phone: contactPhone,
+      delegateAssignment,
+    });
+
+    setTeamDelegateBindings((current) => ({
+      ...current,
+      [teamId]: delegateAssignment,
+    }));
+
+    refreshDelegateBindings();
   };
 
   const delegateRequestOverview = visibleTeams.reduce(
@@ -831,6 +921,7 @@ export const useEquiposLogic = () => {
       openEditModal,
       openDetailModal,
       openDeleteConfirmation,
+      handleDelegateLinkStateChanged,
       refreshDelegateRequestSummaries,
     },
   };

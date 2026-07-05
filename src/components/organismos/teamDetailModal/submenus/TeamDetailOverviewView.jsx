@@ -1,4 +1,6 @@
 import React from "react";
+import styled from "styled-components";
+import { BiBadgeCheck } from "react-icons/bi";
 import {
   RiShieldUserLine,
   RiSmartphoneLine,
@@ -6,7 +8,6 @@ import {
   RiUserFollowLine,
 } from "react-icons/ri";
 import { Skeleton } from "../../../atomos/Skeleton";
-import { v } from "../../../../styles/variables";
 import { TeamLogo } from "../TeamLogo";
 import {
   Banner,
@@ -28,6 +29,9 @@ export function TeamDetailOverviewView({
   onShowStats,
   team,
 }) {
+  const isLinkedDelegate = Boolean(team?.delegateAssignment?.delegate_profile_id);
+  const delegateLabel = team?.delegate_name || "No registrado";
+
   return (
     <OverviewView>
       <Banner $color={team.color || "#1f2937"}>
@@ -47,7 +51,14 @@ export function TeamDetailOverviewView({
           </IconBox>
           <div>
             <span className="label">Delegado</span>
-            <p className="value">{team.delegate_name || "No registrado"}</p>
+            {isLinkedDelegate ? (
+              <VerifiedDelegatePill>
+                <BiBadgeCheck />
+                <span>{delegateLabel}</span>
+              </VerifiedDelegatePill>
+            ) : (
+              <ManualDelegateValue className="value">{delegateLabel}</ManualDelegateValue>
+            )}
           </div>
         </InfoItem>
 
@@ -98,7 +109,7 @@ export function TeamDetailOverviewView({
         ) : (
           <InfoItem>
             <IconBox>
-              <v.iconoemijivacio />
+              <RiShieldUserLine />
             </IconBox>
             <div>
               <span className="label">Estado</span>
@@ -112,3 +123,29 @@ export function TeamDetailOverviewView({
     </OverviewView>
   );
 }
+
+const ManualDelegateValue = styled.p`
+  margin: 0;
+  color: #8b95a7;
+  font-size: 0.95rem;
+  font-weight: 600;
+`;
+
+const VerifiedDelegatePill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.94));
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 700;
+
+  svg {
+    color: #1cb0f6;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+`;

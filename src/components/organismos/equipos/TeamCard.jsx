@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
+import { BiBadgeCheck } from "react-icons/bi";
 import {
   RiCheckboxCircleLine,
   RiCloseCircleLine,
@@ -50,6 +51,8 @@ export function TeamCard({
   const hasActions = true;
   const tournamentBadgeVisible = isParticipating ? showTournamentMode : false;
   const requestSummary = team?.delegateRequestSummary || null;
+  const isLinkedDelegate = Boolean(team?.delegateAssignment?.delegate_profile_id);
+  const delegateLabel = team?.delegate_name || "Sin delegado";
   const requestBadges = [];
 
   if (requestSummary?.pendingCount > 0) {
@@ -170,10 +173,17 @@ export function TeamCard({
 
       <div className="card-body">
         <h3>{team.name}</h3>
-        <div className="info-row">
+        <DelegateRow $linked={isLinkedDelegate}>
           <v.iconoUser className="icon" />
-          <span>{team.delegate_name || "Sin delegado"}</span>
-        </div>
+          {isLinkedDelegate ? (
+            <VerifiedDelegatePill>
+              <BiBadgeCheck />
+              <span>{delegateLabel}</span>
+            </VerifiedDelegatePill>
+          ) : (
+            <ManualDelegateText>{delegateLabel}</ManualDelegateText>
+          )}
+        </DelegateRow>
         <div className="info-row"><span>Telefono: {team.contact_phone || "--"}</span></div>
         {requestBadges.length > 0 && (
           <RequestBadgeRow>
@@ -237,6 +247,50 @@ const CardContainer = styled.div`
       font-size: 0.85rem;
       margin-bottom: 6px;
     }
+  }
+`;
+
+const DelegateRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+
+  .icon {
+    color: ${({ $linked, theme }) => ($linked ? "#8bd6ff" : theme.text)};
+    opacity: ${({ $linked }) => ($linked ? 1 : 0.55)};
+  }
+`;
+
+const ManualDelegateText = styled.span`
+  color: #8b95a7;
+  font-size: 0.85rem;
+  font-weight: 600;
+`;
+
+const VerifiedDelegatePill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 700;
+
+  svg {
+    flex-shrink: 0;
+    color: #1cb0f6;
+    font-size: 1rem;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;
 

@@ -18,13 +18,46 @@ const createDelegateRequestSummary = () => ({
   latestReviewedAt: null,
   latestReviewNotes: null,
 });
+const getAccessToken = async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    throw new Error("No hay una sesion activa para realizar esta accion.");
+  }
+
+  return accessToken;
+};
+
+const callAuthenticatedEndpoint = async (path, method, payload = {}) => {
+  const accessToken = await getAccessToken();
+  const response = await fetch(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(data?.error || "No se pudo completar la operacion.");
+    error.status = response.status;
+    throw error;
+  }
+
+  return data;
+};
 
 export const getDelegateAssignments = async (delegateProfileId) => {
   if (!delegateProfileId) return [];
 
   const { data: assignmentRows, error: assignmentError } = await supabase
     .from("team_delegates")
-    .select("team_id, assigned_at, assigned_by")
+    .select("team_id, delegate_profile_id, assigned_at, assigned_by")
     .eq("delegate_profile_id", delegateProfileId)
     .order("assigned_at", { ascending: false });
 
@@ -94,19 +127,26 @@ export const getActiveDelegateInvitation = async (teamId) => {
     .maybeSingle();
 
   if (error) throw error;
-  return data || null;
+  if (!data) return null;
+
+  return {
+    ...data,
+    invited_phone: data?.metadata?.invited_phone || null,
+  };
 };
 
 export const createDelegateInvitation = async ({
   teamId,
   invitedName,
   invitedEmail,
+  invitedPhone,
   expiresAt = null,
 }) => {
   const { data, error } = await supabase.rpc("create_delegate_invitation", {
     p_team_id: teamId,
     p_invited_name: invitedName || null,
     p_invited_email: invitedEmail || null,
+    p_invited_phone: invitedPhone || null,
     p_expires_at: expiresAt,
   });
 
@@ -129,13 +169,33 @@ export const getDelegateInvitation = async (token) => {
   return parseRpcResponse("get_delegate_invitation", data, error);
 };
 
-export const acceptDelegateInvitation = async (token, userId) => {
+export const acceptDelegateInvitation = async (token, userId, contactPhone = null) => {
   const { data, error } = await supabase.rpc("procesar_invitacion_delegate", {
     p_token: token,
     p_user_id: userId,
+    p_contact_phone: contactPhone || null,
   });
 
   return parseRpcResponse("procesar_invitacion_delegate", data, error);
+};
+
+export const getTeamDelegateBindings = async (teamIds = []) => {
+  const normalizedTeamIds = unique(teamIds);
+  if (!normalizedTeamIds.length) return {};
+
+  const { data, error } = await supabase
+    .from("team_delegates")
+    .select("team_id, delegate_profile_id, assigned_at, assigned_by")
+    .in("team_id", normalizedTeamIds);
+
+  if (error) throw error;
+
+  return Object.fromEntries(
+    normalizedTeamIds.map((teamId) => [
+      teamId,
+      data?.find((assignment) => assignment.team_id === teamId) || null,
+    ])
+  );
 };
 
 export const submitDelegateChangeRequest = async ({
@@ -265,3 +325,12 @@ export const getTeamDelegateRequestSummaries = async (teamIds = []) => {
 
   return summaries;
 };
+
+export const unlinkTeamDelegateService = async ({
+  teamId,
+  deleteAccount = true,
+}) =>
+  callAuthenticatedEndpoint("/api/delegates/unlink", "POST", {
+    teamId,
+    deleteAccount,
+  });

@@ -1,10 +1,27 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
-import { BiCheckCircle, BiErrorCircle, BiShieldQuarter, BiUser } from "react-icons/bi";
-import { Card, Btnsave, InputText2, Title, ToggleTema, Modal, Toast } from "../../index";
+import {
+  BiCheckCircle,
+  BiErrorCircle,
+  BiPhone,
+  BiShieldQuarter,
+  BiUser,
+} from "react-icons/bi";
+import {
+  Card,
+  Btnsave,
+  InputText2,
+  Title,
+  ToggleTema,
+  Modal,
+  Toast,
+} from "../../index";
 import { supabase } from "../../supabase/supabase.config";
-import { acceptDelegateInvitation, getDelegateInvitation } from "../../services/delegates";
+import {
+  acceptDelegateInvitation,
+  getDelegateInvitation,
+} from "../../services/delegates";
 import { v } from "../../styles/variables";
 
 export function RegisterDelegateTemplate({ token }) {
@@ -20,6 +37,7 @@ export function RegisterDelegateTemplate({ token }) {
     fullName: "",
     email: "",
     password: "",
+    contactPhone: "",
   });
 
   useEffect(() => {
@@ -35,6 +53,7 @@ export function RegisterDelegateTemplate({ token }) {
           ...current,
           fullName: invitation.invited_name || current.fullName,
           email: invitation.invited_email || current.email,
+          contactPhone: invitation.invited_phone || current.contactPhone,
         }));
       } catch (error) {
         if (!ignore) {
@@ -50,7 +69,7 @@ export function RegisterDelegateTemplate({ token }) {
     if (token) {
       validate();
     } else {
-      setErrorMsg("Invitación inválida.");
+      setErrorMsg("Invitacion invalida.");
       setIsValidating(false);
     }
 
@@ -100,14 +119,17 @@ export function RegisterDelegateTemplate({ token }) {
         throw new Error("No se pudo crear la cuenta del delegado.");
       }
 
-      await acceptDelegateInvitation(token, authData.user.id);
+      await acceptDelegateInvitation(token, authData.user.id, form.contactPhone);
       setShowSuccessModal(true);
     } catch (error) {
       let message = error.message;
 
-      if (message === "User already registered" || message?.includes("User already registered")) {
+      if (
+        message === "User already registered" ||
+        message?.includes("User already registered")
+      ) {
         message =
-          "Ese correo ya existe. Inicia sesión con esa cuenta y luego pide al manager que te asigne manualmente o use otro correo.";
+          "Ese correo ya existe. Inicia sesion con esa cuenta y luego pide al manager que te asigne manualmente o use otro correo.";
       }
 
       setToast({ show: true, message, type: "error" });
@@ -117,7 +139,11 @@ export function RegisterDelegateTemplate({ token }) {
   };
 
   if (isValidating) {
-    return <FullScreenContainer><p>Validando invitación...</p></FullScreenContainer>;
+    return (
+      <FullScreenContainer>
+        <p>Validando invitacion...</p>
+      </FullScreenContainer>
+    );
   }
 
   if (errorMsg) {
@@ -126,7 +152,7 @@ export function RegisterDelegateTemplate({ token }) {
         <Card maxWidth="420px">
           <ErrorState>
             <BiErrorCircle size={52} color={v.rojo} />
-            <h3>Enlace inválido</h3>
+            <h3>Enlace invalido</h3>
             <p>{errorMsg}</p>
             <Btnsave titulo="Ir al inicio" funcion={() => navigate("/")} bgcolor={v.rojo} />
           </ErrorState>
@@ -155,8 +181,17 @@ export function RegisterDelegateTemplate({ token }) {
         </Header>
 
         <InvitationInfo>
-          <div className="line"><BiShieldQuarter /> Liga: <b>{invitationData.league_name}</b></div>
-          <div className="line"><BiUser /> Equipo: <b>{invitationData.team_name}</b></div>
+          <div className="line">
+            <BiShieldQuarter /> Liga: <b>{invitationData.league_name}</b>
+          </div>
+          <div className="line">
+            <BiUser /> Equipo: <b>{invitationData.team_name}</b>
+          </div>
+          {invitationData.invited_phone && (
+            <div className="line">
+              <BiPhone /> Telefono sugerido: <b>{invitationData.invited_phone}</b>
+            </div>
+          )}
         </InvitationInfo>
 
         <Form onSubmit={handleRegister}>
@@ -182,7 +217,7 @@ export function RegisterDelegateTemplate({ token }) {
               value={form.email}
               onChange={handleChange}
             />
-            <label className="form__label">Correo Electrónico</label>
+            <label className="form__label">Correo Electronico</label>
           </InputText2>
 
           <InputText2>
@@ -196,12 +231,24 @@ export function RegisterDelegateTemplate({ token }) {
               value={form.password}
               onChange={handleChange}
             />
-            <label className="form__label">Contraseña</label>
+            <label className="form__label">Contrasena</label>
+          </InputText2>
+
+          <InputText2>
+            <input
+              type="tel"
+              className="form__field"
+              name="contactPhone"
+              placeholder=" "
+              value={form.contactPhone}
+              onChange={handleChange}
+            />
+            <label className="form__label">Telefono (Opcional)</label>
           </InputText2>
 
           <HintText>
-            Tu cuenta quedará ligada a <b>{invitationData.team_name}</b> para cargar jugadores,
-            actualizar datos del equipo y consultar su actividad.
+            Tu cuenta quedara ligada a <b>{invitationData.team_name}</b> para cargar
+            jugadores, actualizar datos del equipo y consultar su actividad.
           </HintText>
 
           <Btnsave
@@ -221,9 +268,11 @@ export function RegisterDelegateTemplate({ token }) {
         title="Cuenta creada"
       >
         <SuccessContent>
-          <div className="icon-success"><BiCheckCircle /></div>
+          <div className="icon-success">
+            <BiCheckCircle />
+          </div>
           <h3>Delegado activado</h3>
-          <p>Tu acceso ya quedó listo para entrar a la app.</p>
+          <p>Tu acceso ya quedo listo para entrar a la app.</p>
 
           <div className="countdown-container">
             <span className="text">Redirigiendo al login en</span>

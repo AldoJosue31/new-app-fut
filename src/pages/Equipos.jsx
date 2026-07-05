@@ -51,6 +51,7 @@ export function Equipos({ state, setState }) {
       onCreate={actions.openCreateModal}
       onEdit={actions.openEditModal}
       onView={actions.openDetailModal}
+      onDelegateLinkStateChanged={actions.handleDelegateLinkStateChanged}
       onDelegateRequestSubmitted={actions.refreshDelegateRequestSummaries}
     />
   );

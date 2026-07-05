@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
 import styled from "styled-components";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { RiFileList3Line, RiGroupLine } from "react-icons/ri";
@@ -17,7 +17,6 @@ import {
   PlayerManager,
   Card,
   BtnGreen,
-  DelegateInviteModal,
 } from "../../index";
 import { Modal } from "../organismos/Modal";
 import { ConfirmModal } from "../organismos/ConfirmModal";
@@ -50,6 +49,7 @@ export const EquiposTemplate = ({
   onCreate,
   onEdit,
   onConfirmDelete,
+  onDelegateLinkStateChanged,
   onDelegateRequestSubmitted,
   tabs,
   participatingIds = [],
@@ -59,7 +59,6 @@ export const EquiposTemplate = ({
   canCreateTeams = true,
   canDeleteTeams = true,
   canTransferTeams = true,
-  canInviteDelegates = true,
   requestSummariesLoading = false,
   delegateRequestOverview = {
     pendingCount: 0,
@@ -107,9 +106,10 @@ export const EquiposTemplate = ({
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [teamToTransfer, setTeamToTransfer] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "success" });
-  const [isDelegateInviteOpen, setIsDelegateInviteOpen] = useState(false);
-  const [teamToInvite, setTeamToInvite] = useState(null);
   const hasOpenedCreateRouteRef = useRef(false);
+  const detailScrollPositionRef = useRef(0);
+  const pendingDetailScrollPreserveOnOpenRef = useRef(false);
+  const pendingDetailScrollRestoreRef = useRef(false);
   const { divisiones } = useDivisionStore();
 
   const showToast = (msg, type = "success") =>
@@ -127,6 +127,7 @@ export const EquiposTemplate = ({
       const suffix = teamId ? `/${teamId}` : "";
       navigate(`/division/${division.id}/equipos${suffix}`, {
         replace: true,
+        preventScrollReset: true,
         state: location.state,
       });
     }
@@ -162,12 +163,37 @@ export const EquiposTemplate = ({
     }
   }, [isFormOpen]);
 
+  useLayoutEffect(() => {
+    if (teamFromUrl && pendingDetailScrollPreserveOnOpenRef.current) {
+      pendingDetailScrollPreserveOnOpenRef.current = false;
+      window.scrollTo({
+        top: detailScrollPositionRef.current,
+        left: 0,
+        behavior: "auto",
+      });
+      return;
+    }
+
+    if (teamFromUrl || !pendingDetailScrollRestoreRef.current) return;
+
+    pendingDetailScrollRestoreRef.current = false;
+    window.scrollTo({
+      top: detailScrollPositionRef.current,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [teamFromUrl]);
+
   const handleViewTeam = (team) => {
-    navigate(getEquiposPath(team.id));
+    detailScrollPositionRef.current =
+      window.scrollY || document.documentElement.scrollTop || 0;
+    pendingDetailScrollPreserveOnOpenRef.current = true;
+    navigate(getEquiposPath(team.id), { preventScrollReset: true });
   };
 
   const handleCloseDetail = () => {
-    navigate(getEquiposPath());
+    pendingDetailScrollRestoreRef.current = true;
+    navigate(getEquiposPath(), { preventScrollReset: true });
   };
 
   const handleOpenCreate = () => {
@@ -221,11 +247,6 @@ export const EquiposTemplate = ({
     } catch (error) {
       showToast("Error: " + error.message, "error");
     }
-  };
-
-  const handleOpenDelegateInvite = (team) => {
-    setTeamToInvite(team);
-    setIsDelegateInviteOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -326,11 +347,9 @@ export const EquiposTemplate = ({
                               setTeamToTransfer(currentTeam);
                               setIsTransferModalOpen(true);
                             }}
-                            onInviteDelegate={handleOpenDelegateInvite}
                             isParticipating={isParticipating}
                             showTransferAction={canTransferTeams}
                             showDeleteAction={canDeleteTeams}
-                            showInviteAction={canInviteDelegates}
                             requestStatusMode={isDelegateView ? "delegate" : "manager"}
                           />
                         );
@@ -400,6 +419,10 @@ export const EquiposTemplate = ({
                 showToast={showToast}
                 teamToEdit={teamToEdit}
                 allowStatusEdit={!isDelegateView}
+                canManageDelegateLink={!isDelegateView}
+                teamId={teamToEdit?.id || null}
+                linkedDelegateAssignment={teamToEdit?.delegateAssignment || null}
+                onDelegateLinkStateChanged={onDelegateLinkStateChanged}
                 saveLabel={isDelegateView ? "Enviar cambios" : "Guardar Equipo"}
               />
             </TabContent>
@@ -441,12 +464,6 @@ export const EquiposTemplate = ({
           onConfirm={handleConfirmDelete}
           title="Eliminar Equipo"
           message="Deseas eliminar este equipo?"
-        />
-
-        <DelegateInviteModal
-          isOpen={isDelegateInviteOpen}
-          onClose={() => setIsDelegateInviteOpen(false)}
-          team={teamToInvite}
         />
 
         <Toast
