@@ -5,6 +5,8 @@ import styled, { keyframes } from "styled-components";
 import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
+import RealStandingsTable from "../organismos/tabs/torneos/subcomponents/StandingsTable";
+import { Toast } from "../atomos/Toast";
 
 // --- CONTADOR ANIMADO ---
 function useCountUp(target, duration = 1800, shouldStart = false) {
@@ -54,11 +56,13 @@ function AnimatedStat({ value, label, delay = 0 }) {
 
 // --- DATOS DEMO ---
 const STANDINGS = [
-  { pos: 1, name: "Deportivo Sur", pj: 12, pts: 34, gf: 28, diff: "+18" },
-  { pos: 2, name: "Real Centro",   pj: 12, pts: 31, gf: 22, diff: "+11" },
-  { pos: 3, name: "Atletico FC",   pj: 12, pts: 28, gf: 19, diff: "+7"  },
-  { pos: 4, name: "Club Union",    pj: 12, pts: 20, gf: 14, diff: "-2"  },
+  { id: "1", nombre: "Deportivo Sur", pj: 12, pts: 34, gf: 28, gc: 10, g: 11, e: 1, p: 0, dg: 18, tendencia: 'same', posDiff: 0, color: "#1CB0F6", partidosPendientes: 0 },
+  { id: "2", nombre: "Real Centro",   pj: 12, pts: 31, gf: 22, gc: 11, g: 10, e: 1, p: 1, dg: 11, tendencia: 'up', posDiff: 1, color: "#FF6B6B", partidosPendientes: 0 },
+  { id: "3", nombre: "Atletico FC",   pj: 12, pts: 28, gf: 19, gc: 12, g: 9,  e: 1, p: 2, dg: 7,  tendencia: 'down', posDiff: 1, color: "#FFD700", partidosPendientes: 0 },
+  { id: "4", nombre: "Club Union",    pj: 12, pts: 20, gf: 14, gc: 16, g: 6,  e: 2, p: 4, dg: -2, tendencia: 'same', posDiff: 0, color: "#94a3b8", partidosPendientes: 0 },
 ];
+
+const tableConfig = { ascensos: 1, descensos: 0, zonaLiguilla: true, clasificados: 3, repechaje: 0, tieBreakType: 'normal' };
 
 const SCORERS = [
   { initials: "MG", name: "M. Gomez",   team: "Deportivo Sur", goals: 14, color: "#1CB0F6" },
@@ -154,32 +158,9 @@ export default function HeroSection() {
 
                 <TabContent>
                   {activeTab === 0 ? (
-                    <StandingsTable>
-                      <thead>
-                        <tr>
-                          <th>#</th><th>Equipo</th><th>PJ</th><th>PTS</th><th>GF</th><th>+/-</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {STANDINGS.map((row) => (
-                          <tr key={row.pos} className={row.pos === 1 ? "leader" : ""}>
-                            <td>
-                              <PosCell pos={row.pos}>{row.pos}</PosCell>
-                            </td>
-                            <td className="team-cell">
-                              <TeamDot teamcolor={row.pos === 1 ? "#1CB0F6" : row.pos === 2 ? "#FF6B6B" : row.pos === 3 ? "#FFD700" : "#94a3b8"} />
-                              {row.name}
-                            </td>
-                            <td>{row.pj}</td>
-                            <td><PtsBadge>{row.pts}</PtsBadge></td>
-                            <td>{row.gf}</td>
-                            <td>
-                              <DiffCell ispositive={!row.diff.startsWith("-") ? "true" : undefined}>{row.diff}</DiffCell>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </StandingsTable>
+                    <div style={{ width: "100%", overflowX: "hidden" }}>
+                      <RealStandingsTable tablaGeneral={STANDINGS} config={tableConfig} isPublic={true} hideBottomInfo={true} />
+                    </div>
                   ) : (
                     <ScorersList>
                       {SCORERS.map((s, i) => (
@@ -201,14 +182,15 @@ export default function HeroSection() {
                 </TabContent>
               </AppWindow>
 
-              {/* WIDGET NOTIFICACION */}
-              <NotifCard>
-                <span className="n-icon"><Icon icon="mdi:trophy" /></span>
-                <div className="n-body">
-                  <span className="n-title">¡Jornada 13 programada!</span>
-                  <span className="n-sub">Dom &middot; 10:00 AM &middot; Campo Norte</span>
-                </div>
-              </NotifCard>
+              <div className="hero-toast-wrapper">
+                <Toast 
+                  show={true} 
+                  message="Jornada 12 cerrada con éxito" 
+                  type="success" 
+                  duration={9999999} 
+                  onClose={() => {}} 
+                />
+              </div>
             </VisualContainer>
           </RightColumn>
         </HeroGrid>
@@ -300,6 +282,17 @@ const liveBlink = keyframes`
 // ─── ESTILOS ─────────────────────────────
 const HeroWrapper = styled.section`
   position: relative;
+  min-height: 100vh;
+  
+  .hero-toast-wrapper > div {
+    position: absolute !important;
+    top: auto !important;
+    bottom: -20px !important;
+    left: -30px !important;
+    right: auto !important;
+    z-index: 10 !important;
+    min-width: 260px !important;
+  }
   padding: clamp(120px, 15vh, 150px) 0 clamp(60px, 10vh, 100px);
   overflow: hidden;
   background: var(--lp-bg);
@@ -546,83 +539,6 @@ const TabContent = styled.div`
   min-height: 200px;
 `;
 
-const StandingsTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  thead tr th {
-    padding: 6px 8px;
-    text-align: left;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--lp-text-muted);
-  }
-
-  tbody tr {
-    border-radius: 8px;
-    transition: background 150ms;
-  }
-  tbody tr:hover { background: var(--lp-bg); }
-  tbody tr.leader td { font-weight: 700; }
-
-  tbody tr td {
-    padding: 8px;
-    color: var(--lp-text);
-    vertical-align: middle;
-  }
-  tbody tr td.team-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-`;
-
-const PosCell = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 800;
-  background: ${({ pos }) =>
-    pos === 1 ? "rgba(255, 215, 0, 0.2)" :
-    pos === 2 ? "rgba(192, 192, 192, 0.15)" :
-    pos === 3 ? "rgba(205, 127, 50, 0.15)" : "transparent"};
-  color: ${({ pos }) =>
-    pos === 1 ? "#FFD700" :
-    pos === 2 ? "#C0C0C0" :
-    pos === 3 ? "#CD7F32" : "var(--lp-text-muted)"};
-`;
-
-const TeamDot = styled.span`
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: ${({ teamcolor }) => teamcolor};
-  flex-shrink: 0;
-`;
-
-const PtsBadge = styled.span`
-  background: rgba(28, 176, 246, 0.12);
-  color: var(--lp-primary);
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: 13px;
-`;
-
-const DiffCell = styled.span`
-  font-weight: 700;
-  font-size: 12px;
-  color: ${({ ispositive }) => ispositive ? "#2ed573" : "#ff6b6b"};
-`;
 
 const ScorersList = styled.div`
   display: flex;
@@ -763,34 +679,3 @@ const LivePulse = styled.span`
   animation: ${liveBlink} 1s step-start infinite;
 `;
 
-const NotifCard = styled.div`
-  position: absolute;
-  bottom: -20px;
-  left: -16px;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--lp-surface);
-  border: 1px solid var(--lp-border);
-  border-radius: 14px;
-  padding: 12px 16px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.25);
-  animation: ${floatB} 6s ease-in-out infinite;
-  animation-delay: -1s;
-  max-width: 240px;
-
-  .n-icon { font-size: 22px; }
-  .n-body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .n-title { font-size: 13px; font-weight: 700; color: var(--lp-text); }
-  .n-sub   { font-size: 11px; color: var(--lp-text-muted); }
-
-  @media (max-width: 1024px) {
-    bottom: -10px;
-    left: 10px;
-  }
-`;
