@@ -5,7 +5,7 @@ export function ToggleTema() {
 
     return (
         <Container>
-            <div className="container">
+            <div className="toggle-wrapper">
                 <label className="toggle">
                     <input
                         id="switch"

@@ -138,7 +138,9 @@ export function Sidebar({ state, setState }) {
 
         {/* Opciones Comunes (Tema y Cerrar Sesión) */}
         <Divider />
-        <ToggleTema />
+        <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+          <ToggleTema />
+        </div>
         
         <div className={state ? "LinkContainer active" : "LinkContainer"}>
           <div className="Links" onClick={() => setShowLogoutModal(true)} style={{ cursor: "pointer" }}>
