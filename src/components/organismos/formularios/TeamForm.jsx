@@ -442,48 +442,55 @@ export function TeamForm({
   );
 
   const renderDelegateField = () => (
-    <div>
+    <div className="full-width">
       <span className="label">Delegado</span>
-      <DelegateFieldShell $linked={isLinkedDelegate} $withAction={canManageDelegateLink}>
-        <InputText2>
-          <input
-            className={`form__field ${isLinkedDelegate ? "delegate-linked" : ""}`}
-            name="delegate_name"
-            value={delegateInputDisplay}
-            onChange={onFormChange}
-            placeholder={isLinkedDelegate ? "Delegado vinculado" : "Nombre del delegado"}
-            readOnly={isLinkedDelegate}
-          />
-        </InputText2>
+      {isLinkedDelegate ? (
+        <LinkedDelegateContainer>
+          <div className="delegate-info">
+            <span className="delegate-name">{delegateInputDisplay}</span>
+            <BiBadgeCheck className="verified-icon" />
+          </div>
+          {canManageDelegateLink && (
+            <button
+              className="unlink-btn"
+              type="button"
+              onClick={toggleUnlinkConfirm}
+              title="Desvincular"
+            >
+              <BiUnlink />
+            </button>
+          )}
+        </LinkedDelegateContainer>
+      ) : (
+        <DelegateFieldShell $linked={false} $withAction={canManageDelegateLink}>
+          <InputText2>
+            <input
+              className="form__field"
+              name="delegate_name"
+              value={delegateInputDisplay}
+              onChange={onFormChange}
+              placeholder="Nombre del delegado"
+            />
+          </InputText2>
 
-        {canManageDelegateLink && (
-          <DelegateActionButton
-            type="button"
-            onClick={isLinkedDelegate ? toggleUnlinkConfirm : openInvitePanel}
-            $danger={isLinkedDelegate}
-          >
-            {isLinkedDelegate ? <BiUnlink /> : <BiQr />}
-            <span>{isLinkedDelegate ? "Desvincular" : "QR / Link"}</span>
-          </DelegateActionButton>
-        )}
-
-        {isLinkedDelegate && (
-          <VerifiedInlineBadge $withAction={canManageDelegateLink}>
-            <BiBadgeCheck />
-            <span>Vinculado</span>
-          </VerifiedInlineBadge>
-        )}
-      </DelegateFieldShell>
+          {canManageDelegateLink && (
+            <DelegateActionButton
+              type="button"
+              onClick={openInvitePanel}
+              $danger={false}
+            >
+              <BiQr />
+              <span>QR / Link</span>
+            </DelegateActionButton>
+          )}
+        </DelegateFieldShell>
+      )}
 
       {isLinkedDelegate ? (
         <HelperText $tone="verified">
-          Esta cuenta ya esta vinculada. Puedes desvincularla y eliminar su acceso desde aqui.
+          Delegado registrado y vinculado.
         </HelperText>
-      ) : delegateDisplayName ? (
-        <HelperText>
-          Mientras solo exista el nombre manual, se mostrara en gris hasta que el delegado se registre.
-        </HelperText>
-      ) : (
+      ) : delegateDisplayName ? null : (
         <HelperText>
           Escribe un nombre manual o usa QR / Link para que el delegado se vincule con cuenta propia.
         </HelperText>
@@ -581,7 +588,7 @@ export function TeamForm({
 
             {renderDelegateField()}
 
-            <div>
+            <div className="full-width">
               <span className="label">Telefono</span>
               <InputText2>
                 <input
@@ -646,6 +653,18 @@ const FormContainer = styled.form`
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-x: clip;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.bg4};
+    border-radius: 4px;
+  }
 
   .label {
     display: block;
@@ -735,7 +754,8 @@ const DelegateFieldShell = styled.div`
 
 const DelegateActionButton = styled.button`
   position: absolute;
-  top: 39px;
+  top: 50%;
+  transform: translateY(-50%);
   right: 12px;
   display: inline-flex;
   align-items: center;
@@ -752,7 +772,7 @@ const DelegateActionButton = styled.button`
   transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
 
   &:hover:not(:disabled) {
-    transform: translateY(-1px);
+    transform: translateY(-50%) scale(1.02);
     opacity: 0.94;
   }
 
@@ -782,8 +802,58 @@ const VerifiedInlineBadge = styled.div`
   }
 `;
 
+const LinkedDelegateContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background-color: ${({ theme }) => theme.bgtotal || "#ffffff"};
+  border: 1px solid ${({ theme }) => theme.color2 || "#e2e8f0"};
+  color: ${({ theme }) => theme.text};
+  min-height: 48px;
+  
+  .delegate-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .verified-icon {
+    color: #1cb0f6;
+    font-size: 1.2rem;
+  }
+
+  .unlink-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(231, 76, 60, 0.12);
+    color: #ff6b6b;
+    cursor: pointer;
+    transition: 0.2s;
+
+    &:hover {
+      background: #ff6b6b;
+      color: #fff;
+    }
+
+    svg {
+      font-size: 1.2rem;
+    }
+  }
+`;
+
 const HelperText = styled.p`
-  margin: -6px 0 0 0;
+  margin: 2px 0 0 0;
   color: ${({ $tone, theme }) => ($tone === "verified" ? "#8cd5ff" : theme.text)};
   font-size: 0.8rem;
   line-height: 1.45;
