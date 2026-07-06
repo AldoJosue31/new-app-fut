@@ -38,6 +38,8 @@ export function TeamDetailModal({
   const [delegateRequests, setDelegateRequests] = useState([]);
   const [loadingDelegateRequests, setLoadingDelegateRequests] = useState(false);
 
+  const initializedForTeamRef = useRef(null);
+
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const resultsRailRef = useRef(null);
   const upcomingRailRef = useRef(null);
@@ -114,6 +116,7 @@ export function TeamDetailModal({
 
   useEffect(() => {
     if (!isOpen) {
+      initializedForTeamRef.current = null;
       setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW);
       setActiveStatsTab("results");
       setPlayers([]);
@@ -126,6 +129,10 @@ export function TeamDetailModal({
     }
 
     if (!team) return;
+
+    // Si ya se inicializó para este equipo, no resetear (evita que cambiar de pestaña/ventana regrese a OVERVIEW)
+    if (initializedForTeamRef.current === team.id) return;
+    initializedForTeamRef.current = team.id;
 
     setDelegateRequests([]);
     setLoadingDelegateRequests(false);
