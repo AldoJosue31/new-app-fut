@@ -1,37 +1,52 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes, css } from "styled-components";
-import { v } from "../../../styles/variables";
-import { InputText2, Btnsave, PhotoUploader, InputNumber, Skeleton, ContainerScroll, useSort, SortControl } from "../../../index";
-import { Modal } from "../Modal"; 
-import { useJugadoresStore } from "../../../store/JugadoresStore";
-import { 
-    RiEditLine, RiDeleteBinLine, RiUserAddLine, 
-    RiArrowLeftLine, RiErrorWarningLine, RiArchiveLine,
-    RiEyeLine, RiEyeOffLine, RiRefreshLine
+import {
+  RiArchiveLine,
+  RiArrowLeftLine,
+  RiDeleteBinLine,
+  RiEditLine,
+  RiErrorWarningLine,
+  RiEyeLine,
+  RiEyeOffLine,
+  RiRefreshLine,
+  RiShieldCheckLine,
+  RiUserAddLine,
 } from "react-icons/ri";
-// IMPORTANTE: Importamos la utilidad de subida
+import { v } from "../../../styles/variables";
+import {
+  InputText2,
+  Btnsave,
+  PhotoUploader,
+  InputNumber,
+  Skeleton,
+  ContainerScroll,
+  useSort,
+  SortControl,
+} from "../../../index";
+import { Modal } from "../Modal";
+import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { uploadImageToSupabase } from "../../../utils/uploadHandler";
-import { supabase } from "../../../supabase/supabase.config";
+import { submitDelegateChangeRequest } from "../../../services/delegates";
 
 const POSITION_RANK = {
-    'Portero': 1, 'Defensa': 2, 'Medio': 3, 'Delantero': 4, 'No especificada': 5
+  Portero: 1,
+  Defensa: 2,
+  Medio: 3,
+  Delantero: 4,
+  "No especificada": 5,
 };
 
-const getCurrentOwnerId = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  if (!user?.id) throw new Error("No se pudo identificar al usuario actual");
-  return user.id;
-};
+const buildRequestKey = (prefix = "player") =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const uploadPlayerPhoto = async ({ file, originalFile, ownerId, leagueId, teamId, playerId }) => {
+const uploadPlayerPhoto = async ({ file, originalFile, leagueId, teamId, playerId }) => {
   if (!leagueId) throw new Error("No se pudo identificar la liga del jugador");
 
   return uploadImageToSupabase(
     file,
     originalFile,
     "logos",
-    `players/${ownerId}/${leagueId}/${teamId}/${playerId}`,
+    `players/${leagueId}/${teamId}/${playerId}`,
     {
       fileName: "crop.webp",
       originalFileName: "original.webp",
@@ -42,217 +57,411 @@ const uploadPlayerPhoto = async ({ file, originalFile, ownerId, leagueId, teamId
   );
 };
 
-export function PlayerManager({ teamId, leagueId, showToast }) {
-  const { 
-      jugadores, fetchJugadores, addJugador, updateJugador, 
-      deleteJugador, archivarJugador, restaurarJugador, isLoading 
+const uploadDelegatePlayerPhoto = async ({
+  file,
+  originalFile,
+  leagueId,
+  teamId,
+  playerId,
+  requestKey,
+}) => {
+  if (!leagueId) throw new Error("No se pudo identificar la liga del jugador");
+
+  const pathKey = playerId || requestKey;
+
+  return uploadImageToSupabase(
+    file,
+    originalFile,
+    "logos",
+    `players/${leagueId}/${teamId}/delegate-requests/${pathKey}`,
+    {
+      fileName: "crop.webp",
+      originalFileName: "original.webp",
+      upsert: true,
+      cacheBuster: true,
+      requireOriginal: true,
+    }
+  );
+};
+
+const buildPlayerPayload = ({
+  form,
+  photoUrl,
+  originalPhotoUrl,
+  isActive,
+}) => ({
+  first_name: form.first_name,
+  last_name: form.last_name,
+  dorsal: form.dorsal === "" ? null : Number(form.dorsal),
+  position: form.position || "No especificada",
+  birth_date: form.birth_date || null,
+  curp_dni: form.curp_dni || null,
+  photo_url: photoUrl,
+  original_photo_url: originalPhotoUrl,
+  is_active: isActive,
+});
+
+export function PlayerManager({
+  teamId,
+  leagueId,
+  showToast,
+  mode = "manager",
+  onDelegateRequestSubmitted,
+}) {
+  const {
+    jugadores,
+    fetchJugadores,
+    addJugador,
+    updateJugador,
+    deleteJugador,
+    archivarJugador,
+    restaurarJugador,
+    isLoading,
   } = useJugadoresStore();
 
-  const [view, setView] = useState("list"); 
+  const isDelegateMode = mode === "delegate";
+
+  const [view, setView] = useState("list");
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
-
-  // Modales
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isManualArchiveOpen, setIsManualArchiveOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictPlayer, setConflictPlayer] = useState(null);
-
-  // Form States
   const [preview, setPreview] = useState(null);
   const [croppedFile, setCroppedFile] = useState(null);
   const [originalFile, setOriginalFile] = useState(null);
-  
-  const initialForm = {
-    first_name: "", last_name: "", dorsal: "", position: "No especificada",
-    birth_date: "", curp_dni: "", photo_url: "", original_photo_url: ""
-  };
-  const [form, setForm] = useState(initialForm);
   const [dorsalError, setDorsalError] = useState("");
   const [shakeError, setShakeError] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const isSavingRef = useRef(false);
 
-  const { items: sortedPlayers, requestSort, sortConfig } = useSort(jugadores, { 
-      key: 'dorsal', direction: 'ascending' 
+  const initialForm = {
+    first_name: "",
+    last_name: "",
+    dorsal: "",
+    position: "No especificada",
+    birth_date: "",
+    curp_dni: "",
+    photo_url: "",
+    original_photo_url: "",
+  };
+
+  const [form, setForm] = useState(initialForm);
+
+  const { items: sortedPlayers, requestSort, sortConfig } = useSort(jugadores, {
+    key: "dorsal",
+    direction: "ascending",
   });
 
   const sortOptions = [
-      { label: "Dorsal", key: "dorsal" },
-      { label: "Nombre", key: "first_name" },
-      { label: "Posición", key: "position", customOrder: POSITION_RANK }
+    { label: "Dorsal", key: "dorsal" },
+    { label: "Nombre", key: "first_name" },
+    { label: "Posicion", key: "position", customOrder: POSITION_RANK },
   ];
 
   useEffect(() => {
     if (teamId) {
-        fetchJugadores(teamId, !showArchived);
+      fetchJugadores(teamId, !showArchived);
     }
-  }, [teamId, showArchived]);
+  }, [fetchJugadores, showArchived, teamId]);
 
   useEffect(() => {
     if (!form.dorsal || !jugadores.length || showArchived) {
-      setDorsalError(""); return;
+      setDorsalError("");
+      return;
     }
-    const duplicado = jugadores.find(p => 
-      p.dorsal == form.dorsal && (editingPlayer ? p.id !== editingPlayer.id : true)
+
+    const duplicado = jugadores.find(
+      (player) =>
+        player.dorsal == form.dorsal &&
+        (editingPlayer ? player.id !== editingPlayer.id : true)
     );
+
     if (duplicado) {
-      setDorsalError(`⚠️ Ocupado por ${duplicado.first_name}`);
+      setDorsalError(`Ocupado por ${duplicado.first_name}`);
     } else {
       setDorsalError("");
     }
-  }, [form.dorsal, jugadores, editingPlayer]);
+  }, [editingPlayer, form.dorsal, jugadores, showArchived]);
 
-  // --- HANDLERS ---
-  const handleToggleView = () => setShowArchived(!showArchived);
-  const handleInputChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  
+  const handleToggleView = () => setShowArchived((current) => !current);
+  const handleInputChange = (event) =>
+    setForm({ ...form, [event.target.name]: event.target.value });
+
   const handleImageSelect = (cropFile, original, previewUrl) => {
-    setCroppedFile(cropFile); 
-    setOriginalFile(original); 
+    setCroppedFile(cropFile);
+    setOriginalFile(original);
     setPreview(previewUrl);
   };
 
-  const handleEdit = (player) => {
-    setEditingPlayer(player); 
-    setForm({
-        ...player,
-        position: player.position || "No especificada",
-        original_photo_url: player.original_photo_url || "" 
-    }); 
-    setPreview(player.photo_url); 
+  const resetFormState = () => {
+    setEditingPlayer(null);
+    setForm(initialForm);
+    setPreview(null);
     setCroppedFile(null);
-    setOriginalFile(null); // No tenemos el archivo binario, solo la URL
+    setOriginalFile(null);
+  };
+
+  const handleEdit = (player) => {
+    setEditingPlayer(player);
+    setForm({
+      ...player,
+      position: player.position || "No especificada",
+      original_photo_url: player.original_photo_url || "",
+    });
+    setPreview(player.photo_url);
+    setCroppedFile(null);
+    setOriginalFile(null);
     setView("form");
   };
 
   const handleNew = () => {
-    setEditingPlayer(null); 
-    setForm(initialForm); 
-    setPreview(null); 
-    setCroppedFile(null); 
-    setOriginalFile(null); 
+    resetFormState();
     setView("form");
   };
 
-  const openDeleteModal = (player) => { setSelectedPlayer(player); setIsDeleteModalOpen(true); };
-  const openArchiveModal = (player) => { setSelectedPlayer(player); setIsManualArchiveOpen(true); };
+  const openDeleteModal = (player) => {
+    setSelectedPlayer(player);
+    setIsDeleteModalOpen(true);
+  };
+
+  const openArchiveModal = (player) => {
+    setSelectedPlayer(player);
+    setIsManualArchiveOpen(true);
+  };
+
+  const runDelegatePlayerAction = async ({ actionType, playerId = null, payload = {} }) => {
+    const result = await submitDelegateChangeRequest({
+      teamId,
+      entityType: "player",
+      actionType,
+      payload,
+      playerId,
+    });
+
+    if (result.status === "applied") {
+      await fetchJugadores(teamId, !showArchived);
+    }
+
+    onDelegateRequestSubmitted?.(result);
+
+    return result;
+  };
 
   const confirmManualArchive = async () => {
-      if(selectedPlayer) {
-          const result = await archivarJugador(selectedPlayer.id);
-          if(result.success) {
-              setIsManualArchiveOpen(false); setSelectedPlayer(null);
-              if(showToast) showToast("Jugador inhabilitado correctamente", "success");
-          } else { if(showToast) showToast("Error: " + result.message, "error"); }
+    if (!selectedPlayer) return;
+
+    try {
+      if (isDelegateMode) {
+        const result = await runDelegatePlayerAction({
+          actionType: "archive",
+          playerId: selectedPlayer.id,
+        });
+
+        showToast?.(
+          result.status === "pending"
+            ? "Solicitud enviada para inhabilitar jugador"
+            : "Jugador inhabilitado correctamente",
+          "success"
+        );
+      } else {
+        const result = await archivarJugador(selectedPlayer.id);
+        if (!result.success) {
+          throw new Error(result.message || "No se pudo inhabilitar.");
+        }
+
+        showToast?.("Jugador inhabilitado correctamente", "success");
       }
+
+      setIsManualArchiveOpen(false);
+      setSelectedPlayer(null);
+    } catch (error) {
+      showToast?.("Error: " + error.message, "error");
+    }
   };
 
   const handleRestore = async (player) => {
+    try {
+      if (isDelegateMode) {
+        const result = await runDelegatePlayerAction({
+          actionType: "restore",
+          playerId: player.id,
+        });
+
+        showToast?.(
+          result.status === "pending"
+            ? "Solicitud enviada para restaurar jugador"
+            : "Jugador restaurado",
+          "success"
+        );
+        return;
+      }
+
       const result = await restaurarJugador(player.id);
-      if(result.success) { if(showToast) showToast("Jugador restaurado", "success"); } 
-      else { if(showToast) showToast("Error: " + result.message, "error"); }
+      if (!result.success) throw new Error(result.message || "No se pudo restaurar.");
+      showToast?.("Jugador restaurado", "success");
+    } catch (error) {
+      showToast?.("Error: " + error.message, "error");
+    }
   };
 
   const confirmDelete = async () => {
-      if(selectedPlayer) {
-          const result = await deleteJugador(selectedPlayer.id);
-          if(result.success) {
-              setIsDeleteModalOpen(false); setSelectedPlayer(null);
-              if(showToast) showToast("Jugador eliminado", "success");
-          } else if (result.error === 'CONFLICT') {
-              setIsDeleteModalOpen(false); setConflictPlayer(selectedPlayer); setConflictModalOpen(true);
-          } else { if(showToast) showToast("Error: " + result.message, "error"); }
+    if (!selectedPlayer) return;
+
+    try {
+      const result = await deleteJugador(selectedPlayer.id);
+
+      if (result.success) {
+        setIsDeleteModalOpen(false);
+        setSelectedPlayer(null);
+        showToast?.("Jugador eliminado", "success");
+      } else if (result.error === "CONFLICT") {
+        setIsDeleteModalOpen(false);
+        setConflictPlayer(selectedPlayer);
+        setConflictModalOpen(true);
+      } else {
+        throw new Error(result.message || "No se pudo eliminar.");
       }
+    } catch (error) {
+      showToast?.("Error: " + error.message, "error");
+    }
   };
 
   const handleConflictArchive = async () => {
-      if (conflictPlayer) {
-          const result = await archivarJugador(conflictPlayer.id);
-          if (result.success) {
-              setConflictModalOpen(false); setConflictPlayer(null); setSelectedPlayer(null);
-              if(showToast) showToast("Jugador archivado", "success");
-          } else { if(showToast) showToast("Error: " + result.message, "error"); }
+    if (!conflictPlayer) return;
+
+    try {
+      const result = await archivarJugador(conflictPlayer.id);
+      if (!result.success) {
+        throw new Error(result.message || "No se pudo archivar.");
       }
+
+      setConflictModalOpen(false);
+      setConflictPlayer(null);
+      setSelectedPlayer(null);
+      showToast?.("Jugador archivado", "success");
+    } catch (error) {
+      showToast?.("Error: " + error.message, "error");
+    }
   };
 
-  // --- SUBMIT FORM CORREGIDO ---
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (dorsalError) { setShakeError(true); setTimeout(() => setShakeError(false), 500); return; }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (dorsalError) {
+      setShakeError(true);
+      setTimeout(() => setShakeError(false), 500);
+      return;
+    }
+
     if (isSavingRef.current) return;
     isSavingRef.current = true;
-    
     setIsUploading(true);
 
     try {
-      let finalPhotoUrl = form.photo_url;
-      let finalOriginalUrl = form.original_photo_url;
-      const ownerId = croppedFile ? await getCurrentOwnerId() : null;
+      let finalPhotoUrl = form.photo_url || null;
+      let finalOriginalUrl = form.original_photo_url || null;
 
-      
-      // Si el usuario limpió la imagen
       if (!croppedFile && !preview && !form.photo_url) {
-          finalPhotoUrl = null;
-          finalOriginalUrl = null;
+        finalPhotoUrl = null;
+        finalOriginalUrl = null;
       }
 
-      const payload = { 
-          ...form, 
-          birth_date: form.birth_date || null, 
-          team_id: teamId, 
-          photo_url: finalPhotoUrl,
-          original_photo_url: finalOriginalUrl // Guardamos la URL original
-      };
-
-      if (editingPlayer) {
+      if (isDelegateMode) {
         if (croppedFile) {
-          const { url, originalUrl } = await uploadPlayerPhoto({
+          const uploadResult = await uploadDelegatePlayerPhoto({
             file: croppedFile,
             originalFile,
-            ownerId,
             leagueId,
             teamId,
-            playerId: editingPlayer.id,
+            playerId: editingPlayer?.id || null,
+            requestKey: buildRequestKey(editingPlayer ? "update" : "insert"),
           });
 
-          payload.photo_url = url;
-          payload.original_photo_url = originalUrl;
+          finalPhotoUrl = uploadResult.url;
+          finalOriginalUrl = uploadResult.originalUrl;
         }
 
-        await updateJugador(editingPlayer.id, payload);
-        if(showToast) showToast("Jugador actualizado", "success");
-      } else {
-        const savedPlayer = await addJugador(payload);
+        const payload = buildPlayerPayload({
+          form,
+          photoUrl: finalPhotoUrl,
+          originalPhotoUrl: finalOriginalUrl,
+          isActive: true,
+        });
 
-        if (croppedFile) {
-          try {
+        const result = await runDelegatePlayerAction({
+          actionType: editingPlayer ? "update" : "insert",
+          playerId: editingPlayer?.id || null,
+          payload,
+        });
+
+        showToast?.(
+          result.status === "pending"
+            ? "Cambio enviado a aprobacion del manager"
+            : editingPlayer
+              ? "Jugador actualizado"
+              : "Jugador creado",
+          "success"
+        );
+      } else {
+        const payload = {
+          ...form,
+          birth_date: form.birth_date || null,
+          team_id: teamId,
+          photo_url: finalPhotoUrl,
+          original_photo_url: finalOriginalUrl,
+        };
+
+        if (editingPlayer) {
+          if (croppedFile) {
             const { url, originalUrl } = await uploadPlayerPhoto({
               file: croppedFile,
               originalFile,
-              ownerId,
               leagueId,
               teamId,
-              playerId: savedPlayer.id,
+              playerId: editingPlayer.id,
             });
 
-            await updateJugador(savedPlayer.id, {
-              photo_url: url,
-              original_photo_url: originalUrl,
-            });
-          } catch (uploadError) {
-            await deleteJugador(savedPlayer.id);
-            throw uploadError;
+            payload.photo_url = url;
+            payload.original_photo_url = originalUrl;
           }
-        }
 
-        if(showToast) showToast("Jugador creado", "success");
+          await updateJugador(editingPlayer.id, payload);
+          showToast?.("Jugador actualizado", "success");
+        } else {
+          const savedPlayer = await addJugador(payload);
+
+          if (croppedFile) {
+            try {
+              const { url, originalUrl } = await uploadPlayerPhoto({
+                file: croppedFile,
+                originalFile,
+                leagueId,
+                teamId,
+                playerId: savedPlayer.id,
+              });
+
+              await updateJugador(savedPlayer.id, {
+                photo_url: url,
+                original_photo_url: originalUrl,
+              });
+            } catch (uploadError) {
+              await deleteJugador(savedPlayer.id);
+              throw uploadError;
+            }
+          }
+
+          showToast?.("Jugador creado", "success");
+        }
       }
+
+      resetFormState();
       setView("list");
-    } catch (err) {
-      if(showToast) showToast("Error al guardar: " + err.message, "error");
-      console.error(err);
+    } catch (error) {
+      showToast?.("Error al guardar: " + error.message, "error");
+      console.error(error);
     } finally {
       isSavingRef.current = false;
       setIsUploading(false);
@@ -260,169 +469,638 @@ export function PlayerManager({ teamId, leagueId, showToast }) {
   };
 
   const getOriginalUrlFromPreview = (url) => {
-      // Priorizamos la URL guardada en BD, si no intentamos inferirla
-      if (editingPlayer?.original_photo_url) return editingPlayer.original_photo_url;
-      if (!url) return null;
-      if (url.includes("_crop")) return url.replace("_crop", "_original");
-      return url; 
+    if (editingPlayer?.original_photo_url) return editingPlayer.original_photo_url;
+    if (!url) return null;
+    if (url.includes("_crop")) return url.replace("_crop", "_original");
+    return url;
   };
 
-  // --- RENDER LIST ---
   if (view === "list") {
     return (
       <Container>
         <div className="header-actions">
-          <h3>{showArchived ? "Inhabilitados" : `Plantilla (${jugadores.length})`}</h3>
-          <div style={{display: 'flex', gap: '10px'}}>
-              <BtnToggle onClick={handleToggleView} $active={showArchived}>
-                  {showArchived ? <RiEyeLine /> : <RiEyeOffLine />}
-                  <span>{showArchived ? "Ver Activos" : "Ver Inhabilitados"}</span>
-              </BtnToggle>
-              {!showArchived && (
-                  <BtnSmall onClick={handleNew}><RiUserAddLine /> <span>Agregar</span></BtnSmall>
-              )}
+          <div className="header-copy">
+            <h3>{showArchived ? "Inhabilitados" : `Plantilla (${jugadores.length})`}</h3>
+            {isDelegateMode && (
+              <DelegateHint>
+                <RiShieldCheckLine />
+                <span>Los cambios del delegado pasan por el flujo de aprobacion de la liga.</span>
+              </DelegateHint>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <BtnToggle onClick={handleToggleView} $active={showArchived}>
+              {showArchived ? <RiEyeLine /> : <RiEyeOffLine />}
+              <span>{showArchived ? "Ver Activos" : "Ver Inhabilitados"}</span>
+            </BtnToggle>
+            {!showArchived && (
+              <BtnSmall onClick={handleNew}>
+                <RiUserAddLine /> <span>Agregar</span>
+              </BtnSmall>
+            )}
           </div>
         </div>
 
         {!isLoading && jugadores.length > 0 && (
-            <SortControl options={sortOptions} currentSort={sortConfig} onSortChange={requestSort} />
+          <SortControl
+            options={sortOptions}
+            currentSort={sortConfig}
+            onSortChange={requestSort}
+          />
         )}
 
         <ContainerScroll $maxHeight="400px">
-        <ListContainer>
-        {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ padding: 10, display: 'flex', gap: 15, alignItems: 'center' }}>
-               <Skeleton type="circle" width="40px" height="40px" />
-               <div style={{flex: 1, display:'flex', flexDirection:'column', gap: 5}}>
-                  <Skeleton width="60%" height="14px" /> <Skeleton width="40%" height="10px" />
-               </div>
-            </div>
-          ))
-        ) : (
-            sortedPlayers.map((p) => (
-              <PlayerRow key={p.id} $isArchived={showArchived}>
-                <div className="info">
-                  <img src={p.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"} alt="foto" />
-                  <div>
-                  <span className="name">{p.first_name} {p.last_name}</span>
-                    <span className="details">#{p.dorsal} - {p.position || "No especificada"}</span>
+          <ListContainer>
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  style={{ padding: 10, display: "flex", gap: 15, alignItems: "center" }}
+                >
+                  <Skeleton type="circle" width="40px" height="40px" />
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+                    <Skeleton width="60%" height="14px" />
+                    <Skeleton width="40%" height="10px" />
                   </div>
                 </div>
-                <div className="actions">
-                  {showArchived ? (
-                      <button className="btn-icon restore" onClick={() => handleRestore(p)} title="Restaurar"><RiRefreshLine /></button>
-                  ) : (
+              ))
+            ) : (
+              sortedPlayers.map((player) => (
+                <PlayerRow key={player.id} $isArchived={showArchived}>
+                  <div className="info">
+                    <img
+                      src={player.photo_url || "https://i.ibb.co/5vgZ0fX/hombre.png"}
+                      alt="foto"
+                    />
+                    <div>
+                      <span className="name">
+                        {player.first_name} {player.last_name}
+                      </span>
+                      <span className="details">
+                        #{player.dorsal} - {player.position || "No especificada"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="actions">
+                    {showArchived ? (
+                      <button
+                        className="btn-icon restore"
+                        onClick={() => handleRestore(player)}
+                        title="Restaurar"
+                      >
+                        <RiRefreshLine />
+                      </button>
+                    ) : (
                       <>
-                          <button className="btn-icon edit" onClick={() => handleEdit(p)}><RiEditLine /></button>
-                          <button className="btn-icon archive" onClick={() => openArchiveModal(p)} title="Inhabilitar"><RiArchiveLine /></button>
-                          <button className="btn-icon delete" onClick={() => openDeleteModal(p)} title="Eliminar"><RiDeleteBinLine /></button>
+                        <button
+                          className="btn-icon edit"
+                          onClick={() => handleEdit(player)}
+                          title="Editar"
+                        >
+                          <RiEditLine />
+                        </button>
+                        <button
+                          className="btn-icon archive"
+                          onClick={() => openArchiveModal(player)}
+                          title="Inhabilitar"
+                        >
+                          <RiArchiveLine />
+                        </button>
+                        {!isDelegateMode && (
+                          <button
+                            className="btn-icon delete"
+                            onClick={() => openDeleteModal(player)}
+                            title="Eliminar"
+                          >
+                            <RiDeleteBinLine />
+                          </button>
+                        )}
                       </>
-                  )}
-                </div>
-              </PlayerRow>
-            ))
-        )}
-          {jugadores.length === 0 && !isLoading && (
+                    )}
+                  </div>
+                </PlayerRow>
+              ))
+            )}
+
+            {jugadores.length === 0 && !isLoading && (
               <p className="empty">No hay jugadores {showArchived ? "inhabilitados" : "activos"}.</p>
-          )}
-        </ListContainer>
+            )}
+          </ListContainer>
         </ContainerScroll>
 
-        <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Eliminar Jugador" width="400px">
-            <DeleteContent>
+        {!isDelegateMode && (
+          <>
+            <Modal
+              isOpen={isDeleteModalOpen}
+              onClose={() => setIsDeleteModalOpen(false)}
+              title="Eliminar Jugador"
+              width="400px"
+            >
+              <DeleteContent>
                 <div className="warning-icon"><RiErrorWarningLine /></div>
-                <p>¿Eliminar a <b>{selectedPlayer?.first_name}</b>? <br/><span className="sub">Irreversible.</span></p>
+                <p>
+                  Eliminar a <b>{selectedPlayer?.first_name}</b>?
+                  <br />
+                  <span className="sub">Irreversible.</span>
+                </p>
                 <div className="modal-actions">
-                    <button className="cancel" onClick={() => setIsDeleteModalOpen(false)}>Cancelar</button>
-                    <button className="confirm" onClick={confirmDelete}>Eliminar</button>
+                  <button className="cancel" onClick={() => setIsDeleteModalOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button className="confirm" onClick={confirmDelete}>
+                    Eliminar
+                  </button>
                 </div>
-            </DeleteContent>
-        </Modal>
+              </DeleteContent>
+            </Modal>
 
-        <Modal isOpen={isManualArchiveOpen} onClose={() => setIsManualArchiveOpen(false)} title="Inhabilitar Jugador" width="400px">
-            <DeleteContent>
-                <div className="warning-icon" style={{color: '#f39c12'}}><RiArchiveLine /></div>
-                <p>¿Inhabilitar a <b>{selectedPlayer?.first_name}</b>? <br/><span className="sub">Se ocultará, pero guarda estadísticas.</span></p>
-                <div className="modal-actions">
-                    <button className="cancel" onClick={() => setIsManualArchiveOpen(false)}>Cancelar</button>
-                    <button className="archive" onClick={confirmManualArchive}>Inhabilitar</button>
+            <Modal
+              isOpen={conflictModalOpen}
+              onClose={() => setConflictModalOpen(false)}
+              title="No se puede eliminar"
+              width="450px"
+            >
+              <DeleteContent>
+                <div className="warning-icon" style={{ color: "#e67e22" }}>
+                  <RiErrorWarningLine />
                 </div>
-            </DeleteContent>
-        </Modal>
+                <p>El jugador <b>{conflictPlayer?.first_name}</b> tiene estadisticas.</p>
+                <p style={{ fontSize: "0.9rem", color: "#666", marginBottom: "20px" }}>
+                  Recomendamos <b>Archivar</b>.
+                </p>
+                <div className="modal-actions">
+                  <button className="cancel" onClick={() => setConflictModalOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button className="archive" onClick={handleConflictArchive}>
+                    <RiArchiveLine style={{ marginRight: 5 }} /> Archivar
+                  </button>
+                </div>
+              </DeleteContent>
+            </Modal>
+          </>
+        )}
 
-        <Modal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} title="¡No se puede eliminar!" width="450px">
-            <DeleteContent>
-                <div className="warning-icon" style={{color: '#e67e22'}}><RiErrorWarningLine /></div>
-                <p>El jugador <b>{conflictPlayer?.first_name}</b> tiene estadísticas.</p>
-                <p style={{fontSize: '0.9rem', color: '#666', marginBottom: '20px'}}>Recomendamos <b>Archivar</b>.</p>
-                <div className="modal-actions">
-                    <button className="cancel" onClick={() => setConflictModalOpen(false)}>Cancelar</button>
-                    <button className="archive" onClick={handleConflictArchive}><RiArchiveLine style={{marginRight: 5}}/> Archivar</button>
-                </div>
-            </DeleteContent>
+        <Modal
+          isOpen={isManualArchiveOpen}
+          onClose={() => setIsManualArchiveOpen(false)}
+          title="Inhabilitar Jugador"
+          width="400px"
+        >
+          <DeleteContent>
+            <div className="warning-icon" style={{ color: "#f39c12" }}>
+              <RiArchiveLine />
+            </div>
+            <p>
+              Inhabilitar a <b>{selectedPlayer?.first_name}</b>?
+              <br />
+              <span className="sub">Se ocultara, pero guarda estadisticas.</span>
+            </p>
+            <div className="modal-actions">
+              <button className="cancel" onClick={() => setIsManualArchiveOpen(false)}>
+                Cancelar
+              </button>
+              <button className="archive" onClick={confirmManualArchive}>
+                Inhabilitar
+              </button>
+            </div>
+          </DeleteContent>
         </Modal>
       </Container>
     );
   }
 
-  // --- RENDER FORM ---
   return (
     <Container>
       <div className="header-actions">
-        <button className="back-btn" onClick={() => setView("list")}><RiArrowLeftLine /> Volver</button>
+        <button className="back-btn" onClick={() => setView("list")}>
+          <RiArrowLeftLine /> Volver
+        </button>
         <h3>{editingPlayer ? "Editar Jugador" : "Nuevo Jugador"}</h3>
       </div>
 
       <Form onSubmit={handleSubmit}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "25px" }}>
-            <PhotoUploader 
-                previewUrl={preview} 
-                originalUrl={getOriginalUrlFromPreview(preview)} // Usa la lógica prioritaria
-                originalFile={originalFile} // Pasa el archivo en memoria si existe
-                onImageSelect={handleImageSelect}
-                onClear={() => { 
-                    setCroppedFile(null); setOriginalFile(null); setPreview(null); 
-                    setForm(prev => ({ ...prev, photo_url: "", original_photo_url: "" })); 
-                }}
-                shape="circle" width="130px" height="130px"
-                showToast={showToast}
-            />
+          <PhotoUploader
+            previewUrl={preview}
+            originalUrl={getOriginalUrlFromPreview(preview)}
+            originalFile={originalFile}
+            onImageSelect={handleImageSelect}
+            onClear={() => {
+              setCroppedFile(null);
+              setOriginalFile(null);
+              setPreview(null);
+              setForm((prev) => ({ ...prev, photo_url: "", original_photo_url: "" }));
+            }}
+            shape="circle"
+            width="130px"
+            height="130px"
+            showToast={showToast}
+          />
         </div>
 
         <div className="grid-2">
-           <InputText2><input className="form__field" name="first_name" placeholder="Nombres" required value={form.first_name} onChange={handleInputChange}/></InputText2>
-           <InputText2><input className="form__field" name="last_name" placeholder="Apellidos" required value={form.last_name} onChange={handleInputChange}/></InputText2>
+          <InputText2>
+            <input
+              className="form__field"
+              name="first_name"
+              placeholder="Nombres"
+              required
+              value={form.first_name}
+              onChange={handleInputChange}
+            />
+          </InputText2>
+          <InputText2>
+            <input
+              className="form__field"
+              name="last_name"
+              placeholder="Apellidos"
+              required
+              value={form.last_name}
+              onChange={handleInputChange}
+            />
+          </InputText2>
         </div>
 
         <div className="grid-3">
-           <div style={{ position: 'relative' }}> 
-               {dorsalError && <ErrorBadge $shake={shakeError}>{dorsalError}</ErrorBadge>}
-               <InputNumber name="dorsal" value={form.dorsal} onChange={handleInputChange} min={0} max={999}/>
-           </div>
-           <div className="select-wrap">
-              <select name="position" value={form.position} onChange={handleInputChange} className="custom-select">
-                  <option>No especificada</option><option>Portero</option><option>Defensa</option><option>Medio</option><option>Delantero</option>
-              </select>
-           </div>
-           <InputText2><input className="form__field" type="date" name="birth_date" value={form.birth_date} onChange={handleInputChange}/></InputText2>
+          <div style={{ position: "relative" }}>
+            {dorsalError && <ErrorBadge $shake={shakeError}>{dorsalError}</ErrorBadge>}
+            <InputNumber name="dorsal" value={form.dorsal} onChange={handleInputChange} min={0} max={999} />
+          </div>
+
+          <div className="select-wrap">
+            <select
+              name="position"
+              value={form.position}
+              onChange={handleInputChange}
+              className="custom-select"
+            >
+              <option>No especificada</option>
+              <option>Portero</option>
+              <option>Defensa</option>
+              <option>Medio</option>
+              <option>Delantero</option>
+            </select>
+          </div>
+
+          <InputText2>
+            <input
+              className="form__field"
+              type="date"
+              name="birth_date"
+              value={form.birth_date}
+              onChange={handleInputChange}
+            />
+          </InputText2>
         </div>
 
-        <InputText2><input className="form__field" name="curp_dni" placeholder="CURP / DNI / ID" value={form.curp_dni} onChange={handleInputChange}/></InputText2>
+        <InputText2>
+          <input
+            className="form__field"
+            name="curp_dni"
+            placeholder="CURP / DNI / ID"
+            value={form.curp_dni}
+            onChange={handleInputChange}
+          />
+        </InputText2>
 
-        <Btnsave titulo={isUploading ? "Subiendo..." : "Guardar Jugador"} disabled={isUploading} bgcolor={v.colorPrincipal} icono={<v.iconoguardar />} width="100%"/>
+        <Btnsave
+          titulo={
+            isUploading
+              ? "Subiendo..."
+              : isDelegateMode
+                ? "Enviar cambios"
+                : "Guardar Jugador"
+          }
+          disabled={isUploading}
+          bgcolor={v.colorPrincipal}
+          icono={<v.iconoguardar />}
+          width="100%"
+        />
       </Form>
     </Container>
   );
 }
 
-// --- STYLES (Sin cambios, solo para completar el archivo) ---
-const Container = styled.div` display: flex; flex-direction: column; gap: 15px; animation: fadeIn 0.3s ease; margin-top: 10px; .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; h3 { font-size: 1.1rem; margin:0; color: ${({theme})=>theme.text}; } } .back-btn { background: none; border: none; color: ${v.colorPrincipal}; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: 600; } .empty { text-align: center; opacity: 0.6; margin-top: 20px; }`;
-const BtnSmall = styled.button` background: ${({theme}) => theme.bgcards}; border: 1px solid ${({theme}) => theme.bg4}; color: ${({theme}) => theme.text}; padding: 6px 16px; border-radius: 12px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); &:hover { background: ${v.colorPrincipal}; color: white; border-color: ${v.colorPrincipal}; transform: translateY(-2px); } svg { font-size: 1.1rem; }`;
-const BtnToggle = styled(BtnSmall)` background: ${props => props.$active ? props.theme.bg3 : 'transparent'}; border-color: ${props => props.$active ? props.theme.text : props.theme.bg4}; opacity: ${props => props.$active ? 1 : 0.7};`;
-const ListContainer = styled.div` display: flex; flex-direction: column; gap: 10px; `;
-const PlayerRow = styled.div` background: ${({theme}) => theme.bgtotal}; padding: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; opacity: ${props => props.$isArchived ? 0.75 : 1}; filter: ${props => props.$isArchived ? 'grayscale(0.1)' : 'none'}; &:hover { border-color: ${({theme})=>theme.bg4}; opacity: 1; } .info { display: flex; gap: 12px; align-items: center; img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #eee; } .name { font-weight: 600; display: block; font-size: 0.95rem; text-decoration: ${props => props.$isArchived ? 'line-through' : 'none'}; } .details { font-size: 0.8rem; opacity: 0.7; } } .actions { display: flex; gap: 5px; .btn-icon { background: rgba(255,255,255,0.05); border: none; padding: 6px; border-radius: 6px; cursor: pointer; color: ${({theme})=>theme.text}; transition: 0.2s; &:hover { color: white; } &.edit:hover { background: ${v.colorPrincipal}; } &.archive:hover { background: #f39c12; } &.delete:hover { background: ${v.rojo}; } &.restore:hover { background: #27ae60; } } }`;
-const DeleteContent = styled.div` text-align: center; padding: 10px; .warning-icon { font-size: 3rem; color: #f1c40f; margin-bottom: 10px; } p { margin: 0 0 20px 0; font-size: 1rem; color: ${({theme})=>theme.text}; } .sub { font-size: 0.85rem; opacity: 0.7; display: block; margin-top: 5px; } .modal-actions { display: flex; justify-content: center; gap: 15px; button { padding: 8px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; &.cancel { background: ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; &:hover { background: ${({theme})=>theme.bg3}; } } &.confirm { background: ${v.rojo}; color: white; &:hover { opacity: 0.9; transform: translateY(-2px); } } &.archive { background: #f39c12; color: white; &:hover { opacity: 0.9; transform: translateY(-2px); } } } }`;
-const Form = styled.form` display: flex; flex-direction: column; gap: 12px; .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .grid-3 { display: grid; grid-template-columns: 0.6fr 1.2fr 1.2fr; gap: 10px; } .custom-select { width: 100%; padding: 12px; border-radius: 15px; background: ${({theme})=>theme.bgtotal}; color: ${({theme})=>theme.text}; border: 2px solid ${({theme})=>theme.color2}; outline: none; height: 100%; }`;
-const shakeAnimation = keyframes` 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } `;
-const ErrorBadge = styled.span` position: absolute; top: -25px; left: 0; font-size: 0.75rem; font-weight: 700; color: #fff; background: #ff4b4b; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none; ${({ $shake }) => $shake ? css`animation: ${shakeAnimation} 0.4s ease-in-out;` : css`animation: fadeIn 0.3s ease-out;`} &::after { content: ''; position: absolute; bottom: -4px; left: 10px; border-width: 4px 4px 0; border-style: solid; border-color: #ff4b4b transparent transparent transparent; }`;
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  animation: fadeIn 0.3s ease;
+  margin-top: 10px;
+
+  .header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 16px;
+
+    h3 {
+      font-size: 1.1rem;
+      margin: 0;
+      color: ${({ theme }) => theme.text};
+    }
+  }
+
+  .header-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .back-btn {
+    background: none;
+    border: none;
+    color: ${v.colorPrincipal};
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+  }
+
+  .empty {
+    text-align: center;
+    opacity: 0.6;
+    margin-top: 20px;
+  }
+`;
+
+const DelegateHint = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(28, 176, 246, 0.08);
+  border: 1px solid rgba(28, 176, 246, 0.15);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: ${({ theme }) => theme.text};
+
+  svg {
+    color: ${v.colorPrincipal};
+    flex-shrink: 0;
+  }
+`;
+
+const BtnSmall = styled.button`
+  background: ${({ theme }) => theme.bgcards};
+  border: 1px solid ${({ theme }) => theme.bg4};
+  color: ${({ theme }) => theme.text};
+  padding: 6px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    background: ${v.colorPrincipal};
+    color: white;
+    border-color: ${v.colorPrincipal};
+    transform: translateY(-2px);
+  }
+
+  svg {
+    font-size: 1.1rem;
+  }
+`;
+
+const BtnToggle = styled(BtnSmall)`
+  background: ${(props) => (props.$active ? props.theme.bg3 : "transparent")};
+  border-color: ${(props) => (props.$active ? props.theme.text : props.theme.bg4)};
+  opacity: ${(props) => (props.$active ? 1 : 0.7)};
+`;
+
+const ListContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const PlayerRow = styled.div`
+  background: ${({ theme }) => theme.bgtotal};
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid transparent;
+  opacity: ${(props) => (props.$isArchived ? 0.75 : 1)};
+  filter: ${(props) => (props.$isArchived ? "grayscale(0.1)" : "none")};
+
+  &:hover {
+    border-color: ${({ theme }) => theme.bg4};
+    opacity: 1;
+  }
+
+  .info {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+
+    img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #eee;
+    }
+
+    .name {
+      font-weight: 600;
+      display: block;
+      font-size: 0.95rem;
+      text-decoration: ${(props) => (props.$isArchived ? "line-through" : "none")};
+    }
+
+    .details {
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+  }
+
+  .actions {
+    display: flex;
+    gap: 5px;
+
+    .btn-icon {
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: ${({ theme }) => theme.text};
+      transition: 0.2s;
+
+      &:hover {
+        color: white;
+      }
+
+      &.edit:hover {
+        background: ${v.colorPrincipal};
+      }
+
+      &.archive:hover {
+        background: #f39c12;
+      }
+
+      &.delete:hover {
+        background: ${v.rojo};
+      }
+
+      &.restore:hover {
+        background: #27ae60;
+      }
+    }
+  }
+`;
+
+const DeleteContent = styled.div`
+  text-align: center;
+  padding: 10px;
+
+  .warning-icon {
+    font-size: 3rem;
+    color: #f1c40f;
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin: 0 0 20px 0;
+    font-size: 1rem;
+    color: ${({ theme }) => theme.text};
+  }
+
+  .sub {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    display: block;
+    margin-top: 5px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+
+    button {
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+
+      &.cancel {
+        background: ${({ theme }) => theme.bg4};
+        color: ${({ theme }) => theme.text};
+
+        &:hover {
+          background: ${({ theme }) => theme.bg3};
+        }
+      }
+
+      &.confirm {
+        background: ${v.rojo};
+        color: white;
+
+        &:hover {
+          opacity: 0.9;
+          transform: translateY(-2px);
+        }
+      }
+
+      &.archive {
+        background: #f39c12;
+        color: white;
+
+        &:hover {
+          opacity: 0.9;
+          transform: translateY(-2px);
+        }
+      }
+    }
+  }
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 0.6fr 1.2fr 1.2fr;
+    gap: 10px;
+  }
+
+  .custom-select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 15px;
+    background: ${({ theme }) => theme.bgtotal};
+    color: ${({ theme }) => theme.text};
+    border: 2px solid ${({ theme }) => theme.color2};
+    outline: none;
+    height: 100%;
+  }
+`;
+
+const shakeAnimation = keyframes`
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+  100% { transform: translateX(0); }
+`;
+
+const ErrorBadge = styled.span`
+  position: absolute;
+  top: -25px;
+  left: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: #ff4b4b;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+
+  ${({ $shake }) =>
+    $shake
+      ? css`
+          animation: ${shakeAnimation} 0.4s ease-in-out;
+        `
+      : css`
+          animation: fadeIn 0.3s ease-out;
+        `}
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    left: 10px;
+    border-width: 4px 4px 0;
+    border-style: solid;
+    border-color: #ff4b4b transparent transparent transparent;
+  }
+`;

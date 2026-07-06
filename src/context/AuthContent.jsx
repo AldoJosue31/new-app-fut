@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase/supabase.config';
 import { useAuthStore } from '../store/AuthStore';
+import { ROLES } from '../utils/constants';
 
 const AuthContext = createContext();
 const PRESENCE_CHANNEL = 'online-managers';
@@ -29,7 +30,11 @@ export function AuthContextProvider({ children }) {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (err) {
       console.warn("No se pudo limpiar la sesion local con signOut local:", err);
-      try { await supabase.auth.signOut(); } catch (_) {}
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* ignore */
+      }
     }
 
     setUser(null);
@@ -49,8 +54,8 @@ export function AuthContextProvider({ children }) {
     });
   };
 
-  const signOutSuspendedManager = async (reason) => {
-    console.warn("AuthContext: Cuenta manager suspendida. Cerrando sesion...");
+  const signOutSuspendedAccount = useEffectEvent(async (reason) => {
+    console.warn("AuthContext: Cuenta suspendida. Cerrando sesion...");
     showSuspendedNotice(reason);
     try {
       await supabase.auth.signOut();
@@ -60,10 +65,10 @@ export function AuthContextProvider({ children }) {
     setUser(null);
     setProfile(null);
     useAuthStore.setState({ user: null, profile: null });
-  };
+  });
 
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
-const validateProfile = async (sessionUser) => {
+  const validateProfile = useEffectEvent(async (sessionUser) => {
     if (!sessionUser) return;
 
     try {
@@ -90,7 +95,7 @@ const validateProfile = async (sessionUser) => {
         return;
       }
 
-      const authorizedRoles = ['manager', 'admin'];
+      const authorizedRoles = [ROLES.MANAGER, ROLES.ADMIN, ROLES.DELEGATE];
       if (!authorizedRoles.includes(data.role)) {
         console.warn(`AuthContext: Rol no autorizado (${data.role}). Cerrando sesión...`);
         await supabase.auth.signOut();
@@ -99,8 +104,8 @@ const validateProfile = async (sessionUser) => {
         return;
       }
 
-      if (data.role === 'manager' && data.is_suspended) {
-        await signOutSuspendedManager('No puedes iniciar sesion porque esta cuenta se encuentra bloqueada temporalmente. Contacta al administrador para recuperar el acceso.');
+      if ([ROLES.MANAGER, ROLES.DELEGATE].includes(data.role) && data.is_suspended) {
+        await signOutSuspendedAccount('No puedes iniciar sesion porque esta cuenta se encuentra bloqueada temporalmente. Contacta al administrador para recuperar el acceso.');
         return;
       }
 
@@ -111,7 +116,7 @@ const validateProfile = async (sessionUser) => {
       // Opcional: Decidir si cerrar sesión aquí o no. 
       // Generalmente mejor no cerrar por un error de catch.
     }
-  };
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -168,7 +173,7 @@ const validateProfile = async (sessionUser) => {
 
   useEffect(() => {
     const handleSuspendedNotice = async (event) => {
-      await signOutSuspendedManager(event.detail?.message || event.detail?.reason);
+      await signOutSuspendedAccount(event.detail?.message || event.detail?.reason);
     };
 
     window.addEventListener('account-suspended-notice', handleSuspendedNotice);
@@ -184,8 +189,8 @@ const validateProfile = async (sessionUser) => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
         async ({ new: updatedProfile }) => {
-          if (updatedProfile?.role === "manager" && updatedProfile?.is_suspended) {
-            await signOutSuspendedManager('Tu cuenta fue bloqueada mientras estabas conectado. La sesion se cerro para proteger el acceso.');
+          if ([ROLES.MANAGER, ROLES.DELEGATE].includes(updatedProfile?.role) && updatedProfile?.is_suspended) {
+            await signOutSuspendedAccount('Tu cuenta fue bloqueada mientras estabas conectado. La sesion se cerro para proteger el acceso.');
             return;
           }
 
@@ -213,8 +218,16 @@ const validateProfile = async (sessionUser) => {
       const { channel, heartbeatId } = presenceRef.current;
       if (heartbeatId) clearInterval(heartbeatId);
 
-      try { channel.untrack?.().catch(()=>{}); } catch(e) {}
-      try { channel.unsubscribe(); } catch(e) {}
+      try {
+        channel.untrack?.().catch(() => undefined);
+      } catch {
+        /* ignore */
+      }
+      try {
+        channel.unsubscribe();
+      } catch {
+        /* ignore */
+      }
       presenceRef.current = null;
     };
 
@@ -261,7 +274,7 @@ const validateProfile = async (sessionUser) => {
       if (payload?.user_id !== user.id) return;
       if (!payload?.suspended) return;
 
-      await signOutSuspendedManager(
+      await signOutSuspendedAccount(
         payload.message ||
         'Tu cuenta fue bloqueada por el administrador mientras estabas conectado. Se cerro tu sesion y no podras volver a entrar hasta que sea reactivada.'
       );

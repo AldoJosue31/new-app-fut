@@ -1,10 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useLayoutEffect } from "react";
 import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
 import { AiOutlineClose } from "react-icons/ai";
 
 let openModalCount = 0;
-let scrollPosition = 0;
 let previousBodyStyles = null;
 let previousHtmlStyles = null;
 
@@ -14,13 +13,9 @@ const lockPageScroll = () => {
   openModalCount += 1;
   if (openModalCount > 1) return;
 
-  scrollPosition = window.scrollY || document.documentElement.scrollTop || 0;
   previousBodyStyles = {
     overflow: document.body.style.overflow,
     overflowY: document.body.style.overflowY,
-    position: document.body.style.position,
-    top: document.body.style.top,
-    width: document.body.style.width,
   };
   previousHtmlStyles = {
     overflow: document.documentElement.style.overflow,
@@ -29,9 +24,6 @@ const lockPageScroll = () => {
 
   document.body.style.overflow = "hidden";
   document.body.style.overflowY = "hidden";
-  document.body.style.position = "fixed";
-  document.body.style.top = `-${scrollPosition}px`;
-  document.body.style.width = "100%";
   document.documentElement.style.overflow = "hidden";
   document.documentElement.style.overflowY = "hidden";
 };
@@ -45,9 +37,6 @@ const unlockPageScroll = () => {
   if (previousBodyStyles) {
     document.body.style.overflow = previousBodyStyles.overflow;
     document.body.style.overflowY = previousBodyStyles.overflowY;
-    document.body.style.position = previousBodyStyles.position;
-    document.body.style.top = previousBodyStyles.top;
-    document.body.style.width = previousBodyStyles.width;
   }
 
   if (previousHtmlStyles) {
@@ -55,10 +44,8 @@ const unlockPageScroll = () => {
     document.documentElement.style.overflowY = previousHtmlStyles.overflowY;
   }
 
-  window.scrollTo(0, scrollPosition);
   previousBodyStyles = null;
   previousHtmlStyles = null;
-  scrollPosition = 0;
 };
 
 export const Modal = ({
@@ -77,7 +64,7 @@ export const Modal = ({
   bodyOverflowY = "auto",
   width = "500px",
 }) => {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return undefined;
 
     lockPageScroll();

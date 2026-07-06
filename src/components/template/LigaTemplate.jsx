@@ -1,30 +1,39 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
+import {
+  RiBookLine,
+  RiBuilding2Line,
+  RiSettings4Line,
+} from "react-icons/ri";
+import { GiWhistle } from "react-icons/gi";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
 import { TabsNavigation, EmptyState } from "../../index";
-import { RiSettings4Line, RiBuilding2Line, RiBookLine } from "react-icons/ri";
-import { GiWhistle } from "react-icons/gi";
-
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
 import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
 import { LigaRulesTab } from "../organismos/tabs/liga/LigaRulesTab";
 
-export function LigaTemplate({ 
-   division, season, loading, 
-   leagueData, referees = [], allDivisions = [],
-   onUpdateLeague, 
-   // NUEVAS FUNCIONES DE CATEGORÍA QUE FALTABAN AQUÍ
-   onAddCategory, onEditCategory, onDeleteCategory,
-   onAddDivision, onEditDivision, onDeleteDivision,
-   onAddReferee, onEditReferee, onDeleteReferee,
-   state, setState
+export function LigaTemplate({
+  loading,
+  leagueData,
+  referees = [],
+  onUpdateLeague,
+  onAddCategory,
+  onEditCategory,
+  onDeleteCategory,
+  onAddDivision,
+  onEditDivision,
+  onDeleteDivision,
+  onAddReferee,
+  onEditReferee,
+  onDeleteReferee,
+  state,
+  setState,
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
-
   const tabList = [
     { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
     { id: "rules", label: "Plantilla Reglas", icon: <RiBookLine /> },
@@ -32,7 +41,7 @@ export function LigaTemplate({
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
   ];
 
-  const validTabIds = tabList.map(t => t.id);
+  const validTabIds = tabList.map((currentTab) => currentTab.id);
   const activeTab = validTabIds.includes(tab) ? tab : "general";
 
   const handleTabChange = (newTabId) => {
@@ -40,56 +49,65 @@ export function LigaTemplate({
   };
 
   if (!loading && !leagueData) {
-      return (
-        <ContentContainer>
-           <EmptyState 
-              title="Liga no encontrada"
-              description="No pudimos cargar la información de tu liga. Intenta recargar la página."
-           />
-        </ContentContainer>
-      )
+    return (
+      <ContentContainer>
+        <EmptyState
+          title="Liga no encontrada"
+          description="No pudimos cargar la información de tu liga. Intenta recargar la página."
+        />
+      </ContentContainer>
+    );
   }
 
   return (
     <>
-      <PageHeader 
-        title="Mi Liga" 
-        maxWidth="1000px" 
+      <PageHeader
+        title="Mi Liga"
+        maxWidth="1000px"
         marginBottom="0"
         state={state}
         setState={setState}
         tabs={
-            <TabsNavigation 
-                tabs={tabList} 
-                activeTab={activeTab} 
-                setActiveTab={handleTabChange} 
-            />
+          <TabsNavigation
+            tabs={tabList}
+            activeTab={activeTab}
+            setActiveTab={handleTabChange}
+            showLabelsOnMobile={true}
+          />
         }
       />
 
       <StyledContentContainer>
         <ContentGrid>
-            {activeTab === "general" && (
-                <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
-            )}
-            {activeTab === "rules" && (
-                <LigaRulesTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
-            )}
-            {activeTab === "divisions" && (
-                <LigaDivisionsTab 
-                  // PASANDO LAS FUNCIONES AL COMPONENTE HIJO
-                  onAddCategory={onAddCategory}
-                  onEditCategory={onEditCategory}
-                  onDeleteCategory={onDeleteCategory}
-                  onAddDivision={onAddDivision} 
-                  onEditDivision={onEditDivision} 
-                  onDeleteDivision={onDeleteDivision} 
-                  loading={loading} 
-                />
-            )}
-            {activeTab === "referees" && (
-                <LigaRefereesTab referees={referees} onAdd={onAddReferee} onEdit={onEditReferee} onDelete={onDeleteReferee} loading={loading} />
-            )}
+          {activeTab === "general" && (
+            <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
+          )}
+
+          {activeTab === "rules" && (
+            <LigaRulesTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
+          )}
+
+          {activeTab === "divisions" && (
+            <LigaDivisionsTab
+              onAddCategory={onAddCategory}
+              onEditCategory={onEditCategory}
+              onDeleteCategory={onDeleteCategory}
+              onAddDivision={onAddDivision}
+              onEditDivision={onEditDivision}
+              onDeleteDivision={onDeleteDivision}
+              loading={loading}
+            />
+          )}
+
+          {activeTab === "referees" && (
+            <LigaRefereesTab
+              referees={referees}
+              onAdd={onAddReferee}
+              onEdit={onEditReferee}
+              onDelete={onDeleteReferee}
+              loading={loading}
+            />
+          )}
         </ContentGrid>
       </StyledContentContainer>
     </>
@@ -97,9 +115,16 @@ export function LigaTemplate({
 }
 
 const StyledContentContainer = styled(ContentContainer)`
-  && { padding-top: 0 !important; margin-top: 0 !important; }
+  && {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
 `;
 
-const ContentGrid = styled.div` 
-  display: flex; justify-content: center; width: 100%; gap: 20px; margin-top: 20px;
+const ContentGrid = styled.div`
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  gap: 20px;
+  margin-top: 20px;
 `;

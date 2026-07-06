@@ -274,8 +274,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       
       const [refsRes, localRes, visitRes, eventsRes] = await Promise.all([
         leagueId ? supabase.from('referees').select('*').eq('league_id', leagueId).order('full_name') : Promise.resolve({ data: [] }),
-        supabase.from('players').select('*').eq('team_id', match.local.id).eq('is_suspended', false).order('first_name'),
-        supabase.from('players').select('*').eq('team_id', match.visitante.id).eq('is_suspended', false).order('first_name'),
+        supabase.from('players').select('*').eq('team_id', match.local.id).eq('is_active', true).order('first_name'),
+        supabase.from('players').select('*').eq('team_id', match.visitante.id).eq('is_active', true).order('first_name'),
         supabase.from('match_events').select('*').eq('match_id', matchId)
       ]);
       if (requestId !== latestLoadRequestRef.current) return;

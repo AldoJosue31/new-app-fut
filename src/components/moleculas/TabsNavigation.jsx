@@ -98,7 +98,7 @@ export function TabsNavigation({
 export const TabContent = styled.div`
   width: 100%;
   animation: fadeTabContent ${v.tabTransitionDuration} ${v.tabTransitionTiming} forwards;
-  overflow-x: hidden;
+  overflow-x: clip;
 
   @keyframes fadeTabContent {
     from {
@@ -110,6 +110,7 @@ export const TabContent = styled.div`
     }
   }
 `;
+
 
 const Container = styled.div`
   position: relative;
