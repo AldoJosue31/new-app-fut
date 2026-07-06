@@ -4,7 +4,6 @@ import styled from "styled-components";
 import {
   RiBookLine,
   RiBuilding2Line,
-  RiInboxArchiveLine,
   RiSettings4Line,
 } from "react-icons/ri";
 import { GiWhistle } from "react-icons/gi";
@@ -15,14 +14,11 @@ import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
 import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
 import { LigaRulesTab } from "../organismos/tabs/liga/LigaRulesTab";
-import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 
 export function LigaTemplate({
   loading,
   leagueData,
   referees = [],
-  delegateRequests = [],
-  delegateRequestsLoading = false,
   onUpdateLeague,
   onAddCategory,
   onEditCategory,
@@ -33,21 +29,14 @@ export function LigaTemplate({
   onAddReferee,
   onEditReferee,
   onDeleteReferee,
-  onReviewDelegateRequest,
-  onRefreshDelegateRequests,
   state,
   setState,
 }) {
   const navigate = useNavigate();
   const { tab } = useParams();
-  const pendingRequestsCount = delegateRequests.filter(
-    (request) => request.status === "pending"
-  ).length;
-
   const tabList = [
     { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
     { id: "rules", label: "Plantilla Reglas", icon: <RiBookLine /> },
-    { id: "delegate-requests", label: `Solicitudes${pendingRequestsCount ? ` (${pendingRequestsCount})` : ""}`, icon: <RiInboxArchiveLine /> },
     { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
     { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
   ];
@@ -96,15 +85,6 @@ export function LigaTemplate({
 
           {activeTab === "rules" && (
             <LigaRulesTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
-          )}
-
-          {activeTab === "delegate-requests" && (
-            <LigaDelegateRequestsTab
-              requests={delegateRequests}
-              loading={delegateRequestsLoading}
-              onReview={onReviewDelegateRequest}
-              onRefresh={onRefreshDelegateRequests}
-            />
           )}
 
           {activeTab === "divisions" && (

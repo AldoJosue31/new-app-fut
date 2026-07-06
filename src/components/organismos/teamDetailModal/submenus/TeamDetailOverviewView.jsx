@@ -25,12 +25,24 @@ export function TeamDetailOverviewView({
   division,
   hasActiveTournament,
   loadingStats,
+  onShowDelegateRequests,
   onShowPlayers,
   onShowStats,
   team,
 }) {
   const isLinkedDelegate = Boolean(team?.delegateAssignment?.delegate_profile_id);
   const delegateLabel = team?.delegate_name || "No registrado";
+  const requestSummary = team?.delegateRequestSummary || null;
+  const pendingCount = Number(requestSummary?.pendingCount || 0);
+  const totalCount = Number(requestSummary?.totalCount || 0);
+  const delegateRequestHint =
+    pendingCount > 0
+      ? `${pendingCount} solicitud${pendingCount === 1 ? "" : "es"} pendiente${
+          pendingCount === 1 ? "" : "s"
+        }`
+      : totalCount > 0
+        ? "Ver historial del delegado"
+        : "Abrir solicitudes del delegado";
 
   return (
     <OverviewView>
@@ -45,11 +57,16 @@ export function TeamDetailOverviewView({
       <TeamTitle>{team.name}</TeamTitle>
 
       <InfoBody>
-        <InfoItem>
+        <InfoItem
+          as="button"
+          className="clickable"
+          onClick={onShowDelegateRequests}
+          type="button"
+        >
           <IconBox>
             <RiShieldUserLine />
           </IconBox>
-          <div>
+          <div style={{ flex: 1 }}>
             <span className="label">Delegado</span>
             {isLinkedDelegate ? (
               <VerifiedDelegatePill>
@@ -59,7 +76,9 @@ export function TeamDetailOverviewView({
             ) : (
               <ManualDelegateValue className="value">{delegateLabel}</ManualDelegateValue>
             )}
+            <RequestHint>{delegateRequestHint}</RequestHint>
           </div>
+          <span className="arrow-icon">→</span>
         </InfoItem>
 
         <InfoItem
@@ -148,4 +167,11 @@ const VerifiedDelegatePill = styled.div`
     font-size: 1rem;
     flex-shrink: 0;
   }
+`;
+
+const RequestHint = styled.p`
+  margin: 6px 0 0;
+  color: #8fb4d8;
+  font-size: 0.78rem;
+  font-weight: 600;
 `;

@@ -137,6 +137,9 @@ export function LigaDelegateRequestsTab({
   loading = false,
   onReview,
   onRefresh,
+  canReview = true,
+  title = "Solicitudes de Delegados",
+  subtitle = "Revisa, aprueba o rechaza cambios enviados por los delegados.",
 }) {
   const [activeFilter, setActiveFilter] = useState("pending");
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -226,8 +229,8 @@ export function LigaDelegateRequestsTab({
       <Card maxWidth="1000px" width="100%">
         <CardHeader
           Icono={RiShieldCheckLine}
-          titulo="Solicitudes de Delegados"
-          subtitulo="Revisa, aprueba o rechaza cambios enviados por los delegados."
+          titulo={title}
+          subtitulo={subtitle}
         />
 
         <SummaryGrid>
@@ -372,7 +375,8 @@ export function LigaDelegateRequestsTab({
             </DetailSection>
 
             {selectedRequest.status === "pending" ? (
-              <DetailSection>
+              canReview ? (
+                <DetailSection>
                 <h4>Revisión del manager</h4>
                 <ReviewTextarea
                   value={reviewNotes}
@@ -400,6 +404,14 @@ export function LigaDelegateRequestsTab({
                   />
                 </ActionRow>
               </DetailSection>
+              ) : (
+                <DetailSection>
+                  <h4>Estado actual</h4>
+                  <ReadonlyNote>
+                    Esta solicitud sigue pendiente de revision del manager de la liga.
+                  </ReadonlyNote>
+                </DetailSection>
+              )
             ) : (
               <DetailSection>
                 <h4>Resultado</h4>

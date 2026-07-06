@@ -12,8 +12,6 @@ export function Liga({ state, setState }) {
       loading={logicState.loading}
       leagueData={logicState.leagueData}
       referees={logicState.referees}
-      delegateRequests={logicState.delegateRequests}
-      delegateRequestsLoading={logicState.delegateRequestsLoading}
       onUpdateLeague={actions.handleUpdateLeague}
       onAddCategory={actions.handleAddCategory}
       onEditCategory={actions.handleEditCategory}
@@ -24,8 +22,6 @@ export function Liga({ state, setState }) {
       onAddReferee={actions.handleAddReferee}
       onEditReferee={actions.handleEditReferee}
       onDeleteReferee={actions.handleDeleteReferee}
-      onReviewDelegateRequest={actions.handleReviewDelegateRequest}
-      onRefreshDelegateRequests={actions.refreshDelegateRequests}
     />
   );
 }

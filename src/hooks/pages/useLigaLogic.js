@@ -1,17 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../supabase/supabase.config";
 import { useAuthStore } from "../../store/AuthStore";
-import {
-  getLeagueDelegateChangeRequests,
-  reviewDelegateChangeRequest,
-} from "../../services/delegates";
 
 let ligaCache = {
   isFetched: false,
   leagueData: null,
   allDivisions: [],
   referees: [],
-  delegateRequests: [],
 };
 
 export const useLigaLogic = () => {
@@ -20,39 +15,6 @@ export const useLigaLogic = () => {
   const [leagueData, setLeagueData] = useState(ligaCache.leagueData);
   const [allDivisions, setAllDivisions] = useState(ligaCache.allDivisions);
   const [referees, setReferees] = useState(ligaCache.referees);
-  const [delegateRequests, setDelegateRequests] = useState(ligaCache.delegateRequests);
-  const [delegateRequestsLoading, setDelegateRequestsLoading] = useState(false);
-
-  const loadDelegateRequests = useCallback(async (leagueId, options = {}) => {
-    if (!leagueId) {
-      ligaCache.delegateRequests = [];
-      setDelegateRequests([]);
-      return [];
-    }
-
-    const { silent = false } = options;
-
-    if (!silent) {
-      setDelegateRequestsLoading(true);
-    }
-
-    try {
-      const requests = await getLeagueDelegateChangeRequests(leagueId);
-      ligaCache.delegateRequests = requests;
-      setDelegateRequests(requests);
-      return requests;
-    } catch (error) {
-      console.error("Error cargando solicitudes de delegados:", error);
-      if (!silent) {
-        alert("Error al cargar las solicitudes de delegados.");
-      }
-      return [];
-    } finally {
-      if (!silent) {
-        setDelegateRequestsLoading(false);
-      }
-    }
-  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -76,21 +38,16 @@ export const useLigaLogic = () => {
           leagueData: null,
           allDivisions: [],
           referees: [],
-          delegateRequests: [],
         };
         setLeagueData(null);
         setAllDivisions([]);
         setReferees([]);
-        setDelegateRequests([]);
         setLoading(false);
         return;
       }
 
-      const [
-        { data: divisions, error: divError },
-        { data: refs, error: refError },
-        requests,
-      ] = await Promise.all([
+      const [{ data: divisions, error: divError }, { data: refs, error: refError }] =
+        await Promise.all([
         supabase
           .from("divisions")
           .select("*")
@@ -101,7 +58,6 @@ export const useLigaLogic = () => {
           .select("*")
           .eq("league_id", league.id)
           .order("created_at", { ascending: false }),
-        getLeagueDelegateChangeRequests(league.id),
       ]);
 
       if (divError) throw divError;
@@ -112,13 +68,11 @@ export const useLigaLogic = () => {
         leagueData: league,
         allDivisions: divisions || [],
         referees: refs || [],
-        delegateRequests: requests || [],
       };
 
       setLeagueData(ligaCache.leagueData);
       setAllDivisions(ligaCache.allDivisions);
       setReferees(ligaCache.referees);
-      setDelegateRequests(ligaCache.delegateRequests);
     } catch (error) {
       console.error("Error cargando datos:", error);
       alert("Error al cargar la información de la liga.");
@@ -313,34 +267,12 @@ export const useLigaLogic = () => {
     }
   };
 
-  const handleReviewDelegateRequest = async ({
-    requestId,
-    decision,
-    reviewNotes = null,
-  }) => {
-    try {
-      const result = await reviewDelegateChangeRequest({
-        requestId,
-        decision,
-        reviewNotes,
-      });
-
-      await loadDelegateRequests(leagueData?.id, { silent: true });
-      return result;
-    } catch (error) {
-      console.error("Error revisando solicitud de delegado:", error);
-      throw error;
-    }
-  };
-
   return {
     state: {
       loading,
       leagueData,
       allDivisions,
       referees,
-      delegateRequests,
-      delegateRequestsLoading,
     },
     actions: {
       handleUpdateLeague,
@@ -353,8 +285,6 @@ export const useLigaLogic = () => {
       handleAddReferee,
       handleEditReferee,
       handleDeleteReferee,
-      handleReviewDelegateRequest,
-      refreshDelegateRequests: () => loadDelegateRequests(leagueData?.id),
     },
   };
 };

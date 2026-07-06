@@ -447,6 +447,8 @@ export const EquiposTemplate = ({
           team={teamFromUrl}
           division={teamFromUrlDivision}
           initialView={initialView}
+          canReviewDelegateRequests={!isDelegateView}
+          onDelegateRequestsUpdated={onDelegateRequestSubmitted}
         />
 
         <TeamTransferModal

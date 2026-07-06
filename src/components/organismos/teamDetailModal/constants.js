@@ -8,6 +8,7 @@ import {
 
 export const TEAM_DETAIL_VIEWS = Object.freeze({
   OVERVIEW: "overview",
+  DELEGATE_REQUESTS: "delegate-requests",
   PLAYERS: "players",
   STATS: "stats",
 });

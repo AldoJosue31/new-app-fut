@@ -23,3 +23,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AI Agents & CLI Tools
+.agents/
+.gemini/
+.claude/
+.codex/
+.cursor/
+.github/skills/

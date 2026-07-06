@@ -226,42 +226,20 @@ export const getLeagueDelegateChangeRequests = async (leagueId) => {
     .order("created_at", { ascending: false });
 
   if (requestsError) throw requestsError;
-  if (!requests?.length) return [];
+  return hydrateDelegateChangeRequests(requests || []);
+};
 
-  const teamIds = unique(requests.map((request) => request.team_id));
-  const playerIds = unique(requests.map((request) => request.player_id));
+export const getTeamDelegateChangeRequests = async (teamId) => {
+  if (!teamId) return [];
 
-  const [{ data: teams, error: teamsError }, { data: players, error: playersError }] =
-    await Promise.all([
-      supabase
-        .from("teams")
-        .select("id, name, delegate_name, contact_phone, color, division_id, status")
-        .in("id", teamIds),
-      playerIds.length
-        ? supabase
-            .from("players")
-            .select("id, first_name, last_name, dorsal, position, team_id, is_active")
-            .in("id", playerIds)
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+  const { data: requests, error: requestsError } = await supabase
+    .from("delegate_change_requests")
+    .select("*")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
 
-  if (teamsError) throw teamsError;
-  if (playersError) throw playersError;
-
-  const teamsMap = mapById(teams || []);
-  const playersMap = mapById(players || []);
-
-  return requests.map((request) => {
-    const team = teamsMap.get(request.team_id) || null;
-    const player = request.player_id ? playersMap.get(request.player_id) || null : null;
-
-    return {
-      ...request,
-      team,
-      player,
-      submitter_label: team?.delegate_name || "Delegado del equipo",
-    };
-  });
+  if (requestsError) throw requestsError;
+  return hydrateDelegateChangeRequests(requests || []);
 };
 
 export const reviewDelegateChangeRequest = async ({
@@ -334,3 +312,42 @@ export const unlinkTeamDelegateService = async ({
     teamId,
     deleteAccount,
   });
+
+const hydrateDelegateChangeRequests = async (requests = []) => {
+  if (!requests.length) return [];
+
+  const teamIds = unique(requests.map((request) => request.team_id));
+  const playerIds = unique(requests.map((request) => request.player_id));
+
+  const [{ data: teams, error: teamsError }, { data: players, error: playersError }] =
+    await Promise.all([
+      supabase
+        .from("teams")
+        .select("id, name, delegate_name, contact_phone, color, division_id, status")
+        .in("id", teamIds),
+      playerIds.length
+        ? supabase
+            .from("players")
+            .select("id, first_name, last_name, dorsal, position, team_id, is_active")
+            .in("id", playerIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+  if (teamsError) throw teamsError;
+  if (playersError) throw playersError;
+
+  const teamsMap = mapById(teams || []);
+  const playersMap = mapById(players || []);
+
+  return requests.map((request) => {
+    const team = teamsMap.get(request.team_id) || null;
+    const player = request.player_id ? playersMap.get(request.player_id) || null : null;
+
+    return {
+      ...request,
+      team,
+      player,
+      submitter_label: team?.delegate_name || "Delegado del equipo",
+    };
+  });
+};
