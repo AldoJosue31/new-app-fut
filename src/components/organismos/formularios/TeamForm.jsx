@@ -293,143 +293,147 @@ export function TeamForm({
         <strong>Vincular delegado por QR o enlace</strong>
       </PanelHeader>
 
-      <PanelCard>
-        <FieldGroup>
-          <label>Nombre sugerido del delegado</label>
-          <InputText2>
-            <input
-              className="form__field"
-              name="delegate_name"
-              value={form.delegate_name || ""}
-              onChange={onFormChange}
-              placeholder="Nombre del delegado"
-            />
-            <BiUser className="field-icon" />
-          </InputText2>
-        </FieldGroup>
-
-        <FieldGroup>
-          <label>Correo sugerido</label>
-          <InputText2>
-            <input
-              className="form__field"
-              name="invite_email"
-              type="email"
-              value={inviteEmail}
-              onChange={handleInviteEmailChange}
-              placeholder="Correo para el registro"
-            />
-            <BiEnvelope className="field-icon" />
-          </InputText2>
-        </FieldGroup>
-
-        <FieldGroup>
-          <label>Telefono sugerido (opcional)</label>
-          <InputText2>
-            <input
-              className="form__field"
-              name="contact_phone"
-              type="tel"
-              value={form.contact_phone || ""}
-              onChange={onFormChange}
-              placeholder="Telefono del delegado"
-            />
-            <BiPhone className="field-icon" />
-          </InputText2>
-        </FieldGroup>
-
-        {!teamId && (
-          <PanelNotice $tone="warning">
-            Guarda el equipo primero para generar el QR o el enlace de registro.
-          </PanelNotice>
-        )}
-
-        <PrimaryActions>
-          <ActionButton
-            type="button"
-            onClick={handleGenerateInvitation}
-            disabled={!teamId || inviteActionLoading}
-            $tone="primary"
-          >
-            {activeInvitation ? <BiRefresh /> : <BiLink />}
-            <span>
-              {inviteActionLoading
-                ? "Generando..."
-                : activeInvitation
-                  ? "Regenerar enlace"
-                  : "Generar enlace"}
-            </span>
-          </ActionButton>
-        </PrimaryActions>
-      </PanelCard>
-
-      {loadingInvitation ? (
-        <StatusBox>Cargando invitacion activa...</StatusBox>
-      ) : activeInvitation ? (
-        <InvitationBox>
-          <IconButton
-            className="revoke-btn"
-            type="button"
-            onClick={handleRevokeInvitation}
-            disabled={inviteActionLoading}
-            title="Revocar invitacion"
-          >
-            <BiTrash />
-          </IconButton>
-
-          <div className="top">
-            <span className="eyebrow">Invitacion activa</span>
-            <h4>Lista para compartir</h4>
-            <p>
-              Expira el <b>{new Date(activeInvitation.expires_at).toLocaleString()}</b>
-            </p>
-          </div>
-
-          <div className="share-grid">
-            <div className="qr-card">
-              <QRCode
-                size={180}
-                value={invitationUrl}
-                bgColor="transparent"
-                fgColor="#0f172a"
+      <InvitePanelContentRow>
+        <PanelCard>
+          <FieldGroup>
+            <label>Nombre sugerido del delegado</label>
+            <InputText2>
+              <input
+                className="form__field"
+                name="delegate_name"
+                value={form.delegate_name || ""}
+                onChange={onFormChange}
+                placeholder="Nombre del delegado"
               />
-            </div>
+              <BiUser className="field-icon" />
+            </InputText2>
+          </FieldGroup>
 
-            <div className="link-panel">
-              <label>Link de registro</label>
-              <div className="copy-row">
-                <input readOnly value={invitationUrl} />
-                <button type="button" onClick={copyInvitationLink}>
-                  <BiCopy />
-                </button>
+          <FieldGroup>
+            <label>Correo sugerido</label>
+            <InputText2>
+              <input
+                className="form__field"
+                name="invite_email"
+                type="email"
+                value={inviteEmail}
+                onChange={handleInviteEmailChange}
+                placeholder="Correo para el registro"
+              />
+              <BiEnvelope className="field-icon" />
+            </InputText2>
+          </FieldGroup>
+
+          <FieldGroup>
+            <label>Telefono sugerido (opcional)</label>
+            <InputText2>
+              <input
+                className="form__field"
+                name="contact_phone"
+                type="tel"
+                value={form.contact_phone || ""}
+                onChange={onFormChange}
+                placeholder="Telefono del delegado"
+              />
+              <BiPhone className="field-icon" />
+            </InputText2>
+          </FieldGroup>
+
+          {!teamId && (
+            <PanelNotice $tone="warning">
+              Guarda el equipo primero para generar el QR o el enlace de registro.
+            </PanelNotice>
+          )}
+
+          <PrimaryActions>
+            <ActionButton
+              type="button"
+              onClick={handleGenerateInvitation}
+              disabled={!teamId || inviteActionLoading}
+              $tone="primary"
+            >
+              {activeInvitation ? <BiRefresh /> : <BiLink />}
+              <span>
+                {inviteActionLoading
+                  ? "Generando..."
+                  : activeInvitation
+                    ? "Regenerar enlace"
+                    : "Generar enlace"}
+              </span>
+            </ActionButton>
+          </PrimaryActions>
+        </PanelCard>
+
+        <div className="invitation-side">
+          {loadingInvitation ? (
+            <StatusBox>Cargando invitacion activa...</StatusBox>
+          ) : activeInvitation ? (
+            <InvitationBox>
+              <IconButton
+                className="revoke-btn"
+                type="button"
+                onClick={handleRevokeInvitation}
+                disabled={inviteActionLoading}
+                title="Revocar invitacion"
+              >
+                <BiTrash />
+              </IconButton>
+
+              <div className="top">
+                <span className="eyebrow">Invitacion activa</span>
+                <h4>Lista para compartir</h4>
+                <p>
+                  Expira el <b>{new Date(activeInvitation.expires_at).toLocaleString()}</b>
+                </p>
               </div>
 
-              <InfoList>
-                {form.delegate_name && (
-                  <span>
-                    <BiUser />
-                    {form.delegate_name}
-                  </span>
-                )}
-                {inviteEmail && (
-                  <span>
-                    <BiEnvelope />
-                    {inviteEmail}
-                  </span>
-                )}
-                {form.contact_phone && (
-                  <span>
-                    <BiPhone />
-                    {form.contact_phone}
-                  </span>
-                )}
-              </InfoList>
-            </div>
-          </div>
-        </InvitationBox>
-      ) : (
-        <StatusBox>No hay una invitacion activa para este equipo.</StatusBox>
-      )}
+              <div className="share-grid">
+                <div className="qr-card">
+                  <QRCode
+                    size={180}
+                    value={invitationUrl}
+                    bgColor="transparent"
+                    fgColor="#0f172a"
+                  />
+                </div>
+
+                <div className="link-panel">
+                  <label>Link de registro</label>
+                  <div className="copy-row">
+                    <input readOnly value={invitationUrl} />
+                    <button type="button" onClick={copyInvitationLink}>
+                      <BiCopy />
+                    </button>
+                  </div>
+
+                  <InfoList>
+                    {form.delegate_name && (
+                      <span>
+                        <BiUser />
+                        {form.delegate_name}
+                      </span>
+                    )}
+                    {inviteEmail && (
+                      <span>
+                        <BiEnvelope />
+                        {inviteEmail}
+                      </span>
+                    )}
+                    {form.contact_phone && (
+                      <span>
+                        <BiPhone />
+                        {form.contact_phone}
+                      </span>
+                    )}
+                  </InfoList>
+                </div>
+              </div>
+            </InvitationBox>
+          ) : (
+            <StatusBox>No hay una invitacion activa para este equipo.</StatusBox>
+          )}
+        </div>
+      </InvitePanelContentRow>
     </PanelShell>
   );
 
@@ -920,6 +924,23 @@ const DangerButton = styled(BaseActionButton)`
 const PanelShell = styled.div`
   display: grid;
   gap: 18px;
+`;
+
+const InvitePanelContentRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+
+  .invitation-side {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const PanelHeader = styled.div`

@@ -393,6 +393,7 @@ export const EquiposTemplate = ({
                 : "Nuevo Equipo"
           }
           closeOnOverlayClick={false}
+          width={isInvitePanelActive ? "900px" : "500px"}
         >
           {teamToEdit && !isInvitePanelActive && (
             <TabsWrapper>
