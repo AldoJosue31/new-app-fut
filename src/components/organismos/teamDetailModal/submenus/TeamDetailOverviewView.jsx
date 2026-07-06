@@ -57,29 +57,38 @@ export function TeamDetailOverviewView({
       <TeamTitle>{team.name}</TeamTitle>
 
       <InfoBody>
-        <InfoItem
-          as="button"
-          className="clickable"
-          onClick={onShowDelegateRequests}
-          type="button"
-        >
-          <IconBox>
-            <RiShieldUserLine />
-          </IconBox>
-          <div style={{ flex: 1 }}>
-            <span className="label">Delegado</span>
-            {isLinkedDelegate ? (
+        {isLinkedDelegate ? (
+          <InfoItem
+            as="button"
+            className="clickable"
+            onClick={onShowDelegateRequests}
+            type="button"
+          >
+            <IconBox>
+              <RiShieldUserLine />
+            </IconBox>
+            <div style={{ flex: 1 }}>
+              <span className="label">Delegado</span>
               <VerifiedDelegatePill>
                 <span>{delegateLabel}</span>
                 <BiBadgeCheck />
               </VerifiedDelegatePill>
-            ) : (
+              <RequestHint>{delegateRequestHint}</RequestHint>
+            </div>
+            <span className="arrow-icon">→</span>
+          </InfoItem>
+        ) : (
+          <InfoItem>
+            <IconBox>
+              <RiShieldUserLine />
+            </IconBox>
+            <div style={{ flex: 1 }}>
+              <span className="label">Delegado</span>
               <ManualDelegateValue className="value">{delegateLabel}</ManualDelegateValue>
-            )}
-            <RequestHint>{delegateRequestHint}</RequestHint>
-          </div>
-          <span className="arrow-icon">→</span>
-        </InfoItem>
+            </div>
+            <UnlinkedBadge>No vinculado</UnlinkedBadge>
+          </InfoItem>
+        )}
 
         <InfoItem
           as="button"
@@ -171,4 +180,19 @@ const RequestHint = styled.p`
   color: #8fb4d8;
   font-size: 0.78rem;
   font-weight: 600;
+`;
+
+const UnlinkedBadge = styled.span`
+  align-self: center;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(139, 149, 167, 0.12);
+  border: 1px solid rgba(139, 149, 167, 0.25);
+  color: #8b95a7;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
 `;
