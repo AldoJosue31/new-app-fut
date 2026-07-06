@@ -177,8 +177,8 @@ export function TeamCard({
           <v.iconoUser className="icon" />
           {isLinkedDelegate ? (
             <VerifiedDelegatePill>
-              <BiBadgeCheck />
               <span>{delegateLabel}</span>
+              <BiBadgeCheck />
             </VerifiedDelegatePill>
           ) : (
             <ManualDelegateText>{delegateLabel}</ManualDelegateText>
@@ -274,11 +274,8 @@ const VerifiedDelegatePill = styled.div`
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
-  color: #f8fafc;
-  font-size: 0.8rem;
+  color: ${({ theme }) => theme.text};
+  font-size: 0.85rem;
   font-weight: 700;
 
   svg {

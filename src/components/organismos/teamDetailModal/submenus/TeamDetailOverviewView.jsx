@@ -70,8 +70,8 @@ export function TeamDetailOverviewView({
             <span className="label">Delegado</span>
             {isLinkedDelegate ? (
               <VerifiedDelegatePill>
-                <BiBadgeCheck />
                 <span>{delegateLabel}</span>
+                <BiBadgeCheck />
               </VerifiedDelegatePill>
             ) : (
               <ManualDelegateValue className="value">{delegateLabel}</ManualDelegateValue>
@@ -155,16 +155,13 @@ const VerifiedDelegatePill = styled.div`
   align-items: center;
   gap: 8px;
   margin-top: 2px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.94));
-  color: #f8fafc;
-  font-size: 0.9rem;
+  color: ${({ theme }) => theme.text};
+  font-size: 0.95rem;
   font-weight: 700;
 
   svg {
     color: #1cb0f6;
-    font-size: 1rem;
+    font-size: 1.1rem;
     flex-shrink: 0;
   }
 `;
