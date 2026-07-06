@@ -103,6 +103,7 @@ export const EquiposTemplate = ({
   ];
 
   const [activeTab, setActiveTab] = useState("info");
+  const [isInvitePanelActive, setIsInvitePanelActive] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [teamToTransfer, setTeamToTransfer] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "success" });
@@ -160,6 +161,7 @@ export const EquiposTemplate = ({
   useEffect(() => {
     if (isFormOpen) {
       setActiveTab("info");
+      setIsInvitePanelActive(false);
     }
   }, [isFormOpen]);
 
@@ -392,7 +394,7 @@ export const EquiposTemplate = ({
           }
           closeOnOverlayClick={false}
         >
-          {teamToEdit && (
+          {teamToEdit && !isInvitePanelActive && (
             <TabsWrapper>
               <TabsNavigation
                 tabs={modalTabs}
@@ -423,6 +425,7 @@ export const EquiposTemplate = ({
                 teamId={teamToEdit?.id || null}
                 linkedDelegateAssignment={teamToEdit?.delegateAssignment || null}
                 onDelegateLinkStateChanged={onDelegateLinkStateChanged}
+                onInvitePanelChange={setIsInvitePanelActive}
                 saveLabel={isDelegateView ? "Enviar cambios" : "Guardar Equipo"}
               />
             </TabContent>

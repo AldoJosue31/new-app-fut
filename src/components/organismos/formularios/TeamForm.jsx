@@ -41,6 +41,7 @@ export function TeamForm({
   teamId = null,
   linkedDelegateAssignment = null,
   onDelegateLinkStateChanged,
+  onInvitePanelChange,
   saveLabel = "Guardar Equipo",
 }) {
   const containerRef = useRef(null);
@@ -147,11 +148,13 @@ export function TeamForm({
     event.preventDefault();
     setActivePanel(TEAM_INVITE_PANEL);
     setShowUnlinkConfirm(false);
+    onInvitePanelChange?.(true);
   };
 
   const goBackToForm = (event) => {
     event.preventDefault();
     setActivePanel(TEAM_FORM_PANEL);
+    onInvitePanelChange?.(false);
   };
 
   const copyInvitationLink = async (event) => {
@@ -283,10 +286,7 @@ export function TeamForm({
           <BiArrowBack />
           <span>Volver al equipo</span>
         </PanelBackButton>
-        <div>
-          <strong>Vincular delegado por QR o enlace</strong>
-          <p>Comparte este acceso para que el delegado cree su cuenta y quede verificado.</p>
-        </div>
+        <strong>Vincular delegado por QR o enlace</strong>
       </PanelHeader>
 
       <PanelCard>
