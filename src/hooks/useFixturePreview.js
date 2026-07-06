@@ -412,6 +412,56 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         setMatches((prev) => [...prev, ...repositionMatches]);
     }, [existingData?.jornadas, existingData?.pendingMatches, isEditMode, teams]);
 
+    const handleReplaceRoundMatches = useCallback((roundIndex, nextPairs = []) => {
+        const normalizedRoundIndex = Number(roundIndex);
+
+        setMatches((prev) => {
+            const roundMatches = prev.filter(
+                (match) => Number(match.jornadaIndex) === normalizedRoundIndex
+            );
+
+            if (roundMatches.some((match) => match.roundLocked)) {
+                return prev;
+            }
+
+            const nextRoundMatches = nextPairs.map((pair, index) => {
+                const current = roundMatches[index];
+                const isByeMatch =
+                    pair.local?.id === "BYE" || pair.visitante?.id === "BYE";
+
+                return normalizeByeMatch({
+                    ...(current || {}),
+                    id:
+                        current?.id ||
+                        `temp_text_${normalizedRoundIndex}_${Date.now()}_${index + 1}`,
+                    dbId: current?.dbId || null,
+                    local: pair.local,
+                    visitante: pair.visitante,
+                    jornadaIndex: normalizedRoundIndex,
+                    locked: current?.locked || false,
+                    roundLocked: false,
+                    isByeMatch,
+                    isGeneratedRound:
+                        current?.isGeneratedRound ||
+                        roundMatches[0]?.isGeneratedRound ||
+                        false,
+                    roundType: current?.roundType || roundMatches[0]?.roundType,
+                    roundName:
+                        current?.roundName ||
+                        roundMatches[0]?.roundName ||
+                        `Jornada ${normalizedRoundIndex + 1}`,
+                    originalJornadaId: current?.originalJornadaId,
+                    originalJornadaName: current?.originalJornadaName,
+                });
+            });
+
+            return [
+                ...prev.filter((match) => Number(match.jornadaIndex) !== normalizedRoundIndex),
+                ...nextRoundMatches,
+            ];
+        });
+    }, []);
+
     const matchesByRound = {};
     matches.forEach((match) => {
         if (!matchesByRound[match.jornadaIndex]) matchesByRound[match.jornadaIndex] = [];
@@ -444,5 +494,6 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         handleDropOnTeamSlot,
         handleGenerateExtraRound,
         handleGenerateRepositionRound,
+        handleReplaceRoundMatches,
     };
 };

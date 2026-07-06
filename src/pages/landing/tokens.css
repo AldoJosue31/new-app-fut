@@ -1,0 +1,113 @@
+/* src/pages/landing/tokens.css */
+
+html {
+  scroll-behavior: smooth;
+}
+
+.landing-scope {
+  color: var(--lp-text);
+  background: var(--lp-bg);
+  font-family: 'Poppins', system-ui, sans-serif;
+  line-height: 1.55;
+}
+
+.landing-scope * { box-sizing: border-box; }
+.landing-scope :where(h1, h2, h3) { text-wrap: balance; }
+.landing-scope :where(p, li) { text-wrap: pretty; }
+.landing-scope :where(a, button) { -webkit-tap-highlight-color: transparent; }
+
+.landing-scope .lp-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+@media (min-width: 768px) {
+  .landing-scope .lp-container { padding: 0 40px; }
+}
+
+/* --- REVEAL ANIMATIONS --- */
+.landing-scope .lp-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), 
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.landing-scope .lp-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* BOTONES INTEGRADOS CON LA APP */
+.landing-scope .lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 28px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: all 200ms ease;
+  border: 2px solid transparent;
+  text-decoration: none;
+}
+
+.landing-scope .lp-btn-primary {
+  background: var(--lp-primary);
+  color: #fff;
+  box-shadow: 0 10px 25px -5px rgba(28, 176, 246, 0.4);
+}
+
+.landing-scope .lp-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 30px -5px rgba(28, 176, 246, 0.6);
+}
+
+.landing-scope .lp-btn-ghost {
+  background: var(--lp-surface);
+  color: var(--lp-text);
+  border-color: var(--lp-border);
+}
+
+.landing-scope .lp-btn-ghost:hover {
+  border-color: var(--lp-primary);
+  color: var(--lp-primary);
+  transform: translateY(-2px);
+}
+
+.landing-scope .lp-btn:active { 
+  transform: scale(0.97); 
+}
+
+/* TIPOGRAFÍA */
+.landing-scope .lp-eyebrow {
+  display: none; /* Ocultamos los eyebrows genéricos permanentemente */
+}
+
+.landing-scope .lp-h2 {
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--lp-text);
+  margin: 16px 0 20px;
+}
+
+.landing-scope .lp-lead {
+  font-size: 18px;
+  color: var(--lp-text-muted);
+  max-width: 640px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-scope *, .landing-scope .lp-reveal {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

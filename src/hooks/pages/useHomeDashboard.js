@@ -16,8 +16,7 @@ export const useHomeDashboard = () => {
         let isMounted = true; // Bandera para evitar setState en componente desmontado
 
         // Si no hay usuario aún (ej. recarga de página), esperamos.
-        // El AuthContext eventualmente proveerá el usuario o null.
-        if (!user) {
+        if (!user?.id) {
             return;
         }
 
@@ -126,7 +125,7 @@ export const useHomeDashboard = () => {
         return () => {
             isMounted = false;
         };
-    }, [user]);
+    }, [user?.id]);
 
     return { stats, loading, user };
 };

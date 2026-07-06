@@ -1,18 +1,20 @@
 import React, { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { 
-  Home, 
-  Login, 
-  Partidos, 
-  Equipos, 
-  Torneos, 
-  Liga, 
+import {
+  Home,
+  Login,
+  Partidos,
+  Equipos,
+  Torneos,
+  Liga,
   Configuracion,
-  RegisterManager
+  RegisterManager,
+  RegisterDelegate
 } from "../index";
 import { UserAuth } from "../context/AuthContent";
 import { ROLES } from "../utils/constants";
 import { PublicStandings } from '../pages/PublicStandings';
+import Landing from '../pages/Landing';
 
 const AdminManagersLazy = React.lazy(() => 
   import("../pages/AdminManagers").then(module => {
@@ -25,12 +27,25 @@ function ProtectedRoute({ children, allowedRoles }) {
 
   if (isLoading) return <div>Cargando...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (!profile) return <div>Cargando...</div>;
 
   if (allowedRoles && (!profile || !allowedRoles.includes(profile?.role))) {
     return <Navigate to="/" replace />;
   }
 
   return children;
+}
+
+// Home inteligente: sin sesión muestra Landing pública, con sesión muestra Dashboard
+function HomeGate({ sidebarState, setSidebarState }) {
+  const { user, profile, isLoading } = UserAuth();
+
+  if (isLoading) return <div>Cargando...</div>;
+  if (!user) return <Landing />;
+  if (!profile) return <div>Cargando...</div>;
+  if (profile.role === ROLES.DELEGATE) return <Navigate to="/equipos" replace />;
+
+  return <Home state={sidebarState} setState={setSidebarState} />;
 }
 
 // --- RECIBIMOS LAS PROPS DEL SIDEBAR AQUÍ ---
@@ -42,31 +57,30 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route path="/share/standings/:torneoId" element={<PublicStandings />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
 
-      {/* --- RUTAS PROTEGIDAS --- */}
-      
-      {/* 1. HOME: Agregamos props */}
-      <Route 
-        path="/" 
-        element={
-          <ProtectedRoute>
-            <Home state={sidebarState} setState={setSidebarState} />
-          </ProtectedRoute>
-        } 
+      {/* Landing pública accesible directamente */}
+      <Route path="/landing" element={<Landing />} />
+
+      {/* HOME: usuarios sin sesión ven Landing, con sesión ven Dashboard */}
+      <Route
+        path="/"
+        element={<HomeGate sidebarState={sidebarState} setSidebarState={setSidebarState} />}
       />
-      <Route 
-        path="/dashboard" 
+
+      {/* --- RUTAS PROTEGIDAS --- */}
+      <Route
+        path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
             <Home state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
-        } 
+        }
       />
 
       {/* 2. PARTIDOS: Agregamos props */}
       <Route 
         path="/partidos" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
             <Partidos state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         } 
@@ -76,7 +90,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route
         path="/division/:divisionId/equipos/:teamId?"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.DELEGATE]}>
             <Equipos state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         }
@@ -86,7 +100,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route 
         path="/equipos/:teamId?" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.DELEGATE]}>
             <Equipos state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         } 
@@ -96,7 +110,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route
         path="/division/:divisionId/torneos/:torneoOrTab?/:tab?/:jornadaId?"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
             <Torneos state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         }
@@ -106,7 +120,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route 
         path="/torneos/:torneoOrTab?/:tab?/:jornadaId?"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
             <Torneos state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         } 
@@ -116,7 +130,7 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route 
         path="/liga/:tab?" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
             <Liga state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         } 
@@ -126,13 +140,14 @@ export function MyRoutes({ sidebarState, setSidebarState }) {
       <Route 
         path="/configuracion" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.DELEGATE]}>
             <Configuracion state={sidebarState} setState={setSidebarState} />
           </ProtectedRoute>
         } 
       />
 
       <Route path="/invitation/:token" element={<RegisterManager />} />
+      <Route path="/delegate/invitation/:token" element={<RegisterDelegate />} />
 
       {/* 7. ADMIN: Agregamos props al componente Lazy */}
       <Route 

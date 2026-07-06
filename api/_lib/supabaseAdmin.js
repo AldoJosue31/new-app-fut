@@ -8,7 +8,7 @@ const supabaseUrl =
 
 const serviceRoleKey =
   env.SUPABASE_SERVICE_ROLE_KEY ||
-  env.VITE_APP_SUPABASE_SERVICE_ROLE_KEY;
+  env.SERVICE_ROLE_KEY;
 
 const anonKey =
   env.SUPABASE_ANON_KEY ||
@@ -83,7 +83,7 @@ export const readJsonBody = async (req) => {
   return req.body;
 };
 
-export const requireAdmin = async (req) => {
+const requireProfileRole = async (req, allowedRoles) => {
   const { user } = await requireUser(req);
 
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -92,7 +92,7 @@ export const requireAdmin = async (req) => {
     .eq("id", user.id)
     .single();
 
-  if (profileError || profile?.role !== "admin") {
+  if (profileError || !allowedRoles.includes(profile?.role)) {
     const error = new Error("Forbidden");
     error.statusCode = 403;
     throw error;
@@ -100,6 +100,12 @@ export const requireAdmin = async (req) => {
 
   return { user, profile };
 };
+
+export const requireAdmin = async (req) =>
+  requireProfileRole(req, ["admin"]);
+
+export const requireManager = async (req) =>
+  requireProfileRole(req, ["manager", "admin"]);
 
 export const sendError = (res, error) => {
   const statusCode = error?.statusCode || 500;

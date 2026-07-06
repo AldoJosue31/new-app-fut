@@ -3,8 +3,7 @@ import { preloadBackgroundRemoval } from "../utils/imageProcessor";
 import { EquiposTemplate } from "../components/template/EquiposTemplate";
 import { useEquiposLogic } from "../hooks/pages/useEquiposLogic";
 
-export function Equipos({ state, setState }) { // <--- Recibimos props
-  // 1. Optimización: Precargamos el modelo de IA al entrar a la página
+export function Equipos({ state, setState }) {
   useEffect(() => {
     preloadBackgroundRemoval();
   }, []);
@@ -13,20 +12,22 @@ export function Equipos({ state, setState }) { // <--- Recibimos props
   const { data, form, modals, actions } = logic;
 
   return (
-    <EquiposTemplate 
-      // Pasamos control del Sidebar
+    <EquiposTemplate
       state={state}
       setState={setState}
-
       {...logic}
-      // --- DATOS ---
       equipos={data.equipos}
       division={data.selectedDivision}
       loading={data.loading}
       isUploading={data.uploading}
-      participatingIds={data.participatingIds} // <--- ¡AQUÍ ESTÁ LA CLAVE!
-      
-      // --- FORMULARIO E IMÁGENES ---
+      participatingIds={data.participatingIds}
+      accessRole={data.accessRole}
+      canCreateTeams={data.canCreateTeams}
+      canDeleteTeams={data.canDeleteTeams}
+      canTransferTeams={data.canTransferTeams}
+      canInviteDelegates={data.canInviteDelegates}
+      requestSummariesLoading={data.requestSummariesLoading}
+      delegateRequestOverview={data.delegateRequestOverview}
       form={form.data}
       preview={form.preview}
       file={form.file}
@@ -37,25 +38,21 @@ export function Equipos({ state, setState }) { // <--- Recibimos props
       onGenerateLogo={form.handleGenerateLogo}
       onRemoveBg={form.handleRemoveBg}
       onSave={actions.handleSave}
-
-      // --- MODALES Y ESTADOS ---
       isFormOpen={modals.isFormOpen}
       setIsFormOpen={modals.setIsFormOpen}
       teamToEdit={modals.teamToEdit}
-      
       isDetailOpen={modals.isDetailOpen}
       setIsDetailOpen={modals.setIsDetailOpen}
       teamToView={modals.teamToView}
-      
       isDeleteModalOpen={modals.isDeleteModalOpen}
       setIsDeleteModalOpen={modals.setIsDeleteModalOpen}
-      
-      // --- ACCIONES CRUD ---
       onDelete={actions.openDeleteConfirmation}
       onConfirmDelete={actions.confirmDelete}
       onCreate={actions.openCreateModal}
       onEdit={actions.openEditModal}
       onView={actions.openDetailModal}
+      onDelegateLinkStateChanged={actions.handleDelegateLinkStateChanged}
+      onDelegateRequestSubmitted={actions.refreshDelegateRequestSummaries}
     />
   );
 }

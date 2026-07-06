@@ -6,14 +6,16 @@ import { SummaryDashboard } from "../organismos/dashboard/SummaryDashboard";
 import { PantallaCarga } from "../organismos/PantallaCarga";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
+import { useAuthStore } from "../../store/AuthStore";
 
 export function HomeTemplate({ state, setState }) {
     const { stats, loading, user } = useHomeDashboard();
+    const { profile } = useAuthStore();
     const VIEW_MAX_WIDTH = "1400px";
 
     if (loading) { return <PantallaCarga />; }
 
-    const userName = user?.user_metadata?.nombre || user?.email?.split('@')[0] || "Manager";
+    const userName = profile?.full_name || user?.user_metadata?.nombre || user?.email?.split('@')[0] || "Manager";
     const hasData = stats && stats.divisiones && stats.divisiones.length > 0;
 
     return (

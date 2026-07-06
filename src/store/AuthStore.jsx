@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabase.config';
 import { useEquiposStore } from './EquiposStore'; // Importamos el store de equipos
+import { ROLES } from '../utils/constants';
 
 export const useAuthStore = create((set, get) => {
   
@@ -68,7 +69,7 @@ export const useAuthStore = create((set, get) => {
             .eq('id', sessionUser.id)
             .single();
 
-          if (!profileError && profile?.role === 'manager' && profile?.is_suspended) {
+          if (!profileError && [ROLES.MANAGER, ROLES.DELEGATE].includes(profile?.role) && profile?.is_suspended) {
             await supabase.auth.signOut();
             set({ user: null, profile: null, authLoadingAction: false });
             window.dispatchEvent(new CustomEvent('account-suspended-notice', {

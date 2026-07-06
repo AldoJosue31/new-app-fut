@@ -9,7 +9,7 @@ import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine, RiInformationLine } f
 import { Skeleton } from '../../../../atomos/Skeleton';
 import { DynamicTeamLogo } from '../../../../organismos/equipos/DynamicTeamLogo'; 
 
-export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false }) {
+export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false, hideBottomInfo = false }) {
   const navigate = useNavigate();
 
   const getZoneStatus = (index, total) => {
@@ -196,25 +196,27 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
         </ResponsiveTableWrapper>
       </TableCard>
 
-      <BottomInfoContainer>
-        <TieBreakerContainer>
-           <RiInformationLine size={16} />
-           <span>{getTieBreakerText()}</span>
-        </TieBreakerContainer>
+      {!hideBottomInfo && (
+        <BottomInfoContainer>
+          <TieBreakerContainer>
+             <RiInformationLine size={16} />
+             <span>{getTieBreakerText()}</span>
+          </TieBreakerContainer>
 
-        {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
-          <LeyendaContainer>
-               {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
-               {config.zonaLiguilla && (
-                  <>
-                      <Badge $color="#3b82f6">Liguilla</Badge>
-                      {config.repechaje > 0 && <Badge $color="#f59e0b">Repechaje</Badge>}
-                  </>
-               )}
-               {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
-          </LeyendaContainer>
-        )}
-      </BottomInfoContainer>
+          {(config.ascensos > 0 || config.zonaLiguilla || config.descensos > 0) && (
+            <LeyendaContainer>
+                 {config.ascensos > 0 && <Badge $color="#22c55e">Ascenso</Badge>}
+                 {config.zonaLiguilla && (
+                    <>
+                        <Badge $color="#3b82f6">Liguilla</Badge>
+                        {config.repechaje > 0 && <Badge $color="#f59e0b">Repechaje</Badge>}
+                    </>
+                 )}
+                 {config.descensos > 0 && <Badge $color="#ef4444">Descenso</Badge>}
+            </LeyendaContainer>
+          )}
+        </BottomInfoContainer>
+      )}
     </>
   );
 }

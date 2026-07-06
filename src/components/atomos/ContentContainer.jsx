@@ -10,16 +10,16 @@ import { Device } from "../../styles/breakpoints";
 export const ContentContainer = ({ children, ...props }) => {
   
   useLayoutEffect(() => {
-    const originalStyle = window.getComputedStyle(document.body).overflowY;
+    const originalOverflowY = document.body.style.overflowY;
     document.body.style.overflowY = "hidden";
 
     const timer = setTimeout(() => {
-      document.body.style.overflowY = "auto"; 
+      document.body.style.overflowY = originalOverflowY; 
     }, 400);
 
     return () => {
       clearTimeout(timer);
-      document.body.style.overflowY = "auto";
+      document.body.style.overflowY = originalOverflowY;
     };
   }, []);
 

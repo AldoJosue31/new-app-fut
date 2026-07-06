@@ -1,4 +1,6 @@
 import React from "react";
+import styled from "styled-components";
+import { BiBadgeCheck } from "react-icons/bi";
 import {
   RiShieldUserLine,
   RiSmartphoneLine,
@@ -6,7 +8,6 @@ import {
   RiUserFollowLine,
 } from "react-icons/ri";
 import { Skeleton } from "../../../atomos/Skeleton";
-import { v } from "../../../../styles/variables";
 import { TeamLogo } from "../TeamLogo";
 import {
   Banner,
@@ -24,10 +25,25 @@ export function TeamDetailOverviewView({
   division,
   hasActiveTournament,
   loadingStats,
+  onShowDelegateRequests,
   onShowPlayers,
   onShowStats,
   team,
 }) {
+  const isLinkedDelegate = Boolean(team?.delegateAssignment?.delegate_profile_id);
+  const delegateLabel = team?.delegate_name || "No registrado";
+  const requestSummary = team?.delegateRequestSummary || null;
+  const pendingCount = Number(requestSummary?.pendingCount || 0);
+  const totalCount = Number(requestSummary?.totalCount || 0);
+  const delegateRequestHint =
+    pendingCount > 0
+      ? `${pendingCount} solicitud${pendingCount === 1 ? "" : "es"} pendiente${
+          pendingCount === 1 ? "" : "s"
+        }`
+      : totalCount > 0
+        ? "Ver historial del delegado"
+        : "Abrir solicitudes del delegado";
+
   return (
     <OverviewView>
       <Banner $color={team.color || "#1f2937"}>
@@ -41,15 +57,38 @@ export function TeamDetailOverviewView({
       <TeamTitle>{team.name}</TeamTitle>
 
       <InfoBody>
-        <InfoItem>
-          <IconBox>
-            <RiShieldUserLine />
-          </IconBox>
-          <div>
-            <span className="label">Delegado</span>
-            <p className="value">{team.delegate_name || "No registrado"}</p>
-          </div>
-        </InfoItem>
+        {isLinkedDelegate ? (
+          <InfoItem
+            as="button"
+            className="clickable"
+            onClick={onShowDelegateRequests}
+            type="button"
+          >
+            <IconBox>
+              <RiShieldUserLine />
+            </IconBox>
+            <div style={{ flex: 1 }}>
+              <span className="label">Delegado</span>
+              <VerifiedDelegatePill>
+                <span>{delegateLabel}</span>
+                <BiBadgeCheck />
+              </VerifiedDelegatePill>
+              <RequestHint>{delegateRequestHint}</RequestHint>
+            </div>
+            <span className="arrow-icon">→</span>
+          </InfoItem>
+        ) : (
+          <InfoItem>
+            <IconBox>
+              <RiShieldUserLine />
+            </IconBox>
+            <div style={{ flex: 1 }}>
+              <span className="label">Delegado</span>
+              <ManualDelegateValue className="value">{delegateLabel}</ManualDelegateValue>
+            </div>
+            <UnlinkedBadge>No vinculado</UnlinkedBadge>
+          </InfoItem>
+        )}
 
         <InfoItem
           as="button"
@@ -98,7 +137,7 @@ export function TeamDetailOverviewView({
         ) : (
           <InfoItem>
             <IconBox>
-              <v.iconoemijivacio />
+              <RiShieldUserLine />
             </IconBox>
             <div>
               <span className="label">Estado</span>
@@ -112,3 +151,48 @@ export function TeamDetailOverviewView({
     </OverviewView>
   );
 }
+
+const ManualDelegateValue = styled.p`
+  margin: 0;
+  color: #8b95a7;
+  font-size: 0.95rem;
+  font-weight: 600;
+`;
+
+const VerifiedDelegatePill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  color: ${({ theme }) => theme.text};
+  font-size: 0.95rem;
+  font-weight: 700;
+
+  svg {
+    color: #1cb0f6;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+`;
+
+const RequestHint = styled.p`
+  margin: 6px 0 0;
+  color: #8fb4d8;
+  font-size: 0.78rem;
+  font-weight: 600;
+`;
+
+const UnlinkedBadge = styled.span`
+  align-self: center;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(139, 149, 167, 0.12);
+  border: 1px solid rgba(139, 149, 167, 0.25);
+  color: #8b95a7;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+`;

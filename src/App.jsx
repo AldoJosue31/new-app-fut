@@ -14,7 +14,6 @@ import {
 
 // Imports de Estilos
 import { Device } from "./styles/breakpoints";
-import { v } from "./styles/variables";
 
 // Imports de Stores (Zustand)
 import { useThemeStore } from "./store/ThemeStore";
@@ -56,10 +55,13 @@ function AppContent() {
     );
   }
 
-  const isStandAlonePage = 
-    pathname === "/login" || 
-    pathname.startsWith("/invitation") || 
-    pathname.startsWith("/share");
+  const isStandAlonePage =
+    pathname === "/login" ||
+    pathname.startsWith("/invitation") ||
+    pathname.startsWith("/delegate/invitation") ||
+    pathname.startsWith("/share") ||
+    pathname.startsWith("/landing") ||
+    (pathname === "/" && !user);
 
   return (
     <ThemeProvider theme={themeStyle}>

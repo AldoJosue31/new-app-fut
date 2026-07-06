@@ -1,19 +1,32 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal";
 import { useSort } from "../../hooks/useSort";
 import { supabase } from "../../supabase/supabase.config";
 import { getTeamTournamentStats } from "../../services/estadisticas";
 import {
+  getTeamDelegateChangeRequests,
+  reviewDelegateChangeRequest,
+} from "../../services/delegates";
+import {
   PLAYER_SORT_OPTIONS,
   STATS_TABS,
   TEAM_DETAIL_VIEWS,
 } from "./teamDetailModal/constants";
+import { TeamDetailDelegateRequestsView } from "./teamDetailModal/submenus/TeamDetailDelegateRequestsView";
 import { TeamDetailOverviewView } from "./teamDetailModal/submenus/TeamDetailOverviewView";
 import { TeamDetailPlayersView } from "./teamDetailModal/submenus/TeamDetailPlayersView";
 import { TeamDetailStatsView } from "./teamDetailModal/submenus/TeamDetailStatsView";
 import { DetailContainer } from "./teamDetailModal/styles";
 
-export function TeamDetailModal({ isOpen, onClose, team, division, initialView }) {
+export function TeamDetailModal({
+  isOpen,
+  onClose,
+  team,
+  division,
+  initialView,
+  canReviewDelegateRequests = false,
+  onDelegateRequestsUpdated,
+}) {
   const [activeView, setActiveView] = useState(TEAM_DETAIL_VIEWS.OVERVIEW);
   const [players, setPlayers] = useState([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
@@ -22,6 +35,8 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
   const [statsData, setStatsData] = useState(null);
   const [hasActiveTournament, setHasActiveTournament] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [delegateRequests, setDelegateRequests] = useState([]);
+  const [loadingDelegateRequests, setLoadingDelegateRequests] = useState(false);
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const resultsRailRef = useRef(null);
@@ -47,34 +62,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW);
-      setActiveStatsTab("results");
-      setPlayers([]);
-      setStatsData(null);
-      setHasActiveTournament(false);
-      setLoadingPlayers(false);
-      return;
-    }
-
-    if (!team) return;
-
-    setActiveView(
-      initialView === "stats" ? TEAM_DETAIL_VIEWS.STATS : TEAM_DETAIL_VIEWS.OVERVIEW
-    );
-    setActiveStatsTab("results");
-
-    if (division) {
-      checkTournamentStatus();
-      return;
-    }
-
-    setHasActiveTournament(false);
-    setStatsData(null);
-  }, [division, initialView, isOpen, team]);
-
-  const checkTournamentStatus = async () => {
+  const checkTournamentStatus = useCallback(async () => {
     if (!team || !division) return;
 
     setLoadingStats(true);
@@ -122,7 +110,38 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
     } finally {
       setLoadingStats(false);
     }
-  };
+  }, [division, team]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW);
+      setActiveStatsTab("results");
+      setPlayers([]);
+      setStatsData(null);
+      setHasActiveTournament(false);
+      setLoadingPlayers(false);
+      setDelegateRequests([]);
+      setLoadingDelegateRequests(false);
+      return;
+    }
+
+    if (!team) return;
+
+    setDelegateRequests([]);
+    setLoadingDelegateRequests(false);
+    setActiveView(
+      initialView === "stats" ? TEAM_DETAIL_VIEWS.STATS : TEAM_DETAIL_VIEWS.OVERVIEW
+    );
+    setActiveStatsTab("results");
+
+    if (division) {
+      checkTournamentStatus();
+      return;
+    }
+
+    setHasActiveTournament(false);
+    setStatsData(null);
+  }, [checkTournamentStatus, division, initialView, isOpen, team]);
 
   const handleShowPlayers = async () => {
     if (!team) return;
@@ -150,19 +169,67 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
     setActiveView(TEAM_DETAIL_VIEWS.STATS);
   };
 
+  const loadDelegateRequests = async () => {
+    if (!team?.id) return [];
+
+    setLoadingDelegateRequests(true);
+
+    try {
+      const requests = await getTeamDelegateChangeRequests(team.id);
+      setDelegateRequests(requests);
+      return requests;
+    } catch (error) {
+      console.error("Error cargando solicitudes del delegado:", error);
+      setDelegateRequests([]);
+      return [];
+    } finally {
+      setLoadingDelegateRequests(false);
+    }
+  };
+
+  const handleShowDelegateRequests = async () => {
+    setActiveView(TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS);
+    await loadDelegateRequests();
+  };
+
+  const handleReviewDelegateRequest = async ({
+    requestId,
+    decision,
+    reviewNotes = null,
+  }) => {
+    const result = await reviewDelegateChangeRequest({
+      requestId,
+      decision,
+      reviewNotes,
+    });
+
+    await loadDelegateRequests();
+    onDelegateRequestsUpdated?.(result);
+    return result;
+  };
+
   if (!team) return null;
 
-  const sortOptions = PLAYER_SORT_OPTIONS.map(({ Icon, ...option }) => ({
-    ...option,
-    icon: <Icon />,
-  }));
+  const sortOptions = PLAYER_SORT_OPTIONS.map((option) => {
+    const OptionIcon = option.Icon;
+    return {
+      ...option,
+      icon: <OptionIcon />,
+    };
+  });
 
-  const statsTabs = STATS_TABS.map(({ Icon, ...tab }) => ({
-    ...tab,
-    icon: <Icon />,
-  }));
+  const statsTabs = STATS_TABS.map((tab) => {
+    const TabIcon = tab.Icon;
+    return {
+      ...tab,
+      icon: <TabIcon />,
+    };
+  });
 
   const getModalTitle = () => {
+    if (activeView === TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS) {
+      return `Solicitudes del delegado${team.name ? `: ${team.name}` : ""}`;
+    }
     if (activeView === TEAM_DETAIL_VIEWS.PLAYERS) return "Plantilla";
     if (activeView === TEAM_DETAIL_VIEWS.STATS) {
       return `Estadísticas:${team.name ? ` ${team.name}` : ""}`;
@@ -174,6 +241,7 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
     const isMobile = windowWidth < 768;
     if (isMobile) return "100%";
 
+    if (activeView === TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS) return "960px";
     return activeView === TEAM_DETAIL_VIEWS.OVERVIEW ? "550px" : "850px";
   };
 
@@ -215,11 +283,24 @@ export function TeamDetailModal({ isOpen, onClose, team, division, initialView }
           />
         )}
 
+        {activeView === TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS && (
+          <TeamDetailDelegateRequestsView
+            canReview={canReviewDelegateRequests}
+            loading={loadingDelegateRequests}
+            onBack={() => setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW)}
+            onRefresh={loadDelegateRequests}
+            onReview={handleReviewDelegateRequest}
+            requests={delegateRequests}
+            team={team}
+          />
+        )}
+
         {activeView === TEAM_DETAIL_VIEWS.OVERVIEW && (
           <TeamDetailOverviewView
             division={division}
             hasActiveTournament={hasActiveTournament}
             loadingStats={loadingStats}
+            onShowDelegateRequests={handleShowDelegateRequests}
             onShowPlayers={handleShowPlayers}
             onShowStats={handleShowStats}
             team={team}

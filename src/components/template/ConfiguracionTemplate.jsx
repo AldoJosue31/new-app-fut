@@ -18,6 +18,7 @@ import {
   unlinkGoogleIdentity,
   updateProfileName,
 } from "../../services/account";
+import { getDelegateLeagueNames } from "../../services/delegates";
 import { TournamentAutoRedirectPreference } from "../TournamentAutoRedirectPreference";
 
 export function ConfiguracionTemplate({ state, setState }) {
@@ -42,8 +43,14 @@ export function ConfiguracionTemplate({ state, setState }) {
 
   useEffect(() => {
     const loadLeagueName = async () => {
-      if (!user) return;
+      if (!user || !profile?.role) return;
       try {
+        if (profile.role === "delegate") {
+          const delegateLeagueNames = await getDelegateLeagueNames(user.id);
+          setLeagueName(delegateLeagueNames.length ? delegateLeagueNames.join(", ") : null);
+          return;
+        }
+
         const nextLeagueName = await getLeagueNameByOwner(user.id);
         setLeagueName(nextLeagueName);
       } catch (error) {
@@ -52,7 +59,7 @@ export function ConfiguracionTemplate({ state, setState }) {
     };
 
     loadLeagueName();
-  }, [user]);
+  }, [profile?.role, user]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -101,6 +108,8 @@ export function ConfiguracionTemplate({ state, setState }) {
         return "Administrador";
       case "manager":
         return "Gestor";
+      case "delegate":
+        return "Delegado";
       case "user":
         return "Jugador";
       default:
@@ -256,11 +265,13 @@ const RoleBadge = styled.div`
       ? "#ff4757"
       : $role === "manager"
         ? "#00913cff"
+        : $role === "delegate"
+          ? "#f39c12"
         : $role === "user"
           ? "#1e90ff"
           : theme.bg4};
   color: ${({ $role }) =>
-    $role === "admin" || $role === "manager" || $role === "user" ? "#fff" : "inherit"};
+    $role === "admin" || $role === "manager" || $role === "delegate" || $role === "user" ? "#fff" : "inherit"};
 `;
 
 const Divider = styled.div`
