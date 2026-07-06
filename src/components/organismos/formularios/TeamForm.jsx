@@ -47,6 +47,7 @@ export function TeamForm({
   const containerRef = useRef(null);
   const colorTextRef = useRef(null);
   const colorInputRef = useRef(null);
+  const hasLoadedInvitationRef = useRef(false);
   const [activePanel, setActivePanel] = useState(TEAM_FORM_PANEL);
   const [inviteEmail, setInviteEmail] = useState("");
   const [activeInvitation, setActiveInvitation] = useState(null);
@@ -82,6 +83,7 @@ export function TeamForm({
     setShowUnlinkConfirm(false);
     setActiveInvitation(null);
     setInviteEmail("");
+    hasLoadedInvitationRef.current = false;
   }, [teamId]);
 
   useEffect(() => {
@@ -89,12 +91,14 @@ export function TeamForm({
       !canManageDelegateLink ||
       activePanel !== TEAM_INVITE_PANEL ||
       !teamId ||
-      isLinkedDelegate
+      isLinkedDelegate ||
+      hasLoadedInvitationRef.current
     ) {
       return undefined;
     }
 
     let ignore = false;
+    hasLoadedInvitationRef.current = true;
 
     const loadInvitation = async () => {
       setLoadingInvitation(true);
@@ -363,34 +367,22 @@ export function TeamForm({
         <StatusBox>Cargando invitacion activa...</StatusBox>
       ) : activeInvitation ? (
         <InvitationBox>
+          <IconButton
+            className="revoke-btn"
+            type="button"
+            onClick={handleRevokeInvitation}
+            disabled={inviteActionLoading}
+            title="Revocar invitacion"
+          >
+            <BiTrash />
+          </IconButton>
+
           <div className="top">
-            <div>
-              <span className="eyebrow">Invitacion activa</span>
-              <h4>Lista para compartir</h4>
-              <p>
-                Expira el <b>{new Date(activeInvitation.expires_at).toLocaleString()}</b>
-              </p>
-            </div>
-
-            <div className="top-actions">
-              <ActionButton
-                type="button"
-                onClick={copyInvitationLink}
-                disabled={!invitationUrl}
-              >
-                <BiCopy />
-                <span>Copiar enlace</span>
-              </ActionButton>
-
-              <IconButton
-                type="button"
-                onClick={handleRevokeInvitation}
-                disabled={inviteActionLoading}
-                title="Revocar invitacion"
-              >
-                <BiTrash />
-              </IconButton>
-            </div>
+            <span className="eyebrow">Invitacion activa</span>
+            <h4>Lista para compartir</h4>
+            <p>
+              Expira el <b>{new Date(activeInvitation.expires_at).toLocaleString()}</b>
+            </p>
           </div>
 
           <div className="share-grid">
@@ -1032,6 +1024,7 @@ const StatusBox = styled.div`
 `;
 
 const InvitationBox = styled.div`
+  position: relative;
   display: grid;
   gap: 18px;
   padding: 18px;
@@ -1039,11 +1032,16 @@ const InvitationBox = styled.div`
   background: ${({ theme }) => theme.bgcards};
   border: 1px solid rgba(46, 213, 115, 0.25);
 
+  .revoke-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+  }
+
   .top {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+    display: grid;
+    gap: 2px;
+    padding-right: 52px;
   }
 
   .eyebrow {
@@ -1066,18 +1064,10 @@ const InvitationBox = styled.div`
     opacity: 0.75;
   }
 
-  .top-actions {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
   .share-grid {
     display: grid;
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 1fr;
     gap: 18px;
-    align-items: center;
   }
 
   .qr-card {
@@ -1087,6 +1077,8 @@ const InvitationBox = styled.div`
     padding: 14px;
     border-radius: 18px;
     background: #ffffff;
+    width: fit-content;
+    margin: 0 auto;
   }
 
   .link-panel {
@@ -1132,12 +1124,6 @@ const InvitationBox = styled.div`
   .copy-row button:hover {
     transform: translateY(-1px);
     opacity: 0.92;
-  }
-
-  @media (max-width: 720px) {
-    .share-grid {
-      grid-template-columns: 1fr;
-    }
   }
 `;
 
