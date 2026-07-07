@@ -29,6 +29,7 @@ export function TeamDetailOverviewView({
   onShowPlayers,
   onShowStats,
   team,
+  onEdit,
 }) {
   const isLinkedDelegate = Boolean(team?.delegateAssignment?.delegate_profile_id);
   const delegateLabel = team?.delegate_name || "No registrado";
@@ -48,6 +49,14 @@ export function TeamDetailOverviewView({
     <OverviewView>
       <Banner $color={team.color || "#1f2937"}>
         <DivisionBadge>{division?.name || "Liga"}</DivisionBadge>
+        {onEdit && (
+          <BannerEditBtn onClick={onEdit} type="button">
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+            </svg>
+            Editar equipo
+          </BannerEditBtn>
+        )}
       </Banner>
 
       <LogoWrapper>
@@ -195,4 +204,38 @@ const UnlinkedBadge = styled.span`
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+`;
+
+const BannerEditBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 10;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 `;

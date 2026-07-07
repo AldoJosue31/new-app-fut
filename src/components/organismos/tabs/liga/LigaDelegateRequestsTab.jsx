@@ -5,7 +5,6 @@ import {
   RiCloseCircleLine,
   RiInboxArchiveLine,
   RiRefreshLine,
-  RiShieldCheckLine,
   RiTimeLine,
   RiUser3Line,
 } from "react-icons/ri";
@@ -15,7 +14,6 @@ import {
   BtnNormal,
   Btnsave,
   Card,
-  CardHeader,
   EmptyState,
   Modal,
   Skeleton,
@@ -227,12 +225,6 @@ export function LigaDelegateRequestsTab({
       />
 
       <Card maxWidth="1000px" width="100%">
-        <CardHeader
-          Icono={RiShieldCheckLine}
-          titulo={title}
-          subtitulo={subtitle}
-        />
-
         <SummaryGrid>
           <SummaryCard>
             <span className="label">Pendientes</span>
@@ -267,7 +259,7 @@ export function LigaDelegateRequestsTab({
 
         <ListContainer>
           {loading ? (
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: 2 }).map((_, index) => (
               <RequestSkeleton key={index}>
                 <Skeleton width="45%" height="18px" />
                 <Skeleton width="80%" height="14px" />
@@ -377,33 +369,33 @@ export function LigaDelegateRequestsTab({
             {selectedRequest.status === "pending" ? (
               canReview ? (
                 <DetailSection>
-                <h4>Revisión del manager</h4>
-                <ReviewTextarea
-                  value={reviewNotes}
-                  onChange={(event) => setReviewNotes(event.target.value)}
-                  placeholder="Agrega una nota opcional para aprobar o una explicación si rechazas."
-                />
+                  <h4>Revisión del manager</h4>
+                  <ReviewTextarea
+                    value={reviewNotes}
+                    onChange={(event) => setReviewNotes(event.target.value)}
+                    placeholder="Agrega una nota opcional para aprobar o una explicación si rechazas."
+                  />
 
-                <ActionRow>
-                  <BtnNormal funcion={closeModal} titulo="Cancelar" />
-                  <Btnsave
-                    funcion={() => handleDecision("reject")}
-                    titulo={savingDecision === "reject" ? "Rechazando..." : "Rechazar"}
-                    bgcolor={v.rojo}
-                    icono={<RiCloseCircleLine />}
-                    width="auto"
-                    disabled={!!savingDecision}
-                  />
-                  <Btnsave
-                    funcion={() => handleDecision("approve")}
-                    titulo={savingDecision === "approve" ? "Aprobando..." : "Aprobar"}
-                    bgcolor={v.verde}
-                    icono={<RiCheckboxCircleLine />}
-                    width="auto"
-                    disabled={!!savingDecision}
-                  />
-                </ActionRow>
-              </DetailSection>
+                  <ActionRow>
+                    <BtnNormal funcion={closeModal} titulo="Cancelar" />
+                    <Btnsave
+                      funcion={() => handleDecision("reject")}
+                      titulo={savingDecision === "reject" ? "Rechazando..." : "Rechazar"}
+                      bgcolor={v.rojo}
+                      icono={<RiCloseCircleLine />}
+                      width="auto"
+                      disabled={!!savingDecision}
+                    />
+                    <Btnsave
+                      funcion={() => handleDecision("approve")}
+                      titulo={savingDecision === "approve" ? "Aprobando..." : "Aprobar"}
+                      bgcolor={v.verde}
+                      icono={<RiCheckboxCircleLine />}
+                      width="auto"
+                      disabled={!!savingDecision}
+                    />
+                  </ActionRow>
+                </DetailSection>
               ) : (
                 <DetailSection>
                   <h4>Estado actual</h4>
@@ -430,8 +422,8 @@ export function LigaDelegateRequestsTab({
 const SummaryGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 18px;
 
   @media (max-width: 720px) {
     grid-template-columns: 1fr;
@@ -439,23 +431,24 @@ const SummaryGrid = styled.div`
 `;
 
 const SummaryCard = styled.div`
-  padding: 16px;
-  border-radius: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
   background: ${({ theme }) => theme.bgtotal};
   border: 1px solid ${({ theme }) => theme.bg4};
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 
   .label {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     opacity: 0.72;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 
   strong {
-    font-size: 1.8rem;
+    font-size: 1.25rem;
     line-height: 1;
   }
 `;
@@ -478,6 +471,8 @@ const ListContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 120px;
+  transition: min-height 0.3s ease;
 `;
 
 const RequestCard = styled.button`
