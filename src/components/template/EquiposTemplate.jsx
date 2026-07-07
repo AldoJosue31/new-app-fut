@@ -21,6 +21,7 @@ import {
 import { Modal } from "../organismos/Modal";
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { EmptyState } from "../organismos/EmptyState";
+import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetailPanel";
 import { supabase } from "../../supabase/supabase.config";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { ROLES } from "../../utils/constants";
@@ -271,7 +272,7 @@ export const EquiposTemplate = ({
   return (
     <>
       <PageHeader
-        title={isDelegateView ? "Mis Equipos" : "Equipos"}
+        title={isDelegateView ? "Mi equipo" : "Equipos"}
         tabs={tabs}
         maxWidth={viewMaxWidth}
         marginBottom="0"
@@ -323,63 +324,99 @@ export const EquiposTemplate = ({
             </FloatingBtnWrapper>
           )}
 
-          <Card width="100%" maxWidth="100%">
-            <div style={{ width: "100%" }}>
-              <Grid>
+          {/* === MODO DELEGADO: pantalla completa para el unico equipo del delegado === */}
+          {isDelegateView ? (
+            <Card width="100%" maxWidth="100%" style={{ padding: "25px" }}>
+              <div style={{ width: "100%" }}>
                 {loading ? (
-                  Array.from({ length: 8 }).map((_, index) => (
-                    <TeamCardSkeleton key={index} />
-                  ))
+                  <DelegatePageSkeleton>
+                    <DelegateSkeletonHeader />
+                    <DelegateSkeletonBody />
+                  </DelegatePageSkeleton>
+                ) : !equipos || equipos.length === 0 ? (
+                  <EmptyState
+                    icon={<IoMdFootball size={48} />}
+                    title="Sin Equipos Asignados"
+                    description={emptyDescription}
+                  />
                 ) : (
-                  <>
-                    {Array.isArray(equipos) &&
-                      equipos.map((team) => {
-                        const isParticipating = participatingIds.some(
-                          (id) => String(id) === String(team.id)
-                        );
-
-                        return (
-                          <TeamCard
-                            key={team.id}
-                            team={team}
-                            onEdit={onEdit}
-                            onView={handleViewTeam}
-                            onDelete={onDelete}
-                            onTransfer={(currentTeam) => {
-                              setTeamToTransfer(currentTeam);
-                              setIsTransferModalOpen(true);
-                            }}
-                            isParticipating={isParticipating}
-                            showTransferAction={canTransferTeams}
-                            showDeleteAction={canDeleteTeams}
-                            requestStatusMode={isDelegateView ? "delegate" : "manager"}
-                          />
-                        );
-                      })}
-
-                    {(!equipos || equipos.length === 0) && (
-                      <div style={{ gridColumn: "1 / -1", width: "100%" }}>
-                        <EmptyState
-                          icon={<IoMdFootball size={48} />}
-                          title={isDelegateView ? "Sin Equipos Asignados" : "Sin Equipos"}
-                          description={emptyDescription}
-                          actionComponent={
-                            canCreateTeams ? (
-                              <BtnNormal
-                                funcion={handleOpenCreate}
-                                titulo="Crear Primer Equipo"
-                                disabled={!division}
-                              />
-                            ) : null
-                          }
+                  (() => {
+                    const delegateTeam = equipos[0];
+                    return (
+                      <DelegateFullView>
+                        <DelegateTeamDetailPanel
+                          team={delegateTeam}
+                          division={delegateTeam?.division || division}
+                          canReviewDelegateRequests={false}
+                          onDelegateRequestsUpdated={onDelegateRequestSubmitted}
+                          onEdit={() => onEdit(delegateTeam)}
                         />
-                      </div>
-                    )}
-                  </>
+                      </DelegateFullView>
+                    );
+                  })()
                 )}
-              </Grid>
-            </div>
-          </Card>
+              </div>
+            </Card>
+          ) : (
+            /* === MODO MANAGER/NORMAL: grid de cards === */
+            <Card width="100%" maxWidth="100%">
+              <div style={{ width: "100%" }}>
+                <Grid>
+                  {loading ? (
+                    Array.from({ length: 8 }).map((_, index) => (
+                      <TeamCardSkeleton key={index} />
+                    ))
+                  ) : (
+                    <>
+                      {Array.isArray(equipos) &&
+                        equipos.map((team) => {
+                          const isParticipating = participatingIds.some(
+                            (id) => String(id) === String(team.id)
+                          );
+
+                          return (
+                            <TeamCard
+                              key={team.id}
+                              team={team}
+                              onEdit={onEdit}
+                              onView={handleViewTeam}
+                              onDelete={onDelete}
+                              onTransfer={(currentTeam) => {
+                                setTeamToTransfer(currentTeam);
+                                setIsTransferModalOpen(true);
+                              }}
+                              isParticipating={isParticipating}
+                              showTransferAction={canTransferTeams}
+                              showDeleteAction={canDeleteTeams}
+                              requestStatusMode="manager"
+                            />
+                          );
+                        })}
+
+                      {(!equipos || equipos.length === 0) && (
+                        <div style={{ gridColumn: "1 / -1", width: "100%" }}>
+                          <EmptyState
+                            icon={<IoMdFootball size={48} />}
+                            title="Sin Equipos"
+                            description={emptyDescription}
+                            actionComponent={
+                              canCreateTeams ? (
+                                <BtnNormal
+                                  funcion={handleOpenCreate}
+                                  titulo="Crear Primer Equipo"
+                                  disabled={!division}
+                                />
+                              ) : null
+                            }
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Grid>
+              </div>
+            </Card>
+          )}
         </MainContainer>
 
         <Modal
@@ -571,6 +608,37 @@ const TabsWrapper = styled.div`
   margin-bottom: 20px;
 `;
 
+/* ===== Delegate full-width layout ===== */
+
+const DelegateFullView = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+`;
+
+
+const DelegatePageSkeleton = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const DelegateSkeletonHeader = styled.div`
+  height: 52px;
+  border-radius: 12px;
+  width: 260px;
+  background: ${({ theme }) => theme.bg4};
+  opacity: 0.5;
+`;
+
+const DelegateSkeletonBody = styled.div`
+  height: 420px;
+  border-radius: 16px;
+  background: ${({ theme }) => theme.bgtotal};
+  border: 1px solid ${({ theme }) => theme.bg4};
+  opacity: 0.6;
+`;
+
 const TeamCardSkeleton = () => (
   <SkeletonContainer>
     <div className="header-sk">
@@ -616,3 +684,5 @@ const SkeletonContainer = styled.div`
     gap: 10px;
   }
 `;
+
+
