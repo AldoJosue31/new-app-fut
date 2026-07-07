@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { v } from '../../styles/variables';
 import { RiErrorWarningLine, RiCheckboxCircleLine, RiCloseLine } from "react-icons/ri";
@@ -21,7 +22,9 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000 
         }
     }, [show, duration, onClose]);
 
-    return (
+    if (typeof window === 'undefined' || !document.body) return null;
+
+    return createPortal(
         // 2. Pasamos la nueva prop $hasBeenShown al componente estilizado
         <ToastContainer $show={show} $type={type} $hasBeenShown={hasBeenShown}>
             <div className="icon-box">
@@ -32,7 +35,8 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000 
                 <span className="message">{message}</span>
             </div>
             <button className="close-btn" onClick={onClose}><RiCloseLine /></button>
-        </ToastContainer>
+        </ToastContainer>,
+        document.body
     );
 }
 
