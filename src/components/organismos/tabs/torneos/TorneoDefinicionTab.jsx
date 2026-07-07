@@ -1932,6 +1932,7 @@ export function TorneoDefinicionTab({
             allTournamentJornadas={allTournamentJornadas}
             tournamentFinalResults={tournamentFinalResults}
             stats={tournamentStats}
+            standings={standings}
         />
     </StyledCardWrapper>
   );

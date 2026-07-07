@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import styled from "styled-components";
+import { PlayoffBracketView } from "../../subcomponents/PlayoffBracketView";
 
 // Helpers
 const formatDate = (dateString) => {
@@ -10,7 +11,17 @@ const formatDate = (dateString) => {
     } catch (e) { return dateString; }
 };
 
-export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatingTeams, partidos, allTournamentJornadas, tournamentFinalResults, stats }) => {
+export const TournamentSummaryA4 = ({ 
+    activeTournament, 
+    leagueData, 
+    participatingTeams, 
+    partidos, 
+    allTournamentJornadas, 
+    tournamentFinalResults, 
+    stats,
+    metaInfo,
+    standings
+}) => {
     
     // Group matches by jornada
     const jornadasWithMatches = useMemo(() => {
@@ -24,14 +35,107 @@ export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatin
         }).filter(j => j.matches.length > 0);
     }, [allTournamentJornadas, partidos]);
 
-    const leagueName = leagueData?.name || "LIGA DE FÚTBOL";
-    const leagueLogoUrl = leagueData?.logo_url || null;
+    const leagueName = metaInfo?.league || leagueData?.name || "LIGA DE FÚTBOL";
+    const divisionName = metaInfo?.division || "División Única";
+    const leagueLogoUrl = metaInfo?.leagueLogo || leagueData?.logo_url || null;
     const tournamentName = activeTournament?.season || "Torneo Actual";
     
     const startDate = activeTournament?.created_at || "N/A";
     const totalTeams = participatingTeams?.length || 0;
     const totalJornadas = allTournamentJornadas?.length || 0;
     const totalMatches = partidos?.length || 0;
+
+    const tournamentConfig = useMemo(() => {
+        if (!activeTournament?.config) return {};
+        if (typeof activeTournament.config === "string") {
+            try { return JSON.parse(activeTournament.config); } catch (e) { return {}; }
+        }
+        return activeTournament.config;
+    }, [activeTournament?.config]);
+
+    const hasPlayoff = Boolean(tournamentConfig.zonaLiguilla || (tournamentConfig.playoffState?.stages?.length > 0));
+
+    // Ensure stats are computed if they are missing or if we need to guarantee accuracy
+    const derivedStats = useMemo(() => {
+        if (!partidos || !participatingTeams) return stats || null;
+        
+        const teamStats = {};
+        participatingTeams.forEach(t => teamStats[t.id] = { id: t.id, name: t.name, gf: 0, gc: 0 });
+        
+        partidos.forEach(m => {
+            if (m.goals1 !== null && m.goals2 !== null && String(m.goals1).trim() !== "") {
+                if (teamStats[m.team1_id]) {
+                    teamStats[m.team1_id].gf += Number(m.goals1);
+                    teamStats[m.team1_id].gc += Number(m.goals2);
+                }
+                if (teamStats[m.team2_id]) {
+                    teamStats[m.team2_id].gf += Number(m.goals2);
+                    teamStats[m.team2_id].gc += Number(m.goals1);
+                }
+            }
+        });
+        
+        const teamsArray = Object.values(teamStats).filter(t => t.gf > 0 || t.gc > 0);
+        if (teamsArray.length === 0) return stats || null;
+        
+        const topScoring = teamsArray.reduce((max, t) => t.gf > max.gf ? t : max, teamsArray[0]);
+        const leastScored = teamsArray.reduce((min, t) => t.gc < min.gc ? t : min, teamsArray[0]);
+        
+        return {
+            topScoringTeam: topScoring?.name || "--",
+            leastScoredTeam: leastScored?.name || "--"
+        };
+    }, [stats, partidos, participatingTeams]);
+
+    // Patch activeTournament if the final match exists but the bracket stage isn't created
+    const patchedTournament = useMemo(() => {
+        if (!hasPlayoff) return activeTournament;
+        try {
+            const configObj = typeof activeTournament.config === "string" ? JSON.parse(activeTournament.config) : activeTournament.config;
+            const stages = configObj?.playoffState?.stages || [];
+            
+            // Check if final exists in stages
+            const hasFinalStage = stages.some(s => s.phaseKey === "final");
+            
+            // If it doesn't exist, let's see if we have a match for the final in partidos
+            if (!hasFinalStage && partidos && allTournamentJornadas) {
+                const finalJornada = allTournamentJornadas.find(j => j.name?.toLowerCase().includes("final") && !j.name?.toLowerCase().includes("semi") && !j.name?.toLowerCase().includes("cuartos"));
+                if (finalJornada) {
+                    const finalMatch = partidos.find(m => m.jornada_id === finalJornada.id);
+                    if (finalMatch) {
+                        const team1 = participatingTeams.find(t => t.id === finalMatch.team1_id);
+                        const team2 = participatingTeams.find(t => t.id === finalMatch.team2_id);
+                        
+                        if (team1 && team2) {
+                            const patchedStages = [...stages, {
+                                phaseKey: "final",
+                                phaseLabel: "Gran Final",
+                                pairs: [{
+                                    id: `manual-final-${finalMatch.id}`,
+                                    home: { ...team1, seed: 1 },
+                                    away: { ...team2, seed: 2 }
+                                }]
+                            }];
+                            
+                            return {
+                                ...activeTournament,
+                                config: {
+                                    ...configObj,
+                                    playoffState: {
+                                        ...(configObj.playoffState || {}),
+                                        stages: patchedStages
+                                    }
+                                }
+                            };
+                        }
+                    }
+                }
+            }
+        } catch(e) {
+            console.error("Error patching tournament config", e);
+        }
+        return activeTournament;
+    }, [activeTournament, hasPlayoff, partidos, allTournamentJornadas, participatingTeams]);
 
     return (
         <SummaryContainer>
@@ -47,7 +151,7 @@ export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatin
                     </div>
                     <div className="title-block">
                         <h1>{leagueName}</h1>
-                        <h2>Resumen Oficial del Torneo</h2>
+                        <h2>Resumen Oficial del Torneo - {divisionName}</h2>
                     </div>
                 </div>
 
@@ -92,15 +196,15 @@ export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatin
                             <span className="value">{totalMatches}</span>
                         </div>
                         
-                        {stats && (
+                        {derivedStats && (
                             <>
                                 <div className="stat-card stat-wide">
-                                    <span className="label">EQUIPO MÁS GOLEADOR</span>
-                                    <span className="value">{stats.topScoringTeam || "--"}</span>
+                                    <span className="label">EQUIPO MÁS GOLEADOR (FASE REGULAR)</span>
+                                    <span className="value">{derivedStats.topScoringTeam || "--"}</span>
                                 </div>
                                 <div className="stat-card stat-wide">
-                                    <span className="label">EQUIPO MENOS GOLEADO</span>
-                                    <span className="value">{stats.leastScoredTeam || "--"}</span>
+                                    <span className="label">EQUIPO MENOS GOLEADO (FASE REGULAR)</span>
+                                    <span className="value">{derivedStats.leastScoredTeam || "--"}</span>
                                 </div>
                             </>
                         )}
@@ -112,7 +216,7 @@ export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatin
             {jornadasWithMatches.map((jornada, index) => (
                 <div key={jornada.id || index} className="print-page results-page">
                     <div className="page-header">
-                        <span className="league-mini">{leagueName} - {tournamentName}</span>
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                         <h3>Resultados: {jornada.name}</h3>
                     </div>
 
@@ -129,7 +233,7 @@ export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatin
                             {jornada.matches.map(match => {
                                 const local = participatingTeams?.find(t => t.id === match.team1_id)?.name || "Equipo Local";
                                 const visit = participatingTeams?.find(t => t.id === match.team2_id)?.name || "Equipo Visitante";
-                                const hasResult = match.goals1 !== null && match.goals2 !== null && match.goals1 !== undefined;
+                                const hasResult = match.goals1 !== null && match.goals2 !== null && match.goals1 !== undefined && String(match.goals1).trim() !== "";
                                 const result = hasResult ? `${match.goals1} - ${match.goals2}` : "VS";
                                 const status = hasResult ? "Finalizado" : "No disputado";
 
@@ -146,6 +250,26 @@ export const TournamentSummaryA4 = ({ activeTournament, leagueData, participatin
                     </table>
                 </div>
             ))}
+
+            {/* HOJA DE LLAVES (PLAYOFFS) */}
+            {hasPlayoff && (
+                <div className="print-page bracket-page">
+                    <div className="page-header">
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        <h3>Cuadro Final</h3>
+                    </div>
+                    
+                    <div className="bracket-print-wrapper">
+                        <PlayoffBracketView 
+                            torneo={patchedTournament} 
+                            partidos={partidos} 
+                            jornadas={allTournamentJornadas} 
+                            projectedStandings={standings || []}
+                            isLoading={false}
+                        />
+                    </div>
+                </div>
+            )}
         </SummaryContainer>
     );
 };
@@ -174,6 +298,8 @@ const SummaryContainer = styled.div`
         .print-page {
             box-shadow: none;
             margin-bottom: 0;
+            page-break-after: always;
+            break-after: page;
         }
     }
 
@@ -268,8 +394,8 @@ const SummaryContainer = styled.div`
         }
     }
 
-    /* HOJAS RESULTADOS */
-    .results-page {
+    /* HOJAS RESULTADOS Y BRACKET */
+    .results-page, .bracket-page {
         .page-header {
             margin-bottom: 30px;
             padding-bottom: 15px;
@@ -309,6 +435,37 @@ const SummaryContainer = styled.div`
             .visit { text-align: left; }
             .score { text-align: center; font-weight: 800; font-size: 16px; background: #f8fafc; width: 15%; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
             .status { font-size: 12px; color: #64748b; width: 15%; text-align: left;}
+        }
+    }
+    
+    .bracket-print-wrapper {
+        width: 153.8%;
+        transform: scale(0.65);
+        transform-origin: top left;
+        
+        /* Forced light theme CSS variables for PlayoffBracketView when printed/previewed */
+        --bracket-primary: #3b82f6;
+        --bracket-primary-soft: #eff6ff;
+        --bracket-surface: #ffffff;
+        --bracket-item: #f8fafc;
+        --bracket-border: #e2e8f0;
+        --bracket-muted: #64748b;
+        
+        section {
+            border: none;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            margin: 0;
+            overflow: visible !important;
+        }
+        
+        div[class*="BracketScroller"] {
+            overflow: visible !important;
+        }
+        
+        @media print {
+            transform: scale(0.65);
         }
     }
 `;
