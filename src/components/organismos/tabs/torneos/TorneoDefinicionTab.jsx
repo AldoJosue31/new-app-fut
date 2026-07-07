@@ -19,6 +19,7 @@ import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import { PlayoffAdvanceModal } from "./subcomponents/PlayoffAdvanceModal";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
+import { TournamentSummaryModal } from "./exports/summary/TournamentSummaryModal";
 import {
   actualizarConfigTorneoService,
   bulkInsertMatchesService,
@@ -95,6 +96,7 @@ export function TorneoDefinicionTab({
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
   const [showAdvanceWarningModal, setShowAdvanceWarningModal] = useState(false);
   const [showPlayoffPreviewModal, setShowPlayoffPreviewModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [playoffPreview, setPlayoffPreview] = useState(null);
   const [advanceWarning, setAdvanceWarning] = useState({ pendingMatches: 0, pendingJornadas: 0 });
   
@@ -839,6 +841,16 @@ export function TorneoDefinicionTab({
       return null;
   }, [activeTournament, participatingTeams, partidos, allTournamentJornadas, tournamentConfigForUi, playoffEnabled, isInPlayoffPhase, currentPlayoffPhaseKey, currentPhaseResultProgress.percent]);
 
+  const tournamentStats = useMemo(() => {
+      if (!standings || standings.length === 0) return null;
+      const topScoring = standings.reduce((max, team) => (Number(team.gf || 0) > Number(max.gf || 0)) ? team : max, standings[0]);
+      const leastScored = standings.reduce((min, team) => (Number(team.gc || 0) < Number(min.gc || 0)) ? team : min, standings[0]);
+      return {
+          topScoringTeam: topScoring?.equipo?.name || topScoring?.team_name || topScoring?.name || "--",
+          leastScoredTeam: leastScored?.equipo?.name || leastScored?.team_name || leastScored?.name || "--"
+      };
+  }, [standings]);
+
   useEffect(() => {
       let ignore = false;
 
@@ -1530,7 +1542,7 @@ export function TorneoDefinicionTab({
 
                     <div className="hero-actions">
                         {tournamentFinalResults ? (
-                            <button className="primary-action" type="button" onClick={() => showToast("Exportando resumen...", "info")}>
+                            <button className="primary-action" type="button" onClick={() => setShowSummaryModal(true)}>
                                 <RiFileList3Line />
                                 <span>Exportar resumen</span>
                             </button>
@@ -1909,6 +1921,18 @@ export function TorneoDefinicionTab({
             </ModalContentStyled>
         </Modal>
         )}
+
+        <TournamentSummaryModal
+            isOpen={showSummaryModal}
+            onClose={() => setShowSummaryModal(false)}
+            activeTournament={activeTournament}
+            leagueData={leagueData}
+            participatingTeams={participatingTeams}
+            partidos={partidos}
+            allTournamentJornadas={allTournamentJornadas}
+            tournamentFinalResults={tournamentFinalResults}
+            stats={tournamentStats}
+        />
     </StyledCardWrapper>
   );
 }
