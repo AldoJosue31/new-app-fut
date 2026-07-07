@@ -437,9 +437,19 @@ export const buildNextPlayoffPreview = ({
     }
 
     if (winners.length <= 1) {
+      const champion = winners[0] || null;
+      let runnerUp = null;
+      const finalPair = currentStage.pairs && currentStage.pairs[0];
+      if (finalPair && champion) {
+        const champId = String(champion.teamId || champion.id);
+        const homeId = String(finalPair.home?.teamId || finalPair.home?.id);
+        runnerUp = homeId === champId ? finalPair.away : finalPair.home;
+      }
+      
       return {
         complete: true,
-        champion: winners[0] || null,
+        champion,
+        runnerUp,
         phaseLabel: "Campeon",
         settings,
         previousStages,

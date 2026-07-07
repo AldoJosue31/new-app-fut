@@ -817,6 +817,28 @@ export function TorneoDefinicionTab({
       tournamentConfigForUi.repechajeTeams,
   ]);
 
+  const tournamentFinalResults = useMemo(() => {
+      if (!playoffEnabled || !isInPlayoffPhase || currentPlayoffPhaseKey !== "final") return null;
+      if (currentPhaseResultProgress.percent < 100) return null;
+      
+      const preview = buildNextPlayoffPreview({
+          torneo: activeTournament,
+          teams: participatingTeams,
+          matches: partidos,
+          jornadas: allTournamentJornadas,
+          config: tournamentConfigForUi,
+          selectedJornadaView: "recent",
+      });
+
+      if (preview.complete) {
+          return {
+              champion: preview.champion,
+              runnerUp: preview.runnerUp,
+          };
+      }
+      return null;
+  }, [activeTournament, participatingTeams, partidos, allTournamentJornadas, tournamentConfigForUi, playoffEnabled, isInPlayoffPhase, currentPlayoffPhaseKey, currentPhaseResultProgress.percent]);
+
   useEffect(() => {
       let ignore = false;
 
@@ -1409,63 +1431,112 @@ export function TorneoDefinicionTab({
                         </div>
                     </div>
 
-                    <div className="progress-track-area">
-                        <div className="progress-labels">
-                            <span>Inicio</span>
-                            <strong>{dashboardTournamentProgress.percent}% Completado</strong>
-                            <span>Final</span>
-                        </div>
-                        <div className="progress-track">
-                            <span className="progress-fill" style={{ width: `${dashboardTournamentProgress.percent}%` }} />
-                            {dashboardTournamentProgress.markers.map((marker) => (
-                                <i
-                                    key={marker.key}
-                                    className={[
-                                        "phase-marker",
-                                        marker.isCurrent ? "current" : "",
-                                        marker.isComplete ? "complete" : "",
-                                    ].filter(Boolean).join(" ")}
-                                    style={{ left: `${marker.position}%` }}
-                                    title={marker.label}
-                                >
-                                    <span>{marker.shortLabel}</span>
-                                </i>
-                            ))}
-                        </div>
-                        {dashboardTournamentProgress.markers.length > 0 && (
-                            <div
-                                className="phase-marker-labels"
-                                style={{ "--phase-count": dashboardTournamentProgress.markers.length }}
-                            >
+                    {tournamentFinalResults ? (
+                          <div className="champion-panel" style={{ display: "flex", gap: "40px", marginTop: "20px", marginBottom: "15px", justifyContent: "center", alignItems: "flex-end", padding: "20px 0" }}>
+                              <div className="runner-up" style={{ textAlign: "center", opacity: 0.9 }}>
+                                  <span style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "1px", color: "#C0C0C0", fontWeight: "bold" }}>Subcampeón</span>
+                                  {(() => {
+                                      const team = tournamentFinalResults.runnerUp;
+                                      if (!team) return <div>--</div>;
+                                      return (
+                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginTop: "10px" }}>
+                                              {team.logo_url || team.logo || team.img ? (
+                                                  <img src={team.logo_url || team.logo || team.img} alt={team.name} style={{ width: "60px", height: "60px", borderRadius: "50%", objectFit: "cover", border: "3px solid #C0C0C0" }} />
+                                              ) : (
+                                                  <DynamicTeamLogo name={team.name} color={team.color || "#C0C0C0"} size="60px" />
+                                              )}
+                                              <div style={{ fontWeight: "600", fontSize: "0.95rem" }}>{team.name}</div>
+                                          </div>
+                                      );
+                                  })()}
+                              </div>
+                              <div className="champion" style={{ textAlign: "center", transform: "translateY(-10px)" }}>
+                                  <span style={{ fontSize: "1rem", textTransform: "uppercase", letterSpacing: "1px", color: "#FFD700", fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                                      <v.iconocorona size={20} /> Campeón
+                                  </span>
+                                  {(() => {
+                                      const team = tournamentFinalResults.champion;
+                                      if (!team) return <div>--</div>;
+                                      return (
+                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginTop: "10px" }}>
+                                              {team.logo_url || team.logo || team.img ? (
+                                                  <img src={team.logo_url || team.logo || team.img} alt={team.name} style={{ width: "85px", height: "85px", borderRadius: "50%", objectFit: "cover", border: "4px solid #FFD700", boxShadow: "0 0 20px rgba(255, 215, 0, 0.4)" }} />
+                                              ) : (
+                                                  <DynamicTeamLogo name={team.name} color={team.color || "#FFD700"} size="85px" />
+                                              )}
+                                              <div style={{ fontWeight: "800", color: "#FFD700", fontSize: "1.2rem", textShadow: "0 2px 10px rgba(255,215,0,0.3)" }}>{team.name}</div>
+                                          </div>
+                                      );
+                                  })()}
+                              </div>
+                          </div>
+                      ) : (
+                        <div className="progress-track-area">
+                            <div className="progress-labels">
+                                <span>Inicio</span>
+                                <strong>{dashboardTournamentProgress.percent}% Completado</strong>
+                                <span>Final</span>
+                            </div>
+                            <div className="progress-track">
+                                <span className="progress-fill" style={{ width: `${dashboardTournamentProgress.percent}%` }} />
                                 {dashboardTournamentProgress.markers.map((marker) => (
-                                    <span
-                                        key={`phase-label-${marker.key}`}
+                                    <i
+                                        key={marker.key}
                                         className={[
+                                            "phase-marker",
                                             marker.isCurrent ? "current" : "",
                                             marker.isComplete ? "complete" : "",
                                         ].filter(Boolean).join(" ")}
+                                        style={{ left: `${marker.position}%` }}
                                         title={marker.label}
                                     >
-                                        {marker.shortLabel}
-                                    </span>
+                                        <span>{marker.shortLabel}</span>
+                                    </i>
                                 ))}
                             </div>
-                        )}
-                        <div className="result-progress-row">
-                            <span>Resultados confirmados</span>
-                            <strong>{resultConfirmationProgress.confirmed} de {resultConfirmationProgress.total}</strong>
+                            {dashboardTournamentProgress.markers.length > 0 && (
+                                <div
+                                    className="phase-marker-labels"
+                                    style={{ "--phase-count": dashboardTournamentProgress.markers.length }}
+                                >
+                                    {dashboardTournamentProgress.markers.map((marker) => (
+                                        <span
+                                            key={`phase-label-${marker.key}`}
+                                            className={[
+                                                marker.isCurrent ? "current" : "",
+                                                marker.isComplete ? "complete" : "",
+                                            ].filter(Boolean).join(" ")}
+                                            title={marker.label}
+                                        >
+                                            {marker.shortLabel}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="result-progress-row">
+                                <span>Resultados confirmados</span>
+                                <strong>{resultConfirmationProgress.confirmed} de {resultConfirmationProgress.total}</strong>
+                            </div>
+                            <div className="result-progress-track">
+                                <span style={{ width: `${resultConfirmationProgress.percent}%` }} />
+                            </div>
                         </div>
-                        <div className="result-progress-track">
-                            <span style={{ width: `${resultConfirmationProgress.percent}%` }} />
-                        </div>
-                    </div>
+                      )}
 
                     <div className="hero-actions">
-                        <button className="primary-action" type="button" onClick={handleGoToJornadas}>
-                            <RiArrowRightLine />
-                            <span>Definir jornadas</span>
-                        </button>
-                        {playoffEnabled && (
+                        {tournamentFinalResults ? (
+                            <button className="primary-action" type="button" onClick={() => showToast("Exportando resumen...", "info")}>
+                                <RiFileList3Line />
+                                <span>Exportar resumen</span>
+                            </button>
+                        ) : (
+                            <button className="primary-action" type="button" onClick={handleGoToJornadas}>
+                                <RiArrowRightLine />
+                                <span>Definir jornadas</span>
+                            </button>
+                        )}
+                        
+                        {!tournamentFinalResults && playoffEnabled && (
                             <button
                                 className="secondary-action"
                                 type="button"
