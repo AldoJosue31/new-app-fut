@@ -98,6 +98,15 @@ export const EquiposTemplate = ({
     .filter(Boolean)
     .join(" y ");
 
+  const formatPendingTeamsNames = (names) => {
+    if (!names || names.length === 0) return "";
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} y ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
+  };
+
+  const pendingTeamsText = formatPendingTeamsNames(delegateRequestOverview.pendingTeamNames);
+
   const modalTabs = [
     { id: "info", label: "Datos del Equipo", icon: <RiFileList3Line /> },
     { id: "players", label: "Jugadores", icon: <RiGroupLine /> },
@@ -302,13 +311,25 @@ export const EquiposTemplate = ({
 
           {!isDelegateView && !requestSummariesLoading && hasPendingDelegateRequests && (
             <RequestBanner>
-              Hay {delegateRequestOverview.pendingCount} solicitud
-              {delegateRequestOverview.pendingCount === 1 ? "" : "es"} pendiente
-              {delegateRequestOverview.pendingCount === 1 ? "" : "s"} de delegados en{" "}
-              {delegateRequestOverview.pendingTeamsCount} equipo
-              {delegateRequestOverview.pendingTeamsCount === 1 ? "" : "s"}. Puedes
-              revisarla{delegateRequestOverview.pendingCount === 1 ? "" : "s"} desde Mi
-              Liga.
+              <div style={{ flex: 1 }}>
+                Hay {delegateRequestOverview.pendingCount} solicitud
+                {delegateRequestOverview.pendingCount === 1 ? "" : "es"} pendiente
+                {delegateRequestOverview.pendingCount === 1 ? "" : "s"} de delegados en{" "}
+                {delegateRequestOverview.pendingTeamsCount === 1 ? "el equipo" : "los equipos"}{" "}
+                <strong style={{ color: "#fff" }}>{pendingTeamsText}</strong>.
+              </div>
+              <BtnReviewSlim
+                onClick={() => {
+                  const firstPendingTeam = equipos?.find(
+                    (t) => Number(t?.delegateRequestSummary?.pendingCount || 0) > 0
+                  );
+                  if (firstPendingTeam && onView) {
+                    onView(firstPendingTeam, "delegate-requests");
+                  }
+                }}
+              >
+                Revisar
+              </BtnReviewSlim>
             </RequestBanner>
           )}
 
@@ -584,13 +605,39 @@ const BannerMeta = styled.div`
 
 const RequestBanner = styled.div`
   margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 10px 16px;
+  border-radius: 12px;
   background: linear-gradient(135deg, rgba(255, 184, 0, 0.16), rgba(255, 184, 0, 0.06));
   border: 1px solid rgba(255, 184, 0, 0.28);
   color: ${({ theme }) => theme.text};
   font-size: 0.92rem;
   line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+`;
+
+const BtnReviewSlim = styled.button`
+  background-color: rgba(255, 184, 0, 0.15);
+  color: #ffb800;
+  border: 1px solid rgba(255, 184, 0, 0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: rgba(255, 184, 0, 0.25);
+    border-color: rgba(255, 184, 0, 0.5);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
 `;
 
 const Grid = styled.div`

@@ -787,9 +787,10 @@ export const useEquiposLogic = () => {
     setIsFormOpen(true);
   };
 
-  const openDetailModal = (team) => {
+  const openDetailModal = (team, initialView = null) => {
     setTeamToView(team);
     setIsDetailOpen(true);
+    navigate(location.pathname, { replace: true, state: { ...location.state, initialView } });
   };
 
   const openDeleteConfirmation = (id) => {
@@ -858,6 +859,9 @@ export const useEquiposLogic = () => {
       if (requestSummary.pendingCount > 0) {
         summary.pendingTeamsCount += 1;
         summary.pendingCount += requestSummary.pendingCount;
+        if (team.name) {
+          summary.pendingTeamNames.push(team.name);
+        }
       }
 
       if (requestSummary.latestReviewedStatus === "applied") {
@@ -873,6 +877,7 @@ export const useEquiposLogic = () => {
     {
       pendingCount: 0,
       pendingTeamsCount: 0,
+      pendingTeamNames: [],
       approvedTeamsCount: 0,
       rejectedTeamsCount: 0,
     }
