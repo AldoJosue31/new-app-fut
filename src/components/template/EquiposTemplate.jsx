@@ -22,7 +22,9 @@ import { Modal } from "../organismos/Modal";
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { EmptyState } from "../organismos/EmptyState";
 import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetailPanel";
+import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 import { supabase } from "../../supabase/supabase.config";
+import { getTeamsDelegateChangeRequests, reviewDelegateChangeRequest } from "../../services/delegates";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { ROLES } from "../../utils/constants";
 
@@ -59,11 +61,13 @@ export const EquiposTemplate = ({
   accessRole,
   canCreateTeams = true,
   canDeleteTeams = true,
+  canInviteDelegates = true,
   canTransferTeams = true,
   requestSummariesLoading = false,
   delegateRequestOverview = {
     pendingCount: 0,
     pendingTeamsCount: 0,
+    pendingTeamNames: [],
     approvedTeamsCount: 0,
     rejectedTeamsCount: 0,
   },
@@ -71,6 +75,9 @@ export const EquiposTemplate = ({
   const { divisionId: routeDivisionId, teamId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [globalRequests, setGlobalRequests] = useState([]);
+  const [loadingGlobalRequests, setLoadingGlobalRequests] = useState(false);
+  const [isGlobalRequestsOpen, setIsGlobalRequestsOpen] = useState(false);
   const initialView = location.state?.initialView;
   const visibleDivisionId = routeDivisionId || division?.id;
   const isCreateRoute = teamId === "crear";
@@ -196,6 +203,33 @@ export const EquiposTemplate = ({
     });
   }, [teamFromUrl]);
 
+  useEffect(() => {
+    if (isGlobalRequestsOpen && equipos?.length > 0) {
+      loadGlobalRequests();
+    }
+  }, [isGlobalRequestsOpen]);
+
+  const loadGlobalRequests = async () => {
+    setLoadingGlobalRequests(true);
+    try {
+      const teamIds = equipos.map((t) => t.id);
+      const reqs = await getTeamsDelegateChangeRequests(teamIds);
+      setGlobalRequests(reqs);
+    } catch (e) {
+      console.error(e);
+      setGlobalRequests([]);
+    } finally {
+      setLoadingGlobalRequests(false);
+    }
+  };
+
+  const handleGlobalRequestReview = async ({ requestId, decision, reviewNotes = null }) => {
+    const result = await reviewDelegateChangeRequest({ requestId, decision, reviewNotes });
+    await loadGlobalRequests();
+    onDelegateRequestSubmitted?.(result);
+    return result;
+  };
+
   const handleViewTeam = (team) => {
     detailScrollPositionRef.current =
       window.scrollY || document.documentElement.scrollTop || 0;
@@ -320,11 +354,21 @@ export const EquiposTemplate = ({
               </div>
               <BtnReviewSlim
                 onClick={() => {
-                  const firstPendingTeam = equipos?.find(
-                    (t) => Number(t?.delegateRequestSummary?.pendingCount || 0) > 0
-                  );
-                  if (firstPendingTeam && onView) {
-                    onView(firstPendingTeam, "delegate-requests");
+                  if (delegateRequestOverview.pendingTeamsCount >= 2) {
+                    setIsGlobalRequestsOpen(true);
+                  } else {
+                    const firstPendingTeam = equipos?.find(
+                      (t) => Number(t?.delegateRequestSummary?.pendingCount || 0) > 0
+                    );
+                    if (firstPendingTeam) {
+                      detailScrollPositionRef.current =
+                        window.scrollY || document.documentElement.scrollTop || 0;
+                      pendingDetailScrollPreserveOnOpenRef.current = true;
+                      navigate(getEquiposPath(firstPendingTeam.id), { 
+                        preventScrollReset: true,
+                        state: { initialView: "delegate-requests" }
+                      });
+                    }
                   }
                 }}
               >
@@ -512,6 +556,26 @@ export const EquiposTemplate = ({
           canReviewDelegateRequests={!isDelegateView}
           onDelegateRequestsUpdated={onDelegateRequestSubmitted}
         />
+
+        <Modal
+          isOpen={isGlobalRequestsOpen}
+          onClose={() => setIsGlobalRequestsOpen(false)}
+          title="Todas las solicitudes de la division"
+          width="960px"
+          bodyPadding="0"
+        >
+          <div style={{ height: "70vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <LigaDelegateRequestsTab
+              requests={globalRequests}
+              loading={loadingGlobalRequests}
+              onReview={handleGlobalRequestReview}
+              onRefresh={loadGlobalRequests}
+              canReview={!isDelegateView}
+              title=""
+              subtitle="Revisa todas las solicitudes de todos los equipos de la division al mismo tiempo."
+            />
+          </div>
+        </Modal>
 
         <TeamTransferModal
           isOpen={isTransferModalOpen}
