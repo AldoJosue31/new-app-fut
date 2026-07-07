@@ -1452,19 +1452,24 @@ export function TorneoDefinicionTab({
                               </div>
                               <div className="champion" style={{ textAlign: "center", transform: "translateY(-10px)" }}>
                                   <span style={{ fontSize: "1rem", textTransform: "uppercase", letterSpacing: "1px", color: "#FFD700", fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                                      <v.iconocorona size={20} /> Campeón
+                                      Campeón
                                   </span>
                                   {(() => {
                                       const team = tournamentFinalResults.champion;
                                       if (!team) return <div>--</div>;
                                       return (
-                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", marginTop: "10px" }}>
+                                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginTop: "5px" }}>
+                                              <div style={{ color: "#FFD700", marginBottom: "-8px", zIndex: 1, filter: "drop-shadow(0 2px 5px rgba(255,215,0,0.4))" }}>
+                                                  <v.iconocorona size={45} />
+                                              </div>
                                               {team.logo_url || team.logo || team.img ? (
-                                                  <img src={team.logo_url || team.logo || team.img} alt={team.name} style={{ width: "85px", height: "85px", borderRadius: "50%", objectFit: "cover", border: "4px solid #FFD700", boxShadow: "0 0 20px rgba(255, 215, 0, 0.4)" }} />
+                                                  <img src={team.logo_url || team.logo || team.img} alt={team.name} style={{ width: "85px", height: "85px", borderRadius: "50%", objectFit: "cover", border: "4px solid #FFD700", boxShadow: "0 0 20px rgba(255, 215, 0, 0.4)", position: "relative", zIndex: 2 }} />
                                               ) : (
-                                                  <DynamicTeamLogo name={team.name} color={team.color || "#FFD700"} size="85px" />
+                                                  <div style={{ position: "relative", zIndex: 2, borderRadius: "50%", border: "4px solid #FFD700", boxShadow: "0 0 20px rgba(255, 215, 0, 0.4)" }}>
+                                                      <DynamicTeamLogo name={team.name} color={team.color || "#FFD700"} size="85px" />
+                                                  </div>
                                               )}
-                                              <div style={{ fontWeight: "800", color: "#FFD700", fontSize: "1.2rem", textShadow: "0 2px 10px rgba(255,215,0,0.3)" }}>{team.name}</div>
+                                              <div style={{ fontWeight: "800", color: "#FFD700", fontSize: "1.2rem", textShadow: "0 2px 10px rgba(255,215,0,0.3)", marginTop: "8px" }}>{team.name}</div>
                                           </div>
                                       );
                                   })()}
