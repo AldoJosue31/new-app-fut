@@ -21,7 +21,10 @@ import {
 import { Modal } from "../organismos/Modal";
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { EmptyState } from "../organismos/EmptyState";
+import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetailPanel";
+import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 import { supabase } from "../../supabase/supabase.config";
+import { getTeamsDelegateChangeRequests, reviewDelegateChangeRequest } from "../../services/delegates";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { ROLES } from "../../utils/constants";
 
@@ -58,11 +61,13 @@ export const EquiposTemplate = ({
   accessRole,
   canCreateTeams = true,
   canDeleteTeams = true,
+  canInviteDelegates = true,
   canTransferTeams = true,
   requestSummariesLoading = false,
   delegateRequestOverview = {
     pendingCount: 0,
     pendingTeamsCount: 0,
+    pendingTeamNames: [],
     approvedTeamsCount: 0,
     rejectedTeamsCount: 0,
   },
@@ -70,6 +75,9 @@ export const EquiposTemplate = ({
   const { divisionId: routeDivisionId, teamId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [globalRequests, setGlobalRequests] = useState([]);
+  const [loadingGlobalRequests, setLoadingGlobalRequests] = useState(false);
+  const [isGlobalRequestsOpen, setIsGlobalRequestsOpen] = useState(false);
   const initialView = location.state?.initialView;
   const visibleDivisionId = routeDivisionId || division?.id;
   const isCreateRoute = teamId === "crear";
@@ -96,6 +104,15 @@ export const EquiposTemplate = ({
   ]
     .filter(Boolean)
     .join(" y ");
+
+  const formatPendingTeamsNames = (names) => {
+    if (!names || names.length === 0) return "";
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} y ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`;
+  };
+
+  const pendingTeamsText = formatPendingTeamsNames(delegateRequestOverview.pendingTeamNames);
 
   const modalTabs = [
     { id: "info", label: "Datos del Equipo", icon: <RiFileList3Line /> },
@@ -186,6 +203,33 @@ export const EquiposTemplate = ({
     });
   }, [teamFromUrl]);
 
+  useEffect(() => {
+    if (isGlobalRequestsOpen && equipos?.length > 0) {
+      loadGlobalRequests();
+    }
+  }, [isGlobalRequestsOpen]);
+
+  const loadGlobalRequests = async () => {
+    setLoadingGlobalRequests(true);
+    try {
+      const teamIds = equipos.map((t) => t.id);
+      const reqs = await getTeamsDelegateChangeRequests(teamIds);
+      setGlobalRequests(reqs);
+    } catch (e) {
+      console.error(e);
+      setGlobalRequests([]);
+    } finally {
+      setLoadingGlobalRequests(false);
+    }
+  };
+
+  const handleGlobalRequestReview = async ({ requestId, decision, reviewNotes = null }) => {
+    const result = await reviewDelegateChangeRequest({ requestId, decision, reviewNotes });
+    await loadGlobalRequests();
+    onDelegateRequestSubmitted?.(result);
+    return result;
+  };
+
   const handleViewTeam = (team) => {
     detailScrollPositionRef.current =
       window.scrollY || document.documentElement.scrollTop || 0;
@@ -271,7 +315,7 @@ export const EquiposTemplate = ({
   return (
     <>
       <PageHeader
-        title={isDelegateView ? "Mis Equipos" : "Equipos"}
+        title={isDelegateView ? "Mi equipo" : "Equipos"}
         tabs={tabs}
         maxWidth={viewMaxWidth}
         marginBottom="0"
@@ -301,13 +345,35 @@ export const EquiposTemplate = ({
 
           {!isDelegateView && !requestSummariesLoading && hasPendingDelegateRequests && (
             <RequestBanner>
-              Hay {delegateRequestOverview.pendingCount} solicitud
-              {delegateRequestOverview.pendingCount === 1 ? "" : "es"} pendiente
-              {delegateRequestOverview.pendingCount === 1 ? "" : "s"} de delegados en{" "}
-              {delegateRequestOverview.pendingTeamsCount} equipo
-              {delegateRequestOverview.pendingTeamsCount === 1 ? "" : "s"}. Puedes
-              revisarla{delegateRequestOverview.pendingCount === 1 ? "" : "s"} desde Mi
-              Liga.
+              <div style={{ flex: 1 }}>
+                Hay {delegateRequestOverview.pendingCount} solicitud
+                {delegateRequestOverview.pendingCount === 1 ? "" : "es"} pendiente
+                {delegateRequestOverview.pendingCount === 1 ? "" : "s"} de delegados en{" "}
+                {delegateRequestOverview.pendingTeamsCount === 1 ? "el equipo" : "los equipos"}{" "}
+                <strong style={{ color: "#fff" }}>{pendingTeamsText}</strong>.
+              </div>
+              <BtnReviewSlim
+                onClick={() => {
+                  if (delegateRequestOverview.pendingTeamsCount >= 2) {
+                    setIsGlobalRequestsOpen(true);
+                  } else {
+                    const firstPendingTeam = equipos?.find(
+                      (t) => Number(t?.delegateRequestSummary?.pendingCount || 0) > 0
+                    );
+                    if (firstPendingTeam) {
+                      detailScrollPositionRef.current =
+                        window.scrollY || document.documentElement.scrollTop || 0;
+                      pendingDetailScrollPreserveOnOpenRef.current = true;
+                      navigate(getEquiposPath(firstPendingTeam.id), { 
+                        preventScrollReset: true,
+                        state: { initialView: "delegate-requests" }
+                      });
+                    }
+                  }
+                }}
+              >
+                Revisar
+              </BtnReviewSlim>
             </RequestBanner>
           )}
 
@@ -323,63 +389,99 @@ export const EquiposTemplate = ({
             </FloatingBtnWrapper>
           )}
 
-          <Card width="100%" maxWidth="100%">
-            <div style={{ width: "100%" }}>
-              <Grid>
+          {/* === MODO DELEGADO: pantalla completa para el unico equipo del delegado === */}
+          {isDelegateView ? (
+            <Card width="100%" maxWidth="100%" style={{ padding: "25px" }}>
+              <div style={{ width: "100%" }}>
                 {loading ? (
-                  Array.from({ length: 8 }).map((_, index) => (
-                    <TeamCardSkeleton key={index} />
-                  ))
+                  <DelegatePageSkeleton>
+                    <DelegateSkeletonHeader />
+                    <DelegateSkeletonBody />
+                  </DelegatePageSkeleton>
+                ) : !equipos || equipos.length === 0 ? (
+                  <EmptyState
+                    icon={<IoMdFootball size={48} />}
+                    title="Sin Equipos Asignados"
+                    description={emptyDescription}
+                  />
                 ) : (
-                  <>
-                    {Array.isArray(equipos) &&
-                      equipos.map((team) => {
-                        const isParticipating = participatingIds.some(
-                          (id) => String(id) === String(team.id)
-                        );
-
-                        return (
-                          <TeamCard
-                            key={team.id}
-                            team={team}
-                            onEdit={onEdit}
-                            onView={handleViewTeam}
-                            onDelete={onDelete}
-                            onTransfer={(currentTeam) => {
-                              setTeamToTransfer(currentTeam);
-                              setIsTransferModalOpen(true);
-                            }}
-                            isParticipating={isParticipating}
-                            showTransferAction={canTransferTeams}
-                            showDeleteAction={canDeleteTeams}
-                            requestStatusMode={isDelegateView ? "delegate" : "manager"}
-                          />
-                        );
-                      })}
-
-                    {(!equipos || equipos.length === 0) && (
-                      <div style={{ gridColumn: "1 / -1", width: "100%" }}>
-                        <EmptyState
-                          icon={<IoMdFootball size={48} />}
-                          title={isDelegateView ? "Sin Equipos Asignados" : "Sin Equipos"}
-                          description={emptyDescription}
-                          actionComponent={
-                            canCreateTeams ? (
-                              <BtnNormal
-                                funcion={handleOpenCreate}
-                                titulo="Crear Primer Equipo"
-                                disabled={!division}
-                              />
-                            ) : null
-                          }
+                  (() => {
+                    const delegateTeam = equipos[0];
+                    return (
+                      <DelegateFullView>
+                        <DelegateTeamDetailPanel
+                          team={delegateTeam}
+                          division={delegateTeam?.division || division}
+                          canReviewDelegateRequests={false}
+                          onDelegateRequestsUpdated={onDelegateRequestSubmitted}
+                          onEdit={() => onEdit(delegateTeam)}
                         />
-                      </div>
-                    )}
-                  </>
+                      </DelegateFullView>
+                    );
+                  })()
                 )}
-              </Grid>
-            </div>
-          </Card>
+              </div>
+            </Card>
+          ) : (
+            /* === MODO MANAGER/NORMAL: grid de cards === */
+            <Card width="100%" maxWidth="100%">
+              <div style={{ width: "100%" }}>
+                <Grid>
+                  {loading ? (
+                    Array.from({ length: 8 }).map((_, index) => (
+                      <TeamCardSkeleton key={index} />
+                    ))
+                  ) : (
+                    <>
+                      {Array.isArray(equipos) &&
+                        equipos.map((team) => {
+                          const isParticipating = participatingIds.some(
+                            (id) => String(id) === String(team.id)
+                          );
+
+                          return (
+                            <TeamCard
+                              key={team.id}
+                              team={team}
+                              onEdit={onEdit}
+                              onView={handleViewTeam}
+                              onDelete={onDelete}
+                              onTransfer={(currentTeam) => {
+                                setTeamToTransfer(currentTeam);
+                                setIsTransferModalOpen(true);
+                              }}
+                              isParticipating={isParticipating}
+                              showTransferAction={canTransferTeams}
+                              showDeleteAction={canDeleteTeams}
+                              requestStatusMode="manager"
+                            />
+                          );
+                        })}
+
+                      {(!equipos || equipos.length === 0) && (
+                        <div style={{ gridColumn: "1 / -1", width: "100%" }}>
+                          <EmptyState
+                            icon={<IoMdFootball size={48} />}
+                            title="Sin Equipos"
+                            description={emptyDescription}
+                            actionComponent={
+                              canCreateTeams ? (
+                                <BtnNormal
+                                  funcion={handleOpenCreate}
+                                  titulo="Crear Primer Equipo"
+                                  disabled={!division}
+                                />
+                              ) : null
+                            }
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Grid>
+              </div>
+            </Card>
+          )}
         </MainContainer>
 
         <Modal
@@ -454,6 +556,26 @@ export const EquiposTemplate = ({
           canReviewDelegateRequests={!isDelegateView}
           onDelegateRequestsUpdated={onDelegateRequestSubmitted}
         />
+
+        <Modal
+          isOpen={isGlobalRequestsOpen}
+          onClose={() => setIsGlobalRequestsOpen(false)}
+          title="Todas las solicitudes de la division"
+          width="960px"
+          bodyPadding="0"
+        >
+          <div style={{ height: "70vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <LigaDelegateRequestsTab
+              requests={globalRequests}
+              loading={loadingGlobalRequests}
+              onReview={handleGlobalRequestReview}
+              onRefresh={loadGlobalRequests}
+              canReview={!isDelegateView}
+              title=""
+              subtitle="Revisa todas las solicitudes de todos los equipos de la division al mismo tiempo."
+            />
+          </div>
+        </Modal>
 
         <TeamTransferModal
           isOpen={isTransferModalOpen}
@@ -547,13 +669,39 @@ const BannerMeta = styled.div`
 
 const RequestBanner = styled.div`
   margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 10px 16px;
+  border-radius: 12px;
   background: linear-gradient(135deg, rgba(255, 184, 0, 0.16), rgba(255, 184, 0, 0.06));
   border: 1px solid rgba(255, 184, 0, 0.28);
   color: ${({ theme }) => theme.text};
   font-size: 0.92rem;
   line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+`;
+
+const BtnReviewSlim = styled.button`
+  background-color: rgba(255, 184, 0, 0.15);
+  color: #ffb800;
+  border: 1px solid rgba(255, 184, 0, 0.3);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: rgba(255, 184, 0, 0.25);
+    border-color: rgba(255, 184, 0, 0.5);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
 `;
 
 const Grid = styled.div`
@@ -569,6 +717,37 @@ const TabsWrapper = styled.div`
   display: flex;
   flex-direction: column;
   margin-bottom: 20px;
+`;
+
+/* ===== Delegate full-width layout ===== */
+
+const DelegateFullView = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+`;
+
+
+const DelegatePageSkeleton = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const DelegateSkeletonHeader = styled.div`
+  height: 52px;
+  border-radius: 12px;
+  width: 260px;
+  background: ${({ theme }) => theme.bg4};
+  opacity: 0.5;
+`;
+
+const DelegateSkeletonBody = styled.div`
+  height: 420px;
+  border-radius: 16px;
+  background: ${({ theme }) => theme.bgtotal};
+  border: 1px solid ${({ theme }) => theme.bg4};
+  opacity: 0.6;
 `;
 
 const TeamCardSkeleton = () => (
@@ -616,3 +795,5 @@ const SkeletonContainer = styled.div`
     gap: 10px;
   }
 `;
+
+

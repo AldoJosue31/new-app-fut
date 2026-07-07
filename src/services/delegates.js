@@ -242,6 +242,19 @@ export const getTeamDelegateChangeRequests = async (teamId) => {
   return hydrateDelegateChangeRequests(requests || []);
 };
 
+export const getTeamsDelegateChangeRequests = async (teamIds) => {
+  if (!teamIds || teamIds.length === 0) return [];
+
+  const { data: requests, error: requestsError } = await supabase
+    .from("delegate_change_requests")
+    .select("*")
+    .in("team_id", teamIds)
+    .order("created_at", { ascending: false });
+
+  if (requestsError) throw requestsError;
+  return hydrateDelegateChangeRequests(requests || []);
+};
+
 export const reviewDelegateChangeRequest = async ({
   requestId,
   decision,
