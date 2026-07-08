@@ -46,6 +46,33 @@ const formatMatchDate = (dateString, baseDateString) => {
     return `${day}/${month}`;
 };
 
+const addDaysToIsoDate = (dateString, days) => {
+    const parts = parseDateParts(dateString);
+    if (!parts) return "";
+
+    const date = new Date(parts.year, parts.month - 1, parts.day);
+    date.setDate(date.getDate() + days);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const formatJornadaDateRange = (jornada, baseDateString) => {
+    const start = jornada?.start_date || jornada?.startDate || "";
+    const end =
+        jornada?.end_date ||
+        jornada?.endDate ||
+        (start ? addDaysToIsoDate(start, 6) : "");
+
+    if (!start && !end) return "";
+    if (start && !end) return formatMatchDate(start, baseDateString);
+    if (!start && end) return formatMatchDate(end, baseDateString);
+
+    return `${formatMatchDate(start, baseDateString)} - ${formatMatchDate(end, baseDateString)}`;
+};
+
 const getMatchDateIso = (match) => parseDateParts(match?.date || match?.fecha)?.iso || "";
 
 const getMatchTimeValue = (match) => {
@@ -531,12 +558,16 @@ export const TournamentSummaryA4 = ({
                     seenRestingTeams.add(key);
                     return true;
                 });
+                const jornadaDateRange = formatJornadaDateRange(jornada, startDate);
 
                 return (
                     <div key={jornada.id || index} className="print-page results-page">
                         <div className="page-header">
                             <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                             <h3>Resultados: {jornada.name}</h3>
+                            {jornadaDateRange && (
+                                <span className="jornada-date-range">{jornadaDateRange}</span>
+                            )}
                         </div>
 
                         <table className="results-table">
@@ -788,6 +819,18 @@ const SummaryContainer = styled.div`
             
             .league-mini { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 5px; }
             h3 { margin: 0; font-size: 24px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
+            .jornada-date-range {
+                display: inline-flex;
+                align-items: center;
+                margin-top: 8px;
+                padding: 4px 10px;
+                border-radius: 999px;
+                background: #f1f5f9;
+                color: #475569;
+                font-size: 12px;
+                font-weight: 800;
+                letter-spacing: 0.4px;
+            }
         }
         
         .results-table {
