@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import styled from "styled-components";
 import { PlayoffBracketView } from "../../subcomponents/PlayoffBracketView";
+import { isRepositionJornadaName, resolveRepositionMappings } from "../../../../../../utils/jornadaUtils";
 
 // Helpers
 const formatDate = (dateString) => {
@@ -23,17 +24,97 @@ export const TournamentSummaryA4 = ({
     standings
 }) => {
     
-    // Group matches by jornada
+    // Resolve mappings for reposicion jornadas
+    const resolvedMappings = useMemo(() => {
+        if (!allTournamentJornadas) return [];
+        let configObj = {};
+        if (activeTournament?.config) {
+            try {
+                configObj = typeof activeTournament.config === "string" 
+                    ? JSON.parse(activeTournament.config) 
+                    : activeTournament.config;
+            } catch (e) {
+                configObj = {};
+            }
+        }
+            
+        return resolveRepositionMappings({
+            jornadas: allTournamentJornadas,
+            configuredMappings: configObj?.repositionMappings || []
+        });
+    }, [allTournamentJornadas, activeTournament]);
+
+    // Group matches by jornada and sort them properly
     const jornadasWithMatches = useMemo(() => {
         if (!allTournamentJornadas || !partidos) return [];
-        return allTournamentJornadas.map(j => {
-            const matchesForJornada = partidos.filter(m => m.jornada_id === j.id);
+        
+        // 1. Map matches to their original jornada if they belong to a reposicion
+        const mainJornadas = allTournamentJornadas.filter(j => !isRepositionJornadaName(j.name));
+        
+        const mappedJornadas = mainJornadas.map(j => {
+            const matchesForJornada = partidos.filter(m => {
+                let mappedJornadaId = m.jornada_id;
+                
+                // If the match was moved to reposicion, map it back
+                const mapping = resolvedMappings.find(map => map.repositionJornadaId === m.jornada_id);
+                if (mapping) {
+                    mappedJornadaId = mapping.originalJornadaId;
+                } else if (m.meta_info) {
+                    try {
+                        const meta = typeof m.meta_info === 'string' ? JSON.parse(m.meta_info) : m.meta_info;
+                        if (meta?.originalJornadaId) {
+                            mappedJornadaId = meta.originalJornadaId;
+                        }
+                    } catch (e) {}
+                }
+                
+                // If the IDs don't match type-wise, ensure we compare strings
+                return String(mappedJornadaId) === String(j.id);
+            });
             return {
                 ...j,
                 matches: matchesForJornada
             };
         }).filter(j => j.matches.length > 0);
-    }, [allTournamentJornadas, partidos]);
+        
+        // 2. Sort the jornadas so that liguilla is printed in order
+        return mappedJornadas.sort((a, b) => {
+            const getRank = (name) => {
+                if (!name) return 0;
+                const lower = name.toLowerCase();
+                
+                // Playoff ranks (dieciseisavos -> octavos -> cuartos -> semifinal -> final)
+                if (lower.includes("dieciseisavos")) return 1000;
+                if (lower.includes("octavos")) return 1001;
+                if (lower.includes("cuartos")) return 1002;
+                if (lower.includes("semifinal") || lower.includes("semi")) return 1003;
+                if (lower.includes("final")) return 1004;
+                
+                // Regular jornadas (try to parse number)
+                const isRegular = /jornada\s+\d+/i.test(lower) || /^\d+$/.test(lower);
+                if (isRegular) {
+                    const match = lower.match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 500;
+                }
+                
+                return 500;
+            };
+            
+            const rankA = getRank(a.name);
+            const rankB = getRank(b.name);
+            
+            if (rankA !== rankB) return rankA - rankB;
+            
+            // If they are the same phase (e.g. both are Semifinal), sort by ida/vuelta
+            const nameA = (a.name || "").toLowerCase();
+            const nameB = (b.name || "").toLowerCase();
+            if (nameA.includes("ida") && nameB.includes("vuelta")) return -1;
+            if (nameA.includes("vuelta") && nameB.includes("ida")) return 1;
+            
+            // Fallback to ID sorting
+            return (a.id || 0) - (b.id || 0);
+        });
+    }, [allTournamentJornadas, partidos, resolvedMappings]);
 
     const leagueName = metaInfo?.league || leagueData?.name || "LIGA DE FÚTBOL";
     const divisionName = metaInfo?.division || "División Única";
