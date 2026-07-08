@@ -674,6 +674,26 @@ export const TournamentSummaryA4 = ({
                 </div>
             )}
 
+            {/* HOJA DE LLAVES (PLAYOFFS) */}
+            {hasPlayoff && (
+                <div className="print-page bracket-page">
+                    <div className="page-header">
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        <h3>Cuadro Final</h3>
+                    </div>
+                    
+                    <div className="bracket-print-wrapper">
+                        <PlayoffBracketView 
+                            torneo={patchedTournament} 
+                            partidos={partidos} 
+                            jornadas={allTournamentJornadas} 
+                            projectedStandings={standings || []}
+                            isLoading={false}
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* HOJAS DE JORNADAS (Varias páginas según la cantidad de jornadas) */}
             {jornadasWithMatches.map((jornada, index) => {
                 const regularMatches = jornada.matches
@@ -767,25 +787,6 @@ export const TournamentSummaryA4 = ({
                 );
             })}
 
-            {/* HOJA DE LLAVES (PLAYOFFS) */}
-            {hasPlayoff && (
-                <div className="print-page bracket-page">
-                    <div className="page-header">
-                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
-                        <h3>Cuadro Final</h3>
-                    </div>
-                    
-                    <div className="bracket-print-wrapper">
-                        <PlayoffBracketView 
-                            torneo={patchedTournament} 
-                            partidos={partidos} 
-                            jornadas={allTournamentJornadas} 
-                            projectedStandings={standings || []}
-                            isLoading={false}
-                        />
-                    </div>
-                </div>
-            )}
         </SummaryContainer>
     );
 };
