@@ -9,7 +9,81 @@ const formatDate = (dateString) => {
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-    } catch (e) { return dateString; }
+    } catch { return dateString; }
+};
+
+const toComparableId = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    return String(value);
+};
+
+const isByeId = (id) => String(id || "").toUpperCase() === "BYE";
+
+const resolveMatchTeamIds = (match) => {
+    const localId = toComparableId(
+        match?.team1_id ??
+        match?.local_id ??
+        match?.home_team_id ??
+        match?.local?.id ??
+        match?.homeTeam?.id ??
+        match?.home?.id ??
+        match?.team1?.id
+    );
+    const visitId = toComparableId(
+        match?.team2_id ??
+        match?.visitante_id ??
+        match?.away_team_id ??
+        match?.visitante?.id ??
+        match?.awayTeam?.id ??
+        match?.away?.id ??
+        match?.team2?.id
+    );
+
+    return { localId, visitId };
+};
+
+const getTeamById = (teams, teamId) => {
+    if (!teamId) return null;
+    return teams?.find((team) => String(team.id) === String(teamId)) || null;
+};
+
+const getMatchTeamName = (teams, teamId, fallbackTeam, fallbackLabel) => {
+    return getTeamById(teams, teamId)?.name || fallbackTeam?.name || fallbackLabel;
+};
+
+const getRestingTeamName = (match, teams) => {
+    const { localId, visitId } = resolveMatchTeamIds(match);
+    const activeTeamId = localId && !isByeId(localId) ? localId : visitId;
+    const activeTeamFallback = localId && !isByeId(localId)
+        ? match.local || match.homeTeam || match.home || match.team1
+        : match.visitante || match.awayTeam || match.away || match.team2;
+
+    return getMatchTeamName(teams, activeTeamId, activeTeamFallback, "Equipo");
+};
+
+const getRestingTeamKey = (match, teams) => {
+    const { localId, visitId } = resolveMatchTeamIds(match);
+    const activeTeamId = localId && !isByeId(localId) ? localId : visitId;
+    if (activeTeamId && !isByeId(activeTeamId)) return `id:${activeTeamId}`;
+
+    const teamName = getRestingTeamName(match, teams);
+    return `name:${String(teamName).trim().toLowerCase()}`;
+};
+
+const isRestMatch = (match) => {
+    if (match?.isByeMatch || match?.isBye) return true;
+
+    const { localId, visitId } = resolveMatchTeamIds(match);
+    if (isByeId(localId) || isByeId(visitId)) return true;
+
+    const hasLocal = Boolean(localId);
+    const hasVisit = Boolean(visitId);
+    return hasLocal !== hasVisit;
+};
+
+const getConfigList = (config, key) => {
+    const value = config?.[key];
+    return Array.isArray(value) ? value : [];
 };
 
 export const TournamentSummaryA4 = ({ 
@@ -23,57 +97,107 @@ export const TournamentSummaryA4 = ({
     metaInfo,
     standings
 }) => {
-    
+
+    const configObj = useMemo(() => {
+        if (!activeTournament?.config) return {};
+        try {
+            return typeof activeTournament.config === "string"
+                ? JSON.parse(activeTournament.config)
+                : activeTournament.config;
+        } catch {
+            return {};
+        }
+    }, [activeTournament]);
+
     // Resolve mappings for reposicion jornadas
     const resolvedMappings = useMemo(() => {
         if (!allTournamentJornadas) return [];
-        let configObj = {};
-        if (activeTournament?.config) {
-            try {
-                configObj = typeof activeTournament.config === "string" 
-                    ? JSON.parse(activeTournament.config) 
-                    : activeTournament.config;
-            } catch (e) {
-                configObj = {};
-            }
-        }
-            
         return resolveRepositionMappings({
             jornadas: allTournamentJornadas,
             configuredMappings: configObj?.repositionMappings || []
         });
-    }, [allTournamentJornadas, activeTournament]);
+    }, [allTournamentJornadas, configObj]);
+
+    const repositionMatchMappings = useMemo(() => {
+        return [
+            ...getConfigList(configObj, "repositionMatchMappings"),
+            ...getConfigList(configObj, "matchMappings"),
+        ];
+    }, [configObj]);
 
     // Group matches by jornada and sort them properly
     const jornadasWithMatches = useMemo(() => {
         if (!allTournamentJornadas || !partidos) return [];
-        
+
         // 1. Map matches to their original jornada if they belong to a reposicion
         const mainJornadas = allTournamentJornadas.filter(j => !isRepositionJornadaName(j.name));
-        
+
         const mappedJornadas = mainJornadas.map(j => {
             const matchesForJornada = partidos.filter(m => {
                 let mappedJornadaId = m.jornada_id;
-                
-                // If the match was moved to reposicion, map it back
-                const mapping = resolvedMappings.find(map => map.repositionJornadaId === m.jornada_id);
-                if (mapping) {
-                    mappedJornadaId = mapping.originalJornadaId;
-                } else if (m.meta_info) {
-                    try {
-                        const meta = typeof m.meta_info === 'string' ? JSON.parse(m.meta_info) : m.meta_info;
-                        if (meta?.originalJornadaId) {
-                            mappedJornadaId = meta.originalJornadaId;
+
+                let origId = null;
+                const matchMap = repositionMatchMappings.find(map => String(map.matchId) === String(m.id));
+
+                if (matchMap && matchMap.originalJornadaId) {
+                    origId = matchMap.originalJornadaId;
+                } else {
+                    const mapping = resolvedMappings.find(map => String(map.repositionJornadaId) === String(m.jornada_id));
+                    if (mapping) {
+                        origId = mapping.originalJornadaId;
+                    } else if (m.meta_info) {
+                        try {
+                            const meta = typeof m.meta_info === 'string' ? JSON.parse(m.meta_info) : m.meta_info;
+                            if (meta?.originalJornadaId) {
+                                origId = meta.originalJornadaId;
+                            }
+                        } catch {
+                            // Ignore malformed meta_info and keep the match in its current jornada.
                         }
-                    } catch (e) {}
+                    }
                 }
-                
+
+                if (origId) {
+                    mappedJornadaId = origId;
+                }
+
                 // If the IDs don't match type-wise, ensure we compare strings
                 return String(mappedJornadaId) === String(j.id);
             });
+
+            const isRegular = /jornada\s+\d+/i.test(j.name) || /^\d+$/.test(j.name);
+            let restingMatches = [];
+
+            if (isRegular && participatingTeams && participatingTeams.length % 2 !== 0) {
+                const activeTeams = new Set();
+                let hasExplicitRest = false;
+
+                matchesForJornada.forEach(m => {
+                    const { localId, visitId } = resolveMatchTeamIds(m);
+                    if (localId && !isByeId(localId)) activeTeams.add(localId);
+                    if (visitId && !isByeId(visitId)) activeTeams.add(visitId);
+                    if (isRestMatch(m)) hasExplicitRest = true;
+                });
+
+                if (!hasExplicitRest) {
+                    const restingTeams = participatingTeams.filter(t => !activeTeams.has(String(t.id)));
+                    if (restingTeams.length === 1) {
+                        restingMatches = restingTeams.map((t, idx) => ({
+                            id: `resting-${j.id}-${t.id}-${idx}`,
+                            jornada_id: j.id,
+                            team1_id: t.id,
+                            team2_id: 'BYE',
+                            goals1: null,
+                            goals2: null,
+                            status: 'Descanso'
+                        }));
+                    }
+                }
+            }
+
             return {
                 ...j,
-                matches: matchesForJornada
+                matches: [...matchesForJornada, ...restingMatches]
             };
         }).filter(j => j.matches.length > 0);
         
@@ -114,7 +238,7 @@ export const TournamentSummaryA4 = ({
             // Fallback to ID sorting
             return (a.id || 0) - (b.id || 0);
         });
-    }, [allTournamentJornadas, partidos, resolvedMappings]);
+    }, [allTournamentJornadas, partidos, resolvedMappings, repositionMatchMappings, participatingTeams]);
 
     const leagueName = metaInfo?.league || leagueData?.name || "LIGA DE FÚTBOL";
     const divisionName = metaInfo?.division || "División Única";
@@ -129,7 +253,7 @@ export const TournamentSummaryA4 = ({
     const tournamentConfig = useMemo(() => {
         if (!activeTournament?.config) return {};
         if (typeof activeTournament.config === "string") {
-            try { return JSON.parse(activeTournament.config); } catch (e) { return {}; }
+            try { return JSON.parse(activeTournament.config); } catch { return {}; }
         }
         return activeTournament.config;
     }, [activeTournament?.config]);
@@ -212,8 +336,8 @@ export const TournamentSummaryA4 = ({
                     }
                 }
             }
-        } catch(e) {
-            console.error("Error patching tournament config", e);
+        } catch(error) {
+            console.error("Error patching tournament config", error);
         }
         return activeTournament;
     }, [activeTournament, hasPlayoff, partidos, allTournamentJornadas, participatingTeams]);
@@ -294,43 +418,88 @@ export const TournamentSummaryA4 = ({
             </div>
 
             {/* HOJAS DE JORNADAS (Varias páginas según la cantidad de jornadas) */}
-            {jornadasWithMatches.map((jornada, index) => (
-                <div key={jornada.id || index} className="print-page results-page">
-                    <div className="page-header">
-                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
-                        <h3>Resultados: {jornada.name}</h3>
+            {jornadasWithMatches.map((jornada, index) => {
+                const regularMatches = jornada.matches.filter((match) => !isRestMatch(match));
+                const seenRestingTeams = new Set();
+                const restingMatches = jornada.matches.filter((match) => {
+                    if (!isRestMatch(match)) return false;
+                    const key = getRestingTeamKey(match, participatingTeams);
+                    if (seenRestingTeams.has(key)) return false;
+                    seenRestingTeams.add(key);
+                    return true;
+                });
+
+                return (
+                    <div key={jornada.id || index} className="print-page results-page">
+                        <div className="page-header">
+                            <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                            <h3>Resultados: {jornada.name}</h3>
+                        </div>
+
+                        <table className="results-table">
+                            <thead>
+                                <tr>
+                                    <th className="text-right">Local</th>
+                                    <th className="text-center">Res.</th>
+                                    <th className="text-left">Visitante</th>
+                                    <th className="text-left">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {regularMatches.map(match => {
+                                    const { localId, visitId } = resolveMatchTeamIds(match);
+                                    const local = getMatchTeamName(
+                                        participatingTeams,
+                                        localId,
+                                        match.local || match.homeTeam || match.home || match.team1,
+                                        "Equipo Local"
+                                    );
+                                    const visit = getMatchTeamName(
+                                        participatingTeams,
+                                        visitId,
+                                        match.visitante || match.awayTeam || match.away || match.team2,
+                                        "Equipo Visitante"
+                                    );
+                                    const isDisputado = String(match.status).toLowerCase() === 'finalizado';
+                                    const hasResult =
+                                        isDisputado &&
+                                        match.goals1 !== null &&
+                                        match.goals2 !== null &&
+                                        match.goals1 !== undefined &&
+                                        match.goals2 !== undefined &&
+                                        String(match.goals1).trim() !== "" &&
+                                        String(match.goals2).trim() !== "";
+                                    const result = hasResult ? `${match.goals1} - ${match.goals2}` : "VS";
+                                    const status = hasResult ? "Finalizado" : "No disputado";
+
+                                    return (
+                                        <tr key={match.id}>
+                                            <td className="team local">{local}</td>
+                                            <td className="score">{result}</td>
+                                            <td className="team visit">{visit}</td>
+                                            <td className="status">{status}</td>
+                                        </tr>
+                                    )
+                                })}
+                                {restingMatches.map((match) => {
+                                    const teamName = getRestingTeamName(match, participatingTeams);
+
+                                    return (
+                                        <tr key={match.id} className="rest-row">
+                                            <td colSpan={4} className="rest-cell">
+                                                <span className="rest-pill">
+                                                    <span className="rest-label">Descansa</span>
+                                                    <strong>{teamName}</strong>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
-
-                    <table className="results-table">
-                        <thead>
-                            <tr>
-                                <th className="text-right">Local</th>
-                                <th className="text-center">Res.</th>
-                                <th className="text-left">Visitante</th>
-                                <th className="text-left">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {jornada.matches.map(match => {
-                                const local = participatingTeams?.find(t => t.id === match.team1_id)?.name || "Equipo Local";
-                                const visit = participatingTeams?.find(t => t.id === match.team2_id)?.name || "Equipo Visitante";
-                                const hasResult = match.goals1 !== null && match.goals2 !== null && match.goals1 !== undefined && String(match.goals1).trim() !== "";
-                                const result = hasResult ? `${match.goals1} - ${match.goals2}` : "VS";
-                                const status = hasResult ? "Finalizado" : "No disputado";
-
-                                return (
-                                    <tr key={match.id}>
-                                        <td className="team local">{local}</td>
-                                        <td className="score">{result}</td>
-                                        <td className="team visit">{visit}</td>
-                                        <td className="status">{status}</td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            ))}
+                );
+            })}
 
             {/* HOJA DE LLAVES (PLAYOFFS) */}
             {hasPlayoff && (
@@ -516,6 +685,50 @@ const SummaryContainer = styled.div`
             .visit { text-align: left; }
             .score { text-align: center; font-weight: 800; font-size: 16px; background: #f8fafc; width: 15%; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
             .status { font-size: 12px; color: #64748b; width: 15%; text-align: left;}
+
+            .rest-row {
+                .rest-cell {
+                    padding: 18px 15px;
+                    text-align: center;
+                    background: #f8fafc;
+                    border-top: 2px solid #cbd5e1;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+
+                & + .rest-row .rest-cell {
+                    border-top: 1px solid #e2e8f0;
+                    padding-top: 12px;
+                }
+
+                .rest-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    min-width: 260px;
+                    max-width: 100%;
+                    padding: 8px 16px;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 999px;
+                    background: #ffffff;
+                    color: #0f172a;
+                    font-size: 13px;
+                    line-height: 1.2;
+                }
+
+                .rest-label {
+                    font-size: 11px;
+                    font-weight: 800;
+                    color: #475569;
+                    text-transform: uppercase;
+                    letter-spacing: 0.8px;
+                }
+
+                strong {
+                    font-size: 14px;
+                    font-weight: 800;
+                }
+            }
         }
     }
     
