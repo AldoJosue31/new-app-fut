@@ -12,6 +12,66 @@ const formatDate = (dateString) => {
     } catch { return dateString; }
 };
 
+const getDatePart = (dateString) => {
+    if (!dateString) return "";
+    return String(dateString).trim().split("T")[0].split(" ")[0];
+};
+
+const parseDateParts = (dateString) => {
+    const datePart = getDatePart(dateString);
+    const match = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    return {
+        year: Number(year),
+        month: Number(month),
+        day: Number(day),
+        iso: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+    };
+};
+
+const formatMatchDate = (dateString, baseDateString) => {
+    const parts = parseDateParts(dateString);
+    if (!parts) return "S/F";
+
+    const baseYear = parseDateParts(baseDateString)?.year;
+    const day = String(parts.day).padStart(2, "0");
+    const month = String(parts.month).padStart(2, "0");
+
+    if (baseYear && parts.year !== baseYear) {
+        return `${day}/${month}/${String(parts.year).slice(-2)}`;
+    }
+
+    return `${day}/${month}`;
+};
+
+const getMatchDateIso = (match) => parseDateParts(match?.date || match?.fecha)?.iso || "";
+
+const getMatchTimeValue = (match) => {
+    const explicitTime = match?.time || match?.hora;
+    if (explicitTime) return String(explicitTime).slice(0, 5);
+
+    const rawDate = String(match?.date || match?.fecha || "");
+    if (rawDate.includes("T")) return rawDate.split("T")[1]?.slice(0, 5) || "";
+    if (rawDate.includes(" ")) return rawDate.split(" ")[1]?.slice(0, 5) || "";
+    return "";
+};
+
+const compareMatchesByDate = (a, b) => {
+    const dateA = getMatchDateIso(a);
+    const dateB = getMatchDateIso(b);
+
+    if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
+    if (dateA && !dateB) return -1;
+    if (!dateA && dateB) return 1;
+
+    const timeCompare = getMatchTimeValue(a).localeCompare(getMatchTimeValue(b));
+    if (timeCompare !== 0) return timeCompare;
+
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+};
+
 const toComparableId = (value) => {
     if (value === null || value === undefined || value === "") return null;
     return String(value);
@@ -84,6 +144,11 @@ const isRestMatch = (match) => {
 const getConfigList = (config, key) => {
     const value = config?.[key];
     return Array.isArray(value) ? value : [];
+};
+
+const isFinalJornadaName = (name) => {
+    const lower = String(name || "").toLowerCase();
+    return lower.includes("final") && !lower.includes("semifinal") && !lower.includes("semi");
 };
 
 export const TournamentSummaryA4 = ({ 
@@ -197,7 +262,7 @@ export const TournamentSummaryA4 = ({
 
             return {
                 ...j,
-                matches: [...matchesForJornada, ...restingMatches]
+                matches: [...matchesForJornada].sort(compareMatchesByDate).concat(restingMatches)
             };
         }).filter(j => j.matches.length > 0);
         
@@ -245,7 +310,39 @@ export const TournamentSummaryA4 = ({
     const leagueLogoUrl = metaInfo?.leagueLogo || leagueData?.logo_url || null;
     const tournamentName = activeTournament?.season || "Torneo Actual";
     
-    const startDate = activeTournament?.created_at || "N/A";
+    const startDate = activeTournament?.start_date || activeTournament?.created_at || "N/A";
+    const tournamentEndDate = useMemo(() => {
+        const finalJornadas = jornadasWithMatches.filter((jornada) =>
+            isFinalJornadaName(jornada?.name)
+        );
+        if (finalJornadas.length === 0) return "";
+
+        const secondLegFinalJornadas = finalJornadas.filter((jornada) =>
+            String(jornada?.name || "").toLowerCase().includes("vuelta")
+        );
+        const sourceJornadas =
+            secondLegFinalJornadas.length > 0 ? secondLegFinalJornadas : finalJornadas;
+
+        const datedFinalMatches = sourceJornadas
+            .flatMap((jornada) => jornada.matches || [])
+            .filter((match) => !isRestMatch(match))
+            .map((match) => ({
+                date: match.date || match.fecha || "",
+                iso: getMatchDateIso(match),
+            }))
+            .filter((match) => Boolean(match.iso))
+            .sort((a, b) => b.iso.localeCompare(a.iso));
+
+        if (datedFinalMatches.length > 0) return datedFinalMatches[0].date;
+
+        const datedFinalJornada = sourceJornadas
+            .map((jornada) => jornada.end_date || jornada.start_date || "")
+            .filter(Boolean)
+            .sort()
+            .pop();
+
+        return datedFinalJornada || "";
+    }, [jornadasWithMatches]);
     const totalTeams = participatingTeams?.length || 0;
     const totalJornadas = allTournamentJornadas?.length || 0;
     const totalMatches = partidos?.length || 0;
@@ -384,30 +481,34 @@ export const TournamentSummaryA4 = ({
                     )}
 
                     <div className="stats-grid">
-                        <div className="stat-card">
+                        <div className="stat-card stat-half">
                             <span className="label">INICIO</span>
                             <span className="value">{formatDate(startDate)}</span>
                         </div>
-                        <div className="stat-card">
+                        <div className="stat-card stat-half">
+                            <span className="label">FIN DEL TORNEO</span>
+                            <span className="value">{tournamentEndDate ? formatDate(tournamentEndDate) : "--"}</span>
+                        </div>
+                        <div className="stat-card stat-third">
                             <span className="label">EQUIPOS PARTICIPANTES</span>
                             <span className="value">{totalTeams}</span>
                         </div>
-                        <div className="stat-card">
+                        <div className="stat-card stat-third">
                             <span className="label">JORNADAS</span>
                             <span className="value">{totalJornadas}</span>
                         </div>
-                        <div className="stat-card">
+                        <div className="stat-card stat-third">
                             <span className="label">PARTIDOS JUGADOS</span>
                             <span className="value">{totalMatches}</span>
                         </div>
                         
                         {derivedStats && (
                             <>
-                                <div className="stat-card stat-wide">
+                                <div className="stat-card stat-feature">
                                     <span className="label">EQUIPO MÁS GOLEADOR (FASE REGULAR)</span>
                                     <span className="value">{derivedStats.topScoringTeam || "--"}</span>
                                 </div>
-                                <div className="stat-card stat-wide">
+                                <div className="stat-card stat-feature">
                                     <span className="label">EQUIPO MENOS GOLEADO (FASE REGULAR)</span>
                                     <span className="value">{derivedStats.leastScoredTeam || "--"}</span>
                                 </div>
@@ -419,7 +520,9 @@ export const TournamentSummaryA4 = ({
 
             {/* HOJAS DE JORNADAS (Varias páginas según la cantidad de jornadas) */}
             {jornadasWithMatches.map((jornada, index) => {
-                const regularMatches = jornada.matches.filter((match) => !isRestMatch(match));
+                const regularMatches = jornada.matches
+                    .filter((match) => !isRestMatch(match))
+                    .sort(compareMatchesByDate);
                 const seenRestingTeams = new Set();
                 const restingMatches = jornada.matches.filter((match) => {
                     if (!isRestMatch(match)) return false;
@@ -439,6 +542,7 @@ export const TournamentSummaryA4 = ({
                         <table className="results-table">
                             <thead>
                                 <tr>
+                                    <th className="text-center">Fecha</th>
                                     <th className="text-right">Local</th>
                                     <th className="text-center">Res.</th>
                                     <th className="text-left">Visitante</th>
@@ -471,9 +575,11 @@ export const TournamentSummaryA4 = ({
                                         String(match.goals2).trim() !== "";
                                     const result = hasResult ? `${match.goals1} - ${match.goals2}` : "VS";
                                     const status = hasResult ? "Finalizado" : "No disputado";
+                                    const matchDate = formatMatchDate(match.date || match.fecha, startDate);
 
                                     return (
                                         <tr key={match.id}>
+                                            <td className="match-date">{matchDate}</td>
                                             <td className="team local">{local}</td>
                                             <td className="score">{result}</td>
                                             <td className="team visit">{visit}</td>
@@ -486,7 +592,7 @@ export const TournamentSummaryA4 = ({
 
                                     return (
                                         <tr key={match.id} className="rest-row">
-                                            <td colSpan={4} className="rest-cell">
+                                            <td colSpan={5} className="rest-cell">
                                                 <span className="rest-pill">
                                                     <span className="rest-label">Descansa</span>
                                                     <strong>{teamName}</strong>
@@ -622,23 +728,52 @@ const SummaryContainer = styled.div`
             
             .stats-grid {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+                gap: 14px;
                 
                 .stat-card {
                     background: #f8fafc;
                     border: 1px solid #e2e8f0;
-                    padding: 20px;
+                    padding: 18px;
                     border-radius: 12px;
                     display: flex;
                     flex-direction: column;
+                    justify-content: center;
+                    min-width: 0;
                     
                     .label { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; letter-spacing: 1px; }
-                    .value { font-size: 20px; font-weight: 700; color: #0f172a; }
+                    .value { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.2; }
                 }
-                
-                .stat-wide {
+
+                .stat-half {
+                    grid-column: span 3;
+                }
+
+                .stat-third {
                     grid-column: span 2;
+                    align-items: center;
+                    text-align: center;
+                    padding: 15px 12px;
+
+                    .label {
+                        min-height: 26px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .value {
+                        font-size: 24px;
+                        font-weight: 800;
+                    }
+                }
+
+                .stat-feature {
+                    grid-column: span 3;
+
+                    .value {
+                        font-size: 18px;
+                    }
                 }
             }
         }
@@ -680,11 +815,21 @@ const SummaryContainer = styled.div`
             .text-center { text-align: center; }
             .text-left { text-align: left; }
             
-            .team { font-weight: 600; width: 35%; }
+            .match-date {
+                width: 12%;
+                text-align: center;
+                font-size: 12px;
+                font-weight: 800;
+                color: #475569;
+                white-space: nowrap;
+                background: #f8fafc;
+                border-right: 1px solid #e2e8f0;
+            }
+            .team { font-weight: 600; width: 29%; }
             .local { text-align: right; }
             .visit { text-align: left; }
-            .score { text-align: center; font-weight: 800; font-size: 16px; background: #f8fafc; width: 15%; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
-            .status { font-size: 12px; color: #64748b; width: 15%; text-align: left;}
+            .score { text-align: center; font-weight: 800; font-size: 16px; background: #f8fafc; width: 13%; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
+            .status { font-size: 12px; color: #64748b; width: 17%; text-align: left;}
 
             .rest-row {
                 .rest-cell {
