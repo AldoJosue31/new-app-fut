@@ -1,5 +1,12 @@
 import React, { useMemo } from "react";
 import styled from "styled-components";
+import {
+    RiCheckLine,
+    RiCloseLine,
+    RiPauseLine,
+    RiQuestionLine,
+    RiSubtractLine,
+} from "react-icons/ri";
 import { PlayoffBracketView } from "../../subcomponents/PlayoffBracketView";
 import { isRepositionJornadaName, resolveRepositionMappings } from "../../../../../../utils/jornadaUtils";
 
@@ -10,6 +17,93 @@ const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     } catch { return dateString; }
+};
+
+const getDatePart = (dateString) => {
+    if (!dateString) return "";
+    return String(dateString).trim().split("T")[0].split(" ")[0];
+};
+
+const parseDateParts = (dateString) => {
+    const datePart = getDatePart(dateString);
+    const match = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!match) return null;
+
+    const [, year, month, day] = match;
+    return {
+        year: Number(year),
+        month: Number(month),
+        day: Number(day),
+        iso: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+    };
+};
+
+const formatMatchDate = (dateString, baseDateString) => {
+    const parts = parseDateParts(dateString);
+    if (!parts) return "S/F";
+
+    const baseYear = parseDateParts(baseDateString)?.year;
+    const day = String(parts.day).padStart(2, "0");
+    const month = String(parts.month).padStart(2, "0");
+
+    if (baseYear && parts.year !== baseYear) {
+        return `${day}/${month}/${String(parts.year).slice(-2)}`;
+    }
+
+    return `${day}/${month}`;
+};
+
+const addDaysToIsoDate = (dateString, days) => {
+    const parts = parseDateParts(dateString);
+    if (!parts) return "";
+
+    const date = new Date(parts.year, parts.month - 1, parts.day);
+    date.setDate(date.getDate() + days);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const formatJornadaDateRange = (jornada, baseDateString) => {
+    const start = jornada?.start_date || jornada?.startDate || "";
+    const end =
+        jornada?.end_date ||
+        jornada?.endDate ||
+        (start ? addDaysToIsoDate(start, 6) : "");
+
+    if (!start && !end) return "";
+    if (start && !end) return formatMatchDate(start, baseDateString);
+    if (!start && end) return formatMatchDate(end, baseDateString);
+
+    return `${formatMatchDate(start, baseDateString)} - ${formatMatchDate(end, baseDateString)}`;
+};
+
+const getMatchDateIso = (match) => parseDateParts(match?.date || match?.fecha)?.iso || "";
+
+const getMatchTimeValue = (match) => {
+    const explicitTime = match?.time || match?.hora;
+    if (explicitTime) return String(explicitTime).slice(0, 5);
+
+    const rawDate = String(match?.date || match?.fecha || "");
+    if (rawDate.includes("T")) return rawDate.split("T")[1]?.slice(0, 5) || "";
+    if (rawDate.includes(" ")) return rawDate.split(" ")[1]?.slice(0, 5) || "";
+    return "";
+};
+
+const compareMatchesByDate = (a, b) => {
+    const dateA = getMatchDateIso(a);
+    const dateB = getMatchDateIso(b);
+
+    if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
+    if (dateA && !dateB) return -1;
+    if (!dateA && dateB) return 1;
+
+    const timeCompare = getMatchTimeValue(a).localeCompare(getMatchTimeValue(b));
+    if (timeCompare !== 0) return timeCompare;
+
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
 };
 
 const toComparableId = (value) => {
@@ -84,6 +178,62 @@ const isRestMatch = (match) => {
 const getConfigList = (config, key) => {
     const value = config?.[key];
     return Array.isArray(value) ? value : [];
+};
+
+const isFinalJornadaName = (name) => {
+    const lower = String(name || "").toLowerCase();
+    return lower.includes("final") && !lower.includes("semifinal") && !lower.includes("semi");
+};
+
+const getJornadaShortLabel = (name, index) => {
+    const lower = String(name || "").toLowerCase();
+    const number = lower.match(/jornada\s+(\d+)/i)?.[1] || (/^\d+$/.test(lower) ? lower : "");
+    if (number) return `J${number}`;
+    if (lower.includes("dieciseisavos")) return "16F";
+    if (lower.includes("octavos")) return "OF";
+    if (lower.includes("cuartos")) return "CF";
+    if (lower.includes("semifinal") || lower.includes("semi")) {
+        return lower.includes("vuelta") ? "SF V" : lower.includes("ida") ? "SF I" : "SF";
+    }
+    if (isFinalJornadaName(name)) {
+        return lower.includes("vuelta") ? "F V" : lower.includes("ida") ? "F I" : "F";
+    }
+    return `J${index + 1}`;
+};
+
+const getTeamMatchOutcome = (match, teamId) => {
+    if (isRestMatch(match)) return "rest";
+
+    const { localId, visitId } = resolveMatchTeamIds(match);
+    const isLocal = String(localId) === String(teamId);
+    const isVisit = String(visitId) === String(teamId);
+    if (!isLocal && !isVisit) return null;
+
+    const hasResult =
+        String(match.status).toLowerCase() === "finalizado" &&
+        match.goals1 !== null &&
+        match.goals2 !== null &&
+        match.goals1 !== undefined &&
+        match.goals2 !== undefined &&
+        String(match.goals1).trim() !== "" &&
+        String(match.goals2).trim() !== "";
+
+    if (!hasResult) return "pending";
+
+    const teamGoals = Number(isLocal ? match.goals1 : match.goals2);
+    const rivalGoals = Number(isLocal ? match.goals2 : match.goals1);
+    if (teamGoals > rivalGoals) return "win";
+    if (teamGoals < rivalGoals) return "loss";
+    return "draw";
+};
+
+const OutcomeIcon = ({ type }) => {
+    if (type === "win") return <RiCheckLine aria-label="Victoria" />;
+    if (type === "loss") return <RiCloseLine aria-label="Derrota" />;
+    if (type === "draw") return <RiSubtractLine aria-label="Empate" />;
+    if (type === "pending") return <RiQuestionLine aria-label="No disputado" />;
+    if (type === "rest") return <RiPauseLine aria-label="Descanso" />;
+    return <span aria-label="Sin partido">-</span>;
 };
 
 export const TournamentSummaryA4 = ({ 
@@ -197,7 +347,7 @@ export const TournamentSummaryA4 = ({
 
             return {
                 ...j,
-                matches: [...matchesForJornada, ...restingMatches]
+                matches: [...matchesForJornada].sort(compareMatchesByDate).concat(restingMatches)
             };
         }).filter(j => j.matches.length > 0);
         
@@ -245,7 +395,39 @@ export const TournamentSummaryA4 = ({
     const leagueLogoUrl = metaInfo?.leagueLogo || leagueData?.logo_url || null;
     const tournamentName = activeTournament?.season || "Torneo Actual";
     
-    const startDate = activeTournament?.created_at || "N/A";
+    const startDate = activeTournament?.start_date || activeTournament?.created_at || "N/A";
+    const tournamentEndDate = useMemo(() => {
+        const finalJornadas = jornadasWithMatches.filter((jornada) =>
+            isFinalJornadaName(jornada?.name)
+        );
+        if (finalJornadas.length === 0) return "";
+
+        const secondLegFinalJornadas = finalJornadas.filter((jornada) =>
+            String(jornada?.name || "").toLowerCase().includes("vuelta")
+        );
+        const sourceJornadas =
+            secondLegFinalJornadas.length > 0 ? secondLegFinalJornadas : finalJornadas;
+
+        const datedFinalMatches = sourceJornadas
+            .flatMap((jornada) => jornada.matches || [])
+            .filter((match) => !isRestMatch(match))
+            .map((match) => ({
+                date: match.date || match.fecha || "",
+                iso: getMatchDateIso(match),
+            }))
+            .filter((match) => Boolean(match.iso))
+            .sort((a, b) => b.iso.localeCompare(a.iso));
+
+        if (datedFinalMatches.length > 0) return datedFinalMatches[0].date;
+
+        const datedFinalJornada = sourceJornadas
+            .map((jornada) => jornada.end_date || jornada.start_date || "")
+            .filter(Boolean)
+            .sort()
+            .pop();
+
+        return datedFinalJornada || "";
+    }, [jornadasWithMatches]);
     const totalTeams = participatingTeams?.length || 0;
     const totalJornadas = allTournamentJornadas?.length || 0;
     const totalMatches = partidos?.length || 0;
@@ -342,6 +524,34 @@ export const TournamentSummaryA4 = ({
         return activeTournament;
     }, [activeTournament, hasPlayoff, partidos, allTournamentJornadas, participatingTeams]);
 
+    const teamJourneyMatrix = useMemo(() => {
+        if (!participatingTeams || !jornadasWithMatches) return [];
+
+        return participatingTeams.map((team) => {
+            const teamId = String(team.id);
+            const teamNameKey = `name:${String(team.name || "").trim().toLowerCase()}`;
+            const results = jornadasWithMatches.map((jornada) => {
+                const restMatch = (jornada.matches || []).find((match) => {
+                    if (!isRestMatch(match)) return false;
+                    const restKey = getRestingTeamKey(match, participatingTeams);
+                    return restKey === `id:${teamId}` || restKey === teamNameKey;
+                });
+
+                if (restMatch) return "rest";
+
+                const teamMatch = (jornada.matches || []).find((match) => {
+                    if (isRestMatch(match)) return false;
+                    const { localId, visitId } = resolveMatchTeamIds(match);
+                    return String(localId) === teamId || String(visitId) === teamId;
+                });
+
+                return getTeamMatchOutcome(teamMatch, teamId);
+            });
+
+            return { team, results };
+        });
+    }, [jornadasWithMatches, participatingTeams]);
+
     return (
         <SummaryContainer>
             {/* HOJA 1: PORTADA */}
@@ -384,30 +594,34 @@ export const TournamentSummaryA4 = ({
                     )}
 
                     <div className="stats-grid">
-                        <div className="stat-card">
+                        <div className="stat-card stat-half">
                             <span className="label">INICIO</span>
                             <span className="value">{formatDate(startDate)}</span>
                         </div>
-                        <div className="stat-card">
+                        <div className="stat-card stat-half">
+                            <span className="label">FIN DEL TORNEO</span>
+                            <span className="value">{tournamentEndDate ? formatDate(tournamentEndDate) : "--"}</span>
+                        </div>
+                        <div className="stat-card stat-third">
                             <span className="label">EQUIPOS PARTICIPANTES</span>
                             <span className="value">{totalTeams}</span>
                         </div>
-                        <div className="stat-card">
+                        <div className="stat-card stat-third">
                             <span className="label">JORNADAS</span>
                             <span className="value">{totalJornadas}</span>
                         </div>
-                        <div className="stat-card">
+                        <div className="stat-card stat-third">
                             <span className="label">PARTIDOS JUGADOS</span>
                             <span className="value">{totalMatches}</span>
                         </div>
                         
                         {derivedStats && (
                             <>
-                                <div className="stat-card stat-wide">
+                                <div className="stat-card stat-feature">
                                     <span className="label">EQUIPO MÁS GOLEADOR (FASE REGULAR)</span>
                                     <span className="value">{derivedStats.topScoringTeam || "--"}</span>
                                 </div>
-                                <div className="stat-card stat-wide">
+                                <div className="stat-card stat-feature">
                                     <span className="label">EQUIPO MENOS GOLEADO (FASE REGULAR)</span>
                                     <span className="value">{derivedStats.leastScoredTeam || "--"}</span>
                                 </div>
@@ -417,9 +631,54 @@ export const TournamentSummaryA4 = ({
                 </div>
             </div>
 
+            {teamJourneyMatrix.length > 0 && (
+                <div className="print-page matrix-page">
+                    <div className="page-header">
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        <h3>Equipos por Jornada</h3>
+                        <span className="jornada-date-range">Resumen de resultados por equipo</span>
+                    </div>
+
+                    <div className="matrix-legend">
+                        <span><RiCheckLine /> Victoria</span>
+                        <span><RiCloseLine /> Derrota</span>
+                        <span><RiSubtractLine /> Empate</span>
+                        <span><RiQuestionLine /> No disputado</span>
+                        <span><RiPauseLine /> Descanso</span>
+                    </div>
+
+                    <table className="journey-matrix">
+                        <thead>
+                            <tr>
+                                <th className="team-heading">Equipo</th>
+                                {jornadasWithMatches.map((jornada, jornadaIndex) => (
+                                    <th key={jornada.id || jornadaIndex}>
+                                        {getJornadaShortLabel(jornada.name, jornadaIndex)}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {teamJourneyMatrix.map(({ team, results }) => (
+                                <tr key={team.id}>
+                                    <td className="team-name">{team.name}</td>
+                                    {results.map((result, resultIndex) => (
+                                        <td key={`${team.id}-${resultIndex}`} className={`outcome-cell outcome-${result || "empty"}`}>
+                                            <OutcomeIcon type={result} />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
             {/* HOJAS DE JORNADAS (Varias páginas según la cantidad de jornadas) */}
             {jornadasWithMatches.map((jornada, index) => {
-                const regularMatches = jornada.matches.filter((match) => !isRestMatch(match));
+                const regularMatches = jornada.matches
+                    .filter((match) => !isRestMatch(match))
+                    .sort(compareMatchesByDate);
                 const seenRestingTeams = new Set();
                 const restingMatches = jornada.matches.filter((match) => {
                     if (!isRestMatch(match)) return false;
@@ -428,17 +687,22 @@ export const TournamentSummaryA4 = ({
                     seenRestingTeams.add(key);
                     return true;
                 });
+                const jornadaDateRange = formatJornadaDateRange(jornada, startDate);
 
                 return (
                     <div key={jornada.id || index} className="print-page results-page">
                         <div className="page-header">
                             <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                             <h3>Resultados: {jornada.name}</h3>
+                            {jornadaDateRange && (
+                                <span className="jornada-date-range">{jornadaDateRange}</span>
+                            )}
                         </div>
 
                         <table className="results-table">
                             <thead>
                                 <tr>
+                                    <th className="text-center">Fecha</th>
                                     <th className="text-right">Local</th>
                                     <th className="text-center">Res.</th>
                                     <th className="text-left">Visitante</th>
@@ -471,9 +735,11 @@ export const TournamentSummaryA4 = ({
                                         String(match.goals2).trim() !== "";
                                     const result = hasResult ? `${match.goals1} - ${match.goals2}` : "VS";
                                     const status = hasResult ? "Finalizado" : "No disputado";
+                                    const matchDate = formatMatchDate(match.date || match.fecha, startDate);
 
                                     return (
                                         <tr key={match.id}>
+                                            <td className="match-date">{matchDate}</td>
                                             <td className="team local">{local}</td>
                                             <td className="score">{result}</td>
                                             <td className="team visit">{visit}</td>
@@ -486,7 +752,7 @@ export const TournamentSummaryA4 = ({
 
                                     return (
                                         <tr key={match.id} className="rest-row">
-                                            <td colSpan={4} className="rest-cell">
+                                            <td colSpan={5} className="rest-cell">
                                                 <span className="rest-pill">
                                                     <span className="rest-label">Descansa</span>
                                                     <strong>{teamName}</strong>
@@ -622,30 +888,59 @@ const SummaryContainer = styled.div`
             
             .stats-grid {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
+                grid-template-columns: repeat(6, minmax(0, 1fr));
+                gap: 14px;
                 
                 .stat-card {
                     background: #f8fafc;
                     border: 1px solid #e2e8f0;
-                    padding: 20px;
+                    padding: 18px;
                     border-radius: 12px;
                     display: flex;
                     flex-direction: column;
+                    justify-content: center;
+                    min-width: 0;
                     
                     .label { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; letter-spacing: 1px; }
-                    .value { font-size: 20px; font-weight: 700; color: #0f172a; }
+                    .value { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.2; }
                 }
-                
-                .stat-wide {
+
+                .stat-half {
+                    grid-column: span 3;
+                }
+
+                .stat-third {
                     grid-column: span 2;
+                    align-items: center;
+                    text-align: center;
+                    padding: 15px 12px;
+
+                    .label {
+                        min-height: 26px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .value {
+                        font-size: 24px;
+                        font-weight: 800;
+                    }
+                }
+
+                .stat-feature {
+                    grid-column: span 3;
+
+                    .value {
+                        font-size: 18px;
+                    }
                 }
             }
         }
     }
 
     /* HOJAS RESULTADOS Y BRACKET */
-    .results-page, .bracket-page {
+    .results-page, .bracket-page, .matrix-page {
         .page-header {
             margin-bottom: 30px;
             padding-bottom: 15px;
@@ -653,6 +948,18 @@ const SummaryContainer = styled.div`
             
             .league-mini { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 5px; }
             h3 { margin: 0; font-size: 24px; font-weight: 800; color: #0f172a; text-transform: uppercase; }
+            .jornada-date-range {
+                display: inline-flex;
+                align-items: center;
+                margin-top: 8px;
+                padding: 4px 10px;
+                border-radius: 999px;
+                background: #f1f5f9;
+                color: #475569;
+                font-size: 12px;
+                font-weight: 800;
+                letter-spacing: 0.4px;
+            }
         }
         
         .results-table {
@@ -680,11 +987,21 @@ const SummaryContainer = styled.div`
             .text-center { text-align: center; }
             .text-left { text-align: left; }
             
-            .team { font-weight: 600; width: 35%; }
+            .match-date {
+                width: 12%;
+                text-align: center;
+                font-size: 12px;
+                font-weight: 800;
+                color: #475569;
+                white-space: nowrap;
+                background: #f8fafc;
+                border-right: 1px solid #e2e8f0;
+            }
+            .team { font-weight: 600; width: 29%; }
             .local { text-align: right; }
             .visit { text-align: left; }
-            .score { text-align: center; font-weight: 800; font-size: 16px; background: #f8fafc; width: 15%; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
-            .status { font-size: 12px; color: #64748b; width: 15%; text-align: left;}
+            .score { text-align: center; font-weight: 800; font-size: 16px; background: #f8fafc; width: 13%; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
+            .status { font-size: 12px; color: #64748b; width: 17%; text-align: left;}
 
             .rest-row {
                 .rest-cell {
@@ -728,6 +1045,132 @@ const SummaryContainer = styled.div`
                     font-size: 14px;
                     font-weight: 800;
                 }
+            }
+        }
+    }
+
+    .matrix-page {
+        .page-header {
+            margin-bottom: 18px;
+        }
+
+        .matrix-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #f8fafc;
+
+            span {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                color: #475569;
+                font-size: 10px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.35px;
+            }
+
+            svg {
+                width: 13px;
+                height: 13px;
+            }
+        }
+
+        .journey-matrix {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 1px solid #cbd5e1;
+
+            th,
+            td {
+                border: 1px solid #e2e8f0;
+            }
+
+            th {
+                padding: 8px 4px;
+                background: #f1f5f9;
+                color: #475569;
+                font-size: 9px;
+                font-weight: 900;
+                text-transform: uppercase;
+                text-align: center;
+                white-space: nowrap;
+            }
+
+            .team-heading {
+                width: 32mm;
+                text-align: left;
+                padding-left: 10px;
+            }
+
+            .team-name {
+                padding: 7px 8px;
+                color: #0f172a;
+                font-size: 10px;
+                font-weight: 800;
+                line-height: 1.15;
+                background: #ffffff;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .outcome-cell {
+                height: 25px;
+                padding: 0;
+                text-align: center;
+                vertical-align: middle;
+                color: #94a3b8;
+                background: #ffffff;
+
+                svg {
+                    width: 15px;
+                    height: 15px;
+                    vertical-align: middle;
+                    stroke-width: 3;
+                }
+
+                span {
+                    display: inline-block;
+                    color: #cbd5e1;
+                    font-size: 10px;
+                    font-weight: 800;
+                }
+            }
+
+            .outcome-win {
+                color: #15803d;
+                background: #f0fdf4;
+            }
+
+            .outcome-loss {
+                color: #b91c1c;
+                background: #fef2f2;
+            }
+
+            .outcome-draw {
+                color: #475569;
+                background: #f8fafc;
+            }
+
+            .outcome-pending {
+                color: #b45309;
+                background: #fffbeb;
+            }
+
+            .outcome-rest {
+                color: #2563eb;
+                background: #eff6ff;
+            }
+
+            .outcome-empty {
+                background: #ffffff;
             }
         }
     }
