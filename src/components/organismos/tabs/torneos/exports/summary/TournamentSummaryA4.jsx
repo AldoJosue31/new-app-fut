@@ -689,6 +689,7 @@ export const TournamentSummaryA4 = ({
                             jornadas={allTournamentJornadas} 
                             projectedStandings={standings || []}
                             isLoading={false}
+                            layoutMode="print-vertical"
                         />
                     </div>
                 </div>
@@ -1177,9 +1178,12 @@ const SummaryContainer = styled.div`
     }
     
     .bracket-print-wrapper {
-        width: 153.8%;
-        transform: scale(0.65);
-        transform-origin: top left;
+        width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         
         /* Forced light theme CSS variables for PlayoffBracketView when printed/previewed */
         --bracket-primary: #3b82f6;
@@ -1188,7 +1192,7 @@ const SummaryContainer = styled.div`
         --bracket-item: #f8fafc;
         --bracket-border: #e2e8f0;
         --bracket-muted: #64748b;
-        
+
         section {
             border: none;
             background: transparent;
@@ -1197,13 +1201,16 @@ const SummaryContainer = styled.div`
             margin: 0;
             overflow: visible !important;
         }
-        
-        div[class*="BracketScroller"] {
-            overflow: visible !important;
-        }
-        
-        @media print {
-            transform: scale(0.65);
+    }
+
+    .bracket-page {
+        padding: 12mm 10mm;
+        display: flex;
+        flex-direction: column;
+
+        .page-header {
+            margin-bottom: 8px;
+            padding-bottom: 10px;
         }
     }
 `;

@@ -18,6 +18,13 @@ const BRACKET_CARD_HEIGHT = 112;
 const BRACKET_COLUMN_GAP = 74;
 const BRACKET_ROW_HEIGHT = 124;
 const BRACKET_HEADER_HEIGHT = 42;
+const PRINT_BRACKET_WIDTH = 652;
+const PRINT_BRACKET_HEIGHT = 878;
+const PRINT_HEADER_HEIGHT = 38;
+const PRINT_CENTER_GAP = 18;
+const PRINT_STAGE_GAP = 12;
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const getPhaseShortLabel = (phaseKey) => ({
   repechaje: "Rep",
@@ -326,7 +333,7 @@ const TeamRow = ({ team, goals, isWinner }) => (
   </div>
 );
 
-const MatchCard = ({ row }) => {
+const MatchCard = ({ row, density = "default" }) => {
   const { pair, result } = row;
   const homeId = getTeamId(pair.home);
   const awayId = getTeamId(pair.away);
@@ -342,7 +349,7 @@ const MatchCard = ({ row }) => {
   };
 
   return (
-    <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown}>
+    <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown} $density={density}>
       {!row?.isFinal && (
         <MatchNumberBadge>#{row?.cupNumber || (Number.isFinite(row?.pairIndex) ? row.pairIndex + 1 : 1)}</MatchNumberBadge>
       )}
@@ -359,7 +366,7 @@ const MatchCard = ({ row }) => {
         />
       </TeamRows>
       {showLegBreakdown && (
-        <LegBreakdown>
+        <LegBreakdown $density={density}>
           <span>
             <small>Ida</small>
             <strong>{formatLegScore(firstLeg)}</strong>
@@ -378,7 +385,7 @@ const MatchCard = ({ row }) => {
   );
 };
 
-const FutureMatchCard = ({ row, index }) => {
+const FutureMatchCard = ({ row, index, density = "default" }) => {
   const { pair } = row;
   const homeProjection = row?.projectedTeams?.home;
   const awayProjection = row?.projectedTeams?.away;
@@ -386,7 +393,7 @@ const FutureMatchCard = ({ row, index }) => {
   const awayName = pair?.away?.name || awayProjection?.name || row?.slotLabels?.away || `Ganador cupo ${index * 2 + 2}`;
 
   return (
-    <FutureMatchShell>
+    <FutureMatchShell $density={density}>
       {!row?.isFinal && <MatchNumberBadge>#{row?.cupNumber || index + 1}</MatchNumberBadge>}
       <span className={homeProjection && !pair?.home ? "projected" : ""}>{homeName}</span>
       <span className={awayProjection && !pair?.away ? "projected" : ""}>{awayName}</span>
@@ -566,18 +573,166 @@ const buildBracketGeometry = (stages = []) => {
   return { baseCount, width, height, getMatchRect, segments, reseedBridgeSegments };
 };
 
+const splitStageForPrint = (stage = {}) => {
+  const matches = stage?.matches || [];
+  const splitIndex = Math.ceil(matches.length / 2);
+  return {
+    top: matches.slice(0, splitIndex),
+    bottom: matches.slice(splitIndex),
+    splitIndex,
+  };
+};
+
+const getPrintPhaseShortLabel = (stage = {}) =>
+  stage.key === "semifinals" ? "SM" : stage.shortLabel;
+
+const buildPrintBracketGeometry = (stages = []) => {
+  const stageCount = Math.max(1, stages.length);
+  const columnGap = PRINT_STAGE_GAP;
+  const cardWidth = clamp(
+    Math.floor((PRINT_BRACKET_WIDTH - ((stageCount - 1) * columnGap)) / stageCount),
+    104,
+    182
+  );
+  const canvasWidth = (stageCount * cardWidth) + ((stageCount - 1) * columnGap);
+  const offsetX = Math.max(0, (PRINT_BRACKET_WIDTH - canvasWidth) / 2);
+  const columns = stages.map((stage, stageIndex) => ({
+    stage,
+    x: offsetX + (stageIndex * (cardWidth + columnGap)),
+  }));
+
+  const finalStageIndex = Math.max(0, stages.length - 1);
+  const branchStages = stages.slice(0, finalStageIndex);
+  const firstSplit = splitStageForPrint(stages[0]);
+  const maxBranchMatchCount = Math.max(
+    1,
+    firstSplit.top.length || 1,
+    firstSplit.bottom.length || 1
+  );
+  const finalHeight = clamp(Math.round(88 - (stageCount * 4)), 58, 78);
+  const branchHeight = Math.floor(
+    (PRINT_BRACKET_HEIGHT - PRINT_HEADER_HEIGHT - finalHeight - (PRINT_CENTER_GAP * 2)) / 2
+  );
+  const matchGap = maxBranchMatchCount >= 8 ? 4 : maxBranchMatchCount >= 4 ? 7 : 11;
+  const cardHeight = clamp(
+    Math.floor((branchHeight - ((maxBranchMatchCount - 1) * matchGap)) / maxBranchMatchCount),
+    maxBranchMatchCount >= 8 ? 41 : 48,
+    maxBranchMatchCount <= 2 ? 86 : 72
+  );
+  const topStart = PRINT_HEADER_HEIGHT;
+  const finalY = topStart + branchHeight + PRINT_CENTER_GAP;
+  const bottomStart = finalY + finalHeight + PRINT_CENTER_GAP;
+
+  const getBranchRects = (stageIndex, side) => {
+    const stage = stages[stageIndex];
+    const split = splitStageForPrint(stage);
+    const matches = split[side] || [];
+    const branchStart = side === "top" ? topStart : bottomStart;
+    const count = Math.max(1, matches.length);
+    const column = columns[stageIndex];
+
+    return matches.map((row, index) => {
+      const centerY = branchStart + ((index + 0.5) * (branchHeight / count));
+      return {
+        row,
+        localIndex: index,
+        matchIndex: side === "bottom" ? index + split.splitIndex : index,
+        stageIndex,
+        side,
+        x: column.x,
+        y: centerY - (cardHeight / 2),
+        centerY,
+        width: cardWidth,
+        height: cardHeight,
+      };
+    });
+  };
+
+  const topRectsByStage = branchStages.map((_, stageIndex) => getBranchRects(stageIndex, "top"));
+  const bottomRectsByStage = branchStages.map((_, stageIndex) => getBranchRects(stageIndex, "bottom"));
+  const finalRect = {
+    row: stages[finalStageIndex]?.matches?.[0],
+    stageIndex: finalStageIndex,
+    x: columns[finalStageIndex]?.x || offsetX,
+    y: finalY,
+    centerY: finalY + (finalHeight / 2),
+    width: cardWidth,
+    height: finalHeight,
+  };
+
+  const makeConnector = (sourceRect, targetRect) => {
+    const x1 = sourceRect.x + sourceRect.width;
+    const x2 = targetRect.x;
+    const mergeX = x1 + ((x2 - x1) / 2);
+    return [
+      { x1, y1: sourceRect.centerY, x2: mergeX, y2: sourceRect.centerY },
+      { x1: mergeX, y1: sourceRect.centerY, x2: mergeX, y2: targetRect.centerY },
+      { x1: mergeX, y1: targetRect.centerY, x2, y2: targetRect.centerY },
+    ];
+  };
+
+  const connectBranch = (rectStages) => {
+    const lines = [];
+
+    rectStages.slice(0, -1).forEach((sourceRects, stageIndex) => {
+      const targetRects = rectStages[stageIndex + 1] || [];
+      const sourceCount = Math.max(1, sourceRects.length);
+      const targetCount = Math.max(1, targetRects.length);
+      const mergeRatio = Math.max(1, sourceCount / targetCount);
+
+      targetRects.forEach((targetRect, targetIndex) => {
+        const sourceStart = Math.floor(targetIndex * mergeRatio);
+        const sourceEnd = Math.min(
+          sourceCount - 1,
+          Math.max(sourceStart, Math.floor((targetIndex + 1) * mergeRatio) - 1)
+        );
+
+        for (let sourceIndex = sourceStart; sourceIndex <= sourceEnd; sourceIndex += 1) {
+          const sourceRect = sourceRects[sourceIndex];
+          if (sourceRect) lines.push(...makeConnector(sourceRect, targetRect));
+        }
+      });
+    });
+
+    return lines;
+  };
+
+  const topLines = connectBranch(topRectsByStage);
+  const bottomLines = connectBranch(bottomRectsByStage);
+  const lastTopRects = topRectsByStage[topRectsByStage.length - 1] || [];
+  const lastBottomRects = bottomRectsByStage[bottomRectsByStage.length - 1] || [];
+  const finalLines = [
+    ...lastTopRects.flatMap((rect) => makeConnector(rect, finalRect)),
+    ...lastBottomRects.flatMap((rect) => makeConnector(rect, finalRect)),
+  ];
+
+  return {
+    width: PRINT_BRACKET_WIDTH,
+    height: PRINT_BRACKET_HEIGHT,
+    cardWidth,
+    cardHeight,
+    columns,
+    topRects: topRectsByStage.flat(),
+    bottomRects: bottomRectsByStage.flat(),
+    finalRect,
+    lines: [...topLines, ...bottomLines, ...finalLines],
+  };
+};
+
 export function PlayoffBracketView({
   torneo,
   partidos = [],
   jornadas = [],
   projectedStandings = [],
   isLoading = false,
+  layoutMode = "default",
 }) {
   const stages = useMemo(
     () => buildBracketStages({ torneo, partidos, jornadas, projectedStandings }),
     [torneo, partidos, jornadas, projectedStandings]
   );
   const geometry = useMemo(() => buildBracketGeometry(stages), [stages]);
+  const printGeometry = useMemo(() => buildPrintBracketGeometry(stages), [stages]);
 
   if (isLoading) {
     return (
@@ -598,6 +753,89 @@ export function PlayoffBracketView({
           <strong>Cuadro final no disponible</strong>
           <span>La fase final se mostrara cuando exista liguilla o repechaje configurado.</span>
         </EmptyBracket>
+      </BracketShell>
+    );
+  }
+
+  if (layoutMode === "print-vertical") {
+    const renderPrintCard = (rect) => {
+      const stage = stages[rect.stageIndex];
+      const usesTeamCard = stage?.isCreated || stage?.isProjected;
+      const MatchComponent = usesTeamCard ? MatchCard : FutureMatchCard;
+      const isFinal = stage?.key === "final";
+      const displayRow = usesTeamCard
+        ? { ...rect.row, isFinal }
+        : {
+            ...rect.row,
+            isFinal,
+            slotLabels: getFutureSlotLabels({
+              stages,
+              stageIndex: rect.stageIndex,
+              matchIndex: rect.matchIndex || 0,
+            }),
+            projectedTeams: getFutureProjectedTeams({
+              stages,
+              stageIndex: rect.stageIndex,
+              matchIndex: rect.matchIndex || 0,
+            }),
+          };
+
+      return (
+        <AbsoluteMatchNode
+          key={`print-${rect.side || "final"}-${stage?.key}-${rect.row?.pair?.id || rect.localIndex || 0}`}
+          style={{
+            left: rect.x,
+            top: rect.y,
+            width: rect.width,
+            height: rect.height,
+          }}
+        >
+          <MatchComponent row={displayRow} index={rect.matchIndex || 0} density="print" />
+        </AbsoluteMatchNode>
+      );
+    };
+
+    return (
+      <BracketShell $print>
+        <PrintBracketCanvas
+          className="print-vertical-bracket"
+          style={{
+            width: printGeometry.width,
+            height: printGeometry.height,
+            "--print-card-height": `${printGeometry.cardHeight}px`,
+          }}
+        >
+          <PrintPhaseHeader aria-label="Fases del cuadro">
+            {printGeometry.columns.map(({ stage, x }) => (
+              <div
+                key={`print-header-${stage.key}`}
+                style={{ left: x, width: printGeometry.cardWidth }}
+              >
+                <span>{getPrintPhaseShortLabel(stage)}</span>
+                <strong>{stage.label}</strong>
+              </div>
+            ))}
+          </PrintPhaseHeader>
+
+          <BracketLines viewBox={`0 0 ${printGeometry.width} ${printGeometry.height}`} aria-hidden="true">
+            {printGeometry.lines.map((segment, index) => (
+              <line
+                key={`print-line-${index}`}
+                className="line-base"
+                pathLength="1"
+                x1={segment.x1}
+                y1={segment.y1}
+                x2={segment.x2}
+                y2={segment.y2}
+                style={{ "--line-index": index }}
+              />
+            ))}
+          </BracketLines>
+
+          {printGeometry.topRects.map(renderPrintCard)}
+          {printGeometry.finalRect?.row && renderPrintCard({ ...printGeometry.finalRect, side: "final", localIndex: 0 })}
+          {printGeometry.bottomRects.map(renderPrintCard)}
+        </PrintBracketCanvas>
       </BracketShell>
     );
   }
@@ -748,13 +986,16 @@ const BracketShell = styled.section`
   --bracket-border: ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
   --bracket-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto 22px;
-  border: 1px solid var(--bracket-border);
-  border-radius: 10px;
-  background:
-    radial-gradient(circle at 50% 40%, var(--bracket-primary-soft), transparent 34%),
-    var(--bracket-item);
+  max-width: ${({ $print }) => ($print ? "none" : "1180px")};
+  margin: ${({ $print }) => ($print ? "0" : "0 auto 22px")};
+  border: ${({ $print }) => ($print ? "0" : "1px solid var(--bracket-border)")};
+  border-radius: ${({ $print }) => ($print ? "0" : "10px")};
+  background: ${({ $print }) => ($print
+    ? "transparent"
+    : `
+      radial-gradient(circle at 50% 40%, var(--bracket-primary-soft), transparent 34%),
+      var(--bracket-item)
+    `)};
   overflow: hidden;
 
   @keyframes bracketLineDraw {
@@ -961,6 +1202,68 @@ const AbsoluteMatchNode = styled.div`
   > article,
   > div {
     height: 100%;
+  }
+`;
+
+const PrintBracketCanvas = styled.div`
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
+  overflow: visible;
+
+  ${BracketLines} {
+    z-index: 1;
+
+    .line-base {
+      stroke-width: 2;
+      opacity: 0.58;
+      animation: none;
+    }
+  }
+
+  ${AbsoluteMatchNode} {
+    z-index: 2;
+  }
+`;
+
+const PrintPhaseHeader = styled.div`
+  position: absolute;
+  inset: 0 0 auto;
+  height: ${PRINT_HEADER_HEIGHT}px;
+  z-index: 3;
+
+  > div {
+    position: absolute;
+    top: 0;
+    display: grid;
+    grid-template-columns: 31px minmax(0, 1fr);
+    align-items: center;
+    gap: 5px;
+  }
+
+  span {
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--bracket-primary-soft);
+    color: var(--bracket-primary);
+    font-size: 0.58rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  strong {
+    min-width: 0;
+    color: #0f172a;
+    font-size: 0.56rem;
+    font-weight: 950;
+    line-height: 1.08;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 `;
 
@@ -1350,14 +1653,14 @@ const FutureMatchShell = styled.div`
   opacity: 0.9;
 
   span {
-    min-height: 21px;
+    min-height: ${({ $density }) => ($density === "print" ? "17px" : "21px")};
     display: flex;
     align-items: center;
-    padding: 0 7px;
-    border-radius: 6px;
+    padding: ${({ $density }) => ($density === "print" ? "0 5px" : "0 7px")};
+    border-radius: ${({ $density }) => ($density === "print" ? "5px" : "6px")};
     background: var(--bracket-item);
     color: var(--bracket-muted);
-    font-size: 0.66rem;
+    font-size: ${({ $density }) => ($density === "print" ? "0.54rem" : "0.66rem")};
     font-weight: 850;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1396,25 +1699,29 @@ const MatchNumberBadge = styled.small`
 const MatchCardShell = styled.article`
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) ${({ $withBreakdown }) => ($withBreakdown ? "88px" : "0")};
-  gap: ${({ $withBreakdown }) => ($withBreakdown ? "8px" : "0")};
+  grid-template-columns: ${({ $density, $withBreakdown }) => (
+    $withBreakdown
+      ? `minmax(0, 1fr) ${$density === "print" ? "42px" : "88px"}`
+      : "minmax(0, 1fr) 0"
+  )};
+  gap: ${({ $density, $withBreakdown }) => ($withBreakdown ? ($density === "print" ? "4px" : "8px") : "0")};
   align-items: stretch;
   min-height: 100%;
   height: 100%;
-  padding: 8px;
-  border-radius: 8px;
+  padding: ${({ $density }) => ($density === "print" ? "5px" : "8px")};
+  border-radius: ${({ $density }) => ($density === "print" ? "6px" : "8px")};
   border: 1px solid ${({ $complete }) => ($complete ? "var(--bracket-primary)" : "var(--bracket-border)")};
   background: var(--bracket-surface);
   color: ${({ theme }) => theme.text};
 
   .team-row {
-    min-height: 38px;
+    min-height: ${({ $density }) => ($density === "print" ? "calc((var(--print-card-height, 56px) - 18px) / 2)" : "38px")};
     display: grid;
-    grid-template-columns: 34px 30px minmax(0, 1fr) 28px;
+    grid-template-columns: ${({ $density }) => ($density === "print" ? "22px 0 minmax(0, 1fr) 20px" : "34px 30px minmax(0, 1fr) 28px")};
     align-items: center;
-    gap: 7px;
-    border-radius: 7px;
-    padding: 4px 6px;
+    gap: ${({ $density }) => ($density === "print" ? "3px" : "7px")};
+    border-radius: ${({ $density }) => ($density === "print" ? "5px" : "7px")};
+    padding: ${({ $density }) => ($density === "print" ? "2px 4px" : "4px 6px")};
   }
 
   .team-row.winner {
@@ -1427,17 +1734,18 @@ const MatchCardShell = styled.article`
 
   .seed {
     color: var(--bracket-primary);
-    font-size: 0.76rem;
+    font-size: ${({ $density }) => ($density === "print" ? "0.54rem" : "0.76rem")};
     font-weight: 950;
     text-align: center;
   }
 
   .logo {
-    width: 28px;
-    height: 28px;
+    width: ${({ $density }) => ($density === "print" ? "0" : "28px")};
+    height: ${({ $density }) => ($density === "print" ? "0" : "28px")};
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
   }
 
   img {
@@ -1458,14 +1766,14 @@ const MatchCardShell = styled.article`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.78rem;
+    font-size: ${({ $density }) => ($density === "print" ? "0.56rem" : "0.78rem")};
     font-weight: 850;
   }
 
   .team-row strong {
     text-align: center;
     color: ${({ theme }) => theme.text};
-    font-size: 0.9rem;
+    font-size: ${({ $density }) => ($density === "print" ? "0.62rem" : "0.9rem")};
     font-weight: 950;
   }
 
@@ -1485,29 +1793,29 @@ const LegBreakdown = styled.div`
   min-width: 0;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px;
+  gap: ${({ $density }) => ($density === "print" ? "2px" : "4px")};
 
   span {
     min-width: 0;
     display: grid;
     place-items: center;
     gap: 1px;
-    padding: 4px;
-    border-radius: 7px;
+    padding: ${({ $density }) => ($density === "print" ? "2px" : "4px")};
+    border-radius: ${({ $density }) => ($density === "print" ? "5px" : "7px")};
     background: var(--bracket-item);
     border: 1px solid var(--bracket-border);
   }
 
   small {
     color: var(--bracket-muted);
-    font-size: 0.54rem;
+    font-size: ${({ $density }) => ($density === "print" ? "0.44rem" : "0.54rem")};
     font-weight: 900;
     line-height: 1;
   }
 
   strong {
     color: ${({ theme }) => theme.text};
-    font-size: 0.7rem;
+    font-size: ${({ $density }) => ($density === "print" ? "0.52rem" : "0.7rem")};
     font-weight: 950;
     line-height: 1.1;
   }
