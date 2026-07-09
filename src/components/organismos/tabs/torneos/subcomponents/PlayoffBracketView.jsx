@@ -1803,7 +1803,7 @@ const MatchCardShell = styled.article`
   .team-row.winner .name,
   .team-row.winner strong {
     font-weight: 950;
-    color: #0f172a;
+    color: ${({ $density, theme }) => ($density === "print" ? "#0f172a" : theme.text)};
   }
 
   .team-row.winner strong {
