@@ -343,9 +343,13 @@ export const TournamentSummaryModal = ({
                 activeTournament?.name || activeTournament?.nombre || activeTournament?.tournament_name,
                 "Torneo"
             );
+            const divisionFilePart = formatFilePart(
+                metaInfo.division,
+                "Division"
+            );
             setPdfGenerationLabel("Descargando...");
             setPdfGenerationProgress(100);
-            pdf.save(`${leagueFilePart}_${tournamentFilePart}_Final.pdf`);
+            pdf.save(`${leagueFilePart}_${tournamentFilePart}_${divisionFilePart}_Final.pdf`);
         } catch (error) {
             console.error("Error generating tournament summary PDF:", error);
             window.print();
