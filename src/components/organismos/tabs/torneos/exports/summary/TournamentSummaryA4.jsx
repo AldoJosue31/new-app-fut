@@ -223,6 +223,8 @@ const getNumericStandingValue = (row, keys) => {
 };
 
 const INDEX_ENTRIES_PER_PAGE = 18;
+const STANDINGS_NORMAL_MAX_ROWS = 18;
+const STANDINGS_COMPACT_MAX_ROWS = 24;
 
 const getTeamMatchOutcome = (match, teamId) => {
     if (isRestMatch(match)) return "rest";
@@ -731,6 +733,27 @@ export const TournamentSummaryA4 = ({
         });
     }, [jornadasWithMatches, participatingTeams]);
 
+    const standingsPages = useMemo(() => {
+        const rows = Array.isArray(standings) ? standings : [];
+        if (rows.length === 0) return [];
+
+        const compact = rows.length > STANDINGS_NORMAL_MAX_ROWS;
+        const pageSize = compact ? STANDINGS_COMPACT_MAX_ROWS : STANDINGS_NORMAL_MAX_ROWS;
+        const pages = [];
+
+        for (let index = 0; index < rows.length; index += pageSize) {
+            pages.push({
+                rows: rows.slice(index, index + pageSize),
+                compact,
+                continuation: index > 0,
+                pageIndex: pages.length,
+                startIndex: index,
+            });
+        }
+
+        return pages;
+    }, [standings]);
+
     const documentIndexEntries = useMemo(() => {
         const entries = [];
 
@@ -739,6 +762,14 @@ export const TournamentSummaryA4 = ({
                 id: "summary-page-matrix",
                 title: "Equipos por Jornada",
                 subtitle: "Resumen de resultados por equipo",
+            });
+        }
+
+        if (standingsPages.length > 0) {
+            entries.push({
+                id: "summary-page-standings",
+                title: "Tabla Final",
+                subtitle: "Clasificacion final del torneo",
             });
         }
 
@@ -766,7 +797,7 @@ export const TournamentSummaryA4 = ({
             anchorId: `${entry.id}-anchor`,
             pageNumber: pageNumber++,
         }));
-    }, [hasPlayoff, jornadasWithMatches, startDate, teamJourneyMatrix.length]);
+    }, [hasPlayoff, jornadasWithMatches, standingsPages.length, startDate, teamJourneyMatrix.length]);
 
     const documentIndexPages = useMemo(() => {
         const pages = [];
@@ -931,6 +962,62 @@ export const TournamentSummaryA4 = ({
                     </table>
                 </div>
             )}
+
+            {standingsPages.map(({ rows, compact, continuation, pageIndex, startIndex }) => (
+                <div
+                    key={`summary-standings-page-${pageIndex}`}
+                    className={`print-page standings-page${compact ? " compact-rows" : ""}${continuation ? " continuation-page" : ""}`}
+                    id={pageIndex === 0 ? "summary-page-standings" : `summary-page-standings-${pageIndex + 1}`}
+                >
+                    {pageIndex === 0 && (
+                        <a id="summary-page-standings-anchor" name="summary-page-standings-anchor" className="pdf-anchor" aria-hidden="true" />
+                    )}
+
+                    <div className={`page-header${continuation ? " continuation-header" : ""}`}>
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        {!continuation && <h3>Tabla Final</h3>}
+                        {!continuation && (
+                            <span className="jornada-date-range">Clasificacion final del torneo</span>
+                        )}
+                    </div>
+
+                    <table className="standings-summary-table">
+                        <thead>
+                            <tr>
+                                <th className="pos-col">#</th>
+                                <th className="team-col">Equipo</th>
+                                <th>PJ</th>
+                                <th>DIF</th>
+                                <th>PTS</th>
+                                <th>G</th>
+                                <th>E</th>
+                                <th>P</th>
+                                <th>GF</th>
+                                <th>GC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, rowIndex) => {
+                                const absoluteIndex = startIndex + rowIndex;
+                                return (
+                                    <tr key={row.id || `${row.nombre || row.name}-${absoluteIndex}`}>
+                                        <td className="pos-col">{absoluteIndex + 1}</td>
+                                        <td className="team-col">{getStandingTeamName(row)}</td>
+                                        <td>{row.pj ?? 0}</td>
+                                        <td className="dif-col">{Number(row.dg) > 0 ? `+${row.dg}` : (row.dg ?? 0)}</td>
+                                        <td className="pts-col">{row.pts ?? 0}</td>
+                                        <td>{row.g ?? 0}</td>
+                                        <td>{row.e ?? 0}</td>
+                                        <td>{row.p ?? 0}</td>
+                                        <td>{row.gf ?? 0}</td>
+                                        <td>{row.gc ?? 0}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ))}
 
             {/* HOJA DE LLAVES (PLAYOFFS) */}
             {hasPlayoff && (
@@ -1234,7 +1321,7 @@ const SummaryContainer = styled.div`
     }
 
     /* HOJAS RESULTADOS Y BRACKET */
-    .results-page, .bracket-page, .matrix-page, .index-page {
+    .results-page, .bracket-page, .matrix-page, .index-page, .standings-page {
         .page-header {
             margin-bottom: 30px;
             padding-bottom: 15px;
@@ -1530,6 +1617,104 @@ const SummaryContainer = styled.div`
 
             .outcome-empty {
                 background: #ffffff;
+            }
+        }
+    }
+
+    .standings-page {
+        .continuation-header {
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+
+            .league-mini {
+                margin-bottom: 0;
+            }
+        }
+
+        .standings-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 1px solid #cbd5e1;
+
+            th,
+            td {
+                border-bottom: 1px solid #e2e8f0;
+                text-align: center;
+            }
+
+            th {
+                padding: 11px 8px;
+                background: #f1f5f9;
+                color: #475569;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.45px;
+            }
+
+            td {
+                padding: 10px 8px;
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 700;
+                background: #ffffff;
+            }
+
+            tbody tr:nth-child(even) td {
+                background: #f8fafc;
+            }
+
+            .pos-col {
+                width: 42px;
+                color: #475569;
+                font-weight: 800;
+            }
+
+            .team-col {
+                width: 34%;
+                text-align: left;
+                padding-left: 14px;
+                font-weight: 800;
+            }
+
+            .pts-col {
+                color: #0369a1;
+                font-weight: 900;
+            }
+
+            .dif-col {
+                color: #334155;
+                font-weight: 800;
+            }
+        }
+
+        &.compact-rows {
+            .page-header {
+                margin-bottom: 18px;
+                padding-bottom: 10px;
+            }
+
+            .standings-summary-table {
+                th {
+                    padding: 8px 6px;
+                    font-size: 10px;
+                }
+
+                td {
+                    padding: 7px 6px;
+                    font-size: 11.5px;
+                }
+
+                .pos-col {
+                    width: 36px;
+                }
+
+                .team-col {
+                    width: 33%;
+                    padding-left: 10px;
+                    font-size: 11.8px;
+                }
             }
         }
     }
