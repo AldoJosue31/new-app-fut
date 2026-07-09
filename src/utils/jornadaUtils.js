@@ -77,14 +77,16 @@ export const buildRepositionPreview = ({
   jornadaIndex = 0,
   repositionStartDate,
   repositionEndDate,
+  jornadaDurationDays = 7,
 }) => {
   if (!repositionStartDate) return [];
 
+  const configuredDurationDays = Math.max(1, parseInt(jornadaDurationDays, 10) || 7);
   const repositionName = buildRepositionJornadaName({
     existingJornadas: jornadas,
   });
   const syntheticEndDate =
-    repositionEndDate || addDaysToDate(repositionStartDate, 6);
+    repositionEndDate || addDaysToDate(repositionStartDate, configuredDurationDays - 1);
   const preview = [
     {
       id: null,
@@ -100,7 +102,10 @@ export const buildRepositionPreview = ({
   jornadas.slice(jornadaIndex).forEach((jornada, offset) => {
     const originalStart = jornada?.start_date || "";
     const originalEnd = jornada?.end_date || "";
-    const durationDays = getDateDurationDays(originalStart, originalEnd);
+    const durationDays =
+      originalStart && originalEnd
+        ? getDateDurationDays(originalStart, originalEnd)
+        : configuredDurationDays - 1;
     const startDate = offset === 0 ? cursorStartDate : cursorStartDate;
     const endDate = addDaysToDate(startDate, durationDays);
 

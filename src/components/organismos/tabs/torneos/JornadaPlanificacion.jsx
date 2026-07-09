@@ -47,6 +47,11 @@ const getMatchTeamsLabel = (match) => {
   return `${homeName} vs ${awayName}`;
 };
 
+const getConfiguredJornadaDurationDays = (config, fallback = 7) => {
+  const parsed = parseInt(config?.jornadaDurationDays, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const customScrollbar = css`
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -93,6 +98,7 @@ export function JornadaPlanificacion({
   jornadas = [],
   allTournamentMatches = [],
   onUpdateDates,
+  jornadaDurationDays: jornadaDurationDaysProp,
   onAutoFill,
   needsDateNormalization = false,
   onOpenDateNormalizer,
@@ -261,6 +267,25 @@ export function JornadaPlanificacion({
     return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
   }).length;
 
+  const tournamentConfig = useMemo(() => {
+    if (!activeTournament?.config) return {};
+
+    if (typeof activeTournament.config === "string") {
+      try {
+        return JSON.parse(activeTournament.config);
+      } catch (error) {
+        console.error("Error parsing tournament config:", error);
+        return {};
+      }
+    }
+
+    return activeTournament.config;
+  }, [activeTournament?.config]);
+  const jornadaDurationDays = getConfiguredJornadaDurationDays(
+    tournamentConfig,
+    jornadaDurationDaysProp || 7
+  );
+
   const suggestedRepositionWindow = useMemo(
     () =>
       getSuggestedRepositionWindow({
@@ -268,8 +293,16 @@ export function JornadaPlanificacion({
         jornadaIndex,
         fallbackStartDate:
           jornadaData?.start_date || weekStartDate || activeTournament?.start_date,
+        jornadaDurationDays,
       }),
-    [activeTournament?.start_date, jornadaData?.start_date, jornadaIndex, jornadas, weekStartDate]
+    [
+      activeTournament?.start_date,
+      jornadaData?.start_date,
+      jornadaDurationDays,
+      jornadaIndex,
+      jornadas,
+      weekStartDate,
+    ]
   );
 
   const headerJornadaData = useMemo(() => {
@@ -337,9 +370,11 @@ export function JornadaPlanificacion({
           repositionWeek.startDate || suggestedRepositionWindow.startDate,
         repositionEndDate:
           repositionWeek.endDate || suggestedRepositionWindow.endDate,
+        jornadaDurationDays,
       }),
     [
       jornadaIndex,
+      jornadaDurationDays,
       jornadas,
       repositionWeek.endDate,
       repositionWeek.startDate,
@@ -360,21 +395,9 @@ export function JornadaPlanificacion({
     "";
   const planningWindowEndDate =
     headerJornadaData?.end_date ||
-    (planningWindowStartDate ? addDaysToDate(planningWindowStartDate, 6) : "");
-  const tournamentConfig = useMemo(() => {
-    if (!activeTournament?.config) return {};
-
-    if (typeof activeTournament.config === "string") {
-      try {
-        return JSON.parse(activeTournament.config);
-      } catch (error) {
-        console.error("Error parsing tournament config:", error);
-        return {};
-      }
-    }
-
-    return activeTournament.config;
-  }, [activeTournament?.config]);
+    (planningWindowStartDate
+      ? addDaysToDate(planningWindowStartDate, jornadaDurationDays - 1)
+      : "");
   const isTapSelectionEnabled = isMobileViewport && viewMode === "list" && !isConfirmed;
   const isTapDropEnabled = isTapSelectionEnabled && Boolean(selectedPendingMatch);
   const activePendingMatch = draggedMatch || selectedPendingMatch;
@@ -777,6 +800,7 @@ export function JornadaPlanificacion({
         onPrintBatch={() => setBatchPrintOpen(true)}
         matchesWithoutResultCount={matchesWithoutResult.length}
         confirmedResultsProgress={confirmedResultsProgress}
+        jornadaDurationDays={jornadaDurationDays}
       />
 
       {viewMode === "grid" && (
@@ -860,6 +884,7 @@ export function JornadaPlanificacion({
                     draggedMatch={activePendingMatch}
                     jornadaStartDate={planningWindowStartDate}
                     jornadaEndDate={planningWindowEndDate}
+                    jornadaDurationDays={jornadaDurationDays}
                     onDropDate={assignDraggedMatchToDate}
                     allowTapDrop={isTapDropEnabled}
                   />
@@ -949,6 +974,7 @@ export function JornadaPlanificacion({
                   activeTournament?.division?.name || activeTournament?.divisions?.name
                 }
                 isConfirmed={isConfirmed}
+                jornadaDurationDays={jornadaDurationDays}
               />
             )}
           </MainZone>
@@ -1057,7 +1083,7 @@ export function JornadaPlanificacion({
           const startDate = e.target.value;
           setRepositionWeek({
             startDate,
-            endDate: startDate ? addDaysToDate(startDate, 6) : "",
+            endDate: startDate ? addDaysToDate(startDate, jornadaDurationDays - 1) : "",
           });
         }}
         onEndDateChange={(e) => {

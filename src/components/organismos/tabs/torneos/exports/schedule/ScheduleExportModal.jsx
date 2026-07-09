@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiAddLine, RiLayoutGridLine, RiListCheck2, RiSubtractLine } from "react-icons/ri";
-import { Modal } from "../../../../../../index";
+import { Modal, v } from "../../../../../../index";
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { addDaysToDate } from "../../../../../../utils/dateUtils";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
@@ -43,6 +43,18 @@ const getTournamentDivision = (torneo) => torneo?.division || torneo?.divisions 
 const getTournamentLeague = (torneo) => {
   const division = getTournamentDivision(torneo);
   return division?.league || division?.leagues || torneo?.league || torneo?.leagues || {};
+};
+
+const getTournamentConfig = (torneo) => {
+  if (!torneo?.config) return {};
+  if (typeof torneo.config === "string") {
+    try {
+      return JSON.parse(torneo.config) || {};
+    } catch {
+      return {};
+    }
+  }
+  return torneo.config || {};
 };
 
 const getJornadaLabel = (match, fallback = "Jornada") => (
@@ -218,11 +230,18 @@ export default function ScheduleExportModal({
   const logoScaleOptionIndex = getLogoScaleOptionIndex(logoScale);
   const minLogoScaleIndex = 0;
   const maxLogoScaleIndex = LOGO_SCALE_OPTIONS.length - 1;
+  const tournamentConfig = useMemo(() => getTournamentConfig(torneo), [torneo]);
+  const jornadaDurationDays = Math.max(
+    1,
+    parseInt(tournamentConfig?.jornadaDurationDays, 10) || 7
+  );
 
   const weekDays = useMemo(() => {
     if (!weekStartDate) return [];
-    return Array.from({ length: 7 }, (_, index) => addDaysToDate(weekStartDate, index));
-  }, [weekStartDate]);
+    return Array.from({ length: jornadaDurationDays }, (_, index) =>
+      addDaysToDate(weekStartDate, index)
+    );
+  }, [jornadaDurationDays, weekStartDate]);
 
   const externalDivisionNames = useMemo(
     () => externalMatches.map((match) => match.division_name || match.divisionName || "Otra"),

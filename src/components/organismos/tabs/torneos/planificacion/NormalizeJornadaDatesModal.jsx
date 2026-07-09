@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
 import {
   RiArrowRightLine,
@@ -57,22 +57,32 @@ export function NormalizeJornadaDatesModal({
   matchRows = [],
   matchIssueCount = 0,
   initialView = "jornadas",
+  jornadaDurationDays = 7,
 }) {
-  const [activeView, setActiveView] = useState(initialView);
+  const [selectedView, setSelectedView] = useState(null);
   const firstRow = rows[0] || null;
   const lastRow = rows[rows.length - 1] || null;
+  const activeView = selectedView || initialView;
   const isMatchView = activeView === "matches";
 
-  useEffect(() => {
-    if (isOpen) {
-      setActiveView(initialView);
+  const handleClose = () => {
+    setSelectedView(null);
+    onClose?.();
+  };
+
+  const handleApply = () => {
+    setSelectedView(null);
+    if (isMatchView) {
+      onApplyMatches?.();
+      return;
     }
-  }, [initialView, isOpen]);
+    onApply?.();
+  };
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Ajustar calendario"
       width="1080px"
       closeOnOverlayClick={false}
@@ -82,7 +92,7 @@ export function NormalizeJornadaDatesModal({
           <button
             type="button"
             className={activeView === "jornadas" ? "active" : ""}
-            onClick={() => setActiveView("jornadas")}
+            onClick={() => setSelectedView("jornadas")}
           >
             Jornadas
             <span>{irregularCount}</span>
@@ -90,7 +100,7 @@ export function NormalizeJornadaDatesModal({
           <button
             type="button"
             className={activeView === "matches" ? "active" : ""}
-            onClick={() => setActiveView("matches")}
+            onClick={() => setSelectedView("matches")}
           >
             Partidos
             <span>{matchIssueCount}</span>
@@ -122,7 +132,7 @@ export function NormalizeJornadaDatesModal({
               {isMatchView
                 ? "Mismo dia de semana"
                 : lastRow?.nextEndDate
-                  ? formatDateWithWeekday(lastRow.nextEndDate)
+                  ? `${formatDateWithWeekday(lastRow.nextEndDate)} (${jornadaDurationDays} dias)`
                   : "Sin fecha"}
             </strong>
           </SummaryBlock>
@@ -221,13 +231,13 @@ export function NormalizeJornadaDatesModal({
         )}
 
         <Footer>
-          <button type="button" className="secondary" onClick={onClose}>
+          <button type="button" className="secondary" onClick={handleClose}>
             Cancelar
           </button>
           <button
             type="button"
             className="primary"
-            onClick={isMatchView ? onApplyMatches : onApply}
+            onClick={handleApply}
             disabled={isMatchView ? matchRows.length === 0 : rows.length === 0}
           >
             <RiCalendarCheckLine />

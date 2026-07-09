@@ -207,6 +207,7 @@ export function TorneoDefinicionTab({
         tieBreakType: parsed.tieBreakType ?? "normal", // <-- CORREGIDO A NORMAL
         minutosPorTiempo: parsed.minutosPorTiempo ?? 45,
         minutosDescanso: parsed.minutosDescanso ?? 15,
+        jornadaDurationDays: parsed.jornadaDurationDays ?? 7,
         cambios: parsed.cambios ?? "Ilimitados"
     };
   }, [leagueData]);
@@ -227,6 +228,7 @@ export function TorneoDefinicionTab({
             ...prev,
             minutosPorTiempo: defaultLeagueConfig.minutosPorTiempo,
             minutosDescanso: defaultLeagueConfig.minutosDescanso,
+            jornadaDurationDays: defaultLeagueConfig.jornadaDurationDays,
             cambios: defaultLeagueConfig.cambios
         }));
     }
@@ -309,6 +311,7 @@ export function TorneoDefinicionTab({
             ...(prev || reglas),
             minutosPorTiempo: defaultLeagueConfig.minutosPorTiempo,
             minutosDescanso: defaultLeagueConfig.minutosDescanso,
+            jornadaDurationDays: defaultLeagueConfig.jornadaDurationDays,
             cambios: defaultLeagueConfig.cambios
         }));
     }
@@ -445,6 +448,7 @@ export function TorneoDefinicionTab({
           setReglas({
               minutosPorTiempo: newConfig.minutosPorTiempo || "45",
               minutosDescanso: newConfig.minutosDescanso || "15",
+              jornadaDurationDays: newConfig.jornadaDurationDays || 7,
               cambios: newConfig.cambios || "Ilimitados",
               observaciones: newConfig.observaciones || "",
           });
@@ -599,12 +603,14 @@ export function TorneoDefinicionTab({
       setIsAdvancingPhase(true);
       try {
           const currentConfig = await getActiveTournamentConfig();
+          const jornadaDurationDays =
+              Math.max(1, parseInt(currentConfig?.jornadaDurationDays || reglas?.jornadaDurationDays, 10) || 7);
           const jornadas = await getJornadas(activeTournament.id);
           const lastJornada = jornadas[jornadas.length - 1] || null;
           const nextStartDate = lastJornada?.end_date
               ? addDaysToDate(lastJornada.end_date, 1)
               : lastJornada?.start_date
-                ? addDaysToDate(lastJornada.start_date, 7)
+                ? addDaysToDate(lastJornada.start_date, jornadaDurationDays)
                 : activeTournament?.start_date || null;
 
           const phaseNames = buildPhaseJornadaNames(
@@ -613,13 +619,13 @@ export function TorneoDefinicionTab({
           );
 
           const jornadasToCreate = phaseNames.map((name, index) => {
-              const startDate = nextStartDate ? addDaysToDate(nextStartDate, index * 7) : null;
+              const startDate = nextStartDate ? addDaysToDate(nextStartDate, index * jornadaDurationDays) : null;
               return {
                   tournament_id: activeTournament.id,
                   name,
                   status: "Pendiente",
                   start_date: startDate,
-                  end_date: startDate ? addDaysToDate(startDate, 6) : null,
+                  end_date: startDate ? addDaysToDate(startDate, jornadaDurationDays - 1) : null,
               };
           });
 
@@ -1406,8 +1412,9 @@ export function TorneoDefinicionTab({
           ? (teamCount % 2 === 0 ? teamCount - 1 : teamCount)
           : 0;
       const totalJornadas = jornadasPorVuelta * vueltasCount;
+      const jornadaDurationDays = Math.max(1, parseInt(reglas?.jornadaDurationDays, 10) || 7);
       const endDate = form.startDate && totalJornadas > 0
-          ? addDaysToDate(form.startDate, (totalJornadas * 7) - 1)
+          ? addDaysToDate(form.startDate, (totalJornadas * jornadaDurationDays) - 1)
           : "";
       const crossesYear = form.startDate && endDate
           ? new Date(`${form.startDate}T00:00:00`).getFullYear() !== new Date(`${endDate}T00:00:00`).getFullYear()
@@ -1418,7 +1425,7 @@ export function TorneoDefinicionTab({
           endLabel: formatSetupDate(endDate, crossesYear),
           totalJornadas,
       };
-  }, [form.startDate, form.vueltas, participatingTeams.length]);
+  }, [form.startDate, form.vueltas, participatingTeams.length, reglas?.jornadaDurationDays]);
 
   const setupConfigSteps = useMemo(() => {
       const generalReady =
@@ -1442,6 +1449,7 @@ export function TorneoDefinicionTab({
       const gameRulesReady =
           Number(reglas?.minutosPorTiempo || 0) > 0 &&
           Number(reglas?.minutosDescanso || 0) >= 0 &&
+          Number(reglas?.jornadaDurationDays || 0) > 0 &&
           Boolean(reglas?.cambios);
 
       return [
@@ -1561,7 +1569,7 @@ export function TorneoDefinicionTab({
       {
           icon: <RiTimeLine />,
           title: "Duracion de Partido",
-          detail: `${tournamentConfigForUi.minutosPorTiempo ?? reglas?.minutosPorTiempo ?? 45}' por tiempo / ${tournamentConfigForUi.minutosDescanso ?? reglas?.minutosDescanso ?? 15}' descanso`,
+          detail: `${tournamentConfigForUi.minutosPorTiempo ?? reglas?.minutosPorTiempo ?? 45}' por tiempo / ${tournamentConfigForUi.minutosDescanso ?? reglas?.minutosDescanso ?? 15}' descanso / Jornada ${tournamentConfigForUi.jornadaDurationDays ?? reglas?.jornadaDurationDays ?? 7} dias`,
       },
       {
           icon: <RiCoinLine />,

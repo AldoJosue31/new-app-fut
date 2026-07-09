@@ -1,6 +1,6 @@
 // src/components/landing/BenefitsSection.jsx
 import React, { useEffect, useRef, useState } from "react";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import { Icon } from "@iconify/react";
 import { landingCopy } from "../../pages/landing/copy";
 
@@ -266,6 +266,11 @@ const CompareTitle = styled.h3`
   margin: 0 0 32px;
 `;
 
+const CompareDivider = styled.div`
+  width: 1px;
+  background: var(--lp-border);
+`;
+
 const CompareGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -293,11 +298,6 @@ const ColHeader = styled.div`
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--lp-border);
-`;
-
-const CompareDivider = styled.div`
-  width: 1px;
-  background: var(--lp-border);
 `;
 
 const CompareItem = styled.div`

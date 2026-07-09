@@ -70,10 +70,11 @@ export const iniciarTorneoService = async (
 
     if (tournamentError) throw tournamentError;
 
+    const jornadaDurationDays = Math.max(1, parseInt(config?.jornadaDurationDays, 10) || 7);
     const jornadasToInsert = fixtureGenerado
       ? fixtureGenerado.map((fixtureItem, index) => {
-          const fechaInicio = addDaysToDate(startDate, index * 7);
-          const fechaFin = addDaysToDate(fechaInicio, 6);
+          const fechaInicio = addDaysToDate(startDate, index * jornadaDurationDays);
+          const fechaFin = addDaysToDate(fechaInicio, jornadaDurationDays - 1);
 
           return {
             tournament_id: torneo.id,
@@ -84,8 +85,8 @@ export const iniciarTorneoService = async (
           };
         })
       : (jornadas || []).map((jornada, index) => {
-          const fechaInicio = addDaysToDate(startDate, index * 7);
-          const fechaFin = addDaysToDate(fechaInicio, 6);
+          const fechaInicio = addDaysToDate(startDate, index * jornadaDurationDays);
+          const fechaFin = addDaysToDate(fechaInicio, jornadaDurationDays - 1);
 
           return {
             tournament_id: torneo.id,

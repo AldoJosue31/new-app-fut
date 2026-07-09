@@ -37,7 +37,9 @@ export const getSuggestedRepositionWindow = ({
   jornadas = [],
   jornadaIndex = 0,
   fallbackStartDate,
+  jornadaDurationDays = 7,
 }) => {
+  const durationDays = Math.max(1, parseInt(jornadaDurationDays, 10) || 7);
   const confirmedBeforeCurrent = jornadas
     .slice(0, jornadaIndex)
     .filter(isConfirmedJornada);
@@ -49,12 +51,12 @@ export const getSuggestedRepositionWindow = ({
     fallbackStartDate;
 
   const startDate = anchorDate
-    ? addDaysToDate(anchorDate, 7)
-    : addDaysToDate(new Date().toISOString().split("T")[0], 7);
+    ? addDaysToDate(anchorDate, durationDays)
+    : addDaysToDate(new Date().toISOString().split("T")[0], durationDays);
 
   return {
     startDate,
-    endDate: addDaysToDate(startDate, 6),
+    endDate: addDaysToDate(startDate, durationDays - 1),
     lastConfirmed,
   };
 };
@@ -63,18 +65,21 @@ export const buildFutureJornadaPreview = ({
   jornadas = [],
   jornadaIndex = 0,
   repositionStartDate,
+  jornadaDurationDays = 7,
 }) => {
   if (!repositionStartDate) {
     return [];
   }
 
+  const durationDays = Math.max(1, parseInt(jornadaDurationDays, 10) || 7);
+
   return jornadas.slice(jornadaIndex).map((jornada, offset) => {
-    const startDate = addDaysToDate(repositionStartDate, offset * 7);
+    const startDate = addDaysToDate(repositionStartDate, offset * durationDays);
     return {
       id: jornada.id,
       name: jornada.name,
       start_date: startDate,
-      end_date: addDaysToDate(startDate, 6),
+      end_date: addDaysToDate(startDate, durationDays - 1),
       offset,
     };
   });

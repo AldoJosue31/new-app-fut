@@ -9,8 +9,16 @@ import {
     normalizeDivisionName,
 } from "../../../../../utils/divisionColors";
 
-export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatches = [], divisionActual, isConfirmed }) {
+export function WeeklyGridView({
+    weekStartDate,
+    scheduledMatches,
+    externalMatches = [],
+    divisionActual,
+    isConfirmed,
+    jornadaDurationDays = 7,
+}) {
     const currentDivisionName = normalizeDivisionName(divisionActual || "Esta División");
+    const durationDays = Math.max(1, parseInt(jornadaDurationDays, 10) || 7);
 
     const divisionColorMap = useMemo(() => buildDivisionColorMap([
         currentDivisionName,
@@ -18,11 +26,11 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
     ]), [currentDivisionName, externalMatches]);
     
     
-    // 1. Generar los 7 días de la semana
+    // 1. Generar los dias de la jornada segun configuracion
     const weekDays = useMemo(() => {
         if (!weekStartDate) return [];
         const start = new Date(weekStartDate + "T00:00:00");
-        return Array.from({ length: 7 }, (_, i) => {
+        return Array.from({ length: durationDays }, (_, i) => {
             const d = new Date(start);
             d.setDate(start.getDate() + i);
             // Formato YYYY-MM-DD local manual
@@ -31,7 +39,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
             const day = String(d.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         });
-    }, [weekStartDate]);
+    }, [durationDays, weekStartDate]);
 
     // 2. Agrupar partidos por fecha
     const groupedMatches = useMemo(() => {
@@ -108,7 +116,7 @@ export function WeeklyGridView({ weekStartDate, scheduledMatches, externalMatche
                ))}
             </Legend>
 
-            <GridContainer>
+            <GridContainer $daysCount={durationDays}>
                 {weekDays.map(day => {
                     const matchesForDay = groupedMatches[day] || [];
 
@@ -176,8 +184,8 @@ const Legend = styled.div`
 const GridContainer = styled.div`
     display: flex; flex-direction: column; gap: 15px; width: 100%; height: 100%; flex: 1 1 auto; min-height: 0;
     @media ${Device.laptop} {
-        display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 1px;
-        background: ${({theme})=>theme.bg4}; border-radius: 10px; overflow: hidden;
+        display: grid; grid-template-columns: repeat(${({ $daysCount }) => $daysCount}, minmax(130px, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 1px;
+        background: ${({theme})=>theme.bg4}; border-radius: 10px; overflow: auto;
     }
 `;
 
@@ -221,13 +229,12 @@ const MatchCard = styled.div`
     transition: all 0.3s ease;
 
     background: ${({theme, $isExternal})=> $isExternal ? theme.bg4 : theme.bg2};
-    border-left: 4px solid ${({ $divisionColor }) => $divisionColor || v.colorPrincipal};
+    border: 1px solid ${({ $divisionColor }) => `${$divisionColor || v.colorPrincipal}55`};
 
     /* ESTILOS PREVIEW */
     ${({ $isPreview, theme, $divisionColor }) => $isPreview && css`
         background: ${theme.bg4}; 
-        border: 1px dashed #7f8c8d;
-        border-left: 4px solid ${$divisionColor || "#95a5a6"};
+        border: 1px dashed ${$divisionColor || "#95a5a6"};
         animation: ${pulseAnimation} 2s infinite ease-in-out;
         .time-pill { background: #bdc3c7 !important; color: #2c3e50 !important; }
         .div-tag.local { color: #7f8c8d !important; }

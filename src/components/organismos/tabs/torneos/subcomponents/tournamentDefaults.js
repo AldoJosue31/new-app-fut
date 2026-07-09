@@ -27,6 +27,7 @@ export const INITIAL_TOURNAMENT_CONFIG = {
     countGoalsRepechaje: false,
     horaInicio: "08:00",
     horaFin: "22:00",
+    jornadaDurationDays: 7,
     minutosPorTiempo: 45,
     minutosDescanso: 15,
     cambios: "Ilimitados",

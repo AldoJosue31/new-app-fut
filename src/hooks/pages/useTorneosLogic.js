@@ -62,6 +62,7 @@ const createLeagueRuleDraft = (leagueData) => {
     reglas: {
       minutosPorTiempo: parsed.minutosPorTiempo ?? 45,
       minutosDescanso: parsed.minutosDescanso ?? 15,
+      jornadaDurationDays: parsed.jornadaDurationDays ?? 7,
       cambios: parsed.cambios ?? "Ilimitados",
       observaciones: "",
     },
@@ -95,6 +96,7 @@ export const useTorneosLogic = () => {
     }
     return {
       minutosPorTiempo: "", 
+      jornadaDurationDays: 7,
       cambios: "Ilimitados",
       observaciones: ""
     };
@@ -256,6 +258,7 @@ export const useTorneosLogic = () => {
           setReglas({
             minutosPorTiempo: torneo.config.minutosPorTiempo || "45",
             minutosDescanso: torneo.config.minutosDescanso || "15",
+            jornadaDurationDays: torneo.config.jornadaDurationDays || 7,
             cambios: torneo.config.cambios || "Ilimitados",
             observaciones: torneo.config.observaciones || ""
           });
@@ -297,9 +300,10 @@ export const useTorneosLogic = () => {
         setLoading(true);
         if (!isValidDate(startDateString)) throw new Error("Fecha de inicio inválida");
 
+        const jornadaDurationDays = parseInt(activeTournament?.config?.jornadaDurationDays || reglas?.jornadaDurationDays, 10) || 7;
         const updates = activeTournament.jornadas.map((jornada, index) => {
-            const weekStartStr = addDaysToDate(startDateString, index * 7);
-            const weekEndStr = addDaysToDate(weekStartStr, 6);
+            const weekStartStr = addDaysToDate(startDateString, index * jornadaDurationDays);
+            const weekEndStr = addDaysToDate(weekStartStr, jornadaDurationDays - 1);
             
             return {
                 id: jornada.id,
@@ -430,6 +434,7 @@ export const useTorneosLogic = () => {
           minPlayersToRegister: parseInt(form.minPlayersToRegister) || 0,
           maxPlayers: parseInt(form.maxPlayers) || 25, 
           maxTeams: parseInt(form.maxTeams) || 16,
+          jornadaDurationDays: parseInt(reglas.jornadaDurationDays) || 7,
           winPoints: form.winPoints,
           drawPoints: form.drawPoints,
           lossPoints: form.lossPoints,

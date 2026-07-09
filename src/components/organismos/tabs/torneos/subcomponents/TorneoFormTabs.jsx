@@ -240,7 +240,7 @@ export const TabGameRules = ({ reglas, setReglas }) => {
       const target = e.target || e; 
       const name = target.name;
       const value = target.value;
-      const numericFields = ["minutosPorTiempo", "minutosDescanso"];
+      const numericFields = ["jornadaDurationDays", "minutosPorTiempo", "minutosDescanso"];
       
       let finalValue = value;
       if (numericFields.includes(name)) {
@@ -260,6 +260,7 @@ export const TabGameRules = ({ reglas, setReglas }) => {
       <Row2>
          <InputWithTooltip label="Hora Inicio"><InputText2><input className="form__field" type="time" name="horaInicio" value={reglas?.horaInicio || "08:00"} onChange={handleChange}/></InputText2></InputWithTooltip>
          <InputWithTooltip label="Hora Límite"><InputText2><input className="form__field" type="time" name="horaFin" value={reglas?.horaFin || "22:00"} onChange={handleChange}/></InputText2></InputWithTooltip>
+         <InputWithTooltip label="Duración Jornada (días)"><InputNumber name="jornadaDurationDays" value={safeValue(reglas?.jornadaDurationDays ?? 7)} onChange={handleChange} min={1} placeholder="Ej: 7"/></InputWithTooltip>
       </Row2>
       <SectionLabel>Duración y Cambios</SectionLabel>
       <Row3>
