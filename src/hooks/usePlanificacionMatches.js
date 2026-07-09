@@ -370,14 +370,20 @@ export const usePlanificacionMatches = (
         if (hasDraft) {
             const draftMatch = draftMap.get(String(dbMatch.id));
             if (draftMatch) {
+                const keepDbResult = dbMatch.status === 'Finalizado';
+
                 return {
                     ...dbMatch, 
-                    date: draftMatch.date !== undefined ? draftMatch.date : dbMatch.date, 
-                    time: draftMatch.time !== undefined ? draftMatch.time : dbMatch.time,
-                    status: draftMatch.status || dbMatch.status,
-                    isModified: draftMatch.isModified,
+                    date: keepDbResult
+                        ? dbMatch.date
+                        : draftMatch.date !== undefined ? draftMatch.date : dbMatch.date,
+                    time: keepDbResult
+                        ? dbMatch.time
+                        : draftMatch.time !== undefined ? draftMatch.time : dbMatch.time,
+                    status: keepDbResult ? dbMatch.status : draftMatch.status || dbMatch.status,
+                    isModified: keepDbResult ? false : draftMatch.isModified,
                     originJornada: draftMatch.originJornada || dbMatch.originJornada,
-                    resolution: draftMatch.resolution
+                    resolution: keepDbResult ? dbMatch.resolution : draftMatch.resolution
                 };
             }
         }
