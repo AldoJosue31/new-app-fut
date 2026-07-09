@@ -45,7 +45,9 @@ import {
   isOfficialJornadaName,
   parseJornadaNumber,
 } from "../../../../utils/jornadaUtils";
+import { buildTorneoStandingsSnapshot } from "../../../../hooks/useTorneoStandingsLogic";
 import { supabase } from "../../../../supabase/supabase.config";
+import { useDivisionStore } from "../../../../store/DivisionStore";
 
 const normalizeMatchStatus = (status) => String(status || "").trim().toLowerCase();
 const hasRegisteredScoreValue = (value) =>
@@ -82,6 +84,11 @@ const formatSetupDate = (dateString, includeYear = false) => {
     const year = String(date.getFullYear()).slice(-2);
     return includeYear ? `${month}-${day}-${year}` : `${month}-${day}`;
 };
+const getTeamDisplayName = (team) =>
+    team?.name || team?.nombre || team?.team_name || team?.equipo?.name || team?.team?.name || "Equipo";
+const getTeamLogoValue = (team) =>
+    team?.logo_url || team?.logo || team?.img || team?.equipo?.logo_url || team?.team?.logo_url || null;
+const getDivisionMoveKey = (movement, teamId) => `${movement}:${teamId}`;
 
 export function TorneoDefinicionTab({ 
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
@@ -91,12 +98,15 @@ export function TorneoDefinicionTab({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { divisiones, fetchDivisiones } = useDivisionStore();
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false); 
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
   const [showAdvanceWarningModal, setShowAdvanceWarningModal] = useState(false);
   const [showPlayoffPreviewModal, setShowPlayoffPreviewModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [applyDivisionMoves, setApplyDivisionMoves] = useState(true);
+  const [selectedDivisionMoveIds, setSelectedDivisionMoveIds] = useState([]);
   const [playoffPreview, setPlayoffPreview] = useState(null);
   const [advanceWarning, setAdvanceWarning] = useState({ pendingMatches: 0, pendingJornadas: 0 });
   
@@ -130,6 +140,7 @@ export function TorneoDefinicionTab({
   const jornadaBarsRef = useRef(null);
   const jornadaBarsDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
   const jornadaBarsWasDraggingRef = useRef(false);
+  const hasRequestedDivisionsRef = useRef(false);
   const activationTransitionTimerRef = useRef(null);
   const activeEnterTimerRef = useRef(null);
   const endTransitionTimerRef = useRef(null);
@@ -151,6 +162,18 @@ export function TorneoDefinicionTab({
       () => allTeams?.filter(t => !participatingIds.includes(t.id)) || [],
       [allTeams, participatingIds]
   );
+
+  useEffect(() => {
+      if (!showEndTournamentModal) {
+          hasRequestedDivisionsRef.current = false;
+          return;
+      }
+
+      if (!hasRequestedDivisionsRef.current && (!divisiones || divisiones.length === 0)) {
+          hasRequestedDivisionsRef.current = true;
+          fetchDivisiones();
+      }
+  }, [showEndTournamentModal, divisiones, fetchDivisiones]);
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
 
@@ -451,11 +474,20 @@ export function TorneoDefinicionTab({
 
       try {
           await new Promise((resolve) => setTimeout(resolve, 420));
+          if (applyDivisionMoves && divisionMovePlan.hasApplicableMovements) {
+              await applyDivisionMovePlan();
+          }
           await eliminarTorneoService(activeTournament.id);
-          showToast("Torneo eliminado. Reiniciando vista...", "success");
+          showToast(
+              applyDivisionMoves && divisionMovePlan.hasApplicableMovements
+                  ? "Torneo finalizado y divisiones actualizadas. Reiniciando vista..."
+                  : "Torneo eliminado. Reiniciando vista...",
+              "success"
+          );
 
           if(onTournamentReset) await Promise.resolve(onTournamentReset()); 
-      } catch {
+      } catch (error) {
+          console.error(error);
           if (endTransitionTimerRef.current) {
               clearTimeout(endTransitionTimerRef.current);
               endTransitionTimerRef.current = null;
@@ -840,6 +872,157 @@ export function TorneoDefinicionTab({
       }
       return null;
   }, [activeTournament, participatingTeams, partidos, allTournamentJornadas, tournamentConfigForUi, playoffEnabled, isInPlayoffPhase, currentPlayoffPhaseKey, currentPhaseResultProgress.percent]);
+
+  const divisionMovePlan = useMemo(() => {
+      const currentDivisionId =
+          activeTournament?.division_id ??
+          activeTournament?.division?.id ??
+          activeTournament?.divisions?.id ??
+          null;
+      const currentDivision = (divisiones || []).find((division) => String(division.id) === String(currentDivisionId));
+      const sameCategoryDivisions = currentDivision
+          ? (divisiones || [])
+              .filter((division) => String(division.category_id) === String(currentDivision.category_id))
+              .sort((a, b) => Number(a.tier || 0) - Number(b.tier || 0))
+          : [];
+      const currentIndex = currentDivision
+          ? sameCategoryDivisions.findIndex((division) => String(division.id) === String(currentDivision.id))
+          : -1;
+      const upperDivision = currentIndex > 0 ? sameCategoryDivisions[currentIndex - 1] : null;
+      const lowerDivision = currentIndex >= 0 && currentIndex < sameCategoryDivisions.length - 1
+          ? sameCategoryDivisions[currentIndex + 1]
+          : null;
+      const ascensosCount = Math.max(0, Number(tournamentConfigForUi.ascensos ?? form.ascensos ?? 0) || 0);
+      const descensosCount = Math.max(0, Number(tournamentConfigForUi.descensos ?? form.descensos ?? 0) || 0);
+      const officialTable = buildTorneoStandingsSnapshot({
+          torneo: activeTournament,
+          equipos: participatingTeams,
+          partidos,
+          jornadasProp: allTournamentJornadas,
+          reglas,
+          selectedJornadaView: "recent",
+      }).tablaGeneral;
+      const orderedStandings = officialTable
+          .map((row, index) => ({
+              ...row,
+              id: row.id,
+              rank: index + 1,
+              name: row.nombre || getTeamDisplayName(row),
+              logo: row.logo || getTeamLogoValue(row),
+              color: row.color || v.colorPrincipal,
+          }))
+          .filter((team) => team.id != null);
+      const ascensos = orderedStandings.slice(0, ascensosCount).map((team) => {
+          return {
+              ...team,
+              movement: "Ascenso",
+              targetDivision: upperDivision,
+          };
+      });
+      const descensos = orderedStandings
+          .filter((team, index) => (index + 1) > (orderedStandings.length - descensosCount))
+          .map((team) => ({
+              ...team,
+              movement: "Descenso",
+              targetDivision: lowerDivision,
+          }));
+
+      const canPreviewDivisionMoves = Boolean(tournamentFinalResults?.champion && tournamentFinalResults?.runnerUp);
+
+      return {
+          currentDivision,
+          upperDivision,
+          lowerDivision,
+          ascensos,
+          descensos,
+          hasConfiguredMovements: canPreviewDivisionMoves && (ascensosCount > 0 || descensosCount > 0),
+          hasApplicableMovements: canPreviewDivisionMoves && (ascensos.some((team) => team.targetDivision?.id) || descensos.some((team) => team.targetDivision?.id)),
+      };
+  }, [
+      activeTournament,
+      allTournamentJornadas,
+      divisiones,
+      form.ascensos,
+      form.descensos,
+      partidos,
+      participatingTeams,
+      reglas,
+      tournamentFinalResults,
+      tournamentConfigForUi.ascensos,
+      tournamentConfigForUi.descensos,
+  ]);
+
+  const applicableDivisionMoveKeys = useMemo(() => {
+      return [
+          ...divisionMovePlan.ascensos.map((team) => ({ ...team, movement: "Ascenso" })),
+          ...divisionMovePlan.descensos.map((team) => ({ ...team, movement: "Descenso" })),
+      ]
+          .filter((team) => team.targetDivision?.id)
+          .map((team) => getDivisionMoveKey(team.movement, team.id));
+  }, [divisionMovePlan.ascensos, divisionMovePlan.descensos]);
+
+  useEffect(() => {
+      if (showEndTournamentModal) {
+          setSelectedDivisionMoveIds(applicableDivisionMoveKeys);
+          setApplyDivisionMoves(applicableDivisionMoveKeys.length > 0);
+      }
+  }, [applicableDivisionMoveKeys, showEndTournamentModal]);
+
+  useEffect(() => {
+      if (!showEndTournamentModal) return;
+      setApplyDivisionMoves(selectedDivisionMoveIds.length > 0);
+  }, [selectedDivisionMoveIds.length, showEndTournamentModal]);
+
+  const selectedDivisionMoveIdSet = useMemo(
+      () => new Set(selectedDivisionMoveIds),
+      [selectedDivisionMoveIds]
+  );
+
+  const handleApplyDivisionMovesToggle = (checked) => {
+      if (!checked) {
+          setApplyDivisionMoves(false);
+          setSelectedDivisionMoveIds([]);
+          return;
+      }
+
+      setSelectedDivisionMoveIds(applicableDivisionMoveKeys);
+      setApplyDivisionMoves(applicableDivisionMoveKeys.length > 0);
+  };
+
+  const handleDivisionMoveSelection = (movement, teamId, checked) => {
+      const key = getDivisionMoveKey(movement, teamId);
+      setSelectedDivisionMoveIds((current) => {
+          return checked
+              ? Array.from(new Set([...current, key]))
+              : current.filter((currentKey) => currentKey !== key);
+      });
+  };
+
+  const applyDivisionMovePlan = async () => {
+      const updateGroups = [
+          {
+              teams: divisionMovePlan.ascensos.filter((team) =>
+                  team.targetDivision?.id && selectedDivisionMoveIdSet.has(getDivisionMoveKey("Ascenso", team.id))
+              ),
+              targetDivision: divisionMovePlan.upperDivision,
+          },
+          {
+              teams: divisionMovePlan.descensos.filter((team) =>
+                  team.targetDivision?.id && selectedDivisionMoveIdSet.has(getDivisionMoveKey("Descenso", team.id))
+              ),
+              targetDivision: divisionMovePlan.lowerDivision,
+          },
+      ].filter((group) => group.targetDivision?.id && group.teams.length > 0);
+
+      for (const group of updateGroups) {
+          const { error } = await supabase
+              .from("teams")
+              .update({ division_id: group.targetDivision.id })
+              .in("id", group.teams.map((team) => team.id));
+
+          if (error) throw error;
+      }
+  };
 
   const tournamentStats = useMemo(() => {
       if (!standings || standings.length === 0) return null;
@@ -1851,7 +2034,88 @@ export function TorneoDefinicionTab({
         )}
 
         <FixturePreviewModal isOpen={showPreviewModal} onClose={() => setShowPreviewModal(false)} onConfirm={handleConfirmFixture} teams={participatingTeams} config={form} isLoading={loading} />
-        <ConfirmModal isOpen={showEndTournamentModal} onClose={() => setShowEndTournamentModal(false)} onConfirm={handleEndTournament} title="¿Finalizar Torneo Actual?" message="Esta acción borrará permanentemente todos los partidos del torneo actual." confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"} confirmColor={v.rojo} />
+        <ConfirmModal
+            isOpen={showEndTournamentModal}
+            onClose={() => setShowEndTournamentModal(false)}
+            onConfirm={handleEndTournament}
+            title="¿Finalizar Torneo Actual?"
+            message="Esta acción borrará permanentemente todos los partidos del torneo actual."
+            subMessage={divisionMovePlan.hasConfiguredMovements ? "Revisa los ascensos y descensos antes de confirmar." : "Este torneo no tiene ascensos ni descensos configurados."}
+            confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"}
+            confirmColor={v.rojo}
+            width="560px"
+        >
+            {divisionMovePlan.hasConfiguredMovements && (
+                <DivisionMovesPreview $active={applyDivisionMoves}>
+                    <label className="auto-move-toggle">
+                        <input
+                            type="checkbox"
+                            checked={applyDivisionMoves}
+                            disabled={!divisionMovePlan.hasApplicableMovements || isDeleting}
+                            onChange={(event) => handleApplyDivisionMovesToggle(event.target.checked)}
+                        />
+                        <span>
+                            <strong>Aplicar movimientos automáticamente</strong>
+                            <small>
+                                {divisionMovePlan.hasApplicableMovements
+                                    ? "Los equipos se moverán a la división indicada al finalizar."
+                                    : "No hay una división vecina disponible para aplicar movimientos."}
+                            </small>
+                        </span>
+                    </label>
+
+                    <div className="moves-grid">
+                        {[
+                            { key: "ascensos", title: "Ascienden", teams: divisionMovePlan.ascensos, fallback: "No hay ascensos configurados" },
+                            { key: "descensos", title: "Descienden", teams: divisionMovePlan.descensos, fallback: "No hay descensos configurados" },
+                        ].map((group) => (
+                            <div className="move-group" key={group.key}>
+                                <h4>{group.title}</h4>
+                                {group.teams.length > 0 ? (
+                                    <div className="move-list">
+                                        {group.teams.map((team) => (
+                                            <label
+                                                className={[
+                                                    "move-team",
+                                                    applyDivisionMoves && selectedDivisionMoveIdSet.has(getDivisionMoveKey(team.movement, team.id)) ? "selected" : "",
+                                                    !team.targetDivision?.id ? "unavailable" : "",
+                                                ].filter(Boolean).join(" ")}
+                                                key={`${group.key}-${team.id}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedDivisionMoveIdSet.has(getDivisionMoveKey(team.movement, team.id))}
+                                                    disabled={!team.targetDivision?.id || isDeleting}
+                                                    onChange={(event) => handleDivisionMoveSelection(team.movement, team.id, event.target.checked)}
+                                                    aria-label={`${team.movement} de ${team.name}`}
+                                                />
+                                                <span className="team-logo">
+                                                    {team.logo ? (
+                                                        <img src={team.logo} alt={team.name} />
+                                                    ) : (
+                                                        <DynamicTeamLogo name={team.name} color={team.color} size="32px" />
+                                                    )}
+                                                </span>
+                                                <span className="team-copy">
+                                                    <strong title={team.name}>{team.name}</strong>
+                                                    <small>
+                                                        {team.targetDivision?.name
+                                                            ? `#${team.rank} · A: ${team.targetDivision.name}`
+                                                            : `#${team.rank} · Sin división destino`}
+                                                    </small>
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="empty-move">{group.fallback}</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </DivisionMovesPreview>
+            )}
+        </ConfirmModal>
 
         <ConfirmModal
             isOpen={showAdvanceWarningModal}
@@ -2036,6 +2300,190 @@ const TournamentStartOverlay = styled.div`
 
     @keyframes startSpin {
         to { transform: rotate(360deg); }
+    }
+`;
+
+const DivisionMovesPreview = styled.div`
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+
+    .auto-move-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        width: 100%;
+        padding: 12px;
+        border: 1px solid ${({ $active, theme }) => $active ? theme.primary : theme.bg4};
+        border-radius: 8px;
+        background: ${({ $active, theme }) => $active ? `${theme.primary}14` : theme.bgtotal};
+        color: ${({ theme }) => theme.text};
+        cursor: pointer;
+        transition: background-color 190ms ease, border-color 190ms ease, box-shadow 190ms ease;
+        box-shadow: ${({ $active, theme }) => $active ? `0 0 0 3px ${theme.primary}18` : "none"};
+    }
+
+    .auto-move-toggle input {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+        accent-color: ${({ theme }) => theme.primary};
+        cursor: pointer;
+        flex: 0 0 auto;
+    }
+
+    .auto-move-toggle input:disabled {
+        cursor: not-allowed;
+    }
+
+    .auto-move-toggle span {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .auto-move-toggle strong {
+        font-size: 0.86rem;
+        font-weight: 850;
+        color: ${({ theme }) => theme.text};
+    }
+
+    .auto-move-toggle small {
+        font-size: 0.74rem;
+        line-height: 1.35;
+        color: ${({ theme }) => `${theme.text}a6`};
+    }
+
+    .moves-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .move-group {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid ${({ theme }) => theme.bg4};
+        background: ${({ theme }) => theme.bgtotal};
+    }
+
+    .move-group h4 {
+        margin: 0;
+        color: ${({ theme }) => theme.text};
+        font-size: 0.76rem;
+        font-weight: 900;
+    }
+
+    .move-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .move-team {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: ${({ theme }) => theme.bgcards};
+        box-shadow: none;
+        opacity: 0.82;
+        cursor: pointer;
+        transition: background-color 210ms ease, border-color 210ms ease, box-shadow 210ms ease, opacity 210ms ease;
+    }
+
+    .move-team.selected {
+        border-color: ${({ theme }) => theme.primary};
+        background: ${({ theme }) => `${theme.primary}18`};
+        box-shadow: ${({ theme }) => `0 0 0 2px ${theme.primary}12`};
+        opacity: 1;
+    }
+
+    .move-team.unavailable {
+        border-color: ${({ theme }) => theme.bg4};
+        background: ${({ theme }) => theme.bgcards};
+        opacity: 0.62;
+        cursor: not-allowed;
+    }
+
+    .move-team input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: ${({ theme }) => theme.primary};
+        flex: 0 0 auto;
+        cursor: pointer;
+    }
+
+    .move-team input:disabled {
+        cursor: not-allowed;
+    }
+
+    .team-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex: 0 0 32px;
+        display: grid;
+        place-items: center;
+        background: ${({ theme }) => theme.bg4};
+    }
+
+    .team-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .team-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .team-copy strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: ${({ theme }) => theme.text};
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .team-copy small,
+    .empty-move {
+        color: ${({ theme }) => `${theme.text}99`};
+        font-size: 0.68rem;
+        line-height: 1.3;
+    }
+
+    .empty-move {
+        margin: 0;
+    }
+
+    @media (max-width: 560px) {
+        .moves-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .auto-move-toggle,
+        .move-team {
+            transition: none;
+        }
     }
 `;
 

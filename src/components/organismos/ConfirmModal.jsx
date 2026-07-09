@@ -15,11 +15,12 @@ export const ConfirmModal = ({
   confirmText = "Eliminar", 
   confirmColor = v.rojo,
   confirmIcon,
+  width = "400px",
   thinButtons = false, // <-- Nueva prop para hacer botones más delgados
   children             // <-- Nueva prop para inyectar contenido extra (como los números grandes)
 }) => {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} width="400px" closeOnOverlayClick={false}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} width={width} closeOnOverlayClick={false}>
       <Container $thinButtons={thinButtons}>
         <div className="icon-warning"><RiErrorWarningLine /></div>
         <p className="message">{message}</p>

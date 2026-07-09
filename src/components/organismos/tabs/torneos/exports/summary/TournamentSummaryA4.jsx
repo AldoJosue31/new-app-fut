@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 import {
     RiCheckLine,
@@ -201,6 +201,31 @@ const getJornadaShortLabel = (name, index) => {
     return `J${index + 1}`;
 };
 
+const getStandingTeamName = (row) =>
+    row?.nombre ||
+    row?.name ||
+    row?.team_name ||
+    row?.equipo?.name ||
+    row?.equipo?.nombre ||
+    row?.team?.name ||
+    row?.team?.nombre ||
+    "--";
+
+const getNumericStandingValue = (row, keys) => {
+    for (const key of keys) {
+        const value = row?.[key];
+        if (value !== null && value !== undefined && String(value).trim() !== "") {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) return numeric;
+        }
+    }
+    return null;
+};
+
+const INDEX_ENTRIES_PER_PAGE = 18;
+const STANDINGS_NORMAL_MAX_ROWS = 18;
+const STANDINGS_COMPACT_MAX_ROWS = 24;
+
 const getTeamMatchOutcome = (match, teamId) => {
     if (isRestMatch(match)) return "rest";
 
@@ -234,6 +259,123 @@ const OutcomeIcon = ({ type }) => {
     if (type === "pending") return <RiQuestionLine aria-label="No disputado" />;
     if (type === "rest") return <RiPauseLine aria-label="Descanso" />;
     return <span aria-label="Sin partido">-</span>;
+};
+
+const SmartLeagueLogo = ({ src }) => {
+    const [renderState, setRenderState] = useState(null);
+    const currentSrc = renderState?.src || src;
+    const shouldUseCors = !renderState?.processed && !renderState?.noCorsRetry;
+
+    const handleLoad = (event) => {
+        if (renderState || !src) return;
+
+        const image = event.currentTarget;
+        const width = image.naturalWidth;
+        const height = image.naturalHeight;
+        if (!width || !height) return;
+
+        try {
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d", { willReadFrequently: true });
+            if (!context) return;
+
+            context.drawImage(image, 0, 0);
+            const { data } = context.getImageData(0, 0, width, height);
+            let minX = width;
+            let minY = height;
+            let maxX = -1;
+            let maxY = -1;
+            let transparentPixels = 0;
+            let visiblePixels = 0;
+
+            for (let y = 0; y < height; y += 1) {
+                for (let x = 0; x < width; x += 1) {
+                    const alpha = data[((y * width + x) * 4) + 3];
+                    if (alpha < 245) transparentPixels += 1;
+                    if (alpha > 24) {
+                        visiblePixels += 1;
+                        if (x < minX) minX = x;
+                        if (y < minY) minY = y;
+                        if (x > maxX) maxX = x;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            const totalPixels = width * height;
+            const transparentRatio = transparentPixels / totalPixels;
+            const contentWidth = maxX - minX + 1;
+            const contentHeight = maxY - minY + 1;
+            const contentAreaRatio = visiblePixels / totalPixels;
+            const shouldCrop =
+                transparentRatio > 0.04 &&
+                contentWidth > 0 &&
+                contentHeight > 0 &&
+                contentAreaRatio < 0.88;
+
+            if (!shouldCrop) {
+                setRenderState({
+                    src,
+                    mode: transparentRatio > 0.04 ? "transparent" : "framed",
+                    processed: true,
+                });
+                return;
+            }
+
+            const padding = Math.max(4, Math.round(Math.max(contentWidth, contentHeight) * 0.08));
+            const cropX = Math.max(0, minX - padding);
+            const cropY = Math.max(0, minY - padding);
+            const cropRight = Math.min(width, maxX + padding + 1);
+            const cropBottom = Math.min(height, maxY + padding + 1);
+            const cropWidth = cropRight - cropX;
+            const cropHeight = cropBottom - cropY;
+
+            const croppedCanvas = document.createElement("canvas");
+            croppedCanvas.width = cropWidth;
+            croppedCanvas.height = cropHeight;
+            const croppedContext = croppedCanvas.getContext("2d");
+            if (!croppedContext) return;
+
+            croppedContext.drawImage(
+                image,
+                cropX,
+                cropY,
+                cropWidth,
+                cropHeight,
+                0,
+                0,
+                cropWidth,
+                cropHeight
+            );
+
+            setRenderState({
+                src: croppedCanvas.toDataURL("image/png"),
+                mode: "cropped",
+                processed: true,
+            });
+        } catch {
+            setRenderState({ src, mode: "framed", processed: true });
+        }
+    };
+
+    const handleError = () => {
+        if (!renderState) {
+            setRenderState({ src, mode: "framed", noCorsRetry: true });
+        }
+    };
+
+    return (
+        <img
+            className={`smart-league-logo logo-${renderState?.mode || "loading"}`}
+            src={currentSrc}
+            alt="Logo Liga"
+            crossOrigin={shouldUseCors ? "anonymous" : undefined}
+            onLoad={handleLoad}
+            onError={handleError}
+        />
+    );
 };
 
 export const TournamentSummaryA4 = ({ 
@@ -444,6 +586,45 @@ export const TournamentSummaryA4 = ({
 
     // Ensure stats are computed if they are missing or if we need to guarantee accuracy
     const derivedStats = useMemo(() => {
+        const standingsRows = Array.isArray(standings) ? standings : [];
+        if (standingsRows.length > 0) {
+            const rowsWithGf = standingsRows
+                .map((row) => ({
+                    row,
+                    gf: getNumericStandingValue(row, ["gf", "GF", "golesFavor", "goles_favor", "goalsFor"]),
+                }))
+                .filter((entry) => entry.gf !== null);
+            const rowsWithGc = standingsRows
+                .map((row) => ({
+                    row,
+                    gc: getNumericStandingValue(row, ["gc", "GC", "golesContra", "goles_contra", "goalsAgainst"]),
+                }))
+                .filter((entry) => entry.gc !== null);
+
+            const topScoring = rowsWithGf.reduce(
+                (max, entry) => (entry.gf > max.gf ? entry : max),
+                rowsWithGf[0]
+            );
+            const leastScored = rowsWithGc.reduce(
+                (min, entry) => (entry.gc < min.gc ? entry : min),
+                rowsWithGc[0]
+            );
+
+            if (topScoring || leastScored) {
+                return {
+                    topScoringTeam: topScoring ? getStandingTeamName(topScoring.row) : (stats?.topScoringTeam || "--"),
+                    leastScoredTeam: leastScored ? getStandingTeamName(leastScored.row) : (stats?.leastScoredTeam || "--"),
+                };
+            }
+        }
+
+        if (stats?.topScoringTeam || stats?.leastScoredTeam) {
+            return {
+                topScoringTeam: stats?.topScoringTeam || "--",
+                leastScoredTeam: stats?.leastScoredTeam || "--",
+            };
+        }
+
         if (!partidos || !participatingTeams) return stats || null;
         
         const teamStats = {};
@@ -472,7 +653,7 @@ export const TournamentSummaryA4 = ({
             topScoringTeam: topScoring?.name || "--",
             leastScoredTeam: leastScored?.name || "--"
         };
-    }, [stats, partidos, participatingTeams]);
+    }, [stats, standings, partidos, participatingTeams]);
 
     // Patch activeTournament if the final match exists but the bracket stage isn't created
     const patchedTournament = useMemo(() => {
@@ -552,6 +733,80 @@ export const TournamentSummaryA4 = ({
         });
     }, [jornadasWithMatches, participatingTeams]);
 
+    const standingsPages = useMemo(() => {
+        const rows = Array.isArray(standings) ? standings : [];
+        if (rows.length === 0) return [];
+
+        const compact = rows.length > STANDINGS_NORMAL_MAX_ROWS;
+        const pageSize = compact ? STANDINGS_COMPACT_MAX_ROWS : STANDINGS_NORMAL_MAX_ROWS;
+        const pages = [];
+
+        for (let index = 0; index < rows.length; index += pageSize) {
+            pages.push({
+                rows: rows.slice(index, index + pageSize),
+                compact,
+                continuation: index > 0,
+                pageIndex: pages.length,
+                startIndex: index,
+            });
+        }
+
+        return pages;
+    }, [standings]);
+
+    const documentIndexEntries = useMemo(() => {
+        const entries = [];
+
+        if (teamJourneyMatrix.length > 0) {
+            entries.push({
+                id: "summary-page-matrix",
+                title: "Equipos por Jornada",
+                subtitle: "Resumen de resultados por equipo",
+            });
+        }
+
+        if (standingsPages.length > 0) {
+            entries.push({
+                id: "summary-page-standings",
+                title: "Tabla Final",
+                subtitle: "Clasificacion final del torneo",
+            });
+        }
+
+        if (hasPlayoff) {
+            entries.push({
+                id: "summary-page-bracket",
+                title: "Cuadro Final",
+                subtitle: "",
+            });
+        }
+
+        jornadasWithMatches.forEach((jornada, index) => {
+            entries.push({
+                id: `summary-page-jornada-${jornada.id || index}`,
+                title: `Resultados: ${jornada.name}`,
+                subtitle: formatJornadaDateRange(jornada, startDate),
+            });
+        });
+
+        const indexPageCount = Math.max(1, Math.ceil(entries.length / INDEX_ENTRIES_PER_PAGE));
+        let pageNumber = indexPageCount + 2; // Portada = 1, indice = 2..N.
+
+        return entries.map((entry) => ({
+            ...entry,
+            anchorId: `${entry.id}-anchor`,
+            pageNumber: pageNumber++,
+        }));
+    }, [hasPlayoff, jornadasWithMatches, standingsPages.length, startDate, teamJourneyMatrix.length]);
+
+    const documentIndexPages = useMemo(() => {
+        const pages = [];
+        for (let index = 0; index < documentIndexEntries.length; index += INDEX_ENTRIES_PER_PAGE) {
+            pages.push(documentIndexEntries.slice(index, index + INDEX_ENTRIES_PER_PAGE));
+        }
+        return pages.length > 0 ? pages : [[]];
+    }, [documentIndexEntries]);
+
     return (
         <SummaryContainer>
             {/* HOJA 1: PORTADA */}
@@ -559,7 +814,7 @@ export const TournamentSummaryA4 = ({
                 <div className="header">
                     <div className="logo-container">
                         {leagueLogoUrl ? (
-                            <img src={leagueLogoUrl} alt="Logo Liga" />
+                            <SmartLeagueLogo key={leagueLogoUrl} src={leagueLogoUrl} />
                         ) : (
                             <div className="logo-text">LIGA</div>
                         )}
@@ -631,8 +886,42 @@ export const TournamentSummaryA4 = ({
                 </div>
             </div>
 
+            {documentIndexPages.map((entries, pageIndex) => (
+                <div
+                    key={`index-page-${pageIndex}`}
+                    className="print-page index-page"
+                    id={pageIndex === 0 ? "summary-page-index" : `summary-page-index-${pageIndex + 1}`}
+                >
+                    <div className="page-header">
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        <h3>Indice</h3>
+                        <span className="jornada-date-range">Contenido del documento</span>
+                    </div>
+
+                    <div className="index-list">
+                        {entries.map((entry) => (
+                            <div className="index-row" key={entry.id}>
+                                <div className="index-title">
+                                    <strong>{entry.title}</strong>
+                                    {entry.subtitle && <span>{entry.subtitle}</span>}
+                                </div>
+                                <span className="index-line" aria-hidden="true" />
+                                <a
+                                    className="index-page-number"
+                                    href={`#${entry.anchorId}`}
+                                    data-target-page={entry.pageNumber}
+                                >
+                                    {entry.pageNumber}
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+
             {teamJourneyMatrix.length > 0 && (
-                <div className="print-page matrix-page">
+                <div className="print-page matrix-page" id="summary-page-matrix">
+                    <a id="summary-page-matrix-anchor" name="summary-page-matrix-anchor" className="pdf-anchor" aria-hidden="true" />
                     <div className="page-header">
                         <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                         <h3>Equipos por Jornada</h3>
@@ -674,6 +963,84 @@ export const TournamentSummaryA4 = ({
                 </div>
             )}
 
+            {standingsPages.map(({ rows, compact, continuation, pageIndex, startIndex }) => (
+                <div
+                    key={`summary-standings-page-${pageIndex}`}
+                    className={`print-page standings-page${compact ? " compact-rows" : ""}${continuation ? " continuation-page" : ""}`}
+                    id={pageIndex === 0 ? "summary-page-standings" : `summary-page-standings-${pageIndex + 1}`}
+                >
+                    {pageIndex === 0 && (
+                        <a id="summary-page-standings-anchor" name="summary-page-standings-anchor" className="pdf-anchor" aria-hidden="true" />
+                    )}
+
+                    <div className={`page-header${continuation ? " continuation-header" : ""}`}>
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        {!continuation && <h3>Tabla Final</h3>}
+                        {!continuation && (
+                            <span className="jornada-date-range">Clasificacion final del torneo</span>
+                        )}
+                    </div>
+
+                    <table className="standings-summary-table">
+                        <thead>
+                            <tr>
+                                <th className="pos-col">#</th>
+                                <th className="team-col">Equipo</th>
+                                <th>PJ</th>
+                                <th>DIF</th>
+                                <th>PTS</th>
+                                <th>G</th>
+                                <th>E</th>
+                                <th>P</th>
+                                <th>GF</th>
+                                <th>GC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, rowIndex) => {
+                                const absoluteIndex = startIndex + rowIndex;
+                                return (
+                                    <tr key={row.id || `${row.nombre || row.name}-${absoluteIndex}`}>
+                                        <td className="pos-col">{absoluteIndex + 1}</td>
+                                        <td className="team-col">{getStandingTeamName(row)}</td>
+                                        <td>{row.pj ?? 0}</td>
+                                        <td className="dif-col">{Number(row.dg) > 0 ? `+${row.dg}` : (row.dg ?? 0)}</td>
+                                        <td className="pts-col">{row.pts ?? 0}</td>
+                                        <td>{row.g ?? 0}</td>
+                                        <td>{row.e ?? 0}</td>
+                                        <td>{row.p ?? 0}</td>
+                                        <td>{row.gf ?? 0}</td>
+                                        <td>{row.gc ?? 0}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ))}
+
+            {/* HOJA DE LLAVES (PLAYOFFS) */}
+            {hasPlayoff && (
+                <div className="print-page bracket-page" id="summary-page-bracket">
+                    <a id="summary-page-bracket-anchor" name="summary-page-bracket-anchor" className="pdf-anchor" aria-hidden="true" />
+                    <div className="page-header">
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        <h3>Cuadro Final</h3>
+                    </div>
+                    
+                    <div className="bracket-print-wrapper">
+                        <PlayoffBracketView 
+                            torneo={patchedTournament} 
+                            partidos={partidos} 
+                            jornadas={allTournamentJornadas} 
+                            projectedStandings={standings || []}
+                            isLoading={false}
+                            layoutMode="print-vertical"
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* HOJAS DE JORNADAS (Varias páginas según la cantidad de jornadas) */}
             {jornadasWithMatches.map((jornada, index) => {
                 const regularMatches = jornada.matches
@@ -690,7 +1057,13 @@ export const TournamentSummaryA4 = ({
                 const jornadaDateRange = formatJornadaDateRange(jornada, startDate);
 
                 return (
-                    <div key={jornada.id || index} className="print-page results-page">
+                    <div key={jornada.id || index} id={`summary-page-jornada-${jornada.id || index}`} className="print-page results-page">
+                        <a
+                            id={`summary-page-jornada-${jornada.id || index}-anchor`}
+                            name={`summary-page-jornada-${jornada.id || index}-anchor`}
+                            className="pdf-anchor"
+                            aria-hidden="true"
+                        />
                         <div className="page-header">
                             <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                             <h3>Resultados: {jornada.name}</h3>
@@ -767,25 +1140,6 @@ export const TournamentSummaryA4 = ({
                 );
             })}
 
-            {/* HOJA DE LLAVES (PLAYOFFS) */}
-            {hasPlayoff && (
-                <div className="print-page bracket-page">
-                    <div className="page-header">
-                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
-                        <h3>Cuadro Final</h3>
-                    </div>
-                    
-                    <div className="bracket-print-wrapper">
-                        <PlayoffBracketView 
-                            torneo={patchedTournament} 
-                            partidos={partidos} 
-                            jornadas={allTournamentJornadas} 
-                            projectedStandings={standings || []}
-                            isLoading={false}
-                        />
-                    </div>
-                </div>
-            )}
         </SummaryContainer>
     );
 };
@@ -807,6 +1161,16 @@ const SummaryContainer = styled.div`
         position: relative;
         margin-bottom: 20px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .pdf-anchor {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        pointer-events: none;
     }
 
     /* Ocultar sombras en la impresión real */
@@ -832,18 +1196,35 @@ const SummaryContainer = styled.div`
             margin-bottom: 40px;
             
             .logo-container {
-                width: 100px;
-                height: 100px;
+                width: 124px;
+                height: 124px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: #f1f5f9;
                 border-radius: 12px;
-                margin-right: 30px;
+                margin-right: 34px;
                 overflow: hidden;
                 
-                img { width: 100%; height: 100%; object-fit: contain; }
-                .logo-text { font-weight: 800; font-size: 24px; color: #94a3b8; }
+                .smart-league-logo {
+                    display: block;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                }
+
+                .logo-cropped,
+                .logo-transparent {
+                    width: 96%;
+                    height: 96%;
+                }
+
+                .logo-framed {
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .logo-text { font-weight: 800; font-size: 28px; color: #94a3b8; }
             }
             
             .title-block {
@@ -940,7 +1321,7 @@ const SummaryContainer = styled.div`
     }
 
     /* HOJAS RESULTADOS Y BRACKET */
-    .results-page, .bracket-page, .matrix-page {
+    .results-page, .bracket-page, .matrix-page, .index-page, .standings-page {
         .page-header {
             margin-bottom: 30px;
             padding-bottom: 15px;
@@ -1046,6 +1427,71 @@ const SummaryContainer = styled.div`
                     font-weight: 800;
                 }
             }
+        }
+    }
+
+    .index-page {
+        .page-header {
+            margin-bottom: 18px;
+        }
+
+        .index-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 10px;
+        }
+
+        .index-row {
+            display: grid;
+            grid-template-columns: minmax(0, auto) minmax(24px, 1fr) 36px;
+            align-items: end;
+            gap: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .index-title {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+
+            strong {
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 900;
+                line-height: 1.15;
+            }
+
+            span {
+                color: #64748b;
+                font-size: 9.5px;
+                font-weight: 800;
+                line-height: 1.12;
+            }
+        }
+
+        .index-line {
+            height: 1px;
+            margin-bottom: 7px;
+            border-bottom: 1px dotted #cbd5e1;
+        }
+
+        .index-page-number {
+            min-width: 30px;
+            min-height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            justify-self: end;
+            border: 1px solid #38bdf8;
+            border-radius: 7px;
+            background: #f0f9ff;
+            color: #0369a1;
+            font-size: 12px;
+            font-weight: 950;
+            text-decoration: none;
         }
     }
 
@@ -1174,11 +1620,112 @@ const SummaryContainer = styled.div`
             }
         }
     }
+
+    .standings-page {
+        .continuation-header {
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+
+            .league-mini {
+                margin-bottom: 0;
+            }
+        }
+
+        .standings-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            border: 1px solid #cbd5e1;
+
+            th,
+            td {
+                border-bottom: 1px solid #e2e8f0;
+                text-align: center;
+            }
+
+            th {
+                padding: 11px 8px;
+                background: #f1f5f9;
+                color: #475569;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.45px;
+            }
+
+            td {
+                padding: 10px 8px;
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 700;
+                background: #ffffff;
+            }
+
+            tbody tr:nth-child(even) td {
+                background: #f8fafc;
+            }
+
+            .pos-col {
+                width: 42px;
+                color: #475569;
+                font-weight: 800;
+            }
+
+            .team-col {
+                width: 34%;
+                text-align: left;
+                padding-left: 14px;
+                font-weight: 800;
+            }
+
+            .pts-col {
+                color: #0369a1;
+                font-weight: 900;
+            }
+
+            .dif-col {
+                color: #334155;
+                font-weight: 800;
+            }
+        }
+
+        &.compact-rows {
+            .page-header {
+                margin-bottom: 18px;
+                padding-bottom: 10px;
+            }
+
+            .standings-summary-table {
+                th {
+                    padding: 8px 6px;
+                    font-size: 10px;
+                }
+
+                td {
+                    padding: 7px 6px;
+                    font-size: 11.5px;
+                }
+
+                .pos-col {
+                    width: 36px;
+                }
+
+                .team-col {
+                    width: 33%;
+                    padding-left: 10px;
+                    font-size: 11.8px;
+                }
+            }
+        }
+    }
     
     .bracket-print-wrapper {
-        width: 153.8%;
-        transform: scale(0.65);
-        transform-origin: top left;
+        width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         
         /* Forced light theme CSS variables for PlayoffBracketView when printed/previewed */
         --bracket-primary: #3b82f6;
@@ -1187,7 +1734,7 @@ const SummaryContainer = styled.div`
         --bracket-item: #f8fafc;
         --bracket-border: #e2e8f0;
         --bracket-muted: #64748b;
-        
+
         section {
             border: none;
             background: transparent;
@@ -1196,13 +1743,16 @@ const SummaryContainer = styled.div`
             margin: 0;
             overflow: visible !important;
         }
-        
-        div[class*="BracketScroller"] {
-            overflow: visible !important;
-        }
-        
-        @media print {
-            transform: scale(0.65);
+    }
+
+    .bracket-page {
+        padding: 12mm 10mm;
+        display: flex;
+        flex-direction: column;
+
+        .page-header {
+            margin-bottom: 8px;
+            padding-bottom: 10px;
         }
     }
 `;

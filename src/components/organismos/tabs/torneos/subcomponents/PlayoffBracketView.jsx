@@ -18,6 +18,15 @@ const BRACKET_CARD_HEIGHT = 112;
 const BRACKET_COLUMN_GAP = 74;
 const BRACKET_ROW_HEIGHT = 124;
 const BRACKET_HEADER_HEIGHT = 42;
+const PRINT_BRACKET_WIDTH = 652;
+const PRINT_BRACKET_HEIGHT = 878;
+const PRINT_HEADER_HEIGHT = 38;
+const PRINT_CENTER_GAP = 18;
+const PRINT_STAGE_GAP = 12;
+const PRINT_ROW_LABEL_HEIGHT = 16;
+const PRINT_ROW_LABEL_GAP = 8;
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const getPhaseShortLabel = (phaseKey) => ({
   repechaje: "Rep",
@@ -326,7 +335,7 @@ const TeamRow = ({ team, goals, isWinner }) => (
   </div>
 );
 
-const MatchCard = ({ row }) => {
+const MatchCard = ({ row, density = "default" }) => {
   const { pair, result } = row;
   const homeId = getTeamId(pair.home);
   const awayId = getTeamId(pair.away);
@@ -342,9 +351,9 @@ const MatchCard = ({ row }) => {
   };
 
   return (
-    <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown}>
-      {!row?.isFinal && (
-        <MatchNumberBadge>#{row?.cupNumber || (Number.isFinite(row?.pairIndex) ? row.pairIndex + 1 : 1)}</MatchNumberBadge>
+    <MatchCardShell $complete={result.isComplete} $withBreakdown={showLegBreakdown} $density={density}>
+      {!row?.isFinal && density !== "print" && (
+        <MatchNumberBadge $density={density}>#{row?.cupNumber || (Number.isFinite(row?.pairIndex) ? row.pairIndex + 1 : 1)}</MatchNumberBadge>
       )}
       <TeamRows>
         <TeamRow
@@ -359,7 +368,7 @@ const MatchCard = ({ row }) => {
         />
       </TeamRows>
       {showLegBreakdown && (
-        <LegBreakdown>
+        <LegBreakdown $density={density}>
           <span>
             <small>Ida</small>
             <strong>{formatLegScore(firstLeg)}</strong>
@@ -378,7 +387,7 @@ const MatchCard = ({ row }) => {
   );
 };
 
-const FutureMatchCard = ({ row, index }) => {
+const FutureMatchCard = ({ row, index, density = "default" }) => {
   const { pair } = row;
   const homeProjection = row?.projectedTeams?.home;
   const awayProjection = row?.projectedTeams?.away;
@@ -386,8 +395,8 @@ const FutureMatchCard = ({ row, index }) => {
   const awayName = pair?.away?.name || awayProjection?.name || row?.slotLabels?.away || `Ganador cupo ${index * 2 + 2}`;
 
   return (
-    <FutureMatchShell>
-      {!row?.isFinal && <MatchNumberBadge>#{row?.cupNumber || index + 1}</MatchNumberBadge>}
+    <FutureMatchShell $density={density}>
+      {!row?.isFinal && density !== "print" && <MatchNumberBadge $density={density}>#{row?.cupNumber || index + 1}</MatchNumberBadge>}
       <span className={homeProjection && !pair?.home ? "projected" : ""}>{homeName}</span>
       <span className={awayProjection && !pair?.away ? "projected" : ""}>{awayName}</span>
     </FutureMatchShell>
@@ -566,18 +575,224 @@ const buildBracketGeometry = (stages = []) => {
   return { baseCount, width, height, getMatchRect, segments, reseedBridgeSegments };
 };
 
+const splitStageForPrint = (stage = {}) => {
+  const matches = stage?.matches || [];
+  const splitIndex = Math.ceil(matches.length / 2);
+  return {
+    top: matches.slice(0, splitIndex),
+    bottom: matches.slice(splitIndex),
+    splitIndex,
+  };
+};
+
+const getPrintPhaseShortLabel = (stage = {}) =>
+  stage.key === "semifinals" ? "SM" : stage.shortLabel;
+
+const distributePrintRow = ({
+  rows,
+  side,
+  stageIndex,
+  stage,
+  matches,
+  matchOffset,
+  y,
+  width,
+  height,
+}) => {
+  const count = Math.max(1, matches.length);
+  const gap = count >= 8 ? 7 : count >= 4 ? 12 : 22;
+  const totalWidth = (count * width) + (Math.max(0, count - 1) * gap);
+  const startX = Math.max(0, (PRINT_BRACKET_WIDTH - totalWidth) / 2);
+
+  rows.push({
+    side,
+    stageIndex,
+    stage,
+    y,
+    labelY: y - PRINT_ROW_LABEL_HEIGHT - PRINT_ROW_LABEL_GAP,
+    rects: matches.map((row, index) => ({
+      row,
+      localIndex: index,
+      matchIndex: matchOffset + index,
+      stageIndex,
+      side,
+      x: startX + (index * (width + gap)),
+      y,
+      centerX: startX + (index * (width + gap)) + (width / 2),
+      centerY: y + (height / 2),
+      width,
+      height,
+    })),
+  });
+};
+
+const buildPrintBracketGeometry = (stages = []) => {
+  const finalStageIndex = Math.max(0, stages.length - 1);
+  const branchStages = stages.slice(0, finalStageIndex);
+  const branchLevelCount = Math.max(1, branchStages.length);
+  const splitStages = branchStages.map((stage) => splitStageForPrint(stage));
+  const maxRowMatchCount = Math.max(
+    1,
+    ...splitStages.flatMap((split) => [
+      split.top.length || 1,
+      split.bottom.length || 1,
+    ])
+  );
+  const cardWidth = clamp(
+    Math.floor((PRINT_BRACKET_WIDTH - (Math.max(0, maxRowMatchCount - 1) * PRINT_STAGE_GAP)) / maxRowMatchCount),
+    maxRowMatchCount >= 8 ? 62 : maxRowMatchCount >= 4 ? 128 : 190,
+    maxRowMatchCount >= 8 ? 76 : maxRowMatchCount <= 2 ? 250 : 168
+  );
+  const cardHeight = clamp(
+    Math.floor((PRINT_BRACKET_HEIGHT - PRINT_HEADER_HEIGHT - 82) / ((branchLevelCount * 2) + 2)),
+    maxRowMatchCount >= 8 ? 50 : maxRowMatchCount >= 4 ? 64 : 76,
+    maxRowMatchCount >= 8 ? 68 : maxRowMatchCount <= 2 ? 96 : 82
+  );
+  const finalWidth = clamp(cardWidth * 1.72, 250, 342);
+  const finalHeight = clamp(cardHeight * 1.34, 108, 138);
+  const topBranchStart = PRINT_HEADER_HEIGHT + PRINT_ROW_LABEL_HEIGHT + PRINT_ROW_LABEL_GAP;
+  const totalRowCount = (branchLevelCount * 2) + 1;
+  const totalCardHeight = (branchLevelCount * 2 * cardHeight) + finalHeight;
+  const availableVerticalSpace = PRINT_BRACKET_HEIGHT - topBranchStart;
+  const phaseGap = totalRowCount > 1
+    ? Math.max(8, (availableVerticalSpace - totalCardHeight) / (totalRowCount - 1))
+    : 0;
+  const finalY = topBranchStart + (branchLevelCount * (cardHeight + phaseGap));
+  const bottomBranchStart = finalY + finalHeight + phaseGap;
+  const topRows = [];
+  const bottomRows = [];
+
+  branchStages.forEach((stage, stageIndex) => {
+    const split = splitStages[stageIndex];
+    distributePrintRow({
+      rows: topRows,
+      side: "top",
+      stageIndex,
+      stage,
+      matches: split.top,
+      matchOffset: 0,
+      y: topBranchStart + (stageIndex * (cardHeight + phaseGap)),
+      width: cardWidth,
+      height: cardHeight,
+    });
+    distributePrintRow({
+      rows: bottomRows,
+      side: "bottom",
+      stageIndex,
+      stage,
+      matches: split.bottom,
+      matchOffset: split.splitIndex,
+      y: bottomBranchStart + ((branchLevelCount - 1 - stageIndex) * (cardHeight + phaseGap)),
+      width: cardWidth,
+      height: cardHeight,
+    });
+  });
+
+  const finalRect = {
+    row: stages[finalStageIndex]?.matches?.[0],
+    stageIndex: finalStageIndex,
+    x: (PRINT_BRACKET_WIDTH - finalWidth) / 2,
+    y: finalY,
+    centerY: finalY + (finalHeight / 2),
+    centerX: PRINT_BRACKET_WIDTH / 2,
+    width: finalWidth,
+    height: finalHeight,
+  };
+
+  const makeVerticalConnector = (sourceRect, targetRect, direction) => {
+    const sourceY = direction === "down" ? sourceRect.y + sourceRect.height : sourceRect.y;
+    const targetY = direction === "down" ? targetRect.y : targetRect.y + targetRect.height;
+    const midY = sourceY + ((targetY - sourceY) / 2);
+    return [
+      { x1: sourceRect.centerX, y1: sourceY, x2: sourceRect.centerX, y2: midY },
+      { x1: sourceRect.centerX, y1: midY, x2: targetRect.centerX, y2: midY },
+      { x1: targetRect.centerX, y1: midY, x2: targetRect.centerX, y2: targetY },
+    ];
+  };
+
+  const connectRows = (rows, direction) => {
+    const lines = [];
+
+    rows.slice(0, -1).forEach((sourceRow, rowIndex) => {
+      const targetRow = rows[rowIndex + 1];
+      const sourceRects = sourceRow.rects || [];
+      const targetRects = targetRow?.rects || [];
+      const sourceCount = Math.max(1, sourceRects.length);
+      const targetCount = Math.max(1, targetRects.length);
+      const mergeRatio = Math.max(1, sourceCount / targetCount);
+
+      targetRects.forEach((targetRect, targetIndex) => {
+        const sourceStart = Math.floor(targetIndex * mergeRatio);
+        const sourceEnd = Math.min(
+          sourceCount - 1,
+          Math.max(sourceStart, Math.floor((targetIndex + 1) * mergeRatio) - 1)
+        );
+
+        for (let sourceIndex = sourceStart; sourceIndex <= sourceEnd; sourceIndex += 1) {
+          const sourceRect = sourceRects[sourceIndex];
+          if (sourceRect) lines.push(...makeVerticalConnector(sourceRect, targetRect, direction));
+        }
+      });
+    });
+
+    return lines;
+  };
+
+  const topLines = connectRows(topRows, "down");
+  const bottomLines = connectRows(bottomRows, "up");
+  const lastTopRects = topRows[topRows.length - 1]?.rects || [];
+  const lastBottomRects = bottomRows[bottomRows.length - 1]?.rects || [];
+  const finalLines = [
+    ...lastTopRects.flatMap((rect) => makeVerticalConnector(rect, finalRect, "down")),
+    ...lastBottomRects.flatMap((rect) => makeVerticalConnector(rect, finalRect, "up")),
+  ];
+
+  return {
+    width: PRINT_BRACKET_WIDTH,
+    height: PRINT_BRACKET_HEIGHT,
+    cardWidth,
+    cardHeight,
+    labels: [
+      ...topRows.map((row) => ({
+        key: `top-label-${row.stage.key}`,
+        label: row.stage.label,
+        shortLabel: getPrintPhaseShortLabel(row.stage),
+        y: row.labelY,
+      })),
+      {
+        key: "final-label",
+        label: stages[finalStageIndex]?.label || "Final",
+        shortLabel: getPrintPhaseShortLabel(stages[finalStageIndex]),
+        y: finalY - PRINT_ROW_LABEL_HEIGHT - PRINT_ROW_LABEL_GAP,
+      },
+      ...bottomRows.map((row) => ({
+        key: `bottom-label-${row.stage.key}`,
+        label: row.stage.label,
+        shortLabel: getPrintPhaseShortLabel(row.stage),
+        y: row.labelY,
+      })),
+    ],
+    topRects: topRows.flatMap((row) => row.rects),
+    bottomRects: bottomRows.flatMap((row) => row.rects),
+    finalRect,
+    lines: [...topLines, ...bottomLines, ...finalLines],
+  };
+};
+
 export function PlayoffBracketView({
   torneo,
   partidos = [],
   jornadas = [],
   projectedStandings = [],
   isLoading = false,
+  layoutMode = "default",
 }) {
   const stages = useMemo(
     () => buildBracketStages({ torneo, partidos, jornadas, projectedStandings }),
     [torneo, partidos, jornadas, projectedStandings]
   );
   const geometry = useMemo(() => buildBracketGeometry(stages), [stages]);
+  const printGeometry = useMemo(() => buildPrintBracketGeometry(stages), [stages]);
 
   if (isLoading) {
     return (
@@ -598,6 +813,90 @@ export function PlayoffBracketView({
           <strong>Cuadro final no disponible</strong>
           <span>La fase final se mostrara cuando exista liguilla o repechaje configurado.</span>
         </EmptyBracket>
+      </BracketShell>
+    );
+  }
+
+  if (layoutMode === "print-vertical") {
+    const renderPrintCard = (rect) => {
+      const stage = stages[rect.stageIndex];
+      const usesTeamCard = stage?.isCreated || stage?.isProjected;
+      const MatchComponent = usesTeamCard ? MatchCard : FutureMatchCard;
+      const isFinal = stage?.key === "final";
+      const displayRow = usesTeamCard
+        ? { ...rect.row, isFinal }
+        : {
+            ...rect.row,
+            isFinal,
+            slotLabels: getFutureSlotLabels({
+              stages,
+              stageIndex: rect.stageIndex,
+              matchIndex: rect.matchIndex || 0,
+            }),
+            projectedTeams: getFutureProjectedTeams({
+              stages,
+              stageIndex: rect.stageIndex,
+              matchIndex: rect.matchIndex || 0,
+            }),
+          };
+
+      return (
+        <AbsoluteMatchNode
+          key={`print-${rect.side || "final"}-${stage?.key}-${rect.row?.pair?.id || rect.localIndex || 0}`}
+          style={{
+            left: rect.x,
+            top: rect.y,
+            width: rect.width,
+            height: rect.height,
+            "--print-card-height": `${rect.height}px`,
+            "--print-team-font-size": `${clamp(rect.width * 0.07, 10.5, 16)}px`,
+            "--print-seed-font-size": `${clamp(rect.width * 0.055, 9, 12)}px`,
+            "--print-score-font-size": `${clamp(rect.width * 0.075, 11, 18)}px`,
+          }}
+        >
+          <MatchComponent row={displayRow} index={rect.matchIndex || 0} density="print" />
+        </AbsoluteMatchNode>
+      );
+    };
+
+    return (
+      <BracketShell $print>
+        <PrintBracketCanvas
+          className="print-vertical-bracket"
+          style={{
+            width: printGeometry.width,
+            height: printGeometry.height,
+            "--print-card-height": `${printGeometry.cardHeight}px`,
+          }}
+        >
+          <PrintPhaseHeader aria-label="Fases del cuadro">
+            {printGeometry.labels.map((label) => (
+              <div key={label.key} style={{ top: label.y }}>
+                <span>{label.shortLabel}</span>
+                <strong>{label.label}</strong>
+              </div>
+            ))}
+          </PrintPhaseHeader>
+
+          <BracketLines viewBox={`0 0 ${printGeometry.width} ${printGeometry.height}`} aria-hidden="true">
+            {printGeometry.lines.map((segment, index) => (
+              <line
+                key={`print-line-${index}`}
+                className="line-base"
+                pathLength="1"
+                x1={segment.x1}
+                y1={segment.y1}
+                x2={segment.x2}
+                y2={segment.y2}
+                style={{ "--line-index": index }}
+              />
+            ))}
+          </BracketLines>
+
+          {printGeometry.topRects.map(renderPrintCard)}
+          {printGeometry.finalRect?.row && renderPrintCard({ ...printGeometry.finalRect, side: "final", localIndex: 0 })}
+          {printGeometry.bottomRects.map(renderPrintCard)}
+        </PrintBracketCanvas>
       </BracketShell>
     );
   }
@@ -741,20 +1040,23 @@ export function PlayoffBracketView({
 }
 
 const BracketShell = styled.section`
-  --bracket-primary: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
-  --bracket-primary-soft: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
-  --bracket-surface: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards};
-  --bracket-item: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bgtotal};
-  --bracket-border: ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
-  --bracket-muted: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
+  --bracket-primary: ${({ $print, theme }) => ($print ? "#0284c7" : theme.tournamentDashboard?.primary || theme.primary)};
+  --bracket-primary-soft: ${({ $print, theme }) => ($print ? "#e0f2fe" : theme.tournamentDashboard?.primarySoft || theme.bg6)};
+  --bracket-surface: ${({ $print, theme }) => ($print ? "#ffffff" : theme.tournamentDashboard?.surface || theme.bgcards)};
+  --bracket-item: ${({ $print, theme }) => ($print ? "#ffffff" : theme.tournamentDashboard?.itemSurface || theme.bgtotal)};
+  --bracket-border: ${({ $print, theme }) => ($print ? "#38bdf8" : theme.tournamentDashboard?.border || theme.color2)};
+  --bracket-muted: ${({ $print, theme }) => ($print ? "#9ca3af" : theme.tournamentDashboard?.muted || theme.colorSubtitle)};
   width: 100%;
-  max-width: 1180px;
-  margin: 0 auto 22px;
-  border: 1px solid var(--bracket-border);
-  border-radius: 10px;
-  background:
-    radial-gradient(circle at 50% 40%, var(--bracket-primary-soft), transparent 34%),
-    var(--bracket-item);
+  max-width: ${({ $print }) => ($print ? "none" : "1180px")};
+  margin: ${({ $print }) => ($print ? "0" : "0 auto 22px")};
+  border: ${({ $print }) => ($print ? "0" : "1px solid var(--bracket-border)")};
+  border-radius: ${({ $print }) => ($print ? "0" : "10px")};
+  background: ${({ $print }) => ($print
+    ? "transparent"
+    : `
+      radial-gradient(circle at 50% 40%, var(--bracket-primary-soft), transparent 34%),
+      var(--bracket-item)
+    `)};
   overflow: hidden;
 
   @keyframes bracketLineDraw {
@@ -961,6 +1263,75 @@ const AbsoluteMatchNode = styled.div`
   > article,
   > div {
     height: 100%;
+  }
+`;
+
+const PrintBracketCanvas = styled.div`
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
+  overflow: visible;
+
+  ${BracketLines} {
+    z-index: 1;
+
+    .line-base {
+      stroke: #0284c7;
+      stroke-width: 3.4;
+      opacity: 0.9;
+      stroke-dasharray: none;
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+  }
+
+  ${AbsoluteMatchNode} {
+    z-index: 2;
+  }
+
+`;
+
+const PrintPhaseHeader = styled.div`
+  position: absolute;
+  inset: 0 0 auto;
+  height: ${PRINT_HEADER_HEIGHT}px;
+  z-index: 3;
+
+  > div {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    line-height: 1;
+  }
+
+  span {
+    min-height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--bracket-primary-soft);
+    color: var(--bracket-primary);
+    padding: 0 7px;
+    font-size: 0.68rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  strong {
+    min-width: 0;
+    color: #0f172a;
+    font-size: 0.84rem;
+    font-weight: 950;
+    line-height: 1.08;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 `;
 
@@ -1343,21 +1714,21 @@ const FutureMatchShell = styled.div`
   gap: 3px;
   height: 100%;
   align-content: center;
-  padding: 6px;
-  border-radius: 7px;
+  padding: ${({ $density }) => ($density === "print" ? "7px" : "6px")};
+  border-radius: ${({ $density }) => ($density === "print" ? "6px" : "7px")};
   border: 1px dashed var(--bracket-border);
   background: var(--bracket-surface);
   opacity: 0.9;
 
   span {
-    min-height: 21px;
+    min-height: ${({ $density }) => ($density === "print" ? "calc((var(--print-card-height, 76px) - 24px) / 2)" : "21px")};
     display: flex;
     align-items: center;
-    padding: 0 7px;
-    border-radius: 6px;
+    padding: ${({ $density }) => ($density === "print" ? "0 9px" : "0 7px")};
+    border-radius: ${({ $density }) => ($density === "print" ? "5px" : "6px")};
     background: var(--bracket-item);
     color: var(--bracket-muted);
-    font-size: 0.66rem;
+    font-size: ${({ $density }) => ($density === "print" ? "var(--print-team-font-size, 13px)" : "0.66rem")};
     font-weight: 850;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1365,7 +1736,7 @@ const FutureMatchShell = styled.div`
   }
 
   span.projected {
-    color: color-mix(in srgb, ${({ theme }) => theme.text} 46%, transparent);
+    color: ${({ $density, theme }) => ($density === "print" ? "#9ca3af" : `color-mix(in srgb, ${theme.text} 46%, transparent)`)};
     border: 1px dashed color-mix(in srgb, var(--bracket-border) 78%, transparent);
     background: color-mix(in srgb, var(--bracket-item) 64%, transparent);
     font-style: italic;
@@ -1374,11 +1745,11 @@ const FutureMatchShell = styled.div`
 
 const MatchNumberBadge = styled.small`
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: ${({ $density }) => ($density === "print" ? "-12px" : "-8px")};
+  right: ${({ $density }) => ($density === "print" ? "-12px" : "-8px")};
   z-index: 4;
-  min-width: 22px;
-  height: 22px;
+  min-width: ${({ $density }) => ($density === "print" ? "28px" : "22px")};
+  height: ${({ $density }) => ($density === "print" ? "28px" : "22px")};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1387,7 +1758,7 @@ const MatchNumberBadge = styled.small`
   border: 1px solid var(--bracket-primary);
   background: var(--bracket-item);
   color: var(--bracket-primary);
-  font-size: 0.62rem;
+  font-size: ${({ $density }) => ($density === "print" ? "0.82rem" : "0.62rem")};
   font-weight: 950;
   line-height: 1;
   box-shadow: 0 0 10px color-mix(in srgb, var(--bracket-primary) 44%, transparent);
@@ -1396,29 +1767,47 @@ const MatchNumberBadge = styled.small`
 const MatchCardShell = styled.article`
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) ${({ $withBreakdown }) => ($withBreakdown ? "88px" : "0")};
-  gap: ${({ $withBreakdown }) => ($withBreakdown ? "8px" : "0")};
+  grid-template-columns: ${({ $density, $withBreakdown }) => (
+    $withBreakdown
+      ? `minmax(0, 1fr) ${$density === "print" ? "54px" : "88px"}`
+      : "minmax(0, 1fr) 0"
+  )};
+  gap: ${({ $density, $withBreakdown }) => ($withBreakdown ? ($density === "print" ? "6px" : "8px") : "0")};
   align-items: stretch;
   min-height: 100%;
   height: 100%;
-  padding: 8px;
-  border-radius: 8px;
+  padding: ${({ $density }) => ($density === "print" ? "8px" : "8px")};
+  border-radius: ${({ $density }) => ($density === "print" ? "6px" : "8px")};
   border: 1px solid ${({ $complete }) => ($complete ? "var(--bracket-primary)" : "var(--bracket-border)")};
   background: var(--bracket-surface);
-  color: ${({ theme }) => theme.text};
+  color: ${({ $density, theme }) => ($density === "print" ? "#9ca3af" : theme.text)};
 
   .team-row {
-    min-height: 38px;
+    min-height: ${({ $density }) => ($density === "print" ? "calc((var(--print-card-height, 76px) - 24px) / 2)" : "38px")};
     display: grid;
-    grid-template-columns: 34px 30px minmax(0, 1fr) 28px;
+    grid-template-columns: ${({ $density }) => ($density === "print" ? "34px 0 minmax(0, 1fr) 36px" : "34px 30px minmax(0, 1fr) 28px")};
     align-items: center;
-    gap: 7px;
-    border-radius: 7px;
-    padding: 4px 6px;
+    gap: ${({ $density }) => ($density === "print" ? "7px" : "7px")};
+    border-radius: ${({ $density }) => ($density === "print" ? "6px" : "7px")};
+    padding: ${({ $density }) => ($density === "print" ? "5px 9px" : "4px 6px")};
   }
 
   .team-row.winner {
-    background: var(--bracket-primary-soft);
+    background: transparent;
+  }
+
+  .team-row.winner .seed {
+    color: #0369a1;
+  }
+
+  .team-row.winner .name,
+  .team-row.winner strong {
+    font-weight: 950;
+    color: ${({ $density, theme }) => ($density === "print" ? "#0f172a" : theme.text)};
+  }
+
+  .team-row.winner strong {
+    font-size: ${({ $density }) => ($density === "print" ? "calc(var(--print-score-font-size, 15px) + 2px)" : "0.95rem")};
   }
 
   .team-row.empty {
@@ -1427,17 +1816,18 @@ const MatchCardShell = styled.article`
 
   .seed {
     color: var(--bracket-primary);
-    font-size: 0.76rem;
+    font-size: ${({ $density }) => ($density === "print" ? "var(--print-seed-font-size, 10px)" : "0.76rem")};
     font-weight: 950;
     text-align: center;
   }
 
   .logo {
-    width: 28px;
-    height: 28px;
+    width: ${({ $density }) => ($density === "print" ? "0" : "28px")};
+    height: ${({ $density }) => ($density === "print" ? "0" : "28px")};
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
   }
 
   img {
@@ -1458,14 +1848,14 @@ const MatchCardShell = styled.article`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.78rem;
+    font-size: ${({ $density }) => ($density === "print" ? "var(--print-team-font-size, 13px)" : "0.78rem")};
     font-weight: 850;
   }
 
   .team-row strong {
     text-align: center;
-    color: ${({ theme }) => theme.text};
-    font-size: 0.9rem;
+    color: ${({ $density, theme }) => ($density === "print" ? "#9ca3af" : theme.text)};
+    font-size: ${({ $density }) => ($density === "print" ? "var(--print-score-font-size, 15px)" : "0.9rem")};
     font-weight: 950;
   }
 
@@ -1485,29 +1875,29 @@ const LegBreakdown = styled.div`
   min-width: 0;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px;
+  gap: ${({ $density }) => ($density === "print" ? "3px" : "4px")};
 
   span {
     min-width: 0;
     display: grid;
     place-items: center;
     gap: 1px;
-    padding: 4px;
-    border-radius: 7px;
+    padding: ${({ $density }) => ($density === "print" ? "3px" : "4px")};
+    border-radius: ${({ $density }) => ($density === "print" ? "5px" : "7px")};
     background: var(--bracket-item);
     border: 1px solid var(--bracket-border);
   }
 
   small {
     color: var(--bracket-muted);
-    font-size: 0.54rem;
+    font-size: ${({ $density }) => ($density === "print" ? "9px" : "0.54rem")};
     font-weight: 900;
     line-height: 1;
   }
 
   strong {
-    color: ${({ theme }) => theme.text};
-    font-size: 0.7rem;
+    color: ${({ $density, theme }) => ($density === "print" ? "#0f172a" : theme.text)};
+    font-size: ${({ $density }) => ($density === "print" ? "11px" : "0.7rem")};
     font-weight: 950;
     line-height: 1.1;
   }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
@@ -7,6 +7,99 @@ import { ExportPreviewHeader } from "../shared/ExportPreviewHeader";
 import { TournamentSummaryA4 } from "./TournamentSummaryA4";
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { v } from "../../../../../../styles/variables";
+import {
+    buildTorneoStandingsSnapshot,
+    getStandingsViewStorageKey,
+} from "../../../../../../hooks/useTorneoStandingsLogic";
+
+const A4_PAGE_WIDTH_MM = 210;
+const A4_PAGE_HEIGHT_MM = 297;
+const EXPORT_CAPTURE_CLASS = "summary-pdf-exporting";
+const EXPORT_PAGE_SELECTOR = "#print-portal-root .print-page";
+const INDEX_LINK_SELECTOR = ".index-page-number[data-target-page]";
+const IMAGE_PLACEHOLDER =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+
+const waitForNextPaint = () =>
+    new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+
+const withTimeout = (promise, milliseconds, message) =>
+    Promise.race([
+        promise,
+        new Promise((_, reject) => {
+            window.setTimeout(() => reject(new Error(message)), milliseconds);
+        })
+    ]);
+
+const waitForImages = async (root) => {
+    const images = Array.from(root.querySelectorAll("img"));
+
+    await Promise.all(
+        images.map((image) => {
+            if (image.complete) return Promise.resolve();
+
+            return Promise.race([
+                new Promise((resolve) => {
+                    image.addEventListener("load", resolve, { once: true });
+                    image.addEventListener("error", resolve, { once: true });
+                }),
+                new Promise((resolve) => {
+                    window.setTimeout(resolve, 2500);
+                })
+            ]);
+        })
+    );
+};
+
+const capturePageAsJpeg = async (toJpeg, page, pageNumber) => {
+    const baseOptions = {
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        imagePlaceholder: IMAGE_PLACEHOLDER,
+        skipFonts: true
+    };
+
+    try {
+        return await withTimeout(
+            toJpeg(page, {
+                ...baseOptions,
+                pixelRatio: 1.6,
+                quality: 0.94
+            }),
+            10000,
+            `Tiempo de espera agotado capturando la pagina ${pageNumber}.`
+        );
+    } catch (error) {
+        console.warn(`Reintentando captura de la pagina ${pageNumber} en calidad ligera.`, error);
+        return withTimeout(
+            toJpeg(page, {
+                ...baseOptions,
+                pixelRatio: 1.15,
+                quality: 0.9
+            }),
+            8000,
+            `No se pudo capturar la pagina ${pageNumber}.`
+        );
+    }
+};
+
+const formatFilePart = (value, fallback) => {
+    const normalized = `${value || ""}`
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, " ")
+        .trim();
+
+    if (!normalized) return fallback;
+
+    return normalized
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join("");
+};
 
 export const TournamentSummaryModal = ({ 
     isOpen, 
@@ -17,7 +110,7 @@ export const TournamentSummaryModal = ({
     partidos, 
     allTournamentJornadas, 
     tournamentFinalResults, 
-    stats 
+    stats
 }) => {
     const theme = useTheme();
 
@@ -25,11 +118,28 @@ export const TournamentSummaryModal = ({
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [previewScale, setPreviewScale] = useState(0.8);
     const [loading, setLoading] = useState(true);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const [pdfGenerationLabel, setPdfGenerationLabel] = useState("");
+    const [pdfGenerationProgress, setPdfGenerationProgress] = useState(0);
     const [metaInfo, setMetaInfo] = useState({
         league: "",
         division: "",
         leagueLogo: null
     });
+    const summaryStandings = useMemo(() => {
+        const selectedJornadaView =
+            typeof window !== "undefined" && activeTournament?.id
+                ? localStorage.getItem(getStandingsViewStorageKey(activeTournament.id)) || "recent"
+                : "recent";
+
+        return buildTorneoStandingsSnapshot({
+            torneo: activeTournament,
+            equipos: participatingTeams,
+            partidos,
+            jornadasProp: allTournamentJornadas,
+            selectedJornadaView,
+        }).tablaGeneral || [];
+    }, [activeTournament, participatingTeams, partidos, allTournamentJornadas]);
 
     const fetchMetaInfo = useCallback(async () => {
         setLoading(true);
@@ -119,8 +229,136 @@ export const TournamentSummaryModal = ({
         return () => window.removeEventListener("resize", calculateScale);
     }, [isOpen]);
 
-    const handlePrint = () => {
-        window.print();
+    const handlePrint = async () => {
+        if (loading || isGeneratingPdf) return;
+
+        setIsGeneratingPdf(true);
+        setPdfGenerationLabel("Preparando PDF...");
+        setPdfGenerationProgress(4);
+        document.body.classList.add(EXPORT_CAPTURE_CLASS);
+
+        try {
+            await waitForNextPaint();
+
+            const root = document.getElementById("print-portal-root");
+            const pages = Array.from(document.querySelectorAll(EXPORT_PAGE_SELECTOR));
+
+            if (!root || !pages.length) {
+                throw new Error("No se encontro el contenido del resumen para exportar.");
+            }
+
+            if (document.fonts?.ready) {
+                setPdfGenerationLabel("Cargando fuentes...");
+                setPdfGenerationProgress(10);
+                try {
+                    await withTimeout(document.fonts.ready, 3000, "Tiempo de espera agotado cargando fuentes.");
+                } catch (error) {
+                    console.warn("Se continuo la generacion del PDF sin esperar mas por las fuentes.", error);
+                }
+            }
+
+            setPdfGenerationLabel("Cargando imagenes...");
+            setPdfGenerationProgress(16);
+            try {
+                await withTimeout(waitForImages(root), 5000, "Tiempo de espera agotado cargando imagenes del resumen.");
+            } catch (error) {
+                console.warn("Se continuo la generacion del PDF sin esperar mas por las imagenes.", error);
+            }
+            await waitForNextPaint();
+
+            setPdfGenerationLabel("Preparando motor PDF...");
+            setPdfGenerationProgress(22);
+            const [{ toJpeg }, { jsPDF }] = await Promise.all([
+                import("html-to-image"),
+                import("jspdf")
+            ]);
+
+            const pdf = new jsPDF({
+                orientation: "portrait",
+                unit: "mm",
+                format: "a4",
+                compress: true
+            });
+            const indexLinks = [];
+
+            for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+                const page = pages[pageIndex];
+                const currentPageNumber = pageIndex + 1;
+                setPdfGenerationLabel(`Pagina ${currentPageNumber}/${pages.length}`);
+                setPdfGenerationProgress(25 + Math.round((pageIndex / pages.length) * 66));
+
+                if (pageIndex > 0) {
+                    pdf.addPage("a4", "portrait");
+                }
+
+                const image = await capturePageAsJpeg(toJpeg, page, currentPageNumber);
+
+                pdf.addImage(
+                    image,
+                    "JPEG",
+                    0,
+                    0,
+                    A4_PAGE_WIDTH_MM,
+                    A4_PAGE_HEIGHT_MM,
+                    `summary-page-${pageIndex + 1}`,
+                    "FAST"
+                );
+
+                if (page.classList.contains("index-page")) {
+                    const pageRect = page.getBoundingClientRect();
+                    const pageLinks = Array.from(page.querySelectorAll(INDEX_LINK_SELECTOR));
+
+                    pageLinks.forEach((link) => {
+                        const targetPage = Number(link.dataset.targetPage);
+                        if (!Number.isFinite(targetPage) || targetPage < 1 || targetPage > pages.length) return;
+
+                        const linkRect = link.getBoundingClientRect();
+                        indexLinks.push({
+                            sourcePage: pageIndex + 1,
+                            targetPage,
+                            x: ((linkRect.left - pageRect.left) / pageRect.width) * A4_PAGE_WIDTH_MM,
+                            y: ((linkRect.top - pageRect.top) / pageRect.height) * A4_PAGE_HEIGHT_MM,
+                            w: (linkRect.width / pageRect.width) * A4_PAGE_WIDTH_MM,
+                            h: (linkRect.height / pageRect.height) * A4_PAGE_HEIGHT_MM
+                        });
+                    });
+                }
+            }
+
+            setPdfGenerationLabel("Activando indice...");
+            setPdfGenerationProgress(94);
+            indexLinks.forEach((link) => {
+                pdf.setPage(link.sourcePage);
+                pdf.link(link.x, link.y, link.w, link.h, {
+                    pageNumber: link.targetPage,
+                    magFactor: "Fit"
+                });
+            });
+
+            const leagueFilePart = formatFilePart(
+                metaInfo.league,
+                "Liga"
+            );
+            const tournamentFilePart = formatFilePart(
+                activeTournament?.name || activeTournament?.nombre || activeTournament?.tournament_name,
+                "Torneo"
+            );
+            const divisionFilePart = formatFilePart(
+                metaInfo.division,
+                "Division"
+            );
+            setPdfGenerationLabel("Descargando...");
+            setPdfGenerationProgress(100);
+            pdf.save(`${leagueFilePart}_${tournamentFilePart}_${divisionFilePart}_Final.pdf`);
+        } catch (error) {
+            console.error("Error generating tournament summary PDF:", error);
+            window.print();
+        } finally {
+            document.body.classList.remove(EXPORT_CAPTURE_CLASS);
+            setIsGeneratingPdf(false);
+            setPdfGenerationLabel("");
+            setPdfGenerationProgress(0);
+        }
     };
 
     const renderConfigControls = () => (
@@ -130,7 +368,7 @@ export const TournamentSummaryModal = ({
             isMobile={false}
             setIsMobile={() => {}}
             onExport={handlePrint}
-            isExporting={false}
+            isExporting={isGeneratingPdf}
             showExportAction={false}
             showInfo={false}
             inactiveFormatLabel="Impresion"
@@ -194,8 +432,7 @@ export const TournamentSummaryModal = ({
                             style={{
                                 width: exportWidth * previewScale,
                                 height: exportHeight * previewScale,
-                                overflow: "hidden",
-                                transition: "width 260ms ease, height 260ms ease"
+                                overflow: "hidden"
                             }}
                         >
                             <div
@@ -217,6 +454,7 @@ export const TournamentSummaryModal = ({
                                     allTournamentJornadas={allTournamentJornadas}
                                     tournamentFinalResults={tournamentFinalResults}
                                     stats={stats}
+                                    standings={summaryStandings}
                                     metaInfo={metaInfo}
                                     themeMode={isDarkExport ? "dark" : "light"}
                                 />
@@ -229,9 +467,17 @@ export const TournamentSummaryModal = ({
                     <button type="button" className="cancel-btn" onClick={onClose}>
                         Cancelar
                     </button>
-                    <PrintButton onClick={handlePrint} disabled={loading}>
-                        <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" height="1.2em" width="1.2em" xmlns="http://www.w3.org/2000/svg"><path d="M16 3H8v2h8V3zm3 4H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-1 11H6v-5h12v5zm2-6.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"></path></svg>
-                        Imprimir / Guardar PDF
+                    <PrintButton
+                        onClick={handlePrint}
+                        disabled={loading || isGeneratingPdf}
+                        $generating={isGeneratingPdf}
+                        $progress={isGeneratingPdf ? pdfGenerationProgress : 100}
+                        aria-label={isGeneratingPdf ? `${pdfGenerationLabel || "Generando PDF"} ${pdfGenerationProgress}%` : "Descargar PDF"}
+                    >
+                        <span className="button-content">
+                            <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" height="1.2em" width="1.2em" xmlns="http://www.w3.org/2000/svg"><path d="M16 3H8v2h8V3zm3 4H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-1 11H6v-5h12v5zm2-6.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"></path></svg>
+                            {isGeneratingPdf ? (pdfGenerationLabel || "Generando PDF...") : "Descargar PDF"}
+                        </span>
                     </PrintButton>
                 </ModalFooter>
 
@@ -246,6 +492,7 @@ export const TournamentSummaryModal = ({
                             allTournamentJornadas={allTournamentJornadas}
                             tournamentFinalResults={tournamentFinalResults}
                             stats={stats}
+                            standings={summaryStandings}
                             metaInfo={metaInfo}
                             themeMode={isDarkExport ? "dark" : "light"}
                         />
@@ -258,6 +505,24 @@ export const TournamentSummaryModal = ({
             <style>{`
                 #print-portal-root {
                     display: none;
+                }
+
+                body.${EXPORT_CAPTURE_CLASS} #print-portal-root {
+                    display: block !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    transform: translateX(-120vw) !important;
+                    width: 794px !important;
+                    background: #ffffff !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    pointer-events: none !important;
+                    z-index: 0 !important;
+                }
+
+                body.${EXPORT_CAPTURE_CLASS} #print-portal-root .print-page {
+                    box-shadow: none !important;
                 }
 
                 @media print {
@@ -330,8 +595,7 @@ const PreviewWrapper = styled.div`
         box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
         border-radius: 8px;
         background: transparent;
-        transition: width 260ms ease, height 260ms ease, box-shadow 220ms ease;
-        will-change: width, height;
+        transition: box-shadow 220ms ease;
     }
 
     .scale-box,
@@ -410,17 +674,19 @@ const FloatingConfigPanel = styled.div`
         position: absolute;
         top: 0;
         right: 48px;
-        width: ${({ $open }) => ($open ? "292px" : "0")};
+        width: 292px;
         max-width: 292px;
         height: 42px;
         overflow: hidden;
         opacity: ${({ $open }) => ($open ? 1 : 0)};
+        transform: scaleX(${({ $open }) => ($open ? 1 : 0)});
+        transform-origin: right center;
         pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
         border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4 || "#444"};
         border-radius: 14px;
         background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg || "#111"};
         box-shadow: ${({ $open }) => ($open ? "0 14px 34px rgba(0, 0, 0, 0.14)" : "none")};
-        transition: width 0.22s ease, opacity 0.18s ease, box-shadow 0.22s ease;
+        transition: transform 0.22s ease, opacity 0.18s ease, box-shadow 0.22s ease;
 
         > div {
             border-bottom: 0;
@@ -483,13 +749,38 @@ const PrintButton = styled.button`
     padding: 9px 20px;
     border-radius: 12px;
     border: none;
-    background: ${v.colorPrincipal};
+    background: ${({ $generating }) => ($generating ? "#075985" : v.colorPrincipal)};
     color: #fff;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 800;
-    transition: filter 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    transition: filter 0.2s ease, background 0.2s ease;
     flex: 1 1 0;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: ${v.colorPrincipal};
+        transform: scaleX(${({ $progress = 100 }) => Math.max(0, Math.min(100, $progress)) / 100});
+        transform-origin: left center;
+        transition: transform 220ms ease;
+    }
+
+    .button-content {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 0;
+        white-space: nowrap;
+    }
     
     @media (min-width: 521px) {
         flex: none;
@@ -500,7 +791,7 @@ const PrintButton = styled.button`
     }
     
     &:disabled {
-        opacity: 0.6;
+        opacity: ${({ $generating }) => ($generating ? 1 : 0.6)};
         cursor: not-allowed;
     }
 `;

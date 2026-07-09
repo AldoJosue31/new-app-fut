@@ -58,6 +58,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
@@ -193,12 +194,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     if (isOpen && match?.id) {
       resetModalState();
       setLoading(true);
+      setIsSaving(false);
       isSavingRef.current = false;
       fetchAllData(requestId);
       return;
     }
 
     isSavingRef.current = false;
+    setIsSaving(false);
     setLoading(false);
     resetModalState();
   }, [isOpen, match?.id, resetModalState]);
@@ -541,7 +544,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
   const handleFinalSave = async () => {
     if (isSavingRef.current) return;
-    isSavingRef.current = true; setLoading(true);
+    isSavingRef.current = true;
+    setIsSaving(true);
+    setLoading(true);
 
     try {
       const matchId = Number(match.id);
@@ -620,18 +625,18 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       onClose();
     } catch (e) {
       setToastConfig({ show: true, message: "Error al guardar: " + (e?.message || e), type: "error" });
-    } finally { setLoading(false); isSavingRef.current = false; }
+    } finally { setLoading(false); setIsSaving(false); isSavingRef.current = false; }
   };
 
   if (!isOpen || !match) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} width="950px" title="Definir Resultado" closeOnOverlayClick={false}>
+    <Modal isOpen={isOpen} onClose={isSaving ? undefined : onClose} width="950px" title="Definir Resultado" closeOnOverlayClick={false}>
       <Container>
         <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} />
 
         {loading ? (
-            <LoadingState>Procesando datos...</LoadingState>
+            <LoadingState>{isSaving ? "Guardando resultado..." : "Procesando datos..."}</LoadingState>
         ) : (
             <>
                 <TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -689,13 +694,13 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         )}
 
         <Footer>
-          <BtnNormal titulo="Cancelar" funcion={onClose} />
+          <BtnNormal titulo="Cancelar" funcion={onClose} disabled={isSaving} />
           <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading} />
         </Footer>
       </Container>
 
       {showConfirm && (
-         <ConfirmResultOverlay match={match} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
+         <ConfirmResultOverlay match={match} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading || isSaving} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
       )}
 
       <ToastContainerFix>

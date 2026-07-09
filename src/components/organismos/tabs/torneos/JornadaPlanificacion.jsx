@@ -137,6 +137,7 @@ export function JornadaPlanificacion({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
+  const [savingResultMatchId, setSavingResultMatchId] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -386,6 +387,30 @@ export function JornadaPlanificacion({
     setMatchToResolve(match);
     setResolutionModalOpen(true);
   };
+
+  const handleCloseResultModal = useCallback(() => {
+    if (savingResultMatchId) return;
+    setResultModalOpen(false);
+    setSelectedMatchResult(null);
+  }, [savingResultMatchId]);
+
+  const handleOpenResultModal = useCallback((selected) => {
+    if (savingResultMatchId) return;
+    setSelectedMatchResult(selected);
+    setResultModalOpen(true);
+  }, [savingResultMatchId]);
+
+  const handleSaveResult = useCallback(
+    async (id, updates) => {
+      setSavingResultMatchId(id);
+      try {
+        await onMatchUpdate?.(id, updates);
+      } finally {
+        setSavingResultMatchId(null);
+      }
+    },
+    [onMatchUpdate]
+  );
 
   const handleResolveMatch = (resolution) => {
     if (!matchToResolve) return;
@@ -893,10 +918,7 @@ export function JornadaPlanificacion({
                                 },
                               ]);
                             }}
-                            onOpenResult={(selected) => {
-                              setSelectedMatchResult(selected);
-                              setResultModalOpen(true);
-                            }}
+                            onOpenResult={handleOpenResultModal}
                             onPostpone={(selected) => setMatchToPostpone(selected)}
                             isRepositionMode={isRepositionMode}
                             currentJornadaNumber={currentJornadaNumber}
@@ -970,10 +992,10 @@ export function JornadaPlanificacion({
 
       <ResultModal
         isOpen={resultModalOpen}
-        onClose={() => setResultModalOpen(false)}
+        onClose={handleCloseResultModal}
         match={selectedMatchResult}
         activeTournament={activeTournament}
-        onSave={async (id, updates) => await onMatchUpdate?.(id, updates)}
+        onSave={handleSaveResult}
       />
 
       <ConflictModal
