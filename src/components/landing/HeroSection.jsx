@@ -136,61 +136,65 @@ export default function HeroSection() {
             >
               <div className="inner-glow" />
 
-              {/* VENTANA APP */}
-              <AppWindow>
-                <div className="win-bar">
-                  <span className="dot c" /><span className="dot m" /><span className="dot x" />
-                  <span className="win-title">Bracket App &middot; Liga Municipal 2025</span>
+              {/* GRUPO FLOTANTE UNIFICADO */}
+              <FloatingGroup>
+                {/* VENTANA APP */}
+                <AppWindow>
+                  <div className="win-bar">
+                    <span className="dot c" /><span className="dot m" /><span className="dot x" />
+                    <span className="win-title">Bracket App &middot; Liga Municipal 2025</span>
+                  </div>
+
+                  <TabRow>
+                    {TABS.map((tab, i) => (
+                      <TabBtn
+                        key={tab}
+                        active={activeTab === i ? "true" : undefined}
+                        onClick={() => setActiveTab(i)}
+                        id={`hero-tab-${tab.toLowerCase()}`}
+                      >
+                        {i === 0 ? "🏆" : "⚽"} {tab}
+                      </TabBtn>
+                    ))}
+                  </TabRow>
+
+                  <TabContent $noPadding={activeTab === 0}>
+                    {activeTab === 0 ? (
+                      <div className="hero-table-wrapper" style={{ width: "100%", overflowX: "hidden" }}>
+                        <RealStandingsTable tablaGeneral={STANDINGS} config={tableConfig} isPublic={true} hideBottomInfo={true} />
+                      </div>
+                    ) : (
+                      <ScorersList>
+                        {SCORERS.map((s, i) => (
+                          <ScorerRow key={s.name} isfirst={i === 0 ? "true" : undefined}>
+                            <RankBadge rank={i + 1}>{i + 1}</RankBadge>
+                            <Avatar avatarcolor={s.color}>{s.initials}</Avatar>
+                            <ScorerInfo>
+                              <span className="name">{s.name}</span>
+                              <span className="team">{s.team}</span>
+                            </ScorerInfo>
+                            <GoalCount>
+                              <span className="num">{s.goals}</span>
+                              <span className="icon"><Icon icon="mdi:soccer" /></span>
+                            </GoalCount>
+                          </ScorerRow>
+                        ))}
+                      </ScorersList>
+                    )}
+                  </TabContent>
+                </AppWindow>
+
+                <div className="hero-toast-wrapper">
+                  <Toast 
+                    inline={true}
+                    show={true} 
+                    message="Jornada 12 cerrada con éxito" 
+                    type="success" 
+                    duration={9999999} 
+                    onClose={() => {}} 
+                  />
                 </div>
-
-                <TabRow>
-                  {TABS.map((tab, i) => (
-                    <TabBtn
-                      key={tab}
-                      active={activeTab === i ? "true" : undefined}
-                      onClick={() => setActiveTab(i)}
-                      id={`hero-tab-${tab.toLowerCase()}`}
-                    >
-                      {i === 0 ? "🏆" : "⚽"} {tab}
-                    </TabBtn>
-                  ))}
-                </TabRow>
-
-                <TabContent $noPadding={activeTab === 0}>
-                  {activeTab === 0 ? (
-                    <div className="hero-table-wrapper" style={{ width: "100%", overflowX: "hidden" }}>
-                      <RealStandingsTable tablaGeneral={STANDINGS} config={tableConfig} isPublic={true} hideBottomInfo={true} />
-                    </div>
-                  ) : (
-                    <ScorersList>
-                      {SCORERS.map((s, i) => (
-                        <ScorerRow key={s.name} isfirst={i === 0 ? "true" : undefined}>
-                          <RankBadge rank={i + 1}>{i + 1}</RankBadge>
-                          <Avatar avatarcolor={s.color}>{s.initials}</Avatar>
-                          <ScorerInfo>
-                            <span className="name">{s.name}</span>
-                            <span className="team">{s.team}</span>
-                          </ScorerInfo>
-                          <GoalCount>
-                            <span className="num">{s.goals}</span>
-                            <span className="icon"><Icon icon="mdi:soccer" /></span>
-                          </GoalCount>
-                        </ScorerRow>
-                      ))}
-                    </ScorersList>
-                  )}
-                </TabContent>
-              </AppWindow>
-
-              <div className="hero-toast-wrapper">
-                <Toast 
-                  show={true} 
-                  message="Jornada 12 cerrada con éxito" 
-                  type="success" 
-                  duration={9999999} 
-                  onClose={() => {}} 
-                />
-              </div>
+              </FloatingGroup>
             </VisualContainer>
           </RightColumn>
         </HeroGrid>
@@ -284,14 +288,31 @@ const HeroWrapper = styled.section`
   position: relative;
   min-height: 100vh;
   
+  .hero-toast-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
   .hero-toast-wrapper > div {
-    position: absolute !important;
-    top: auto !important;
-    bottom: -20px !important;
-    left: -30px !important;
-    right: auto !important;
-    z-index: 10 !important;
+    top: -35px !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: -45px !important;
     min-width: 260px !important;
+    box-shadow: 0 16px 32px rgba(0,0,0,0.4) !important;
+    pointer-events: auto;
+    
+    @media (max-width: 768px) {
+      top: -25px !important;
+      right: -15px !important;
+      left: auto !important;
+      transform: none !important;
+      bottom: auto !important;
+      width: max-content !important;
+      max-width: 90% !important;
+    }
   }
 
   .hero-table-wrapper #standings-table-card {
@@ -439,9 +460,10 @@ const StatsGroup = styled.div`
   gap: 36px;
   padding-top: 32px;
   border-top: 1px solid var(--lp-border);
+  flex-wrap: wrap;
 
   @media (max-width: 1024px) { justify-content: center; }
-  @media (max-width: 480px)  { gap: 24px; }
+  @media (max-width: 480px)  { gap: 24px; padding-top: 24px; }
 `;
 
 const StatItem = styled.div`
@@ -475,7 +497,12 @@ const VisualContainer = styled.div`
   position: relative;
   width: 100%;
   max-width: 650px;
+  margin: 0 auto;
   transition: transform 0.08s linear;
+
+  @media (max-width: 768px) {
+    transform: none !important; /* Disable 3D tilt on mobile for better UX/fit */
+  }
 
   .inner-glow {
     position: absolute;
@@ -486,6 +513,13 @@ const VisualContainer = styled.div`
   }
 `;
 
+const FloatingGroup = styled.div`
+  position: relative;
+  width: 100%;
+  animation: ${floatA} 8s ease-in-out infinite;
+  transform-style: preserve-3d;
+`;
+
 const AppWindow = styled.div`
   position: relative;
   z-index: 2;
@@ -494,7 +528,6 @@ const AppWindow = styled.div`
   border-radius: 20px;
   box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255,255,255,0.04);
   overflow: hidden;
-  animation: ${floatA} 8s ease-in-out infinite;
 
   .win-bar {
     display: flex;

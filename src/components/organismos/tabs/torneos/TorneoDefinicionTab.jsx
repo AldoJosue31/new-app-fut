@@ -198,6 +198,7 @@ export function TorneoDefinicionTab({
     const parsed = leagueData?.default_config ? (typeof leagueData.default_config === 'string' ? JSON.parse(leagueData.default_config) : leagueData.default_config) : {};
     return {
         minPlayers: parsed.minPlayers ?? 7,
+        minPlayersToRegister: parsed.minPlayersToRegister ?? parsed.minPlayers ?? 7,
         maxPlayers: parsed.maxPlayers ?? 25,
         maxTeams: parsed.maxTeams ?? 20,
         winPoints: parsed.winPoints ?? 3,
@@ -214,6 +215,7 @@ export function TorneoDefinicionTab({
   useEffect(() => {
     if (!activeTournament && useLeagueRules) {
         onChange({ target: { name: 'minPlayers', value: defaultLeagueConfig.minPlayers }});
+        onChange({ target: { name: 'minPlayersToRegister', value: defaultLeagueConfig.minPlayersToRegister }});
         onChange({ target: { name: 'maxPlayers', value: defaultLeagueConfig.maxPlayers }});
         onChange({ target: { name: 'maxTeams', value: defaultLeagueConfig.maxTeams }});
         onChange({ target: { name: 'winPoints', value: defaultLeagueConfig.winPoints }});
@@ -295,6 +297,7 @@ export function TorneoDefinicionTab({
         setConfigDraftForm((prev) => ({
             ...(prev || form),
             minPlayers: defaultLeagueConfig.minPlayers,
+            minPlayersToRegister: defaultLeagueConfig.minPlayersToRegister,
             maxPlayers: defaultLeagueConfig.maxPlayers,
             maxTeams: defaultLeagueConfig.maxTeams,
             winPoints: defaultLeagueConfig.winPoints,
@@ -312,7 +315,7 @@ export function TorneoDefinicionTab({
   };
 
   const templateFields = [
-      'minPlayers', 'maxPlayers', 'maxTeams', 
+      'minPlayers', 'minPlayersToRegister', 'maxPlayers', 'maxTeams', 
       'winPoints', 'drawPoints', 'lossPoints', 'tieBreakType'
   ];
 
@@ -400,8 +403,14 @@ export function TorneoDefinicionTab({
     const nextForm = configDraftForm || form;
     const nextReglas = configDraftReglas || reglas;
     const maxTeamsNum = parseInt(nextForm.maxTeams || 0);
+    const minPlayersToRegisterNum = parseInt(nextForm.minPlayersToRegister || 0);
+    const maxPlayersNum = parseInt(nextForm.maxPlayers || 0);
     if (maxTeamsNum < 2) {
         showToast("El número máximo de equipos debe ser al menos 2.", "error");
+        return;
+    }
+    if (minPlayersToRegisterNum > maxPlayersNum) {
+        showToast("El mÃ­nimo para inscribir no puede superar el mÃ¡ximo de jugadores.", "error");
         return;
     }
     Object.entries(nextForm).forEach(([name, value]) => {
@@ -1416,6 +1425,8 @@ export function TorneoDefinicionTab({
           Boolean(String(form.season || "").trim()) &&
           Boolean(form.startDate) &&
           Number(form.minPlayers) >= 2 &&
+          Number(form.minPlayersToRegister ?? 0) >= 0 &&
+          Number(form.minPlayersToRegister ?? 0) <= Number(form.maxPlayers || 0) &&
           Number(form.maxPlayers) >= Number(form.minPlayers || 0) &&
           Number(form.maxTeams) >= 2;
       const scoringReady =
@@ -1545,7 +1556,7 @@ export function TorneoDefinicionTab({
       {
           icon: <RiFootballLine />,
           title: "Plantillas",
-          detail: `Min. ${tournamentConfigForUi.minPlayers ?? form.minPlayers ?? 7} / Max. ${tournamentConfigForUi.maxPlayers ?? form.maxPlayers ?? 25} jugadores`,
+          detail: `Partido min. ${tournamentConfigForUi.minPlayers ?? form.minPlayers ?? 7} / InscripciÃ³n min. ${tournamentConfigForUi.minPlayersToRegister ?? form.minPlayersToRegister ?? tournamentConfigForUi.minPlayers ?? form.minPlayers ?? 7} / Max. ${tournamentConfigForUi.maxPlayers ?? form.maxPlayers ?? 25}`,
       },
       {
           icon: <RiTimeLine />,
@@ -2013,7 +2024,7 @@ export function TorneoDefinicionTab({
                     <TorneoDashboard
                         form={form} reglas={reglas} onEditConfig={() => setShowConfigModal(true)}
                         participatingTeams={participatingTeams} excludedTeams={excludedTeams}
-                        onInclude={onInclude} onExclude={onExclude} isLoading={isLoading} minPlayers={form.minPlayers}
+                        onInclude={onInclude} onExclude={onExclude} isLoading={isLoading} minPlayers={form.minPlayersToRegister}
                         showSummary={false}
                     />
                 </section>
