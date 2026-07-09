@@ -126,8 +126,8 @@ export default function HowItWorks() {
           </p>
         </div>
 
-        {/* ── Layout dos columnas ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px", alignItems: "start" }}>
+        {/* ── Layout responsive ── */}
+        <GridContainer>
 
           {/* ── Columna izquierda: lista de pasos ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", position: "relative", paddingLeft: "20px" }}>
@@ -389,8 +389,23 @@ export default function HowItWorks() {
               </button>
             </div>
           </div>
-        </div>
+        </GridContainer>
       </div>
     </section>
   );
 }
+
+// ─── STYLED ──────────────────────────────
+import styled from "styled-components";
+
+const GridContainer = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+    gap: 64px;
+  }
+`;

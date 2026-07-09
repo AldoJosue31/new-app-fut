@@ -277,7 +277,7 @@ const CompareGrid = styled.div`
 
   @media (max-width: 700px) {
     grid-template-columns: 1fr;
-    .compare-divider { display: none; }
+    ${CompareDivider} { display: none; }
   }
 `;
 
