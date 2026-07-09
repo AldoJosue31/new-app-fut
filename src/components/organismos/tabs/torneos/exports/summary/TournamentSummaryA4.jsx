@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 import {
     RiCheckLine,
@@ -234,6 +234,123 @@ const OutcomeIcon = ({ type }) => {
     if (type === "pending") return <RiQuestionLine aria-label="No disputado" />;
     if (type === "rest") return <RiPauseLine aria-label="Descanso" />;
     return <span aria-label="Sin partido">-</span>;
+};
+
+const SmartLeagueLogo = ({ src }) => {
+    const [renderState, setRenderState] = useState(null);
+    const currentSrc = renderState?.src || src;
+    const shouldUseCors = !renderState?.processed && !renderState?.noCorsRetry;
+
+    const handleLoad = (event) => {
+        if (renderState || !src) return;
+
+        const image = event.currentTarget;
+        const width = image.naturalWidth;
+        const height = image.naturalHeight;
+        if (!width || !height) return;
+
+        try {
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d", { willReadFrequently: true });
+            if (!context) return;
+
+            context.drawImage(image, 0, 0);
+            const { data } = context.getImageData(0, 0, width, height);
+            let minX = width;
+            let minY = height;
+            let maxX = -1;
+            let maxY = -1;
+            let transparentPixels = 0;
+            let visiblePixels = 0;
+
+            for (let y = 0; y < height; y += 1) {
+                for (let x = 0; x < width; x += 1) {
+                    const alpha = data[((y * width + x) * 4) + 3];
+                    if (alpha < 245) transparentPixels += 1;
+                    if (alpha > 24) {
+                        visiblePixels += 1;
+                        if (x < minX) minX = x;
+                        if (y < minY) minY = y;
+                        if (x > maxX) maxX = x;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            const totalPixels = width * height;
+            const transparentRatio = transparentPixels / totalPixels;
+            const contentWidth = maxX - minX + 1;
+            const contentHeight = maxY - minY + 1;
+            const contentAreaRatio = visiblePixels / totalPixels;
+            const shouldCrop =
+                transparentRatio > 0.04 &&
+                contentWidth > 0 &&
+                contentHeight > 0 &&
+                contentAreaRatio < 0.88;
+
+            if (!shouldCrop) {
+                setRenderState({
+                    src,
+                    mode: transparentRatio > 0.04 ? "transparent" : "framed",
+                    processed: true,
+                });
+                return;
+            }
+
+            const padding = Math.max(4, Math.round(Math.max(contentWidth, contentHeight) * 0.08));
+            const cropX = Math.max(0, minX - padding);
+            const cropY = Math.max(0, minY - padding);
+            const cropRight = Math.min(width, maxX + padding + 1);
+            const cropBottom = Math.min(height, maxY + padding + 1);
+            const cropWidth = cropRight - cropX;
+            const cropHeight = cropBottom - cropY;
+
+            const croppedCanvas = document.createElement("canvas");
+            croppedCanvas.width = cropWidth;
+            croppedCanvas.height = cropHeight;
+            const croppedContext = croppedCanvas.getContext("2d");
+            if (!croppedContext) return;
+
+            croppedContext.drawImage(
+                image,
+                cropX,
+                cropY,
+                cropWidth,
+                cropHeight,
+                0,
+                0,
+                cropWidth,
+                cropHeight
+            );
+
+            setRenderState({
+                src: croppedCanvas.toDataURL("image/png"),
+                mode: "cropped",
+                processed: true,
+            });
+        } catch {
+            setRenderState({ src, mode: "framed", processed: true });
+        }
+    };
+
+    const handleError = () => {
+        if (!renderState) {
+            setRenderState({ src, mode: "framed", noCorsRetry: true });
+        }
+    };
+
+    return (
+        <img
+            className={`smart-league-logo logo-${renderState?.mode || "loading"}`}
+            src={currentSrc}
+            alt="Logo Liga"
+            crossOrigin={shouldUseCors ? "anonymous" : undefined}
+            onLoad={handleLoad}
+            onError={handleError}
+        />
+    );
 };
 
 export const TournamentSummaryA4 = ({ 
@@ -559,7 +676,7 @@ export const TournamentSummaryA4 = ({
                 <div className="header">
                     <div className="logo-container">
                         {leagueLogoUrl ? (
-                            <img src={leagueLogoUrl} alt="Logo Liga" />
+                            <SmartLeagueLogo key={leagueLogoUrl} src={leagueLogoUrl} />
                         ) : (
                             <div className="logo-text">LIGA</div>
                         )}
@@ -834,18 +951,35 @@ const SummaryContainer = styled.div`
             margin-bottom: 40px;
             
             .logo-container {
-                width: 100px;
-                height: 100px;
+                width: 124px;
+                height: 124px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: #f1f5f9;
                 border-radius: 12px;
-                margin-right: 30px;
+                margin-right: 34px;
                 overflow: hidden;
                 
-                img { width: 100%; height: 100%; object-fit: contain; }
-                .logo-text { font-weight: 800; font-size: 24px; color: #94a3b8; }
+                .smart-league-logo {
+                    display: block;
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                }
+
+                .logo-cropped,
+                .logo-transparent {
+                    width: 96%;
+                    height: 96%;
+                }
+
+                .logo-framed {
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .logo-text { font-weight: 800; font-size: 28px; color: #94a3b8; }
             }
             
             .title-block {
