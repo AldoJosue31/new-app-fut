@@ -160,7 +160,7 @@ export default function HeroSection() {
 
                   <TabContent $noPadding={activeTab === 0}>
                     {activeTab === 0 ? (
-                      <div className="hero-table-wrapper" style={{ width: "100%", overflowX: "hidden" }}>
+                      <div className="hero-table-wrapper" style={{ width: "100%", overflowX: "auto" }}>
                         <RealStandingsTable tablaGeneral={STANDINGS} config={tableConfig} isPublic={true} hideBottomInfo={true} />
                       </div>
                     ) : (
@@ -385,12 +385,12 @@ const LeftColumn = styled.div`
   gap: 0;
 
   .lp-h1 {
-    font-size: clamp(40px, 5.5vw, 72px);
+    font-size: clamp(34px, 5.5vw, 72px);
     font-weight: 900;
-    line-height: 1.05;
+    line-height: 1.1;
     color: var(--lp-text);
     margin: 16px 0 24px;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.03em;
   }
 
   .lp-lead {
@@ -502,6 +502,7 @@ const VisualContainer = styled.div`
 
   @media (max-width: 768px) {
     transform: none !important; /* Disable 3D tilt on mobile for better UX/fit */
+    zoom: 0.75;
   }
 
   .inner-glow {
