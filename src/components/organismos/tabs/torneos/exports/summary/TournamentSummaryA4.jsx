@@ -201,6 +201,29 @@ const getJornadaShortLabel = (name, index) => {
     return `J${index + 1}`;
 };
 
+const getStandingTeamName = (row) =>
+    row?.nombre ||
+    row?.name ||
+    row?.team_name ||
+    row?.equipo?.name ||
+    row?.equipo?.nombre ||
+    row?.team?.name ||
+    row?.team?.nombre ||
+    "--";
+
+const getNumericStandingValue = (row, keys) => {
+    for (const key of keys) {
+        const value = row?.[key];
+        if (value !== null && value !== undefined && String(value).trim() !== "") {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) return numeric;
+        }
+    }
+    return null;
+};
+
+const INDEX_ENTRIES_PER_PAGE = 18;
+
 const getTeamMatchOutcome = (match, teamId) => {
     if (isRestMatch(match)) return "rest";
 
@@ -561,6 +584,45 @@ export const TournamentSummaryA4 = ({
 
     // Ensure stats are computed if they are missing or if we need to guarantee accuracy
     const derivedStats = useMemo(() => {
+        const standingsRows = Array.isArray(standings) ? standings : [];
+        if (standingsRows.length > 0) {
+            const rowsWithGf = standingsRows
+                .map((row) => ({
+                    row,
+                    gf: getNumericStandingValue(row, ["gf", "GF", "golesFavor", "goles_favor", "goalsFor"]),
+                }))
+                .filter((entry) => entry.gf !== null);
+            const rowsWithGc = standingsRows
+                .map((row) => ({
+                    row,
+                    gc: getNumericStandingValue(row, ["gc", "GC", "golesContra", "goles_contra", "goalsAgainst"]),
+                }))
+                .filter((entry) => entry.gc !== null);
+
+            const topScoring = rowsWithGf.reduce(
+                (max, entry) => (entry.gf > max.gf ? entry : max),
+                rowsWithGf[0]
+            );
+            const leastScored = rowsWithGc.reduce(
+                (min, entry) => (entry.gc < min.gc ? entry : min),
+                rowsWithGc[0]
+            );
+
+            if (topScoring || leastScored) {
+                return {
+                    topScoringTeam: topScoring ? getStandingTeamName(topScoring.row) : (stats?.topScoringTeam || "--"),
+                    leastScoredTeam: leastScored ? getStandingTeamName(leastScored.row) : (stats?.leastScoredTeam || "--"),
+                };
+            }
+        }
+
+        if (stats?.topScoringTeam || stats?.leastScoredTeam) {
+            return {
+                topScoringTeam: stats?.topScoringTeam || "--",
+                leastScoredTeam: stats?.leastScoredTeam || "--",
+            };
+        }
+
         if (!partidos || !participatingTeams) return stats || null;
         
         const teamStats = {};
@@ -589,7 +651,7 @@ export const TournamentSummaryA4 = ({
             topScoringTeam: topScoring?.name || "--",
             leastScoredTeam: leastScored?.name || "--"
         };
-    }, [stats, partidos, participatingTeams]);
+    }, [stats, standings, partidos, participatingTeams]);
 
     // Patch activeTournament if the final match exists but the bracket stage isn't created
     const patchedTournament = useMemo(() => {
@@ -668,6 +730,51 @@ export const TournamentSummaryA4 = ({
             return { team, results };
         });
     }, [jornadasWithMatches, participatingTeams]);
+
+    const documentIndexEntries = useMemo(() => {
+        const entries = [];
+
+        if (teamJourneyMatrix.length > 0) {
+            entries.push({
+                id: "summary-page-matrix",
+                title: "Equipos por Jornada",
+                subtitle: "Resumen de resultados por equipo",
+            });
+        }
+
+        if (hasPlayoff) {
+            entries.push({
+                id: "summary-page-bracket",
+                title: "Cuadro Final",
+                subtitle: "",
+            });
+        }
+
+        jornadasWithMatches.forEach((jornada, index) => {
+            entries.push({
+                id: `summary-page-jornada-${jornada.id || index}`,
+                title: `Resultados: ${jornada.name}`,
+                subtitle: formatJornadaDateRange(jornada, startDate),
+            });
+        });
+
+        const indexPageCount = Math.max(1, Math.ceil(entries.length / INDEX_ENTRIES_PER_PAGE));
+        let pageNumber = indexPageCount + 2; // Portada = 1, indice = 2..N.
+
+        return entries.map((entry) => ({
+            ...entry,
+            anchorId: `${entry.id}-anchor`,
+            pageNumber: pageNumber++,
+        }));
+    }, [hasPlayoff, jornadasWithMatches, startDate, teamJourneyMatrix.length]);
+
+    const documentIndexPages = useMemo(() => {
+        const pages = [];
+        for (let index = 0; index < documentIndexEntries.length; index += INDEX_ENTRIES_PER_PAGE) {
+            pages.push(documentIndexEntries.slice(index, index + INDEX_ENTRIES_PER_PAGE));
+        }
+        return pages.length > 0 ? pages : [[]];
+    }, [documentIndexEntries]);
 
     return (
         <SummaryContainer>
@@ -748,8 +855,42 @@ export const TournamentSummaryA4 = ({
                 </div>
             </div>
 
+            {documentIndexPages.map((entries, pageIndex) => (
+                <div
+                    key={`index-page-${pageIndex}`}
+                    className="print-page index-page"
+                    id={pageIndex === 0 ? "summary-page-index" : `summary-page-index-${pageIndex + 1}`}
+                >
+                    <div className="page-header">
+                        <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
+                        <h3>Indice</h3>
+                        <span className="jornada-date-range">Contenido del documento</span>
+                    </div>
+
+                    <div className="index-list">
+                        {entries.map((entry) => (
+                            <div className="index-row" key={entry.id}>
+                                <div className="index-title">
+                                    <strong>{entry.title}</strong>
+                                    {entry.subtitle && <span>{entry.subtitle}</span>}
+                                </div>
+                                <span className="index-line" aria-hidden="true" />
+                                <a
+                                    className="index-page-number"
+                                    href={`#${entry.anchorId}`}
+                                    data-target-page={entry.pageNumber}
+                                >
+                                    {entry.pageNumber}
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+
             {teamJourneyMatrix.length > 0 && (
-                <div className="print-page matrix-page">
+                <div className="print-page matrix-page" id="summary-page-matrix">
+                    <a id="summary-page-matrix-anchor" name="summary-page-matrix-anchor" className="pdf-anchor" aria-hidden="true" />
                     <div className="page-header">
                         <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                         <h3>Equipos por Jornada</h3>
@@ -793,7 +934,8 @@ export const TournamentSummaryA4 = ({
 
             {/* HOJA DE LLAVES (PLAYOFFS) */}
             {hasPlayoff && (
-                <div className="print-page bracket-page">
+                <div className="print-page bracket-page" id="summary-page-bracket">
+                    <a id="summary-page-bracket-anchor" name="summary-page-bracket-anchor" className="pdf-anchor" aria-hidden="true" />
                     <div className="page-header">
                         <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                         <h3>Cuadro Final</h3>
@@ -828,7 +970,13 @@ export const TournamentSummaryA4 = ({
                 const jornadaDateRange = formatJornadaDateRange(jornada, startDate);
 
                 return (
-                    <div key={jornada.id || index} className="print-page results-page">
+                    <div key={jornada.id || index} id={`summary-page-jornada-${jornada.id || index}`} className="print-page results-page">
+                        <a
+                            id={`summary-page-jornada-${jornada.id || index}-anchor`}
+                            name={`summary-page-jornada-${jornada.id || index}-anchor`}
+                            className="pdf-anchor"
+                            aria-hidden="true"
+                        />
                         <div className="page-header">
                             <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                             <h3>Resultados: {jornada.name}</h3>
@@ -926,6 +1074,16 @@ const SummaryContainer = styled.div`
         position: relative;
         margin-bottom: 20px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .pdf-anchor {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        pointer-events: none;
     }
 
     /* Ocultar sombras en la impresión real */
@@ -1076,7 +1234,7 @@ const SummaryContainer = styled.div`
     }
 
     /* HOJAS RESULTADOS Y BRACKET */
-    .results-page, .bracket-page, .matrix-page {
+    .results-page, .bracket-page, .matrix-page, .index-page {
         .page-header {
             margin-bottom: 30px;
             padding-bottom: 15px;
@@ -1182,6 +1340,71 @@ const SummaryContainer = styled.div`
                     font-weight: 800;
                 }
             }
+        }
+    }
+
+    .index-page {
+        .page-header {
+            margin-bottom: 18px;
+        }
+
+        .index-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 10px;
+        }
+
+        .index-row {
+            display: grid;
+            grid-template-columns: minmax(0, auto) minmax(24px, 1fr) 36px;
+            align-items: end;
+            gap: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .index-title {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+
+            strong {
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 900;
+                line-height: 1.15;
+            }
+
+            span {
+                color: #64748b;
+                font-size: 9.5px;
+                font-weight: 800;
+                line-height: 1.12;
+            }
+        }
+
+        .index-line {
+            height: 1px;
+            margin-bottom: 7px;
+            border-bottom: 1px dotted #cbd5e1;
+        }
+
+        .index-page-number {
+            min-width: 30px;
+            min-height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            justify-self: end;
+            border: 1px solid #38bdf8;
+            border-radius: 7px;
+            background: #f0f9ff;
+            color: #0369a1;
+            font-size: 12px;
+            font-weight: 950;
+            text-decoration: none;
         }
     }
 
