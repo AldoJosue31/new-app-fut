@@ -85,15 +85,20 @@ const capturePageAsJpeg = async (toJpeg, page, pageNumber) => {
     }
 };
 
-const sanitizeFilePart = (value, fallback) => {
+const formatFilePart = (value, fallback) => {
     const normalized = `${value || ""}`
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-zA-Z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .toLowerCase();
+        .replace(/[^a-zA-Z0-9]+/g, " ")
+        .trim();
 
-    return normalized || fallback;
+    if (!normalized) return fallback;
+
+    return normalized
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join("");
 };
 
 export const TournamentSummaryModal = ({ 
@@ -330,13 +335,17 @@ export const TournamentSummaryModal = ({
                 });
             });
 
-            const tournamentFilePart = sanitizeFilePart(
+            const leagueFilePart = formatFilePart(
+                metaInfo.league,
+                "Liga"
+            );
+            const tournamentFilePart = formatFilePart(
                 activeTournament?.name || activeTournament?.nombre || activeTournament?.tournament_name,
-                "torneo"
+                "Torneo"
             );
             setPdfGenerationLabel("Descargando...");
             setPdfGenerationProgress(100);
-            pdf.save(`${tournamentFilePart}-resumen.pdf`);
+            pdf.save(`${leagueFilePart}_${tournamentFilePart}_Final.pdf`);
         } catch (error) {
             console.error("Error generating tournament summary PDF:", error);
             window.print();
