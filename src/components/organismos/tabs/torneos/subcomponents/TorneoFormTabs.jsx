@@ -54,6 +54,8 @@ const ClearableInput = styled.div`
 
 export const TabGeneral = ({ form, onChange, isStarted }) => {
   const currentMinPlayers = parseInt(form.minPlayers) || 5;
+  const currentMinPlayersToRegister = parseInt(form.minPlayersToRegister ?? form.minPlayers) || 0;
+  const currentMaxPlayers = parseInt(form.maxPlayers) || currentMinPlayers;
   const handleGeneralChange = (e) => {
     const target = e.target || e;
     onChange(e);
@@ -61,6 +63,11 @@ export const TabGeneral = ({ form, onChange, isStarted }) => {
         const newMin = parseInt(target.value) || 0;
         const currentMax = parseInt(form.maxPlayers) || 0;
         if (newMin > currentMax) onChange({ target: { name: "maxPlayers", value: newMin } });
+    }
+    if (target.name === "minPlayersToRegister") {
+        const newMinToRegister = parseInt(target.value) || 0;
+        const currentMax = parseInt(form.maxPlayers) || 0;
+        if (newMinToRegister > currentMax) onChange({ target: { name: "maxPlayers", value: newMinToRegister } });
     }
   };
 
@@ -89,7 +96,8 @@ export const TabGeneral = ({ form, onChange, isStarted }) => {
       <SectionLabel>Límites de Participación</SectionLabel>
       <Row3>
         <InputWithTooltip label="Min. Jugadores"><InputNumber name="minPlayers" value={form.minPlayers} onChange={handleGeneralChange} min={5} /></InputWithTooltip>
-        <InputWithTooltip label="Max. Jugadores"><InputNumber name="maxPlayers" value={form.maxPlayers} onChange={handleGeneralChange} min={currentMinPlayers} /></InputWithTooltip>
+        <InputWithTooltip label="Min. para Inscribir"><InputNumber name="minPlayersToRegister" value={form.minPlayersToRegister ?? form.minPlayers} onChange={handleGeneralChange} min={0} max={currentMaxPlayers} /></InputWithTooltip>
+        <InputWithTooltip label="Max. Jugadores"><InputNumber name="maxPlayers" value={form.maxPlayers} onChange={handleGeneralChange} min={Math.max(currentMinPlayers, currentMinPlayersToRegister)} /></InputWithTooltip>
         <InputWithTooltip label="Max. Equipos"><InputNumber name="maxTeams" value={form.maxTeams} onChange={handleGeneralChange} min={2} /></InputWithTooltip>
       </Row3>
     </TabContainer>

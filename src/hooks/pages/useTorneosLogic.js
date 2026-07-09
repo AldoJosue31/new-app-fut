@@ -34,6 +34,7 @@ const createLeagueRuleDraft = (leagueData) => {
       startDate: "",
       vueltas: "1",
       minPlayers: parsed.minPlayers ?? 7,
+      minPlayersToRegister: parsed.minPlayersToRegister ?? parsed.minPlayers ?? 7,
       maxPlayers: parsed.maxPlayers ?? 25,
       maxTeams: parsed.maxTeams ?? 20,
       format: TOURNAMENT_FORMAT.LEAGUE,
@@ -108,6 +109,7 @@ export const useTorneosLogic = () => {
       startDate: today,
       vueltas: "1",       
       minPlayers: 7,
+      minPlayersToRegister: 7,
       maxPlayers: 25, 
       format: TOURNAMENT_FORMAT.LEAGUE,
       tieBreakType: "normal", // <-- CORREGIDO A NORMAL
@@ -170,6 +172,27 @@ export const useTorneosLogic = () => {
     }
   }, [form.maxTeams, participatingIds.length]);
 
+  useEffect(() => {
+    if (activeTournament) return;
+
+    const minToRegister = parseInt(form.minPlayersToRegister, 10) || 0;
+    if (minToRegister <= 0 || participatingIds.length === 0) return;
+
+    const underMinimumIds = new Set(
+      allTeams
+        .filter((team) => participatingIds.includes(team.id) && (team.playerCount || 0) < minToRegister)
+        .map((team) => team.id)
+    );
+
+    if (underMinimumIds.size === 0) return;
+
+    setParticipatingIds((prev) => prev.filter((teamId) => !underMinimumIds.has(teamId)));
+    showToast(
+      `Se movieron ${underMinimumIds.size} equipo(s) a 'No Participantes' por falta de jugadores (${minToRegister}).`,
+      "warning"
+    );
+  }, [activeTournament, allTeams, form.minPlayersToRegister, participatingIds]);
+
   const fetchData = useCallback(async () => {
     if (!activeDivisionId) {
       setIsLoadingData(false);
@@ -206,6 +229,7 @@ export const useTorneosLogic = () => {
             format: torneo.config?.format || TOURNAMENT_FORMAT.LEAGUE,
             maxTeams: torneo.config?.maxTeams || prev.maxTeams,
             minPlayers: torneo.config?.minPlayers || prev.minPlayers, 
+            minPlayersToRegister: torneo.config?.minPlayersToRegister ?? torneo.config?.minPlayers ?? prev.minPlayersToRegister,
             maxPlayers: torneo.config?.maxPlayers || prev.maxPlayers, 
             winPoints: torneo.config?.winPoints ?? 3,
             drawPoints: torneo.config?.drawPoints ?? 1,
@@ -247,7 +271,7 @@ export const useTorneosLogic = () => {
         setStandings([]);
         setPartidos([]);
         const defaultParticipating = processedTeams
-            .filter(t => t.status === TEAM_STATUS.ACTIVE && t.playerCount >= form.minPlayers)
+            .filter(t => t.status === TEAM_STATUS.ACTIVE && t.playerCount >= (parseInt(form.minPlayersToRegister, 10) || 0))
             .map(t => t.id);
         setParticipatingIds(defaultParticipating);
       }
@@ -259,7 +283,7 @@ export const useTorneosLogic = () => {
     } finally {
       setIsLoadingData(false);
     }
-  }, [activeDivisionId, form.minPlayers, selectedDivision, setDivision]);
+  }, [activeDivisionId, form.minPlayersToRegister, selectedDivision, setDivision]);
 
   useEffect(() => {
     fetchData();
@@ -318,6 +342,12 @@ export const useTorneosLogic = () => {
 
   const moveTeamToParticipating = (teamId) => {
     if(activeTournament) return;
+    const minToRegister = parseInt(form.minPlayersToRegister, 10) || 0;
+    const team = allTeams.find((item) => item.id === teamId);
+    if (team && minToRegister > 0 && (team.playerCount || 0) < minToRegister) {
+        showToast(`"${team.name}" no cumple el mÃ­nimo de ${minToRegister} jugadores.`, "warning");
+        return;
+    }
     const max = parseInt(form.maxTeams || 0);
     if (max > 0 && participatingIds.length >= max) {
         showToast(`Cupo lleno. El límite es de ${max} equipos.`, "warning");
@@ -355,6 +385,19 @@ export const useTorneosLogic = () => {
         return;
     }
 
+    const minToRegister = parseInt(form.minPlayersToRegister, 10) || 0;
+    const underMinimumIds = new Set(
+      allTeams
+        .filter((team) => participatingIds.includes(team.id) && (team.playerCount || 0) < minToRegister)
+        .map((team) => team.id)
+    );
+
+    if (underMinimumIds.size > 0) {
+        setParticipatingIds((prev) => prev.filter((teamId) => !underMinimumIds.has(teamId)));
+        showToast(`Se movieron ${underMinimumIds.size} equipo(s) a 'No Participantes' por falta de jugadores.`, "warning");
+        return;
+    }
+
     if (!effectiveDivision || !form.startDate) {
       showToast("Faltan datos: División o Fecha", "warning");
       return;
@@ -384,6 +427,7 @@ export const useTorneosLogic = () => {
           tieBreakType: form.tieBreakType,
           participatingIds,
           minPlayers: parseInt(form.minPlayers) || 7, 
+          minPlayersToRegister: parseInt(form.minPlayersToRegister) || 0,
           maxPlayers: parseInt(form.maxPlayers) || 25, 
           maxTeams: parseInt(form.maxTeams) || 16,
           winPoints: form.winPoints,
