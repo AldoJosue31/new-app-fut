@@ -28,12 +28,14 @@ export function DivisionSelector({ isOpen }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [newDivisionName, setNewDivisionName] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
+  const [pendingDivision, setPendingDivision] = useState(null);
   const [switchProgress, setSwitchProgress] = useState({
     isVisible: false,
     isDone: false,
-    divisionName: "",
   });
   const progressTimers = useRef([]);
+  const isSwitchingDivision = Boolean(pendingDivision);
+  const selectedDivisionId = selectedDivision?.id || "";
 
   useEffect(() => {
     fetchDivisiones();
@@ -45,6 +47,27 @@ export function DivisionSelector({ isOpen }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!pendingDivision || selectedDivision?.id !== pendingDivision.id) return;
+
+    progressTimers.current.forEach(clearTimeout);
+    progressTimers.current = [];
+    setPendingDivision(null);
+    setSwitchProgress({
+      isVisible: true,
+      isDone: true,
+    });
+
+    progressTimers.current = [
+      setTimeout(() => {
+        setSwitchProgress({
+          isVisible: false,
+          isDone: false,
+        });
+      }, 700),
+    ];
+  }, [pendingDivision, selectedDivision?.id]);
+
   const clearProgressTimers = () => {
     progressTimers.current.forEach(clearTimeout);
     progressTimers.current = [];
@@ -52,33 +75,31 @@ export function DivisionSelector({ isOpen }) {
 
   const showDivisionProgress = (division) => {
     clearProgressTimers();
+    setPendingDivision(division);
     setSwitchProgress({
       isVisible: true,
       isDone: false,
-      divisionName: division?.name || "",
     });
 
     progressTimers.current = [
       setTimeout(() => {
-        setSwitchProgress((current) => ({
-          ...current,
-          isDone: true,
-        }));
-      }, 420),
-      setTimeout(() => {
-        setSwitchProgress((current) => ({
-          ...current,
-          isVisible: false,
-        }));
-      }, 1250),
+        setPendingDivision((current) => (current?.id === division?.id ? null : current));
+        setSwitchProgress((current) =>
+          current.isDone
+            ? current
+            : {
+                isVisible: false,
+                isDone: false,
+              }
+        );
+      }, 8000),
     ];
   };
 
   const changeDivision = (division) => {
-    if (!division || division.id === selectedDivision?.id) return;
+    if (!division || division.id === selectedDivision?.id || pendingDivision) return;
 
     showDivisionProgress(division);
-    setDivision(division);
 
     const torneosMatch = location.pathname.match(/(?:\/division\/\d+)?\/torneos\/?([^/]*)?\/?([^/]*)?/);
     if (torneosMatch) {
@@ -92,10 +113,14 @@ export function DivisionSelector({ isOpen }) {
     const equiposMatch = location.pathname.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
     if (equiposMatch) {
       navigate(`/division/${division.id}/equipos`, { replace: true });
+      return;
     }
+
+    setDivision(division);
   };
 
   const handleChange = (e) => {
+    if (isSwitchingDivision) return;
     const id = Number(e.target.value);
     const divisionEncontrada = divisiones.find((div) => div.id === id);
     changeDivision(divisionEncontrada);
@@ -103,7 +128,7 @@ export function DivisionSelector({ isOpen }) {
 
   const handleCycle = (e) => {
     e.stopPropagation();
-    if (divisiones.length < 2) return;
+    if (isSwitchingDivision || divisiones.length < 2) return;
     const currentIndex = divisiones.findIndex((div) => div.id === selectedDivision?.id);
     const newIndex = currentIndex < divisiones.length - 1 ? currentIndex + 1 : 0;
     changeDivision(divisiones[newIndex]);
@@ -159,9 +184,14 @@ export function DivisionSelector({ isOpen }) {
               </div>
             </div>
 
-            <SelectWrapper>
+            <SelectWrapper $isSwitching={isSwitchingDivision}>
               {divisiones.length > 0 ? (
-                <select value={selectedDivision?.id || ""} onChange={handleChange}>
+                <select
+                  value={selectedDivisionId}
+                  onChange={handleChange}
+                  disabled={isSwitchingDivision}
+                  aria-busy={isSwitchingDivision}
+                >
                   {divisiones.map((div) => (
                     <option key={div.id} value={div.id}>
                       {div.name}
@@ -175,9 +205,13 @@ export function DivisionSelector({ isOpen }) {
               )}
 
               {divisiones.length > 0 && (
-                <div className="icon">
-                  <IoIosArrowDown />
-                </div>
+                isSwitchingDivision ? (
+                  <div className="loading-icon" aria-hidden="true" />
+                ) : (
+                  <div className="icon">
+                    <IoIosArrowDown />
+                  </div>
+                )
               )}
             </SelectWrapper>
           </FullView>
@@ -185,15 +219,18 @@ export function DivisionSelector({ isOpen }) {
           <CompactView $isActive={!isOpen}>
             <InitialsContainer
               onClick={divisiones.length > 0 ? handleCycle : () => setModalOpen(true)}
-              title={divisiones.length > 1 ? "Click para cambiar de división" : selectedDivision?.name}
+              title={isSwitchingDivision ? "Cambiando division" : divisiones.length > 1 ? "Click para cambiar de división" : selectedDivision?.name}
               $isEmpty={divisiones.length === 0}
-              $clickable={divisiones.length > 1}
+              $clickable={divisiones.length > 1 && !isSwitchingDivision}
+              $isSwitching={isSwitchingDivision}
             >
               <span className="initials">
                 {divisiones.length > 0 ? getInitials(selectedDivision?.name) : "+"}
               </span>
 
-              {divisiones.length > 1 && (
+              {isSwitchingDivision ? (
+                <div className="compact-spinner" aria-hidden="true" />
+              ) : divisiones.length > 1 && (
                 <div className="swap-icon">
                   <BiTransfer />
                 </div>
@@ -211,7 +248,6 @@ export function DivisionSelector({ isOpen }) {
       >
         <div className="progress-copy">
           {switchProgress.isDone ? "Division cambiada" : "Cambiando division"}
-          {switchProgress.divisionName ? `: ${switchProgress.divisionName}` : ""}
         </div>
         <div className="progress-track">
           <div className="progress-fill" />
@@ -353,7 +389,7 @@ const InitialsContainer = styled.div`
   justify-content: center;
   font-weight: 800;
   font-size: 0.95rem;
-  cursor: ${({ $clickable }) => ($clickable ? "pointer" : "default")};
+  cursor: ${({ $clickable, $isSwitching }) => ($isSwitching ? "wait" : $clickable ? "pointer" : "default")};
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   user-select: none;
@@ -363,6 +399,18 @@ const InitialsContainer = styled.div`
   .initials {
     transition: all 0.3s ease;
     z-index: 1;
+    opacity: ${({ $isSwitching }) => ($isSwitching ? 0.35 : 1)};
+  }
+
+  .compact-spinner {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    animation: divisionSpinner 0.7s linear infinite;
+    z-index: 3;
   }
 
   .swap-icon {
@@ -377,8 +425,9 @@ const InitialsContainer = styled.div`
     color: ${({ theme }) => theme.text};
   }
 
-  ${({ $clickable, theme }) =>
+  ${({ $clickable, $isSwitching, theme }) =>
     $clickable &&
+    !$isSwitching &&
     css`
       &:hover {
         box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
@@ -406,9 +455,9 @@ const InitialsContainer = styled.div`
 const SelectWrapper = styled.div`
   position: relative;
   width: 100%;
-  background: ${({ theme }) => theme.bgtotal};
+  background: ${({ theme, $isSwitching }) => ($isSwitching ? theme.bgcards : theme.bgtotal)};
   border-radius: 10px;
-  border: 1px solid transparent;
+  border: 1px solid ${({ theme, $isSwitching }) => ($isSwitching ? theme.primary || v.colorPrincipal : "transparent")};
   transition: all 0.3s ease;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
 
@@ -419,15 +468,19 @@ const SelectWrapper = styled.div`
 
   select {
     width: 100%;
-    padding: 10px 30px 10px 12px;
+    padding: 10px 38px 10px 12px;
     appearance: none;
     background: transparent;
     border: none;
     color: ${({ theme }) => theme.text};
     font-weight: 600;
     font-size: 0.85rem;
-    cursor: pointer;
+    cursor: ${({ $isSwitching }) => ($isSwitching ? "wait" : "pointer")};
     outline: none;
+
+    &:disabled {
+      opacity: 1;
+    }
 
     option {
       background: ${({ theme }) => theme.bgcards};
@@ -452,6 +505,26 @@ const SelectWrapper = styled.div`
     pointer-events: none;
     color: ${({ theme }) => theme.primary || v.colorPrincipal};
     font-size: 1.1rem;
+  }
+
+  .loading-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin-top: -8px;
+    border-radius: 50%;
+    border: 2px solid ${({ theme }) => theme.bg4};
+    border-top-color: ${({ theme }) => theme.primary || v.colorPrincipal};
+    pointer-events: none;
+    animation: divisionSpinner 0.7s linear infinite;
+  }
+
+  @keyframes divisionSpinner {
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;
 
@@ -493,23 +566,25 @@ const DivisionProgressBar = styled.div`
 
   .progress-fill {
     height: 100%;
-    width: ${({ $isDone }) => ($isDone ? "100%" : "72%")};
+    width: 100%;
+    transform-origin: left center;
+    transform: scaleX(${({ $isDone }) => ($isDone ? 1 : 0.72)});
     background: ${({ theme, $isDone }) =>
       $isDone ? v.verde : `linear-gradient(90deg, ${theme.primary || v.colorPrincipal}, ${v.colorselector})`};
     box-shadow: 0 0 12px ${({ $isDone }) => ($isDone ? `${v.verde}80` : `${v.colorPrincipal}80`)};
-    transition: width 0.42s ease, background 0.2s ease;
+    transition: transform 0.42s ease, background 0.2s ease;
     animation: ${({ $isDone }) => ($isDone ? "none" : "divisionProgress 0.9s ease-in-out infinite")};
   }
 
   @keyframes divisionProgress {
     0% {
-      transform: translateX(-24%);
+      transform: translateX(-24%) scaleX(0.72);
     }
     50% {
-      transform: translateX(18%);
+      transform: translateX(18%) scaleX(0.72);
     }
     100% {
-      transform: translateX(0);
+      transform: translateX(0) scaleX(0.72);
     }
   }
 `;
