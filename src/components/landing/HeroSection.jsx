@@ -184,6 +184,7 @@ export default function HeroSection() {
 
               <div className="hero-toast-wrapper">
                 <Toast 
+                  inline={true}
                   show={true} 
                   message="Jornada 12 cerrada con éxito" 
                   type="success" 
@@ -285,13 +286,22 @@ const HeroWrapper = styled.section`
   min-height: 100vh;
   
   .hero-toast-wrapper > div {
-    position: absolute !important;
-    top: auto !important;
-    bottom: -20px !important;
-    left: -30px !important;
-    right: auto !important;
-    z-index: 10 !important;
+    top: -35px !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: -45px !important;
     min-width: 260px !important;
+    box-shadow: 0 16px 32px rgba(0,0,0,0.4) !important;
+    
+    @media (max-width: 768px) {
+      top: -25px !important;
+      right: -15px !important;
+      left: auto !important;
+      transform: none !important;
+      bottom: auto !important;
+      width: max-content !important;
+      max-width: 90% !important;
+    }
   }
 
   .hero-table-wrapper #standings-table-card {
@@ -439,9 +449,10 @@ const StatsGroup = styled.div`
   gap: 36px;
   padding-top: 32px;
   border-top: 1px solid var(--lp-border);
+  flex-wrap: wrap;
 
   @media (max-width: 1024px) { justify-content: center; }
-  @media (max-width: 480px)  { gap: 24px; }
+  @media (max-width: 480px)  { gap: 24px; padding-top: 24px; }
 `;
 
 const StatItem = styled.div`
@@ -475,7 +486,12 @@ const VisualContainer = styled.div`
   position: relative;
   width: 100%;
   max-width: 650px;
+  margin: 0 auto;
   transition: transform 0.08s linear;
+
+  @media (max-width: 768px) {
+    transform: none !important; /* Disable 3D tilt on mobile for better UX/fit */
+  }
 
   .inner-glow {
     position: absolute;

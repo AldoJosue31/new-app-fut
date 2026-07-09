@@ -4,7 +4,7 @@ import styled, { keyframes, css } from 'styled-components';
 import { v } from '../../styles/variables';
 import { RiErrorWarningLine, RiCheckboxCircleLine, RiCloseLine } from "react-icons/ri";
 
-export function Toast({ show, message, type = 'error', onClose, duration = 3000 }) {
+export function Toast({ show, message, type = 'error', onClose, duration = 3000, inline = false }) {
     // 1. Agregamos un estado para saber si el Toast ha sido activado alguna vez
     const [hasBeenShown, setHasBeenShown] = useState(false);
 
@@ -22,11 +22,9 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000 
         }
     }, [show, duration, onClose]);
 
-    if (typeof window === 'undefined' || !document.body) return null;
-
-    return createPortal(
+    const content = (
         // 2. Pasamos la nueva prop $hasBeenShown al componente estilizado
-        <ToastContainer $show={show} $type={type} $hasBeenShown={hasBeenShown}>
+        <ToastContainer $show={show} $type={type} $hasBeenShown={hasBeenShown} $inline={inline}>
             <div className="icon-box">
                 {type === 'error' ? <RiErrorWarningLine /> : <RiCheckboxCircleLine />}
             </div>
@@ -35,9 +33,14 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000 
                 <span className="message">{message}</span>
             </div>
             <button className="close-btn" onClick={onClose}><RiCloseLine /></button>
-        </ToastContainer>,
-        document.body
+        </ToastContainer>
     );
+
+    if (inline) return content;
+
+    if (typeof window === 'undefined' || !document.body) return null;
+
+    return createPortal(content, document.body);
 }
 
 // --- Styles & Animations ---
@@ -53,10 +56,15 @@ const fadeOut = keyframes`
 `;
 
 const ToastContainer = styled.div`
-    position: fixed;
-    top: 30px;
-    right: 30px;
-    z-index: 200000;
+    ${({ $inline }) => $inline ? css`
+        position: absolute;
+        z-index: 10;
+    ` : css`
+        position: fixed;
+        top: 30px;
+        right: 30px;
+        z-index: 200000;
+    `}
     display: flex;
     align-items: center;
     gap: 12px;
