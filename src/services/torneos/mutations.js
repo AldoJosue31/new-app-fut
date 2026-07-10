@@ -746,6 +746,86 @@ export const eliminarTorneoService = async (tournamentId) => {
   }
 };
 
+export const limpiarResultadosTorneoService = async (tournamentId) => {
+  if (!tournamentId) throw new Error('ID de torneo invalido');
+
+  const { data: jornadas, error: jornadasError } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('tournament_id', tournamentId);
+
+  if (jornadasError) throw jornadasError;
+
+  const jornadaIds = (jornadas || []).map((jornada) => jornada.id);
+  if (jornadaIds.length === 0) {
+    return { success: true, matchCount: 0, jornadaCount: 0 };
+  }
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('matches')
+    .select('id, date')
+    .in('jornada_id', jornadaIds);
+
+  if (matchesError) throw matchesError;
+
+  const matchIds = (matches || []).map((match) => match.id);
+
+  if (matchIds.length > 0) {
+    const { error: eventsError } = await supabase
+      .from('match_events')
+      .delete()
+      .in('match_id', matchIds);
+
+    if (eventsError) throw eventsError;
+
+    const resetFields = {
+      goals1: null,
+      goals2: null,
+      puntos1: null,
+      puntos2: null,
+      referee_id: null,
+      observations: null,
+    };
+    const scheduledMatchIds = (matches || [])
+      .filter((match) => Boolean(match.date))
+      .map((match) => match.id);
+    const unscheduledMatchIds = (matches || [])
+      .filter((match) => !match.date)
+      .map((match) => match.id);
+
+    if (scheduledMatchIds.length > 0) {
+      const { error: scheduledUpdateError } = await supabase
+        .from('matches')
+        .update({ ...resetFields, status: 'Programado' })
+        .in('id', scheduledMatchIds);
+
+      if (scheduledUpdateError) throw scheduledUpdateError;
+    }
+
+    if (unscheduledMatchIds.length > 0) {
+      const { error: unscheduledUpdateError } = await supabase
+        .from('matches')
+        .update({ ...resetFields, status: 'Pendiente' })
+        .in('id', unscheduledMatchIds);
+
+      if (unscheduledUpdateError) throw unscheduledUpdateError;
+    }
+  }
+
+  const { error: jornadasUpdateError } = await supabase
+    .from('jornadas')
+    .update({ status: 'Pendiente' })
+    .in('id', jornadaIds);
+
+  if (jornadasUpdateError) throw jornadasUpdateError;
+
+  return {
+    success: true,
+    matchCount: matchIds.length,
+    jornadaCount: jornadaIds.length,
+  };
+};
+
 export const bulkUpsertMatchesService = async (matches) => {
   if (!Array.isArray(matches) || matches.length === 0) {
     return [];
