@@ -55,6 +55,7 @@ export function TournamentConfigModal({
                 
                 minutosPorTiempo: getNum(dbConfig.minutosPorTiempo, INITIAL_TOURNAMENT_CONFIG.minutosPorTiempo),
                 minutosDescanso: getNum(dbConfig.minutosDescanso, INITIAL_TOURNAMENT_CONFIG.minutosDescanso),
+                jornadaDurationDays: getNum(dbConfig.jornadaDurationDays, INITIAL_TOURNAMENT_CONFIG.jornadaDurationDays),
                 
                 winPoints: getNum(dbConfig.winPoints, 3),
                 drawPoints: getNum(dbConfig.drawPoints, 1),
@@ -107,6 +108,7 @@ export function TournamentConfigModal({
             
             minutosPorTiempo: parseInt(editedConfig.minutosPorTiempo) || 45,
             minutosDescanso: parseInt(editedConfig.minutosDescanso) || 15,
+            jornadaDurationDays: parseInt(editedConfig.jornadaDurationDays) || 7,
             
             winPoints: parseInt(editedConfig.winPoints) || 3,
             drawPoints: parseInt(editedConfig.drawPoints) || 1,

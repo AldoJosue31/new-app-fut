@@ -33,6 +33,13 @@ export const generarFixture = (equipos) => {
   return rounds;
 };
 
+const hasStoredScoreValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== '';
+
+const hasStoredMatchResult = (match) =>
+  match?.status === 'Finalizado' ||
+  (hasStoredScoreValue(match?.goals1) && hasStoredScoreValue(match?.goals2));
+
 export const iniciarTorneoService = async (
   { divisionId, divisionName, season, startDate, config, jornadas },
   fixtureGenerado
@@ -70,10 +77,11 @@ export const iniciarTorneoService = async (
 
     if (tournamentError) throw tournamentError;
 
+    const jornadaDurationDays = Math.max(1, parseInt(config?.jornadaDurationDays, 10) || 7);
     const jornadasToInsert = fixtureGenerado
       ? fixtureGenerado.map((fixtureItem, index) => {
-          const fechaInicio = addDaysToDate(startDate, index * 7);
-          const fechaFin = addDaysToDate(fechaInicio, 6);
+          const fechaInicio = addDaysToDate(startDate, index * jornadaDurationDays);
+          const fechaFin = addDaysToDate(fechaInicio, jornadaDurationDays - 1);
 
           return {
             tournament_id: torneo.id,
@@ -84,8 +92,8 @@ export const iniciarTorneoService = async (
           };
         })
       : (jornadas || []).map((jornada, index) => {
-          const fechaInicio = addDaysToDate(startDate, index * 7);
-          const fechaFin = addDaysToDate(fechaInicio, 6);
+          const fechaInicio = addDaysToDate(startDate, index * jornadaDurationDays);
+          const fechaFin = addDaysToDate(fechaInicio, jornadaDurationDays - 1);
 
           return {
             tournament_id: torneo.id,
@@ -255,6 +263,9 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     (todasLasJornadas || []).forEach((jornada) => {
       jornadasMap[jornada.name] = jornada.id;
     });
+    const jornadasById = new Map(
+      (todasLasJornadas || []).map((jornada) => [String(jornada.id), jornada])
+    );
 
     const repositionConfig = jornadaData.repositionConfig;
     const originalCurrentJornadaId =
@@ -350,8 +361,46 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
 
     const matchesToInsert = [];
     const matchesToUpdate = [];
+    // Este mapping tambien conserva los partidos pendientes jugados en otra
+    // jornada oficial, no solo los de una jornada de reposicion.
     const repositionMatchMappings = [];
-    const repositionInsertMetas = [];
+    const insertMatchMetas = [];
+    const processedMatchIds = new Set();
+
+    const getTargetJornadaName = (jornadaId) => {
+      if (
+        repositionJornadaData &&
+        String(repositionJornadaData.id) === String(jornadaId)
+      ) {
+        return repositionJornadaData.name || '';
+      }
+
+      return jornadasById.get(String(jornadaId))?.name || '';
+    };
+
+    const registerMovedMatchMapping = ({
+      matchId,
+      targetJornadaId,
+      originJornadaId,
+      originJornadaName,
+    }) => {
+      if (
+        !matchId ||
+        !originJornadaId ||
+        !targetJornadaId ||
+        String(targetJornadaId) === String(originJornadaId)
+      ) {
+        return;
+      }
+
+      repositionMatchMappings.push({
+        matchId,
+        repositionJornadaId: targetJornadaId,
+        repositionJornadaName: getTargetJornadaName(targetJornadaId),
+        originalJornadaId: originJornadaId,
+        originalJornadaName: originJornadaName || '',
+      });
+    };
 
     const procesarPartido = (match, forcedJornadaId = null) => {
       const originName = match.jornadas?.name || match.originJornada;
@@ -394,6 +443,16 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         finalDate = `${safeDate} ${match.time || '10:00'}:00`;
       }
 
+      const hasCompleteScore =
+        hasStoredScoreValue(finalGoals1) && hasStoredScoreValue(finalGoals2);
+      const hasDefaultResolution = match.resolution?.type === 'default';
+
+      // Evita volver a guardar como finalizado un estado local obsoleto
+      // despues de deshacer el resultado del partido.
+      if (finalStatus === 'Finalizado' && !hasCompleteScore && !hasDefaultResolution) {
+        finalStatus = match.date && match.date.trim() !== '' ? 'Programado' : 'Pendiente';
+      }
+
       const payload = {
         jornada_id: targetJornadaId,
         team1_id: team1Id,
@@ -416,30 +475,34 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         !String(match.id).startsWith('temp')
       ) {
         payload.id = numericId;
+        processedMatchIds.add(String(numericId));
         matchesToUpdate.push(payload);
 
-        if (repositionConfig?.enabled && targetJornadaId === confirmationJornadaId) {
-          repositionMatchMappings.push({
-            matchId: numericId,
-            originalJornadaId: originJornadaId || originalCurrentJornadaId,
-            originalJornadaName:
-              originName ||
-              jornadaData.jornada_name ||
-              `Jornada ${jornadaData.jornada_numero}`,
-          });
-        }
+        registerMovedMatchMapping({
+          matchId: numericId,
+          targetJornadaId,
+          originJornadaId: originJornadaId || originalCurrentJornadaId,
+          originJornadaName:
+            originName ||
+            jornadaData.jornada_name ||
+            `Jornada ${jornadaData.jornada_numero}`,
+        });
       } else {
         matchesToInsert.push(payload);
 
-        if (repositionConfig?.enabled && targetJornadaId === confirmationJornadaId) {
-          repositionInsertMetas.push({
-            originalJornadaId: originJornadaId || originalCurrentJornadaId,
-            originalJornadaName:
-              originName ||
-              jornadaData.jornada_name ||
-              `Jornada ${jornadaData.jornada_numero}`,
-          });
-        }
+        const resolvedOriginJornadaId = originJornadaId || originalCurrentJornadaId;
+        insertMatchMetas.push(
+          resolvedOriginJornadaId && String(targetJornadaId) !== String(resolvedOriginJornadaId)
+            ? {
+                targetJornadaId,
+                originalJornadaId: resolvedOriginJornadaId,
+                originalJornadaName:
+                  originName ||
+                  jornadaData.jornada_name ||
+                  `Jornada ${jornadaData.jornada_numero}`,
+              }
+            : null
+        );
       }
     };
 
@@ -464,13 +527,14 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         .select('id');
       if (insertError) throw insertError;
 
-      if (repositionConfig?.enabled && repositionInsertMetas.length > 0) {
+      if (insertMatchMetas.length > 0) {
         (insertedMatches || []).forEach((insertedMatch, index) => {
-          const meta = repositionInsertMetas[index];
-          if (!meta?.originalJornadaId) return;
+          const meta = insertMatchMetas[index];
+          if (!meta) return;
 
-          repositionMatchMappings.push({
+          registerMovedMatchMapping({
             matchId: insertedMatch.id,
+            targetJornadaId: meta.targetJornadaId,
             originalJornadaId: meta.originalJornadaId,
             originalJornadaName: meta.originalJornadaName,
           });
@@ -517,43 +581,59 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
       }
     }
 
-    if (
-      repositionConfig?.enabled &&
-      repositionJornadaData &&
-      repositionMatchMappings.length > 0
-    ) {
+    if (repositionMatchMappings.length > 0) {
+      if (!repositionConfig?.enabled) {
+        const { data: tournamentRow, error: tournamentError } = await supabase
+          .from('tournaments')
+          .select('config')
+          .eq('id', torneoId)
+          .single();
+
+        if (tournamentError) throw tournamentError;
+
+        tournamentConfigCache =
+          tournamentRow?.config && typeof tournamentRow.config === 'object'
+            ? tournamentRow.config
+            : {};
+      }
+
       const previousMatchMappings = Array.isArray(
         tournamentConfigCache.repositionMatchMappings
       )
         ? tournamentConfigCache.repositionMatchMappings
         : [];
+      const newMatchMappings = Array.from(
+        new Map(
+          repositionMatchMappings.map((mapping) => [String(mapping.matchId), mapping])
+        ).values()
+      );
 
       const nextMatchMappings = [
         ...previousMatchMappings.filter(
           (mapping) =>
-            !repositionMatchMappings.some(
+            !processedMatchIds.has(String(mapping?.matchId)) &&
+            !newMatchMappings.some(
               (newMapping) => String(newMapping.matchId) === String(mapping?.matchId)
             )
         ),
-        ...repositionMatchMappings.map((mapping) => ({
-          matchId: mapping.matchId,
-          repositionJornadaId: repositionJornadaData.id,
-          repositionJornadaName: repositionJornadaData.name,
-          originalJornadaId: mapping.originalJornadaId,
-          originalJornadaName: mapping.originalJornadaName,
-        })),
+        ...newMatchMappings,
       ];
+
+      const nextConfig = {
+        ...tournamentConfigCache,
+        repositionMatchMappings: nextMatchMappings,
+      };
+
+      if (repositionConfig?.enabled) {
+        nextConfig.repositionMappings = Array.isArray(tournamentConfigCache.repositionMappings)
+          ? tournamentConfigCache.repositionMappings
+          : [];
+      }
 
       const { error: matchMappingsError } = await supabase
         .from('tournaments')
         .update({
-          config: {
-            ...tournamentConfigCache,
-            repositionMappings: Array.isArray(tournamentConfigCache.repositionMappings)
-              ? tournamentConfigCache.repositionMappings
-              : [],
-            repositionMatchMappings: nextMatchMappings,
-          },
+          config: nextConfig,
         })
         .eq('id', torneoId);
 
@@ -565,6 +645,47 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     console.error('Error detallado en guardarJornadaService:', error);
     throw error;
   }
+};
+
+export const desconfirmarJornadaService = async (torneoId, jornadaId) => {
+  if (!torneoId) throw new Error('ID de torneo no proporcionado');
+  if (!jornadaId) throw new Error('ID de jornada no proporcionado');
+
+  const { data: jornada, error: jornadaError } = await supabase
+    .from('jornadas')
+    .select('id, status')
+    .eq('id', jornadaId)
+    .eq('tournament_id', torneoId)
+    .single();
+
+  if (jornadaError) throw jornadaError;
+  if (!jornada) throw new Error('Jornada no encontrada en la BD');
+  if (jornada.status !== 'Confirmada') {
+    throw new Error('Solo se puede deshacer una jornada confirmada');
+  }
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('matches')
+    .select('id, status, goals1, goals2')
+    .eq('jornada_id', jornadaId);
+
+  if (matchesError) throw matchesError;
+
+  const hasFinishedMatch = (matches || []).some(hasStoredMatchResult);
+
+  if (hasFinishedMatch) {
+    throw new Error('No se puede deshacer: la jornada ya tiene resultados');
+  }
+
+  const { error: updateError } = await supabase
+    .from('jornadas')
+    .update({ status: 'Pendiente' })
+    .eq('id', jornadaId)
+    .eq('tournament_id', torneoId);
+
+  if (updateError) throw updateError;
+
+  return { success: true };
 };
 
 export const eliminarTorneoService = async (tournamentId) => {
@@ -625,6 +746,86 @@ export const eliminarTorneoService = async (tournamentId) => {
   }
 };
 
+export const limpiarResultadosTorneoService = async (tournamentId) => {
+  if (!tournamentId) throw new Error('ID de torneo invalido');
+
+  const { data: jornadas, error: jornadasError } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('tournament_id', tournamentId);
+
+  if (jornadasError) throw jornadasError;
+
+  const jornadaIds = (jornadas || []).map((jornada) => jornada.id);
+  if (jornadaIds.length === 0) {
+    return { success: true, matchCount: 0, jornadaCount: 0 };
+  }
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('matches')
+    .select('id, date')
+    .in('jornada_id', jornadaIds);
+
+  if (matchesError) throw matchesError;
+
+  const matchIds = (matches || []).map((match) => match.id);
+
+  if (matchIds.length > 0) {
+    const { error: eventsError } = await supabase
+      .from('match_events')
+      .delete()
+      .in('match_id', matchIds);
+
+    if (eventsError) throw eventsError;
+
+    const resetFields = {
+      goals1: null,
+      goals2: null,
+      puntos1: null,
+      puntos2: null,
+      referee_id: null,
+      observations: null,
+    };
+    const scheduledMatchIds = (matches || [])
+      .filter((match) => Boolean(match.date))
+      .map((match) => match.id);
+    const unscheduledMatchIds = (matches || [])
+      .filter((match) => !match.date)
+      .map((match) => match.id);
+
+    if (scheduledMatchIds.length > 0) {
+      const { error: scheduledUpdateError } = await supabase
+        .from('matches')
+        .update({ ...resetFields, status: 'Programado' })
+        .in('id', scheduledMatchIds);
+
+      if (scheduledUpdateError) throw scheduledUpdateError;
+    }
+
+    if (unscheduledMatchIds.length > 0) {
+      const { error: unscheduledUpdateError } = await supabase
+        .from('matches')
+        .update({ ...resetFields, status: 'Pendiente' })
+        .in('id', unscheduledMatchIds);
+
+      if (unscheduledUpdateError) throw unscheduledUpdateError;
+    }
+  }
+
+  const { error: jornadasUpdateError } = await supabase
+    .from('jornadas')
+    .update({ status: 'Pendiente' })
+    .in('id', jornadaIds);
+
+  if (jornadasUpdateError) throw jornadasUpdateError;
+
+  return {
+    success: true,
+    matchCount: matchIds.length,
+    jornadaCount: jornadaIds.length,
+  };
+};
+
 export const bulkUpsertMatchesService = async (matches) => {
   if (!Array.isArray(matches) || matches.length === 0) {
     return [];
@@ -675,4 +876,48 @@ export const updateMatchResultService = async (matchId, payload) => {
 
   if (error) throw error;
   return { success: true };
+};
+
+export const resetMatchResultService = async (torneoId, matchId) => {
+  if (!torneoId) throw new Error('ID de torneo no proporcionado');
+  if (!matchId) throw new Error('ID de partido no proporcionado');
+
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .select('id, status, date, goals1, goals2, jornadas!inner(tournament_id)')
+    .eq('id', matchId)
+    .eq('jornadas.tournament_id', torneoId)
+    .single();
+
+  if (matchError) throw matchError;
+  if (!match) throw new Error('Partido no encontrado en la BD');
+  if (!hasStoredMatchResult(match)) {
+    throw new Error('Solo se puede deshacer un partido con resultado');
+  }
+
+  const { error: eventsError } = await supabase
+    .from('match_events')
+    .delete()
+    .eq('match_id', matchId);
+
+  if (eventsError) throw eventsError;
+
+  const { data: updatedMatch, error: updateError } = await supabase
+    .from('matches')
+    .update({
+      goals1: null,
+      goals2: null,
+      puntos1: null,
+      puntos2: null,
+      referee_id: null,
+      observations: null,
+      status: match.date ? 'Programado' : 'Pendiente',
+    })
+    .eq('id', matchId)
+    .select('id, status, date, goals1, goals2, puntos1, puntos2, referee_id, observations')
+    .single();
+
+  if (updateError) throw updateError;
+
+  return { success: true, match: updatedMatch };
 };

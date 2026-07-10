@@ -10,6 +10,7 @@ export const EmptyDropZone = ({
   draggedMatch = null,
   jornadaStartDate = "",
   jornadaEndDate = "",
+  jornadaDurationDays = 7,
   onDropDate,
   allowTapDrop = false,
 }) => {
@@ -23,6 +24,7 @@ export const EmptyDropZone = ({
       <WeekDaysDropLayout
         startDate={jornadaStartDate}
         endDate={jornadaEndDate}
+        jornadaDurationDays={jornadaDurationDays}
         draggedMatch={draggedMatch}
         onDropDate={onDropDate}
         isHighlighted={isDragOver}

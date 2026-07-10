@@ -4,11 +4,12 @@ import { RiDragDropLine, RiHandCoinLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
 import { addDaysToDate } from "../../../../../utils/dateUtils";
 
-const buildWeekDays = (startDate, endDate) => {
+const buildWeekDays = (startDate, endDate, fallbackDurationDays = 7) => {
   if (!startDate) return [];
 
+  const durationDays = Math.max(1, parseInt(fallbackDurationDays, 10) || 7);
   const safeEndDate =
-    endDate && endDate >= startDate ? endDate : addDaysToDate(startDate, 6);
+    endDate && endDate >= startDate ? endDate : addDaysToDate(startDate, durationDays - 1);
 
   const dates = [];
   let cursor = startDate;
@@ -50,6 +51,7 @@ const getMatchLabel = (match) => {
 export function WeekDaysDropLayout({
   startDate = "",
   endDate = "",
+  jornadaDurationDays = 7,
   onDropDate,
   draggedMatch = null,
   isHighlighted = false,
@@ -58,8 +60,8 @@ export function WeekDaysDropLayout({
   const [hoveredDate, setHoveredDate] = useState("");
 
   const weekDays = useMemo(
-    () => buildWeekDays(startDate, endDate),
-    [endDate, startDate]
+    () => buildWeekDays(startDate, endDate, jornadaDurationDays),
+    [endDate, jornadaDurationDays, startDate]
   );
 
   if (!weekDays.length) return null;

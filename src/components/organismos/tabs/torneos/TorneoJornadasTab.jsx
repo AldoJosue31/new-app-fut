@@ -11,6 +11,7 @@ import {
   bulkUpdateJornadaFechas,
   bulkUpsertMatchesService,
   createJornadasService,
+  desconfirmarJornadaService,
   getAllMatchesByTournament,
   getJornadas,
   getMatchesByIdsService,
@@ -18,6 +19,7 @@ import {
   getPendingMatchesByTournamentService,
   getTournamentConfigService,
   guardarJornadaService,
+  resetMatchResultService,
   updateTournamentFieldsService,
   updateMatchResultService,
 } from "../../../../services/torneos";
@@ -56,7 +58,12 @@ const getDaysBetweenDates = (startDate, nextStartDate) => {
   return Math.round((next - start) / (1000 * 60 * 60 * 24));
 };
 
-const hasValidSevenDayCadence = (jornadas = []) => {
+const getConfiguredJornadaDurationDays = (config) => {
+  const parsed = parseInt(config?.jornadaDurationDays, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 7;
+};
+
+const hasValidJornadaCadence = (jornadas = [], jornadaDurationDays = 7) => {
   if (!Array.isArray(jornadas) || jornadas.length === 0) return false;
 
   const datedJornadas = sortJornadas(jornadas).filter(
@@ -66,7 +73,7 @@ const hasValidSevenDayCadence = (jornadas = []) => {
   if (datedJornadas.length !== jornadas.length) return false;
 
   return datedJornadas.every((jornada, index) => {
-    if (getDateDurationDays(jornada.start_date, jornada.end_date) !== 7) {
+    if (getDateDurationDays(jornada.start_date, jornada.end_date) !== jornadaDurationDays) {
       return false;
     }
 
@@ -75,7 +82,7 @@ const hasValidSevenDayCadence = (jornadas = []) => {
     return getDaysBetweenDates(
       datedJornadas[index - 1].start_date,
       jornada.start_date
-    ) === 7;
+    ) === jornadaDurationDays;
   });
 };
 
@@ -149,9 +156,10 @@ const sortJornadasForDateNormalization = (jornadas = [], configuredMappings = []
 const buildSevenDayPreview = (
   jornadas = [],
   fallbackStartDate = "",
-  configuredMappings = []
+  configuredMappings = [],
+  jornadaDurationDays = 7
 ) => {
-  const isCurrentCalendarValid = hasValidSevenDayCadence(jornadas);
+  const isCurrentCalendarValid = hasValidJornadaCadence(jornadas, jornadaDurationDays);
   const sorted = isCurrentCalendarValid
     ? sortJornadas(jornadas)
     : sortJornadasForDateNormalization(jornadas, configuredMappings);
@@ -171,8 +179,8 @@ const buildSevenDayPreview = (
 
   const rows = sorted.map((jornada, index) => {
     const nextStartDate =
-      index === 0 ? anchorStartDate : addDaysToDate(anchorStartDate, index * 7);
-    const nextEndDate = addDaysToDate(nextStartDate, 6);
+      index === 0 ? anchorStartDate : addDaysToDate(anchorStartDate, index * jornadaDurationDays);
+    const nextEndDate = addDaysToDate(nextStartDate, jornadaDurationDays - 1);
     const currentDuration = getDateDurationDays(
       jornada?.start_date,
       jornada?.end_date
@@ -181,7 +189,7 @@ const buildSevenDayPreview = (
       !isCurrentCalendarValid &&
       (String(jornada?.start_date || "") !== String(nextStartDate) ||
         String(jornada?.end_date || "") !== String(nextEndDate));
-    const hasInvalidDuration = currentDuration !== 7;
+    const hasInvalidDuration = currentDuration !== jornadaDurationDays;
 
     return {
       ...jornada,
@@ -336,6 +344,19 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
   const currentJornadaMatchesRequestRef = useRef(0);
+
+  const tournamentConfig = useMemo(() => {
+    if (!activeTournament?.config) return {};
+    if (typeof activeTournament.config === "string") {
+      try {
+        return JSON.parse(activeTournament.config) || {};
+      } catch {
+        return {};
+      }
+    }
+    return activeTournament.config || {};
+  }, [activeTournament?.config]);
+  const jornadaDurationDays = getConfiguredJornadaDurationDays(tournamentConfig);
 
   useEffect(() => {
     setActiveTournament(initialTournament);
@@ -698,9 +719,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             const nextStartDate = lastJornada?.end_date
               ? addDaysToDate(lastJornada.end_date, 1)
               : lastJornada?.start_date
-                ? addDaysToDate(lastJornada.start_date, 7)
+                ? addDaysToDate(lastJornada.start_date, jornadaDurationDays)
                 : activeTournament?.start_date
-                  ? addDaysToDate(activeTournament.start_date, jornadas.length * 7)
+                  ? addDaysToDate(activeTournament.start_date, jornadas.length * jornadaDurationDays)
                   : null;
 
             const jornadasToCreate = generatedRoundIndexes.map((roundIndex, offset) => {
@@ -711,9 +732,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
                 roundMatches[0]?.roundName ||
                 `Jornada ${roundIndex + 1}`;
               const startDate = nextStartDate
-                ? (offset === 0 ? nextStartDate : addDaysToDate(nextStartDate, offset * 7))
+                ? (offset === 0 ? nextStartDate : addDaysToDate(nextStartDate, offset * jornadaDurationDays))
                 : null;
-              const endDate = startDate ? addDaysToDate(startDate, 6) : null;
+              const endDate = startDate ? addDaysToDate(startDate, jornadaDurationDays - 1) : null;
 
               return {
                 tournament_id: activeTournament.id,
@@ -947,7 +968,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
           const successMessage =
             currentJornada.status === 'Confirmada'
-              ? "Cambio confirmado. La fecha de fin se ajusto 6 dias despues."
+              ? `Cambio confirmado. La fecha de fin se ajusto a ${jornadaDurationDays} dias.`
               : `Fechas actualizadas. Se recorrieron ${updates.length - 1} jornadas futuras.`;
           setToastConfig({ show: true, message: successMessage, type: "success" });
           await fetchJornadas(); 
@@ -984,9 +1005,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       buildSevenDayPreview(
         jornadas,
         activeTournament?.start_date || "",
-        repositionMappings
+        repositionMappings,
+        jornadaDurationDays
       ),
-    [activeTournament?.start_date, jornadas, repositionMappings]
+    [activeTournament?.start_date, jornadaDurationDays, jornadas, repositionMappings]
   );
 
   const matchWeekPreview = useMemo(
@@ -1019,7 +1041,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       setIsDateNormalizerOpen(false);
       setToastConfig({
         show: true,
-        message: "Calendario ajustado. Todas las jornadas duran 7 dias.",
+        message: `Calendario ajustado. Todas las jornadas duran ${jornadaDurationDays} dias.`,
         type: "success",
       });
 
@@ -1169,6 +1191,46 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   };
 
+  const handleUndoJornadaConfirmation = async ({ jornadaId }) => {
+    const preservedJornadaId = jornadaId || jornadas[currentJornadaIndex]?.id || null;
+
+    try {
+        await desconfirmarJornadaService(activeTournament.id, preservedJornadaId);
+        setToastConfig({
+          show: true,
+          message: "Confirmacion deshecha. La jornada vuelve a modo editable.",
+          type: "success"
+        });
+
+        const updatedMappings = await fetchTournamentConfig();
+        const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
+        const updatedJornadas = updatedJornadasResult?.jornadas || [];
+        await fetchGlobalPendingMatches();
+        await fetchAllTournamentMatches();
+
+        const jornadaToRefresh =
+          updatedJornadasResult?.selectedJornada ||
+          updatedJornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId)) ||
+          updatedJornadas[currentJornadaIndex];
+
+        if (jornadaToRefresh?.id) {
+          await fetchCurrentJornadaMatches(
+            jornadaToRefresh.id,
+            updatedJornadas,
+            updatedMappings?.jornadaMappings || [],
+            updatedMappings?.matchMappings || []
+          );
+        }
+    } catch (error) {
+        setToastConfig({
+          show: true,
+          message: error.message || "Error deshaciendo la confirmacion.",
+          type: "error"
+        });
+        throw error;
+    }
+  };
+
   const handleSaveConfig = async (newConfig) => {
     setLoading(true);
     try {
@@ -1176,7 +1238,13 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             ? participatingTeams.length - 1 
             : participatingTeams.length;
 
-        if (newConfig.startDate && newConfig.startDate !== activeTournament.start_date) {
+        const nextJornadaDurationDays = getConfiguredJornadaDurationDays(newConfig);
+        const baseStartDate = newConfig.startDate || activeTournament.start_date;
+        const startDateChanged =
+          Boolean(newConfig.startDate) && newConfig.startDate !== activeTournament.start_date;
+        const durationChanged = nextJornadaDurationDays !== jornadaDurationDays;
+
+        if (baseStartDate && (startDateChanged || durationChanged)) {
             
             const isFirstConfirmed = jornadas.some(j => j.name === 'Jornada 1' && j.status === 'Confirmada');
             
@@ -1187,9 +1255,9 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
                     const num = parseJornadaNumber(j.name, 0);
                     if (num === 0) return null;
 
-                    const weeksOffset = (num - 1) * 7;
-                    const newStart = addDaysToDate(newConfig.startDate, weeksOffset);
-                    const newEnd = addDaysToDate(newStart, 6); 
+                    const weeksOffset = (num - 1) * nextJornadaDurationDays;
+                    const newStart = addDaysToDate(baseStartDate, weeksOffset);
+                    const newEnd = addDaysToDate(newStart, nextJornadaDurationDays - 1); 
 
                     return {
                         id: j.id,
@@ -1203,7 +1271,15 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
                 if (updates.length > 0) {
                     await bulkUpdateJornadaFechas(updates);
-                    setToastConfig(prev => ({ ...prev, show: true, message: "Fechas de jornadas recalculadas por cambio de inicio.", type: "success" }));
+                    const reason = startDateChanged
+                      ? "cambio de inicio"
+                      : "cambio de duracion";
+                    setToastConfig(prev => ({
+                      ...prev,
+                      show: true,
+                      message: `Fechas de jornadas recalculadas por ${reason}.`,
+                      type: "success"
+                    }));
                 }
             }
         }
@@ -1233,6 +1309,31 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
     await fetchGlobalPendingMatches();
     await fetchAllTournamentMatches();
+  };
+
+  const handleResetMatchResult = async (matchId) => {
+    const resetResult = await resetMatchResultService(activeTournament.id, matchId);
+    const resetMatch = resetResult?.match;
+
+    if (resetMatch?.id) {
+      const mergeResetMatch = (matches) =>
+        (matches || []).map((match) =>
+          String(match?.id) === String(resetMatch.id)
+            ? { ...match, ...resetMatch }
+            : match
+        );
+
+      setCurrentMatches(mergeResetMatch);
+      setAllTournamentMatches(mergeResetMatch);
+    }
+
+    await new Promise(res => setTimeout(res, 100));
+    if (refreshStandings) await refreshStandings();
+    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+    await fetchGlobalPendingMatches();
+    await fetchAllTournamentMatches();
+
+    return resetResult;
   };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
@@ -1284,6 +1385,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         matchRows={matchWeekPreview.rows}
         matchIssueCount={matchWeekPreview.irregularCount}
         initialView={matchWeekPreview.needsAdjustment ? "matches" : "jornadas"}
+        jornadaDurationDays={jornadaDurationDays}
       />
 
        {isPhaseAssignment ? (
@@ -1296,9 +1398,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             activeTournament={activeTournament} 
             jornadaData={currentJornada}
             onConfirm={handleConfirmJornada} 
+            onUndoConfirmation={handleUndoJornadaConfirmation}
             onChangeJornada={handleChangeJornada}
             totalJornadas={jornadas.length} 
             onMatchUpdate={handleMatchUpdate}
+            onResetMatchResult={handleResetMatchResult}
             canConfirm={canConfirm} 
             onSaveConfig={handleSaveConfig}
             onEditFixture={handleOpenFixtureEditor}
@@ -1307,6 +1411,7 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             jornadas={jornadas} 
             allTournamentMatches={allTournamentMatches}
             onUpdateDates={handleCascadingDateUpdate}
+            jornadaDurationDays={jornadaDurationDays}
             needsDateNormalization={
               sevenDayPreview.needsAdjustment || matchWeekPreview.needsAdjustment
             }

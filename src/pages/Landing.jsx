@@ -176,7 +176,7 @@ const AppWindow = styled.div`
   }
 
   .window-body {
-    padding: 30px;
+    padding: clamp(16px, 4vw, 30px);
     display: flex;
     justify-content: center;
     background: var(--lp-bg);

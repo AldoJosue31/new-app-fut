@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { memo, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import {
@@ -43,11 +43,21 @@ export const PlanningHeader = memo(
     confirmedResultsProgress = { completed: 0, total: 0 },
     isRepositionMode = false,
     onDateChange,
+    jornadaDurationDays = 7,
   }) => {
     const isConfirmed = status === "Confirmada";
     const hasDates = jornadaData?.start_date && jornadaData?.end_date;
-    const [localStart, setLocalStart] = useState(jornadaData?.start_date || "");
-    const [localEnd, setLocalEnd] = useState(jornadaData?.end_date || "");
+    const sourceStart = jornadaData?.start_date || "";
+    const sourceEnd = jornadaData?.end_date || "";
+    const sourceKey = `${jornadaData?.id || jornadaIndex}-${sourceStart}-${sourceEnd}`;
+    const [localDraft, setLocalDraft] = useState({
+      key: "",
+      start: "",
+      end: "",
+    });
+    const hasLocalDraft = localDraft.key === sourceKey;
+    const localStart = hasLocalDraft ? localDraft.start : sourceStart;
+    const localEnd = hasLocalDraft ? localDraft.end : sourceEnd;
     const [isMobileViewport, setIsMobileViewport] = useState(() => {
       if (typeof window === "undefined") return false;
       return window.innerWidth <= 768;
@@ -55,11 +65,6 @@ export const PlanningHeader = memo(
     const [isMobileControlsOpen, setIsMobileControlsOpen] = useState(false);
     const [isJornadaMenuOpen, setIsJornadaMenuOpen] = useState(false);
     const jornadaMenuRef = useRef(null);
-
-    useLayoutEffect(() => {
-      setLocalStart(jornadaData?.start_date || "");
-      setLocalEnd(jornadaData?.end_date || "");
-    }, [jornadaData]);
 
     useEffect(() => {
       if (typeof window === "undefined") return undefined;
@@ -109,12 +114,6 @@ export const PlanningHeader = memo(
       ((localStart !== (jornadaData?.start_date || "")) ||
         (localEnd !== (jornadaData?.end_date || "")));
 
-    useEffect(() => {
-      if (isMobileViewport && (hasChanges || isRepositionMode)) {
-        setIsMobileControlsOpen(true);
-      }
-    }, [hasChanges, isMobileViewport, isRepositionMode]);
-
     const handleConfirmChanges = () => {
       if (onSaveDates) {
         onSaveDates(localStart, localEnd);
@@ -122,16 +121,22 @@ export const PlanningHeader = memo(
     };
 
     const handleStartChange = (value) => {
-      const nextEnd = value ? addDaysToDate(value, 6) : "";
-      setLocalStart(value);
-      setLocalEnd(nextEnd);
+      const durationDays = Math.max(1, parseInt(jornadaDurationDays, 10) || 7);
+      const nextEnd = value ? addDaysToDate(value, durationDays - 1) : "";
+      setLocalDraft({ key: sourceKey, start: value, end: nextEnd });
+      if (isMobileViewport) {
+        setIsMobileControlsOpen(true);
+      }
       if (isRepositionMode && onDateChange) {
         onDateChange(value, nextEnd);
       }
     };
 
     const handleEndChange = (value) => {
-      setLocalEnd(value);
+      setLocalDraft({ key: sourceKey, start: localStart, end: value });
+      if (isMobileViewport) {
+        setIsMobileControlsOpen(true);
+      }
       if (isRepositionMode && onDateChange) {
         onDateChange(localStart, value);
       }
@@ -226,7 +231,7 @@ export const PlanningHeader = memo(
         {isTournamentActive && needsDateNormalization && onOpenDateNormalizer && (
           <BtnAction
             onClick={onOpenDateNormalizer}
-            title="Ajustar calendario a jornadas de 7 dias"
+            title={`Ajustar calendario a jornadas de ${jornadaDurationDays} dias`}
           >
             <RiCalendarCheckLine size={20} />
           </BtnAction>

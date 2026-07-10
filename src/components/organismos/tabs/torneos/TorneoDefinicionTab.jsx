@@ -5,7 +5,7 @@ import { v } from "../../../../styles/variables";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine,
     RiFileWarningLine, RiBarChartGroupedLine, RiFlagLine, RiSettings3Line,
-    RiCalendarEventLine, RiFootballLine, RiTimeLine, RiUserStarFill, RiTeamLine
+    RiCalendarEventLine, RiFootballLine, RiTimeLine, RiUserStarFill, RiTeamLine, RiRefreshLine
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
@@ -28,6 +28,7 @@ import {
   getAllMatchesByTournament,
   getJornadas,
   getTournamentConfigService,
+  limpiarResultadosTorneoService,
   updateTournamentFieldsService,
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
@@ -111,6 +112,7 @@ export function TorneoDefinicionTab({
   const [advanceWarning, setAdvanceWarning] = useState({ pendingMatches: 0, pendingJornadas: 0 });
   
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCleaningTournament, setIsCleaningTournament] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isSetupExiting, setIsSetupExiting] = useState(false);
   const [isSetupEntering, setIsSetupEntering] = useState(false);
@@ -205,9 +207,13 @@ export function TorneoDefinicionTab({
         drawPoints: parsed.drawPoints ?? 1,
         lossPoints: parsed.lossPoints ?? 0,
         tieBreakType: parsed.tieBreakType ?? "normal", // <-- CORREGIDO A NORMAL
+        horaInicio: parsed.horaInicio ?? "08:00",
+        horaFin: parsed.horaFin ?? "22:00",
         minutosPorTiempo: parsed.minutosPorTiempo ?? 45,
         minutosDescanso: parsed.minutosDescanso ?? 15,
-        cambios: parsed.cambios ?? "Ilimitados"
+        jornadaDurationDays: parsed.jornadaDurationDays ?? 7,
+        cambios: parsed.cambios ?? "Ilimitados",
+        observaciones: parsed.observaciones ?? ""
     };
   }, [leagueData]);
 
@@ -225,9 +231,13 @@ export function TorneoDefinicionTab({
 
         setReglas(prev => ({
             ...prev,
+            horaInicio: defaultLeagueConfig.horaInicio,
+            horaFin: defaultLeagueConfig.horaFin,
             minutosPorTiempo: defaultLeagueConfig.minutosPorTiempo,
             minutosDescanso: defaultLeagueConfig.minutosDescanso,
-            cambios: defaultLeagueConfig.cambios
+            jornadaDurationDays: defaultLeagueConfig.jornadaDurationDays,
+            cambios: defaultLeagueConfig.cambios,
+            observaciones: defaultLeagueConfig.observaciones
         }));
     }
   }, [defaultLeagueConfig, activeTournament]); 
@@ -307,9 +317,13 @@ export function TorneoDefinicionTab({
         }));
         setConfigDraftReglas((prev) => ({
             ...(prev || reglas),
+            horaInicio: defaultLeagueConfig.horaInicio,
+            horaFin: defaultLeagueConfig.horaFin,
             minutosPorTiempo: defaultLeagueConfig.minutosPorTiempo,
             minutosDescanso: defaultLeagueConfig.minutosDescanso,
-            cambios: defaultLeagueConfig.cambios
+            jornadaDurationDays: defaultLeagueConfig.jornadaDurationDays,
+            cambios: defaultLeagueConfig.cambios,
+            observaciones: defaultLeagueConfig.observaciones
         }));
     }
   };
@@ -445,6 +459,7 @@ export function TorneoDefinicionTab({
           setReglas({
               minutosPorTiempo: newConfig.minutosPorTiempo || "45",
               minutosDescanso: newConfig.minutosDescanso || "15",
+              jornadaDurationDays: newConfig.jornadaDurationDays || 7,
               cambios: newConfig.cambios || "Ilimitados",
               observaciones: newConfig.observaciones || "",
           });
@@ -457,7 +472,7 @@ export function TorneoDefinicionTab({
   };
 
   const handleEndTournament = async () => {
-      if(!activeTournament?.id) return;
+      if(!activeTournament?.id || isDeleting || isCleaningTournament) return;
       setIsDeleting(true);
       setIsEndingTournament(true);
       setIsExiting(true);
@@ -506,6 +521,37 @@ export function TorneoDefinicionTab({
           setIsEndingTournament(false);
           setIsExiting(false);
           hideTransitionOverlayAfter(0);
+      }
+  };
+
+  const handleCleanTournamentProgress = async () => {
+      if(!activeTournament?.id || isDeleting || isCleaningTournament) return;
+
+      setIsCleaningTournament(true);
+      setShowEndTournamentModal(false);
+      showTransitionOverlay({
+          title: "Limpiando torneo",
+          subtitle: "Borrando resultados y desconfirmando jornadas...",
+      });
+
+      try {
+          await new Promise((resolve) => setTimeout(resolve, 260));
+          const result = await limpiarResultadosTorneoService(activeTournament.id);
+
+          showToast(
+              result.matchCount > 0
+                  ? "Resultados limpiados. Fixture, reglas y configuracion se conservaron."
+                  : "El torneo ya estaba limpio. Fixture, reglas y configuracion se conservaron.",
+              "success"
+          );
+
+          if(onTournamentReset) await Promise.resolve(onTournamentReset());
+      } catch (error) {
+          console.error(error);
+          showToast("Error al limpiar el torneo. Revisa la consola.", "error");
+      } finally {
+          setIsCleaningTournament(false);
+          hideTransitionOverlayAfter(500);
       }
   };
 
@@ -599,12 +645,14 @@ export function TorneoDefinicionTab({
       setIsAdvancingPhase(true);
       try {
           const currentConfig = await getActiveTournamentConfig();
+          const jornadaDurationDays =
+              Math.max(1, parseInt(currentConfig?.jornadaDurationDays || reglas?.jornadaDurationDays, 10) || 7);
           const jornadas = await getJornadas(activeTournament.id);
           const lastJornada = jornadas[jornadas.length - 1] || null;
           const nextStartDate = lastJornada?.end_date
               ? addDaysToDate(lastJornada.end_date, 1)
               : lastJornada?.start_date
-                ? addDaysToDate(lastJornada.start_date, 7)
+                ? addDaysToDate(lastJornada.start_date, jornadaDurationDays)
                 : activeTournament?.start_date || null;
 
           const phaseNames = buildPhaseJornadaNames(
@@ -613,13 +661,13 @@ export function TorneoDefinicionTab({
           );
 
           const jornadasToCreate = phaseNames.map((name, index) => {
-              const startDate = nextStartDate ? addDaysToDate(nextStartDate, index * 7) : null;
+              const startDate = nextStartDate ? addDaysToDate(nextStartDate, index * jornadaDurationDays) : null;
               return {
                   tournament_id: activeTournament.id,
                   name,
                   status: "Pendiente",
                   start_date: startDate,
-                  end_date: startDate ? addDaysToDate(startDate, 6) : null,
+                  end_date: startDate ? addDaysToDate(startDate, jornadaDurationDays - 1) : null,
               };
           });
 
@@ -1406,8 +1454,9 @@ export function TorneoDefinicionTab({
           ? (teamCount % 2 === 0 ? teamCount - 1 : teamCount)
           : 0;
       const totalJornadas = jornadasPorVuelta * vueltasCount;
+      const jornadaDurationDays = Math.max(1, parseInt(reglas?.jornadaDurationDays, 10) || 7);
       const endDate = form.startDate && totalJornadas > 0
-          ? addDaysToDate(form.startDate, (totalJornadas * 7) - 1)
+          ? addDaysToDate(form.startDate, (totalJornadas * jornadaDurationDays) - 1)
           : "";
       const crossesYear = form.startDate && endDate
           ? new Date(`${form.startDate}T00:00:00`).getFullYear() !== new Date(`${endDate}T00:00:00`).getFullYear()
@@ -1418,7 +1467,7 @@ export function TorneoDefinicionTab({
           endLabel: formatSetupDate(endDate, crossesYear),
           totalJornadas,
       };
-  }, [form.startDate, form.vueltas, participatingTeams.length]);
+  }, [form.startDate, form.vueltas, participatingTeams.length, reglas?.jornadaDurationDays]);
 
   const setupConfigSteps = useMemo(() => {
       const generalReady =
@@ -1442,6 +1491,7 @@ export function TorneoDefinicionTab({
       const gameRulesReady =
           Number(reglas?.minutosPorTiempo || 0) > 0 &&
           Number(reglas?.minutosDescanso || 0) >= 0 &&
+          Number(reglas?.jornadaDurationDays || 0) > 0 &&
           Boolean(reglas?.cambios);
 
       return [
@@ -1561,7 +1611,7 @@ export function TorneoDefinicionTab({
       {
           icon: <RiTimeLine />,
           title: "Duracion de Partido",
-          detail: `${tournamentConfigForUi.minutosPorTiempo ?? reglas?.minutosPorTiempo ?? 45}' por tiempo / ${tournamentConfigForUi.minutosDescanso ?? reglas?.minutosDescanso ?? 15}' descanso`,
+          detail: `${tournamentConfigForUi.minutosPorTiempo ?? reglas?.minutosPorTiempo ?? 45}' por tiempo / ${tournamentConfigForUi.minutosDescanso ?? reglas?.minutosDescanso ?? 15}' descanso / Jornada ${tournamentConfigForUi.jornadaDurationDays ?? reglas?.jornadaDurationDays ?? 7} dias`,
       },
       {
           icon: <RiCoinLine />,
@@ -2050,19 +2100,37 @@ export function TorneoDefinicionTab({
             onClose={() => setShowEndTournamentModal(false)}
             onConfirm={handleEndTournament}
             title="¿Finalizar Torneo Actual?"
-            message="Esta acción borrará permanentemente todos los partidos del torneo actual."
+            message="Puedes limpiar el avance del torneo sin borrar el fixture, o borrar el torneo completo."
             subMessage={divisionMovePlan.hasConfiguredMovements ? "Revisa los ascensos y descensos antes de confirmar." : "Este torneo no tiene ascensos ni descensos configurados."}
-            confirmText={isDeleting ? "Finalizando..." : "Sí, Finalizar"}
+            confirmText={isDeleting ? "Borrando..." : "Borrar torneo"}
             confirmColor={v.rojo}
             width="560px"
         >
+            <TournamentCleanupOption>
+                <div className="cleanup-copy">
+                    <strong>Mantener torneo activo</strong>
+                    <small>
+                        Borra goles, puntos y eventos; tambien desconfirma jornadas. Conserva reglas,
+                        configuracion, equipos, fechas y partidos actuales.
+                    </small>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleCleanTournamentProgress}
+                    disabled={isDeleting || isCleaningTournament}
+                >
+                    <RiRefreshLine />
+                    <span>{isCleaningTournament ? "Limpiando..." : "Limpiar resultados"}</span>
+                </button>
+            </TournamentCleanupOption>
+
             {divisionMovePlan.hasConfiguredMovements && (
                 <DivisionMovesPreview $active={applyDivisionMoves}>
                     <label className="auto-move-toggle">
                         <input
                             type="checkbox"
                             checked={applyDivisionMoves}
-                            disabled={!divisionMovePlan.hasApplicableMovements || isDeleting}
+                            disabled={!divisionMovePlan.hasApplicableMovements || isDeleting || isCleaningTournament}
                             onChange={(event) => handleApplyDivisionMovesToggle(event.target.checked)}
                         />
                         <span>
@@ -2096,7 +2164,7 @@ export function TorneoDefinicionTab({
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedDivisionMoveIdSet.has(getDivisionMoveKey(team.movement, team.id))}
-                                                    disabled={!team.targetDivision?.id || isDeleting}
+                                                    disabled={!team.targetDivision?.id || isDeleting || isCleaningTournament}
                                                     onChange={(event) => handleDivisionMoveSelection(team.movement, team.id, event.target.checked)}
                                                     aria-label={`${team.movement} de ${team.name}`}
                                                 />
@@ -2311,6 +2379,87 @@ const TournamentStartOverlay = styled.div`
 
     @keyframes startSpin {
         to { transform: rotate(360deg); }
+    }
+`;
+
+const TournamentCleanupOption = styled.div`
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid ${({ theme }) => theme.primary}35;
+    border-radius: 8px;
+    background: ${({ theme }) => `${theme.primary}10`};
+    text-align: left;
+
+    .cleanup-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .cleanup-copy strong {
+        color: ${({ theme }) => theme.text};
+        font-size: 0.86rem;
+        font-weight: 900;
+    }
+
+    .cleanup-copy small {
+        color: ${({ theme }) => `${theme.text}a6`};
+        font-size: 0.74rem;
+        line-height: 1.35;
+    }
+
+    button {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 12px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: ${({ theme }) => theme.primary};
+        color: #ffffff;
+        font-size: 0.78rem;
+        font-weight: 900;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: transform 180ms ease, opacity 180ms ease, box-shadow 180ms ease;
+        box-shadow: ${({ theme }) => `0 8px 18px ${theme.primary}24`};
+    }
+
+    button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: ${({ theme }) => `0 10px 22px ${theme.primary}2f`};
+    }
+
+    button:disabled {
+        cursor: not-allowed;
+        opacity: 0.62;
+        box-shadow: none;
+    }
+
+    button svg {
+        flex: 0 0 auto;
+        font-size: 1rem;
+    }
+
+    @media (max-width: 560px) {
+        grid-template-columns: 1fr;
+
+        button {
+            width: 100%;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        button {
+            transition: opacity 180ms ease;
+        }
     }
 `;
 
@@ -2742,7 +2891,6 @@ const ActiveTournamentPanel = styled.div`
         max-width: 100%;
         border-radius: inherit;
         background: linear-gradient(90deg, var(--panel-accent), var(--panel-accent-strong));
-        transition: width 0.35s ease;
     }
 
     .phase-marker {
@@ -2827,7 +2975,6 @@ const ActiveTournamentPanel = styled.div`
         background: var(--panel-accent-strong);
         transform-origin: left center;
         animation: progressFillIn 0.7s ease-out both;
-        transition: width 0.35s ease;
     }
 
     .hero-actions {
@@ -3092,7 +3239,7 @@ const ActiveTournamentPanel = styled.div`
         transform-origin: bottom center;
         animation: barGrowIn 0.7s cubic-bezier(0.2, 0.85, 0.25, 1) both;
         animation-delay: calc(var(--bar-index) * 35ms);
-        transition: height 0.2s ease, background 0.2s ease, filter 0.2s ease;
+        transition: background 0.2s ease, filter 0.2s ease;
     }
 
     .jornada-bars button:hover {
@@ -3673,7 +3820,7 @@ const SetupTournamentPanel = styled(ActiveTournamentPanel)`
 const ModalContentStyled = styled.div` 
     display: flex; flex-direction: column; gap: 15px; padding-top: 10px; 
     .info-message { 
-        background: rgba(28, 176, 246, 0.1); border-left: 4px solid ${({theme})=>theme.primary}; padding: 10px 15px; font-size: 13px; font-weight: 500;
+        background: rgba(28, 176, 246, 0.1); border: 1px solid ${({theme})=>theme.primary}35; border-radius: 8px; padding: 10px 15px; font-size: 13px; font-weight: 500;
         .icon{font-size:20px; color:${({theme})=>theme.primary};} 
     } 
     .modal-actions { display: flex; justify-content: flex-end; margin-top: 20px; padding-top:20px; border-top: 1px solid ${({theme})=>theme.bg4}; } 

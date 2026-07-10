@@ -553,9 +553,10 @@ export function TeamForm({
                 showToast={showToast}
                 isTeamLogo={true}
                 themeColor={form.color}
-                shape="circle"
+                shape="square"
                 width="120px"
                 height="120px"
+                enableClipboardPaste={true}
               />
             </div>
 

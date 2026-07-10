@@ -204,6 +204,10 @@ const MainTestimCard = styled.div`
   transform: translateY(24px);
   transition: opacity 0.7s ease, transform 0.7s ease;
   &.visible { opacity: 1; transform: none; }
+  
+  @media (max-width: 600px) {
+    padding: 24px;
+  }
 `;
 
 const Stars = styled.div`
@@ -272,6 +276,7 @@ const AuthorStats = styled.div`
   gap: 12px;
   padding-top: 24px;
   border-top: 1px solid var(--lp-border);
+  flex-wrap: wrap;
 `;
 
 const StatChip = styled.div`
