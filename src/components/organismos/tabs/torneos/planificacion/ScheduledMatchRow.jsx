@@ -2,6 +2,7 @@ import React, { memo, useMemo, useState, useRef } from "react";
 import styled, { css } from "styled-components";
 import { v } from "../../../../../index";
 import { 
+  RiArrowGoBackLine,
   RiArrowLeftSLine,
   RiArrowRightSLine,
   RiDeleteBinLine, 
@@ -106,6 +107,8 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
     onRemove, 
     onOpenResult, 
     onPostpone,
+    onResetResult,
+    isResettingResult = false,
     groupLabel,
     onDropOnDate,
     currentJornadaNumber = 1,
@@ -397,10 +400,25 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                 </button>
                                 
                                 {match.status === 'Finalizado' ? (
+                                    <>
                                     <button className="action-btn sheet" onClick={() => setShowSheet(true)}>
                                         <RiFileTextLine />
                                         Ver Cédula
                                     </button>
+
+                                        {!isReferenceOnly && typeof onResetResult === "function" && (
+                                            <button
+                                                type="button"
+                                                className="action-btn undo-result"
+                                                onClick={() => onResetResult(match)}
+                                                disabled={isResettingResult}
+                                                title="Deshacer resultado del partido"
+                                            >
+                                                <RiArrowGoBackLine />
+                                                {isResettingResult ? 'Deshaciendo...' : 'Deshacer'}
+                                            </button>
+                                        )}
+                                    </>
                                 ) : (
                                     <>
                                         <button 
@@ -789,6 +807,21 @@ const Container = styled.div`
                 &.postpone { background: #f1c40f20; color: #f1c40f; &:hover{ background: #f1c40f; color: black; } }
                 &.sheet { background: #3498db20; color: #3498db; &:hover{ background: #3498db; color: white; } }
                 &.print { background: #95a5a620; color: #7f8c8d; &:hover{ background: #95a5a6; color: white; } }
+                &.undo-result {
+                    background: #e67e2220;
+                    color: #d56f13;
+
+                    &:hover:not(:disabled) {
+                        background: #e67e22;
+                        color: white;
+                    }
+                }
+
+                &:disabled {
+                    opacity: 0.55;
+                    cursor: not-allowed;
+                    filter: grayscale(0.2);
+                }
             }
         }
 

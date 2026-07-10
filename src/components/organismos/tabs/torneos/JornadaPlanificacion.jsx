@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import styled, { css, keyframes } from "styled-components";
 import { v, Btnsave, Toast } from "../../../../index";
 import {
+  RiArrowGoBackLine,
   RiCheckDoubleLine,
   RiCloseLine,
   RiEyeLine,
@@ -52,6 +53,13 @@ const getConfiguredJornadaDurationDays = (config, fallback = 7) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const hasScoreValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+const hasMatchResult = (match) =>
+  match?.status === "Finalizado" ||
+  (hasScoreValue(match?.goals1) && hasScoreValue(match?.goals2));
+
 const customScrollbar = css`
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -87,9 +95,11 @@ export function JornadaPlanificacion({
   activeTournament,
   jornadaData,
   onConfirm,
+  onUndoConfirmation,
   onChangeJornada,
   totalJornadas,
   onMatchUpdate,
+  onResetMatchResult,
   canConfirm,
   onSaveConfig,
   onEditFixture,
@@ -115,6 +125,7 @@ export function JornadaPlanificacion({
     currentJornadaName,
     currentJornadaNumber,
     clearDraft,
+    saveDraft,
     isPlanningDataReady,
     showExternalMatches,
     toggleExternalMatches,
@@ -144,6 +155,8 @@ export function JornadaPlanificacion({
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [savingResultMatchId, setSavingResultMatchId] = useState(null);
+  const [matchToResetResult, setMatchToResetResult] = useState(null);
+  const [resettingResultMatchId, setResettingResultMatchId] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "" });
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -153,6 +166,8 @@ export function JornadaPlanificacion({
 
   const [repositionPlannerOpen, setRepositionPlannerOpen] = useState(false);
   const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
+  const [undoJornadaModalOpen, setUndoJornadaModalOpen] = useState(false);
+  const [isUndoingConfirmation, setIsUndoingConfirmation] = useState(false);
   const [matchToPostpone, setMatchToPostpone] = useState(null);
 
   const [resolutionModalOpen, setResolutionModalOpen] = useState(false);
@@ -253,10 +268,14 @@ export function JornadaPlanificacion({
     );
 
     return {
-      completed: trackableMatches.filter((match) => match.status === "Finalizado").length,
+      completed: trackableMatches.filter(hasMatchResult).length,
       total: trackableMatches.length,
     };
   }, [scheduledMatches]);
+  const canUndoJornadaConfirmation =
+    isConfirmed &&
+    confirmedResultsProgress.completed === 0 &&
+    typeof onUndoConfirmation === "function";
 
   const pendientesEstaJornada = sidebarMatches.filter(
     (match) => match.originJornada === currentJornadaName && !match.isByeMatch
@@ -434,6 +453,29 @@ export function JornadaPlanificacion({
     },
     [onMatchUpdate]
   );
+
+  const handleResetMatchResult = useCallback(async () => {
+    if (!matchToResetResult?.id || resettingResultMatchId) return;
+
+    setResettingResultMatchId(matchToResetResult.id);
+    try {
+      await onResetMatchResult?.(matchToResetResult.id);
+      setMatchToResetResult(null);
+      setToast({
+        show: true,
+        msg: "Resultado deshecho. El partido vuelve a quedar pendiente.",
+        type: "success",
+      });
+    } catch (error) {
+      setToast({
+        show: true,
+        msg: error?.message || "No se pudo deshacer el resultado",
+        type: "error",
+      });
+    } finally {
+      setResettingResultMatchId(null);
+    }
+  }, [matchToResetResult?.id, onResetMatchResult, resettingResultMatchId]);
 
   const handleResolveMatch = (resolution) => {
     if (!matchToResolve) return;
@@ -722,6 +764,37 @@ export function JornadaPlanificacion({
     setConfirmJornadaModalOpen(true);
   };
 
+  const handleUndoJornadaConfirmation = async () => {
+    if (!canUndoJornadaConfirmation || isUndoingConfirmation) return;
+
+    saveDraft(
+      { scheduledMatches, allPendingMatches },
+      { includeInitialVersion: true }
+    );
+    setIsUndoingConfirmation(true);
+
+    try {
+      await onUndoConfirmation({
+        jornadaId: jornadaData?.id,
+        jornadaName: jornadaData?.name,
+      });
+      setUndoJornadaModalOpen(false);
+      setToast({
+        show: true,
+        msg: "Confirmacion deshecha. Puedes editar la jornada nuevamente.",
+        type: "success",
+      });
+    } catch (error) {
+      setToast({
+        show: true,
+        msg: error?.message || "No se pudo deshacer la confirmacion",
+        type: "error",
+      });
+    } finally {
+      setIsUndoingConfirmation(false);
+    }
+  };
+
   const handleChronologicalNavigation = useCallback(
     (nextChronologicalIndex) => {
       const targetJornada = chronologicalJornadas[nextChronologicalIndex];
@@ -944,6 +1017,14 @@ export function JornadaPlanificacion({
                               ]);
                             }}
                             onOpenResult={handleOpenResultModal}
+                            onResetResult={
+                              typeof onResetMatchResult === "function"
+                                ? setMatchToResetResult
+                                : undefined
+                            }
+                            isResettingResult={
+                              String(resettingResultMatchId || "") === String(match.id)
+                            }
                             onPostpone={(selected) => setMatchToPostpone(selected)}
                             isRepositionMode={isRepositionMode}
                             currentJornadaNumber={currentJornadaNumber}
@@ -985,26 +1066,38 @@ export function JornadaPlanificacion({
         <div className="note">
           Duración Estimada: {durationMatch} min (Partido + Descanso)
         </div>
-        {!isConfirmed && (
-          <Btnsave
-            titulo={
-              isCheckingConflicts
-                ? "Verificando..."
-                : isRepositionMode
-                  ? "Confirmar Reposicion"
-                  : "Confirmar Jornada"
-            }
-            funcion={handleOpenConfirmModal}
-            icono={!isCheckingConflicts && <RiCheckDoubleLine />}
-            bgcolor={
-              canConfirm && !isCheckingConflicts
-                ? isRepositionMode
-                  ? "#f39c12"
-                  : v.colorPrincipal
-                : "#95a5a6"
-            }
-          />
-        )}
+        <FooterActions>
+          {!isConfirmed && (
+            <Btnsave
+              titulo={
+                isCheckingConflicts
+                  ? "Verificando..."
+                  : isRepositionMode
+                    ? "Confirmar Reposicion"
+                    : "Confirmar Jornada"
+              }
+              funcion={handleOpenConfirmModal}
+              icono={!isCheckingConflicts && <RiCheckDoubleLine />}
+              bgcolor={
+                canConfirm && !isCheckingConflicts
+                  ? isRepositionMode
+                    ? "#f39c12"
+                    : v.colorPrincipal
+                  : "#95a5a6"
+              }
+            />
+          )}
+
+          {canUndoJornadaConfirmation && (
+            <Btnsave
+              titulo={isUndoingConfirmation ? "Deshaciendo..." : "Deshacer confirmacion"}
+              funcion={() => setUndoJornadaModalOpen(true)}
+              icono={<RiArrowGoBackLine />}
+              bgcolor="#e67e22"
+              disabled={isUndoingConfirmation}
+            />
+          )}
+        </FooterActions>
       </Footer>
 
       <TournamentConfigModal
@@ -1161,6 +1254,40 @@ export function JornadaPlanificacion({
           </ConfirmNote>
         )}
       </ConfirmModal>
+
+      <ConfirmModal
+        isOpen={undoJornadaModalOpen}
+        onClose={() => {
+          if (!isUndoingConfirmation) setUndoJornadaModalOpen(false);
+        }}
+        onConfirm={handleUndoJornadaConfirmation}
+        title="Deshacer Confirmacion"
+        message="Esta jornada volvera a modo editable."
+        subMessage="Los partidos conservaran sus fechas y horarios actuales como borrador local."
+        confirmText={isUndoingConfirmation ? "Deshaciendo..." : "Deshacer"}
+        confirmColor="#e67e22"
+        confirmIcon={<RiArrowGoBackLine />}
+        thinButtons={true}
+      />
+
+      <ConfirmModal
+        isOpen={!!matchToResetResult}
+        onClose={() => {
+          if (!resettingResultMatchId) setMatchToResetResult(null);
+        }}
+        onConfirm={handleResetMatchResult}
+        title="Deshacer Resultado"
+        message="Este partido volvera a quedar sin resultado."
+        subMessage={
+          matchToResetResult
+            ? `${getMatchTeamsLabel(matchToResetResult)} conservara su fecha y hora, pero se borraran marcador, arbitro, observaciones y eventos.`
+            : ""
+        }
+        confirmText={resettingResultMatchId ? "Deshaciendo..." : "Deshacer"}
+        confirmColor="#e67e22"
+        confirmIcon={<RiArrowGoBackLine />}
+        thinButtons={true}
+      />
 
       <ConfirmModal
         isOpen={!!matchToPostpone}
@@ -1344,6 +1471,23 @@ const Footer = styled.div`
     background: ${`${v.colorPrincipal}15`};
     padding: 8px 12px;
     border-radius: 8px;
+  }
+`;
+
+const FooterActions = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    justify-content: center;
+    width: 100%;
+
+    button {
+      width: 100%;
+    }
   }
 `;
 

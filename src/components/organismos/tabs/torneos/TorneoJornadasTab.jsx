@@ -11,6 +11,7 @@ import {
   bulkUpdateJornadaFechas,
   bulkUpsertMatchesService,
   createJornadasService,
+  desconfirmarJornadaService,
   getAllMatchesByTournament,
   getJornadas,
   getMatchesByIdsService,
@@ -18,6 +19,7 @@ import {
   getPendingMatchesByTournamentService,
   getTournamentConfigService,
   guardarJornadaService,
+  resetMatchResultService,
   updateTournamentFieldsService,
   updateMatchResultService,
 } from "../../../../services/torneos";
@@ -1189,6 +1191,46 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     }
   };
 
+  const handleUndoJornadaConfirmation = async ({ jornadaId }) => {
+    const preservedJornadaId = jornadaId || jornadas[currentJornadaIndex]?.id || null;
+
+    try {
+        await desconfirmarJornadaService(activeTournament.id, preservedJornadaId);
+        setToastConfig({
+          show: true,
+          message: "Confirmacion deshecha. La jornada vuelve a modo editable.",
+          type: "success"
+        });
+
+        const updatedMappings = await fetchTournamentConfig();
+        const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
+        const updatedJornadas = updatedJornadasResult?.jornadas || [];
+        await fetchGlobalPendingMatches();
+        await fetchAllTournamentMatches();
+
+        const jornadaToRefresh =
+          updatedJornadasResult?.selectedJornada ||
+          updatedJornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId)) ||
+          updatedJornadas[currentJornadaIndex];
+
+        if (jornadaToRefresh?.id) {
+          await fetchCurrentJornadaMatches(
+            jornadaToRefresh.id,
+            updatedJornadas,
+            updatedMappings?.jornadaMappings || [],
+            updatedMappings?.matchMappings || []
+          );
+        }
+    } catch (error) {
+        setToastConfig({
+          show: true,
+          message: error.message || "Error deshaciendo la confirmacion.",
+          type: "error"
+        });
+        throw error;
+    }
+  };
+
   const handleSaveConfig = async (newConfig) => {
     setLoading(true);
     try {
@@ -1269,6 +1311,15 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     await fetchAllTournamentMatches();
   };
 
+  const handleResetMatchResult = async (matchId) => {
+    await resetMatchResultService(activeTournament.id, matchId);
+    await new Promise(res => setTimeout(res, 100));
+    if (refreshStandings) await refreshStandings();
+    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
+    await fetchGlobalPendingMatches();
+    await fetchAllTournamentMatches();
+  };
+
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
 
   const currentJornada = jornadas[currentJornadaIndex] || null;
@@ -1331,9 +1382,11 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
             activeTournament={activeTournament} 
             jornadaData={currentJornada}
             onConfirm={handleConfirmJornada} 
+            onUndoConfirmation={handleUndoJornadaConfirmation}
             onChangeJornada={handleChangeJornada}
             totalJornadas={jornadas.length} 
             onMatchUpdate={handleMatchUpdate}
+            onResetMatchResult={handleResetMatchResult}
             canConfirm={canConfirm} 
             onSaveConfig={handleSaveConfig}
             onEditFixture={handleOpenFixtureEditor}

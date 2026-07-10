@@ -33,6 +33,13 @@ export const generarFixture = (equipos) => {
   return rounds;
 };
 
+const hasStoredScoreValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== '';
+
+const hasStoredMatchResult = (match) =>
+  match?.status === 'Finalizado' ||
+  (hasStoredScoreValue(match?.goals1) && hasStoredScoreValue(match?.goals2));
+
 export const iniciarTorneoService = async (
   { divisionId, divisionName, season, startDate, config, jornadas },
   fixtureGenerado
@@ -568,6 +575,47 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
   }
 };
 
+export const desconfirmarJornadaService = async (torneoId, jornadaId) => {
+  if (!torneoId) throw new Error('ID de torneo no proporcionado');
+  if (!jornadaId) throw new Error('ID de jornada no proporcionado');
+
+  const { data: jornada, error: jornadaError } = await supabase
+    .from('jornadas')
+    .select('id, status')
+    .eq('id', jornadaId)
+    .eq('tournament_id', torneoId)
+    .single();
+
+  if (jornadaError) throw jornadaError;
+  if (!jornada) throw new Error('Jornada no encontrada en la BD');
+  if (jornada.status !== 'Confirmada') {
+    throw new Error('Solo se puede deshacer una jornada confirmada');
+  }
+
+  const { data: matches, error: matchesError } = await supabase
+    .from('matches')
+    .select('id, status, goals1, goals2')
+    .eq('jornada_id', jornadaId);
+
+  if (matchesError) throw matchesError;
+
+  const hasFinishedMatch = (matches || []).some(hasStoredMatchResult);
+
+  if (hasFinishedMatch) {
+    throw new Error('No se puede deshacer: la jornada ya tiene resultados');
+  }
+
+  const { error: updateError } = await supabase
+    .from('jornadas')
+    .update({ status: 'Pendiente' })
+    .eq('id', jornadaId)
+    .eq('tournament_id', torneoId);
+
+  if (updateError) throw updateError;
+
+  return { success: true };
+};
+
 export const eliminarTorneoService = async (tournamentId) => {
   try {
     if (!tournamentId) throw new Error('ID de torneo invalido');
@@ -675,5 +723,47 @@ export const updateMatchResultService = async (matchId, payload) => {
     .eq('id', matchId);
 
   if (error) throw error;
+  return { success: true };
+};
+
+export const resetMatchResultService = async (torneoId, matchId) => {
+  if (!torneoId) throw new Error('ID de torneo no proporcionado');
+  if (!matchId) throw new Error('ID de partido no proporcionado');
+
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .select('id, status, date, goals1, goals2, jornadas!inner(tournament_id)')
+    .eq('id', matchId)
+    .eq('jornadas.tournament_id', torneoId)
+    .single();
+
+  if (matchError) throw matchError;
+  if (!match) throw new Error('Partido no encontrado en la BD');
+  if (!hasStoredMatchResult(match)) {
+    throw new Error('Solo se puede deshacer un partido con resultado');
+  }
+
+  const { error: eventsError } = await supabase
+    .from('match_events')
+    .delete()
+    .eq('match_id', matchId);
+
+  if (eventsError) throw eventsError;
+
+  const { error: updateError } = await supabase
+    .from('matches')
+    .update({
+      goals1: null,
+      goals2: null,
+      puntos1: null,
+      puntos2: null,
+      referee_id: null,
+      observations: null,
+      status: match.date ? 'Programado' : 'Pendiente',
+    })
+    .eq('id', matchId);
+
+  if (updateError) throw updateError;
+
   return { success: true };
 };

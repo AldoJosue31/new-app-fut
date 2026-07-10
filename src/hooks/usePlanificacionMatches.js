@@ -63,11 +63,16 @@ export const usePlanificacionMatches = (
       return lastConfirmedIdx + 1;
   }, [jornadasList]);
 
-  const storageKey = useMemo(() => {
+  const storageKeyBase = useMemo(() => {
     if (!activeTournament?.id) return null;
     const jornadaKey = jornadaData?.id ? `id_${jornadaData.id}` : `J${jornadaIndex}`;
-    return `planning_draft_${activeTournament.id}_${jornadaKey}_v${dataVersion}`;
-  }, [activeTournament?.id, jornadaData?.id, jornadaIndex, dataVersion]);
+    return `planning_draft_${activeTournament.id}_${jornadaKey}`;
+  }, [activeTournament?.id, jornadaData?.id, jornadaIndex]);
+
+  const storageKey = useMemo(() => {
+    if (!storageKeyBase) return null;
+    return `${storageKeyBase}_v${dataVersion}`;
+  }, [dataVersion, storageKeyBase]);
 
   const dataContextKey = useMemo(() => {
     const compactMatches = (items = []) =>
@@ -222,9 +227,31 @@ export const usePlanificacionMatches = (
   const getJornadaNum = (str) => parseJornadaNumber(str, 999);
 
   const clearDraft = useCallback(() => {
-    if (storageKey) localStorage.removeItem(storageKey);
+    if (storageKeyBase) {
+      const versionedPrefix = `${storageKeyBase}_v`;
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (key && key.startsWith(versionedPrefix)) {
+          localStorage.removeItem(key);
+        }
+      }
+      localStorage.removeItem(storageKeyBase);
+    }
     setLoadedContextKey(null);
-  }, [storageKey]);
+  }, [storageKeyBase]);
+
+  const saveDraft = useCallback(
+    (draftData = { scheduledMatches, allPendingMatches }, options = {}) => {
+      if (!storageKey) return;
+      const serializedDraft = JSON.stringify(draftData);
+      localStorage.setItem(storageKey, serializedDraft);
+
+      if (options.includeInitialVersion && storageKeyBase) {
+        localStorage.setItem(`${storageKeyBase}_v0`, serializedDraft);
+      }
+    },
+    [allPendingMatches, scheduledMatches, storageKey, storageKeyBase]
+  );
 
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
     if (!dateToFix) return matches;
@@ -448,10 +475,9 @@ export const usePlanificacionMatches = (
 
   useEffect(() => {
     if (isPlanningDataReady && storageKey && !isConfirmed) {
-        const draftData = { scheduledMatches, allPendingMatches };
-        localStorage.setItem(storageKey, JSON.stringify(draftData));
+        saveDraft();
     }
-  }, [scheduledMatches, allPendingMatches, storageKey, isPlanningDataReady, isConfirmed]);
+  }, [isPlanningDataReady, storageKey, isConfirmed, saveDraft]);
 
   const sidebarMatches = useMemo(() => {
     const scheduledIds = new Set(scheduledMatches.map(m => String(m.id)));
@@ -464,7 +490,7 @@ export const usePlanificacionMatches = (
     sidebarMatches,
     weekStartDate, setWeekStartDate: handleSetWeekStartDate,
     durationMatch, autoAdjustTimes, currentJornadaName, currentJornadaNumber,
-    clearDraft,
+    clearDraft, saveDraft,
     isPlanningDataReady,
     showExternalMatches, toggleExternalMatches, 
     externalMatches, loadingExternal,
