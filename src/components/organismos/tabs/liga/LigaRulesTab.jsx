@@ -16,9 +16,13 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
     drawPoints: 1,
     lossPoints: 0,
     tieBreakType: "normal", // <-- REGRESADO A SU ESTADO ORIGINAL
+    horaInicio: "08:00",
+    horaFin: "22:00",
+    jornadaDurationDays: 7,
     minutosPorTiempo: 45,
     minutosDescanso: 15,
-    cambios: "Ilimitados"
+    cambios: "Ilimitados",
+    observaciones: ""
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +51,7 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
         setHasChanges(false);
         setToast({ show: true, message: "Plantilla de reglas guardada con éxito.", type: "success" });
       }
-    } catch (error) {
+    } catch {
       setToast({ show: true, message: "Error al guardar reglas.", type: "error" });
     } finally {
       setIsSaving(false);
@@ -115,6 +119,24 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
 
           <Divider />
 
+          <SectionTitle><IoMdStopwatch /> Tiempos y Horarios</SectionTitle>
+          <Grid>
+            <FormGroup>
+              <label>Hora de Inicio</label>
+              <input type="time" className="form__field" value={config.horaInicio} onChange={(e) => handleChange('horaInicio', e.target.value)} />
+            </FormGroup>
+            <FormGroup>
+              <label>Hora LÃ­mite</label>
+              <input type="time" className="form__field" value={config.horaFin} onChange={(e) => handleChange('horaFin', e.target.value)} />
+            </FormGroup>
+            <FormGroup>
+              <label>DuraciÃ³n de Jornada (dÃ­as)</label>
+              <input type="number" min="1" className="form__field" value={config.jornadaDurationDays} onChange={(e) => handleChange('jornadaDurationDays', Number(e.target.value))} />
+            </FormGroup>
+          </Grid>
+
+          <Divider />
+
           <SectionTitle><IoMdStopwatch /> Tiempos, Descansos y Cambios</SectionTitle>
           <Grid>
             <FormGroup>
@@ -134,6 +156,11 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
             </FormGroup>
           </Grid>
 
+          <FormGroup>
+            <label>Observaciones</label>
+            <TextArea className="form__field" value={config.observaciones} onChange={(e) => handleChange('observaciones', e.target.value)} rows="3" placeholder="Reglas adicionales..." />
+          </FormGroup>
+
           <div className="actions-right" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
             <Btnsave titulo={isSaving ? "Guardando..." : "Guardar Cambios"} bgcolor={hasChanges ? "#e67e22" : v.colorPrincipal} icono={<v.iconoguardar/>} funcion={handleSave} disabled={isSaving || !hasChanges} />
           </div>
@@ -149,3 +176,4 @@ const FormGroup = styled.div` display: flex; flex-direction: column; gap: 8px; l
 const SectionTitle = styled.h3` display: flex; align-items: center; gap: 8px; font-size: 16px; margin-bottom: 15px; color: ${({theme})=>theme.primary}; `;
 const Divider = styled.div` height: 1px; background-color: ${({theme})=>theme.bg4}; margin: 30px 0; `;
 const UnsavedWarning = styled.div` display: flex; align-items: center; gap: 12px; background-color: rgba(230, 126, 34, 0.15); border: 1px solid #e67e22; color: #e67e22; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; `;
+const TextArea = styled.textarea` width: 100%; resize: vertical; min-height: 84px; `;

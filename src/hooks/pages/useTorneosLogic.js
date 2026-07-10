@@ -60,11 +60,13 @@ const createLeagueRuleDraft = (leagueData) => {
       descensos: 0,
     },
     reglas: {
+      horaInicio: parsed.horaInicio ?? "08:00",
+      horaFin: parsed.horaFin ?? "22:00",
       minutosPorTiempo: parsed.minutosPorTiempo ?? 45,
       minutosDescanso: parsed.minutosDescanso ?? 15,
       jornadaDurationDays: parsed.jornadaDurationDays ?? 7,
       cambios: parsed.cambios ?? "Ilimitados",
-      observaciones: "",
+      observaciones: parsed.observaciones ?? "",
     },
   };
 };
@@ -95,7 +97,10 @@ export const useTorneosLogic = () => {
         if (parsed.reglasDraft) return parsed.reglasDraft;
     }
     return {
+      horaInicio: "08:00",
+      horaFin: "22:00",
       minutosPorTiempo: "", 
+      minutosDescanso: "",
       jornadaDurationDays: 7,
       cambios: "Ilimitados",
       observaciones: ""
@@ -256,6 +261,8 @@ export const useTorneosLogic = () => {
         
         if (torneo.config) {
           setReglas({
+            horaInicio: torneo.config.horaInicio || "08:00",
+            horaFin: torneo.config.horaFin || "22:00",
             minutosPorTiempo: torneo.config.minutosPorTiempo || "45",
             minutosDescanso: torneo.config.minutosDescanso || "15",
             jornadaDurationDays: torneo.config.jornadaDurationDays || 7,

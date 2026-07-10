@@ -207,10 +207,13 @@ export function TorneoDefinicionTab({
         drawPoints: parsed.drawPoints ?? 1,
         lossPoints: parsed.lossPoints ?? 0,
         tieBreakType: parsed.tieBreakType ?? "normal", // <-- CORREGIDO A NORMAL
+        horaInicio: parsed.horaInicio ?? "08:00",
+        horaFin: parsed.horaFin ?? "22:00",
         minutosPorTiempo: parsed.minutosPorTiempo ?? 45,
         minutosDescanso: parsed.minutosDescanso ?? 15,
         jornadaDurationDays: parsed.jornadaDurationDays ?? 7,
-        cambios: parsed.cambios ?? "Ilimitados"
+        cambios: parsed.cambios ?? "Ilimitados",
+        observaciones: parsed.observaciones ?? ""
     };
   }, [leagueData]);
 
@@ -228,10 +231,13 @@ export function TorneoDefinicionTab({
 
         setReglas(prev => ({
             ...prev,
+            horaInicio: defaultLeagueConfig.horaInicio,
+            horaFin: defaultLeagueConfig.horaFin,
             minutosPorTiempo: defaultLeagueConfig.minutosPorTiempo,
             minutosDescanso: defaultLeagueConfig.minutosDescanso,
             jornadaDurationDays: defaultLeagueConfig.jornadaDurationDays,
-            cambios: defaultLeagueConfig.cambios
+            cambios: defaultLeagueConfig.cambios,
+            observaciones: defaultLeagueConfig.observaciones
         }));
     }
   }, [defaultLeagueConfig, activeTournament]); 
@@ -311,10 +317,13 @@ export function TorneoDefinicionTab({
         }));
         setConfigDraftReglas((prev) => ({
             ...(prev || reglas),
+            horaInicio: defaultLeagueConfig.horaInicio,
+            horaFin: defaultLeagueConfig.horaFin,
             minutosPorTiempo: defaultLeagueConfig.minutosPorTiempo,
             minutosDescanso: defaultLeagueConfig.minutosDescanso,
             jornadaDurationDays: defaultLeagueConfig.jornadaDurationDays,
-            cambios: defaultLeagueConfig.cambios
+            cambios: defaultLeagueConfig.cambios,
+            observaciones: defaultLeagueConfig.observaciones
         }));
     }
   };
