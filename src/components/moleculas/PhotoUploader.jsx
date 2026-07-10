@@ -91,7 +91,8 @@ export const PhotoUploader = memo(function PhotoUploader({
   themeColor = v.colorPrincipal,
   shape = "circle",
   width = "120px", 
-  height = "120px" 
+  height = "120px",
+  enableClipboardPaste = false,
 }) {
   const [isCropping, setIsCropping] = useState(false);
   const [originalFile, setOriginalFile] = useState(null); 
@@ -110,6 +111,7 @@ export const PhotoUploader = memo(function PhotoUploader({
   const [startPan, setStartPan] = useState({ x: 0, y: 0 });
   
   const fileInputRef = useRef(null);
+  const uploaderRef = useRef(null);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   
@@ -133,6 +135,46 @@ export const PhotoUploader = memo(function PhotoUploader({
       startCropper(url);
       e.target.value = '';
     }
+  };
+
+  const openFilePicker = () => {
+    uploaderRef.current?.focus();
+    fileInputRef.current?.click();
+  };
+
+  const getImageFileFromClipboard = (clipboardData) => {
+    if (!clipboardData) return null;
+
+    const clipboardFiles = Array.from(clipboardData.files || []);
+    const fileFromFiles = clipboardFiles.find((file) =>
+      file?.type?.startsWith("image/")
+    );
+    if (fileFromFiles) return fileFromFiles;
+
+    const imageItem = Array.from(clipboardData.items || []).find((item) =>
+      item.kind === "file" && item.type?.startsWith("image/")
+    );
+    const blob = imageItem?.getAsFile();
+    if (!blob) return null;
+
+    return new File([blob], `logo-pegado-${Date.now()}.png`, {
+      type: blob.type || "image/png",
+    });
+  };
+
+  const handlePaste = (event) => {
+    if (!enableClipboardPaste) return;
+
+    const imageFile = getImageFileFromClipboard(event.clipboardData);
+    if (!imageFile) {
+      showToast?.("No se encontro una imagen en el portapapeles.", "error");
+      return;
+    }
+
+    event.preventDefault();
+    setOriginalFile(imageFile);
+    startCropper(URL.createObjectURL(imageFile));
+    showToast?.("Imagen pegada desde el portapapeles.", "success");
   };
 
   const startCropper = (url) => {
@@ -177,7 +219,7 @@ export const PhotoUploader = memo(function PhotoUploader({
                 } else {
                     throw new Error("Tampoco se pudo cargar la preview");
                 }
-            } catch (err2) {
+            } catch {
                 if(showToast) showToast("Error cargando la imagen", "error");
             }
         } else {
@@ -197,7 +239,7 @@ export const PhotoUploader = memo(function PhotoUploader({
             const file = new File([blob], "image.png", { type: blob.type });
             setOriginalFile(file);
             startCropper(URL.createObjectURL(blob));
-         } catch(e) {
+         } catch {
             if(showToast) showToast("No se puede editar esta imagen", "error");
          } finally {
             setIsLoadingOriginal(false);
@@ -310,11 +352,23 @@ const handleRemoveBgInside = async () => {
 
   return (
     <>
-      <Container $width={width} $height={height} $shape={shape}>
-        <div className="preview-area" onClick={() => fileInputRef.current.click()}>
+      <Container
+        ref={uploaderRef}
+        $width={width}
+        $height={height}
+        $shape={shape}
+        $canPaste={enableClipboardPaste}
+        tabIndex={enableClipboardPaste ? 0 : -1}
+        onPaste={handlePaste}
+        aria-label={enableClipboardPaste ? "Subir imagen o pegar desde el portapapeles" : undefined}
+      >
+        <div className="preview-area" onClick={openFilePicker}>
           {previewUrl ? <img src={previewUrl} alt="Preview" className="img-final" /> : <div className="placeholder"><RiImageAddLine /><span>Subir</span></div>}
           <div className="overlay"><RiCropLine /><span>{previewUrl ? "Cambiar" : "Seleccionar"}</span></div>
         </div>
+        {enableClipboardPaste && (
+          <div className="paste-hint">Ctrl/Cmd + V</div>
+        )}
         {previewUrl && (
           <div className="mini-tools">
              <button type="button" className="tool-btn edit" onClick={handleManualAdjust} title="Recortar">
@@ -396,13 +450,48 @@ const Container = styled.div`
   height: ${(props) => props.$height};
   flex-shrink: 0;
   margin: 0 auto;
+  outline: none;
+
+  &:focus-visible .preview-area {
+    border-color: ${v.colorPrincipal};
+    box-shadow: 0 0 0 3px ${v.colorPrincipal}22;
+  }
+
+  .paste-hint {
+    position: absolute;
+    left: 50%;
+    bottom: -22px;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 150px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: ${({ theme }) => theme.bg4};
+    color: ${({ theme }) => theme.text};
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    opacity: 0.72;
+    pointer-events: none;
+    transition: opacity 0.2s ease, background 0.2s ease;
+  }
+
+  &:focus-within .paste-hint,
+  &:hover .paste-hint {
+    opacity: 1;
+    background: ${v.colorPrincipal}22;
+  }
+
   .preview-area {
     width: 100%;
     height: 100%;
     border-radius: ${(props) => (props.$shape === "circle" ? "50%" : "16px")};
     overflow: hidden;
     background: ${({ theme }) => theme.bg3};
-    border: 2px dashed ${({ theme }) => theme.bg4};
+    border: ${({ $shape, theme }) =>
+      $shape === "square"
+        ? `2px solid ${theme.mode === "dark" ? "rgba(255, 255, 255, 0.72)" : "rgba(0, 0, 0, 0.42)"}`
+        : `2px dashed ${theme.bg4}`};
     cursor: pointer;
     position: relative;
     display: flex;
@@ -424,7 +513,7 @@ const Container = styled.div`
   .img-final {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: ${({ $shape }) => ($shape === "square" ? "cover" : "contain")};
   }
   .overlay {
     position: absolute;
