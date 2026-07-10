@@ -1312,12 +1312,28 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
   };
 
   const handleResetMatchResult = async (matchId) => {
-    await resetMatchResultService(activeTournament.id, matchId);
+    const resetResult = await resetMatchResultService(activeTournament.id, matchId);
+    const resetMatch = resetResult?.match;
+
+    if (resetMatch?.id) {
+      const mergeResetMatch = (matches) =>
+        (matches || []).map((match) =>
+          String(match?.id) === String(resetMatch.id)
+            ? { ...match, ...resetMatch }
+            : match
+        );
+
+      setCurrentMatches(mergeResetMatch);
+      setAllTournamentMatches(mergeResetMatch);
+    }
+
     await new Promise(res => setTimeout(res, 100));
     if (refreshStandings) await refreshStandings();
     await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
     await fetchGlobalPendingMatches();
     await fetchAllTournamentMatches();
+
+    return resetResult;
   };
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;

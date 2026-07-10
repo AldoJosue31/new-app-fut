@@ -21,6 +21,13 @@ const isSamePlayoffJornadaScope = (originName = "", currentName = "") => {
   return getPlayoffJornadaBaseName(normalizedOrigin) === getPlayoffJornadaBaseName(normalizedCurrent);
 };
 
+const hasStoredScoreValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+const hasDraftResult = (match) =>
+  match?.resolution?.type === "default" ||
+  (hasStoredScoreValue(match?.goals1) && hasStoredScoreValue(match?.goals2));
+
 export const usePlanificacionMatches = (
     activeTournament, 
     jornadaIndex, 
@@ -398,6 +405,10 @@ export const usePlanificacionMatches = (
             const draftMatch = draftMap.get(String(dbMatch.id));
             if (draftMatch) {
                 const keepDbResult = dbMatch.status === 'Finalizado';
+                const draftStatus =
+                  draftMatch.status === 'Finalizado' && !hasDraftResult(draftMatch)
+                    ? (draftMatch.date ? 'Programado' : 'Pendiente')
+                    : draftMatch.status || dbMatch.status;
 
                 return {
                     ...dbMatch, 
@@ -407,7 +418,7 @@ export const usePlanificacionMatches = (
                     time: keepDbResult
                         ? dbMatch.time
                         : draftMatch.time !== undefined ? draftMatch.time : dbMatch.time,
-                    status: keepDbResult ? dbMatch.status : draftMatch.status || dbMatch.status,
+                    status: keepDbResult ? dbMatch.status : draftStatus,
                     isModified: keepDbResult ? false : draftMatch.isModified,
                     originJornada: draftMatch.originJornada || dbMatch.originJornada,
                     resolution: keepDbResult ? dbMatch.resolution : draftMatch.resolution

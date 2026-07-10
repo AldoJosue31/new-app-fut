@@ -457,9 +457,32 @@ export function JornadaPlanificacion({
   const handleResetMatchResult = useCallback(async () => {
     if (!matchToResetResult?.id || resettingResultMatchId) return;
 
+    const matchBeingReset = matchToResetResult;
     setResettingResultMatchId(matchToResetResult.id);
     try {
       await onResetMatchResult?.(matchToResetResult.id);
+
+      const resetStatus = matchBeingReset.date ? "Programado" : "Pendiente";
+      const resetMatch = (match) =>
+        String(match?.id) === String(matchBeingReset.id)
+          ? {
+              ...match,
+              status: resetStatus,
+              goals1: null,
+              goals2: null,
+              puntos1: null,
+              puntos2: null,
+              referee_id: null,
+              observations: null,
+              resolution: null,
+              isModified: false,
+            }
+          : match;
+
+      // Mantiene el borrador coherente incluso si el usuario deshace la
+      // jornada inmediatamente despues de limpiar el resultado.
+      setScheduledMatches((matches) => matches.map(resetMatch));
+      setAllPendingMatches((matches) => matches.map(resetMatch));
       setMatchToResetResult(null);
       setToast({
         show: true,
@@ -475,7 +498,13 @@ export function JornadaPlanificacion({
     } finally {
       setResettingResultMatchId(null);
     }
-  }, [matchToResetResult?.id, onResetMatchResult, resettingResultMatchId]);
+  }, [
+    matchToResetResult,
+    onResetMatchResult,
+    resettingResultMatchId,
+    setAllPendingMatches,
+    setScheduledMatches,
+  ]);
 
   const handleResolveMatch = (resolution) => {
     if (!matchToResolve) return;

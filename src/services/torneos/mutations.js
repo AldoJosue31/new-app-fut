@@ -402,6 +402,16 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         finalDate = `${safeDate} ${match.time || '10:00'}:00`;
       }
 
+      const hasCompleteScore =
+        hasStoredScoreValue(finalGoals1) && hasStoredScoreValue(finalGoals2);
+      const hasDefaultResolution = match.resolution?.type === 'default';
+
+      // Evita volver a guardar como finalizado un estado local obsoleto
+      // despues de deshacer el resultado del partido.
+      if (finalStatus === 'Finalizado' && !hasCompleteScore && !hasDefaultResolution) {
+        finalStatus = match.date && match.date.trim() !== '' ? 'Programado' : 'Pendiente';
+      }
+
       const payload = {
         jornada_id: targetJornadaId,
         team1_id: team1Id,
@@ -750,7 +760,7 @@ export const resetMatchResultService = async (torneoId, matchId) => {
 
   if (eventsError) throw eventsError;
 
-  const { error: updateError } = await supabase
+  const { data: updatedMatch, error: updateError } = await supabase
     .from('matches')
     .update({
       goals1: null,
@@ -761,9 +771,11 @@ export const resetMatchResultService = async (torneoId, matchId) => {
       observations: null,
       status: match.date ? 'Programado' : 'Pendiente',
     })
-    .eq('id', matchId);
+    .eq('id', matchId)
+    .select('id, status, date, goals1, goals2, puntos1, puntos2, referee_id, observations')
+    .single();
 
   if (updateError) throw updateError;
 
-  return { success: true };
+  return { success: true, match: updatedMatch };
 };
