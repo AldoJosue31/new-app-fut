@@ -478,7 +478,7 @@ export function PlayerManager({
   if (view === "list") {
     return (
       <Container>
-        <div className="header-actions">
+        <div className="header-actions list-header">
           <div className="header-copy">
             <h3>{showArchived ? "Inhabilitados" : `Plantilla (${jugadores.length})`}</h3>
             {isDelegateMode && (
@@ -489,7 +489,7 @@ export function PlayerManager({
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="header-buttons">
             <BtnToggle onClick={handleToggleView} $active={showArchived}>
               {showArchived ? <RiEyeLine /> : <RiEyeOffLine />}
               <span>{showArchived ? "Ver Activos" : "Ver Inhabilitados"}</span>
@@ -507,6 +507,7 @@ export function PlayerManager({
             options={sortOptions}
             currentSort={sortConfig}
             onSortChange={requestSort}
+            showButtonTextOnMobile
           />
         )}
 
@@ -549,6 +550,7 @@ export function PlayerManager({
                         className="btn-icon restore"
                         onClick={() => handleRestore(player)}
                         title="Restaurar"
+                        aria-label={`Restaurar a ${player.first_name} ${player.last_name}`}
                       >
                         <RiRefreshLine />
                       </button>
@@ -558,6 +560,7 @@ export function PlayerManager({
                           className="btn-icon edit"
                           onClick={() => handleEdit(player)}
                           title="Editar"
+                          aria-label={`Editar a ${player.first_name} ${player.last_name}`}
                         >
                           <RiEditLine />
                         </button>
@@ -565,6 +568,7 @@ export function PlayerManager({
                           className="btn-icon archive"
                           onClick={() => openArchiveModal(player)}
                           title="Inhabilitar"
+                          aria-label={`Inhabilitar a ${player.first_name} ${player.last_name}`}
                         >
                           <RiArchiveLine />
                         </button>
@@ -573,6 +577,7 @@ export function PlayerManager({
                             className="btn-icon delete"
                             onClick={() => openDeleteModal(player)}
                             title="Eliminar"
+                            aria-label={`Eliminar a ${player.first_name} ${player.last_name}`}
                           >
                             <RiDeleteBinLine />
                           </button>
@@ -596,7 +601,7 @@ export function PlayerManager({
               isOpen={isDeleteModalOpen}
               onClose={() => setIsDeleteModalOpen(false)}
               title="Eliminar Jugador"
-              width="400px"
+              width="min(400px, calc(100vw - 32px))"
             >
               <DeleteContent>
                 <div className="warning-icon"><RiErrorWarningLine /></div>
@@ -620,7 +625,7 @@ export function PlayerManager({
               isOpen={conflictModalOpen}
               onClose={() => setConflictModalOpen(false)}
               title="No se puede eliminar"
-              width="450px"
+              width="min(450px, calc(100vw - 32px))"
             >
               <DeleteContent>
                 <div className="warning-icon" style={{ color: "#e67e22" }}>
@@ -647,7 +652,7 @@ export function PlayerManager({
           isOpen={isManualArchiveOpen}
           onClose={() => setIsManualArchiveOpen(false)}
           title="Inhabilitar Jugador"
-          width="400px"
+          width="min(400px, calc(100vw - 32px))"
         >
           <DeleteContent>
             <div className="warning-icon" style={{ color: "#f39c12" }}>
@@ -674,7 +679,7 @@ export function PlayerManager({
 
   return (
     <Container>
-      <div className="header-actions">
+      <div className="header-actions form-header">
         <button className="back-btn" onClick={() => setView("list")}>
           <RiArrowLeftLine /> Volver
         </button>
@@ -682,7 +687,10 @@ export function PlayerManager({
       </div>
 
       <Form onSubmit={handleSubmit}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "25px" }}>
+        <div className="photo-field">
+          <span className="field-label">
+            Foto del jugador <span className="field-optional">Opcional</span>
+          </span>
           <PhotoUploader
             previewUrl={preview}
             originalUrl={getOriginalUrlFromPreview(preview)}
@@ -701,37 +709,56 @@ export function PlayerManager({
           />
         </div>
 
-        <div className="grid-2">
-          <InputText2>
-            <input
-              className="form__field"
-              name="first_name"
-              placeholder="Nombres"
-              required
-              value={form.first_name}
-              onChange={handleInputChange}
-            />
-          </InputText2>
-          <InputText2>
-            <input
-              className="form__field"
-              name="last_name"
-              placeholder="Apellidos"
-              required
-              value={form.last_name}
-              onChange={handleInputChange}
-            />
-          </InputText2>
+        <div className="grid-2 player-name-fields">
+          <div className="field-control">
+            <label className="field-label" htmlFor="player-first-name">Nombres</label>
+            <InputText2>
+              <input
+                id="player-first-name"
+                className="form__field"
+                name="first_name"
+                placeholder="Ej. Diego"
+                required
+                value={form.first_name}
+                onChange={handleInputChange}
+              />
+            </InputText2>
+          </div>
+          <div className="field-control">
+            <label className="field-label" htmlFor="player-last-name">Apellidos</label>
+            <InputText2>
+              <input
+                id="player-last-name"
+                className="form__field"
+                name="last_name"
+                placeholder="Ej. Hernández"
+                required
+                value={form.last_name}
+                onChange={handleInputChange}
+              />
+            </InputText2>
+          </div>
         </div>
 
-        <div className="grid-3">
-          <div style={{ position: "relative" }}>
+        <div className="grid-3 player-detail-fields">
+          <div className={`field-control dorsal-control ${dorsalError ? "has-error" : ""}`}>
+            <label className="field-label" htmlFor="player-dorsal">Número de camiseta</label>
             {dorsalError && <ErrorBadge $shake={shakeError}>{dorsalError}</ErrorBadge>}
-            <InputNumber name="dorsal" value={form.dorsal} onChange={handleInputChange} min={0} max={999} />
+            <InputNumber
+              id="player-dorsal"
+              name="dorsal"
+              placeholder="Ej. 10"
+              value={form.dorsal}
+              onChange={handleInputChange}
+              min={0}
+              max={999}
+            />
           </div>
 
-          <div className="select-wrap">
+          <div className="field-control select-wrap">
+            <label className="field-label" htmlFor="player-position">Posición</label>
             <select
+              id="player-position"
               name="position"
               value={form.position}
               onChange={handleInputChange}
@@ -745,26 +772,36 @@ export function PlayerManager({
             </select>
           </div>
 
+          <div className="field-control">
+            <label className="field-label" htmlFor="player-birth-date">Fecha de nacimiento</label>
+            <InputText2>
+              <input
+                id="player-birth-date"
+                className="form__field"
+                type="date"
+                name="birth_date"
+                aria-describedby="player-birth-date-example"
+                value={form.birth_date}
+                onChange={handleInputChange}
+              />
+            </InputText2>
+            <span id="player-birth-date-example" className="field-example">Ej. 15/08/2002</span>
+          </div>
+        </div>
+
+        <div className="field-control identity-field">
+          <label className="field-label" htmlFor="player-identity">CURP, DNI o identificador</label>
           <InputText2>
             <input
+              id="player-identity"
               className="form__field"
-              type="date"
-              name="birth_date"
-              value={form.birth_date}
+              name="curp_dni"
+              placeholder="Ej. HEMD900101HDFRZN01"
+              value={form.curp_dni}
               onChange={handleInputChange}
             />
           </InputText2>
         </div>
-
-        <InputText2>
-          <input
-            className="form__field"
-            name="curp_dni"
-            placeholder="CURP / DNI / ID"
-            value={form.curp_dni}
-            onChange={handleInputChange}
-          />
-        </InputText2>
 
         <Btnsave
           titulo={
@@ -790,6 +827,7 @@ const Container = styled.div`
   gap: 15px;
   animation: fadeIn 0.3s ease;
   margin-top: 10px;
+  min-width: 0;
 
   .header-actions {
     display: flex;
@@ -809,6 +847,15 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
+  }
+
+  .header-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
   }
 
   .back-btn {
@@ -820,12 +867,66 @@ const Container = styled.div`
     align-items: center;
     gap: 5px;
     font-weight: 600;
+    min-height: 44px;
+    padding: 8px 4px;
+    text-align: left;
+
+    &:focus-visible {
+      outline: 2px solid ${v.colorPrincipal};
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+  }
+
+  .photo-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 4px;
   }
 
   .empty {
     text-align: center;
     opacity: 0.6;
     margin-top: 20px;
+  }
+
+  @media (max-width: 559px) {
+    gap: 12px;
+
+    .header-actions {
+      align-items: stretch;
+      margin-bottom: 4px;
+    }
+
+    .list-header {
+      flex-direction: column;
+    }
+
+    .form-header {
+      flex-wrap: wrap;
+
+      h3 {
+        flex: 1 1 180px;
+        align-self: center;
+      }
+    }
+
+    .header-buttons {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      width: 100%;
+
+      button {
+        justify-content: center;
+      }
+    }
+
+    .photo-field {
+      margin-bottom: 0;
+    }
   }
 `;
 
@@ -851,7 +952,8 @@ const BtnSmall = styled.button`
   background: ${({ theme }) => theme.bgcards};
   border: 1px solid ${({ theme }) => theme.bg4};
   color: ${({ theme }) => theme.text};
-  padding: 6px 16px;
+  min-height: 44px;
+  padding: 8px 16px;
   border-radius: 12px;
   font-weight: 600;
   font-size: 0.85rem;
@@ -862,15 +964,27 @@ const BtnSmall = styled.button`
   transition: all 0.2s;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 
-  &:hover {
-    background: ${v.colorPrincipal};
-    color: white;
-    border-color: ${v.colorPrincipal};
-    transform: translateY(-2px);
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: ${v.colorPrincipal};
+      color: white;
+      border-color: ${v.colorPrincipal};
+      transform: translateY(-2px);
+    }
   }
 
   svg {
     font-size: 1.1rem;
+  }
+
+  span {
+    display: inline;
+    white-space: normal;
   }
 `;
 
@@ -906,6 +1020,11 @@ const PlayerRow = styled.div`
     display: flex;
     gap: 12px;
     align-items: center;
+    min-width: 0;
+
+    > div {
+      min-width: 0;
+    }
 
     img {
       width: 40px;
@@ -920,45 +1039,77 @@ const PlayerRow = styled.div`
       display: block;
       font-size: 0.95rem;
       text-decoration: ${(props) => (props.$isArchived ? "line-through" : "none")};
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .details {
       font-size: 0.8rem;
       opacity: 0.7;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 
   .actions {
     display: flex;
     gap: 5px;
+    flex-shrink: 0;
 
     .btn-icon {
       background: rgba(255, 255, 255, 0.05);
       border: none;
-      padding: 6px;
+      width: 40px;
+      min-height: 40px;
+      padding: 8px;
       border-radius: 6px;
       cursor: pointer;
       color: ${({ theme }) => theme.text};
       transition: 0.2s;
+      display: grid;
+      place-items: center;
 
-      &:hover {
-        color: white;
+      &:focus-visible {
+        outline: 2px solid ${v.colorPrincipal};
+        outline-offset: 2px;
       }
 
-      &.edit:hover {
-        background: ${v.colorPrincipal};
-      }
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          color: white;
+        }
 
-      &.archive:hover {
-        background: #f39c12;
-      }
+        &.edit:hover {
+          background: ${v.colorPrincipal};
+        }
 
-      &.delete:hover {
-        background: ${v.rojo};
-      }
+        &.archive:hover {
+          background: #f39c12;
+        }
 
-      &.restore:hover {
-        background: #27ae60;
+        &.delete:hover {
+          background: ${v.rojo};
+        }
+
+        &.restore:hover {
+          background: #27ae60;
+        }
+      }
+    }
+  }
+
+  @media (max-width: 559px) {
+    padding: 10px;
+
+    .actions {
+      gap: 4px;
+
+      .btn-icon {
+        width: 44px;
+        min-height: 44px;
       }
     }
   }
@@ -1032,23 +1183,83 @@ const DeleteContent = styled.div`
       }
     }
   }
+
+  @media (max-width: 380px) {
+    padding: 4px;
+
+    .modal-actions {
+      flex-direction: column-reverse;
+      gap: 8px;
+
+      button {
+        justify-content: center;
+        min-height: 44px;
+      }
+    }
+  }
 `;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+
+  .field-control {
+    min-width: 0;
+
+    > div {
+      margin-bottom: 0;
+    }
+  }
+
+  .field-label {
+    display: block;
+    margin: 0 0 6px;
+    color: ${({ theme }) => theme.text};
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .field-optional,
+  .field-example {
+    color: ${({ theme }) => theme.text};
+    font-size: 0.78rem;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+
+  .field-optional {
+    margin-left: 4px;
+  }
+
+  .field-example {
+    display: block;
+    margin-top: 5px;
+  }
+
+  .photo-field {
+    .field-label {
+      margin-bottom: 0;
+    }
+  }
 
   .grid-2 {
     display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
   .grid-3 {
     display: grid;
-    grid-template-columns: 0.6fr 1.2fr 1.2fr;
     gap: 10px;
+  }
+
+  .dorsal-control {
+    position: relative;
+  }
+
+  .dorsal-control.has-error {
+    padding-bottom: 26px;
   }
 
   .custom-select {
@@ -1059,7 +1270,33 @@ const Form = styled.form`
     color: ${({ theme }) => theme.text};
     border: 2px solid ${({ theme }) => theme.color2};
     outline: none;
-    height: 100%;
+    min-height: 48px;
+    font-size: 16px;
+    box-sizing: border-box;
+
+    &:focus-visible {
+      border-color: ${v.colorPrincipal};
+    }
+  }
+
+  @media (max-width: 559px) {
+    .grid-3 > div:first-child > div {
+      width: 100%;
+    }
+  }
+
+  @media (min-width: 560px) {
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: minmax(128px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .identity-field {
+      max-width: 32rem;
+    }
   }
 `;
 
@@ -1073,7 +1310,7 @@ const shakeAnimation = keyframes`
 
 const ErrorBadge = styled.span`
   position: absolute;
-  top: -25px;
+  top: calc(100% - 22px);
   left: 0;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1097,10 +1334,10 @@ const ErrorBadge = styled.span`
   &::after {
     content: "";
     position: absolute;
-    bottom: -4px;
+    top: -4px;
     left: 10px;
-    border-width: 4px 4px 0;
+    border-width: 0 4px 4px;
     border-style: solid;
-    border-color: #ff4b4b transparent transparent transparent;
+    border-color: transparent transparent #ff4b4b transparent;
   }
 `;

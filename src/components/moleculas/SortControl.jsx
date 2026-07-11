@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { v } from '../../styles/variables';
 import { RiArrowUpLine, RiArrowDownLine, RiSortDesc } from "react-icons/ri";
 
-export function SortControl({ options, currentSort, onSortChange }) {
+export function SortControl({ options, currentSort, onSortChange, showButtonTextOnMobile = false }) {
   return (
     <Container>
         <span className="label" title="Ordenar por">
@@ -17,6 +17,7 @@ export function SortControl({ options, currentSort, onSortChange }) {
                     <SortButton 
                         key={option.key} 
                         $active={isActive}
+                        $showTextOnMobile={showButtonTextOnMobile}
                         onClick={() => onSortChange(option.key, option.customOrder)}
                         title={option.label}
                     >
@@ -95,7 +96,7 @@ const SortButton = styled.button`
 
     @media (max-width: 580px) {
         padding: 6px 10px;
-        .btn-text { display: none; } /* Prioridad a los iconos */
+        .btn-text { display: ${({ $showTextOnMobile }) => ($showTextOnMobile ? 'inline' : 'none')}; }
         border-radius: 12px;
     }
 `;
