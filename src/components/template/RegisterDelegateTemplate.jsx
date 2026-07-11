@@ -119,6 +119,12 @@ export function RegisterDelegateTemplate({ token }) {
         throw new Error("No se pudo crear la cuenta del delegado.");
       }
 
+      if (!authData.session) {
+        throw new Error(
+          "Confirma tu correo e inicia sesion para activar la invitacion."
+        );
+      }
+
       await acceptDelegateInvitation(token, authData.user.id, form.contactPhone);
       setShowSuccessModal(true);
     } catch (error) {
