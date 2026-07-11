@@ -37,6 +37,7 @@ export const GoleadoresTab = ({
   partidos = [],
   equipos = [],
   jornadas = [],
+  goalEvents = null,
   reglas = {},
   onRefresh,
   isPublic = false,
@@ -71,6 +72,7 @@ export const GoleadoresTab = ({
     reglas,
     selectedJornadaView,
     goleadoresFallback: goleadores,
+    goalEventsProp: goalEvents,
   });
 
   const [showSkeleton, setShowSkeleton] = useState(true);

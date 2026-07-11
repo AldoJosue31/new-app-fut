@@ -117,6 +117,7 @@ export const useTorneoGoleadoresLogic = ({
   reglas = {},
   selectedJornadaView = 'recent',
   goleadoresFallback = [],
+  goalEventsProp = null,
 }) => {
   const [goalEvents, setGoalEvents] = useState([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
@@ -152,6 +153,15 @@ export const useTorneoGoleadoresLogic = ({
         return;
       }
 
+      if (Array.isArray(goalEventsProp)) {
+        if (mounted) {
+          setGoalEvents(goalEventsProp);
+          setEventsReady(true);
+          setIsLoadingEvents(false);
+        }
+        return;
+      }
+
       try {
         setIsLoadingEvents(true);
 
@@ -177,7 +187,7 @@ export const useTorneoGoleadoresLogic = ({
     return () => {
       mounted = false;
     };
-  }, [torneo?.id]);
+  }, [goalEventsProp, torneo?.id]);
 
   const equiposById = useMemo(() => {
     const nextMap = new Map();

@@ -117,11 +117,13 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
       if (imageChanged) {
         if (logoFile) {
+          if (!data?.id) throw new Error("No se pudo identificar la liga.");
+
           const result = await uploadImageToSupabase(
             logoFile,
             originalFile,
             "logos",
-            "leagues"
+            `leagues/${data.id}`
           );
 
           if (!result.url) throw new Error("Falló la subida a Storage.");
