@@ -19,7 +19,12 @@ export function AuthContextProvider({ children }) {
 
   // Ref para mantener canal de presencia único por sesión
   const presenceRef = useRef(null);
+  const userRef = useRef(null);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     profileRef.current = profile;
@@ -37,6 +42,8 @@ export function AuthContextProvider({ children }) {
       }
     }
 
+    userRef.current = null;
+    profileRef.current = null;
     setUser(null);
     setProfile(null);
     useAuthStore.setState({ user: null, profile: null });
@@ -62,6 +69,8 @@ export function AuthContextProvider({ children }) {
     } catch (err) {
       console.error("No se pudo cerrar sesion suspendida:", err);
     }
+    userRef.current = null;
+    profileRef.current = null;
     setUser(null);
     setProfile(null);
     useAuthStore.setState({ user: null, profile: null });
@@ -90,6 +99,8 @@ export function AuthContextProvider({ children }) {
         // Solo cerramos sesión si NO hay error técnico pero tampoco hay datos (perfil borrado)
         console.warn("AuthContext: Perfil no encontrado en BD. Cerrando sesión...");
         await supabase.auth.signOut();
+        userRef.current = null;
+        profileRef.current = null;
         setUser(null);
         setProfile(null);
         return;
@@ -99,6 +110,8 @@ export function AuthContextProvider({ children }) {
       if (!authorizedRoles.includes(data.role)) {
         console.warn(`AuthContext: Rol no autorizado (${data.role}). Cerrando sesión...`);
         await supabase.auth.signOut();
+        userRef.current = null;
+        profileRef.current = null;
         setUser(null);
         setProfile(null);
         return;
@@ -109,6 +122,7 @@ export function AuthContextProvider({ children }) {
         return;
       }
 
+      profileRef.current = data;
       setProfile(data);
       useAuthStore.setState({ profile: data });
     } catch (err) {
@@ -120,6 +134,26 @@ export function AuthContextProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
+    let authValidationTimer = null;
+
+    const validateAfterAuthEvent = (currentUser, showLoader = false) => {
+      if (authValidationTimer) window.clearTimeout(authValidationTimer);
+
+      authValidationTimer = window.setTimeout(async () => {
+        authValidationTimer = null;
+        if (!mounted) return;
+
+        try {
+          if (currentUser) {
+            await validateProfile(currentUser);
+          }
+        } finally {
+          if (showLoader && mounted) {
+            setIsLoading(false);
+          }
+        }
+      }, 0);
+    };
 
     async function init() {
       try {
@@ -127,9 +161,10 @@ export function AuthContextProvider({ children }) {
         
         if (mounted) {
           if (session?.user) {
+            userRef.current = session.user;
             setUser(session.user);
             useAuthStore.setState({ user: session.user });
-            validateProfile(session.user);
+            await validateProfile(session.user);
           }
         }
       } catch (error) {
@@ -144,20 +179,46 @@ export function AuthContextProvider({ children }) {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (event === 'SIGNED_IN') {
         const currentUser = session?.user ?? null;
+        const isNewSession =
+          currentUser?.id && currentUser.id !== userRef.current?.id;
+
+        // No desmontar la aplicaciÃ³n cuando Supabase repite SIGNED_IN al
+        // recuperar foco: es la misma sesiÃ³n y el perfil ya estÃ¡ en memoria.
+        if (!isNewSession) {
+          if (currentUser && !profileRef.current) {
+            validateAfterAuthEvent(currentUser);
+          }
+          return;
+        }
+
+        setIsLoading(true);
+        userRef.current = currentUser;
+        profileRef.current = null;
+        setUser(currentUser);
+        setProfile(null);
+        useAuthStore.setState({ user: currentUser });
+
+        validateAfterAuthEvent(currentUser, true);
+      }
+      else if (event === 'TOKEN_REFRESHED') {
+        const currentUser = session?.user ?? null;
+        userRef.current = currentUser;
         setUser(currentUser);
         useAuthStore.setState({ user: currentUser });
-        
+
         if (currentUser) {
-          validateProfile(currentUser);
+          validateAfterAuthEvent(currentUser);
         }
-        setIsLoading(false);
       } 
       else if (event === 'SIGNED_OUT') {
+        if (authValidationTimer) window.clearTimeout(authValidationTimer);
+        userRef.current = null;
+        profileRef.current = null;
         setUser(null);
         setProfile(null);
         setIsLoading(false);
@@ -167,6 +228,7 @@ export function AuthContextProvider({ children }) {
 
     return () => {
       mounted = false;
+      if (authValidationTimer) window.clearTimeout(authValidationTimer);
       subscription.unsubscribe();
     };
   }, []);
@@ -341,24 +403,13 @@ export function AuthContextProvider({ children }) {
     }, PRESENCE_HEARTBEAT_MS);
     presenceRef.current.heartbeatId = heartbeatId;
 
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        trackPresence();
-        markLastSeen();
-      } else {
-        markLastSeen();
-      }
-    };
-
     const onPageHide = () => {
       markLastSeen();
     };
 
-    document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', onPageHide);
 
     return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', onPageHide);
       markLastSeen();
       cleanupPresence();

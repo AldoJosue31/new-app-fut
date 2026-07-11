@@ -24,10 +24,8 @@ function AppContent() {
   const { themeStyle } = useThemeStore();
   const { pathname } = useLocation();
 
-  const { user, isLoading } = UserAuth();
+  const { user, profile, isLoading } = UserAuth();
   const { resetStore: resetDivision } = useDivisionStore();
-
-  const [loaderDone, setLoaderDone] = useState(!isLoading);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -36,17 +34,7 @@ function AppContent() {
     }
   }, [user, isLoading, resetDivision]);
 
-  useEffect(() => {
-    if (isLoading) {
-      setLoaderDone(false);
-      return;
-    }
-    const delay = 2000; 
-    const timer = setTimeout(() => setLoaderDone(true), delay);
-    return () => clearTimeout(timer);
-  }, [isLoading]);
-
-  if (!loaderDone) {
+  if (isLoading || (user && !profile)) {
     return (
       <ThemeProvider theme={themeStyle}>
         <GlobalStyles />

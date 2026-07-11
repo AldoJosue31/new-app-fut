@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { useEquiposStore } from "../../store/EquiposStore";
 import { useAuthStore } from "../../store/AuthStore";
@@ -86,6 +86,8 @@ const uploadDelegateTeamLogo = async ({
 
 export const useEquiposLogic = () => {
   const { divisionId: routeDivisionId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { selectedDivision, setDivision } = useDivisionStore();
   const { profile } = useAuthStore();
   const {
@@ -883,6 +885,16 @@ export const useEquiposLogic = () => {
     }
   );
 
+  const applyTeamTransferLocally = (teamId, targetDivisionId) => {
+    if (
+      teamId &&
+      activeDivisionId &&
+      Number(targetDivisionId) !== Number(activeDivisionId)
+    ) {
+      deleteEquipoLocal(teamId);
+    }
+  };
+
   return {
     data: {
       equipos: visibleTeams,
@@ -928,6 +940,7 @@ export const useEquiposLogic = () => {
       openDeleteConfirmation,
       handleDelegateLinkStateChanged,
       refreshDelegateRequestSummaries,
+      applyTeamTransferLocally,
     },
   };
 };

@@ -25,7 +25,6 @@ export function Equipos({ state, setState }) {
       canCreateTeams={data.canCreateTeams}
       canDeleteTeams={data.canDeleteTeams}
       canTransferTeams={data.canTransferTeams}
-      canInviteDelegates={data.canInviteDelegates}
       requestSummariesLoading={data.requestSummariesLoading}
       delegateRequestOverview={data.delegateRequestOverview}
       form={form.data}
@@ -53,6 +52,7 @@ export function Equipos({ state, setState }) {
       onView={actions.openDetailModal}
       onDelegateLinkStateChanged={actions.handleDelegateLinkStateChanged}
       onDelegateRequestSubmitted={actions.refreshDelegateRequestSummaries}
+      onTeamTransferred={actions.applyTeamTransferLocally}
     />
   );
 }

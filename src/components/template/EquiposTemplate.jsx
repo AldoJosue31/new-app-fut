@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
 import styled from "styled-components";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { RiFileList3Line, RiGroupLine } from "react-icons/ri";
@@ -54,6 +54,7 @@ export const EquiposTemplate = ({
   onConfirmDelete,
   onDelegateLinkStateChanged,
   onDelegateRequestSubmitted,
+  onTeamTransferred,
   tabs,
   participatingIds = [],
   state,
@@ -61,7 +62,6 @@ export const EquiposTemplate = ({
   accessRole,
   canCreateTeams = true,
   canDeleteTeams = true,
-  canInviteDelegates = true,
   canTransferTeams = true,
   requestSummariesLoading = false,
   delegateRequestOverview = {
@@ -203,13 +203,7 @@ export const EquiposTemplate = ({
     });
   }, [teamFromUrl]);
 
-  useEffect(() => {
-    if (isGlobalRequestsOpen && equipos?.length > 0) {
-      loadGlobalRequests();
-    }
-  }, [isGlobalRequestsOpen]);
-
-  const loadGlobalRequests = async () => {
+  const loadGlobalRequests = useCallback(async () => {
     setLoadingGlobalRequests(true);
     try {
       const teamIds = equipos.map((t) => t.id);
@@ -221,7 +215,13 @@ export const EquiposTemplate = ({
     } finally {
       setLoadingGlobalRequests(false);
     }
-  };
+  }, [equipos]);
+
+  useEffect(() => {
+    if (isGlobalRequestsOpen && equipos?.length > 0) {
+      loadGlobalRequests();
+    }
+  }, [equipos?.length, isGlobalRequestsOpen, loadGlobalRequests]);
 
   const handleGlobalRequestReview = async ({ requestId, decision, reviewNotes = null }) => {
     const result = await reviewDelegateChangeRequest({ requestId, decision, reviewNotes });
@@ -289,7 +289,7 @@ export const EquiposTemplate = ({
 
       showToast("Equipo transferido correctamente", "success");
       setIsTransferModalOpen(false);
-      setTimeout(() => window.location.reload(), 1000);
+      onTeamTransferred?.(team.id, targetId);
     } catch (error) {
       showToast("Error: " + error.message, "error");
     }
