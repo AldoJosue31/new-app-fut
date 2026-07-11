@@ -66,6 +66,7 @@ export const PublicStandings = () => {
   const [equipos, setEquipos] = useState([]);
   const [jornadas, setJornadas] = useState([]);
   const [goleadores, setGoleadores] = useState([]);
+  const [goalEvents, setGoalEvents] = useState([]);
 
   const {
     tablaGeneral: publicTablaGeneral,
@@ -89,81 +90,33 @@ export const PublicStandings = () => {
       try {
         setLoading(true);
         setError(null);
-        if (!torneoId) throw new Error("ID de torneo inválido");
+        const parsedTournamentId = Number(torneoId);
+        if (!Number.isInteger(parsedTournamentId) || parsedTournamentId <= 0) {
+          throw new Error("ID de torneo inválido");
+        }
 
-        // 1. Obtener Info del Torneo
-        const { data: torneoData, error: torneoError } = await supabase
-          .from('tournaments')
-          .select('*, divisions(name)')
-          .eq('id', torneoId)
-          .single();
+        const { data: publicBundle, error: bundleError } = await supabase.rpc(
+          "get_public_tournament_bundle",
+          { p_tournament_id: parsedTournamentId }
+        );
 
-        if (torneoError) throw torneoError;
+        if (bundleError) throw bundleError;
 
-        // VERIFICACIÓN DE SEGURIDAD (ENLACE PRINCIPAL)
-        if (!torneoData.is_public) {
+        if (!publicBundle?.success) {
+          if (publicBundle?.locked) {
             setError("LOCKED");
-            setLoading(false);
             return;
+          }
+
+          throw new Error(publicBundle?.message || "Torneo no encontrado");
         }
 
-        const torneoProcesado = {
-            ...torneoData,
-            division_nombre: torneoData.divisions?.name
-        };
-        setTorneo(torneoProcesado);
-
-        // 2. Obtener Partidos
-        const { data: matchesData, error: matchesError } = await supabase
-          .from('matches')
-          .select('*, jornadas!inner(id, name, tournament_id, status)')
-          .eq('jornadas.tournament_id', torneoId);
-          
-        if (matchesError) throw matchesError;
-        setPartidos(matchesData || []);
-
-        const { data: jornadasData, error: jornadasError } = await supabase
-          .from('jornadas')
-          .select('*')
-          .eq('tournament_id', torneoId)
-          .order('id', { ascending: true });
-
-        if (jornadasError) throw jornadasError;
-        setJornadas(jornadasData || []);
-
-        // 3. Obtener Equipos
-        let equiposData = [];
-        if (torneoData.division_id) {
-            const { data: divEquipos } = await supabase
-              .from('teams')
-              .select('*')
-              .eq('division_id', torneoData.division_id);
-            equiposData = divEquipos || [];
-        } else {
-            const teamIds = new Set();
-            (matchesData || []).forEach(m => {
-                if (m.team1_id) teamIds.add(m.team1_id);
-                if (m.team2_id) teamIds.add(m.team2_id);
-            });
-            if (teamIds.size > 0) {
-                const { data: eqData } = await supabase
-                  .from('teams')
-                  .select('*')
-                  .in('id', Array.from(teamIds));
-                equiposData = eqData || [];
-            }
-        }
-        setEquipos(equiposData);
-
-        // 4. Obtener Goleadores (Solo si está activado en BD)
-        if (torneoData.is_goleadores_public) {
-            const { data: goalsData } = await supabase
-                .from('view_goleadores')
-                .select('*')
-                .eq('tournament_id', torneoId)
-                .limit(20); // Top 20
-            setGoleadores(goalsData || []);
-        }
+        setTorneo(publicBundle.tournament || null);
+        setPartidos(Array.isArray(publicBundle.matches) ? publicBundle.matches : []);
+        setJornadas(Array.isArray(publicBundle.jornadas) ? publicBundle.jornadas : []);
+        setEquipos(Array.isArray(publicBundle.teams) ? publicBundle.teams : []);
+        setGoleadores(Array.isArray(publicBundle.scorers) ? publicBundle.scorers : []);
+        setGoalEvents(Array.isArray(publicBundle.goal_events) ? publicBundle.goal_events : []);
 
       } catch (err) {
         console.error("Error fetching public data:", err);
@@ -302,6 +255,8 @@ export const PublicStandings = () => {
                     goleadores={goleadores}
                     partidos={partidos}
                     equipos={equipos}
+                    jornadas={jornadas}
+                    goalEvents={goalEvents}
                     isPublic={true}
                 />
             )}

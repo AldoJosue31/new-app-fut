@@ -27,15 +27,14 @@ export function RegisterManagerTemplate({ token }) {
   useEffect(() => {
     const validate = async () => {
       try {
-        const { data, error } = await supabase
-          .from("manager_invitations")
-          .select("*")
-          .eq("token", token)
-          .maybeSingle();
+        const { data, error } = await supabase.rpc("get_manager_invitation", {
+          p_token: token,
+        });
 
         if (error) throw error;
-        if (!data) throw new Error("Invitación no encontrada.");
-        if (data.is_used) throw new Error("Esta invitación ya fue utilizada o revocada.");
+        if (!data?.success) {
+          throw new Error(data?.message || "Invitacion invalida o expirada.");
+        }
         
         setInvitationData(data);
       } catch (err) {
@@ -93,6 +92,12 @@ export function RegisterManagerTemplate({ token }) {
       }
 
       if (authData.user) {
+        if (!authData.session) {
+          throw new Error(
+            "Confirma tu correo e inicia sesion para activar la invitacion."
+          );
+        }
+
         const { data: rpcData, error: rpcError } = await supabase.rpc("procesar_invitacion_manager", {
             p_token: token,
             p_user_id: authData.user.id,
