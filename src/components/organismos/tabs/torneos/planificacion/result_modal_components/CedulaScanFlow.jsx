@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
   RiCameraLine,
@@ -121,9 +121,11 @@ export function CedulaScanFlow({
   const [previewUrl, setPreviewUrl] = useState("");
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
   const [coarseDevice, setCoarseDevice] = useState(false);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const progressTimerRef = useRef(null);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -136,6 +138,10 @@ export function CedulaScanFlow({
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
+
+  useEffect(() => () => {
+    if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+  }, []);
 
   const selectFile = useCallback((nextFile) => {
     if (!nextFile) return;
@@ -153,6 +159,7 @@ export function CedulaScanFlow({
     });
     setFile(nextFile);
     setRawScan(null);
+    setScanProgress(0);
   }, [showToast]);
 
   useEffect(() => {
@@ -215,13 +222,28 @@ export function CedulaScanFlow({
   const scanImage = async () => {
     if (!file || scanning) return;
     setScanning(true);
+    setScanProgress(6);
+    progressTimerRef.current = window.setInterval(() => {
+      setScanProgress(current => {
+        if (current < 28) return Math.min(28, current + 5);
+        if (current < 58) return Math.min(58, current + 3);
+        if (current < 80) return Math.min(80, current + 2);
+        if (current < 92) return current + 1;
+        return current;
+      });
+    }, 420);
     try {
       const image = await fileToScanPayload(file);
+      setScanProgress(current => Math.max(current, 18));
       const { data, error } = await supabase.functions.invoke("procesar-cedula", {
         body: image,
       });
       if (error) throw error;
       if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
+      if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+      setScanProgress(100);
+      await new Promise(resolve => window.setTimeout(resolve, 320));
       setRawScan({ ...emptyScan, ...data.scan });
     } catch (error) {
       let message = error?.message || "No se pudo escanear la cedula.";
@@ -232,7 +254,10 @@ export function CedulaScanFlow({
         } catch { /* La respuesta no era JSON. */ }
       }
       showToast(message, "error");
+      setScanProgress(0);
     } finally {
+      if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
       setScanning(false);
     }
   };
@@ -272,14 +297,35 @@ export function CedulaScanFlow({
           <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
-        <PreviewFrame><img src={previewUrl} alt="Cedula seleccionada" /></PreviewFrame>
+        <PreviewFrame aria-busy={scanning}>
+          <img src={previewUrl} alt="Cedula seleccionada" />
+          {scanning && (
+            <ScanningOverlay aria-live="polite">
+              <div className="scan-line" />
+              <div className="scan-status">
+                <RiScan2Line />
+                <span>Analizando documento</span>
+                <strong>{scanProgress}%</strong>
+              </div>
+            </ScanningOverlay>
+          )}
+        </PreviewFrame>
         <ChoiceRow>
           <SecondaryAction type="button" disabled={scanning} onClick={() => { setFile(null); setRawScan(null); }}>
             <RiRefreshLine /> Cambiar foto
           </SecondaryAction>
-          <PrimaryAction type="button" disabled={scanning} onClick={scanImage}>
-            <RiScan2Line /> {scanning ? "Escaneando..." : "Escanear"}
-          </PrimaryAction>
+          <ScanProgressButton
+            type="button"
+            disabled={scanning}
+            onClick={scanImage}
+            $scanning={scanning}
+            $progress={scanning ? scanProgress : 100}
+            aria-label={scanning ? `Escaneando cedula ${scanProgress}%` : "Escanear cedula"}
+          >
+            <span className="button-content">
+              <RiScan2Line /> {scanning ? `Escaneando ${scanProgress}%` : "Escanear"}
+            </span>
+          </ScanProgressButton>
         </ChoiceRow>
       </ScanShell>
     );
@@ -352,7 +398,26 @@ const Action = styled.button`
 `;
 const PrimaryAction = styled(Action)`border:1px solid ${v.colorPrincipal};background:${v.colorPrincipal};color:#fff;`;
 const SecondaryAction = styled(Action)`border:1px solid ${({theme})=>theme.bg4};background:transparent;color:${({theme})=>theme.text};&:hover:not(:disabled){background:${({theme})=>theme.bg3};}`;
-const PreviewFrame = styled.div`height:min(52vh,480px);border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;img{width:100%;height:100%;object-fit:contain;}`;
+const ScanProgressButton = styled(Action)`
+  position:relative;overflow:hidden;isolation:isolate;border:1px solid ${({$scanning})=>$scanning ? "#17212b" : v.colorPrincipal};background:${({$scanning})=>$scanning ? "#17212b" : v.colorPrincipal};color:#fff;min-width:156px;
+  &::before{content:"";position:absolute;inset:0;z-index:0;background:${v.colorPrincipal};transform:scaleX(${({$progress=100})=>Math.max(0,Math.min(100,$progress))/100});transform-origin:left center;transition:transform 220ms cubic-bezier(.22,1,.36,1);}
+  .button-content{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;}
+  &:disabled{opacity:1;}
+  @media(prefers-reduced-motion:reduce){&::before{transition:none;}}
+`;
+const scanSweep = keyframes`0%{transform:translateY(-56px);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateY(calc(100% + 8px));opacity:0;}`;
+const statusPulse = keyframes`0%,100%{opacity:.82;}50%{opacity:1;}`;
+const PreviewFrame = styled.div`
+  position:relative;height:min(52vh,480px);border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
+  img{width:100%;height:100%;object-fit:contain;}
+`;
+const ScanningOverlay = styled.div`
+  position:absolute;inset:0;overflow:hidden;background:rgba(7,14,20,.34);display:flex;align-items:flex-end;justify-content:center;padding:18px;
+  .scan-line{position:absolute;left:5%;right:5%;top:0;height:100%;background:linear-gradient(to bottom,${v.colorPrincipal} 0 2px,${v.colorPrincipal}2b 2px,transparent 56px);animation:${scanSweep} 2.1s cubic-bezier(.45,0,.55,1) infinite;}
+  .scan-status{position:relative;display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 12px;border-radius:10px;background:rgba(7,14,20,.88);color:#fff;font-size:.82rem;animation:${statusPulse} 1.4s ease-in-out infinite;}
+  .scan-status svg{color:${v.colorPrincipal};font-size:1rem;}.scan-status strong{font-variant-numeric:tabular-nums;min-width:34px;text-align:right;}
+  @media(prefers-reduced-motion:reduce){.scan-line{top:50%;height:56px;animation:none;opacity:1;}.scan-status{animation:none;}}
+`;
 const ComparisonGrid = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:1px;background:${({theme})=>theme.bg4};border-radius:14px;overflow:hidden;@media(max-width:760px){grid-template-columns:1fr;}`;
 const DataColumn = styled.div`background:${({theme})=>theme.bgcards};padding:16px;min-width:0;h5{margin:0 0 12px;font-size:.94rem;} `;
 const ScanDataRow = styled.div`
