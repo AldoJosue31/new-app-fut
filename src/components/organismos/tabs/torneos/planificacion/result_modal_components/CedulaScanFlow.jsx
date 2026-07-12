@@ -114,6 +114,7 @@ export function CedulaScanFlow({
   referees,
   localPlayers,
   visitPlayers,
+  currentDate,
   onBack,
   onApply,
   showToast,
@@ -123,6 +124,7 @@ export function CedulaScanFlow({
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [applyScannedDate, setApplyScannedDate] = useState(false);
   const [coarseDevice, setCoarseDevice] = useState(false);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -354,6 +356,11 @@ export function CedulaScanFlow({
   }
 
   const unmatchedPlayers = interpretation.players.filter(player => !player.matched).length;
+  const hasExistingDate = Boolean(currentDate);
+  const hasValidScannedDate = /^\d{4}-\d{2}-\d{2}$/.test(interpretation.date || "");
+  const interpretedDateLabel = hasExistingDate && hasValidScannedDate && !applyScannedDate
+    ? `${currentDate} · se conserva`
+    : interpretation.date || currentDate || "Sin detectar";
   return (
     <ScanShell>
       <PanelHeading>
@@ -366,7 +373,8 @@ export function CedulaScanFlow({
           <DataRow label="Local" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
           <DataRow label="Visitante" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
           <DataRow label="Arbitro" value={rawScan.referee || "Sin detectar"} />
-          <DataRow label="Fecha" value={[rawScan.date, rawScan.time].filter(Boolean).join(" · ") || "Sin detectar"} />
+          <DataRow label="Fecha" value={rawScan.date || "Sin detectar"} />
+          <DataRow label="Hora" value={rawScan.time || "Sin detectar"} />
           <DataRow
             label="Resolucion"
             value={rawScan.walkover?.detected ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}` : "Resultado regular"}
@@ -382,7 +390,22 @@ export function CedulaScanFlow({
           <DataRow label="Local" value={`${match?.local?.name || "Local"} · ${interpretation.scores.local}`} />
           <DataRow label="Visitante" value={`${match?.visitante?.name || "Visitante"} · ${interpretation.scores.visit}`} />
           <DataRow label="Arbitro" value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"} warning={!interpretation.referee && Boolean(rawScan.referee)} />
-          <DataRow label="Fecha" value={[interpretation.date, interpretation.time].filter(Boolean).join(" · ") || "Sin detectar"} />
+          <DataRow label="Fecha" value={interpretedDateLabel} />
+          <DataRow label="Hora" value={interpretation.time || "Sin detectar"} />
+          {hasExistingDate && hasValidScannedDate && (
+            <DateApplyToggle>
+              <input
+                id="apply-scanned-date"
+                type="checkbox"
+                checked={applyScannedDate}
+                onChange={event => setApplyScannedDate(event.target.checked)}
+              />
+              <label htmlFor="apply-scanned-date">
+                <strong>Reemplazar fecha actual</strong>
+                <span>Usar {interpretation.date} en lugar de {currentDate}</span>
+              </label>
+            </DateApplyToggle>
+          )}
           <DataRow
             label="Resolucion"
             value={interpretation.walkover.detected
@@ -404,7 +427,15 @@ export function CedulaScanFlow({
       {unmatchedPlayers > 0 && <ReviewNotice>{unmatchedPlayers} {unmatchedPlayers === 1 ? "jugador no se pudo vincular" : "jugadores no se pudieron vincular"}; no se aplicaran automaticamente.</ReviewNotice>}
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>
-        <PrimaryAction type="button" onClick={() => onApply(interpretation)}>Aplicar escaneo</PrimaryAction>
+        <PrimaryAction
+          type="button"
+          onClick={() => onApply({
+            ...interpretation,
+            applyDate: !hasExistingDate || applyScannedDate,
+          })}
+        >
+          Aplicar escaneo
+        </PrimaryAction>
       </ChoiceRow>
     </ScanShell>
   );
@@ -460,6 +491,13 @@ const DataColumn = styled.div`background:${({theme})=>theme.bgcards};padding:16p
 const ScanDataRow = styled.div`
   display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid ${({theme})=>theme.bg4};font-size:.86rem;
   span{opacity:.68;} strong{font-weight:700;overflow-wrap:anywhere;color:${({$warning})=>$warning ? v.rojo : "inherit"};}
+`;
+const DateApplyToggle = styled.div`
+  display:flex;align-items:flex-start;gap:10px;margin-top:10px;padding:10px;border-radius:10px;background:${({theme})=>theme.bg3};
+  input{width:18px;height:18px;margin:1px 0 0;accent-color:${v.colorPrincipal};cursor:pointer;flex:0 0 auto;}
+  label{display:flex;flex-direction:column;gap:2px;cursor:pointer;font-size:.82rem;line-height:1.35;}
+  label strong{font-weight:750;}label span{opacity:.7;}
+  &:focus-within{outline:3px solid ${v.colorPrincipal}33;outline-offset:2px;}
 `;
 const PlayerList = styled.ul`
   list-style:none;margin:12px 0 0;padding:0;max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:4px;

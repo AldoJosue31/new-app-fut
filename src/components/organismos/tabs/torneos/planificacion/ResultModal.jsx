@@ -608,7 +608,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setRosterLocal(nextLocal);
     setRosterVisit(nextVisit);
     if (scan.referee?.id) setSelectedReferee(scan.referee.id);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(scan.date || "")) setMatchDate(scan.date);
+    if (scan.applyDate !== false && /^\d{4}-\d{2}-\d{2}$/.test(scan.date || "")) setMatchDate(scan.date);
     if (/^\d{2}:\d{2}$/.test(scan.time || "")) setMatchTime(scan.time);
     if (scan.observations) {
       setManualObservations(current => [current.trim(), scan.observations.trim()].filter(Boolean).join(" | "));
@@ -747,6 +747,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             referees={referees}
             localPlayers={localPlayers}
             visitPlayers={visitPlayers}
+            currentDate={matchDate}
             onBack={() => setShowCedulaScanner(false)}
             onApply={handleApplyCedulaScan}
             showToast={(message, type = "error") => setToastConfig({ show: true, message, type })}
