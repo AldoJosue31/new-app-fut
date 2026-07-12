@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { v, Modal, BtnNormal, Btnsave, Toast, TabsNavigation } from "../../../../../index";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../supabase/supabase.config";
-import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine } from "react-icons/ri";
+import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
 
@@ -14,6 +14,7 @@ import { GeneralTab } from "./result_modal_components/GeneralTab";
 import { RosterTab } from "./result_modal_components/RosterTab";
 import { PenaltiesTab } from "./result_modal_components/PenaltiesTab";
 import { ConfirmResultOverlay } from "./result_modal_components/ConfirmResultOverlay";
+import { CedulaScanFlow } from "./result_modal_components/CedulaScanFlow";
 
 const DOUBLE_WALKOVER_ID = "__double_walkover__";
 const DOUBLE_WALKOVER_OBSERVATION = "Doble W.O. - ambos pierden por default";
@@ -60,6 +61,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showCedulaScanner, setShowCedulaScanner] = useState(false);
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
   const isSavingRef = useRef(false);
@@ -171,6 +173,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const resetModalState = useCallback(() => {
     setActiveTab('general');
     setShowConfirm(false);
+    setShowCedulaScanner(false);
     setToastConfig({ show: false, message: '', type: 'error' });
     setReferees([]);
     setLocalPlayers([]);
@@ -542,6 +545,87 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setShowConfirm(true);
   };
 
+  const handleApplyCedulaScan = useCallback((scan) => {
+    const makeScannedRoster = (side, prefix) => {
+      const matchedPlayers = (scan.players || [])
+        .filter(player => player.side === side && player.matched)
+        .map((player, index) => ({
+          idTemp: `${prefix}-scan-${player.matched.id}-${index}`,
+          playerId: player.matched.id,
+          goals: Math.max(0, toStatNumber(player.goals)),
+          ownGoals: Math.max(0, toStatNumber(player.ownGoals)),
+          yellow: toStatNumber(player.yellowCards) > 0,
+          red: toStatNumber(player.redCards) > 0,
+          isStarter: index < minPlayers,
+        }));
+
+      const nextRoster = [...matchedPlayers];
+      while (nextRoster.length < minPlayers) {
+        nextRoster.push({
+          idTemp: `${prefix}-scan-empty-${nextRoster.length}`,
+          playerId: "",
+          goals: 0,
+          ownGoals: 0,
+          yellow: false,
+          red: false,
+          isStarter: true,
+        });
+      }
+      if (nextRoster.length < minPlayers + maxSubs) {
+        nextRoster.push({
+          idTemp: `${prefix}-scan-sub`,
+          playerId: "",
+          goals: 0,
+          ownGoals: 0,
+          yellow: false,
+          red: false,
+          isStarter: false,
+        });
+      }
+      return nextRoster;
+    };
+
+    let nextLocal = makeScannedRoster("local", "l");
+    let nextVisit = makeScannedRoster("visit", "v");
+    const assignedLocalScore =
+      nextLocal.reduce((total, player) => total + toStatNumber(player.goals), 0) +
+      nextVisit.reduce((total, player) => total + toStatNumber(player.ownGoals), 0);
+    const assignedVisitScore =
+      nextVisit.reduce((total, player) => total + toStatNumber(player.goals), 0) +
+      nextLocal.reduce((total, player) => total + toStatNumber(player.ownGoals), 0);
+
+    nextLocal = addUnassignedGoalsToRoster(
+      nextLocal,
+      Math.max(0, toStatNumber(scan.scores?.local) - assignedLocalScore),
+      "l-scan"
+    );
+    nextVisit = addUnassignedGoalsToRoster(
+      nextVisit,
+      Math.max(0, toStatNumber(scan.scores?.visit) - assignedVisitScore),
+      "v-scan"
+    );
+
+    setRosterLocal(nextLocal);
+    setRosterVisit(nextVisit);
+    if (scan.referee?.id) setSelectedReferee(scan.referee.id);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(scan.date || "")) setMatchDate(scan.date);
+    if (/^\d{2}:\d{2}$/.test(scan.time || "")) setMatchTime(scan.time);
+    if (scan.observations) {
+      setManualObservations(current => [current.trim(), scan.observations.trim()].filter(Boolean).join(" | "));
+    }
+    if (toStatNumber(scan.penalties?.local) || toStatNumber(scan.penalties?.visit)) {
+      setPenalties({
+        local: toStatNumber(scan.penalties.local),
+        visit: toStatNumber(scan.penalties.visit),
+      });
+    }
+    setIsWalkover(false);
+    setWoWinnerId(null);
+    setActiveTab("general");
+    setShowCedulaScanner(false);
+    setToastConfig({ show: true, message: "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.", type: "success" });
+  }, [minPlayers]);
+
   const handleFinalSave = async () => {
     if (isSavingRef.current) return;
     isSavingRef.current = true;
@@ -631,13 +715,36 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   if (!isOpen || !match) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={isSaving ? undefined : onClose} width="950px" title="Definir Resultado" closeOnOverlayClick={false}>
+    <Modal
+      isOpen={isOpen}
+      onClose={isSaving ? undefined : onClose}
+      width="950px"
+      title="Definir Resultado"
+      closeOnOverlayClick={false}
+      headerActions={!showCedulaScanner ? (
+        <ScanHeaderButton type="button" onClick={() => setShowCedulaScanner(true)} disabled={loading || isSaving}>
+          <RiScan2Line /> Escanear cedula
+        </ScanHeaderButton>
+      ) : null}
+    >
       <Container>
-        <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} />
-
-        {loading ? (
-            <LoadingState>{isSaving ? "Guardando resultado..." : "Procesando datos..."}</LoadingState>
+        {showCedulaScanner ? (
+          <CedulaScanFlow
+            match={match}
+            referees={referees}
+            localPlayers={localPlayers}
+            visitPlayers={visitPlayers}
+            onBack={() => setShowCedulaScanner(false)}
+            onApply={handleApplyCedulaScan}
+            showToast={(message, type = "error") => setToastConfig({ show: true, message, type })}
+          />
         ) : (
+          <>
+            <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} />
+
+            {loading ? (
+            <LoadingState>{isSaving ? "Guardando resultado..." : "Procesando datos..."}</LoadingState>
+            ) : (
             <>
                 <TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} />
                 <ContentBody>
@@ -691,12 +798,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
                     )}
                 </ContentBody>
             </>
-        )}
+            )}
 
-        <Footer>
-          <BtnNormal titulo="Cancelar" funcion={onClose} disabled={isSaving} />
-          <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading} />
-        </Footer>
+            <Footer>
+              <BtnNormal titulo="Cancelar" funcion={onClose} disabled={isSaving} />
+              <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading} />
+            </Footer>
+          </>
+        )}
       </Container>
 
       {showConfirm && (
@@ -715,3 +824,27 @@ const ContentBody = styled.div` min-height: 350px; width: 100%; box-sizing: bord
 const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
 const LoadingState = styled.div` display: flex; justify-content: center; align-items: center; height: 300px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
+const ScanHeaderButton = styled.button`
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid ${({theme})=>theme.bg4};
+  border-radius: 9px;
+  background: transparent;
+  color: ${({theme})=>theme.text};
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: ${({theme})=>theme.bg3}; }
+  &:focus-visible { outline: 3px solid ${v.colorPrincipal}44; outline-offset: 2px; }
+  &:disabled { cursor: not-allowed; opacity: 0.55; }
+
+  @media (max-width: 560px) {
+    padding: 7px 9px;
+    font-size: 0.76rem;
+  }
+`;
