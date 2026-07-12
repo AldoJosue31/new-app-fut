@@ -14,7 +14,11 @@ export const useEquiposStore = create((set, get) => ({
       return; 
     }
 
-    set({ loading: true, cachedDivisionId: divisionId, equipos: [] });
+    set({
+      loading: true,
+      cachedDivisionId: divisionId,
+      equipos: [],
+    });
 
     try {
       const { data, error } = await supabase

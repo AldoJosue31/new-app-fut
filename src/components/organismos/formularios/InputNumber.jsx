@@ -6,6 +6,8 @@ export function InputNumber({
   value, 
   onChange, 
   name, 
+  id,
+  placeholder,
   min = 0, 
   max = 999, 
   step = 1 
@@ -58,9 +60,11 @@ export function InputNumber({
   return (
     <Container>
       <StyledInput
+        id={id}
         type="text" // Usamos text para control total (evitar scroll del mouse nativo si se desea)
         inputMode="numeric"
         pattern="[0-9]*"
+        placeholder={placeholder}
         value={value}
         onChange={handleInputChange}
         $animate={animate}

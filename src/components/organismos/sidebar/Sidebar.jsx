@@ -36,17 +36,33 @@ const AdminLinksArray = [
 
 export function Sidebar({ state, setState }) {
   const location = useLocation();
-  const { cerrarSesion, profile } = useAuthStore();
+  const { cerrarSesion, profile, authLoadingAction } = useAuthStore();
   const { selectedDivision } = useDivisionStore();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
 
   const isAdmin = profile?.role === ROLES.ADMIN;
   const isDelegate = profile?.role === ROLES.DELEGATE;
 
-  const handleLogout = () => {
-    cerrarSesion();
-    setShowLogoutModal(false);
-    setState(false);
+  const handleLogout = async () => {
+    if (authLoadingAction) return;
+
+    setLogoutError("");
+
+    try {
+      await cerrarSesion();
+      setShowLogoutModal(false);
+      setState(false);
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      setLogoutError('No se pudo cerrar la sesión. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  };
+
+  const openLogoutModal = () => {
+    if (authLoadingAction) return;
+    setLogoutError("");
+    setShowLogoutModal(true);
   };
 
   const getManagerLinkTo = (to) => {
@@ -137,14 +153,20 @@ export function Sidebar({ state, setState }) {
         </div>
 
         <div className={state ? "LinkContainer active" : "LinkContainer"}>
-          <div className="Links" onClick={() => setShowLogoutModal(true)} style={{ cursor: "pointer" }}>
-            <section className={state ? "content open" : "content"}>
+          <button
+            type="button"
+            className="Links logoutButton"
+            onClick={openLogoutModal}
+            disabled={authLoadingAction}
+            aria-label="Cerrar sesión"
+          >
+            <span className={state ? "content open" : "content"}>
               <Icon className="Linkicon" icon="material-symbols:logout-rounded" color={v.rojo} style={{ fontSize: "28px" }} />
               <span className={state ? "label_ver" : "label_oculto"} style={{ color: v.rojo, fontWeight: "600" }}>
                 Cerrar Sesion
               </span>
-            </section>
-          </div>
+            </span>
+          </button>
         </div>
 
         {!isAdmin && !isDelegate && <DivisionSelector isOpen={state} />}
@@ -152,14 +174,17 @@ export function Sidebar({ state, setState }) {
 
       <ConfirmModal
         isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
+        onClose={() => !authLoadingAction && setShowLogoutModal(false)}
         onConfirm={handleLogout}
         title="Cerrar Sesion"
         message="Estas seguro de que deseas salir?"
         subMessage="Tendras que iniciar sesion nuevamente para acceder."
-        confirmText="Salir"
+        confirmText={authLoadingAction ? "Cerrando..." : "Salir"}
         confirmColor={v.rojo}
-      />
+        confirmDisabled={authLoadingAction}
+      >
+        {logoutError && <LogoutError role="alert">{logoutError}</LogoutError>}
+      </ConfirmModal>
     </Main>
   );
 }
@@ -220,7 +245,7 @@ const Container = styled.div`
   height: 100%;
   width: 260px;
   transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(-100%)")};
-  transition: transform 0.3s ease-in-out, width 0.3s ease-in-out;
+  transition: transform 0.3s ease-in-out;
   box-shadow: ${({ $isOpen, theme }) => ($isOpen ? theme.boxshadowGray : "none")};
   overflow-y: auto;
   overflow-x: hidden;
@@ -347,6 +372,25 @@ const Container = styled.div`
       font-weight: 600;
     }
   }
+
+  .logoutButton {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    text-align: inherit;
+    text-transform: inherit;
+
+    &:focus-visible {
+      outline: 2px solid ${({ theme }) => theme.primary || v.colorPrincipal};
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+  }
 `;
 
 const Divider = styled.div`
@@ -368,4 +412,11 @@ const MenuLabel = styled.span`
   @media ${Device.tablet} {
     display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
   }
+`;
+
+const LogoutError = styled.p`
+  margin: 0;
+  color: ${v.rojo};
+  font-size: 0.85rem;
+  font-weight: 600;
 `;

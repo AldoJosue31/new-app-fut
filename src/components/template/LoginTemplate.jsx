@@ -7,6 +7,37 @@ import { useAuthStore } from "../../store/AuthStore";
 import { useNavigate, useLocation } from 'react-router-dom'; // Agregamos useLocation
 import { Toast } from '../../components/atomos/Toast';
 
+const GoogleIcon = v.iconogoogle;
+
+const getLoginErrorMessage = (error) => {
+    const code = error?.code;
+    const message = String(error?.message || '').toLowerCase();
+
+    if (code === 'PROFILE_UNAVAILABLE') return 'No fue posible validar tu acceso. Inténtalo nuevamente.';
+    if (code === 'UNAUTHORIZED_ROLE') return 'No tienes permisos de acceso.';
+    if (message.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
+    if (message.includes('email not confirmed')) return 'Confirma tu correo antes de iniciar sesión.';
+    if (message.includes('too many requests') || message.includes('rate limit')) {
+        return 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.';
+    }
+
+    return 'No fue posible iniciar sesión. Inténtalo de nuevo.';
+};
+
+const getOAuthErrorMessage = (errorCode, errorDescription) => {
+    const description = String(errorDescription || '').toLowerCase();
+
+    if (
+        description.includes('no se permite el registro directo') ||
+        description.includes('database error saving new user')
+    ) {
+        return 'Esta cuenta de Google no está registrada en el sistema. Solicita acceso a tu administrador.';
+    }
+
+    if (errorCode === 'access_denied') return 'Cancelaste el inicio de sesión con Google.';
+    return 'No fue posible iniciar sesión con Google. Inténtalo nuevamente.';
+};
+
 export function LoginTemplate() {
     const navigate = useNavigate();
     // 1. Necesitamos useLocation para leer la URL
@@ -14,6 +45,7 @@ export function LoginTemplate() {
     const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
     const emailRef = useRef(null);
     const passRef = useRef(null);
+    const authActionInFlight = useRef(false);
 
     const [toastConfig, setToastConfig] = useState({
         show: false,
@@ -32,23 +64,16 @@ export function LoginTemplate() {
     useEffect(() => {
         // --- A. DETECCIÓN DE ERRORES POR URL (Desde Supabase/Google) ---
         // Supabase devuelve los errores en el hash (#) de la URL, ejemplo: #error=server_error&error_description=...
-        const hashParams = new URLSearchParams(location.hash.substring(1)); // Quitamos el '#'
-        const errorDescription = hashParams.get('error_description');
-        const errorCode = hashParams.get('error');
+        const hashParams = new URLSearchParams(location.hash.substring(1));
+        const queryParams = new URLSearchParams(location.search);
+        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+        const errorCode = hashParams.get('error') || queryParams.get('error');
 
         if (errorDescription || errorCode) {
             // Limpiamos la URL para que no se vea feo
-            window.history.replaceState(null, '', window.location.pathname);
+            window.history.replaceState(null, '', location.pathname);
 
-            // Mensaje amigable
-            let msg = decodeURIComponent(errorDescription).replace(/\+/g, ' ');
-            
-            // Si el mensaje viene del Trigger SQL
-            if (msg.includes('No se permite el registro directo') || msg.includes('Database error saving new user')) {
-                msg = 'Esta cuenta de Google no está registrada en el sistema. Solicita acceso a tu administrador.';
-            }
-
-            showError(msg);
+            showError(getOAuthErrorMessage(errorCode, errorDescription));
         }
 
         // --- B. DETECCIÓN DE ERRORES LOCALES (AuthContext) ---
@@ -60,32 +85,46 @@ export function LoginTemplate() {
         }
         
         if (emailRef.current) emailRef.current.focus();
-    }, [location]); // Agregamos location a las dependencias
+    }, [location.hash, location.pathname, location.search]);
+
+    const beginAuthAction = () => {
+        if (authActionInFlight.current || authLoadingAction) return false;
+        authActionInFlight.current = true;
+        return true;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const email = emailRef.current?.value?.trim();
+        if (!beginAuthAction()) return;
+
+        const email = emailRef.current?.value?.trim().toLowerCase();
         const password = passRef.current?.value;
         
-        if (!email || !password) return showError('Ingresa correo y contraseña');
+        if (!email || !password) {
+            authActionInFlight.current = false;
+            return showError('Ingresa correo y contraseña.');
+        }
         
         try {
             await loginWithEmail(email, password);
             navigate('/dashboard', { replace: true });
         } catch (err) {
             if (err.code === 'ACCOUNT_SUSPENDED') return;
-            let msg = err.message || 'Error al iniciar sesión';
-            if (msg.includes('Invalid login credentials')) msg = 'Correo o contraseña incorrectos.';
-            showError(msg);
+            showError(getLoginErrorMessage(err));
+        } finally {
+            authActionInFlight.current = false;
         }
     };
 
     const handleGoogleLogin = async () => {
+        if (!beginAuthAction()) return;
+
         try {
             await loginGoogle();
         } catch (err) {
             console.error("Google Login Error:", err);
             showError('No se pudo iniciar la conexión con Google.');
+            authActionInFlight.current = false;
         }
     };
 
@@ -121,7 +160,12 @@ export function LoginTemplate() {
                                 ref={emailRef}
                                 className="form__field"
                                 placeholder="Correo electrónico"
-                                type="text"
+                                type="email"
+                                autoComplete="email"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                                spellCheck="false"
+                                inputMode="email"
                                 aria-label="Correo electrónico"
                             />
                         </InputText2>
@@ -129,7 +173,14 @@ export function LoginTemplate() {
 
                     <InputWrapper>
                         <InputText2>
-                            <input ref={passRef} className="form__field" placeholder="Contraseña" type="password" />
+                            <input
+                                ref={passRef}
+                                className="form__field"
+                                placeholder="Contraseña"
+                                type="password"
+                                autoComplete="current-password"
+                                aria-label="Contraseña"
+                            />
                         </InputText2>
                     </InputWrapper>
 
@@ -153,7 +204,7 @@ export function LoginTemplate() {
                     <Btnsave
                         funcion={handleGoogleLogin}
                         titulo="Continuar con Google"
-                        icono={<v.iconogoogle />}
+                        icono={<GoogleIcon />}
                         disabled={authLoadingAction}
                     />
                 </GoogleWrap>

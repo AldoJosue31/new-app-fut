@@ -15,6 +15,7 @@ export const ConfirmModal = ({
   confirmText = "Eliminar", 
   confirmColor = v.rojo,
   confirmIcon,
+  confirmDisabled = false,
   width = "400px",
   thinButtons = false, // <-- Nueva prop para hacer botones más delgados
   children             // <-- Nueva prop para inyectar contenido extra (como los números grandes)
@@ -37,6 +38,7 @@ export const ConfirmModal = ({
              bgcolor={confirmColor} 
              icono={confirmIcon || <v.iconocerrar />} 
              funcion={onConfirm} 
+             disabled={confirmDisabled}
            />
         </div>
       </Container>
