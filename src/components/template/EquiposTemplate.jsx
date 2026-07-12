@@ -1,4 +1,11 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import styled from "styled-components";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { RiFileList3Line, RiGroupLine } from "react-icons/ri";
@@ -133,12 +140,17 @@ export const EquiposTemplate = ({
   const showToast = (msg, type = "success") =>
     setToast({ show: true, msg, type });
 
-  const getEquiposPath = (nextTeamId = "") => {
+  const getEquiposPath = useCallback((nextTeamId = "") => {
     const suffix = nextTeamId ? `/${nextTeamId}` : "";
     return visibleDivisionId
       ? `/division/${visibleDivisionId}/equipos${suffix}`
       : `/equipos${suffix}`;
-  };
+  }, [visibleDivisionId]);
+
+  const participatingTeamIds = useMemo(
+    () => new Set(participatingIds.map((id) => String(id))),
+    [participatingIds]
+  );
 
   useEffect(() => {
     if (!routeDivisionId && division?.id && !isDelegateView) {
@@ -230,12 +242,17 @@ export const EquiposTemplate = ({
     return result;
   };
 
-  const handleViewTeam = (team) => {
+  const handleViewTeam = useCallback((team) => {
     detailScrollPositionRef.current =
       window.scrollY || document.documentElement.scrollTop || 0;
     pendingDetailScrollPreserveOnOpenRef.current = true;
     navigate(getEquiposPath(team.id), { preventScrollReset: true });
-  };
+  }, [getEquiposPath, navigate]);
+
+  const handleTransferTeam = useCallback((currentTeam) => {
+    setTeamToTransfer(currentTeam);
+    setIsTransferModalOpen(true);
+  }, []);
 
   const handleCloseDetail = () => {
     pendingDetailScrollRestoreRef.current = true;
@@ -435,9 +452,7 @@ export const EquiposTemplate = ({
                     <>
                       {Array.isArray(equipos) &&
                         equipos.map((team) => {
-                          const isParticipating = participatingIds.some(
-                            (id) => String(id) === String(team.id)
-                          );
+                          const isParticipating = participatingTeamIds.has(String(team.id));
 
                           return (
                             <TeamCard
@@ -446,10 +461,7 @@ export const EquiposTemplate = ({
                               onEdit={onEdit}
                               onView={handleViewTeam}
                               onDelete={onDelete}
-                              onTransfer={(currentTeam) => {
-                                setTeamToTransfer(currentTeam);
-                                setIsTransferModalOpen(true);
-                              }}
+                              onTransfer={handleTransferTeam}
                               isParticipating={isParticipating}
                               showTransferAction={canTransferTeams}
                               showDeleteAction={canDeleteTeams}

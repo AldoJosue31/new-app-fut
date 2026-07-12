@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { memo } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { BiBadgeCheck } from "react-icons/bi";
 import {
@@ -18,7 +18,19 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-export function TeamCard({
+const statusBadgeCycle = keyframes`
+  0%, 44% { opacity: 0; transform: translateY(-5px) scale(0.95); visibility: hidden; }
+  50%, 94% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+  100% { opacity: 0; transform: translateY(-5px) scale(0.95); visibility: hidden; }
+`;
+
+const tournamentBadgeCycle = keyframes`
+  0%, 44% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+  50%, 94% { opacity: 0; transform: translateY(-5px) scale(0.95); visibility: hidden; }
+  100% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+`;
+
+function TeamCardComponent({
   team,
   onEdit,
   onDelete,
@@ -31,25 +43,8 @@ export function TeamCard({
   showInviteAction = false,
   requestStatusMode = "manager",
 }) {
-  const [showTournamentMode, setShowTournamentMode] = useState(() => !!isParticipating);
-
-  useEffect(() => {
-    if (!isParticipating) {
-      return undefined;
-    }
-
-    const interval = setInterval(() => {
-      setShowTournamentMode((prevMode) => !prevMode);
-    }, 2500);
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isParticipating]);
-
   const isActive = team.status === "Activo";
   const hasActions = true;
-  const tournamentBadgeVisible = isParticipating ? showTournamentMode : false;
   const requestSummary = team?.delegateRequestSummary || null;
   const isLinkedDelegate = Boolean(team?.delegateAssignment?.delegate_profile_id);
   const delegateLabel = team?.delegate_name || "Sin delegado";
@@ -148,13 +143,13 @@ export function TeamCard({
 
         <BadgePosition>
           <BadgeStack>
-            <StatusBadge $visible={!tournamentBadgeVisible} $isActive={isActive}>
+            <StatusBadge $visible={!isParticipating} $alternates={isParticipating} $isActive={isActive}>
               {isActive ? <RiCheckboxCircleLine size={11} /> : <RiCloseCircleLine size={11} />}
               <span>{team.status}</span>
             </StatusBadge>
 
             {isParticipating && (
-              <TournamentBadge $visible={tournamentBadgeVisible}>
+              <TournamentBadge $visible $alternates>
                 <RiTrophyLine size={11} />
                 <span>En Torneo</span>
               </TournamentBadge>
@@ -198,6 +193,8 @@ export function TeamCard({
     </CardContainer>
   );
 }
+
+export const TeamCard = memo(TeamCardComponent);
 
 const CardContainer = styled.div`
   width: 250px;
@@ -448,10 +445,20 @@ const sharedBadgeStyles = css`
 const StatusBadge = styled.div`
   ${sharedBadgeStyles}
   background: ${({ $isActive }) => ($isActive ? "#27ae60" : "#c0392b")};
+  ${({ $alternates }) =>
+    $alternates &&
+    css`
+      animation: ${statusBadgeCycle} 5s linear infinite;
+    `}
 `;
 
 const TournamentBadge = styled.div`
   ${sharedBadgeStyles}
   background: linear-gradient(135deg, #f1c40f, #d35400);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  ${({ $alternates }) =>
+    $alternates &&
+    css`
+      animation: ${tournamentBadgeCycle} 5s linear infinite;
+    `}
 `;
