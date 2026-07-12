@@ -21,6 +21,8 @@ import {
   revokeDelegateInvitation,
   unlinkTeamDelegateService,
 } from "../../../services/delegates";
+import { FIELD_LIMITS, validateOptionalEmail } from "../../../utils/entityValidation";
+import { maxLengthFeedback } from "../../../utils/maxLengthFeedback";
 
 const TEAM_FORM_PANEL = "form";
 const TEAM_INVITE_PANEL = "invite";
@@ -185,13 +187,20 @@ export function TeamForm({
       return;
     }
 
+    const emailValidation = validateOptionalEmail(inviteEmail);
+    if (emailValidation.error) {
+      showToast?.(emailValidation.error, "error");
+      return;
+    }
+    setInviteEmail(emailValidation.value);
+
     setInviteActionLoading(true);
 
     try {
       const response = await createDelegateInvitation({
         teamId,
         invitedName: form.delegate_name || null,
-        invitedEmail: inviteEmail || null,
+        invitedEmail: emailValidation.value || null,
         invitedPhone: form.contact_phone || null,
       });
 
@@ -200,7 +209,7 @@ export function TeamForm({
         team_id: teamId,
         token: response.token,
         invited_name: form.delegate_name || null,
-        invited_email: inviteEmail || null,
+        invited_email: emailValidation.value || null,
         invited_phone: form.contact_phone || null,
         expires_at: response.expires_at,
       });
@@ -304,6 +313,7 @@ export function TeamForm({
                 value={form.delegate_name || ""}
                 onChange={onFormChange}
                 placeholder="Nombre del delegado"
+                {...maxLengthFeedback(FIELD_LIMITS.delegateName)}
               />
               <BiUser className="field-icon" />
             </InputText2>
@@ -319,6 +329,7 @@ export function TeamForm({
                 value={inviteEmail}
                 onChange={handleInviteEmailChange}
                 placeholder="Correo para el registro"
+                {...maxLengthFeedback(FIELD_LIMITS.email)}
               />
               <BiEnvelope className="field-icon" />
             </InputText2>
@@ -334,6 +345,7 @@ export function TeamForm({
                 value={form.contact_phone || ""}
                 onChange={onFormChange}
                 placeholder="Telefono del delegado"
+                {...maxLengthFeedback(FIELD_LIMITS.phone)}
               />
               <BiPhone className="field-icon" />
             </InputText2>
@@ -466,6 +478,7 @@ export function TeamForm({
               value={delegateInputDisplay}
               onChange={onFormChange}
               placeholder="Nombre del delegado"
+              {...maxLengthFeedback(FIELD_LIMITS.delegateName)}
             />
           </InputText2>
 
@@ -579,6 +592,7 @@ export function TeamForm({
                   onChange={onFormChange}
                   required
                   placeholder="Ej. Rayados"
+                  {...maxLengthFeedback(FIELD_LIMITS.teamName)}
                 />
               </InputText2>
             </div>
@@ -595,6 +609,7 @@ export function TeamForm({
                   onChange={onFormChange}
                   placeholder="Contacto"
                   type="tel"
+                  {...maxLengthFeedback(FIELD_LIMITS.phone)}
                 />
               </InputText2>
             </div>

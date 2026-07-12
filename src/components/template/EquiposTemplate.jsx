@@ -1,5 +1,13 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import styled from "styled-components";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { RiFileList3Line, RiGroupLine } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
@@ -27,6 +35,27 @@ import { supabase } from "../../supabase/supabase.config";
 import { getTeamsDelegateChangeRequests, reviewDelegateChangeRequest } from "../../services/delegates";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { ROLES } from "../../utils/constants";
+
+const teamNameCollator = new Intl.Collator("es", {
+  sensitivity: "base",
+  numeric: true,
+});
+
+const orderTeamsOnlyWhenNeeded = (teams) => {
+  if (!Array.isArray(teams) || teams.length < 2) return teams || [];
+
+  const needsReorder = teams.some(
+    (team, index) =>
+      index > 0 &&
+      teamNameCollator.compare(teams[index - 1]?.name || "", team?.name || "") > 0
+  );
+
+  return needsReorder
+    ? [...teams].sort((first, second) =>
+        teamNameCollator.compare(first?.name || "", second?.name || "")
+      )
+    : teams;
+};
 
 export const EquiposTemplate = ({
   equipos,
@@ -75,6 +104,7 @@ export const EquiposTemplate = ({
   const { divisionId: routeDivisionId, teamId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const shouldReduceMotion = useReducedMotion();
   const [globalRequests, setGlobalRequests] = useState([]);
   const [loadingGlobalRequests, setLoadingGlobalRequests] = useState(false);
   const [isGlobalRequestsOpen, setIsGlobalRequestsOpen] = useState(false);
@@ -133,12 +163,37 @@ export const EquiposTemplate = ({
   const showToast = (msg, type = "success") =>
     setToast({ show: true, msg, type });
 
-  const getEquiposPath = (nextTeamId = "") => {
+  const getEquiposPath = useCallback((nextTeamId = "") => {
     const suffix = nextTeamId ? `/${nextTeamId}` : "";
     return visibleDivisionId
       ? `/division/${visibleDivisionId}/equipos${suffix}`
       : `/equipos${suffix}`;
-  };
+  }, [visibleDivisionId]);
+
+  const participatingTeamIds = useMemo(
+    () => new Set(participatingIds.map((id) => String(id))),
+    [participatingIds]
+  );
+  const orderedTeams = useMemo(() => orderTeamsOnlyWhenNeeded(equipos), [equipos]);
+
+  const teamMotion = shouldReduceMotion
+    ? {
+        initial: false,
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.01 },
+      }
+    : {
+        initial: { opacity: 0, scale: 0.97, y: 8 },
+        animate: { opacity: 1, scale: 1, y: 0 },
+        exit: { opacity: 0, scale: 0.97, y: -6 },
+        transition: {
+          layout: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+          opacity: { duration: 0.18 },
+          scale: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+          y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+        },
+      };
 
   useEffect(() => {
     if (!routeDivisionId && division?.id && !isDelegateView) {
@@ -230,12 +285,17 @@ export const EquiposTemplate = ({
     return result;
   };
 
-  const handleViewTeam = (team) => {
+  const handleViewTeam = useCallback((team) => {
     detailScrollPositionRef.current =
       window.scrollY || document.documentElement.scrollTop || 0;
     pendingDetailScrollPreserveOnOpenRef.current = true;
     navigate(getEquiposPath(team.id), { preventScrollReset: true });
-  };
+  }, [getEquiposPath, navigate]);
+
+  const handleTransferTeam = useCallback((currentTeam) => {
+    setTeamToTransfer(currentTeam);
+    setIsTransferModalOpen(true);
+  }, []);
 
   const handleCloseDetail = () => {
     pendingDetailScrollRestoreRef.current = true;
@@ -433,30 +493,31 @@ export const EquiposTemplate = ({
                     ))
                   ) : (
                     <>
-                      {Array.isArray(equipos) &&
-                        equipos.map((team) => {
-                          const isParticipating = participatingIds.some(
-                            (id) => String(id) === String(team.id)
-                          );
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {orderedTeams.map((team) => {
+                          const isParticipating = participatingTeamIds.has(String(team.id));
 
                           return (
-                            <TeamCard
+                            <AnimatedTeamCard
                               key={team.id}
-                              team={team}
-                              onEdit={onEdit}
-                              onView={handleViewTeam}
-                              onDelete={onDelete}
-                              onTransfer={(currentTeam) => {
-                                setTeamToTransfer(currentTeam);
-                                setIsTransferModalOpen(true);
-                              }}
-                              isParticipating={isParticipating}
-                              showTransferAction={canTransferTeams}
-                              showDeleteAction={canDeleteTeams}
-                              requestStatusMode="manager"
-                            />
+                              layout="position"
+                              {...teamMotion}
+                            >
+                              <TeamCard
+                                team={team}
+                                onEdit={onEdit}
+                                onView={handleViewTeam}
+                                onDelete={onDelete}
+                                onTransfer={handleTransferTeam}
+                                isParticipating={isParticipating}
+                                showTransferAction={canTransferTeams}
+                                showDeleteAction={canDeleteTeams}
+                                requestStatusMode="manager"
+                              />
+                            </AnimatedTeamCard>
                           );
                         })}
+                      </AnimatePresence>
 
                       {(!equipos || equipos.length === 0) && (
                         <div style={{ gridColumn: "1 / -1", width: "100%" }}>
@@ -710,6 +771,12 @@ const Grid = styled.div`
   justify-content: center;
   gap: 25px;
   width: 100%;
+  position: relative;
+`;
+
+const AnimatedTeamCard = styled(motion.div)`
+  width: 250px;
+  flex-shrink: 0;
 `;
 
 const TabsWrapper = styled.div`

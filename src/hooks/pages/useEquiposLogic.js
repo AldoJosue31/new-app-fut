@@ -10,6 +10,7 @@ import { TEAM_STATUS, ROLES } from "../../utils/constants";
 import { getTorneoActivo } from "../../services/torneos";
 import { getDivisionWorkspace } from "../../services/divisionWorkspace";
 import { uploadImageToSupabase } from "../../utils/uploadHandler";
+import { validateTeamForm } from "../../utils/entityValidation";
 import {
   getDelegateAssignments,
   getTeamDelegateBindings,
@@ -530,7 +531,7 @@ export const useEquiposLogic = () => {
     );
   };
 
-  const handleDelegateTeamSave = async () => {
+  const handleDelegateTeamSave = async (validatedForm = form) => {
     if (!teamToEdit?.id) {
       throw new Error("Como delegado solo puedes editar equipos asignados.");
     }
@@ -540,10 +541,10 @@ export const useEquiposLogic = () => {
       throw new Error("No se pudo identificar la liga del equipo.");
     }
 
-    let logoUrl = form.logo_url;
-    let originalLogoUrl = form.original_logo_url || teamToEdit.original_logo_url || null;
+    let logoUrl = validatedForm.logo_url;
+    let originalLogoUrl = validatedForm.original_logo_url || teamToEdit.original_logo_url || null;
 
-    if (!file && !preview && !form.logo_url) {
+    if (!file && !preview && !validatedForm.logo_url) {
       logoUrl = null;
       originalLogoUrl = null;
     }
@@ -562,10 +563,10 @@ export const useEquiposLogic = () => {
     }
 
     const payload = {
-      name: form.name,
-      color: form.color,
-      delegate_name: form.delegate_name || null,
-      contact_phone: form.contact_phone || null,
+      name: validatedForm.name,
+      color: validatedForm.color,
+      delegate_name: validatedForm.delegate_name || null,
+      contact_phone: validatedForm.contact_phone || null,
       logo_url: logoUrl,
       original_logo_url: originalLogoUrl,
     };
@@ -596,16 +597,16 @@ export const useEquiposLogic = () => {
     };
   };
 
-  const handleManagerTeamSave = async () => {
+  const handleManagerTeamSave = async (validatedForm = form) => {
     if (!effectiveDivision) {
       throw new Error("Selecciona una division.");
     }
 
-    let logoUrl = form.logo_url;
-    let originalLogoUrl = form.original_logo_url || teamToEdit?.original_logo_url;
+    let logoUrl = validatedForm.logo_url;
+    let originalLogoUrl = validatedForm.original_logo_url || teamToEdit?.original_logo_url;
     const leagueId = effectiveDivision?.league_id;
 
-    if (!file && !preview && !form.logo_url) {
+    if (!file && !preview && !validatedForm.logo_url) {
       logoUrl = null;
       originalLogoUrl = null;
 
@@ -622,11 +623,11 @@ export const useEquiposLogic = () => {
     }
 
     const teamData = {
-      name: form.name,
-      color: form.color,
-      delegate_name: form.delegate_name,
-      contact_phone: form.contact_phone,
-      status: form.status,
+      name: validatedForm.name,
+      color: validatedForm.color,
+      delegate_name: validatedForm.delegate_name || null,
+      contact_phone: validatedForm.contact_phone || null,
+      status: validatedForm.status,
       logo_url: logoUrl,
       original_logo_url: originalLogoUrl,
       division_id: effectiveDivision.id,
@@ -714,15 +715,21 @@ export const useEquiposLogic = () => {
 
     if (isSavingRef.current) return { successMessage: null };
 
+    const validation = validateTeamForm(form);
+    if (!validation.isValid) {
+      throw new Error(Object.values(validation.errors)[0]);
+    }
+    setForm(validation.data);
+
     isSavingRef.current = true;
     setUploading(true);
 
     try {
       if (isDelegate) {
-        return await handleDelegateTeamSave();
+        return await handleDelegateTeamSave(validation.data);
       }
 
-      return await handleManagerTeamSave();
+      return await handleManagerTeamSave(validation.data);
     } catch (error) {
       console.error("Error guardando equipo:", error);
       throw error;
