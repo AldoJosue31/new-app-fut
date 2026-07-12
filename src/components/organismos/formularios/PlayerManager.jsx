@@ -27,6 +27,8 @@ import { Modal } from "../Modal";
 import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { uploadImageToSupabase } from "../../../utils/uploadHandler";
 import { submitDelegateChangeRequest } from "../../../services/delegates";
+import { FIELD_LIMITS, validatePlayerForm } from "../../../utils/entityValidation";
+import { maxLengthFeedback } from "../../../utils/maxLengthFeedback";
 
 const POSITION_RANK = {
   Portero: 1,
@@ -350,6 +352,14 @@ export function PlayerManager({
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    const validation = validatePlayerForm(form);
+    if (!validation.isValid) {
+      showToast?.(Object.values(validation.errors)[0], "error");
+      return;
+    }
+    const formToSave = validation.data;
+    setForm(formToSave);
+
     if (dorsalError) {
       setShakeError(true);
       setTimeout(() => setShakeError(false), 500);
@@ -385,7 +395,7 @@ export function PlayerManager({
         }
 
         const payload = buildPlayerPayload({
-          form,
+          form: formToSave,
           photoUrl: finalPhotoUrl,
           originalPhotoUrl: finalOriginalUrl,
           isActive: true,
@@ -407,8 +417,8 @@ export function PlayerManager({
         );
       } else {
         const payload = {
-          ...form,
-          birth_date: form.birth_date || null,
+          ...formToSave,
+          birth_date: formToSave.birth_date || null,
           team_id: teamId,
           photo_url: finalPhotoUrl,
           original_photo_url: finalOriginalUrl,
@@ -721,6 +731,7 @@ export function PlayerManager({
                 required
                 value={form.first_name}
                 onChange={handleInputChange}
+                {...maxLengthFeedback(FIELD_LIMITS.playerFirstName)}
               />
             </InputText2>
           </div>
@@ -735,6 +746,7 @@ export function PlayerManager({
                 required
                 value={form.last_name}
                 onChange={handleInputChange}
+                {...maxLengthFeedback(FIELD_LIMITS.playerLastName)}
               />
             </InputText2>
           </div>
@@ -750,6 +762,7 @@ export function PlayerManager({
               placeholder="Ej. 10"
               value={form.dorsal}
               onChange={handleInputChange}
+              {...maxLengthFeedback(FIELD_LIMITS.playerIdentity)}
               min={0}
               max={999}
             />

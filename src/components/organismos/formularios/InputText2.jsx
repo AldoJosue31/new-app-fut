@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 
 export function InputText2({ children }) {
     return (
@@ -7,6 +7,12 @@ export function InputText2({ children }) {
         </Container>
     );
 }
+const limitShake = keyframes`
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  65% { transform: translateX(3px); }
+`;
+
 const Container = styled.div`
   position: relative;
   display: flex;
@@ -85,5 +91,18 @@ const Container = styled.div`
   .form__field:focus {
     font-weight: 700;
     border: 2px solid #1cb0f6;
+  }
+
+  .form__field.input-limit-reached,
+  .form__field.input-limit-reached:focus {
+    border-color: #dc2626;
+    animation: ${limitShake} 180ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .form__field.input-limit-reached,
+    .form__field.input-limit-reached:focus {
+      animation: none;
+    }
   }
 `;
