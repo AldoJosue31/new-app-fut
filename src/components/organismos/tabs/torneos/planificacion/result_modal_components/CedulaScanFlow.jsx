@@ -104,6 +104,7 @@ const emptyScan = {
   date: "",
   time: "",
   observations: "",
+  walkover: { detected: false, absentTeam: "none", absentTeamName: "", evidence: "" },
   penalties: { local: 0, visitor: 0 },
   players: [],
 };
@@ -205,6 +206,26 @@ export function CedulaScanFlow({
     const penalties = { local: 0, visit: 0 };
     penalties[localSide] = Number(rawScan.penalties?.local) || 0;
     penalties[visitorSide] = Number(rawScan.penalties?.visitor) || 0;
+    const scannedWalkover = rawScan.walkover || {};
+    let absentSide = null;
+    if (scannedWalkover.absentTeam === "local") absentSide = localSide;
+    if (scannedWalkover.absentTeam === "visitor") absentSide = visitorSide;
+    if (!absentSide && scannedWalkover.absentTeamName) {
+      absentSide = bestMatch(scannedWalkover.absentTeamName, actualTeams, team => team.name, 0.42)?.option?.side || null;
+    }
+    const walkover = {
+      detected: Boolean(scannedWalkover.detected),
+      absentSide: scannedWalkover.absentTeam === "both" ? "both" : absentSide,
+      winnerSide: scannedWalkover.absentTeam === "both"
+        ? "both"
+        : absentSide === "local"
+          ? "visit"
+          : absentSide === "visit"
+            ? "local"
+            : null,
+      absentTeamName: scannedWalkover.absentTeamName || "",
+      evidence: scannedWalkover.evidence || "",
+    };
     return {
       teams: actualTeams,
       localSide,
@@ -213,6 +234,7 @@ export function CedulaScanFlow({
       players,
       scores,
       penalties,
+      walkover,
       date: rawScan.date || "",
       time: rawScan.time || "",
       observations: rawScan.observations || "",
@@ -345,6 +367,10 @@ export function CedulaScanFlow({
           <DataRow label="Visitante" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
           <DataRow label="Arbitro" value={rawScan.referee || "Sin detectar"} />
           <DataRow label="Fecha" value={[rawScan.date, rawScan.time].filter(Boolean).join(" · ") || "Sin detectar"} />
+          <DataRow
+            label="Resolucion"
+            value={rawScan.walkover?.detected ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}` : "Resultado regular"}
+          />
           <PlayerList>
             {(rawScan.players || []).map((player, index) => (
               <li key={`${player.name}-${index}`}><span>{player.name || "Nombre ilegible"}</span><small>{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small></li>
@@ -357,6 +383,17 @@ export function CedulaScanFlow({
           <DataRow label="Visitante" value={`${match?.visitante?.name || "Visitante"} · ${interpretation.scores.visit}`} />
           <DataRow label="Arbitro" value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"} warning={!interpretation.referee && Boolean(rawScan.referee)} />
           <DataRow label="Fecha" value={[interpretation.date, interpretation.time].filter(Boolean).join(" · ") || "Sin detectar"} />
+          <DataRow
+            label="Resolucion"
+            value={interpretation.walkover.detected
+              ? interpretation.walkover.winnerSide === "both"
+                ? "Doble W.O. · ambos pierden"
+                : interpretation.walkover.winnerSide
+                  ? `Victoria por default · ${interpretation.walkover.winnerSide === "local" ? match?.local?.name : match?.visitante?.name}`
+                  : "W.O. detectado · falta elegir ganador"
+              : "Resultado regular"}
+            warning={interpretation.walkover.detected && !interpretation.walkover.winnerSide}
+          />
           <PlayerList>
             {interpretation.players.map((player, index) => (
               <li key={`${player.name}-${index}`} className={!player.matched ? "warning" : ""}><span>{player.matched ? playerName(player.matched) : `${player.name} (sin coincidencia)`}</span><small>{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small></li>

@@ -619,12 +619,25 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         visit: toStatNumber(scan.penalties.visit),
       });
     }
-    setIsWalkover(false);
-    setWoWinnerId(null);
+    const scannedWalkover = scan.walkover?.detected;
+    let scannedWinnerId = null;
+    if (scan.walkover?.winnerSide === "local") scannedWinnerId = match?.local?.id || null;
+    if (scan.walkover?.winnerSide === "visit") scannedWinnerId = match?.visitante?.id || null;
+    if (scan.walkover?.winnerSide === "both") scannedWinnerId = DOUBLE_WALKOVER_ID;
+    setIsWalkover(Boolean(scannedWalkover));
+    setWoWinnerId(scannedWalkover ? scannedWinnerId : null);
     setActiveTab("general");
     setShowCedulaScanner(false);
-    setToastConfig({ show: true, message: "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.", type: "success" });
-  }, [minPlayers]);
+    setToastConfig({
+      show: true,
+      message: scannedWalkover
+        ? scannedWinnerId
+          ? "W.O. detectado y aplicado. Revisa la victoria por default antes de guardar."
+          : "Se detecto un W.O., pero debes elegir al ganador en General."
+        : "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.",
+      type: scannedWalkover && !scannedWinnerId ? "warning" : "success"
+    });
+  }, [match, minPlayers]);
 
   const handleFinalSave = async () => {
     if (isSavingRef.current) return;

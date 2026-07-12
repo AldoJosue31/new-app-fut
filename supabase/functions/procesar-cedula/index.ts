@@ -41,6 +41,18 @@ const matchSheetSchema = {
     date: textField("Fecha en formato YYYY-MM-DD; vacio si no se puede determinar."),
     time: textField("Hora en formato HH:MM de 24 horas; vacio si no se puede determinar."),
     observations: textField("Observaciones escritas en la cedula; vacio si no existen."),
+    walkover: {
+      type: "object",
+      additionalProperties: false,
+      description: "Deteccion de inasistencia o victoria por default escrita en cualquier parte de la cedula, incluidas las listas de jugadores.",
+      properties: {
+        detected: { type: "boolean", description: "Verdadero solo si hay texto visible que indique que uno o ambos equipos no se presentaron, W.O. o victoria por default." },
+        absentTeam: { type: "string", enum: ["local", "visitor", "both", "unknown", "none"], description: "Equipo que no se presento segun la seccion o texto de la cedula." },
+        absentTeamName: textField("Nombre del equipo ausente tal como aparece escrito; vacio si no aparece."),
+        evidence: textField("Frase visible que sustenta la deteccion, por ejemplo 'No se presento equipo X'."),
+      },
+      required: ["detected", "absentTeam", "absentTeamName", "evidence"],
+    },
     penalties: {
       type: "object",
       additionalProperties: false,
@@ -69,13 +81,16 @@ const matchSheetSchema = {
       },
     },
   },
-  required: ["documentTitle", "localTeam", "visitorTeam", "referee", "date", "time", "observations", "penalties", "players"],
+  required: ["documentTitle", "localTeam", "visitorTeam", "referee", "date", "time", "observations", "walkover", "penalties", "players"],
 } as const;
 
 const instructions = `Analiza esta imagen como una cedula arbitral de futbol amateur.
 Transcribe solamente datos visibles. No corrijas nombres ni los relaciones con bases de datos.
 Separa local y visitante segun las etiquetas o posicion del documento.
 Cuenta goles y tarjetas por jugador cuando las marcas sean claras.
+Busca cuidadosamente indicaciones de inasistencia en toda la imagen, especialmente dentro del espacio donde deberia ir la lista de jugadores de cada equipo. Ejemplos: "No se presento", "No se presento equipo X", "no llegaron", "inasistencia", "W.O." o "victoria por default".
+Si la frase esta escrita dentro del bloque de jugadores de un equipo, usa la ubicacion de ese bloque para identificar si el ausente es local o visitante, aunque la frase no incluya el nombre.
+Marca walkover.detected=true solamente cuando exista evidencia textual visible. Si ambos equipos aparecen como ausentes usa absentTeam=both. Si la frase existe pero no se puede determinar el equipo usa unknown.
 Si un dato no es legible usa cadena vacia, cero o unknown segun su tipo.
 No inventes jugadores, resultados, fechas ni arbitros.`;
 
