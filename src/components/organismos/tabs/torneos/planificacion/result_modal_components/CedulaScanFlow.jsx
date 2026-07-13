@@ -12,6 +12,33 @@ import { supabase } from "../../../../../../supabase/supabase.config";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
+const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+
+const normalizeImageMimeType = (file) => {
+  const mimeType = String(file?.type || "").toLowerCase();
+  if (mimeType === "image/jpg") return "image/jpeg";
+  if (mimeType === "image/x-heic") return "image/heic";
+  if (mimeType === "image/x-heif") return "image/heif";
+  if (SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) return mimeType;
+
+  const extension = String(file?.name || "").split(".").pop()?.toLowerCase();
+  if (["jpg", "jpeg"].includes(extension)) return "image/jpeg";
+  if (["heic", "heif"].includes(extension)) return `image/${extension}`;
+  if (["png", "webp"].includes(extension)) return `image/${extension}`;
+  return mimeType;
+};
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error("No se pudo leer la imagen seleccionada."));
+  reader.onload = () => resolve(String(reader.result || ""));
+  reader.readAsDataURL(file);
+});
+
+const originalFilePayload = async (file, dataUrl) => ({
+  mimeType: normalizeImageMimeType(file),
+  imageBase64: (dataUrl || await readFileAsDataUrl(file)).split(",")[1] || "",
+});
 
 const normalizeName = (value = "") => String(value)
   .normalize("NFD")
@@ -66,27 +93,37 @@ const playerName = (player) => (
 const refereeName = (referee) => referee?.full_name || referee?.name || "";
 
 const fileToScanPayload = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
-  reader.onload = () => {
+  readFileAsDataUrl(file).then((dataUrl) => {
+    const sourceMimeType = normalizeImageMimeType(file);
+    if (["image/heic", "image/heif"].includes(sourceMimeType)) {
+      originalFilePayload(file, dataUrl).then(resolve).catch(reject);
+      return;
+    }
+
     const image = new Image();
-    image.onerror = () => reject(new Error("El archivo no contiene una imagen valida."));
-    image.onload = () => {
-      const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const context = canvas.getContext("2d");
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      const mimeType = file.type === "image/png" && file.size < 3 * 1024 * 1024
-        ? "image/png"
-        : "image/jpeg";
-      const dataUrl = canvas.toDataURL(mimeType, 0.88);
-      resolve({ mimeType, imageBase64: dataUrl.split(",")[1] });
+    image.onerror = () => {
+      originalFilePayload(file, dataUrl).then(resolve).catch(reject);
     };
-    image.src = reader.result;
-  };
-  reader.readAsDataURL(file);
+    image.onload = () => {
+      try {
+        const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Canvas no disponible");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const outputMimeType = sourceMimeType === "image/png" && file.size < 3 * 1024 * 1024
+          ? "image/png"
+          : "image/jpeg";
+        const optimizedDataUrl = canvas.toDataURL(outputMimeType, 0.88);
+        resolve({ mimeType: outputMimeType, imageBase64: optimizedDataUrl.split(",")[1] });
+      } catch {
+        originalFilePayload(file, dataUrl).then(resolve).catch(reject);
+      }
+    };
+    image.src = dataUrl;
+  }).catch(reject);
 });
 
 const getClipboardImage = (clipboardData) => {
@@ -121,6 +158,7 @@ export function CedulaScanFlow({
 }) {
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [previewAvailable, setPreviewAvailable] = useState(null);
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -148,8 +186,8 @@ export function CedulaScanFlow({
 
   const selectFile = useCallback((nextFile) => {
     if (!nextFile) return;
-    if (!nextFile.type?.startsWith("image/")) {
-      showToast("Selecciona un archivo de imagen.", "error");
+    if (!SUPPORTED_IMAGE_MIME_TYPES.has(normalizeImageMimeType(nextFile))) {
+      showToast("Usa una imagen JPG, PNG, WEBP, HEIC o HEIF.", "error");
       return;
     }
     if (nextFile.size > MAX_FILE_BYTES) {
@@ -161,6 +199,7 @@ export function CedulaScanFlow({
       return URL.createObjectURL(nextFile);
     });
     setFile(nextFile);
+    setPreviewAvailable(null);
     setRawScan(null);
     setScanProgress(0);
   }, [showToast]);
@@ -322,7 +361,21 @@ export function CedulaScanFlow({
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
         <PreviewFrame aria-busy={scanning}>
-          <img src={previewUrl} alt="Cedula seleccionada" />
+          {previewAvailable !== false ? (
+            <img
+              src={previewUrl}
+              alt="Cedula seleccionada"
+              onLoad={() => setPreviewAvailable(true)}
+              onError={() => setPreviewAvailable(false)}
+            />
+          ) : (
+            <PreviewFallback>
+              <RiFileImageLine />
+              <strong>Imagen lista para escanear</strong>
+              <span>{file.name || "Foto tomada desde el dispositivo"}</span>
+              <small>{(file.size / (1024 * 1024)).toFixed(1)} MB · La vista previa no es compatible con este formato</small>
+            </PreviewFallback>
+          )}
           {scanning && (
             <ScanningOverlay aria-live="polite">
               <div className="scan-line" />
@@ -478,6 +531,10 @@ const statusPulse = keyframes`0%,100%{opacity:.82;}50%{opacity:1;}`;
 const PreviewFrame = styled.div`
   position:relative;height:min(52vh,480px);border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
   img{width:100%;height:100%;object-fit:contain;}
+`;
+const PreviewFallback = styled.div`
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:#fff;
+  svg{font-size:2.2rem;color:${v.colorPrincipal};}strong{font-size:.96rem;}span{max-width:34ch;font-size:.84rem;overflow-wrap:anywhere;}small{max-width:46ch;font-size:.76rem;line-height:1.4;opacity:.68;}
 `;
 const ScanningOverlay = styled.div`
   position:absolute;inset:0;overflow:hidden;background:rgba(7,14,20,.34);display:flex;align-items:flex-end;justify-content:center;padding:18px;
