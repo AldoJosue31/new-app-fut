@@ -2,6 +2,7 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI } from "@google/genai";
 
 const MAX_BASE64_LENGTH = 17_500_000;
+const GEMINI_TIMEOUT_MS = 58_000;
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -117,6 +118,40 @@ const hasValidUserSession = async (req: Request) => {
   return response.ok;
 };
 
+const isTimeoutError = (error: unknown) => {
+  const candidate = error as { message?: string; name?: string; status?: number };
+  const message = `${candidate?.name || ""} ${candidate?.message || ""}`;
+  return [408, 504].includes(Number(candidate?.status)) || /abort|deadline|timed?\s*out|timeout/i.test(message);
+};
+
+const isTransientGeminiError = (error: unknown) => {
+  const status = Number((error as { status?: number })?.status);
+  return isTimeoutError(error) || [429, 500, 502, 503, 504].includes(status);
+};
+
+const createScanInteraction = (
+  client: GoogleGenAI,
+  model: string,
+  imageBase64: string,
+  mimeType: string,
+  resolution: "high" | "medium",
+) => client.interactions.create({
+  model,
+  input: [
+    { type: "text", text: instructions },
+    { type: "image", data: imageBase64, mime_type: mimeType, resolution },
+  ],
+  response_format: {
+    type: "text",
+    mime_type: "application/json",
+    schema: matchSheetSchema,
+  },
+}, {
+  // Dos intentos de 58 s caben con margen dentro del limite de ~150 s de Supabase.
+  timeout: GEMINI_TIMEOUT_MS,
+  maxRetries: 0,
+});
+
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") {
@@ -133,7 +168,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "GEMINI_API_KEY no esta configurada." }, 500);
       }
 
-      const { imageBase64, mimeType } = await req.json();
+      const { imageBase64, mimeType, scanMode } = await req.json();
       if (!ALLOWED_MIME_TYPES.has(mimeType)) {
         return jsonResponse({ error: "Formato de imagen no admitido." }, 400);
       }
@@ -142,24 +177,36 @@ Deno.serve(async (req) => {
       }
 
       const client = new GoogleGenAI({ apiKey });
-      const interaction = await client.interactions.create({
-        model: Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash",
-        input: [
-          { type: "text", text: instructions },
-          { type: "image", data: imageBase64, mime_type: mimeType },
-        ],
-        response_format: {
-          type: "text",
-          mime_type: "application/json",
-          schema: matchSheetSchema,
-        },
-      });
+      const model = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
+      let interaction;
+      try {
+        interaction = await createScanInteraction(
+          client,
+          model,
+          imageBase64,
+          mimeType,
+          scanMode === "fast" ? "medium" : "high",
+        );
+      } catch (error) {
+        if (scanMode === "fast" || !isTransientGeminiError(error)) throw error;
+        console.warn("procesar-cedula: reintentando con resolucion media", error);
+        interaction = await createScanInteraction(client, model, imageBase64, mimeType, "medium");
+      }
 
       const outputText = interaction.output_text;
       if (!outputText) throw new Error("Gemini no devolvio contenido.");
       return jsonResponse({ scan: JSON.parse(outputText) });
     } catch (error) {
       console.error("procesar-cedula:", error);
+      if (isTransientGeminiError(error)) {
+        return jsonResponse({
+          error: isTimeoutError(error)
+            ? "El analisis tardo mas de lo esperado. Estamos listos para reintentarlo con una lectura mas rapida."
+            : "El servicio de lectura esta temporalmente ocupado. Intenta nuevamente.",
+          code: isTimeoutError(error) ? "SCAN_TIMEOUT" : "SCAN_TEMPORARY_ERROR",
+          retryable: true,
+        }, 503);
+      }
       return jsonResponse({ error: "No se pudo interpretar la cedula. Intenta con una foto mas clara." }, 502);
     }
 });
