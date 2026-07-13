@@ -431,10 +431,9 @@ export function JornadaPlanificacion({
   };
 
   const handleCloseResultModal = useCallback(() => {
-    if (savingResultMatchId) return;
     setResultModalOpen(false);
     setSelectedMatchResult(null);
-  }, [savingResultMatchId]);
+  }, []);
 
   const handleOpenResultModal = useCallback((selected) => {
     if (savingResultMatchId) return;

@@ -574,7 +574,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
     jornadaId,
     jornadasSource = jornadas,
     mappingsSource = repositionMappings,
-    matchMappingsSource = repositionMatchMappings
+    matchMappingsSource = repositionMatchMappings,
+    { preserveOnError = false, throwOnError = false } = {}
   ) => {
     const requestId = currentJornadaMatchesRequestRef.current + 1;
     currentJornadaMatchesRequestRef.current = requestId;
@@ -658,15 +659,16 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
       return enhancedMatches;
     } catch (e) { 
         console.error(e);
-        if (requestId === currentJornadaMatchesRequestRef.current) {
+        if (!preserveOnError && requestId === currentJornadaMatchesRequestRef.current) {
           setCurrentMatches([]);
           setCurrentMatchesJornadaId(null);
         }
+        if (throwOnError) throw e;
         return [];
     }
   };
 
-  const fetchGlobalPendingMatches = async () => {
+  const fetchGlobalPendingMatches = async ({ throwOnError = false } = {}) => {
       try {
           const data = await getPendingMatchesByTournamentService(activeTournament.id);
 
@@ -677,7 +679,10 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
           );
 
           setGlobalPendingMatches(realPendingMatches);
-      } catch (error) { console.error("Error fetchGlobalPending:", error); }
+      } catch (error) {
+          console.error("Error fetchGlobalPending:", error);
+          if (throwOnError) throw error;
+      }
   };
 
   const handleOpenFixtureEditor = async () => {
@@ -1304,11 +1309,55 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
 
   const handleMatchUpdate = async (matchId, updates) => {
     await updateMatchResultService(matchId, updates);
-    await new Promise(res => setTimeout(res, 100));
-    if (refreshStandings) await refreshStandings(); 
-    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
-    await fetchGlobalPendingMatches();
-    await fetchAllTournamentMatches();
+
+    const mergeUpdatedMatch = (matches) =>
+      (matches || []).map((match) =>
+        String(match?.id) === String(matchId)
+          ? { ...match, ...updates }
+          : match
+      );
+
+    // La persistencia ya terminó correctamente. Reflejamos el resultado de
+    // inmediato y dejamos las consultas derivadas como sincronización secundaria.
+    setCurrentMatches(mergeUpdatedMatch);
+    setAllTournamentMatches(mergeUpdatedMatch);
+    setGlobalPendingMatches((matches) =>
+      updates.status === 'Finalizado'
+        ? (matches || []).filter((match) => String(match?.id) !== String(matchId))
+        : mergeUpdatedMatch(matches)
+    );
+
+    const currentJornadaId = jornadas[currentJornadaIndex]?.id;
+    const refreshTasks = [
+      refreshStandings
+        ? Promise.resolve().then(() => refreshStandings())
+        : Promise.resolve(),
+      currentJornadaId
+        ? fetchCurrentJornadaMatches(
+            currentJornadaId,
+            jornadas,
+            repositionMappings,
+            repositionMatchMappings,
+            { preserveOnError: true, throwOnError: true }
+          )
+        : Promise.resolve(),
+      fetchGlobalPendingMatches({ throwOnError: true }),
+    ];
+
+    void Promise.allSettled(refreshTasks).then((results) => {
+      const failures = results.filter((result) => result.status === 'rejected');
+      if (failures.length === 0) return;
+
+      console.error(
+        "Resultado guardado, pero falló la sincronización posterior:",
+        failures.map((failure) => failure.reason)
+      );
+      setToastConfig({
+        show: true,
+        message: "Resultado guardado. Algunos datos no pudieron actualizarse; recarga la página si no ves los cambios.",
+        type: "warning",
+      });
+    });
   };
 
   const handleResetMatchResult = async (matchId) => {
