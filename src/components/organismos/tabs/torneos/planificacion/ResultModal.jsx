@@ -256,16 +256,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const matchId = Number(match.id);
       if(isNaN(matchId)) throw new Error("ID de partido inválido");
 
-      const { data: freshMatch, error: matchError } = await supabase.from('matches').select('*').eq('id', matchId).single();
-      if (matchError) throw matchError;
-      if (requestId !== latestLoadRequestRef.current) return;
+      // `match` ya proviene de la consulta de la jornada y contiene los campos
+      // necesarios para inicializar el modal. Evitamos una segunda lectura del
+      // mismo partido, que agregaba un punto de fallo antes de cargar la cedula.
+      const freshMatch = match;
 
       let nextMatchDate = "";
       let nextMatchTime = "";
       if (freshMatch.date) {
         const { d, t } = parseDateTime(freshMatch.date);
         nextMatchDate = d;
-        nextMatchTime = t || "10:00";
+        nextMatchTime = t || freshMatch.time || match.time || "10:00";
       } else if (match.date) {
         const { d, t } = parseDateTime(match.date);
         nextMatchDate = d;
