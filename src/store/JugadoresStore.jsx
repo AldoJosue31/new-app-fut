@@ -1,6 +1,22 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase/supabase.config';
 
+const normalizeOptionalText = (value) => {
+  if (value == null) return null;
+  const normalized = String(value).trim();
+  return normalized || null;
+};
+
+const normalizePlayerWrite = (playerData) => {
+  const payload = { ...playerData };
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'curp_dni')) {
+    payload.curp_dni = normalizeOptionalText(payload.curp_dni);
+  }
+
+  return payload;
+};
+
 export const useJugadoresStore = create((set, get) => ({
   jugadores: [],
   isLoading: false,
@@ -27,7 +43,7 @@ export const useJugadoresStore = create((set, get) => ({
 
   // Agregar jugador
   addJugador: async (playerData) => {
-    const payload = { ...playerData, is_active: true }; // Siempre nace activo
+    const payload = normalizePlayerWrite({ ...playerData, is_active: true }); // Siempre nace activo
     const { error, data } = await supabase.from('players').insert(payload).select();
     
     if (error) throw error;
@@ -40,13 +56,14 @@ export const useJugadoresStore = create((set, get) => ({
 
   // Editar jugador
   updateJugador: async (id, updates) => {
+    const normalizedUpdates = normalizePlayerWrite(updates);
     const currentState = get().jugadores;
     const playerToUpdate = currentState.find((p) => p.id === id);
 
     // Lógica de imágenes (Mantenida)
     if (playerToUpdate && playerToUpdate.photo_url) {
       const oldPath = getPathFromUrl(playerToUpdate.photo_url);
-      const newPath = getPathFromUrl(updates.photo_url);
+      const newPath = getPathFromUrl(normalizedUpdates.photo_url);
 
       if (oldPath && oldPath !== newPath) {
         await deleteFilesFromStorage(getPlayerPhotoUrls(playerToUpdate));
@@ -55,7 +72,7 @@ export const useJugadoresStore = create((set, get) => ({
 
     const { error, data } = await supabase
       .from('players')
-      .update(updates)
+      .update(normalizedUpdates)
       .eq('id', id)
       .select();
 
@@ -149,7 +166,7 @@ const getPathFromUrl = (fullUrl) => {
         const parts = fullUrl.split(`/${bucketName}/`);
         if (parts.length < 2) return null;
         return parts[1].split(/[?#]/)[0];
-    } catch (e) { return null; }
+    } catch { return null; }
 };
 
 const getPlayerPhotoUrls = (player) => {

@@ -417,11 +417,13 @@ export function PlayerManager({
         );
       } else {
         const payload = {
-          ...formToSave,
-          birth_date: formToSave.birth_date || null,
+          ...buildPlayerPayload({
+            form: formToSave,
+            photoUrl: finalPhotoUrl,
+            originalPhotoUrl: finalOriginalUrl,
+            isActive: true,
+          }),
           team_id: teamId,
-          photo_url: finalPhotoUrl,
-          original_photo_url: finalOriginalUrl,
         };
 
         if (editingPlayer) {

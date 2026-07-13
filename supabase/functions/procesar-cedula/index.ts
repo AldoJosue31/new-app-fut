@@ -1,7 +1,7 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI } from "@google/genai";
 
-const MAX_BASE64_LENGTH = 16_000_000;
+const MAX_BASE64_LENGTH = 17_500_000;
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
