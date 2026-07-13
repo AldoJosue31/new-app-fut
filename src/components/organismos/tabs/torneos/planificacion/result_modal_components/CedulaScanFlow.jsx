@@ -126,6 +126,25 @@ const fileToScanPayload = (file) => new Promise((resolve, reject) => {
   }).catch(reject);
 });
 
+const invokeScanFunction = async (image, scanMode) => {
+  const { data, error } = await supabase.functions.invoke("procesar-cedula", {
+    body: { ...image, scanMode },
+  });
+  if (!error) return data;
+
+  const status = Number(error?.context?.status);
+  let responseBody = null;
+  try {
+    const response = typeof error.context?.clone === "function" ? error.context.clone() : error.context;
+    responseBody = await response?.json();
+  } catch { /* La respuesta no era JSON. */ }
+
+  const invocationError = new Error(responseBody?.error || error.message || "No se pudo escanear la cedula.");
+  invocationError.code = responseBody?.code || "FUNCTION_ERROR";
+  invocationError.retryable = Boolean(responseBody?.retryable) || [502, 503, 504].includes(status);
+  throw invocationError;
+};
+
 const getClipboardImage = (clipboardData) => {
   const file = [...(clipboardData?.files || [])].find(item => item.type?.startsWith("image/"));
   if (file) return file;
@@ -298,10 +317,7 @@ export function CedulaScanFlow({
     try {
       const image = await fileToScanPayload(file);
       setScanProgress(current => Math.max(current, 18));
-      const { data, error } = await supabase.functions.invoke("procesar-cedula", {
-        body: image,
-      });
-      if (error) throw error;
+      const data = await invokeScanFunction(image, "detailed");
       if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
