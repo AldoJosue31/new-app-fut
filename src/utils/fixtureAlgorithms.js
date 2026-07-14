@@ -288,13 +288,16 @@ export const validarFixture = (matches) => {
         const duplicates = new Set();
 
         for (const m of roundMatches) {
-            if (m.local.id !== "BYE") {
-                if (teamsInRound.has(m.local.id)) duplicates.add(m.local.id);
-                teamsInRound.add(m.local.id);
+            const localId = m.local.id;
+            const visitanteId = m.visitante.id;
+
+            if (localId !== "BYE") {
+                if (teamsInRound.has(localId)) duplicates.add(localId);
+                teamsInRound.add(localId);
             }
-            if (m.visitante.id !== "BYE") {
-                if (teamsInRound.has(m.visitante.id)) duplicates.add(m.visitante.id);
-                teamsInRound.add(m.visitante.id);
+            if (visitanteId !== "BYE") {
+                if (teamsInRound.has(visitanteId)) duplicates.add(visitanteId);
+                teamsInRound.add(visitanteId);
             }
         }
 
@@ -313,6 +316,9 @@ export const validarFixture = (matches) => {
  */
 export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
     let currentMatches = structuredClone(initialMatches);
+    const matchIndexById = new Map(
+        currentMatches.map((match, index) => [match.id, index])
+    );
 
     let { totalConflicts: bestScore } = validarFixture(currentMatches);
     let bestSolution = structuredClone(currentMatches);
@@ -351,7 +357,8 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
         }
 
         const matchA = conflictiveMatches[Math.floor(Math.random() * conflictiveMatches.length)];
-        const idxA = currentMatches.findIndex((m) => m.id === matchA.id);
+        const idxA = matchIndexById.get(matchA.id);
+        if (idxA === undefined) continue;
 
         const targetRoundsToCheck = [];
         for (let r = 0; r <= maxJornada; r++) {
@@ -386,7 +393,7 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
         }
 
         if (bestSwapCandidate) {
-            performSwap(currentMatches, idxA, bestSwapCandidate);
+            performSwap(currentMatches, idxA, bestSwapCandidate, matchIndexById);
         } else {
             const randomR = targetRoundsToCheck[Math.floor(Math.random() * targetRoundsToCheck.length)];
             const candidatesB = currentMatches.filter(
@@ -398,7 +405,7 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
             );
             if (candidatesB.length > 0) {
                 const matchB = candidatesB[Math.floor(Math.random() * candidatesB.length)];
-                performSwap(currentMatches, idxA, matchB);
+                performSwap(currentMatches, idxA, matchB, matchIndexById);
             }
         }
 
@@ -412,8 +419,9 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
     return bestSolution;
 };
 
-function performSwap(matches, idxA, matchB) {
-    const idxB = matches.findIndex((m) => m.id === matchB.id);
+function performSwap(matches, idxA, matchB, matchIndexById) {
+    const idxB = matchIndexById.get(matchB.id);
+    if (idxB === undefined) return;
     const tempJornada = matches[idxA].jornadaIndex;
     matches[idxA].jornadaIndex = matches[idxB].jornadaIndex;
     matches[idxB].jornadaIndex = tempJornada;

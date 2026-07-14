@@ -44,7 +44,9 @@ export const usePlanificacionMatches = (
 
   // --- LOGICA DE FECHAS ---
   const [jornadaDates, setJornadaDates] = useState({});
-  const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [weekStartDate, setWeekStartDate] = useState(
+    () => new Date().toISOString().split('T')[0],
+  );
 
   // --- LOGICA DE PARTIDOS EXTERNOS ---
   const [showExternalMatches, setShowExternalMatches] = useState(true);

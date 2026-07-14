@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useEffectEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { v } from '../../styles/variables';
@@ -6,25 +6,29 @@ import { RiErrorWarningLine, RiCheckboxCircleLine, RiCloseLine } from "react-ico
 
 export function Toast({ show, message, type = 'error', onClose, duration = 3000, inline = false }) {
     // 1. Agregamos un estado para saber si el Toast ha sido activado alguna vez
-    const [hasBeenShown, setHasBeenShown] = useState(false);
+    const [hasBeenShown, setHasBeenShown] = useState(show);
+    const onAutoClose = useEffectEvent(onClose);
 
     useEffect(() => {
-        // Si show se vuelve true, marcamos que ya ha sido mostrado
-        if (show) {
-            setHasBeenShown(true);
-        }
-
         if (show && duration) {
             const timer = setTimeout(() => {
-                onClose();
+                onAutoClose();
             }, duration);
             return () => clearTimeout(timer);
         }
-    }, [show, duration, onClose]);
+    }, [show, duration]);
 
     const content = (
         // 2. Pasamos la nueva prop $hasBeenShown al componente estilizado
-        <ToastContainer $show={show} $type={type} $hasBeenShown={hasBeenShown} $inline={inline}>
+        <ToastContainer
+            $show={show}
+            $type={type}
+            $hasBeenShown={hasBeenShown}
+            $inline={inline}
+            onAnimationStart={() => {
+                if (show && !hasBeenShown) setHasBeenShown(true);
+            }}
+        >
             <div className="icon-box">
                 {type === 'error' ? <RiErrorWarningLine /> : <RiCheckboxCircleLine />}
             </div>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
@@ -298,17 +298,21 @@ export function CedulaScanFlow({
     setScanProgress(0);
   }, [showToast]);
 
+  const selectPastedFile = useEffectEvent((image) => {
+    selectFile(image);
+    showToast("Imagen pegada desde el portapapeles.", "success");
+  });
+
   useEffect(() => {
     const handlePaste = (event) => {
       const image = getClipboardImage(event.clipboardData);
       if (!image) return;
       event.preventDefault();
-      selectFile(image);
-      showToast("Imagen pegada desde el portapapeles.", "success");
+      selectPastedFile(image);
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [selectFile, showToast]);
+  }, []);
 
   const interpretation = useMemo(() => {
     if (!rawScan) return null;
