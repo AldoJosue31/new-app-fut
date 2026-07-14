@@ -7,7 +7,7 @@ import {
     RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line, RiAddLine,
     RiHistoryLine, RiEyeLine, RiEyeOffLine, RiEdit2Line, RiLayoutGridLine
 } from "react-icons/ri";
-import { Btnsave } from "../../../../../index"; 
+import { Btnsave } from "../../../../moleculas/Btnsave";
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 import { validarFixture } from "../../../../../utils/fixtureAlgorithms";

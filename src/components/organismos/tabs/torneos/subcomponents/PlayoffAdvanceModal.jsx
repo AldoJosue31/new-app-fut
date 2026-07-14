@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 import { RiArrowRightLine, RiGitBranchLine, RiRefreshLine } from "react-icons/ri";
-import { Modal } from "../../../../../index";
+import { Modal } from "../../../Modal";
 import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
 import {
   PLAYOFF_PHASES,
@@ -192,8 +192,8 @@ export function PlayoffAdvanceModal({
       <strong>{preview.phaseLabel}</strong>
       <CenterSettings>
         <CenterSettingBox>
-          <label>Resiembra</label>
-          <select
+          <label htmlFor="playoff-setting-1">Resiembra</label>
+          <select id="playoff-setting-1"
             value={settings.reseed ? "yes" : "no"}
             onChange={(event) => updateSetting("reseed", event.target.value === "yes")}
           >
@@ -202,8 +202,8 @@ export function PlayoffAdvanceModal({
           </select>
         </CenterSettingBox>
         <CenterSettingBox>
-          <label>Empate global</label>
-          <select
+          <label htmlFor="playoff-setting-2">Empate global</label>
+          <select id="playoff-setting-2"
             value={settings.tieBreaker}
             onChange={(event) => updateSetting("tieBreaker", event.target.value)}
           >
@@ -212,7 +212,7 @@ export function PlayoffAdvanceModal({
           </select>
         </CenterSettingBox>
         <CenterSettingBox>
-          <label>Goles en tabla</label>
+          <span className="setting-label">Goles en tabla</span>
           <CenterChecks>
             <label>
               <input
@@ -439,7 +439,8 @@ const LegsMatrix = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
 
-  label {
+  label,
+  .setting-label {
     display: flex;
     flex-direction: column;
     gap: 5px;

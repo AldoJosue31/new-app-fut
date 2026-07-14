@@ -112,7 +112,7 @@ export default function TestimonialSection() {
               const initials2 = item.author.split(" ").map(n => n[0]).join("").slice(0, 2);
               return (
                 <TestimThumb
-                  key={i}
+                  key={item.author}
                   isactive={active === i ? "true" : undefined}
                   onClick={() => setActive(i)}
                 >

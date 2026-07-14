@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
-import { v, Modal } from "../../../../../../index"; 
+import { v } from "../../../../../../styles/variables";
+import { Modal } from "../../../../Modal";
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { ExportDownloadButton, ExportPreviewHeader } from '../shared/ExportPreviewHeader';
@@ -230,7 +231,6 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
                             style={{
                                 width: previewWidth,
                                 height: previewHeight,
-                                transition: 'width 260ms ease, height 260ms ease',
                             }}
                         >
                             <div
@@ -309,8 +309,7 @@ const PreviewWrapper = styled.div`
         justify-self: center;
         align-self: center;
         max-width: 100%;
-        transition: width 260ms ease, height 260ms ease, box-shadow 220ms ease;
-        will-change: width, height;
+        transition: box-shadow 220ms ease;
     }
 
     .scale-box,
@@ -374,7 +373,7 @@ const FloatingConfigPanel = styled.div`
         border-radius: 14px;
         background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
         box-shadow: ${({ $open }) => ($open ? "0 14px 34px rgba(0, 0, 0, 0.14)" : "none")};
-        transition: width 0.22s ease, opacity 0.18s ease, box-shadow 0.22s ease;
+        transition: opacity 0.18s ease, box-shadow 0.22s ease;
 
         > div {
             border-bottom: 0;

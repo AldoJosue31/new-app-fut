@@ -9,7 +9,8 @@ import {
 import { GiWhistle } from "react-icons/gi";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
-import { TabsNavigation, EmptyState } from "../../index";
+import { TabsNavigation } from "../moleculas/TabsNavigation";
+import { EmptyState } from "../organismos/EmptyState";
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
 import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";

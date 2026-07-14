@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useState, useRef } from "react";
 import styled, { css } from "styled-components";
-import { v } from "../../../../../index";
+import { v } from "../../../../../styles/variables";
 import { 
   RiArrowGoBackLine,
   RiArrowLeftSLine,
@@ -382,7 +382,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                         <span className="date-text mobile-only">{formatDateWithWeekday(match.date)}</span>
                                         <small>{formatTimeTo12Hour(match.time)}</small>
                                         {isWalkover && (
-                                            <span className="wo-badge-small" style={{ fontSize: '0.7rem', background: '#e74c3c20', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px', fontWeight: 'bold' }}>
+                                            <span className="wo-badge-small" style={{ fontSize: '0.75rem', background: '#e74c3c20', color: '#e74c3c', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px', fontWeight: 'bold' }}>
                                                 {isDoubleWalkover ? 'Doble W.O.' : 'W.O.'}
                                             </span>
                                         )}
@@ -394,14 +394,14 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                 )}
                             </div>
                             <div className="btns-row">
-                                <button className="action-btn result" onClick={() => onOpenResult(match)}>
+                                <button type="button" className="action-btn result" onClick={() => onOpenResult(match)}>
                                     {match.status === 'Finalizado' ? <RiEditLine /> : <RiTrophyLine />}
                                     {match.status === 'Finalizado' ? 'Editar' : 'Resultado'}
                                 </button>
                                 
                                 {match.status === 'Finalizado' ? (
                                     <>
-                                    <button className="action-btn sheet" onClick={() => setShowSheet(true)}>
+                                    <button type="button" className="action-btn sheet" onClick={() => setShowSheet(true)}>
                                         <RiFileTextLine />
                                         Ver Cédula
                                     </button>
@@ -421,7 +421,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     </>
                                 ) : (
                                     <>
-                                        <button 
+                                        <button type="button"
                                             className="action-btn print" 
                                             onClick={() => setShowPreSheet(true)}
                                             title="Imprimir Hoja de Alineación para Árbitro"
@@ -430,7 +430,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                             Pre-Cédula
                                         </button>
 
-                                        <button className="action-btn postpone" onClick={() => onPostpone(match)}>       
+                                        <button type="button" className="action-btn postpone" onClick={() => onPostpone(match)}>
                                             <RiTimeLine />
                                             Aplazar
                                         </button>
@@ -445,6 +445,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     <div className="input-control input-date-control">
                                         <button
                                             type="button"
+                                            aria-label="Mover partido al día anterior"
                                             className="step-btn"
                                             onClick={() => handleShiftDate(-1)}
                                             disabled={!canMoveDateBackward}
@@ -453,6 +454,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                             <RiArrowLeftSLine />
                                         </button>
                                         <input 
+                                            aria-label="Fecha del partido"
                                             type="date" 
                                             className="input-date" 
                                             value={match.date || ''} 
@@ -463,6 +465,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                         />
                                         <button
                                             type="button"
+                                            aria-label="Mover partido al día siguiente"
                                             className="step-btn"
                                             onClick={() => handleShiftDate(1)}
                                             disabled={!canMoveDateForward}
@@ -474,6 +477,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                     <div className="input-control input-time-control">
                                         <button
                                             type="button"
+                                            aria-label={`Restar ${safeTimeStep} minutos`}
                                             className="step-btn"
                                             onClick={() => handleShiftTime(-1)}
                                             disabled={!canMoveTimeBackward}
@@ -482,6 +486,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                             <RiArrowLeftSLine />
                                         </button>
                                         <input 
+                                            aria-label="Hora del partido"
                                             type="time" 
                                             className="input-time" 
                                             value={match.time || ''} 
@@ -492,6 +497,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                         />
                                         <button
                                             type="button"
+                                            aria-label={`Sumar ${safeTimeStep} minutos`}
                                             className="step-btn"
                                             onClick={() => handleShiftTime(1)}
                                             disabled={!canMoveTimeForward}
@@ -507,7 +513,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                                 </div>
                             )}
                             {!isReferenceOnly && (
-                                <button className="del" onClick={onRemove} title="Desagendar">
+                                <button aria-label="Desagendar" type="button" className="del" onClick={onRemove} title="Desagendar">
                                     <RiDeleteBinLine/>
                                 </button>
                             )}

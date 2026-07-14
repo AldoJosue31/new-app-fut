@@ -10,7 +10,11 @@ import {
   BiTrash,
   BiUser,
 } from "react-icons/bi";
-import { BtnNormal, Btnsave, InputText2, Modal, Toast } from "../../../index";
+import { BtnNormal } from "../../moleculas/BtnNormal";
+import { Btnsave } from "../../moleculas/Btnsave";
+import { InputText2 } from "../formularios/InputText2";
+import { Modal } from "../Modal";
+import { Toast } from "../../atomos/Toast";
 import {
   createDelegateInvitation,
   getActiveDelegateInvitation,
@@ -177,9 +181,10 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
 
           <FormCard>
             <FieldGroup>
-              <label>Nombre sugerido del delegado</label>
+              <label htmlFor="delegate-invite-name">Nombre sugerido del delegado</label>
               <InputText2>
                 <input
+                  id="delegate-invite-name"
                   className="form__field"
                   name="invitedName"
                   placeholder="Nombre del delegado"
@@ -191,9 +196,10 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
             </FieldGroup>
 
             <FieldGroup>
-              <label>Correo del delegado</label>
+              <label htmlFor="delegate-invite-email">Correo del delegado</label>
               <InputText2>
                 <input
+                  id="delegate-invite-email"
                   className="form__field"
                   name="invitedEmail"
                   type="email"
@@ -250,10 +256,10 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
                 </div>
 
                 <div className="link-panel">
-                  <label>Link de registro</label>
+                  <label htmlFor="delegate-registration-link">Link de registro</label>
                   <div className="copy-row">
-                    <input readOnly value={invitationUrl} />
-                    <button type="button" onClick={copyLink}>
+                    <input id="delegate-registration-link" readOnly value={invitationUrl} />
+                    <button type="button" onClick={copyLink} aria-label="Copiar link de registro">
                       <BiCopy />
                     </button>
                   </div>

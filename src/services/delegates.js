@@ -216,18 +216,7 @@ export const submitDelegateChangeRequest = async ({
   return parseRpcResponse("submit_delegate_change_request", data, error);
 };
 
-export const getLeagueDelegateChangeRequests = async (leagueId) => {
-  if (!leagueId) return [];
 
-  const { data: requests, error: requestsError } = await supabase
-    .from("delegate_change_requests")
-    .select("*")
-    .eq("league_id", leagueId)
-    .order("created_at", { ascending: false });
-
-  if (requestsError) throw requestsError;
-  return hydrateDelegateChangeRequests(requests || []);
-};
 
 export const getTeamDelegateChangeRequests = async (teamId) => {
   if (!teamId) return [];

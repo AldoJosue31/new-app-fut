@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import styled, { keyframes, css } from "styled-components";
-import { v } from "../../../../../index";
+import { v } from "../../../../../styles/variables";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
 import {

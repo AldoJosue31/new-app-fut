@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import { v, Btnsave, Modal, TabsNavigation, Toast } from "../../../../../index";
+import { v } from "../../../../../styles/variables";
+import { Btnsave } from "../../../../moleculas/Btnsave";
+import { Modal } from "../../../Modal";
+import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
+import { Toast } from "../../../../atomos/Toast";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine 
 } from "react-icons/ri";

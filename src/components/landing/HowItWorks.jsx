@@ -38,7 +38,7 @@ function useReveal(threshold = 0.12) {
     );
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
-  }, []);
+  }, [threshold]);
   return [ref, visible];
 }
 
@@ -85,16 +85,15 @@ export default function HowItWorks() {
       <div
         aria-hidden="true"
         style={{
-          background: "var(--lp-primary)",
+          background: "radial-gradient(ellipse, color-mix(in srgb, var(--lp-primary) 45%, transparent), transparent 70%)",
           position: "absolute",
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "800px",
-          height: "400px",
+          width: "640px",
+          height: "320px",
           borderRadius: "50%",
           opacity: 0.04,
-          filter: "blur(160px)",
           pointerEvents: "none",
         }}
       />
@@ -141,8 +140,10 @@ export default function HowItWorks() {
                 style={{
                   width: "100%",
                   borderRadius: "9999px",
-                  transition: "height 500ms ease-out",
-                  height: `${((activeStep + 1) / howItWorks.steps.length) * 100}%`,
+                  height: "100%",
+                  transformOrigin: "top",
+                  transform: `scaleY(${(activeStep + 1) / howItWorks.steps.length})`,
+                  transition: "transform 500ms ease-out",
                   background: "var(--lp-primary)",
                 }}
               />
@@ -268,7 +269,7 @@ export default function HowItWorks() {
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "24px 28px" }}>
                 {STEP_DETAILS[activeStep].map((detail, i) => (
                   <div
-                    key={i}
+                    key={detail}
                     style={{
                       display: "flex", alignItems: "center", gap: "16px",
                       padding: "12px 16px", borderRadius: "12px",
@@ -341,7 +342,7 @@ export default function HowItWorks() {
                 style={{
                   padding: "10px 20px", borderRadius: "12px", border: "1px solid var(--lp-border)",
                   fontSize: "14px", fontWeight: 700, cursor: "pointer",
-                  transition: "all 150ms ease",
+                  transition: "background-color 150ms ease, border-color 150ms ease, opacity 150ms ease",
                   background: "rgba(255,255,255,0.04)",
                   color: "var(--lp-text)",
                   opacity: activeStep === 0 ? 0.3 : 1,
@@ -352,9 +353,9 @@ export default function HowItWorks() {
               </button>
 
               <div style={{ display: "flex", gap: "8px" }} role="tablist" aria-label="Pasos del proceso">
-                {howItWorks.steps.map((_, i) => (
+                {howItWorks.steps.map((step, i) => (
                   <button
-                    key={i}
+                    key={step.n}
                     type="button"
                     role="tab"
                     aria-selected={i === activeStep}
@@ -362,9 +363,10 @@ export default function HowItWorks() {
                     onClick={() => setActiveStep(i)}
                     style={{
                       height: "8px", borderRadius: "9999px", cursor: "pointer",
-                      transition: "all 300ms ease",
+                      transition: "transform 300ms ease, background-color 300ms ease",
                       border: "none",
-                      width: i === activeStep ? "28px" : "8px",
+                      width: "28px",
+                      transform: `scaleX(${i === activeStep ? 1 : 0.2857})`,
                       background: i === activeStep ? "var(--lp-primary)" : "var(--lp-border)",
                     }}
                   />
@@ -378,7 +380,7 @@ export default function HowItWorks() {
                 style={{
                   padding: "10px 20px", borderRadius: "12px", border: "1px solid var(--lp-border)",
                   fontSize: "14px", fontWeight: 700, cursor: "pointer",
-                  transition: "all 150ms ease",
+                  transition: "background-color 150ms ease, border-color 150ms ease, opacity 150ms ease",
                   background: "rgba(255,255,255,0.04)",
                   color: "var(--lp-text)",
                   opacity: activeStep === howItWorks.steps.length - 1 ? 0.3 : 1,

@@ -13,7 +13,7 @@ import {
   RiPrinterLine,
   RiCalendarCheckLine,
 } from "react-icons/ri";
-import { ViewToggle } from "../../../../../index";
+import { ViewToggle } from "../../../toggle/ViewToggle";
 import { addDaysToDate } from "../../../../../utils/dateUtils";
 
 export const PlanningHeader = memo(
@@ -176,6 +176,7 @@ export const PlanningHeader = memo(
         <span className="label-text">Semana del</span>
 
         <input
+          aria-label="Inicio de semana"
           type="date"
           className="native-input"
           value={localStart}
@@ -185,6 +186,7 @@ export const PlanningHeader = memo(
         <span className="label-text">al</span>
 
         <input
+          aria-label="Fin de semana"
           type="date"
           className="native-input"
           value={localEnd}

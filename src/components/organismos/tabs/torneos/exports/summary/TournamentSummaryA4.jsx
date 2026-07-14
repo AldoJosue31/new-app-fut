@@ -921,7 +921,7 @@ export const TournamentSummaryA4 = ({
 
             {teamJourneyMatrix.length > 0 && (
                 <div className="print-page matrix-page" id="summary-page-matrix">
-                    <a id="summary-page-matrix-anchor" name="summary-page-matrix-anchor" className="pdf-anchor" aria-hidden="true" />
+                    <span id="summary-page-matrix-anchor" className="pdf-anchor" aria-hidden="true" />
                     <div className="page-header">
                         <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                         <h3>Equipos por Jornada</h3>
@@ -970,7 +970,7 @@ export const TournamentSummaryA4 = ({
                     id={pageIndex === 0 ? "summary-page-standings" : `summary-page-standings-${pageIndex + 1}`}
                 >
                     {pageIndex === 0 && (
-                        <a id="summary-page-standings-anchor" name="summary-page-standings-anchor" className="pdf-anchor" aria-hidden="true" />
+                        <span id="summary-page-standings-anchor" className="pdf-anchor" aria-hidden="true" />
                     )}
 
                     <div className={`page-header${continuation ? " continuation-header" : ""}`}>
@@ -1022,7 +1022,7 @@ export const TournamentSummaryA4 = ({
             {/* HOJA DE LLAVES (PLAYOFFS) */}
             {hasPlayoff && (
                 <div className="print-page bracket-page" id="summary-page-bracket">
-                    <a id="summary-page-bracket-anchor" name="summary-page-bracket-anchor" className="pdf-anchor" aria-hidden="true" />
+                    <span id="summary-page-bracket-anchor" className="pdf-anchor" aria-hidden="true" />
                     <div className="page-header">
                         <span className="league-mini">{leagueName} - {tournamentName} - {divisionName}</span>
                         <h3>Cuadro Final</h3>
@@ -1058,9 +1058,8 @@ export const TournamentSummaryA4 = ({
 
                 return (
                     <div key={jornada.id || index} id={`summary-page-jornada-${jornada.id || index}`} className="print-page results-page">
-                        <a
+                        <span
                             id={`summary-page-jornada-${jornada.id || index}-anchor`}
-                            name={`summary-page-jornada-${jornada.id || index}-anchor`}
                             className="pdf-anchor"
                             aria-hidden="true"
                         />

@@ -417,8 +417,6 @@ export const SectionHeaderMain = styled.div`
 
 export const SectionLabel = styled.h4`
   margin: 0;
-  padding-left: 8px;
-  border-left: 3px solid ${v.colorPrincipal};
   color: ${({ theme }) => theme.text};
   font-size: 0.85rem;
   font-weight: 700;
@@ -935,6 +933,17 @@ export const StyledTable = styled.table`
       &.centered {
         justify-content: center;
       }
+    }
+
+    .sort-button {
+      width: 100%;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-transform: inherit;
+      cursor: pointer;
     }
   }
 

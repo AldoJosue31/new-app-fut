@@ -73,7 +73,7 @@ export default function FAQSection() {
               const isOpen = openIdx === i;
               return (
                 <FaqItem
-                  key={i}
+                  key={item.q}
                   isopen={isOpen ? "true" : undefined}
                   className={hVisible ? "visible" : ""}
                   style={{ transitionDelay: `${i * 60}ms` }}

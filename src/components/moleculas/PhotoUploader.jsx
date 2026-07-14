@@ -114,10 +114,6 @@ export const PhotoUploader = memo(function PhotoUploader({
   const uploaderRef = useRef(null);
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
-  
-  if (!imageRef.current) {
-    imageRef.current = new Image();
-  }
 
   const [backupImage, setBackupImage] = useState(null);
 
@@ -311,7 +307,8 @@ const handleRemoveBgInside = async () => {
 
   useEffect(() => {
       if (isCropping && tempImgSrc && canvasRef.current) {
-          const img = imageRef.current;
+          const img = new Image();
+          imageRef.current = img;
           img.crossOrigin = "anonymous"; 
           img.src = tempImgSrc;
           img.onload = () => {
@@ -347,7 +344,14 @@ const handleRemoveBgInside = async () => {
                   }
                }
           };
+
+          return () => {
+            img.onload = null;
+            if (imageRef.current === img) imageRef.current = null;
+          };
       }
+
+      return undefined;
   }, [isCropping, tempImgSrc, crop, zoom, isTeamLogo, applyBorder, themeColor, shape, fillEmptySpacesEnabled, emptySpacesColor]);
 
   return (
@@ -362,36 +366,38 @@ const handleRemoveBgInside = async () => {
         onPaste={handlePaste}
         aria-label={enableClipboardPaste ? "Subir imagen o pegar desde el portapapeles" : undefined}
       >
-        <div className="preview-area" onClick={openFilePicker}>
+        <button type="button" className="preview-area" onClick={openFilePicker} aria-label={previewUrl ? "Cambiar imagen" : "Seleccionar imagen"}>
           {previewUrl ? <img src={previewUrl} alt="Preview" className="img-final" /> : <div className="placeholder"><RiImageAddLine /><span>Subir</span></div>}
           <div className="overlay"><RiCropLine /><span>{previewUrl ? "Cambiar" : "Seleccionar"}</span></div>
-        </div>
+        </button>
         {enableClipboardPaste && (
           <div className="paste-hint">Ctrl/Cmd + V</div>
         )}
         {previewUrl && (
           <div className="mini-tools">
-             <button type="button" className="tool-btn edit" onClick={handleManualAdjust} title="Recortar">
+             <button aria-label="Recortar" type="button" className="tool-btn edit" onClick={handleManualAdjust} title="Recortar">
                 {isLoadingOriginal ? "..." : <RiCropLine />}
              </button>
-             <button type="button" className="tool-btn delete" onClick={(e)=>{e.preventDefault(); onClear();}}><RiCloseLine /></button>
+             <button type="button" className="tool-btn delete" onClick={(e)=>{e.preventDefault(); onClear();}} aria-label="Eliminar imagen"><RiCloseLine /></button>
           </div>
         )}
-        <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleFileChange} />
+        <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleFileChange} aria-label="Archivo de imagen" />
       </Container>
       
       {isCropping && (
-        <CropModalOverlay onClick={() => setIsCropping(false)}>
-            <div className="crop-card" onClick={e=>e.stopPropagation()}>
+        <CropModalOverlay onMouseDown={(event) => event.target === event.currentTarget && setIsCropping(false)}>
+            <div className="crop-card">
                 <div className="header">
                     <h3>Ajustar Imagen</h3>
                     <ToggleLabel>
-                         <input type="checkbox" checked={bgRemovalEnabled} onChange={handleToggleBgRemoval} />
+                         <input type="checkbox" checked={bgRemovalEnabled} onChange={handleToggleBgRemoval} aria-label="Quitar fondo" />
                          <span>Quitar Fondo</span>
                     </ToggleLabel>
                 </div>
 
                 <div className="canvas-wrapper" 
+                     role="group"
+                     aria-label="Área de recorte de imagen"
                      onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} 
                      onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                    <canvas ref={canvasRef} />
@@ -401,7 +407,7 @@ const handleRemoveBgInside = async () => {
                  <div className="controls-container">
                     <div className="slider-group">
                         <RiZoomOutLine />
-                        <input type="range" min="0.1" max="5" step="0.01" value={zoom} onChange={e=>setZoom(parseFloat(e.target.value))} />
+                        <input type="range" min="0.1" max="5" step="0.01" value={zoom} onChange={e=>setZoom(parseFloat(e.target.value))} aria-label="Nivel de zoom" />
                         <RiZoomInLine />
                     </div>
                     {bgRemovalEnabled && (
@@ -413,7 +419,7 @@ const handleRemoveBgInside = async () => {
                         <>
                             <div className="fill-empty-spaces-control">
                                 <ToggleLabel>
-                                    <input type="checkbox" checked={fillEmptySpacesEnabled} onChange={e => setFillEmptySpacesEnabled(e.target.checked)} />
+                                    <input type="checkbox" checked={fillEmptySpacesEnabled} onChange={e => setFillEmptySpacesEnabled(e.target.checked)} aria-label="Rellenar espacios vacíos" />
                                     <span><RiPaintFill /> Rellenar espacios vacíos</span>
                                 </ToggleLabel>
                                 <input 
@@ -423,10 +429,11 @@ const handleRemoveBgInside = async () => {
                                     onChange={e => setEmptySpacesColor(e.target.value)}
                                     disabled={!fillEmptySpacesEnabled}
                                     title="Color de relleno"
+                                    aria-label="Color de relleno"
                                 />
                             </div>
                             <ToggleLabel className="border-toggle">
-                                <input type="checkbox" checked={applyBorder} onChange={e => setApplyBorder(e.target.checked)} />
+                                <input type="checkbox" checked={applyBorder} onChange={e => setApplyBorder(e.target.checked)} aria-label="Aplicar borde del uniforme" />
                                 <span style={{color: themeColor, fontWeight:'700'}}>Aplicar borde del uniforme</span>
                             </ToggleLabel>
                         </>
@@ -485,6 +492,9 @@ const Container = styled.div`
   .preview-area {
     width: 100%;
     height: 100%;
+    padding: 0;
+    color: inherit;
+    font: inherit;
     border-radius: ${(props) => (props.$shape === "circle" ? "50%" : "16px")};
     overflow: hidden;
     background: ${({ theme }) => theme.bg3};

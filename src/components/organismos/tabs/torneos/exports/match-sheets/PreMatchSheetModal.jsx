@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { createGlobalStyle } from "styled-components";
-import { v, Modal, Btnsave } from "../../../../../../index";
+import { v } from "../../../../../../styles/variables";
+import { Modal } from "../../../../Modal";
+import { Btnsave } from "../../../../../moleculas/Btnsave";
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { RiPrinterLine } from "react-icons/ri";
 import { MatchSheetA4 } from "./MatchSheetA4"; 

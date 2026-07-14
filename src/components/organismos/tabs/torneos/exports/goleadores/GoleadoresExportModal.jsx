@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
-import { Modal, v } from '../../../../../../index';
+import { Modal } from "../../../../Modal";
+import { v } from "../../../../../../styles/variables";
 import {
   RiCloseLine,
   RiMoonLine,
@@ -247,12 +248,16 @@ export default function GoleadoresExportModal({
       setPreviewScale(nextScale > 0.96 ? 0.96 : nextScale);
     };
 
+    let scaleTimer;
     if (isOpen) {
-      setTimeout(calculateScale, 50);
+      scaleTimer = window.setTimeout(calculateScale, 50);
       window.addEventListener('resize', calculateScale);
     }
 
-    return () => window.removeEventListener('resize', calculateScale);
+    return () => {
+      if (scaleTimer) window.clearTimeout(scaleTimer);
+      window.removeEventListener('resize', calculateScale);
+    };
   }, [contentHeight, goleadoresParaExportar.length, isMobileLayout, isOpen, visualizationMode]);
 
   const handleExportPNG = async () => {
@@ -441,7 +446,7 @@ export default function GoleadoresExportModal({
                 transformOrigin: 'top left',
                 width: `${baseWidth}px`,
                 height: `${safeContentHeight}px`,
-                transition: 'transform 260ms ease, width 260ms ease, height 260ms ease',
+                transition: 'transform 260ms ease',
               }}
             >
               <GoleadoresExportLayout
@@ -751,8 +756,7 @@ const PreviewWrapper = styled.div`
     flex: 0 0 auto;
     margin: auto;
     max-width: 100%;
-    transition: width 260ms ease, height 260ms ease, box-shadow 220ms ease;
-    will-change: width, height;
+    transition: box-shadow 220ms ease;
   }
 
   .scale-box,
@@ -818,7 +822,7 @@ const FloatingConfigPanel = styled.div`
     border-radius: 14px;
     background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
     box-shadow: ${({ $open }) => ($open ? '0 14px 34px rgba(0, 0, 0, 0.14)' : 'none')};
-    transition: width 0.22s ease, opacity 0.18s ease, box-shadow 0.22s ease;
+    transition: opacity 0.18s ease, box-shadow 0.22s ease;
   }
 
   @media (max-width: 720px) {

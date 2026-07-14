@@ -288,10 +288,7 @@ export function CedulaScanFlow({
       showToast("La imagen debe pesar menos de 12 MB.", "error");
       return;
     }
-    setPreviewUrl(current => {
-      if (current) URL.revokeObjectURL(current);
-      return URL.createObjectURL(nextFile);
-    });
+    setPreviewUrl(URL.createObjectURL(nextFile));
     setFile(nextFile);
     preparedImageRef.current = fileToScanPayload(nextFile)
       .then(payload => ({ payload, error: null }))
@@ -429,7 +426,7 @@ export function CedulaScanFlow({
     return (
       <ScanShell>
         <PanelHeading>
-          <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
+          <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Escanear cedula</h4><p>Sube una foto clara y completa. La imagen solo se usa durante este escaneo.</p></div>
         </PanelHeading>
         <UploadZone tabIndex={0} onClick={() => uploadInputRef.current?.click()}>
@@ -447,8 +444,8 @@ export function CedulaScanFlow({
             </PrimaryAction>
           )}
         </ChoiceRow>
-        <input ref={uploadInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" onChange={event => selectFile(event.target.files?.[0])} />
-        <input ref={cameraInputRef} hidden type="file" accept="image/*" capture="environment" onChange={event => selectFile(event.target.files?.[0])} />
+        <input ref={uploadInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" onChange={event => selectFile(event.target.files?.[0])} aria-label="Subir foto de cédula" />
+        <input ref={cameraInputRef} hidden type="file" accept="image/*" capture="environment" onChange={event => selectFile(event.target.files?.[0])} aria-label="Tomar foto de cédula" />
       </ScanShell>
     );
   }
@@ -457,7 +454,7 @@ export function CedulaScanFlow({
     return (
       <ScanShell>
         <PanelHeading>
-          <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
+          <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
         <PreviewFrame aria-busy={scanning}>
@@ -517,7 +514,7 @@ export function CedulaScanFlow({
   return (
     <ScanShell>
       <PanelHeading>
-        <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
+        <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
         <div><h4>Revisar escaneo</h4><p>Compara lo detectado con los datos registrados antes de aplicarlo.</p></div>
       </PanelHeading>
       <ComparisonGrid>

@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabase/supabase.config";
 import { v } from "../../styles/variables";
-import { 
-  Card, Btnsave, InputText2, Title, ToggleTema, Modal, Toast 
-} from "../../index";
+import { Card } from "../moleculas/Card";
+import { Btnsave } from "../moleculas/Btnsave";
+import { InputText2 } from "../organismos/formularios/InputText2";
+import { Title } from "../atomos/Title";
+import { ToggleTema } from "../organismos/ToggleTema";
+import { Modal } from "../organismos/Modal";
+import { Toast } from "../atomos/Toast";
 import { BiErrorCircle, BiCheckCircle, BiTrophy, BiFootball } from "react-icons/bi";
 
 export function RegisterManagerTemplate({ token }) {
@@ -22,6 +26,11 @@ export function RegisterManagerTemplate({ token }) {
 
   // Estado para el Toast de Error
   const [toast, setToast] = useState({ show: false, message: "", type: "error" });
+
+  const handleRedirectLogin = useCallback(async () => {
+      await supabase.auth.signOut();
+      navigate("/login");
+  }, [navigate]);
 
   // Validación inicial del token
   useEffect(() => {
@@ -57,12 +66,7 @@ export function RegisterManagerTemplate({ token }) {
       handleRedirectLogin();
     }
     return () => clearTimeout(timer);
-  }, [showSuccessModal, countdown]);
-
-  const handleRedirectLogin = async () => {
-      await supabase.auth.signOut();
-      navigate("/login");
-  };
+  }, [showSuccessModal, countdown, handleRedirectLogin]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -168,29 +172,32 @@ export function RegisterManagerTemplate({ token }) {
            ) : (
               <InputText2>
                 <input 
+                  id="manager-register-league"
                   className="form__field" 
                   required 
                   placeholder=" " 
                   value={form.leagueName} 
                   onChange={e => setForm({...form, leagueName: e.target.value})} 
                 />
-                <label className="form__label">Nombre de tu Liga</label>
+                <label className="form__label" htmlFor="manager-register-league">Nombre de tu Liga</label>
               </InputText2>
            )}
 
            <InputText2>
              <input 
+                id="manager-register-name"
                 className="form__field" 
                 required 
                 placeholder=" " 
                 value={form.fullName} 
                 onChange={e => setForm({...form, fullName: e.target.value})} 
              />
-             <label className="form__label">Nombre Completo</label>
+             <label className="form__label" htmlFor="manager-register-name">Nombre Completo</label>
            </InputText2>
 
            <InputText2>
              <input 
+                id="manager-register-email"
                 type="email"
                 className="form__field" 
                 required 
@@ -198,11 +205,12 @@ export function RegisterManagerTemplate({ token }) {
                 value={form.email} 
                 onChange={e => setForm({...form, email: e.target.value})} 
              />
-             <label className="form__label">Correo Electrónico</label>
+             <label className="form__label" htmlFor="manager-register-email">Correo Electrónico</label>
            </InputText2>
 
            <InputText2>
              <input 
+                id="manager-register-password"
                 type="password"
                 className="form__field" 
                 required 
@@ -211,7 +219,7 @@ export function RegisterManagerTemplate({ token }) {
                 onChange={e => setForm({...form, password: e.target.value})} 
                 minLength={6}
              />
-             <label className="form__label">Contraseña</label>
+             <label className="form__label" htmlFor="manager-register-password">Contraseña</label>
            </InputText2>
            
            <ActionArea>
@@ -266,7 +274,7 @@ const SuccessContent = styled.div`
     .icon-success { 
         font-size: 5rem; 
         color: ${v.verde}; 
-        animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: popIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
     }
     
     h3 { margin: 0; color: ${({theme})=>theme.text}; font-size: 1.4rem;}

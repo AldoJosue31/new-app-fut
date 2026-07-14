@@ -2,7 +2,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { css, keyframes } from "styled-components";
-import { InputNumber, Tooltip, v } from "../../../../../../index";
+import { InputNumber } from "../../../../formularios/InputNumber";
+import { Tooltip } from "../../../../../atomos/Tooltip";
+import { v } from "../../../../../../styles/variables";
 import { RiAlertFill, RiCloseLine, RiDeleteBinLine, RiMagicLine, RiUserStarFill, RiUserAddLine } from "react-icons/ri";
 
 const normalizePlayerSearch = (value) =>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Toast } from "../../../../index";
+import { Toast } from "../../../atomos/Toast";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
 import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";

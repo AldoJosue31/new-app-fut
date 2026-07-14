@@ -3,7 +3,13 @@ import styled from "styled-components";
 import { v } from "../../../../styles/variables";
 import { GiWhistle } from "react-icons/gi";
 import { RiAddLine, RiShieldUserLine, RiPhoneLine, RiPencilLine, RiDeleteBinLine } from "react-icons/ri";
-import { Card, CardHeader, BtnGreen, Modal, InputText2, Btnsave, ConfirmModal } from "../../../../index";
+import { Card } from "../../../moleculas/Card";
+import { CardHeader } from "../../../moleculas/CardHeader";
+import { BtnGreen } from "../../../moleculas/BtnGreen";
+import { Modal } from "../../Modal";
+import { InputText2 } from "../../formularios/InputText2";
+import { Btnsave } from "../../../moleculas/Btnsave";
+import { ConfirmModal } from "../../ConfirmModal";
 import { Skeleton } from "../../../atomos/Skeleton";
 
 export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete, loading }) {
@@ -89,8 +95,8 @@ export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete, loading }) 
                     </div>
                     
                     <div className="actions">
-                        <button className="btn-edit" onClick={() => handleOpen('edit', ref)}><RiPencilLine/></button>
-                        <button className="btn-del" onClick={() => setDeleteModal({open:true, id:ref.id, name:ref.full_name})}><RiDeleteBinLine/></button>
+                        <button type="button" className="btn-edit" onClick={() => handleOpen('edit', ref)} aria-label={`Editar árbitro ${ref.full_name}`}><RiPencilLine/></button>
+                        <button type="button" className="btn-del" onClick={() => setDeleteModal({open:true, id:ref.id, name:ref.full_name})} aria-label={`Eliminar árbitro ${ref.full_name}`}><RiDeleteBinLine/></button>
                     </div>
                 </ListItem>
             ))}
@@ -99,20 +105,21 @@ export function LigaRefereesTab({ referees, onAdd, onEdit, onDelete, loading }) 
 
         <Modal isOpen={modal.open} onClose={() => setModal({...modal, open:false})} title={modal.type === 'add' ? "Registrar Árbitro" : "Editar Árbitro"}>
            <ModalContent>
-               <label>Nombre Completo</label>
+               <label htmlFor="referee-full-name">Nombre Completo</label>
                <InputText2>
                   <input 
+                    id="referee-full-name"
                     className="form__field" 
                     value={form.full_name} 
                     onChange={(e)=>setForm({...form, full_name:e.target.value})} 
-                    autoFocus 
                     placeholder="Ej. Juan Pérez" 
                   />
                </InputText2>
                
-               <label>Teléfono</label>
+               <label htmlFor="referee-phone">Teléfono</label>
                <InputText2>
                   <input 
+                    id="referee-phone"
                     className="form__field" 
                     type="tel" 
                     value={form.phone} 

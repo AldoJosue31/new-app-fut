@@ -6,12 +6,13 @@ export function ToggleTema() {
     return (
         <Container>
             <div className="toggle-wrapper">
-                <label className="toggle">
+                <label className="toggle" htmlFor="theme-switch">
                     <input
-                        id="switch"
+                        id="theme-switch"
                         className="input"
                         type="checkbox"
                         onClick={setTheme}
+                        aria-label="Cambiar tema de color"
                     />
                     <div className="icon icon--moon">
                         <svg
@@ -153,11 +154,11 @@ display:flex;
     transform: scale(0);
   }
 
-  #switch:checked + .icon--moon {
+  #theme-switch:checked + .icon--moon {
     transform: rotate(360deg) scale(0);
   }
 
-  #switch:checked ~ .icon--sun {
+  #theme-switch:checked ~ .icon--sun {
     transition-delay: 200ms;
     transform: scale(1) rotate(360deg);
   }

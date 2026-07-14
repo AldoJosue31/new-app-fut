@@ -50,7 +50,7 @@ export default function PricingSection() {
         {/* Toggle de ciclo */}
         <div className="lp-cycle-toggle">
           {Object.values(pricing.cycles).map((c) => (
-            <button
+            <button type="button"
               key={c.key}
               onClick={() => setCycle(c.key)}
               className={`lp-cycle-btn ${cycle === c.key ? "active" : ""}`}
@@ -58,7 +58,7 @@ export default function PricingSection() {
               <span style={{ fontWeight: 700 }}>{c.label}</span>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   opacity: 0.7,
                   display: "block",
                   marginTop: 2,

@@ -1,7 +1,7 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/PenaltiesTab.jsx
 import React from "react";
 import styled from "styled-components";
-import { InputNumber } from "../../../../../../index";
+import { InputNumber } from "../../../../formularios/InputNumber";
 
 export const PenaltiesTab = ({ penalties, match, setPenalties }) => (
     <Container>

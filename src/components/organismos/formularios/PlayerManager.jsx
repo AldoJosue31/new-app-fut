@@ -13,16 +13,14 @@ import {
   RiUserAddLine,
 } from "react-icons/ri";
 import { v } from "../../../styles/variables";
-import {
-  InputText2,
-  Btnsave,
-  PhotoUploader,
-  InputNumber,
-  Skeleton,
-  ContainerScroll,
-  useSort,
-  SortControl,
-} from "../../../index";
+import { InputText2 } from "./InputText2";
+import { Btnsave } from "../../moleculas/Btnsave";
+import { PhotoUploader } from "../../moleculas/PhotoUploader";
+import { InputNumber } from "./InputNumber";
+import { Skeleton } from "../../atomos/Skeleton";
+import { ContainerScroll } from "../../atomos/ContainerScroll";
+import { useSort } from "../../../hooks/useSort";
+import { SortControl } from "../../moleculas/SortControl";
 import { Modal } from "../Modal";
 import { useJugadoresStore } from "../../../store/JugadoresStore";
 import { uploadImageToSupabase } from "../../../utils/uploadHandler";
@@ -558,7 +556,7 @@ export function PlayerManager({
 
                   <div className="actions">
                     {showArchived ? (
-                      <button
+                      <button type="button"
                         className="btn-icon restore"
                         onClick={() => handleRestore(player)}
                         title="Restaurar"
@@ -568,7 +566,7 @@ export function PlayerManager({
                       </button>
                     ) : (
                       <>
-                        <button
+                        <button type="button"
                           className="btn-icon edit"
                           onClick={() => handleEdit(player)}
                           title="Editar"
@@ -576,7 +574,7 @@ export function PlayerManager({
                         >
                           <RiEditLine />
                         </button>
-                        <button
+                        <button type="button"
                           className="btn-icon archive"
                           onClick={() => openArchiveModal(player)}
                           title="Inhabilitar"
@@ -585,7 +583,7 @@ export function PlayerManager({
                           <RiArchiveLine />
                         </button>
                         {!isDelegateMode && (
-                          <button
+                          <button type="button"
                             className="btn-icon delete"
                             onClick={() => openDeleteModal(player)}
                             title="Eliminar"
@@ -623,10 +621,10 @@ export function PlayerManager({
                   <span className="sub">Irreversible.</span>
                 </p>
                 <div className="modal-actions">
-                  <button className="cancel" onClick={() => setIsDeleteModalOpen(false)}>
+                  <button type="button" className="cancel" onClick={() => setIsDeleteModalOpen(false)}>
                     Cancelar
                   </button>
-                  <button className="confirm" onClick={confirmDelete}>
+                  <button type="button" className="confirm" onClick={confirmDelete}>
                     Eliminar
                   </button>
                 </div>
@@ -648,10 +646,10 @@ export function PlayerManager({
                   Recomendamos <b>Archivar</b>.
                 </p>
                 <div className="modal-actions">
-                  <button className="cancel" onClick={() => setConflictModalOpen(false)}>
+                  <button type="button" className="cancel" onClick={() => setConflictModalOpen(false)}>
                     Cancelar
                   </button>
-                  <button className="archive" onClick={handleConflictArchive}>
+                  <button type="button" className="archive" onClick={handleConflictArchive}>
                     <RiArchiveLine style={{ marginRight: 5 }} /> Archivar
                   </button>
                 </div>
@@ -676,10 +674,10 @@ export function PlayerManager({
               <span className="sub">Se ocultara, pero guarda estadisticas.</span>
             </p>
             <div className="modal-actions">
-              <button className="cancel" onClick={() => setIsManualArchiveOpen(false)}>
+              <button type="button" className="cancel" onClick={() => setIsManualArchiveOpen(false)}>
                 Cancelar
               </button>
-              <button className="archive" onClick={confirmManualArchive}>
+              <button type="button" className="archive" onClick={confirmManualArchive}>
                 Inhabilitar
               </button>
             </div>
@@ -692,7 +690,7 @@ export function PlayerManager({
   return (
     <Container>
       <div className="header-actions form-header">
-        <button className="back-btn" onClick={() => setView("list")}>
+        <button type="button" className="back-btn" onClick={() => setView("list")}>
           <RiArrowLeftLine /> Volver
         </button>
         <h3>{editingPlayer ? "Editar Jugador" : "Nuevo Jugador"}</h3>

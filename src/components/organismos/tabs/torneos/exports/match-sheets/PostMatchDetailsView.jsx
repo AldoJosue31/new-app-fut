@@ -20,7 +20,7 @@ const BadgeGol = ({ count }) => (
         borderRadius: '10px', padding: '2px 8px',
     }}>
         <span style={{ fontSize: '12px' }}>⚽</span>
-        {count > 1 && <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}>{count}</span>}
+        {count > 1 && <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 'bold' }}>{count}</span>}
     </div>
 );
 
@@ -30,8 +30,8 @@ const BadgeOwnGoal = ({ count }) => (
         background: 'rgba(249,115,22,0.14)', border: '1px solid rgba(249,115,22,0.32)',
         borderRadius: '10px', padding: '2px 8px', marginLeft: '6px',
     }}>
-        <span style={{ fontSize: '11px', color: '#ea580c', fontWeight: 'bold' }}>AG</span>
-        {count > 1 && <span style={{ fontSize: '11px', color: '#ea580c', fontWeight: 'bold' }}>{count}</span>}
+        <span style={{ fontSize: '12px', color: '#ea580c', fontWeight: 'bold' }}>AG</span>
+        {count > 1 && <span style={{ fontSize: '12px', color: '#ea580c', fontWeight: 'bold' }}>{count}</span>}
     </div>
 );
 
@@ -48,13 +48,13 @@ const LineupColumn = ({ teamName, teamLogo, teamColor, players = [], colors }) =
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: `2px solid ${colors.border}`, paddingBottom: '10px' }}>
             <div style={{ width: '25px', height: '25px' }}>
-                {teamLogo ? <img src={teamLogo} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={teamName} color={teamColor} size="100%" />}
+                {teamLogo ? <img src={teamLogo} alt={`Escudo de ${teamName || "equipo"}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={teamName} color={teamColor} size="100%" />}
             </div>
             <h4 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', margin: 0 }}>{teamName}</h4>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {players.length > 0 ? players.map((p, i) => (
-                <div key={i} style={{ 
+            {players.length > 0 ? players.map((p) => (
+                <div key={p.id || p.player_id || `${p.dorsal}-${p.name || `${p.first_name}-${p.last_name}`}`} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
                     padding: '8px 12px', background: colors.cardBg, borderRadius: '10px', border: `1px solid ${colors.border}` 
                 }}>
@@ -93,7 +93,7 @@ const PostMatchDetailsView = ({ match = {}, referees = {}, homeLineup = [], away
                     <p style={{ fontSize: '12px', color: colors.subtext, margin: 0 }}>Detalle de incidencias y alineaciones</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 800, color: colors.subtext, textTransform: 'uppercase' }}>Árbitro Principal</span>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: colors.subtext, textTransform: 'uppercase' }}>Árbitro Principal</span>
                     <div style={{ fontSize: '14px', fontWeight: 700 }}>⚖️ {referees.main || 'No asignado'}</div>
                 </div>
             </div>
@@ -104,7 +104,7 @@ const PostMatchDetailsView = ({ match = {}, referees = {}, homeLineup = [], away
                 <LineupColumn teamName={match.awayTeam?.name} teamLogo={match.awayTeam?.logo} teamColor={match.awayTeam?.color} players={awayLineup} colors={colors} />
             </div>
 
-            <div style={{ marginTop: 'auto', borderTop: `1px solid ${colors.border}`, paddingTop: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: colors.subtext }}>
+            <div style={{ marginTop: 'auto', borderTop: `1px solid ${colors.border}`, paddingTop: '15px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: colors.subtext }}>
                 <span>ID: {match.id ? String(match.id).substring(0, 8) : '---'}</span>
                 <span>Generado en Bracket App • {new Date().toLocaleDateString()}</span>
             </div>

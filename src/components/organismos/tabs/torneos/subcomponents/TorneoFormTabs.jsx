@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { InputNumber, InputText2 } from "../../../../../index";
+import { InputNumber } from "../../../formularios/InputNumber";
+import { InputText2 } from "../../../formularios/InputText2";
 import { InputWithTooltip } from "../../../../atomos/InputWithTooltip";
 import { RiCloseCircleLine } from "react-icons/ri";
 

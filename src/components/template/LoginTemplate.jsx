@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { Btnsave, InputText2, Title, Footer } from '../../index';
+import { Btnsave } from "../moleculas/Btnsave";
+import { InputText2 } from "../organismos/formularios/InputText2";
+import { Title } from "../atomos/Title";
+import { Footer } from "../organismos/Footer";
 import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
 import { useAuthStore } from "../../store/AuthStore";

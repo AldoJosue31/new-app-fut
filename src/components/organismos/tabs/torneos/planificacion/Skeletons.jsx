@@ -59,7 +59,7 @@ const ActionsWrapper = styled.div`
     }
 `;
 
-export const PlanningHeaderSkeleton = () => {
+const PlanningHeaderSkeleton = () => {
   return (
     <HeaderWrapper>
       {/* Parte Superior: Navegación + Título */}
@@ -130,7 +130,7 @@ const ControlsGroup = styled.div`
     }
 `;
 
-export const MatchRowSkeleton = () => {
+const MatchRowSkeleton = () => {
     return (
         <RowWrapper>
             <TeamsGroup>
@@ -177,7 +177,7 @@ const SidebarContent = styled.div`
     gap: 10px;
 `;
 
-export const PlanningSidebarSkeleton = () => {
+const PlanningSidebarSkeleton = () => {
     return (
         <SidebarWrapper>
             <div style={{ padding: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>

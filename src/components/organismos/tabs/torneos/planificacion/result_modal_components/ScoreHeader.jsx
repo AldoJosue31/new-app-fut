@@ -1,7 +1,7 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/ScoreHeader.jsx
 import React from "react";
 import styled from "styled-components";
-import { v } from "../../../../../../index";
+import { v } from "../../../../../../styles/variables";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
 // Función auxiliar para convertir hora de 24h a 12h (AM/PM)

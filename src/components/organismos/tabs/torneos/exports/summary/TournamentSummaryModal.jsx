@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
-import { Modal } from "../../../../../../index";
+import { Modal } from "../../../../Modal";
 import { ExportPreviewHeader } from "../shared/ExportPreviewHeader";
 import { TournamentSummaryA4 } from "./TournamentSummaryA4";
 import { supabase } from "../../../../../../supabase/supabase.config";
@@ -221,12 +221,16 @@ export const TournamentSummaryModal = ({
             setPreviewScale(nextScale);
         };
 
+        let scaleTimer;
         if (isOpen) {
-            setTimeout(calculateScale, 100);
+            scaleTimer = window.setTimeout(calculateScale, 100);
             window.addEventListener("resize", calculateScale);
         }
 
-        return () => window.removeEventListener("resize", calculateScale);
+        return () => {
+            if (scaleTimer) window.clearTimeout(scaleTimer);
+            window.removeEventListener("resize", calculateScale);
+        };
     }, [isOpen]);
 
     const handlePrint = async () => {

@@ -1,18 +1,7 @@
 import { supabase } from '../supabase/supabase.config';
 import { resolveRepositionMappings } from '../utils/jornadaUtils';
 
-export const getTablaPosicionesService = async (division) => {
-  const { data, error } = await supabase
-    .from('view_clasificacion')
-    .select('*')
-    .eq('division', division)
-    .order('pts', { ascending: false })
-    .order('pj', { ascending: false })
-    .order('dg', { ascending: false });
 
-  if (error) throw error;
-  return data || [];
-};
 
 export const getTopScorersService = async ({
   division = null,

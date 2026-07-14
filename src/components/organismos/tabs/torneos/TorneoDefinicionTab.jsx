@@ -9,7 +9,10 @@ import {
 } from "react-icons/ri";
 import { IoMdStopwatch } from "react-icons/io";
 
-import { Btnsave, Modal, TabsNavigation, Toast } from "../../../../index";
+import { Btnsave } from "../../../moleculas/Btnsave";
+import { Modal } from "../../Modal";
+import { TabsNavigation } from "../../../moleculas/TabsNavigation";
+import { Toast } from "../../../atomos/Toast";
 import { ConfirmModal } from "../../ConfirmModal";
 import { Tooltip } from "../../../atomos/Tooltip";
 import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
@@ -32,6 +35,7 @@ import {
   updateTournamentFieldsService,
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
+import { TOURNAMENT_RULES_DRAFT_STORAGE_KEY } from "../../../../utils/storageKeys";
 import {
   PLAYOFF_PHASES,
   buildNextPlayoffPreview,
@@ -442,7 +446,7 @@ export function TorneoDefinicionTab({
     setUseLeagueRules(configDraftUseLeagueRules);
 
     const draftData = { ...nextForm, reglasDraft: nextReglas };
-    localStorage.setItem("torneo_reglas_draft", JSON.stringify(draftData));
+    localStorage.setItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY, JSON.stringify(draftData));
     setShowConfigModal(false);
     showToast("Configuración guardada (Borrador local).", "success");
   };

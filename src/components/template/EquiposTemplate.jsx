@@ -17,15 +17,13 @@ import { BtnNormal } from "../moleculas/BtnNormal";
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { Skeleton } from "../atomos/Skeleton";
 import { Toast } from "../atomos/Toast";
-import {
-  TeamCard,
-  TeamForm,
-  TeamTransferModal,
-  TeamDetailModal,
-  PlayerManager,
-  Card,
-  BtnGreen,
-} from "../../index";
+import { TeamCard } from "../organismos/equipos/TeamCard";
+import { TeamForm } from "../organismos/formularios/TeamForm";
+import { TeamTransferModal } from "../organismos/equipos/TeamTransferModal";
+import { TeamDetailModal } from "../organismos/TeamDetailModal";
+import { PlayerManager } from "../organismos/formularios/PlayerManager";
+import { Card } from "../moleculas/Card";
+import { BtnGreen } from "../moleculas/BtnGreen";
 import { Modal } from "../organismos/Modal";
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { EmptyState } from "../organismos/EmptyState";

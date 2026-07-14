@@ -312,10 +312,10 @@ export const validarFixture = (matches) => {
  * Respeta estrictamente los bloqueos.
  */
 export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
-    let currentMatches = JSON.parse(JSON.stringify(initialMatches));
+    let currentMatches = structuredClone(initialMatches);
 
     let { totalConflicts: bestScore } = validarFixture(currentMatches);
-    let bestSolution = JSON.parse(JSON.stringify(currentMatches));
+    let bestSolution = structuredClone(currentMatches);
 
     if (bestScore === 0) return currentMatches;
 
@@ -405,7 +405,7 @@ export const autoCorregirFixture = (initialMatches, maxIterations = 5000) => {
         const { totalConflicts: currentTotal } = validarFixture(currentMatches);
         if (currentTotal < bestScore) {
             bestScore = currentTotal;
-            bestSolution = JSON.parse(JSON.stringify(currentMatches));
+            bestSolution = structuredClone(currentMatches);
         }
     }
 

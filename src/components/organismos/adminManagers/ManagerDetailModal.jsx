@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
-import {
-  Modal,
-  Badge,
-  BtnNormal,
-  Btnsave,
-  ContainerScroll,
-} from "../../../index";
+import { Modal } from "../Modal";
+import { Badge } from "../../atomos/Badge";
+import { BtnNormal } from "../../moleculas/BtnNormal";
+import { Btnsave } from "../../moleculas/Btnsave";
+import { ContainerScroll } from "../../atomos/ContainerScroll";
 import { TabsNavigation, TabContent } from "../../moleculas/TabsNavigation";
 import { v } from "../../../styles/variables";
 import {
@@ -268,11 +266,11 @@ export const ManagerDetailModal = ({
               <InfoBox>
                 <h4><BiTime /> Actividad</h4>
                 <div className="row">
-                  <label>{currentStatus.isOnline ? "Estado actual:" : "Ultima conexion:"}</label>
+                  <span className="meta-label">{currentStatus.isOnline ? "Estado actual:" : "Ultima conexion:"}</span>
                   <span>{currentStatus.isOnline ? "En linea ahora" : formatLastSeen(currentStatus.lastSeenAt)}</span>
                 </div>
                 <div className="row">
-                  <label>Miembro desde:</label>
+                  <span className="meta-label">Miembro desde:</span>
                   <span>{formatDate(manager.created_at)}</span>
                 </div>
               </InfoBox>
@@ -280,11 +278,11 @@ export const ManagerDetailModal = ({
               <InfoBox>
                 <h4><BiIdCard /> Credenciales</h4>
                 <div className="row">
-                  <label>Correo:</label> <span className="email-text">{manager.email}</span>
+                  <span className="meta-label">Correo:</span> <span className="email-text">{manager.email}</span>
                 </div>
 
                 <div className="google-section">
-                  <label>Vinculacion:</label>
+                  <span className="meta-label">Vinculacion:</span>
                   {googleInfo.linked ? (
                     <div className="linked-card">
                       <BiLogoGoogle color="#4285F4" size={24} />
@@ -319,8 +317,8 @@ export const ManagerDetailModal = ({
                     <span className="sub-label"><BiGridAlt /> Divisiones:</span>
                     <StyledScroll>
                       {currentLeague.divisions?.length > 0 ? (
-                        currentLeague.divisions.map((div, i) => (
-                          <div key={i} className="div-row">
+                        currentLeague.divisions.map((div) => (
+                          <div key={div.id || div.name} className="div-row">
                             <span>{div.name}</span>
                             <Badge color={v.gris}>{getDivisionTeamCount(div)} equipos</Badge>
                           </div>
@@ -362,6 +360,7 @@ export const ManagerDetailModal = ({
                     <SwitchLabel>
                       <input
                         type="checkbox"
+                        aria-label={manager.is_suspended ? "Reactivar cuenta" : "Suspender cuenta"}
                         checked={!manager.is_suspended}
                         onChange={handleSuspensionToggle}
                         disabled={savingSuspension || !onUpdateSuspension}
@@ -512,13 +511,13 @@ const InfoBox = styled.div`
   }
   .row {
     display: flex; flex-direction: column; gap: 2px;
-    label { font-size: 0.75rem; font-weight: 700; opacity: 0.6; }
+    .meta-label { font-size: 0.75rem; font-weight: 700; opacity: 0.6; }
     span { font-size: 0.9rem; }
     .email-text { font-family: monospace; font-size: 0.85rem; word-break: break-all; }
   }
   .google-section {
     margin-top: 5px;
-    label { display: block; font-size: 0.75rem; font-weight: 700; opacity: 0.6; margin-bottom: 6px; }
+    .meta-label { display: block; font-size: 0.75rem; font-weight: 700; opacity: 0.6; margin-bottom: 6px; }
     .linked-card {
       display: flex; align-items: center; gap: 10px; background: ${({ theme }) => theme.bg3};
       padding: 10px; border-radius: 8px;
