@@ -28,16 +28,40 @@ const normalizeImageMimeType = (file) => {
   return mimeType;
 };
 
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onerror = () => reject(new Error("No se pudo leer la imagen seleccionada."));
-  reader.onload = () => resolve(String(reader.result || ""));
-  reader.readAsDataURL(file);
+const originalFilePayload = (file) => ({
+  blob: file,
+  mimeType: normalizeImageMimeType(file),
+  fileName: file.name || "cedula",
 });
 
-const originalFilePayload = async (file, dataUrl) => ({
-  mimeType: normalizeImageMimeType(file),
-  imageBase64: (dataUrl || await readFileAsDataUrl(file)).split(",")[1] || "",
+const loadImageSource = async (file) => {
+  if (typeof window.createImageBitmap === "function") {
+    try {
+      const bitmap = await window.createImageBitmap(file);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close(),
+      };
+    } catch { /* El navegador puede no decodificar HEIC/HEIF. */ }
+  }
+
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const release = () => URL.revokeObjectURL(objectUrl);
+    image.onload = () => resolve({ source: image, width: image.width, height: image.height, release });
+    image.onerror = () => {
+      release();
+      reject(new Error("El navegador no puede optimizar este formato."));
+    };
+    image.src = objectUrl;
+  });
+};
+
+const canvasToBlob = (canvas, mimeType, quality) => new Promise(resolve => {
+  canvas.toBlob(resolve, mimeType, quality);
 });
 
 const normalizeName = (value = "") => String(value)
@@ -137,43 +161,48 @@ const playerName = (player) => (
 
 const refereeName = (referee) => referee?.full_name || referee?.name || "";
 
-const fileToScanPayload = (file) => new Promise((resolve, reject) => {
-  readFileAsDataUrl(file).then((dataUrl) => {
-    const sourceMimeType = normalizeImageMimeType(file);
-    if (["image/heic", "image/heif"].includes(sourceMimeType)) {
-      originalFilePayload(file, dataUrl).then(resolve).catch(reject);
-      return;
+const fileToScanPayload = async (file) => {
+  const sourceMimeType = normalizeImageMimeType(file);
+  let decoded = null;
+  try {
+    decoded = await loadImageSource(file);
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(decoded.width, decoded.height));
+    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) return originalFilePayload(file);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(decoded.width * scale));
+    canvas.height = Math.max(1, Math.round(decoded.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas no disponible");
+    context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+
+    const preferredMimeType = sourceMimeType === "image/png" && file.size < 3 * 1024 * 1024
+      ? "image/png"
+      : sourceMimeType === "image/webp" ? "image/webp" : "image/jpeg";
+    let optimizedBlob = await canvasToBlob(canvas, preferredMimeType, 0.9);
+    let outputMimeType = preferredMimeType;
+    if (!optimizedBlob && preferredMimeType !== "image/jpeg") {
+      outputMimeType = "image/jpeg";
+      optimizedBlob = await canvasToBlob(canvas, outputMimeType, 0.9);
     }
+    if (!optimizedBlob) throw new Error("No se pudo optimizar la imagen.");
 
-    const image = new Image();
-    image.onerror = () => {
-      originalFilePayload(file, dataUrl).then(resolve).catch(reject);
-    };
-    image.onload = () => {
-      try {
-        const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error("Canvas no disponible");
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const outputMimeType = sourceMimeType === "image/png" && file.size < 3 * 1024 * 1024
-          ? "image/png"
-          : "image/jpeg";
-        const optimizedDataUrl = canvas.toDataURL(outputMimeType, 0.88);
-        resolve({ mimeType: outputMimeType, imageBase64: optimizedDataUrl.split(",")[1] });
-      } catch {
-        originalFilePayload(file, dataUrl).then(resolve).catch(reject);
-      }
-    };
-    image.src = dataUrl;
-  }).catch(reject);
-});
+    const extension = outputMimeType === "image/png" ? "png" : outputMimeType === "image/webp" ? "webp" : "jpg";
+    return { blob: optimizedBlob, mimeType: outputMimeType, fileName: `cedula-optimizada.${extension}` };
+  } catch {
+    // Gemini admite HEIC/HEIF; si el navegador no puede decodificarlo se envia intacto.
+    return originalFilePayload(file);
+  } finally {
+    decoded?.release?.();
+  }
+};
 
-const invokeScanFunction = async (image, scanMode) => {
+const invokeScanFunction = async (image) => {
+  const formData = new FormData();
+  formData.append("image", image.blob, image.fileName);
+  formData.append("mimeType", image.mimeType);
   const { data, error } = await supabase.functions.invoke("procesar-cedula", {
-    body: { ...image, scanMode },
+    body: formData,
   });
   if (!error) return data;
 
@@ -231,6 +260,7 @@ export function CedulaScanFlow({
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const progressTimerRef = useRef(null);
+  const preparedImageRef = useRef(null);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -263,6 +293,9 @@ export function CedulaScanFlow({
       return URL.createObjectURL(nextFile);
     });
     setFile(nextFile);
+    preparedImageRef.current = fileToScanPayload(nextFile)
+      .then(payload => ({ payload, error: null }))
+      .catch(error => ({ payload: null, error }));
     setPreviewAvailable(null);
     setRawScan(null);
     setScanProgress(0);
@@ -362,9 +395,13 @@ export function CedulaScanFlow({
       });
     }, 420);
     try {
-      const image = await fileToScanPayload(file);
+      const prepared = await (preparedImageRef.current || fileToScanPayload(file)
+        .then(payload => ({ payload, error: null }))
+        .catch(error => ({ payload: null, error })));
+      if (prepared.error || !prepared.payload) throw prepared.error || new Error("No se pudo preparar la imagen.");
+      const image = prepared.payload;
       setScanProgress(current => Math.max(current, 18));
-      const data = await invokeScanFunction(image, "detailed");
+      const data = await invokeScanFunction(image);
       if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -451,7 +488,7 @@ export function CedulaScanFlow({
           )}
         </PreviewFrame>
         <ChoiceRow>
-          <SecondaryAction type="button" disabled={scanning} onClick={() => { setFile(null); setRawScan(null); }}>
+          <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setRawScan(null); }}>
             <RiRefreshLine /> Cambiar foto
           </SecondaryAction>
           <ScanProgressButton

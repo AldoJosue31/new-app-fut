@@ -2,7 +2,8 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI } from "@google/genai";
 
 const MAX_BASE64_LENGTH = 17_500_000;
-const GEMINI_TIMEOUT_MS = 58_000;
+const GEMINI_TIMEOUT_MS = 45_000;
+const GEMINI_THINKING_LEVEL = "low";
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -13,13 +14,24 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const textField = (description: string) => ({ type: "string", description });
 const countField = (description: string) => ({ type: "integer", minimum: 0, description });
+const playerSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: textField("Nombre del jugador exactamente como se alcanza a leer."),
+    goals: countField("Cantidad de goles anotados."),
+    ownGoals: countField("Cantidad de autogoles."),
+    yellowCards: countField("Cantidad de tarjetas amarillas."),
+    redCards: countField("Cantidad de tarjetas rojas."),
+  },
+  required: ["name", "goals", "ownGoals", "yellowCards", "redCards"],
+} as const;
 
 // JSON Schema es el equivalente del modelo Pydantic para la salida estructurada de Gemini.
 const matchSheetSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    documentTitle: textField("Titulo o encabezado visible del documento; vacio si no existe."),
     teamBlocks: {
       type: "array",
       minItems: 2,
@@ -33,8 +45,13 @@ const matchSheetSchema = {
           name: textField("Nombre exactamente como aparece en este bloque del documento."),
           score: countField("Marcador final escrito para este mismo equipo. No usar el orden local/visitante ni recalcularlo con los jugadores."),
           penaltyScore: countField("Goles de tanda de penales escritos para este mismo equipo; cero si no hay tanda."),
+          players: {
+            type: "array",
+            description: "Jugadores legibles de este mismo bloque. No incluir jugadores del otro equipo ni duplicar personas.",
+            items: playerSchema,
+          },
         },
-        required: ["block", "name", "score", "penaltyScore"],
+        required: ["block", "name", "score", "penaltyScore", "players"],
       },
     },
     referee: textField("Nombre completo del arbitro; vacio si no es legible."),
@@ -53,26 +70,8 @@ const matchSheetSchema = {
       },
       required: ["detected", "absentTeamBlock", "absentTeamName", "evidence"],
     },
-    players: {
-      type: "array",
-      description: "Jugadores legibles que aparecen en alineaciones, goles o tarjetas. No duplicar personas.",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          name: textField("Nombre del jugador exactamente como se alcanza a leer."),
-          teamBlock: { type: "string", enum: ["first", "second", "unknown"], description: "Bloque visual del equipo donde aparece el jugador; no inferir local o visitante." },
-          goals: countField("Cantidad de goles anotados."),
-          ownGoals: countField("Cantidad de autogoles."),
-          yellowCards: countField("Cantidad de tarjetas amarillas."),
-          redCards: countField("Cantidad de tarjetas rojas."),
-          participated: { type: "boolean", description: "Verdadero si aparece en la alineacion o tuvo un evento." },
-        },
-        required: ["name", "teamBlock", "goals", "ownGoals", "yellowCards", "redCards", "participated"],
-      },
-    },
   },
-  required: ["documentTitle", "teamBlocks", "referee", "date", "time", "observations", "walkover", "players"],
+  required: ["teamBlocks", "referee", "date", "time", "observations", "walkover"],
 } as const;
 
 const instructions = `# Objetivo
@@ -89,7 +88,7 @@ Ejemplo conceptual: si el primer bloque dice "Tigres" junto a 3 y el segundo dic
 
 # Resto de datos
 - No corrijas nombres ni los relaciones con bases de datos.
-- Cuenta goles y tarjetas por jugador cuando las marcas sean claras y conserva el jugador dentro de su bloque first o second.
+- Cuenta goles y tarjetas por jugador cuando las marcas sean claras y agrega cada jugador directamente en players de su mismo bloque first o second.
 Busca cuidadosamente indicaciones de inasistencia en toda la imagen, especialmente dentro del espacio donde deberia ir la lista de jugadores de cada equipo. Ejemplos: "No se presento", "No se presento equipo X", "no llegaron", "inasistencia", "W.O." o "victoria por default".
 Si la frase esta escrita dentro del bloque de jugadores de un equipo, usa first o second segun ese bloque, aunque la frase no incluya el nombre.
 Marca walkover.detected=true solamente cuando exista evidencia textual visible. Si ambos equipos aparecen como ausentes usa absentTeamBlock=both. Si la frase existe pero no se puede determinar el bloque usa unknown.
@@ -105,18 +104,6 @@ const jsonResponse = (body: unknown, status = 200) => Response.json(body, {
   status,
   headers: corsHeaders,
 });
-
-const hasValidUserSession = async (req: Request) => {
-  const authorization = req.headers.get("Authorization");
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!authorization?.startsWith("Bearer ") || !supabaseUrl || !anonKey) return false;
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: authorization, apikey: anonKey },
-  });
-  return response.ok;
-};
 
 const isTimeoutError = (error: unknown) => {
   const candidate = error as { message?: string; name?: string; status?: number };
@@ -134,12 +121,15 @@ const createScanInteraction = (
   model: string,
   imageBase64: string,
   mimeType: string,
-  resolution: "high" | "medium",
 ) => client.interactions.create({
   model,
+  generation_config: {
+    thinking_level: GEMINI_THINKING_LEVEL,
+  },
   input: [
     { type: "text", text: instructions },
-    { type: "image", data: imageBase64, mime_type: mimeType, resolution },
+    // Se mantiene alta resolucion visual para no perder nombres, dorsales ni marcas pequenas.
+    { type: "image", data: imageBase64, mime_type: mimeType, resolution: "high" },
   ],
   response_format: {
     type: "text",
@@ -147,7 +137,7 @@ const createScanInteraction = (
     schema: matchSheetSchema,
   },
 }, {
-  // Dos intentos de 58 s caben con margen dentro del limite de ~150 s de Supabase.
+  // Dos intentos de 45 s evitan esperas cercanas a dos minutos y caben con margen en Supabase.
   timeout: GEMINI_TIMEOUT_MS,
   maxRetries: 0,
 });
@@ -157,14 +147,12 @@ type GeminiTeamBlock = {
   name?: string;
   score?: number;
   penaltyScore?: number;
+  players?: GeminiPlayer[];
 };
 
-type GeminiPlayer = Record<string, unknown> & {
-  teamBlock?: "first" | "second" | "unknown";
-};
+type GeminiPlayer = Record<string, unknown>;
 
 type GeminiScan = {
-  documentTitle?: string;
   teamBlocks?: GeminiTeamBlock[];
   referee?: string;
   date?: string;
@@ -176,7 +164,6 @@ type GeminiScan = {
     absentTeamName?: string;
     evidence?: string;
   };
-  players?: GeminiPlayer[];
 };
 
 const toNonNegativeInteger = (value: unknown) => {
@@ -214,7 +201,7 @@ const normalizeGeminiScan = (raw: GeminiScan) => {
   // localTeam/visitorTeam se conservan solo como contrato legado del cliente.
   // Semanticamente representan el primer y segundo bloque visual, respectivamente.
   return {
-    documentTitle: String(raw.documentTitle || ""),
+    documentTitle: "",
     teamBlocks: [first, second],
     localTeam: { name: first.name, score: first.score },
     visitorTeam: { name: second.name, score: second.score },
@@ -229,10 +216,42 @@ const normalizeGeminiScan = (raw: GeminiScan) => {
       evidence: String(walkover.evidence || ""),
     },
     penalties: { local: first.penaltyScore, visitor: second.penaltyScore },
-    players: (raw.players || []).map(({ teamBlock, ...player }) => ({
-      ...player,
-      team: teamBlock === "first" ? "local" : teamBlock === "second" ? "visitor" : "unknown",
-    })),
+    players: [
+      ...(firstBlock.players || []).map(player => ({ ...player, team: "local", participated: true })),
+      ...(secondBlock.players || []).map(player => ({ ...player, team: "visitor", participated: true })),
+    ],
+  };
+};
+
+const bytesToBase64 = (bytes: Uint8Array) => {
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+};
+
+const readImageRequest = async (req: Request) => {
+  const contentType = req.headers.get("content-type") || "";
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const image = formData.get("image");
+    if (!(image instanceof File)) throw new Error("INVALID_IMAGE_FILE");
+    if (!image.size || image.size > 12 * 1024 * 1024) throw new Error("INVALID_IMAGE_SIZE");
+    const mimeType = String(formData.get("mimeType") || image.type || "").toLowerCase();
+    return {
+      imageBase64: bytesToBase64(new Uint8Array(await image.arrayBuffer())),
+      mimeType,
+      inputBytes: image.size,
+    };
+  }
+
+  const { imageBase64, mimeType } = await req.json();
+  return {
+    imageBase64,
+    mimeType,
+    inputBytes: typeof imageBase64 === "string" ? Math.floor(imageBase64.length * 0.75) : 0,
   };
 };
 
@@ -243,16 +262,18 @@ Deno.serve(async (req) => {
     }
 
     try {
-      if (!(await hasValidUserSession(req))) {
-        return jsonResponse({ error: "Debes iniciar sesion para escanear una cedula." }, 401);
-      }
-
       const apiKey = Deno.env.get("GEMINI_API_KEY");
       if (!apiKey) {
         return jsonResponse({ error: "GEMINI_API_KEY no esta configurada." }, 500);
       }
 
-      const { imageBase64, mimeType, scanMode } = await req.json();
+      let imageRequest;
+      try {
+        imageRequest = await readImageRequest(req);
+      } catch {
+        return jsonResponse({ error: "No se pudo leer la imagen enviada." }, 400);
+      }
+      const { imageBase64, mimeType, inputBytes } = imageRequest;
       if (!ALLOWED_MIME_TYPES.has(mimeType)) {
         return jsonResponse({ error: "Formato de imagen no admitido." }, 400);
       }
@@ -262,30 +283,38 @@ Deno.serve(async (req) => {
 
       const client = new GoogleGenAI({ apiKey });
       const model = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
+      const geminiStartedAt = performance.now();
+      let attempts = 1;
       let interaction;
       try {
-        interaction = await createScanInteraction(
-          client,
-          model,
-          imageBase64,
-          mimeType,
-          scanMode === "fast" ? "medium" : "high",
-        );
+        interaction = await createScanInteraction(client, model, imageBase64, mimeType);
       } catch (error) {
-        if (scanMode === "fast" || !isTransientGeminiError(error)) throw error;
-        console.warn("procesar-cedula: reintentando con resolucion media", error);
-        interaction = await createScanInteraction(client, model, imageBase64, mimeType, "medium");
+        if (!isTransientGeminiError(error)) throw error;
+        attempts = 2;
+        console.warn("procesar-cedula: reintentando lectura de alta resolucion", error);
+        interaction = await createScanInteraction(client, model, imageBase64, mimeType);
       }
 
       const outputText = interaction.output_text;
       if (!outputText) throw new Error("Gemini no devolvio contenido.");
+      console.info("procesar-cedula: metricas", JSON.stringify({
+        durationMs: Math.round(performance.now() - geminiStartedAt),
+        attempts,
+        inputBytes,
+        mimeType,
+        thinkingLevel: GEMINI_THINKING_LEVEL,
+        visualResolution: "high",
+        inputTokens: interaction.usage?.total_input_tokens,
+        thoughtTokens: interaction.usage?.total_thought_tokens,
+        outputTokens: interaction.usage?.total_output_tokens,
+      }));
       return jsonResponse({ scan: normalizeGeminiScan(JSON.parse(outputText) as GeminiScan) });
     } catch (error) {
       console.error("procesar-cedula:", error);
       if (isTransientGeminiError(error)) {
         return jsonResponse({
           error: isTimeoutError(error)
-            ? "El analisis tardo mas de lo esperado. Estamos listos para reintentarlo con una lectura mas rapida."
+            ? "El analisis tardo mas de lo esperado. Intenta nuevamente con la misma imagen."
             : "El servicio de lectura esta temporalmente ocupado. Intenta nuevamente.",
           code: isTimeoutError(error) ? "SCAN_TIMEOUT" : "SCAN_TEMPORARY_ERROR",
           retryable: true,
