@@ -86,6 +86,51 @@ const bestMatch = (value, options, getLabel, threshold) => {
   return ranked[0]?.score >= threshold ? ranked[0] : null;
 };
 
+const resolveTeamBlockSides = (firstName, secondName, actualTeams) => {
+  const [registeredLocal, registeredVisit] = actualTeams;
+  const firstReadable = Boolean(normalizeName(firstName));
+  const secondReadable = Boolean(normalizeName(secondName));
+  const oppositeSide = side => side === "local" ? "visit" : "local";
+
+  if (firstReadable && !secondReadable) {
+    const match = bestMatch(firstName, actualTeams, team => team.name, 0.42);
+    if (match) {
+      return {
+        firstSide: match.option.side,
+        secondSide: oppositeSide(match.option.side),
+        swapped: match.option.side === "visit",
+        ambiguous: false,
+      };
+    }
+  }
+
+  if (!firstReadable && secondReadable) {
+    const match = bestMatch(secondName, actualTeams, team => team.name, 0.42);
+    if (match) {
+      return {
+        firstSide: oppositeSide(match.option.side),
+        secondSide: match.option.side,
+        swapped: match.option.side === "local",
+        ambiguous: false,
+      };
+    }
+  }
+
+  const directScore = nameSimilarity(firstName, registeredLocal.name)
+    + nameSimilarity(secondName, registeredVisit.name);
+  const swappedScore = nameSimilarity(firstName, registeredVisit.name)
+    + nameSimilarity(secondName, registeredLocal.name);
+  const swapped = swappedScore >= 0.84 && swappedScore > directScore + 0.08;
+  const selectedScore = swapped ? swappedScore : directScore;
+
+  return {
+    firstSide: swapped ? "visit" : "local",
+    secondSide: swapped ? "local" : "visit",
+    swapped,
+    ambiguous: selectedScore < 0.84 || (firstReadable && secondReadable && Math.abs(directScore - swappedScore) < 0.08),
+  };
+};
+
 const playerName = (player) => (
   player?.full_name || `${player?.first_name || ""} ${player?.last_name || ""}`.trim()
 );
@@ -241,12 +286,13 @@ export function CedulaScanFlow({
       { side: "local", id: match?.local?.id, name: match?.local?.name || "Local" },
       { side: "visit", id: match?.visitante?.id, name: match?.visitante?.name || "Visitante" },
     ];
-    const localTeamMatch = bestMatch(rawScan.localTeam?.name, actualTeams, team => team.name, 0.42);
-    const visitorTeamMatch = bestMatch(rawScan.visitorTeam?.name, actualTeams, team => team.name, 0.42);
-    const localSide = localTeamMatch?.option?.side || "local";
-    const visitorSide = visitorTeamMatch?.option?.side && visitorTeamMatch.option.side !== localSide
-      ? visitorTeamMatch.option.side
-      : (localSide === "local" ? "visit" : "local");
+    const teamAssignment = resolveTeamBlockSides(
+      rawScan.localTeam?.name,
+      rawScan.visitorTeam?.name,
+      actualTeams,
+    );
+    const localSide = teamAssignment.firstSide;
+    const visitorSide = teamAssignment.secondSide;
     const refereeMatch = bestMatch(rawScan.referee, referees, refereeName, 0.5);
     const usedPlayerIds = new Set();
     const players = (rawScan.players || []).map(scannedPlayer => {
@@ -288,6 +334,7 @@ export function CedulaScanFlow({
     };
     return {
       teams: actualTeams,
+      teamAssignment,
       localSide,
       visitorSide,
       referee: refereeMatch?.option || null,
@@ -439,8 +486,8 @@ export function CedulaScanFlow({
       <ComparisonGrid>
         <DataColumn>
           <h5>Datos detectados</h5>
-          <DataRow label="Local" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
-          <DataRow label="Visitante" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
+          <DataRow label="Equipo detectado 1" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
+          <DataRow label="Equipo detectado 2" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
           <DataRow label="Arbitro" value={rawScan.referee || "Sin detectar"} />
           <DataRow label="Fecha" value={rawScan.date || "Sin detectar"} />
           <DataRow label="Hora" value={rawScan.time || "Sin detectar"} />
@@ -493,6 +540,12 @@ export function CedulaScanFlow({
           </PlayerList>
         </DataColumn>
       </ComparisonGrid>
+      {interpretation.teamAssignment.swapped && !interpretation.teamAssignment.ambiguous && (
+        <ReviewNotice>El orden de la cedula esta invertido respecto al partido. Cada marcador se conservo junto al nombre de su equipo.</ReviewNotice>
+      )}
+      {interpretation.teamAssignment.ambiguous && (
+        <ReviewNotice>Los nombres de los equipos no dieron una coincidencia suficientemente clara. Revisa ambos marcadores antes de aplicar.</ReviewNotice>
+      )}
       {unmatchedPlayers > 0 && <ReviewNotice>{unmatchedPlayers} {unmatchedPlayers === 1 ? "jugador no se pudo vincular" : "jugadores no se pudieron vincular"}; no se aplicaran automaticamente.</ReviewNotice>}
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>

@@ -20,23 +20,22 @@ const matchSheetSchema = {
   additionalProperties: false,
   properties: {
     documentTitle: textField("Titulo o encabezado visible del documento; vacio si no existe."),
-    localTeam: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        name: textField("Nombre del equipo identificado como local."),
-        score: countField("Marcador final del equipo local."),
+    teamBlocks: {
+      type: "array",
+      minItems: 2,
+      maxItems: 2,
+      description: "Dos bloques neutrales de equipo en orden visual. Cada nombre, marcador y penal debe permanecer unido al mismo bloque, sin decidir cual es local o visitante.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          block: { type: "string", enum: ["first", "second"], description: "first para el primer bloque visual y second para el otro." },
+          name: textField("Nombre exactamente como aparece en este bloque del documento."),
+          score: countField("Marcador final escrito para este mismo equipo. No usar el orden local/visitante ni recalcularlo con los jugadores."),
+          penaltyScore: countField("Goles de tanda de penales escritos para este mismo equipo; cero si no hay tanda."),
+        },
+        required: ["block", "name", "score", "penaltyScore"],
       },
-      required: ["name", "score"],
-    },
-    visitorTeam: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        name: textField("Nombre del equipo identificado como visitante."),
-        score: countField("Marcador final del equipo visitante."),
-      },
-      required: ["name", "score"],
     },
     referee: textField("Nombre completo del arbitro; vacio si no es legible."),
     date: textField("Fecha en formato YYYY-MM-DD; vacio si no se puede determinar."),
@@ -48,20 +47,11 @@ const matchSheetSchema = {
       description: "Deteccion de inasistencia o victoria por default escrita en cualquier parte de la cedula, incluidas las listas de jugadores.",
       properties: {
         detected: { type: "boolean", description: "Verdadero solo si hay texto visible que indique que uno o ambos equipos no se presentaron, W.O. o victoria por default." },
-        absentTeam: { type: "string", enum: ["local", "visitor", "both", "unknown", "none"], description: "Equipo que no se presento segun la seccion o texto de la cedula." },
+        absentTeamBlock: { type: "string", enum: ["first", "second", "both", "unknown", "none"], description: "Bloque visual del equipo que no se presento. No clasificarlo como local o visitante." },
         absentTeamName: textField("Nombre del equipo ausente tal como aparece escrito; vacio si no aparece."),
         evidence: textField("Frase visible que sustenta la deteccion, por ejemplo 'No se presento equipo X'."),
       },
-      required: ["detected", "absentTeam", "absentTeamName", "evidence"],
-    },
-    penalties: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        local: countField("Goles de tanda de penales del local; cero si no hay tanda."),
-        visitor: countField("Goles de tanda de penales del visitante; cero si no hay tanda."),
-      },
-      required: ["local", "visitor"],
+      required: ["detected", "absentTeamBlock", "absentTeamName", "evidence"],
     },
     players: {
       type: "array",
@@ -71,29 +61,39 @@ const matchSheetSchema = {
         additionalProperties: false,
         properties: {
           name: textField("Nombre del jugador exactamente como se alcanza a leer."),
-          team: { type: "string", enum: ["local", "visitor", "unknown"] },
+          teamBlock: { type: "string", enum: ["first", "second", "unknown"], description: "Bloque visual del equipo donde aparece el jugador; no inferir local o visitante." },
           goals: countField("Cantidad de goles anotados."),
           ownGoals: countField("Cantidad de autogoles."),
           yellowCards: countField("Cantidad de tarjetas amarillas."),
           redCards: countField("Cantidad de tarjetas rojas."),
           participated: { type: "boolean", description: "Verdadero si aparece en la alineacion o tuvo un evento." },
         },
-        required: ["name", "team", "goals", "ownGoals", "yellowCards", "redCards", "participated"],
+        required: ["name", "teamBlock", "goals", "ownGoals", "yellowCards", "redCards", "participated"],
       },
     },
   },
-  required: ["documentTitle", "localTeam", "visitorTeam", "referee", "date", "time", "observations", "walkover", "penalties", "players"],
+  required: ["documentTitle", "teamBlocks", "referee", "date", "time", "observations", "walkover", "players"],
 } as const;
 
-const instructions = `Analiza esta imagen como una cedula arbitral de futbol amateur.
-Transcribe solamente datos visibles. No corrijas nombres ni los relaciones con bases de datos.
-Separa local y visitante segun las etiquetas o posicion del documento.
-Cuenta goles y tarjetas por jugador cuando las marcas sean claras.
+const instructions = `# Objetivo
+Analiza esta imagen como una cedula arbitral de futbol amateur y transcribe solamente datos visibles.
+
+# Regla critica para equipos y marcadores
+- NO decidas cual equipo es local o visitante. En ligas amateur las etiquetas, columnas y posiciones pueden estar invertidas o no respetarse.
+- Extrae dos bloques neutrales: first es el primer bloque visual (arriba o izquierda) y second es el otro (abajo o derecha).
+- Trata nombre del equipo, marcador final y penales como una sola unidad inseparable. Lee el bloque o renglon completo antes de pasar al siguiente.
+- Un marcador pertenece al nombre escrito en su mismo renglon, columna, recuadro o referencia explicita. Nunca intercambies marcadores para que coincidan con un orden local/visitante, con el equipo ganador esperado ni con la lista de jugadores.
+- No recalcules el marcador final sumando marcas de jugadores; transcribe el marcador general visible. Los goles por jugador se extraen por separado.
+
+Ejemplo conceptual: si el primer bloque dice "Tigres" junto a 3 y el segundo dice "Leones" junto a 1, devuelve first={name:"Tigres",score:3} y second={name:"Leones",score:1}, aunque otra etiqueta del formato sugiera que Leones es local. La aplicacion resolvera los lados despues usando los nombres registrados.
+
+# Resto de datos
+- No corrijas nombres ni los relaciones con bases de datos.
+- Cuenta goles y tarjetas por jugador cuando las marcas sean claras y conserva el jugador dentro de su bloque first o second.
 Busca cuidadosamente indicaciones de inasistencia en toda la imagen, especialmente dentro del espacio donde deberia ir la lista de jugadores de cada equipo. Ejemplos: "No se presento", "No se presento equipo X", "no llegaron", "inasistencia", "W.O." o "victoria por default".
-Si la frase esta escrita dentro del bloque de jugadores de un equipo, usa la ubicacion de ese bloque para identificar si el ausente es local o visitante, aunque la frase no incluya el nombre.
-Marca walkover.detected=true solamente cuando exista evidencia textual visible. Si ambos equipos aparecen como ausentes usa absentTeam=both. Si la frase existe pero no se puede determinar el equipo usa unknown.
-Si un dato no es legible usa cadena vacia, cero o unknown segun su tipo.
-No inventes jugadores, resultados, fechas ni arbitros.`;
+Si la frase esta escrita dentro del bloque de jugadores de un equipo, usa first o second segun ese bloque, aunque la frase no incluya el nombre.
+Marca walkover.detected=true solamente cuando exista evidencia textual visible. Si ambos equipos aparecen como ausentes usa absentTeamBlock=both. Si la frase existe pero no se puede determinar el bloque usa unknown.
+Si un dato no es legible usa cadena vacia, cero o unknown segun su tipo. No inventes jugadores, resultados, fechas ni arbitros.`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -152,6 +152,90 @@ const createScanInteraction = (
   maxRetries: 0,
 });
 
+type GeminiTeamBlock = {
+  block?: "first" | "second";
+  name?: string;
+  score?: number;
+  penaltyScore?: number;
+};
+
+type GeminiPlayer = Record<string, unknown> & {
+  teamBlock?: "first" | "second" | "unknown";
+};
+
+type GeminiScan = {
+  documentTitle?: string;
+  teamBlocks?: GeminiTeamBlock[];
+  referee?: string;
+  date?: string;
+  time?: string;
+  observations?: string;
+  walkover?: {
+    detected?: boolean;
+    absentTeamBlock?: "first" | "second" | "both" | "unknown" | "none";
+    absentTeamName?: string;
+    evidence?: string;
+  };
+  players?: GeminiPlayer[];
+};
+
+const toNonNegativeInteger = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+};
+
+const normalizeGeminiScan = (raw: GeminiScan) => {
+  const blocks = Array.isArray(raw.teamBlocks) ? raw.teamBlocks : [];
+  const firstBlock = blocks.find(block => block?.block === "first") || blocks[0] || {};
+  const secondBlock = blocks.find(block => block?.block === "second" && block !== firstBlock)
+    || blocks.find(block => block !== firstBlock)
+    || {};
+  const first = {
+    block: "first",
+    name: String(firstBlock.name || ""),
+    score: toNonNegativeInteger(firstBlock.score),
+    penaltyScore: toNonNegativeInteger(firstBlock.penaltyScore),
+  };
+  const second = {
+    block: "second",
+    name: String(secondBlock.name || ""),
+    score: toNonNegativeInteger(secondBlock.score),
+    penaltyScore: toNonNegativeInteger(secondBlock.penaltyScore),
+  };
+  const blockToLegacySide = {
+    first: "local",
+    second: "visitor",
+    both: "both",
+    unknown: "unknown",
+    none: "none",
+  } as const;
+  const walkover = raw.walkover || {};
+
+  // localTeam/visitorTeam se conservan solo como contrato legado del cliente.
+  // Semanticamente representan el primer y segundo bloque visual, respectivamente.
+  return {
+    documentTitle: String(raw.documentTitle || ""),
+    teamBlocks: [first, second],
+    localTeam: { name: first.name, score: first.score },
+    visitorTeam: { name: second.name, score: second.score },
+    referee: String(raw.referee || ""),
+    date: String(raw.date || ""),
+    time: String(raw.time || ""),
+    observations: String(raw.observations || ""),
+    walkover: {
+      detected: Boolean(walkover.detected),
+      absentTeam: blockToLegacySide[walkover.absentTeamBlock || "unknown"],
+      absentTeamName: String(walkover.absentTeamName || ""),
+      evidence: String(walkover.evidence || ""),
+    },
+    penalties: { local: first.penaltyScore, visitor: second.penaltyScore },
+    players: (raw.players || []).map(({ teamBlock, ...player }) => ({
+      ...player,
+      team: teamBlock === "first" ? "local" : teamBlock === "second" ? "visitor" : "unknown",
+    })),
+  };
+};
+
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (req.method !== "POST") {
@@ -195,7 +279,7 @@ Deno.serve(async (req) => {
 
       const outputText = interaction.output_text;
       if (!outputText) throw new Error("Gemini no devolvio contenido.");
-      return jsonResponse({ scan: JSON.parse(outputText) });
+      return jsonResponse({ scan: normalizeGeminiScan(JSON.parse(outputText) as GeminiScan) });
     } catch (error) {
       console.error("procesar-cedula:", error);
       if (isTransientGeminiError(error)) {
