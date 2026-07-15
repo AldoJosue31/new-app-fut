@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiAddLine, RiLayoutGridLine, RiListCheck2, RiSubtractLine } from "react-icons/ri";
-import { Modal, v } from "../../../../../../index";
+import { Modal } from "../../../../Modal";
+import { v } from "../../../../../../styles/variables";
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { addDaysToDate } from "../../../../../../utils/dateUtils";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
@@ -462,12 +463,16 @@ export default function ScheduleExportModal({
       setPreviewScale(Math.min(scaleWidth, scaleHeight, 0.86));
     };
 
+    let scaleTimer;
     if (isOpen) {
-      setTimeout(calculateScale, 100);
+      scaleTimer = window.setTimeout(calculateScale, 100);
       window.addEventListener("resize", calculateScale);
     }
 
-    return () => window.removeEventListener("resize", calculateScale);
+    return () => {
+      if (scaleTimer) window.clearTimeout(scaleTimer);
+      window.removeEventListener("resize", calculateScale);
+    };
   }, [exportSize.height, exportSize.width, isOpen]);
 
   const handleExportPNG = async () => {

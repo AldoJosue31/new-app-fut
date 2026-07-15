@@ -36,45 +36,30 @@ export function TeamPerformanceTab({
           <StyledTable>
             <thead>
               <tr>
-                <th
-                  className="col-player clickable"
-                  onClick={() => requestStatSort("name")}
-                >
-                  <div className="th-content">
+                <th className="col-player">
+                  <button type="button" className="sort-button th-content" onClick={() => requestStatSort("name")}>
                     Jugador <SortIcon columnKey="name" sortConfig={statSortConfig} />
-                  </div>
+                  </button>
                 </th>
-                <th
-                  className="col-stat clickable"
-                  onClick={() => requestStatSort("matches")}
-                >
-                  <div className="th-content centered">
+                <th className="col-stat">
+                  <button type="button" className="sort-button th-content centered" onClick={() => requestStatSort("matches")} aria-label="Ordenar por partidos jugados">
                     <RiUserSmileLine size={14} />
-                  </div>
+                  </button>
                 </th>
-                <th
-                  className="col-stat clickable"
-                  onClick={() => requestStatSort("goals")}
-                >
-                  <div className="th-content centered">
+                <th className="col-stat">
+                  <button type="button" className="sort-button th-content centered" onClick={() => requestStatSort("goals")} aria-label="Ordenar por goles">
                     <RiFootballLine size={14} />
-                  </div>
+                  </button>
                 </th>
-                <th
-                  className="col-stat clickable"
-                  onClick={() => requestStatSort("yellow")}
-                >
-                  <div className="th-content centered">
+                <th className="col-stat">
+                  <button type="button" className="sort-button th-content centered" onClick={() => requestStatSort("yellow")} aria-label="Ordenar por tarjetas amarillas">
                     <CardIcon $color="#f1c40f" />
-                  </div>
+                  </button>
                 </th>
-                <th
-                  className="col-stat clickable"
-                  onClick={() => requestStatSort("red")}
-                >
-                  <div className="th-content centered">
+                <th className="col-stat">
+                  <button type="button" className="sort-button th-content centered" onClick={() => requestStatSort("red")} aria-label="Ordenar por tarjetas rojas">
                     <CardIcon $color="#e74c3c" />
-                  </div>
+                  </button>
                 </th>
               </tr>
             </thead>

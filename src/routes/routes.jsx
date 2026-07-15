@@ -1,16 +1,14 @@
 import React, { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import {
-  Home,
-  Login,
-  Partidos,
-  Equipos,
-  Torneos,
-  Liga,
-  Configuracion,
-  RegisterManager,
-  RegisterDelegate
-} from "../index";
+import { Home } from "../pages/Home";
+import { Login } from "../pages/Login";
+import { Partidos } from "../pages/Partidos";
+import { Equipos } from "../pages/Equipos";
+import { Torneos } from "../pages/Torneos";
+import { Liga } from "../pages/Liga";
+import { Configuracion } from "../pages/Configuracion";
+import { RegisterManager } from "../pages/RegisterManager";
+import { RegisterDelegate } from "../pages/RegisterDelegate";
 import { UserAuth } from "../context/AuthContent";
 import { ROLES } from "../utils/constants";
 import { PublicStandings } from '../pages/PublicStandings';

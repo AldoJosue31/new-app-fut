@@ -26,7 +26,7 @@ export const ConflictModal = ({ isOpen, onClose, conflicts }) => {
 
         {hasConflicts && (
             <ConflictList>
-                {filteredConflicts.map((conflict, index) => {
+                {filteredConflicts.map((conflict) => {
                     const myLocal = conflict.internal?.local?.name || conflict.internal?.local_name || "Tu Local";
                     const myVisita = conflict.internal?.visitante?.name || conflict.internal?.visitante_name || "Tu Visita";
                     const myTime = conflict.internal?.time || conflict.internal?.horaInicio || "--:--";
@@ -39,7 +39,7 @@ export const ConflictModal = ({ isOpen, onClose, conflicts }) => {
                     const extDate = normalizeDate(conflict.external?.date || conflict.external?.fecha) || "--";
 
                     return (
-                        <ConflictCard key={index}>
+                        <ConflictCard key={`${conflict.internal?.id || `${myLocal}-${myVisita}`}-${conflict.external?.id || `${extLocal}-${extVisita}`}-${myDate}-${myTime}-${extDate}-${extTime}`}>
                             <div className="section internal">
                                 <Label>Tú quieres programar:</Label>
                                 <MatchInfo>
@@ -76,7 +76,7 @@ export const ConflictModal = ({ isOpen, onClose, conflicts }) => {
 
 // Styles
 const Container = styled.div` display: flex; flex-direction: column; gap: 20px; `;
-const HeaderAlert = styled.div` display: flex; align-items: center; gap: 15px; background-color: ${({theme}) => theme.bgtotal}; padding: 15px; border-radius: 10px; border-left: 5px solid #e74c3c; svg { color: #e74c3c; min-width: 40px; } h4 { margin: 0; font-size: 1.1rem; color: ${({theme}) => theme.text}; } p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.8; }`;
+const HeaderAlert = styled.div` display: flex; align-items: center; gap: 15px; background-color: ${({theme}) => theme.bgtotal}; padding: 15px; border-radius: 10px; border: 1px solid ${({theme}) => theme.bg4}; svg { color: #e74c3c; min-width: 40px; } h4 { margin: 0; font-size: 1.1rem; color: ${({theme}) => theme.text}; } p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.8; }`;
 const ConflictList = styled.div` display: flex; flex-direction: column; gap: 15px; max-height: 400px; overflow-y: auto; padding-right: 5px; `;
 const ConflictCard = styled.div` border: 1px solid ${({theme}) => theme.bg4}; border-radius: 12px; overflow: hidden; background: ${({theme}) => theme.bgcards}; padding: 12px; `;
 const Label = styled.div` font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: ${({theme}) => theme.text}; opacity: 0.6; margin-bottom: 5px; `;

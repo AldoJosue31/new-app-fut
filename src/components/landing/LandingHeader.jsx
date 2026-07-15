@@ -163,7 +163,7 @@ export default function LandingHeader() {
             {landingCopy.nav.ctaStart}
           </Link>
           
-          <button
+          <button type="button"
             onClick={() => setOpen(!open)}
             className="lp-nav-mobile-toggle"
             style={{

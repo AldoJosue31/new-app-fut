@@ -1,6 +1,6 @@
 // src/components/moleculas/Btnsave.jsx
 import styled, { keyframes } from "styled-components";
-import { Icono } from "../../index";
+import { Icono } from "../atomos/Icono";
 import { RiLoader4Line } from "react-icons/ri"; // Importamos un icono para el loading
 
 export function Btnsave({

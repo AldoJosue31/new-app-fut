@@ -38,97 +38,14 @@ function useReveal(threshold = 0.12) {
     );
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
-  }, []);
+  }, [threshold]);
   return [ref, visible];
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────
-export default function HowItWorks() {
-  const { howItWorks } = landingCopy;
-  const [hRef, hVisible] = useReveal();
-  const [activeStep, setActiveStep] = useState(0);
-
-  const activeStepData = howItWorks.steps[activeStep];
-  const ActiveIcon = STEP_ICONS[activeStep];
-
+function HowItWorksStepList({ howItWorks, activeStep, setActiveStep, hVisible }) {
   return (
-    <section
-      id="como-funciona"
-      style={{
-        background: "var(--lp-surface)",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        padding: "clamp(40px, 6vh, 80px) 0",
-        overflow: "hidden",
-        position: "relative",
-        boxSizing: "border-box",
-        scrollMarginTop: "40px",
-      }}
-    >
-      {/* ── Fondo: rejilla sutil ── */}
-      <div
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--lp-border) 1px, transparent 1px), linear-gradient(90deg, var(--lp-border) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          position: "absolute",
-          inset: 0,
-          opacity: 0.2,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* ── Radial glow ambiental ── */}
-      <div
-        aria-hidden="true"
-        style={{
-          background: "var(--lp-primary)",
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "800px",
-          height: "400px",
-          borderRadius: "50%",
-          opacity: 0.04,
-          filter: "blur(160px)",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div className="lp-container" style={{ position: "relative", zIndex: 10 }}>
-
-        {/* ── Encabezado ── */}
-        <div
-          ref={hRef}
-          style={{
-            textAlign: "center",
-            maxWidth: "672px",
-            margin: "0 auto",
-            marginBottom: "clamp(32px, 5vh, 80px)",
-            opacity: hVisible ? 1 : 0,
-            transform: hVisible ? "none" : "translateY(24px)",
-            transition: "opacity 0.7s ease, transform 0.7s ease",
-          }}
-        >
-          <h2
-            style={{ color: "var(--lp-text)", fontSize: "clamp(28px,4vw,40px)", fontWeight: 800, lineHeight: 1.2, marginBottom: "16px" }}
-          >
-            {howItWorks.title}
-          </h2>
-          <p
-            style={{ color: "var(--lp-text-muted)", fontSize: "17px", lineHeight: 1.65, maxWidth: "512px", margin: "0 auto" }}
-          >
-            Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.
-          </p>
-        </div>
-
-        {/* ── Layout responsive ── */}
-        <GridContainer>
-
+    <>
           {/* ── Columna izquierda: lista de pasos ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", position: "relative", paddingLeft: "20px" }}>
 
@@ -141,8 +58,10 @@ export default function HowItWorks() {
                 style={{
                   width: "100%",
                   borderRadius: "9999px",
-                  transition: "height 500ms ease-out",
-                  height: `${((activeStep + 1) / howItWorks.steps.length) * 100}%`,
+                  height: "100%",
+                  transformOrigin: "top",
+                  transform: `scaleY(${(activeStep + 1) / howItWorks.steps.length})`,
+                  transition: "transform 500ms ease-out",
                   background: "var(--lp-primary)",
                 }}
               />
@@ -215,7 +134,16 @@ export default function HowItWorks() {
               );
             })}
           </div>
+    </>
+  );
+}
 
+function HowItWorksStepDetail({ howItWorks, activeStep, setActiveStep }) {
+  const activeStepData = howItWorks.steps[activeStep];
+  const ActiveIcon = STEP_ICONS[activeStep];
+
+  return (
+    <>
           {/* ── Columna derecha: tarjeta de detalle ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
@@ -268,7 +196,7 @@ export default function HowItWorks() {
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "24px 28px" }}>
                 {STEP_DETAILS[activeStep].map((detail, i) => (
                   <div
-                    key={i}
+                    key={detail}
                     style={{
                       display: "flex", alignItems: "center", gap: "16px",
                       padding: "12px 16px", borderRadius: "12px",
@@ -341,7 +269,7 @@ export default function HowItWorks() {
                 style={{
                   padding: "10px 20px", borderRadius: "12px", border: "1px solid var(--lp-border)",
                   fontSize: "14px", fontWeight: 700, cursor: "pointer",
-                  transition: "all 150ms ease",
+                  transition: "background-color 150ms ease, border-color 150ms ease, opacity 150ms ease",
                   background: "rgba(255,255,255,0.04)",
                   color: "var(--lp-text)",
                   opacity: activeStep === 0 ? 0.3 : 1,
@@ -352,9 +280,9 @@ export default function HowItWorks() {
               </button>
 
               <div style={{ display: "flex", gap: "8px" }} role="tablist" aria-label="Pasos del proceso">
-                {howItWorks.steps.map((_, i) => (
+                {howItWorks.steps.map((step, i) => (
                   <button
-                    key={i}
+                    key={step.n}
                     type="button"
                     role="tab"
                     aria-selected={i === activeStep}
@@ -362,9 +290,10 @@ export default function HowItWorks() {
                     onClick={() => setActiveStep(i)}
                     style={{
                       height: "8px", borderRadius: "9999px", cursor: "pointer",
-                      transition: "all 300ms ease",
+                      transition: "transform 300ms ease, background-color 300ms ease",
                       border: "none",
-                      width: i === activeStep ? "28px" : "8px",
+                      width: "28px",
+                      transform: `scaleX(${i === activeStep ? 1 : 0.2857})`,
                       background: i === activeStep ? "var(--lp-primary)" : "var(--lp-border)",
                     }}
                   />
@@ -378,7 +307,7 @@ export default function HowItWorks() {
                 style={{
                   padding: "10px 20px", borderRadius: "12px", border: "1px solid var(--lp-border)",
                   fontSize: "14px", fontWeight: 700, cursor: "pointer",
-                  transition: "all 150ms ease",
+                  transition: "background-color 150ms ease, border-color 150ms ease, opacity 150ms ease",
                   background: "rgba(255,255,255,0.04)",
                   color: "var(--lp-text)",
                   opacity: activeStep === howItWorks.steps.length - 1 ? 0.3 : 1,
@@ -389,6 +318,102 @@ export default function HowItWorks() {
               </button>
             </div>
           </div>
+    </>
+  );
+}
+
+export default function HowItWorks() {
+  const { howItWorks } = landingCopy;
+  const [hRef, hVisible] = useReveal();
+  const [activeStep, setActiveStep] = useState(0);
+
+  return (
+    <section
+      id="como-funciona"
+      style={{
+        background: "var(--lp-surface)",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "clamp(40px, 6vh, 80px) 0",
+        overflow: "hidden",
+        position: "relative",
+        boxSizing: "border-box",
+        scrollMarginTop: "40px",
+      }}
+    >
+      {/* ── Fondo: rejilla sutil ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "linear-gradient(var(--lp-border) 1px, transparent 1px), linear-gradient(90deg, var(--lp-border) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          position: "absolute",
+          inset: 0,
+          opacity: 0.2,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* ── Radial glow ambiental ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          background: "radial-gradient(ellipse, color-mix(in srgb, var(--lp-primary) 45%, transparent), transparent 70%)",
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "640px",
+          height: "320px",
+          borderRadius: "50%",
+          opacity: 0.04,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div className="lp-container" style={{ position: "relative", zIndex: 10 }}>
+
+        {/* ── Encabezado ── */}
+        <div
+          ref={hRef}
+          style={{
+            textAlign: "center",
+            maxWidth: "672px",
+            margin: "0 auto",
+            marginBottom: "clamp(32px, 5vh, 80px)",
+            opacity: hVisible ? 1 : 0,
+            transform: hVisible ? "none" : "translateY(24px)",
+            transition: "opacity 0.7s ease, transform 0.7s ease",
+          }}
+        >
+          <h2
+            style={{ color: "var(--lp-text)", fontSize: "clamp(28px,4vw,40px)", fontWeight: 800, lineHeight: 1.2, marginBottom: "16px" }}
+          >
+            {howItWorks.title}
+          </h2>
+          <p
+            style={{ color: "var(--lp-text-muted)", fontSize: "17px", lineHeight: 1.65, maxWidth: "512px", margin: "0 auto" }}
+          >
+            Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.
+          </p>
+        </div>
+
+        {/* ── Layout responsive ── */}
+        <GridContainer>
+          <HowItWorksStepList
+            howItWorks={howItWorks}
+            activeStep={activeStep}
+            setActiveStep={setActiveStep}
+            hVisible={hVisible}
+          />
+          <HowItWorksStepDetail
+            howItWorks={howItWorks}
+            activeStep={activeStep}
+            setActiveStep={setActiveStep}
+          />
         </GridContainer>
       </div>
     </section>

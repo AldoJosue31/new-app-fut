@@ -1,7 +1,12 @@
 // src/components/organismos/tabs/torneos/planificacion/ResultModal.jsx
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import styled from "styled-components";
-import { v, Modal, BtnNormal, Btnsave, Toast, TabsNavigation } from "../../../../../index";
+import { v } from "../../../../../styles/variables";
+import { Modal } from "../../../Modal";
+import { BtnNormal } from "../../../../moleculas/BtnNormal";
+import { Btnsave } from "../../../../moleculas/Btnsave";
+import { Toast } from "../../../../atomos/Toast";
+import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "react-icons/ri";

@@ -1,7 +1,8 @@
 import React from "react";
 import styled, { css } from "styled-components";
 import { Modal } from "./Modal";
-import { Btnsave, BtnNormal } from "../../index";
+import { Btnsave } from "../moleculas/Btnsave";
+import { BtnNormal } from "../moleculas/BtnNormal";
 import { v } from "../../styles/variables";
 import { RiErrorWarningLine } from "react-icons/ri";
 

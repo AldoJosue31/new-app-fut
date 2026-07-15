@@ -68,9 +68,9 @@ export function JornadaResultados({ matches, teams, refreshMatches, activeTourna
                             <div className="score-box">
                                 {isEditing ? (
                                     <div className="inputs">
-                                        <input type="number" value={tempScore.g1} onChange={e=>setTempScore({...tempScore, g1: e.target.value})} />
+                                        <input type="number" value={tempScore.g1} onChange={e=>setTempScore({...tempScore, g1: e.target.value})} aria-label={`Goles de ${m.homeTeam?.name || "equipo local"}`} />
                                         <span>-</span>
-                                        <input type="number" value={tempScore.g2} onChange={e=>setTempScore({...tempScore, g2: e.target.value})} />
+                                        <input type="number" value={tempScore.g2} onChange={e=>setTempScore({...tempScore, g2: e.target.value})} aria-label={`Goles de ${m.awayTeam?.name || "equipo visitante"}`} />
                                     </div>
                                 ) : (
                                     <div className="display">
@@ -89,9 +89,9 @@ export function JornadaResultados({ matches, teams, refreshMatches, activeTourna
 
                         <div className="actions">
                             {isEditing ? (
-                                <button className="btn-save" onClick={() => handleSave(m.id)}>OK</button>
+                                <button type="button" className="btn-save" onClick={() => handleSave(m.id)}>OK</button>
                             ) : (
-                                <button className="btn-edit" onClick={() => handleEdit(m)} disabled={isPending}>Result</button>
+                                <button type="button" className="btn-edit" onClick={() => handleEdit(m)} disabled={isPending}>Result</button>
                             )}
                         </div>
                     </MatchRow>

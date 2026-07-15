@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
-import { Modal } from "../../../../../../index";
+import { Modal } from "../../../../Modal";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { supabase } from "../../../../../../supabase/supabase.config";
 import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
@@ -114,12 +114,16 @@ export default function StandingsExportModal({
             setPreviewScale(nextScale);
         };
 
+        let scaleTimer;
         if (isOpen) {
-            setTimeout(calculateScale, 100);
+            scaleTimer = window.setTimeout(calculateScale, 100);
             window.addEventListener("resize", calculateScale);
         }
 
-        return () => window.removeEventListener("resize", calculateScale);
+        return () => {
+            if (scaleTimer) window.clearTimeout(scaleTimer);
+            window.removeEventListener("resize", calculateScale);
+        };
     }, [isOpen, isMobileLayout]);
 
     const handleExportPNG = async () => {
@@ -212,7 +216,6 @@ export default function StandingsExportModal({
                                 width: 1080 * previewScale,
                                 height: exportHeight * previewScale,
                                 overflow: "hidden",
-                                transition: "width 260ms ease, height 260ms ease"
                             }}
                         >
                             <div
@@ -283,8 +286,7 @@ const PreviewWrapper = styled.div`
         box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
         border-radius: 8px;
         background: transparent;
-        transition: width 260ms ease, height 260ms ease, box-shadow 220ms ease;
-        will-change: width, height;
+        transition: box-shadow 220ms ease;
     }
 
     .scale-box,
@@ -373,7 +375,7 @@ const FloatingConfigPanel = styled.div`
         border-radius: 14px;
         background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
         box-shadow: ${({ $open }) => ($open ? "0 14px 34px rgba(0, 0, 0, 0.14)" : "none")};
-        transition: width 0.22s ease, opacity 0.18s ease, box-shadow 0.22s ease;
+        transition: opacity 0.18s ease, box-shadow 0.22s ease;
 
         > div {
             border-bottom: 0;

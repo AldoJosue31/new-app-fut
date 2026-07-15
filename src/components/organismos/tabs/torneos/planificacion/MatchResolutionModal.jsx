@@ -67,8 +67,8 @@ export function MatchResolutionModal({ isOpen, onClose, match, onResolve }) {
         </OptionsGrid>
 
         <Actions>
-          <button className="btn-cancelar" onClick={onClose}>Cancelar</button>
-          <button className="btn-confirmar" onClick={handleConfirm}>Aplicar Decisión</button>
+          <button type="button" className="btn-cancelar" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-confirmar" onClick={handleConfirm}>Aplicar Decisión</button>
         </Actions>
       </Content>
     </Modal>

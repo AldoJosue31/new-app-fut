@@ -1,6 +1,7 @@
 import React from "react";
 import styled, { useTheme } from "styled-components";
-import { v, Btnsave } from "../../../../../../index";
+import { v } from "../../../../../../styles/variables";
+import { Btnsave } from "../../../../../moleculas/Btnsave";
 import { RiFileDownloadLine, RiImageLine, RiSunLine, RiMoonLine } from "react-icons/ri";
 
 export const ExportPreviewHeader = ({

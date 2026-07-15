@@ -88,7 +88,7 @@ export const Modal = ({
           <div className="header-actions">
             {headerActions}
             {showCloseButton && onClose && (
-              <button className="close-btn" onClick={onClose}>
+              <button type="button" className="close-btn" onClick={onClose} aria-label="Cerrar ventana">
                 <AiOutlineClose />
               </button>
             )}
@@ -136,7 +136,6 @@ const ModalContainer = styled.div`
   flex-direction: column;
   overflow: ${({ $allowOverflow }) => ($allowOverflow ? "visible" : "hidden")};
   color: ${({ theme }) => theme.text};
-  transition: max-width 0.3s ease;
   touch-action: auto;
 `;
 

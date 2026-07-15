@@ -10,7 +10,13 @@ import {
   RiDraggable,
   RiSettings3Line
 } from "react-icons/ri";
-import { Card, CardHeader, BtnGreen, Modal, InputText2, Btnsave, ConfirmModal } from "../../../../index";
+import { Card } from "../../../moleculas/Card";
+import { CardHeader } from "../../../moleculas/CardHeader";
+import { BtnGreen } from "../../../moleculas/BtnGreen";
+import { Modal } from "../../Modal";
+import { InputText2 } from "../../formularios/InputText2";
+import { Btnsave } from "../../../moleculas/Btnsave";
+import { ConfirmModal } from "../../ConfirmModal";
 import { Skeleton } from "../../../atomos/Skeleton";
 import { useDivisionStore } from "../../../../store/DivisionStore";
 
@@ -267,10 +273,10 @@ export function LigaDivisionsTab({
                         <div className="cat-title">
                             <RiFolder3Line />
                             <h3 title={cat.name}>{cat.name}</h3>
-                            <button className="icon-btn edit-cat" onClick={() => handleOpen('editCategory', cat)}><RiSettings3Line/></button>
-                            <button className="icon-btn del-cat" onClick={() => setDeleteModal({open:true, type:'category', id:cat.id, name:cat.name})}><RiDeleteBinLine/></button>
+                            <button type="button" className="icon-btn edit-cat" onClick={() => handleOpen('editCategory', cat)} aria-label={`Editar categoría ${cat.name}`}><RiSettings3Line/></button>
+                            <button type="button" className="icon-btn del-cat" onClick={() => setDeleteModal({open:true, type:'category', id:cat.id, name:cat.name})} aria-label={`Eliminar categoría ${cat.name}`}><RiDeleteBinLine/></button>
                         </div>
-                        <button className="add-div-btn" onClick={() => handleOpen('addDivision', null, cat)}>
+                        <button type="button" className="add-div-btn" onClick={() => handleOpen('addDivision', null, cat)}>
                             <RiAddLine /> <span className="btn-text">Agregar</span>
                         </button>
                     </CategoryHeader>
@@ -295,8 +301,8 @@ export function LigaDivisionsTab({
                                     <span className="meta">Nivel: {div.tier || index + 1}</span>
                                 </div>
                                 <div className="actions">
-                                    <button className="btn-edit" onClick={() => handleOpen('editDivision', div)}><RiPencilLine/></button>
-                                    <button className="btn-del" onClick={() => setDeleteModal({open:true, type:'division', id:div.id, name:div.name})}><RiDeleteBinLine/></button>
+                                    <button type="button" className="btn-edit" onClick={() => handleOpen('editDivision', div)} aria-label={`Editar división ${div.name}`}><RiPencilLine/></button>
+                                    <button type="button" className="btn-del" onClick={() => setDeleteModal({open:true, type:'division', id:div.id, name:div.name})} aria-label={`Eliminar división ${div.name}`}><RiDeleteBinLine/></button>
                                 </div>
                             </ListItem>
                         ))}
@@ -319,7 +325,7 @@ export function LigaDivisionsTab({
                    <>
                        {modal.type === 'addCategory' && (
                            <>
-                               <label>Opciones comunes</label>
+                               <span className="field-label">Opciones comunes</span>
                                <PresetsContainer>
                                    {PRESET_CATEGORIES.map(preset => (
                                        <PresetChip
@@ -332,13 +338,14 @@ export function LigaDivisionsTab({
                                        </PresetChip>
                                    ))}
                                </PresetsContainer>
-                               <label style={{ marginTop: '10px' }}>O escribe una personalizada</label>
+                               <label htmlFor="category-name" style={{ marginTop: '10px' }}>O escribe una personalizada</label>
                            </>
                        )}
-                       {modal.type === 'editCategory' && <label>Nombre de la Categoría</label>}
+                       {modal.type === 'editCategory' && <label htmlFor="category-name">Nombre de la Categoría</label>}
                        
                        <InputText2>
                           <input 
+                              id="category-name"
                               className="form__field" 
                               value={categoryName} 
                               onChange={(e)=>setCategoryName(e.target.value)} 
@@ -351,14 +358,14 @@ export function LigaDivisionsTab({
 
                {(modal.type === 'addDivision' || modal.type === 'editDivision') && (
                    <>
-                       <label>Categoría</label>
+                       <label htmlFor="division-category">Categoría</label>
                        <InputText2>
-                          <input className="form__field" value={modal.targetCategory?.name || modal.data?.categories?.name} disabled style={{ opacity: 0.6 }} />
+                          <input id="division-category" className="form__field" value={modal.targetCategory?.name || modal.data?.categories?.name} disabled style={{ opacity: 0.6 }} />
                        </InputText2>
                        <br/>
-                       <label>Nombre de la División</label>
+                       <label htmlFor="division-name">Nombre de la División</label>
                        <InputText2>
-                          <input className="form__field" value={formValue} onChange={(e)=>setFormValue(e.target.value)} autoFocus placeholder="Ej. Primera División" />
+                          <input id="division-name" className="form__field" value={formValue} onChange={(e)=>setFormValue(e.target.value)} autoFocus placeholder="Ej. Primera División" />
                        </InputText2>
                    </>
                )}
@@ -479,7 +486,7 @@ const ListItem = styled.div`
 `;
 
 const EmptyMsg = styled.div` width: 100%; text-align: center; padding: 30px; opacity: 0.5; font-style: italic; background: ${({theme})=>theme.bgtotal}; border-radius: 12px; `;
-const ModalContent = styled.div` display: flex; flex-direction: column; gap: 5px; padding-top: 10px; .footer-modal { display: flex; justify-content: flex-end; margin-top: 15px; } label { font-size: 13px; font-weight: 600; margin-bottom: 2px; }`;
+const ModalContent = styled.div` display: flex; flex-direction: column; gap: 5px; padding-top: 10px; .footer-modal { display: flex; justify-content: flex-end; margin-top: 15px; } label, .field-label { font-size: 13px; font-weight: 600; margin-bottom: 2px; }`;
 
 // --- NUEVOS ESTILOS PARA LOS CHIPS (PRESETS) ---
 const PresetsContainer = styled.div`

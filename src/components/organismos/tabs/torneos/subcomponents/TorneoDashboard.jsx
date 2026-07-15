@@ -6,7 +6,7 @@ import {
     RiAddCircleLine, RiArrowLeftSLine, RiArrowRightSLine 
 } from "react-icons/ri";
 import { IoMdSettings, IoIosArrowDown, IoIosArrowUp, IoMdStopwatch } from "react-icons/io";
-import { BtnNormal } from "../../../../../index";
+import { BtnNormal } from "../../../../moleculas/BtnNormal";
 import { TableRowSkeleton } from "../../../../../components/atomos/Skeleton";
 
 // --- STYLES CORREGIDOS ---

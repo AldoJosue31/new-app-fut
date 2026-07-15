@@ -12,6 +12,10 @@ import {
   TEAM_STATUS 
 } from "../../utils/constants";
 import { addDaysToDate, isValidDate } from "../../utils/dateUtils";
+import {
+  LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY,
+  TOURNAMENT_RULES_DRAFT_STORAGE_KEY,
+} from "../../utils/storageKeys";
 
 const getParsedLeagueConfig = (leagueData) => {
   if (!leagueData?.default_config) return {};
@@ -91,7 +95,9 @@ export const useTorneosLogic = () => {
   const [partidos, setPartidos] = useState([]);
 
   const [reglas, setReglas] = useState(() => {
-    const savedData = localStorage.getItem("torneo_reglas_draft");
+    const savedData =
+      localStorage.getItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
     if (savedData) {
         const parsed = JSON.parse(savedData);
         if (parsed.reglasDraft) return parsed.reglasDraft;
@@ -142,7 +148,9 @@ export const useTorneosLogic = () => {
       descensos: 0
     };
 
-    const savedRules = localStorage.getItem("torneo_reglas_draft");
+    const savedRules =
+      localStorage.getItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
     if (savedRules) {
         const parsed = JSON.parse(savedRules);
         const parsedRepechajeTeams = parseInt(parsed.repechajeTeams, 10) || 0;
@@ -379,7 +387,8 @@ export const useTorneosLogic = () => {
 
   const resetDraftToLeagueRules = useCallback(() => {
     const nextDraft = createLeagueRuleDraft(leagueData);
-    localStorage.removeItem("torneo_reglas_draft");
+    localStorage.removeItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
     setForm(nextDraft.form);
     setReglas(nextDraft.reglas);
   }, [leagueData]);
@@ -388,7 +397,7 @@ export const useTorneosLogic = () => {
     if (activeTournament) return; 
 
     const draftData = { ...form, reglasDraft: reglas };
-    localStorage.setItem("torneo_reglas_draft", JSON.stringify(draftData));
+    localStorage.setItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY, JSON.stringify(draftData));
 
     const max = parseInt(form.maxTeams || 0);
     if (max > 0 && participatingIds.length > max) {

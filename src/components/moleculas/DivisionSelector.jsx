@@ -179,14 +179,15 @@ export function DivisionSelector({ isOpen }) {
           <FullView $isActive={isOpen}>
             <div className="header-row">
               <div className="label">División Actual</div>
-              <div className="config-btn" onClick={() => setModalOpen(true)} title="Gestionar">
+              <button type="button" className="config-btn" onClick={() => setModalOpen(true)} title="Gestionar" aria-label="Gestionar divisiones">
                 <v.iconoSettings />
-              </div>
+              </button>
             </div>
 
             <SelectWrapper $isSwitching={isSwitchingDivision}>
               {divisiones.length > 0 ? (
                 <select
+                  aria-label="División actual"
                   value={selectedDivisionId}
                   onChange={handleChange}
                   disabled={isSwitchingDivision}
@@ -199,9 +200,9 @@ export function DivisionSelector({ isOpen }) {
                   ))}
                 </select>
               ) : (
-                <div className="no-data" onClick={() => setModalOpen(true)}>
+                <button type="button" className="no-data" onClick={() => setModalOpen(true)}>
                   + Crear
-                </div>
+                </button>
               )}
 
               {divisiones.length > 0 && (
@@ -218,6 +219,8 @@ export function DivisionSelector({ isOpen }) {
 
           <CompactView $isActive={!isOpen}>
             <InitialsContainer
+              type="button"
+              aria-label={divisiones.length > 1 ? "Cambiar a la siguiente división" : divisiones.length === 0 ? "Crear división" : selectedDivision?.name}
               onClick={divisiones.length > 0 ? handleCycle : () => setModalOpen(true)}
               title={isSwitchingDivision ? "Cambiando division" : divisiones.length > 1 ? "Click para cambiar de división" : selectedDivision?.name}
               $isEmpty={divisiones.length === 0}
@@ -259,6 +262,7 @@ export function DivisionSelector({ isOpen }) {
           <form onSubmit={handleAdd} className="add-form">
             <InputText2>
               <input
+                aria-label="Nombre de la nueva división"
                 className="form__field"
                 placeholder="Nueva División..."
                 value={newDivisionName}
@@ -279,7 +283,7 @@ export function DivisionSelector({ isOpen }) {
               <div className="item" key={div.id}>
                 <span>{div.name}</span>
                 <div className="actions">
-                  <button className="btn-icon delete" onClick={() => handleDelete(div.id)}>
+                  <button type="button" className="btn-icon delete" onClick={() => handleDelete(div.id)} aria-label={`Eliminar división ${div.name}`}>
                     <RiDeleteBinLine />
                   </button>
                 </div>
@@ -354,6 +358,9 @@ const FullView = styled.div`
     }
 
     .config-btn {
+      border: 0;
+      padding: 0;
+      background: transparent;
       cursor: pointer;
       font-size: 1rem;
       color: ${({ theme }) => theme.text};
@@ -376,7 +383,7 @@ const CompactView = styled.div`
   ${({ $isActive }) => ($isActive ? activeState : inactiveState("10px"))}
 `;
 
-const InitialsContainer = styled.div`
+const InitialsContainer = styled.button`
   position: relative;
   width: 44px;
   height: 44px;
@@ -489,6 +496,9 @@ const SelectWrapper = styled.div`
   }
 
   .no-data {
+    width: 100%;
+    border: 0;
+    background: transparent;
     padding: 12px;
     font-size: 0.85rem;
     color: ${({ theme }) => theme.primary};

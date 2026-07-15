@@ -20,19 +20,8 @@ export const TOURNAMENT_FORMAT = {
   PLAYOFFS: 'Eliminatoria'
 };
 
-export const TIE_BREAK_TYPE = {
-  GOALS: 'Goles',
-  HEAD_TO_HEAD: 'Directo'
-};
-
 export const TEAM_STATUS = {
   ACTIVE: 'Activo',
   INACTIVE: 'Inactivo',
-  SUSPENDED: 'Suspendido'
-};
-
-export const PLAYER_STATUS = {
-  ACTIVE: 'Activo',
-  INJURED: 'Lesionado',
   SUSPENDED: 'Suspendido'
 };

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import styled from "styled-components";
-import { Modal, Btnsave, v } from "../../../index";
+import { Modal } from "../Modal";
+import { Btnsave } from "../../moleculas/Btnsave";
+import { v } from "../../../styles/variables";
 
 export function TeamTransferModal({ isOpen, onClose, team, divisiones, currentDivision, onConfirm }) {
   const [targetDivisionId, setTargetDivisionId] = useState("");

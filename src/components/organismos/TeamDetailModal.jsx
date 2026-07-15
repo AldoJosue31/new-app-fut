@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Modal } from "./Modal";
 import { useSort } from "../../hooks/useSort";
 import { supabase } from "../../supabase/supabase.config";
@@ -17,6 +17,14 @@ import { TeamDetailOverviewView } from "./teamDetailModal/submenus/TeamDetailOve
 import { TeamDetailPlayersView } from "./teamDetailModal/submenus/TeamDetailPlayersView";
 import { TeamDetailStatsView } from "./teamDetailModal/submenus/TeamDetailStatsView";
 import { DetailContainer } from "./teamDetailModal/styles";
+
+const subscribeToWindowWidth = (onStoreChange) => {
+  window.addEventListener("resize", onStoreChange);
+  return () => window.removeEventListener("resize", onStoreChange);
+};
+
+const getWindowWidth = () => window.innerWidth;
+const getServerWindowWidth = () => 1024;
 
 export function TeamDetailModal({
   isOpen,
@@ -40,7 +48,11 @@ export function TeamDetailModal({
 
   const initializedForTeamRef = useRef(null);
 
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const windowWidth = useSyncExternalStore(
+    subscribeToWindowWidth,
+    getWindowWidth,
+    getServerWindowWidth,
+  );
   const resultsRailRef = useRef(null);
   const upcomingRailRef = useRef(null);
 
@@ -57,12 +69,6 @@ export function TeamDetailModal({
     key: "goals",
     direction: "descending",
   });
-
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const checkTournamentStatus = useCallback(async () => {
     if (!team || !division) return;

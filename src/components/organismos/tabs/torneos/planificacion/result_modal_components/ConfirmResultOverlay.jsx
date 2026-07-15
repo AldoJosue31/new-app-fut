@@ -1,7 +1,9 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/ConfirmResultOverlay.jsx
 import React from "react";
 import styled from "styled-components";
-import { v, BtnNormal, Btnsave } from "../../../../../../index";
+import { v } from "../../../../../../styles/variables";
+import { BtnNormal } from "../../../../../moleculas/BtnNormal";
+import { Btnsave } from "../../../../../moleculas/Btnsave";
 import { RiCheckDoubleLine } from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 

@@ -122,7 +122,7 @@ export default function HeroSection() {
 
             <StatsGroup>
               {hero.stats.map((s, i) => (
-                <AnimatedStat key={i} value={s.value} label={s.label} delay={i * 120} />
+                <AnimatedStat key={s.label} value={s.value} label={s.label} delay={i * 120} />
               ))}
             </StatsGroup>
           </LeftColumn>
@@ -264,12 +264,6 @@ const orbFloat = keyframes`
 const orbFloat2 = keyframes`
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%       { transform: translate(-30px, 20px) scale(0.94); }
-`;
-
-const gradientShift = keyframes`
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 `;
 
 const liveDotPulse = keyframes`
@@ -438,12 +432,7 @@ const Badge = styled.div`
 `;
 
 const GradientText = styled.span`
-  background: linear-gradient(135deg, #1CB0F6 0%, #6366F1 50%, #EC4899 100%);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: ${gradientShift} 4s ease infinite;
+  color: var(--lp-primary);
 `;
 
 const ButtonGroup = styled.div`

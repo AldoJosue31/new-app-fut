@@ -204,7 +204,7 @@ export const GoleadoresTab = ({
                 ))
               ) : (
                 goleadoresMostrados.map((jugador, index) => (
-                  <Tr key={`${jugador?.player_id ?? 'jugador'}-${index}`}>
+                  <Tr key={jugador?.player_id || `${jugador?.team_id || jugador?.team_name}-${jugador?.dorsal || "sin-dorsal"}-${jugador?.name}`}>
                     <RankTd>
                       <RankBadge $pos={index + 1}>{index + 1}</RankBadge>
                     </RankTd>

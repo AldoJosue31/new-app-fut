@@ -135,6 +135,29 @@ export const getActiveDelegateInvitation = async (teamId) => {
   };
 };
 
+export const getActiveDelegateInvitations = async (teamIds = []) => {
+  const normalizedTeamIds = unique(teamIds);
+  if (!normalizedTeamIds.length) return [];
+
+  const { data, error } = await supabase
+    .from("delegate_invitations")
+    .select(
+      "id, team_id, invited_name, invited_email, created_at, expires_at, metadata"
+    )
+    .in("team_id", normalizedTeamIds)
+    .eq("is_used", false)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map((invitation) => ({
+    ...invitation,
+    invited_phone: invitation?.metadata?.invited_phone || null,
+  }));
+};
+
 export const createDelegateInvitation = async ({
   teamId,
   invitedName,
@@ -216,18 +239,7 @@ export const submitDelegateChangeRequest = async ({
   return parseRpcResponse("submit_delegate_change_request", data, error);
 };
 
-export const getLeagueDelegateChangeRequests = async (leagueId) => {
-  if (!leagueId) return [];
 
-  const { data: requests, error: requestsError } = await supabase
-    .from("delegate_change_requests")
-    .select("*")
-    .eq("league_id", leagueId)
-    .order("created_at", { ascending: false });
-
-  if (requestsError) throw requestsError;
-  return hydrateDelegateChangeRequests(requests || []);
-};
 
 export const getTeamDelegateChangeRequests = async (teamId) => {
   if (!teamId) return [];

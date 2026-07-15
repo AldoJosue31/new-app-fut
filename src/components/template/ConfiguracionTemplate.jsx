@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
-import {
-  Btnsave,
-  InputText2,
-  BtnNormal,
-  ContentContainer,
-  Card,
-  CardHeader,
-  Badge,
-} from "../../index";
+import { Btnsave } from "../moleculas/Btnsave";
+import { InputText2 } from "../organismos/formularios/InputText2";
+import { BtnNormal } from "../moleculas/BtnNormal";
+import { ContentContainer } from "../atomos/ContentContainer";
+import { Card } from "../moleculas/Card";
+import { CardHeader } from "../moleculas/CardHeader";
+import { Badge } from "../atomos/Badge";
 import { PageHeader } from "../moleculas/PageHeader";
 import { useAuthStore } from "../../store/AuthStore";
 import {
@@ -136,7 +134,7 @@ export function ConfiguracionTemplate({ state, setState }) {
             <form onSubmit={handleUpdateProfile}>
               <Label>ID de Usuario</Label>
               <InputText2>
-                <input className="form__field disabled" value={user?.id || ""} disabled type="text" />
+                <input className="form__field disabled" value={user?.id || ""} disabled type="text" aria-label="ID de usuario" />
               </InputText2>
 
               <Label>Rol en la Liga</Label>
@@ -147,6 +145,7 @@ export function ConfiguracionTemplate({ state, setState }) {
               <Label>Nombre Completo</Label>
               <InputText2>
                 <input
+                  aria-label="Nombre completo"
                   className="form__field"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
@@ -157,7 +156,7 @@ export function ConfiguracionTemplate({ state, setState }) {
 
               <Label>Correo Electrónico</Label>
               <InputText2>
-                <input className="form__field disabled" value={user?.email || ""} disabled type="text" />
+                <input className="form__field disabled" value={user?.email || ""} disabled type="text" aria-label="Correo electrónico" />
               </InputText2>
 
               <div className="actions">

@@ -9,17 +9,15 @@ import {
   RiUser3Line,
 } from "react-icons/ri";
 import { v } from "../../../../styles/variables";
-import {
-  Badge,
-  BtnNormal,
-  Btnsave,
-  Card,
-  EmptyState,
-  Modal,
-  Skeleton,
-  TabsNavigation,
-  Toast,
-} from "../../../../index";
+import { Badge } from "../../../atomos/Badge";
+import { BtnNormal } from "../../../moleculas/BtnNormal";
+import { Btnsave } from "../../../moleculas/Btnsave";
+import { Card } from "../../../moleculas/Card";
+import { EmptyState } from "../../EmptyState";
+import { Modal } from "../../Modal";
+import { Skeleton } from "../../../atomos/Skeleton";
+import { TabsNavigation } from "../../../moleculas/TabsNavigation";
+import { Toast } from "../../../atomos/Toast";
 
 const FILTER_TABS = [
   { id: "pending", label: "Pendientes", icon: <RiTimeLine /> },
@@ -317,21 +315,21 @@ export function LigaDelegateRequestsTab({
               <h4>Resumen</h4>
               <InfoGrid>
                 <InfoItem>
-                  <label>Equipo</label>
+                  <span className="meta-label">Equipo</span>
                   <strong>{selectedRequest.team?.name || "Sin equipo"}</strong>
                 </InfoItem>
                 <InfoItem>
-                  <label>Delegado</label>
+                  <span className="meta-label">Delegado</span>
                   <strong>{selectedRequest.submitter_label}</strong>
                 </InfoItem>
                 <InfoItem>
-                  <label>Estado</label>
+                  <span className="meta-label">Estado</span>
                   <Badge color={(STATUS_META[selectedRequest.status] || STATUS_META.pending).color}>
                     {(STATUS_META[selectedRequest.status] || STATUS_META.pending).label}
                   </Badge>
                 </InfoItem>
                 <InfoItem>
-                  <label>Enviado</label>
+                  <span className="meta-label">Enviado</span>
                   <strong>{new Date(selectedRequest.created_at).toLocaleString()}</strong>
                 </InfoItem>
               </InfoGrid>
@@ -472,7 +470,6 @@ const ListContainer = styled.div`
   flex-direction: column;
   gap: 12px;
   min-height: 120px;
-  transition: min-height 0.3s ease;
 `;
 
 const RequestCard = styled.button`
@@ -571,7 +568,7 @@ const InfoItem = styled.div`
   background: ${({ theme }) => theme.bgtotal};
   border: 1px solid ${({ theme }) => theme.bg4};
 
-  label {
+  .meta-label {
     font-size: 0.8rem;
     font-weight: 700;
     opacity: 0.7;

@@ -6,7 +6,7 @@ import { useAuthStore } from "../../../store/AuthStore";
 import { useDivisionStore } from "../../../store/DivisionStore";
 import { v } from "../../../styles/variables";
 import { Device } from "../../../styles/breakpoints";
-import { ToggleTema } from "../../../index";
+import { ToggleTema } from "../ToggleTema";
 import { DivisionSelector } from "../../moleculas/DivisionSelector";
 import { ConfirmModal } from "../ConfirmModal";
 import { ROLES } from "../../../utils/constants";
@@ -111,9 +111,9 @@ export function Sidebar({ state, setState }) {
   return (
     <Main $isOpen={state}>
       <Overlay $isOpen={state} onClick={() => setState(false)} />
-      <span className="Sidebarbutton" onClick={() => setState(!state)}>
+      <button type="button" className="Sidebarbutton" onClick={() => setState(!state)} aria-label={state ? "Cerrar menú" : "Abrir menú"}>
         <v.iconoflechaderecha />
-      </span>
+      </button>
 
       <Container $isOpen={state} className={state ? "active" : ""}>
         <div className="Logocontent">
@@ -206,6 +206,8 @@ const Main = styled.div`
     transition: all 0.3s ease-in-out;
     z-index: 51;
     color: ${(props) => props.theme.text};
+    border: 0;
+    padding: 0;
   }
 
   @media ${Device.tablet} {
