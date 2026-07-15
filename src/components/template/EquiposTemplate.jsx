@@ -32,7 +32,7 @@ import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetai
 import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 import { supabase } from "../../supabase/supabase.config";
 import {
-  getActiveDelegateInvitations,
+  getDelegateInvitations,
   getTeamsDelegateChangeRequests,
   reviewDelegateChangeRequest,
 } from "../../services/delegates";
@@ -156,7 +156,7 @@ export const EquiposTemplate = ({
   const [activeTab, setActiveTab] = useState("info");
   const [isInvitePanelActive, setIsInvitePanelActive] = useState(false);
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
-  const [activeInvitations, setActiveInvitations] = useState([]);
+  const [delegateInvitations, setDelegateInvitations] = useState([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [invitationsError, setInvitationsError] = useState("");
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -188,20 +188,20 @@ export const EquiposTemplate = ({
     [equipos]
   );
 
-  const loadActiveInvitations = useCallback(async ({ silent = false } = {}) => {
+  const loadDelegateInvitations = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
       setLoadingInvitations(true);
       setInvitationsError("");
     }
 
     try {
-      const invitations = await getActiveDelegateInvitations(visibleTeamIds);
-      setActiveInvitations(invitations);
+      const invitations = await getDelegateInvitations(visibleTeamIds);
+      setDelegateInvitations(invitations);
       setInvitationsError("");
     } catch (error) {
       if (!silent) {
         setInvitationsError(
-          error.message || "No se pudieron cargar las invitaciones activas."
+          error.message || "No se pudieron cargar las invitaciones."
         );
       }
     } finally {
@@ -211,7 +211,7 @@ export const EquiposTemplate = ({
 
   const handleOpenInvitations = () => {
     setIsInvitationsModalOpen(true);
-    loadActiveInvitations();
+    loadDelegateInvitations();
   };
 
   const handleCloseInvitations = () => {
@@ -233,7 +233,7 @@ export const EquiposTemplate = ({
 
       window.clearTimeout(refreshTimeoutId);
       refreshTimeoutId = window.setTimeout(() => {
-        loadActiveInvitations({ silent: true });
+        loadDelegateInvitations({ silent: true });
       }, 120);
     };
 
@@ -252,7 +252,7 @@ export const EquiposTemplate = ({
         if (!isActive) return;
 
         if (status === "SUBSCRIBED") {
-          loadActiveInvitations({ silent: true });
+          loadDelegateInvitations({ silent: true });
         }
       });
 
@@ -263,7 +263,7 @@ export const EquiposTemplate = ({
     };
   }, [
     isInvitationsModalOpen,
-    loadActiveInvitations,
+    loadDelegateInvitations,
     visibleDivisionId,
     visibleTeamIds,
   ]);
@@ -272,11 +272,11 @@ export const EquiposTemplate = ({
     if (!isInvitationsModalOpen || !invitationsError) return undefined;
 
     const retryIntervalId = window.setInterval(() => {
-      loadActiveInvitations({ silent: true });
+      loadDelegateInvitations({ silent: true });
     }, 5000);
 
     return () => window.clearInterval(retryIntervalId);
-  }, [invitationsError, isInvitationsModalOpen, loadActiveInvitations]);
+  }, [invitationsError, isInvitationsModalOpen, loadDelegateInvitations]);
 
   const teamMotion = shouldReduceMotion
     ? {
@@ -751,10 +751,11 @@ export const EquiposTemplate = ({
         <ActiveDelegateInvitationsModal
           isOpen={isInvitationsModalOpen}
           onClose={handleCloseInvitations}
-          invitations={activeInvitations}
+          invitations={delegateInvitations}
           teams={equipos}
           loading={loadingInvitations}
           error={invitationsError}
+          onInvitationUpdated={() => loadDelegateInvitations({ silent: true })}
         />
 
         <TeamTransferModal
