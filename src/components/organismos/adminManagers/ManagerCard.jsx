@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import { Card } from "../../../index";
+import { Card } from "../../moleculas/Card";
 import { v } from "../../../styles/variables";
 import { Device } from "../../../styles/breakpoints"; 
 import { BiTrash, BiEditAlt } from "react-icons/bi"; // Añadido BiEditAlt

@@ -117,7 +117,7 @@ const SummaryStat = ({ label, value, accent, isDark }) => (
   >
     <span
       style={{
-        fontSize: '11px',
+        fontSize: '12px',
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: '0.06em',
@@ -195,7 +195,7 @@ const renderTableView = ({ rows, colors, isMobile }) => (
                   <span style={{ fontWeight: '700', fontSize: isMobile ? '13px' : '14px', lineHeight: 1.2 }}>
                     {jugador?.name}
                   </span>
-                  <span style={{ fontSize: '11px', color: colors.subtext, marginTop: '4px' }}>
+                  <span style={{ fontSize: '12px', color: colors.subtext, marginTop: '4px' }}>
                     {jugador?.dorsal ? `#${jugador.dorsal}` : 'Sin dorsal'}
                     {isMobile ? ` - ${jugador?.team_name || 'Sin equipo'}` : ''}
                   </span>
@@ -327,7 +327,7 @@ const renderBarsView = ({ rows, colors, isMobile }) => {
                 >
                   {row.name}
                 </span>
-                <span style={{ fontSize: '11px', color: colors.subtext }}>
+                <span style={{ fontSize: '12px', color: colors.subtext }}>
                   {row?.team_name || 'Sin equipo'}
                 </span>
               </div>
@@ -451,7 +451,7 @@ const renderPieView = ({ rows, colors, isMobile }) => {
           >
             <span
               style={{
-                fontSize: '10px',
+                fontSize: '12px',
                 fontWeight: '800',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
@@ -503,7 +503,7 @@ const renderPieView = ({ rows, colors, isMobile }) => {
               >
                 {segment.name}
               </div>
-              <div style={{ fontSize: '11px', color: colors.subtext }}>
+              <div style={{ fontSize: '12px', color: colors.subtext }}>
                 {segment.team_name || 'Participacion acumulada'}
               </div>
             </div>

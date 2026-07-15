@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import { 
-  Modal, 
-  InputText2, 
-  Btnsave, 
-  BtnNormal, 
-  Badge, 
-  Toast,
-  ConfirmModal 
-} from "../../../index";
+import { Badge } from "../../atomos/Badge";
+import { Toast } from "../../atomos/Toast";
+import { BtnNormal } from "../../moleculas/BtnNormal";
+import { Btnsave } from "../../moleculas/Btnsave";
+import { ConfirmModal } from "../ConfirmModal";
+import { InputText2 } from "../formularios/InputText2";
+import { Modal } from "../Modal";
 import { ManagerDetailModal } from "./ManagerDetailModal";
 import { TabsNavigation, TabContent } from "../../moleculas/TabsNavigation";
 import { v } from "../../../styles/variables";
@@ -257,30 +255,30 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
             <Form onSubmit={handleManualRegister}>
               <p className="desc-text">Registro manual de nuevo manager.</p>
               <InputGroup>
-                <label>Liga</label>
+                <label htmlFor="manager-league-name">Liga</label>
                 <InputText2>
-                    <input name="leagueName" value={manualForm.leagueName} onChange={handleManualChange} placeholder="Nombre de la liga" required />
+                    <input id="manager-league-name" name="leagueName" value={manualForm.leagueName} onChange={handleManualChange} placeholder="Nombre de la liga" required />
                     <BiFootball className="icon-input"/>
                 </InputText2>
               </InputGroup>
               <InputGroup>
-                <label>Nombre</label>
+                <label htmlFor="manager-full-name">Nombre</label>
                 <InputText2>
-                    <input name="fullName" value={manualForm.fullName} onChange={handleManualChange} required />
+                    <input id="manager-full-name" name="fullName" value={manualForm.fullName} onChange={handleManualChange} required />
                     <BiUserPlus className="icon-input"/>
                 </InputText2>
               </InputGroup>
               <InputGroup>
-                <label>Email</label>
+                <label htmlFor="manager-email">Email</label>
                 <InputText2>
-                    <input type="email" name="email" value={manualForm.email} onChange={handleManualChange} required />
+                    <input id="manager-email" type="email" name="email" value={manualForm.email} onChange={handleManualChange} required />
                     <BiEnvelope className="icon-input"/>
                 </InputText2>
               </InputGroup>
               <InputGroup>
-                <label>Password</label>
+                <label htmlFor="manager-password">Password</label>
                 <InputText2>
-                    <input type="password" name="password" value={manualForm.password} onChange={handleManualChange} minLength={6} required />
+                    <input id="manager-password" type="password" name="password" value={manualForm.password} onChange={handleManualChange} minLength={6} required />
                     <BiLock className="icon-input"/>
                 </InputText2>
               </InputGroup>
@@ -300,10 +298,10 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
                  <Btnsave funcion={generateLink} titulo={loadingLink ? "Generando..." : "Crear Enlace"} bgcolor={v.verde} icono={<BiLink/>} width="100%" disabled={loadingLink}/>
               ) : (
                 <ResultBox>
-                  <label>Enlace Listo:</label>
+                  <label htmlFor="manager-invitation-link">Enlace Listo:</label>
                   <div className="copy-row">
-                    <input readOnly value={generatedLink} />
-                    <button type="button" onClick={() => copyLink(generatedLink.split('/').pop())}><BiCopy/></button>
+                    <input id="manager-invitation-link" readOnly value={generatedLink} />
+                    <button type="button" onClick={() => copyLink(generatedLink.split('/').pop())} aria-label="Copiar enlace de invitación"><BiCopy/></button>
                   </div>
                   <BtnNormal funcion={() => setGeneratedLink("")} titulo="Nuevo Link" bgcolor={v.bg4} />
                 </ResultBox>
@@ -336,18 +334,18 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
                          <div className="actions">
                             {/* Botón INFO (Solo usados) */}
                             {status === "USED" && (
-                                <button className="btn-icon info" onClick={() => viewUsedDetails(inv)} title="Ver Manager">
+                                <button type="button" className="btn-icon info" onClick={() => viewUsedDetails(inv)} title="Ver Manager" aria-label="Ver manager">
                                     <BiInfoCircle/>
                                 </button>
                             )}
                             {/* Botón COPIAR (Solo activos) */}
                             {status === "ACTIVE" && (
-                                <button className="btn-icon copy" onClick={() => copyLink(inv.token)} title="Copiar Enlace">
+                                <button type="button" className="btn-icon copy" onClick={() => copyLink(inv.token)} title="Copiar Enlace" aria-label="Copiar enlace">
                                     <BiCopy/>
                                 </button>
                             )}
                             {/* Botón BORRAR (Todos) */}
-                            <button className="btn-icon delete" onClick={() => confirmDelete(inv)} title="Eliminar">
+                            <button type="button" className="btn-icon delete" onClick={() => confirmDelete(inv)} title="Eliminar" aria-label="Eliminar invitación">
                                  <BiTrash/>
                             </button>
                          </div>

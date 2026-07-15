@@ -1,6 +1,6 @@
 import React from "react";
 import styled, { css } from "styled-components";
-import { Badge } from "../../../../../index";
+import { Badge } from "../../../../atomos/Badge";
 import {
   RiCheckLine,
   RiDragMove2Line,
@@ -94,7 +94,8 @@ export const PendingMatchCard = ({
       {!isConfirmed && (!isDelayed || hasResolution) && (
         <div className="actions">
           {hasResolution ? (
-            <button
+            <button type="button"
+              aria-label="Revertir decisión del partido"
               className="icon-btn revert"
               onClick={(e) => {
                 e.stopPropagation();
@@ -105,7 +106,8 @@ export const PendingMatchCard = ({
               <RiCloseLine />
             </button>
           ) : (
-            <button
+            <button type="button"
+              aria-label="Definir resolución del partido"
               className="icon-btn resolve"
               onClick={(e) => {
                 e.stopPropagation();
@@ -140,15 +142,6 @@ const Card = styled.div`
           : $isDelayed
             ? "#e74c3c"
             : theme.bg4};
-  border-left: 4px solid
-    ${({ theme, $isDelayed, $hasResolution, $isSelected }) =>
-      $isSelected
-        ? v.colorPrincipal
-        : $hasResolution
-          ? v.colorPrincipal
-          : $isDelayed
-            ? "#e74c3c"
-            : theme.gray300};
   padding: 6px 10px;
   border-radius: 6px;
   display: flex;

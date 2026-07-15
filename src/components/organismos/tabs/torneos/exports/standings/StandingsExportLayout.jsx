@@ -1,6 +1,6 @@
 // src/components/organismos/tabs/torneos/exports/standings/StandingsExportLayout.jsx
 import React, { forwardRef } from 'react';
-import { v } from "../../../../../../index"; 
+import { v } from "../../../../../../styles/variables";
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 

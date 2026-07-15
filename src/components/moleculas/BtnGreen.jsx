@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { Icono } from "../../index";
+import { Icono } from "../atomos/Icono";
 import { v } from "../../styles/variables";
 
 export function BtnGreen({

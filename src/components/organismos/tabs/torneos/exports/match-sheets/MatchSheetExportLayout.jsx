@@ -100,7 +100,7 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                         {/* LOCAL */}
                         <div style={{ textAlign: 'center', width: '40%' }}>
                             <div style={{ width: isMobile ? '70px' : '112px', height: isMobile ? '70px' : '112px', background: 'white', borderRadius: '50%', margin: '0 auto 15px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {match.homeTeam?.logo ? <img src={match.homeTeam.logo} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={match.homeTeam?.name} color={match.homeTeam?.color} size="100%" />}
+                                {match.homeTeam?.logo ? <img src={match.homeTeam.logo} alt={`Escudo de ${match.homeTeam?.name || "equipo local"}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={match.homeTeam?.name} color={match.homeTeam?.color} size="100%" />}
                             </div>
                             <h3 style={{ fontSize: isMobile ? '0.9rem' : '1.3rem', fontWeight: 800, textTransform: 'uppercase' }}>{match.homeTeam?.name}</h3>
                         </div>
@@ -110,7 +110,7 @@ const MatchSheetExportLayout = forwardRef(({ match, referees, homeLineup, awayLi
                         {/* VISITANTE */}
                         <div style={{ textAlign: 'center', width: '40%' }}>
                             <div style={{ width: isMobile ? '70px' : '112px', height: isMobile ? '70px' : '112px', background: 'white', borderRadius: '50%', margin: '0 auto 15px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {match.awayTeam?.logo ? <img src={match.awayTeam.logo} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={match.awayTeam?.name} color={match.awayTeam?.color} size="100%" />}
+                                {match.awayTeam?.logo ? <img src={match.awayTeam.logo} alt={`Escudo de ${match.awayTeam?.name || "equipo visitante"}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <DynamicTeamLogo name={match.awayTeam?.name} color={match.awayTeam?.color} size="100%" />}
                             </div>
                             <h3 style={{ fontSize: isMobile ? '0.9rem' : '1.3rem', fontWeight: 800, textTransform: 'uppercase' }}>{match.awayTeam?.name}</h3>
                         </div>

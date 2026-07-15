@@ -2,7 +2,7 @@ import React from "react";
 import styled from "styled-components";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
-import { EmptyState } from "../../index";
+import { EmptyState } from "../organismos/EmptyState";
 import { RiCalendarTodoLine } from "react-icons/ri";
 
 export function PartidosTemplate({ state, setState }) {

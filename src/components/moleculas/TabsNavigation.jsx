@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
@@ -14,7 +14,7 @@ export function TabsNavigation({
   const tabsRef = useRef([]);
   const rafRef = useRef(null);
 
-  const updateIndicator = () => {
+  const updateIndicator = useCallback(() => {
     const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
     const currentTab = tabsRef.current[activeIndex];
 
@@ -25,16 +25,16 @@ export function TabsNavigation({
       width: currentTab.offsetWidth,
       opacity: 1,
     });
-  };
+  }, [activeTab, tabs]);
 
-  const scheduleIndicatorUpdate = () => {
+  const scheduleIndicatorUpdate = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     rafRef.current = requestAnimationFrame(() => {
       updateIndicator();
       requestAnimationFrame(updateIndicator);
     });
-  };
+  }, [updateIndicator]);
 
   useLayoutEffect(() => {
     scheduleIndicatorUpdate();
@@ -42,7 +42,7 @@ export function TabsNavigation({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [activeTab, tabs.length]);
+  }, [scheduleIndicatorUpdate]);
 
   useEffect(() => {
     const handleResize = () => scheduleIndicatorUpdate();
@@ -65,7 +65,7 @@ export function TabsNavigation({
       if (resizeObserver) resizeObserver.disconnect();
       clearTimeout(timeoutId);
     };
-  }, [activeTab, tabs]);
+  }, [scheduleIndicatorUpdate, tabs]);
 
   return (
     <Container ref={containerRef}>

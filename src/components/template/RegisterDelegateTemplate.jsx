@@ -8,15 +8,13 @@ import {
   BiShieldQuarter,
   BiUser,
 } from "react-icons/bi";
-import {
-  Card,
-  Btnsave,
-  InputText2,
-  Title,
-  ToggleTema,
-  Modal,
-  Toast,
-} from "../../index";
+import { Card } from "../moleculas/Card";
+import { Btnsave } from "../moleculas/Btnsave";
+import { InputText2 } from "../organismos/formularios/InputText2";
+import { Title } from "../atomos/Title";
+import { ToggleTema } from "../organismos/ToggleTema";
+import { Modal } from "../organismos/Modal";
+import { Toast } from "../atomos/Toast";
 import { supabase } from "../../supabase/supabase.config";
 import {
   acceptDelegateInvitation,
@@ -203,6 +201,7 @@ export function RegisterDelegateTemplate({ token }) {
         <Form onSubmit={handleRegister}>
           <InputText2>
             <input
+              id="delegate-register-name"
               className="form__field"
               name="fullName"
               required
@@ -210,11 +209,12 @@ export function RegisterDelegateTemplate({ token }) {
               value={form.fullName}
               onChange={handleChange}
             />
-            <label className="form__label">Nombre Completo</label>
+            <label className="form__label" htmlFor="delegate-register-name">Nombre Completo</label>
           </InputText2>
 
           <InputText2>
             <input
+              id="delegate-register-email"
               type="email"
               className="form__field"
               name="email"
@@ -223,11 +223,12 @@ export function RegisterDelegateTemplate({ token }) {
               value={form.email}
               onChange={handleChange}
             />
-            <label className="form__label">Correo Electronico</label>
+            <label className="form__label" htmlFor="delegate-register-email">Correo Electronico</label>
           </InputText2>
 
           <InputText2>
             <input
+              id="delegate-register-password"
               type="password"
               className="form__field"
               name="password"
@@ -237,11 +238,12 @@ export function RegisterDelegateTemplate({ token }) {
               value={form.password}
               onChange={handleChange}
             />
-            <label className="form__label">Contrasena</label>
+            <label className="form__label" htmlFor="delegate-register-password">Contrasena</label>
           </InputText2>
 
           <InputText2>
             <input
+              id="delegate-register-phone"
               type="tel"
               className="form__field"
               name="contactPhone"
@@ -249,7 +251,7 @@ export function RegisterDelegateTemplate({ token }) {
               value={form.contactPhone}
               onChange={handleChange}
             />
-            <label className="form__label">Telefono (Opcional)</label>
+            <label className="form__label" htmlFor="delegate-register-phone">Telefono (Opcional)</label>
           </InputText2>
 
           <HintText>

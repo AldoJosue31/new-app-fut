@@ -1,7 +1,7 @@
 // src/components/organismos/tabs/torneos/planificacion/PlanningSidebar.jsx
 import React, { useMemo, useState } from "react";
 import styled from "styled-components";
-import { ContainerScroll } from "../../../../../index";
+import { ContainerScroll } from "../../../../atomos/ContainerScroll";
 import { PendingMatchCard } from "./PendingMatchCard";
 import { v } from "../../../../../styles/variables";
 import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";

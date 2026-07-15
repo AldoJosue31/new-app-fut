@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useEffectEvent, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { v } from '../../styles/variables';
@@ -6,25 +6,29 @@ import { RiErrorWarningLine, RiCheckboxCircleLine, RiCloseLine } from "react-ico
 
 export function Toast({ show, message, type = 'error', onClose, duration = 3000, inline = false }) {
     // 1. Agregamos un estado para saber si el Toast ha sido activado alguna vez
-    const [hasBeenShown, setHasBeenShown] = useState(false);
+    const [hasBeenShown, setHasBeenShown] = useState(show);
+    const onAutoClose = useEffectEvent(onClose);
 
     useEffect(() => {
-        // Si show se vuelve true, marcamos que ya ha sido mostrado
-        if (show) {
-            setHasBeenShown(true);
-        }
-
         if (show && duration) {
             const timer = setTimeout(() => {
-                onClose();
+                onAutoClose();
             }, duration);
             return () => clearTimeout(timer);
         }
-    }, [show, duration, onClose]);
+    }, [show, duration]);
 
     const content = (
         // 2. Pasamos la nueva prop $hasBeenShown al componente estilizado
-        <ToastContainer $show={show} $type={type} $hasBeenShown={hasBeenShown} $inline={inline}>
+        <ToastContainer
+            $show={show}
+            $type={type}
+            $hasBeenShown={hasBeenShown}
+            $inline={inline}
+            onAnimationStart={() => {
+                if (show && !hasBeenShown) setHasBeenShown(true);
+            }}
+        >
             <div className="icon-box">
                 {type === 'error' ? <RiErrorWarningLine /> : <RiCheckboxCircleLine />}
             </div>
@@ -32,7 +36,7 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000,
                 <span className="title">{type === 'error' ? 'Error' : 'Éxito'}</span>
                 <span className="message">{message}</span>
             </div>
-            <button className="close-btn" onClick={onClose}><RiCloseLine /></button>
+            <button type="button" className="close-btn" onClick={onClose} aria-label="Cerrar notificación"><RiCloseLine /></button>
         </ToastContainer>
     );
 
@@ -73,14 +77,13 @@ const ToastContainer = styled.div`
     border-radius: 12px;
     background: ${({ theme }) => theme.bgtotal};
     border: 1px solid ${({ theme }) => theme.bg4};
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    border-left: 5px solid ${({ $type }) => $type === 'error' ? v.colorError : v.colorExito};
+    box-shadow: inset 2px 0 0 ${({ $type }) => $type === 'error' ? v.colorError : v.colorExito}, 0 10px 30px rgba(0,0,0,0.2);
     backdrop-filter: blur(10px);
     
     /* 3. Lógica de animación corregida */
     animation: ${({ $show, $hasBeenShown }) => {
         // Si está activo, entra
-        if ($show) return css`${slideIn} 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards`;
+        if ($show) return css`${slideIn} 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
         
         // Si NO está activo, PERO ya fue mostrado antes, sale (fadeOut)
         if (!$show && $hasBeenShown) return css`${fadeOut} 0.4s forwards`;

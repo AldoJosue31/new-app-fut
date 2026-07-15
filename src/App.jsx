@@ -3,14 +3,11 @@ import styled, { ThemeProvider } from "styled-components";
 import { useLocation } from "react-router-dom";
 
 // Imports de Componentes y Contextos
-import {
-  AuthContextProvider,
-  GlobalStyles,
-  MyRoutes,
-  Sidebar,
-  UserAuth,
-  PantallaCarga 
-} from "./index";
+import { AuthContextProvider, UserAuth } from "./context/AuthContent";
+import { GlobalStyles } from "./styles/GlobalStyles";
+import { MyRoutes } from "./routes/routes";
+import { Sidebar } from "./components/organismos/sidebar/Sidebar";
+import { PantallaCarga } from "./components/organismos/PantallaCarga";
 
 // Imports de Estilos
 import { Device } from "./styles/breakpoints";

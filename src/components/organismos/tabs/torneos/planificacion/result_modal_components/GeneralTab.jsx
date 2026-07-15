@@ -1,7 +1,7 @@
 // src/components/organismos/tabs/torneos/planificacion/result_modal_components/GeneralTab.jsx
 import React from "react";
 import styled from "styled-components";
-import { v } from "../../../../../../index";
+import { v } from "../../../../../../styles/variables";
 import { RiErrorWarningLine, RiUserStarFill, RiCalendarEventLine, RiTimeLine, RiStickyNoteLine } from "react-icons/ri";
 
 export const GeneralTab = ({ 
@@ -12,9 +12,9 @@ export const GeneralTab = ({
     return (
         <Container>
             <WalkoverBox $active={isWalkover}>
-                <div className="wo-header" onClick={() => setIsWalkover(!isWalkover)}>
+                <button type="button" className="wo-header" onClick={() => setIsWalkover(!isWalkover)} aria-pressed={isWalkover}>
                     <RiErrorWarningLine size={24}/><span>Victoria por Default (W.O.)</span>
-                </div>
+                </button>
                 {isWalkover && (
                 <div className="wo-content">
                     <div className="wo-btns">
@@ -51,25 +51,26 @@ export const GeneralTab = ({
             {/* Se removió la condición !isWalkover para que estos inputs siempre sean visibles */}
             <GridInputs>
                 <InputGroup>
-                    <label><RiUserStarFill/> Árbitro Principal *</label>
-                    <select value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
+                    <label htmlFor="result-referee"><RiUserStarFill/> Árbitro Principal *</label>
+                    <select id="result-referee" value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
                         <option value="">Seleccione un árbitro...</option>
                         {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
                     </select>
                 </InputGroup>
                 <InputGroup>
-                    <label><RiCalendarEventLine/> Fecha {isWalkover ? '(Opcional)' : '*'}</label>
-                    <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)} />
+                    <label htmlFor="result-date"><RiCalendarEventLine/> Fecha {isWalkover ? '(Opcional)' : '*'}</label>
+                    <input id="result-date" type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)} />
                 </InputGroup>
                 <InputGroup>
-                    <label><RiTimeLine/> Hora {isWalkover ? '(Opcional)' : '*'}</label>
-                    <input type="time" value={matchTime} onChange={(e) => setMatchTime(e.target.value)} />
+                    <label htmlFor="result-time"><RiTimeLine/> Hora {isWalkover ? '(Opcional)' : '*'}</label>
+                    <input id="result-time" type="time" value={matchTime} onChange={(e) => setMatchTime(e.target.value)} />
                 </InputGroup>
             </GridInputs>
             
             <InputGroup style={{marginTop: "15px"}}>
-                <label><RiStickyNoteLine/> Observaciones Adicionales (Opcional)</label>
+                <label htmlFor="result-notes"><RiStickyNoteLine/> Observaciones Adicionales (Opcional)</label>
                 <TextArea 
+                    id="result-notes"
                     placeholder="Ingrese incidentes, retrasos, estado de cancha u otros detalles..."
                     value={manualObservations}
                     onChange={(e) => { if(e.target.value.length <= 500) setManualObservations(e.target.value); }}
@@ -93,7 +94,7 @@ const InputGroup = styled.div`
 `;
 const TextArea = styled.textarea` padding: 12px; border-radius: 10px; background: ${({theme})=>theme.bg3}; border: 2px solid ${({theme})=>theme.bg4}; color: ${({theme})=>theme.text}; outline: none; transition: 0.3s; width: 100%; min-height: 100px; resize: vertical; font-family: inherit; box-sizing: border-box; &:focus { border-color: ${v.colorPrincipal}; } `;
 const CharCount = styled.div` text-align: right; font-size: 0.75rem; color: ${({theme})=>theme.text}; opacity: 0.6; margin-top: -5px; `;
-const WalkoverBox = styled.div` border: 1px solid ${({$active}) => $active ? '#e74c3c' : 'transparent'}; background: ${({theme, $active}) => $active ? '#e74c3c15' : theme.bg3}; border-radius: 12px; margin-bottom: 20px; .wo-header { padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s; span { font-weight: 700; flex: 1; } &:hover { opacity: 0.8; } } .wo-content { padding: 0 15px 15px 15px; .wo-btns { display: flex; gap: 10px; flex-wrap: wrap; } .wo-note { margin: 10px 0 0; font-size: 0.82rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.75; } } `;
+const WalkoverBox = styled.div` border: 1px solid ${({$active}) => $active ? '#e74c3c' : 'transparent'}; background: ${({theme, $active}) => $active ? '#e74c3c15' : theme.bg3}; border-radius: 12px; margin-bottom: 20px; .wo-header { width: 100%; border: 0; background: transparent; color: ${({theme})=>theme.text}; text-align: left; padding: 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: opacity 0.2s ease; span { font-weight: 700; flex: 1; } &:hover { opacity: 0.8; } } .wo-content { padding: 0 15px 15px 15px; .wo-btns { display: flex; gap: 10px; flex-wrap: wrap; } .wo-note { margin: 10px 0 0; font-size: 0.82rem; font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.75; } } `;
 
 const WalkoverOptionButton = styled.button`
     min-height: 44px;

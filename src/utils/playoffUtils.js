@@ -1,4 +1,4 @@
-import { isOfficialJornadaName, normalizeJornadaName, parseJornadaNumber } from "./jornadaUtils";
+import { isOfficialJornadaName, normalizeJornadaName } from "./jornadaUtils";
 import { buildTorneoStandingsSnapshot } from "../hooks/useTorneoStandingsLogic";
 
 export const PLAYOFF_PHASES = [
@@ -18,11 +18,6 @@ export const PLAYOFF_PHASE_LEG_FIELDS = {
 };
 
 const FINISHED_STATUSES = ["finalizado", "completado", "jugado", "terminado"];
-
-const toNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
 
 const toId = (value) => (value === null || value === undefined ? "" : String(value));
 
@@ -88,126 +83,9 @@ export const getMatchJornadaName = (match = {}, jornadas = []) => {
   return jornada?.name || "";
 };
 
-export const getOfficialJornadaNumberForPlayoffMatch = (match = {}, jornadas = []) => {
-  const jornadaName = getMatchJornadaName(match, jornadas);
-  if (!isOfficialJornadaName(jornadaName)) return 0;
-  return parseJornadaNumber(jornadaName, 0);
-};
 
-export const getCurrentStandingsJornadaLimit = ({ matches = [], jornadas = [] }) => {
-  const confirmedNumbers = (jornadas || [])
-    .filter((jornada) => isOfficialJornadaName(jornada?.name))
-    .filter((jornada) => {
-      const status = normalizeJornadaName(jornada?.status);
-      return status.includes("confirmada") || status.includes("finalizada");
-    })
-    .map((jornada) => parseJornadaNumber(jornada.name, 0))
-    .filter((value) => value > 0);
 
-  if (confirmedNumbers.length > 0) return Math.max(...confirmedNumbers);
 
-  const finishedNumbers = (matches || [])
-    .filter((match) => isFinishedMatchStatus(match?.status))
-    .map((match) => getOfficialJornadaNumberForPlayoffMatch(match, jornadas))
-    .filter((value) => value > 0);
-
-  return finishedNumbers.length > 0 ? Math.max(...finishedNumbers) : Number.MAX_SAFE_INTEGER;
-};
-
-export const calculateRegularStandings = ({
-  teams = [],
-  matches = [],
-  jornadas = [],
-  config = {},
-  limitJornada = Number.MAX_SAFE_INTEGER,
-}) => {
-  const statsMap = new Map();
-  teams.forEach((team) => {
-    statsMap.set(toId(team.id), {
-      id: team.id,
-      teamId: team.id,
-      name: team.name || team.nombre || "Equipo",
-      logo_url: team.logo_url || team.logo || null,
-      color: team.color || null,
-      pj: 0,
-      g: 0,
-      e: 0,
-      p: 0,
-      gf: 0,
-      gc: 0,
-      dg: 0,
-      pts: 0,
-    });
-  });
-
-  const winPoints = toNumber(config.winPoints, 3);
-  const drawPoints = toNumber(config.drawPoints, 1);
-  const lossPoints = toNumber(config.lossPoints, 0);
-
-  matches.forEach((match) => {
-    const jornadaName = getMatchJornadaName(match, jornadas);
-    if (!isOfficialJornadaName(jornadaName)) return;
-    const jornadaNumber = parseJornadaNumber(jornadaName, 0);
-    if (jornadaNumber <= 0 || jornadaNumber > limitJornada) return;
-    if (!isFinishedMatchStatus(match.status)) return;
-    if (!match.team1_id || !match.team2_id) return;
-
-    const local = statsMap.get(toId(match.team1_id));
-    const visitante = statsMap.get(toId(match.team2_id));
-    if (!local || !visitante) return;
-
-    const goals1 = Number.parseInt(match.goals1, 10);
-    const goals2 = Number.parseInt(match.goals2, 10);
-    if (!Number.isFinite(goals1) || !Number.isFinite(goals2)) return;
-
-    local.pj += 1;
-    visitante.pj += 1;
-    local.gf += goals1;
-    local.gc += goals2;
-    visitante.gf += goals2;
-    visitante.gc += goals1;
-
-    let puntos1 = Number.parseInt(match.puntos1, 10);
-    let puntos2 = Number.parseInt(match.puntos2, 10);
-
-    if (!Number.isFinite(puntos1) || !Number.isFinite(puntos2) || (puntos1 === 0 && puntos2 === 0 && goals1 !== goals2)) {
-      if (goals1 > goals2) {
-        puntos1 = winPoints;
-        puntos2 = lossPoints;
-      } else if (goals2 > goals1) {
-        puntos1 = lossPoints;
-        puntos2 = winPoints;
-      } else {
-        puntos1 = drawPoints;
-        puntos2 = drawPoints;
-      }
-    }
-
-    if (goals1 > goals2) {
-      local.g += 1;
-      visitante.p += 1;
-    } else if (goals2 > goals1) {
-      visitante.g += 1;
-      local.p += 1;
-    } else {
-      local.e += 1;
-      visitante.e += 1;
-    }
-
-    local.pts += puntos1;
-    visitante.pts += puntos2;
-  });
-
-  return Array.from(statsMap.values())
-    .map((row) => ({ ...row, dg: row.gf - row.gc }))
-    .sort((a, b) => {
-      if (b.pts !== a.pts) return b.pts - a.pts;
-      if (b.dg !== a.dg) return b.dg - a.dg;
-      if (b.gf !== a.gf) return b.gf - a.gf;
-      return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
-    })
-    .map((row, index) => ({ ...row, seed: index + 1 }));
-};
 
 export const buildSeedRows = (standings = []) =>
   standings.map((row, index) => ({

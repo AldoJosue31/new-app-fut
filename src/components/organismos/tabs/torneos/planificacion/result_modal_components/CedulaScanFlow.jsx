@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
@@ -28,16 +28,40 @@ const normalizeImageMimeType = (file) => {
   return mimeType;
 };
 
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onerror = () => reject(new Error("No se pudo leer la imagen seleccionada."));
-  reader.onload = () => resolve(String(reader.result || ""));
-  reader.readAsDataURL(file);
+const originalFilePayload = (file) => ({
+  blob: file,
+  mimeType: normalizeImageMimeType(file),
+  fileName: file.name || "cedula",
 });
 
-const originalFilePayload = async (file, dataUrl) => ({
-  mimeType: normalizeImageMimeType(file),
-  imageBase64: (dataUrl || await readFileAsDataUrl(file)).split(",")[1] || "",
+const loadImageSource = async (file) => {
+  if (typeof window.createImageBitmap === "function") {
+    try {
+      const bitmap = await window.createImageBitmap(file);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close(),
+      };
+    } catch { /* El navegador puede no decodificar HEIC/HEIF. */ }
+  }
+
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    const release = () => URL.revokeObjectURL(objectUrl);
+    image.onload = () => resolve({ source: image, width: image.width, height: image.height, release });
+    image.onerror = () => {
+      release();
+      reject(new Error("El navegador no puede optimizar este formato."));
+    };
+    image.src = objectUrl;
+  });
+};
+
+const canvasToBlob = (canvas, mimeType, quality) => new Promise(resolve => {
+  canvas.toBlob(resolve, mimeType, quality);
 });
 
 const normalizeName = (value = "") => String(value)
@@ -86,49 +110,99 @@ const bestMatch = (value, options, getLabel, threshold) => {
   return ranked[0]?.score >= threshold ? ranked[0] : null;
 };
 
+const resolveTeamBlockSides = (firstName, secondName, actualTeams) => {
+  const [registeredLocal, registeredVisit] = actualTeams;
+  const firstReadable = Boolean(normalizeName(firstName));
+  const secondReadable = Boolean(normalizeName(secondName));
+  const oppositeSide = side => side === "local" ? "visit" : "local";
+
+  if (firstReadable && !secondReadable) {
+    const match = bestMatch(firstName, actualTeams, team => team.name, 0.42);
+    if (match) {
+      return {
+        firstSide: match.option.side,
+        secondSide: oppositeSide(match.option.side),
+        swapped: match.option.side === "visit",
+        ambiguous: false,
+      };
+    }
+  }
+
+  if (!firstReadable && secondReadable) {
+    const match = bestMatch(secondName, actualTeams, team => team.name, 0.42);
+    if (match) {
+      return {
+        firstSide: oppositeSide(match.option.side),
+        secondSide: match.option.side,
+        swapped: match.option.side === "local",
+        ambiguous: false,
+      };
+    }
+  }
+
+  const directScore = nameSimilarity(firstName, registeredLocal.name)
+    + nameSimilarity(secondName, registeredVisit.name);
+  const swappedScore = nameSimilarity(firstName, registeredVisit.name)
+    + nameSimilarity(secondName, registeredLocal.name);
+  const swapped = swappedScore >= 0.84 && swappedScore > directScore + 0.08;
+  const selectedScore = swapped ? swappedScore : directScore;
+
+  return {
+    firstSide: swapped ? "visit" : "local",
+    secondSide: swapped ? "local" : "visit",
+    swapped,
+    ambiguous: selectedScore < 0.84 || (firstReadable && secondReadable && Math.abs(directScore - swappedScore) < 0.08),
+  };
+};
+
 const playerName = (player) => (
   player?.full_name || `${player?.first_name || ""} ${player?.last_name || ""}`.trim()
 );
 
 const refereeName = (referee) => referee?.full_name || referee?.name || "";
 
-const fileToScanPayload = (file) => new Promise((resolve, reject) => {
-  readFileAsDataUrl(file).then((dataUrl) => {
-    const sourceMimeType = normalizeImageMimeType(file);
-    if (["image/heic", "image/heif"].includes(sourceMimeType)) {
-      originalFilePayload(file, dataUrl).then(resolve).catch(reject);
-      return;
+const fileToScanPayload = async (file) => {
+  const sourceMimeType = normalizeImageMimeType(file);
+  let decoded = null;
+  try {
+    decoded = await loadImageSource(file);
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(decoded.width, decoded.height));
+    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) return originalFilePayload(file);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(decoded.width * scale));
+    canvas.height = Math.max(1, Math.round(decoded.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas no disponible");
+    context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+
+    const preferredMimeType = sourceMimeType === "image/png" && file.size < 3 * 1024 * 1024
+      ? "image/png"
+      : sourceMimeType === "image/webp" ? "image/webp" : "image/jpeg";
+    let optimizedBlob = await canvasToBlob(canvas, preferredMimeType, 0.9);
+    let outputMimeType = preferredMimeType;
+    if (!optimizedBlob && preferredMimeType !== "image/jpeg") {
+      outputMimeType = "image/jpeg";
+      optimizedBlob = await canvasToBlob(canvas, outputMimeType, 0.9);
     }
+    if (!optimizedBlob) throw new Error("No se pudo optimizar la imagen.");
 
-    const image = new Image();
-    image.onerror = () => {
-      originalFilePayload(file, dataUrl).then(resolve).catch(reject);
-    };
-    image.onload = () => {
-      try {
-        const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(image.width, image.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error("Canvas no disponible");
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const outputMimeType = sourceMimeType === "image/png" && file.size < 3 * 1024 * 1024
-          ? "image/png"
-          : "image/jpeg";
-        const optimizedDataUrl = canvas.toDataURL(outputMimeType, 0.88);
-        resolve({ mimeType: outputMimeType, imageBase64: optimizedDataUrl.split(",")[1] });
-      } catch {
-        originalFilePayload(file, dataUrl).then(resolve).catch(reject);
-      }
-    };
-    image.src = dataUrl;
-  }).catch(reject);
-});
+    const extension = outputMimeType === "image/png" ? "png" : outputMimeType === "image/webp" ? "webp" : "jpg";
+    return { blob: optimizedBlob, mimeType: outputMimeType, fileName: `cedula-optimizada.${extension}` };
+  } catch {
+    // Gemini admite HEIC/HEIF; si el navegador no puede decodificarlo se envia intacto.
+    return originalFilePayload(file);
+  } finally {
+    decoded?.release?.();
+  }
+};
 
-const invokeScanFunction = async (image, scanMode) => {
+const invokeScanFunction = async (image) => {
+  const formData = new FormData();
+  formData.append("image", image.blob, image.fileName);
+  formData.append("mimeType", image.mimeType);
   const { data, error } = await supabase.functions.invoke("procesar-cedula", {
-    body: { ...image, scanMode },
+    body: formData,
   });
   if (!error) return data;
 
@@ -186,6 +260,7 @@ export function CedulaScanFlow({
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const progressTimerRef = useRef(null);
+  const preparedImageRef = useRef(null);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -213,27 +288,31 @@ export function CedulaScanFlow({
       showToast("La imagen debe pesar menos de 12 MB.", "error");
       return;
     }
-    setPreviewUrl(current => {
-      if (current) URL.revokeObjectURL(current);
-      return URL.createObjectURL(nextFile);
-    });
+    setPreviewUrl(URL.createObjectURL(nextFile));
     setFile(nextFile);
+    preparedImageRef.current = fileToScanPayload(nextFile)
+      .then(payload => ({ payload, error: null }))
+      .catch(error => ({ payload: null, error }));
     setPreviewAvailable(null);
     setRawScan(null);
     setScanProgress(0);
   }, [showToast]);
+
+  const selectPastedFile = useEffectEvent((image) => {
+    selectFile(image);
+    showToast("Imagen pegada desde el portapapeles.", "success");
+  });
 
   useEffect(() => {
     const handlePaste = (event) => {
       const image = getClipboardImage(event.clipboardData);
       if (!image) return;
       event.preventDefault();
-      selectFile(image);
-      showToast("Imagen pegada desde el portapapeles.", "success");
+      selectPastedFile(image);
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [selectFile, showToast]);
+  }, []);
 
   const interpretation = useMemo(() => {
     if (!rawScan) return null;
@@ -241,12 +320,13 @@ export function CedulaScanFlow({
       { side: "local", id: match?.local?.id, name: match?.local?.name || "Local" },
       { side: "visit", id: match?.visitante?.id, name: match?.visitante?.name || "Visitante" },
     ];
-    const localTeamMatch = bestMatch(rawScan.localTeam?.name, actualTeams, team => team.name, 0.42);
-    const visitorTeamMatch = bestMatch(rawScan.visitorTeam?.name, actualTeams, team => team.name, 0.42);
-    const localSide = localTeamMatch?.option?.side || "local";
-    const visitorSide = visitorTeamMatch?.option?.side && visitorTeamMatch.option.side !== localSide
-      ? visitorTeamMatch.option.side
-      : (localSide === "local" ? "visit" : "local");
+    const teamAssignment = resolveTeamBlockSides(
+      rawScan.localTeam?.name,
+      rawScan.visitorTeam?.name,
+      actualTeams,
+    );
+    const localSide = teamAssignment.firstSide;
+    const visitorSide = teamAssignment.secondSide;
     const refereeMatch = bestMatch(rawScan.referee, referees, refereeName, 0.5);
     const usedPlayerIds = new Set();
     const players = (rawScan.players || []).map(scannedPlayer => {
@@ -288,6 +368,7 @@ export function CedulaScanFlow({
     };
     return {
       teams: actualTeams,
+      teamAssignment,
       localSide,
       visitorSide,
       referee: refereeMatch?.option || null,
@@ -315,9 +396,13 @@ export function CedulaScanFlow({
       });
     }, 420);
     try {
-      const image = await fileToScanPayload(file);
+      const prepared = await (preparedImageRef.current || fileToScanPayload(file)
+        .then(payload => ({ payload, error: null }))
+        .catch(error => ({ payload: null, error })));
+      if (prepared.error || !prepared.payload) throw prepared.error || new Error("No se pudo preparar la imagen.");
+      const image = prepared.payload;
       setScanProgress(current => Math.max(current, 18));
-      const data = await invokeScanFunction(image, "detailed");
+      const data = await invokeScanFunction(image);
       if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -345,7 +430,7 @@ export function CedulaScanFlow({
     return (
       <ScanShell>
         <PanelHeading>
-          <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
+          <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Escanear cedula</h4><p>Sube una foto clara y completa. La imagen solo se usa durante este escaneo.</p></div>
         </PanelHeading>
         <UploadZone tabIndex={0} onClick={() => uploadInputRef.current?.click()}>
@@ -363,8 +448,8 @@ export function CedulaScanFlow({
             </PrimaryAction>
           )}
         </ChoiceRow>
-        <input ref={uploadInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" onChange={event => selectFile(event.target.files?.[0])} />
-        <input ref={cameraInputRef} hidden type="file" accept="image/*" capture="environment" onChange={event => selectFile(event.target.files?.[0])} />
+        <input ref={uploadInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" onChange={event => selectFile(event.target.files?.[0])} aria-label="Subir foto de cédula" />
+        <input ref={cameraInputRef} hidden type="file" accept="image/*" capture="environment" onChange={event => selectFile(event.target.files?.[0])} aria-label="Tomar foto de cédula" />
       </ScanShell>
     );
   }
@@ -373,7 +458,7 @@ export function CedulaScanFlow({
     return (
       <ScanShell>
         <PanelHeading>
-          <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
+          <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
         <PreviewFrame aria-busy={scanning}>
@@ -404,7 +489,7 @@ export function CedulaScanFlow({
           )}
         </PreviewFrame>
         <ChoiceRow>
-          <SecondaryAction type="button" disabled={scanning} onClick={() => { setFile(null); setRawScan(null); }}>
+          <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setRawScan(null); }}>
             <RiRefreshLine /> Cambiar foto
           </SecondaryAction>
           <ScanProgressButton
@@ -433,14 +518,14 @@ export function CedulaScanFlow({
   return (
     <ScanShell>
       <PanelHeading>
-        <button type="button" onClick={onBack}><RiArrowLeftLine /></button>
+        <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
         <div><h4>Revisar escaneo</h4><p>Compara lo detectado con los datos registrados antes de aplicarlo.</p></div>
       </PanelHeading>
       <ComparisonGrid>
         <DataColumn>
           <h5>Datos detectados</h5>
-          <DataRow label="Local" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
-          <DataRow label="Visitante" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
+          <DataRow label="Equipo detectado 1" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
+          <DataRow label="Equipo detectado 2" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
           <DataRow label="Arbitro" value={rawScan.referee || "Sin detectar"} />
           <DataRow label="Fecha" value={rawScan.date || "Sin detectar"} />
           <DataRow label="Hora" value={rawScan.time || "Sin detectar"} />
@@ -493,6 +578,12 @@ export function CedulaScanFlow({
           </PlayerList>
         </DataColumn>
       </ComparisonGrid>
+      {interpretation.teamAssignment.swapped && !interpretation.teamAssignment.ambiguous && (
+        <ReviewNotice>El orden de la cedula esta invertido respecto al partido. Cada marcador se conservo junto al nombre de su equipo.</ReviewNotice>
+      )}
+      {interpretation.teamAssignment.ambiguous && (
+        <ReviewNotice>Los nombres de los equipos no dieron una coincidencia suficientemente clara. Revisa ambos marcadores antes de aplicar.</ReviewNotice>
+      )}
       {unmatchedPlayers > 0 && <ReviewNotice>{unmatchedPlayers} {unmatchedPlayers === 1 ? "jugador no se pudo vincular" : "jugadores no se pudieron vincular"}; no se aplicaran automaticamente.</ReviewNotice>}
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>

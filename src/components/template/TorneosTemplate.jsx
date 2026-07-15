@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useLayoutEffect, useRef } from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { useNavigate, useParams } from "react-router-dom";
@@ -61,13 +61,13 @@ export function TorneosTemplate({
   const canResetOnUnmountRef = useRef(false);
   const visibleDivisionId = routeDivisionId || currentDivisionId;
   const visibleTournamentId = activeTournament?.id || routeTournamentId;
-  const getTorneosPath = (nextTabId) => {
+  const getTorneosPath = useCallback((nextTabId) => {
     const jornadaSuffix =
       nextTabId === "jornadas" && routeJornadaId ? `/${routeJornadaId}` : "";
     return visibleDivisionId
       ? `/division/${visibleDivisionId}/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}${jornadaSuffix}`
       : `/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}${jornadaSuffix}`;
-  };
+  }, [routeJornadaId, visibleDivisionId, visibleTournamentId]);
 
   useEffect(() => {
     activeTournamentRef.current = activeTournament;
@@ -113,7 +113,7 @@ export function TorneosTemplate({
     if (isLoadingData && !activeTournament) return;
 
     navigate(getTorneosPath(defaultTab), { replace: true });
-  }, [activeTab, activeTournament, currentDivisionId, defaultTab, isLoadingData, isValidTab, navigate, routeDivisionId, routeJornadaId, routeTournamentId, visibleDivisionId, visibleTournamentId]);
+  }, [activeTab, activeTournament, currentDivisionId, defaultTab, getTorneosPath, isLoadingData, isValidTab, navigate, routeDivisionId, routeTournamentId]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
   const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;
@@ -122,7 +122,7 @@ export function TorneosTemplate({
   const headerMeasureRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(118);
 
-  const fetchGoleadores = async () => {
+  const fetchGoleadores = useCallback(async () => {
     if (!activeTournament?.id) {
       setGoleadores([]);
       return;
@@ -134,12 +134,12 @@ export function TorneosTemplate({
       console.error("Error fetchGoleadores:", err);
       setGoleadores([]);
     }
-  };
+  }, [activeTournament]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(fetchGoleadores, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [activeTournament?.id]);
+  }, [fetchGoleadores]);
 
   useEffect(() => {
   }, [refreshStandings]);
@@ -348,7 +348,6 @@ const ContentGrid = styled.div`
   margin-top: 0; 
   margin-bottom: 0;
   
-  transition: max-width ${v.tabTransition};
   max-width: ${({ $isWide }) => ($isWide ? "98%" : "1000px")};
   @media ${Device.desktop} { max-width: ${({ $isWide }) => ($isWide ? "99%" : "1000px")}; }
 `;

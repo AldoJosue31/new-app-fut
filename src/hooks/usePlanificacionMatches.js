@@ -44,7 +44,9 @@ export const usePlanificacionMatches = (
 
   // --- LOGICA DE FECHAS ---
   const [jornadaDates, setJornadaDates] = useState({});
-  const [weekStartDate, setWeekStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [weekStartDate, setWeekStartDate] = useState(
+    () => new Date().toISOString().split('T')[0],
+  );
 
   // --- LOGICA DE PARTIDOS EXTERNOS ---
   const [showExternalMatches, setShowExternalMatches] = useState(true);
@@ -145,6 +147,11 @@ export const usePlanificacionMatches = (
       }
   }, [datesStorageKey, activeTournament]);
 
+  useEffect(() => {
+      if (!datesStorageKey || Object.keys(jornadaDates).length === 0) return;
+      localStorage.setItem(datesStorageKey, JSON.stringify(jornadaDates));
+  }, [datesStorageKey, jornadaDates]);
+
   useLayoutEffect(() => {
       if (jornadaData?.start_date) {
           setWeekStartDate(jornadaData.start_date);
@@ -168,11 +175,7 @@ export const usePlanificacionMatches = (
 
   const handleSetWeekStartDate = (newDate) => {
       setWeekStartDate(newDate);
-      setJornadaDates(prev => {
-          const newMap = { ...prev, [jornadaIndex]: newDate };
-          localStorage.setItem(datesStorageKey, JSON.stringify(newMap));
-          return newMap;
-      });
+      setJornadaDates(prev => ({ ...prev, [jornadaIndex]: newDate }));
   };
 
   const fetchExternalMatches = useCallback(async (startDateToCheck) => {

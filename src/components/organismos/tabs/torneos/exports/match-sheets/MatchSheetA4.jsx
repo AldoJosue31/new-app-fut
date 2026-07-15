@@ -141,8 +141,8 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                                 </tr>
                             </thead>
                             <tbody>
-                                {players.local.map((p, i) => (
-                                    <tr key={i}>
+                                {players.local.map((p) => (
+                                    <tr key={p.id || p.player_id || `${p.dorsal}-${p.last_name}-${p.first_name}`}>
                                         <td className="center num">{p.dorsal}</td>
                                         <td className="name">{p.last_name} {p.first_name}</td>
                                         <td></td><td></td><td></td><td></td>
@@ -184,8 +184,8 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                                 </tr>
                             </thead>
                             <tbody>
-                                {players.visit.map((p, i) => (
-                                    <tr key={i}>
+                                {players.visit.map((p) => (
+                                    <tr key={p.id || p.player_id || `${p.dorsal}-${p.last_name}-${p.first_name}`}>
                                         <td className="center num">{p.dorsal}</td>
                                         <td className="name">{p.last_name} {p.first_name}</td>
                                         <td></td><td></td><td></td><td></td>

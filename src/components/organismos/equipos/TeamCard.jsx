@@ -89,7 +89,8 @@ function TeamCardComponent({
       >
         {hasActions && (
           <ActionButtons>
-            <button
+            <button type="button"
+              aria-label={`Editar ${team.name}`}
               className="btn-edit"
               onClick={(event) => {
                 event.stopPropagation();
@@ -101,7 +102,8 @@ function TeamCardComponent({
             </button>
 
             {showInviteAction && (
-              <button
+              <button type="button"
+                aria-label={`Invitar delegado a ${team.name}`}
                 className="btn-invite"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -114,7 +116,8 @@ function TeamCardComponent({
             )}
 
             {showTransferAction && (
-              <button
+              <button type="button"
+                aria-label={`Transferir ${team.name}`}
                 className="btn-transfer"
                 onClick={(event) => {
                   event.stopPropagation();
@@ -127,7 +130,8 @@ function TeamCardComponent({
             )}
 
             {showDeleteAction && (
-              <button
+              <button type="button"
+                aria-label={`Eliminar ${team.name}`}
                 className="btn-delete"
                 onClick={(event) => {
                   event.stopPropagation();

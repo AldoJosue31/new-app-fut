@@ -62,7 +62,7 @@ export default function BenefitsSection() {
         <BenGrid>
           {BENEFIT_EXTRA.map((b, i) => (
             <BenCard
-              key={i}
+              key={b.statLabel}
               accentcolor={b.color}
               className={hVisible ? "visible" : ""}
               style={{ transitionDelay: `${i * 100}ms` }}

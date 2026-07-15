@@ -2,13 +2,11 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { RiErrorWarningLine, RiSettings4Line } from "react-icons/ri";
 import { v } from "../../../../styles/variables";
-import {
-  Card,
-  CardHeader,
-  InputText2,
-  Btnsave,
-  PhotoUploader,
-} from "../../../../index";
+import { Card } from "../../../moleculas/Card";
+import { CardHeader } from "../../../moleculas/CardHeader";
+import { InputText2 } from "../../formularios/InputText2";
+import { Btnsave } from "../../../moleculas/Btnsave";
+import { PhotoUploader } from "../../../moleculas/PhotoUploader";
 import { Toast } from "../../../atomos/Toast";
 import { Skeleton } from "../../../atomos/Skeleton";
 import { uploadImageToSupabase } from "../../../../utils/uploadHandler";
@@ -177,18 +175,18 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
         <FormContainer>
           <ContentWrapper>
             <ImageSection>
-              <label className="section-title">Logo de la Liga</label>
+              <span className="section-title">Logo de la Liga</span>
               <Skeleton width="160px" height="160px" radius="50%" />
               <Skeleton width="140px" height="12px" style={{ marginTop: "10px" }} />
               <Skeleton width="100px" height="12px" style={{ marginTop: "5px" }} />
             </ImageSection>
             <FormSection>
               <FormGroup>
-                <label>Nombre Oficial</label>
+                <span className="field-label">Nombre Oficial</span>
                 <Skeleton width="100%" height="45px" radius="8px" />
               </FormGroup>
               <FormGroup>
-                <label>Aprobación de cambios de delegados</label>
+                <span className="field-label">Aprobación de cambios de delegados</span>
                 <Skeleton width="100%" height="92px" radius="12px" />
               </FormGroup>
               <div className="actions-right">
@@ -227,7 +225,7 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
           <ContentWrapper>
             <ImageSection>
-              <label className="section-title">Logo de la Liga</label>
+              <span className="section-title">Logo de la Liga</span>
               <PhotoUploader
                 previewUrl={previewUrl}
                 originalUrl={originalUrl}
@@ -245,9 +243,10 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
             <FormSection>
               <FormGroup>
-                <label>Nombre Oficial</label>
+                <label htmlFor="league-official-name">Nombre Oficial</label>
                 <InputText2>
                   <input
+                    id="league-official-name"
                     className="form__field"
                     value={tempName}
                     onChange={(event) => setTempName(event.target.value)}
@@ -258,7 +257,7 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
               </FormGroup>
 
               <FormGroup>
-                <label>Aprobación de cambios de delegados</label>
+                <span className="field-label">Aprobación de cambios de delegados</span>
                 <ApprovalCard>
                   <div className="copy">
                     <strong>
@@ -275,6 +274,8 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
                   <ToggleButton
                     type="button"
+                    aria-label="Cambiar aprobación de cambios de delegados"
+                    aria-pressed={requiresDelegateApproval}
                     $active={requiresDelegateApproval}
                     onClick={() =>
                       setRequiresDelegateApproval((current) => !current)
@@ -391,7 +392,8 @@ const FormGroup = styled.div`
   flex-direction: column;
   gap: 10px;
 
-  label {
+  label,
+  .field-label {
     font-weight: 600;
     font-size: 14px;
     opacity: 0.8;

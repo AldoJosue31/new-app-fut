@@ -1,7 +1,9 @@
 // src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import styled, { css, keyframes } from "styled-components";
-import { v, Btnsave, Toast } from "../../../../index";
+import { v } from "../../../../styles/variables";
+import { Btnsave } from "../../../moleculas/Btnsave";
+import { Toast } from "../../../atomos/Toast";
 import {
   RiArrowGoBackLine,
   RiCheckDoubleLine,
@@ -970,6 +972,7 @@ export function JornadaPlanificacion({
                     </div>
                     <button
                       type="button"
+                      aria-label="Cancelar selección de partido"
                       onClick={() => setSelectedPendingMatch(null)}
                       title="Cancelar seleccion"
                     >

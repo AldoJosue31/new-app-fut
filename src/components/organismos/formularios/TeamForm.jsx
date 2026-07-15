@@ -14,7 +14,10 @@ import {
   BiUnlink,
   BiUser,
 } from "react-icons/bi";
-import { PhotoUploader, InputText2, Btnsave, v } from "../../../index";
+import { PhotoUploader } from "../../moleculas/PhotoUploader";
+import { InputText2 } from "./InputText2";
+import { Btnsave } from "../../moleculas/Btnsave";
+import { v } from "../../../styles/variables";
 import {
   createDelegateInvitation,
   getActiveDelegateInvitation,
@@ -305,9 +308,10 @@ export function TeamForm({
       <InvitePanelContentRow>
         <PanelCard>
           <FieldGroup>
-            <label>Nombre sugerido del delegado</label>
+            <label htmlFor="team-delegate-name">Nombre sugerido del delegado</label>
             <InputText2>
               <input
+                id="team-delegate-name"
                 className="form__field"
                 name="delegate_name"
                 value={form.delegate_name || ""}
@@ -320,9 +324,10 @@ export function TeamForm({
           </FieldGroup>
 
           <FieldGroup>
-            <label>Correo sugerido</label>
+            <label htmlFor="team-delegate-email">Correo sugerido</label>
             <InputText2>
               <input
+                id="team-delegate-email"
                 className="form__field"
                 name="invite_email"
                 type="email"
@@ -336,9 +341,10 @@ export function TeamForm({
           </FieldGroup>
 
           <FieldGroup>
-            <label>Telefono sugerido (opcional)</label>
+            <label htmlFor="team-delegate-phone">Telefono sugerido (opcional)</label>
             <InputText2>
               <input
+                id="team-delegate-phone"
                 className="form__field"
                 name="contact_phone"
                 type="tel"
@@ -410,10 +416,10 @@ export function TeamForm({
                 </div>
 
                 <div className="link-panel">
-                  <label>Link de registro</label>
+                  <label htmlFor="team-delegate-registration-link">Link de registro</label>
                   <div className="copy-row">
-                    <input readOnly value={invitationUrl} />
-                    <button type="button" onClick={copyInvitationLink}>
+                    <input id="team-delegate-registration-link" readOnly value={invitationUrl} />
+                    <button type="button" onClick={copyInvitationLink} aria-label="Copiar link de registro">
                       <BiCopy />
                     </button>
                   </div>
@@ -459,7 +465,7 @@ export function TeamForm({
             <BiBadgeCheck className="verified-icon" />
           </div>
           {canManageDelegateLink && (
-            <button
+            <button aria-label="Desvincular"
               className="unlink-btn"
               type="button"
               onClick={toggleUnlinkConfirm}
@@ -619,6 +625,7 @@ export function TeamForm({
               <ColorInputContainer>
                 <input
                   ref={colorInputRef}
+                  aria-label="Color del equipo"
                   type="color"
                   name="color"
                   defaultValue={form.color || "#000000"}

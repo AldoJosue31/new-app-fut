@@ -9,7 +9,7 @@ import React, {
 import styled from "styled-components";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { RiFileList3Line, RiGroupLine } from "react-icons/ri";
+import { RiFileList3Line, RiGroupLine, RiMailSendLine } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
@@ -17,24 +17,28 @@ import { BtnNormal } from "../moleculas/BtnNormal";
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { Skeleton } from "../atomos/Skeleton";
 import { Toast } from "../atomos/Toast";
-import {
-  TeamCard,
-  TeamForm,
-  TeamTransferModal,
-  TeamDetailModal,
-  PlayerManager,
-  Card,
-  BtnGreen,
-} from "../../index";
+import { TeamCard } from "../organismos/equipos/TeamCard";
+import { TeamForm } from "../organismos/formularios/TeamForm";
+import { TeamTransferModal } from "../organismos/equipos/TeamTransferModal";
+import { ActiveDelegateInvitationsModal } from "../organismos/equipos/ActiveDelegateInvitationsModal";
+import { TeamDetailModal } from "../organismos/TeamDetailModal";
+import { PlayerManager } from "../organismos/formularios/PlayerManager";
+import { Card } from "../moleculas/Card";
+import { BtnGreen } from "../moleculas/BtnGreen";
 import { Modal } from "../organismos/Modal";
 import { ConfirmModal } from "../organismos/ConfirmModal";
 import { EmptyState } from "../organismos/EmptyState";
 import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetailPanel";
 import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 import { supabase } from "../../supabase/supabase.config";
-import { getTeamsDelegateChangeRequests, reviewDelegateChangeRequest } from "../../services/delegates";
+import {
+  getActiveDelegateInvitations,
+  getTeamsDelegateChangeRequests,
+  reviewDelegateChangeRequest,
+} from "../../services/delegates";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { ROLES } from "../../utils/constants";
+import { v } from "../../styles/variables";
 
 const teamNameCollator = new Intl.Collator("es", {
   sensitivity: "base",
@@ -151,6 +155,10 @@ export const EquiposTemplate = ({
 
   const [activeTab, setActiveTab] = useState("info");
   const [isInvitePanelActive, setIsInvitePanelActive] = useState(false);
+  const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
+  const [activeInvitations, setActiveInvitations] = useState([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [invitationsError, setInvitationsError] = useState("");
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [teamToTransfer, setTeamToTransfer] = useState(null);
   const [toast, setToast] = useState({ show: false, msg: "", type: "success" });
@@ -175,6 +183,100 @@ export const EquiposTemplate = ({
     [participatingIds]
   );
   const orderedTeams = useMemo(() => orderTeamsOnlyWhenNeeded(equipos), [equipos]);
+  const visibleTeamIds = useMemo(
+    () => (equipos || []).map((team) => team.id).filter(Boolean),
+    [equipos]
+  );
+
+  const loadActiveInvitations = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoadingInvitations(true);
+      setInvitationsError("");
+    }
+
+    try {
+      const invitations = await getActiveDelegateInvitations(visibleTeamIds);
+      setActiveInvitations(invitations);
+      setInvitationsError("");
+    } catch (error) {
+      if (!silent) {
+        setInvitationsError(
+          error.message || "No se pudieron cargar las invitaciones activas."
+        );
+      }
+    } finally {
+      if (!silent) setLoadingInvitations(false);
+    }
+  }, [visibleTeamIds]);
+
+  const handleOpenInvitations = () => {
+    setIsInvitationsModalOpen(true);
+    loadActiveInvitations();
+  };
+
+  const handleCloseInvitations = () => {
+    setIsInvitationsModalOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isInvitationsModalOpen) return undefined;
+
+    const visibleTeamIdSet = new Set(visibleTeamIds.map((id) => String(id)));
+    let refreshTimeoutId;
+    let isActive = true;
+
+    const refreshFromRealtime = (payload) => {
+      if (!isActive) return;
+
+      const changedTeamId = payload.new?.team_id || payload.old?.team_id;
+      if (changedTeamId && !visibleTeamIdSet.has(String(changedTeamId))) return;
+
+      window.clearTimeout(refreshTimeoutId);
+      refreshTimeoutId = window.setTimeout(() => {
+        loadActiveInvitations({ silent: true });
+      }, 120);
+    };
+
+    const channel = supabase
+      .channel(`delegate-invitations-${visibleDivisionId || "all"}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "delegate_invitations",
+        },
+        refreshFromRealtime
+      )
+      .subscribe((status) => {
+        if (!isActive) return;
+
+        if (status === "SUBSCRIBED") {
+          loadActiveInvitations({ silent: true });
+        }
+      });
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(refreshTimeoutId);
+      supabase.removeChannel(channel);
+    };
+  }, [
+    isInvitationsModalOpen,
+    loadActiveInvitations,
+    visibleDivisionId,
+    visibleTeamIds,
+  ]);
+
+  useEffect(() => {
+    if (!isInvitationsModalOpen || !invitationsError) return undefined;
+
+    const retryIntervalId = window.setInterval(() => {
+      loadActiveInvitations({ silent: true });
+    }, 5000);
+
+    return () => window.clearInterval(retryIntervalId);
+  }, [invitationsError, isInvitationsModalOpen, loadActiveInvitations]);
 
   const teamMotion = shouldReduceMotion
     ? {
@@ -438,15 +540,23 @@ export const EquiposTemplate = ({
           )}
 
           {canCreateTeams && (
-            <FloatingBtnWrapper>
+            <FloatingActionsWrapper>
+              <InvitationsButton
+                type="button"
+                onClick={handleOpenInvitations}
+                disabled={!division}
+              >
+                <RiMailSendLine aria-hidden="true" />
+                <span>Invitaciones</span>
+              </InvitationsButton>
               <BtnGreen
                 onClick={handleOpenCreate}
                 disabled={!division}
                 icono={<IoMdFootball size={18} />}
               >
-                Crear Equipo
+                Crear equipo
               </BtnGreen>
-            </FloatingBtnWrapper>
+            </FloatingActionsWrapper>
           )}
 
           {/* === MODO DELEGADO: pantalla completa para el unico equipo del delegado === */}
@@ -638,6 +748,15 @@ export const EquiposTemplate = ({
           </div>
         </Modal>
 
+        <ActiveDelegateInvitationsModal
+          isOpen={isInvitationsModalOpen}
+          onClose={handleCloseInvitations}
+          invitations={activeInvitations}
+          teams={equipos}
+          loading={loadingInvitations}
+          error={invitationsError}
+        />
+
         <TeamTransferModal
           isOpen={isTransferModalOpen}
           onClose={() => setIsTransferModalOpen(false)}
@@ -683,11 +802,14 @@ const MainContainer = styled.div`
   position: relative;
 `;
 
-const FloatingBtnWrapper = styled.div`
+const FloatingActionsWrapper = styled.div`
   position: absolute;
   top: -50px;
   right: 0;
   z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 
   & > button {
     margin: 0 !important;
@@ -707,6 +829,63 @@ const FloatingBtnWrapper = styled.div`
       svg {
         margin-right: 6px;
       }
+    }
+  }
+
+  @media (max-width: 520px) {
+    left: 0;
+    justify-content: flex-end;
+  }
+`;
+
+const InvitationsButton = styled.button`
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid ${({ theme }) => theme.bg4};
+  border-radius: 14px;
+  background: ${({ theme }) => theme.bgcards};
+  color: ${({ theme }) => theme.text};
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, transform 120ms ease;
+
+  svg {
+    color: ${v.colorPrincipal};
+    font-size: 1.1rem;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: ${v.colorPrincipal};
+    background: rgba(28, 176, 246, 0.08);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 520px) {
+    width: 44px !important;
+    padding: 9px !important;
+
+    span {
+      display: none !important;
     }
   }
 `;

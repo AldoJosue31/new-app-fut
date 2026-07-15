@@ -3,7 +3,9 @@ import styled from "styled-components";
 import { v } from "../../../../styles/variables";
 import { IoMdStopwatch } from "react-icons/io";
 import { RiCoinLine, RiErrorWarningLine, RiGroupLine } from "react-icons/ri";
-import { Card, CardHeader, Btnsave } from "../../../../index";
+import { Card } from "../../../moleculas/Card";
+import { CardHeader } from "../../../moleculas/CardHeader";
+import { Btnsave } from "../../../moleculas/Btnsave";
 import { Toast } from "../../../atomos/Toast";
 import { Skeleton } from "../../../atomos/Skeleton";
 
@@ -77,16 +79,16 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
           <SectionTitle><RiGroupLine /> Capacidades y Participantes</SectionTitle>
           <Grid>
             <FormGroup>
-              <label>Mínimo de Jugadores</label>
-              <input type="number" className="form__field" value={config.minPlayers} onChange={(e) => handleChange('minPlayers', Number(e.target.value))} />
+              <label htmlFor="league-rule-1">Mínimo de Jugadores</label>
+              <input id="league-rule-1" type="number" className="form__field" value={config.minPlayers} onChange={(e) => handleChange('minPlayers', Number(e.target.value))} />
             </FormGroup>
             <FormGroup>
-              <label>Máximo de Jugadores</label>
-              <input type="number" className="form__field" value={config.maxPlayers} onChange={(e) => handleChange('maxPlayers', Number(e.target.value))} />
+              <label htmlFor="league-rule-2">Máximo de Jugadores</label>
+              <input id="league-rule-2" type="number" className="form__field" value={config.maxPlayers} onChange={(e) => handleChange('maxPlayers', Number(e.target.value))} />
             </FormGroup>
             <FormGroup>
-              <label>Límite Máximo de Equipos</label>
-              <input type="number" className="form__field" value={config.maxTeams} onChange={(e) => handleChange('maxTeams', Number(e.target.value))} />
+              <label htmlFor="league-rule-3">Límite Máximo de Equipos</label>
+              <input id="league-rule-3" type="number" className="form__field" value={config.maxTeams} onChange={(e) => handleChange('maxTeams', Number(e.target.value))} />
             </FormGroup>
           </Grid>
 
@@ -95,22 +97,22 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
           <SectionTitle><RiCoinLine /> Sistema de Puntuación y Desempate</SectionTitle>
           <Grid>
             <FormGroup>
-              <label>Puntos por Victoria</label>
-              <input type="number" className="form__field" value={config.winPoints} onChange={(e) => handleChange('winPoints', Number(e.target.value))} />
+              <label htmlFor="league-rule-4">Puntos por Victoria</label>
+              <input id="league-rule-4" type="number" className="form__field" value={config.winPoints} onChange={(e) => handleChange('winPoints', Number(e.target.value))} />
             </FormGroup>
             <FormGroup>
-              <label>Puntos por Empate</label>
-              <input type="number" className="form__field" value={config.drawPoints} onChange={(e) => handleChange('drawPoints', Number(e.target.value))} />
+              <label htmlFor="league-rule-5">Puntos por Empate</label>
+              <input id="league-rule-5" type="number" className="form__field" value={config.drawPoints} onChange={(e) => handleChange('drawPoints', Number(e.target.value))} />
             </FormGroup>
             <FormGroup>
-              <label>Puntos por Derrota</label>
-              <input type="number" className="form__field" value={config.lossPoints} onChange={(e) => handleChange('lossPoints', Number(e.target.value))} />
+              <label htmlFor="league-rule-6">Puntos por Derrota</label>
+              <input id="league-rule-6" type="number" className="form__field" value={config.lossPoints} onChange={(e) => handleChange('lossPoints', Number(e.target.value))} />
             </FormGroup>
             
             {/* CORREGIDO A DESEMPATE DE PARTIDO */}
             <FormGroup style={{ gridColumn: '1 / -1' }}>
-              <label>Desempate de Partido (En caso de empate)</label>
-              <select className="form__field" value={config.tieBreakType} onChange={(e) => handleChange('tieBreakType', e.target.value)}>
+              <label htmlFor="league-rule-7">Desempate de Partido (En caso de empate)</label>
+              <select id="league-rule-7" className="form__field" value={config.tieBreakType} onChange={(e) => handleChange('tieBreakType', e.target.value)}>
                 <option value="normal">Tradicional (Empate directo)</option>
                 <option value="penalties">Penales/Shootouts (Punto Extra)</option>
               </select>
@@ -122,16 +124,16 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
           <SectionTitle><IoMdStopwatch /> Tiempos y Horarios</SectionTitle>
           <Grid>
             <FormGroup>
-              <label>Hora de Inicio</label>
-              <input type="time" className="form__field" value={config.horaInicio} onChange={(e) => handleChange('horaInicio', e.target.value)} />
+              <label htmlFor="league-rule-8">Hora de Inicio</label>
+              <input id="league-rule-8" type="time" className="form__field" value={config.horaInicio} onChange={(e) => handleChange('horaInicio', e.target.value)} />
             </FormGroup>
             <FormGroup>
-              <label>Hora LÃ­mite</label>
-              <input type="time" className="form__field" value={config.horaFin} onChange={(e) => handleChange('horaFin', e.target.value)} />
+              <label htmlFor="league-rule-9">Hora LÃ­mite</label>
+              <input id="league-rule-9" type="time" className="form__field" value={config.horaFin} onChange={(e) => handleChange('horaFin', e.target.value)} />
             </FormGroup>
             <FormGroup>
-              <label>DuraciÃ³n de Jornada (dÃ­as)</label>
-              <input type="number" min="1" className="form__field" value={config.jornadaDurationDays} onChange={(e) => handleChange('jornadaDurationDays', Number(e.target.value))} />
+              <label htmlFor="league-rule-10">DuraciÃ³n de Jornada (dÃ­as)</label>
+              <input id="league-rule-10" type="number" min="1" className="form__field" value={config.jornadaDurationDays} onChange={(e) => handleChange('jornadaDurationDays', Number(e.target.value))} />
             </FormGroup>
           </Grid>
 
@@ -140,16 +142,16 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
           <SectionTitle><IoMdStopwatch /> Tiempos, Descansos y Cambios</SectionTitle>
           <Grid>
             <FormGroup>
-              <label>Minutos por Tiempo</label>
-              <input type="number" className="form__field" value={config.minutosPorTiempo} onChange={(e) => handleChange('minutosPorTiempo', Number(e.target.value))} />
+              <label htmlFor="league-rule-11">Minutos por Tiempo</label>
+              <input id="league-rule-11" type="number" className="form__field" value={config.minutosPorTiempo} onChange={(e) => handleChange('minutosPorTiempo', Number(e.target.value))} />
             </FormGroup>
             <FormGroup>
-              <label>Minutos de Descanso</label>
-              <input type="number" className="form__field" value={config.minutosDescanso} onChange={(e) => handleChange('minutosDescanso', Number(e.target.value))} />
+              <label htmlFor="league-rule-12">Minutos de Descanso</label>
+              <input id="league-rule-12" type="number" className="form__field" value={config.minutosDescanso} onChange={(e) => handleChange('minutosDescanso', Number(e.target.value))} />
             </FormGroup>
             <FormGroup>
-              <label>Opciones de Cambios</label>
-              <select className="form__field" value={config.cambios} onChange={(e) => handleChange('cambios', e.target.value)}>
+              <label htmlFor="league-rule-13">Opciones de Cambios</label>
+              <select id="league-rule-13" className="form__field" value={config.cambios} onChange={(e) => handleChange('cambios', e.target.value)}>
                 <option value="Ilimitados">Ilimitados</option>
                 <option value="Limitados">Limitados</option>
               </select>
@@ -157,8 +159,8 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
           </Grid>
 
           <FormGroup>
-            <label>Observaciones</label>
-            <TextArea className="form__field" value={config.observaciones} onChange={(e) => handleChange('observaciones', e.target.value)} rows="3" placeholder="Reglas adicionales..." />
+            <label htmlFor="league-rule-14">Observaciones</label>
+            <TextArea id="league-rule-14" className="form__field" value={config.observaciones} onChange={(e) => handleChange('observaciones', e.target.value)} rows="3" placeholder="Reglas adicionales..." />
           </FormGroup>
 
           <div className="actions-right" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>

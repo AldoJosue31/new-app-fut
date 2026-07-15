@@ -201,17 +201,3 @@ export const getPendingMatchesByTournamentService = async (tournamentId) => {
   if (error) throw error;
   return data || [];
 };
-
-export const getMatchesByJornadaIdsService = async (jornadaIds) => {
-  if (!Array.isArray(jornadaIds) || jornadaIds.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('matches')
-    .select('*')
-    .in('jornada_id', jornadaIds);
-
-  if (error) throw error;
-  return data || [];
-};
