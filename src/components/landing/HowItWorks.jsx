@@ -43,91 +43,9 @@ function useReveal(threshold = 0.12) {
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────
-export default function HowItWorks() {
-  const { howItWorks } = landingCopy;
-  const [hRef, hVisible] = useReveal();
-  const [activeStep, setActiveStep] = useState(0);
-
-  const activeStepData = howItWorks.steps[activeStep];
-  const ActiveIcon = STEP_ICONS[activeStep];
-
+function HowItWorksStepList({ howItWorks, activeStep, setActiveStep, hVisible }) {
   return (
-    <section
-      id="como-funciona"
-      style={{
-        background: "var(--lp-surface)",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        padding: "clamp(40px, 6vh, 80px) 0",
-        overflow: "hidden",
-        position: "relative",
-        boxSizing: "border-box",
-        scrollMarginTop: "40px",
-      }}
-    >
-      {/* ── Fondo: rejilla sutil ── */}
-      <div
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--lp-border) 1px, transparent 1px), linear-gradient(90deg, var(--lp-border) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          position: "absolute",
-          inset: 0,
-          opacity: 0.2,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* ── Radial glow ambiental ── */}
-      <div
-        aria-hidden="true"
-        style={{
-          background: "radial-gradient(ellipse, color-mix(in srgb, var(--lp-primary) 45%, transparent), transparent 70%)",
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "640px",
-          height: "320px",
-          borderRadius: "50%",
-          opacity: 0.04,
-          pointerEvents: "none",
-        }}
-      />
-
-      <div className="lp-container" style={{ position: "relative", zIndex: 10 }}>
-
-        {/* ── Encabezado ── */}
-        <div
-          ref={hRef}
-          style={{
-            textAlign: "center",
-            maxWidth: "672px",
-            margin: "0 auto",
-            marginBottom: "clamp(32px, 5vh, 80px)",
-            opacity: hVisible ? 1 : 0,
-            transform: hVisible ? "none" : "translateY(24px)",
-            transition: "opacity 0.7s ease, transform 0.7s ease",
-          }}
-        >
-          <h2
-            style={{ color: "var(--lp-text)", fontSize: "clamp(28px,4vw,40px)", fontWeight: 800, lineHeight: 1.2, marginBottom: "16px" }}
-          >
-            {howItWorks.title}
-          </h2>
-          <p
-            style={{ color: "var(--lp-text-muted)", fontSize: "17px", lineHeight: 1.65, maxWidth: "512px", margin: "0 auto" }}
-          >
-            Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.
-          </p>
-        </div>
-
-        {/* ── Layout responsive ── */}
-        <GridContainer>
-
+    <>
           {/* ── Columna izquierda: lista de pasos ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", position: "relative", paddingLeft: "20px" }}>
 
@@ -216,7 +134,16 @@ export default function HowItWorks() {
               );
             })}
           </div>
+    </>
+  );
+}
 
+function HowItWorksStepDetail({ howItWorks, activeStep, setActiveStep }) {
+  const activeStepData = howItWorks.steps[activeStep];
+  const ActiveIcon = STEP_ICONS[activeStep];
+
+  return (
+    <>
           {/* ── Columna derecha: tarjeta de detalle ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
@@ -391,6 +318,102 @@ export default function HowItWorks() {
               </button>
             </div>
           </div>
+    </>
+  );
+}
+
+export default function HowItWorks() {
+  const { howItWorks } = landingCopy;
+  const [hRef, hVisible] = useReveal();
+  const [activeStep, setActiveStep] = useState(0);
+
+  return (
+    <section
+      id="como-funciona"
+      style={{
+        background: "var(--lp-surface)",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "clamp(40px, 6vh, 80px) 0",
+        overflow: "hidden",
+        position: "relative",
+        boxSizing: "border-box",
+        scrollMarginTop: "40px",
+      }}
+    >
+      {/* ── Fondo: rejilla sutil ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "linear-gradient(var(--lp-border) 1px, transparent 1px), linear-gradient(90deg, var(--lp-border) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          position: "absolute",
+          inset: 0,
+          opacity: 0.2,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* ── Radial glow ambiental ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          background: "radial-gradient(ellipse, color-mix(in srgb, var(--lp-primary) 45%, transparent), transparent 70%)",
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "640px",
+          height: "320px",
+          borderRadius: "50%",
+          opacity: 0.04,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div className="lp-container" style={{ position: "relative", zIndex: 10 }}>
+
+        {/* ── Encabezado ── */}
+        <div
+          ref={hRef}
+          style={{
+            textAlign: "center",
+            maxWidth: "672px",
+            margin: "0 auto",
+            marginBottom: "clamp(32px, 5vh, 80px)",
+            opacity: hVisible ? 1 : 0,
+            transform: hVisible ? "none" : "translateY(24px)",
+            transition: "opacity 0.7s ease, transform 0.7s ease",
+          }}
+        >
+          <h2
+            style={{ color: "var(--lp-text)", fontSize: "clamp(28px,4vw,40px)", fontWeight: 800, lineHeight: 1.2, marginBottom: "16px" }}
+          >
+            {howItWorks.title}
+          </h2>
+          <p
+            style={{ color: "var(--lp-text-muted)", fontSize: "17px", lineHeight: 1.65, maxWidth: "512px", margin: "0 auto" }}
+          >
+            Sin curva de aprendizaje. Configura tu primera jornada en menos de 10 minutos.
+          </p>
+        </div>
+
+        {/* ── Layout responsive ── */}
+        <GridContainer>
+          <HowItWorksStepList
+            howItWorks={howItWorks}
+            activeStep={activeStep}
+            setActiveStep={setActiveStep}
+            hVisible={hVisible}
+          />
+          <HowItWorksStepDetail
+            howItWorks={howItWorks}
+            activeStep={activeStep}
+            setActiveStep={setActiveStep}
+          />
         </GridContainer>
       </div>
     </section>

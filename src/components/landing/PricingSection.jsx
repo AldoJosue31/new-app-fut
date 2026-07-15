@@ -8,165 +8,7 @@ import { landingCopy } from "../../pages/landing/copy";
 const formatPrice = (amount) =>
   new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(amount);
 
-export default function PricingSection() {
-  const { pricing } = landingCopy;
-  const [cycle, setCycle] = useState("monthly");
-
-  return (
-    <section
-      id="planes"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        padding: "clamp(30px, 5vh, 60px) 0",
-        background: "var(--lp-bg)",
-        position: "relative",
-        overflow: "hidden",
-        boxSizing: "border-box",
-        scrollMarginTop: "40px",
-      }}
-    >
-      {/* Fondo decorativo */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse at 50% 0%, rgba(212, 175, 55, 0.1), transparent 60%)",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
-        <div style={{ textAlign: "center", maxWidth: 780, margin: "0 auto 32px" }}>
-          <h2 className="lp-h2">{pricing.title}</h2>
-          <p className="lp-lead" style={{ margin: "0 auto" }}>
-            {pricing.subtitle}
-          </p>
-        </div>
-
-        {/* Toggle de ciclo */}
-        <div className="lp-cycle-toggle">
-          {Object.values(pricing.cycles).map((c) => (
-            <button type="button"
-              key={c.key}
-              onClick={() => setCycle(c.key)}
-              className={`lp-cycle-btn ${cycle === c.key ? "active" : ""}`}
-            >
-              <span style={{ fontWeight: 700 }}>{c.label}</span>
-              <span
-                style={{
-                  fontSize: 12,
-                  opacity: 0.7,
-                  display: "block",
-                  marginTop: 2,
-                }}
-              >
-                {c.note}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Grid de planes */}
-        <div className="lp-plans-grid">
-          {pricing.plans.map((plan, i) => {
-            const price = plan.prices[cycle];
-            return (
-              <motion.div
-                layout
-                key={plan.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.45, delay: i * 0.06 }}
-                className={`lp-plan-card ${plan.highlight ? "highlight" : ""}`}
-              >
-                {plan.highlight && (
-                  <div className="lp-plan-badge">MÁS ELEGIDO</div>
-                )}
-
-                <div className="lp-plan-header">
-                  <div className="lp-plan-shield">
-                    <Icon icon={plan.icon || "mdi:shield-star"} width={22} />
-                  </div>
-                  <div>
-                    <div className="lp-plan-name">{plan.name}</div>
-                    <div className="lp-plan-divisions">{plan.divisions}</div>
-                  </div>
-                </div>
-
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={cycle}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.25 }}
-                    className="lp-plan-price"
-                  >
-                    <div className="lp-plan-amount">
-                      <span className="lp-plan-currency">$</span>
-                      <span className="lp-plan-num">
-                        {formatPrice(price.amount)}
-                      </span>
-                      <span className="lp-plan-mxn">{pricing.currency}</span>
-                    </div>
-                    <div className="lp-plan-period">
-                      {cycle === "monthly" && "por mes"}
-                      {cycle === "semester" && "cada 6 meses"}
-                      {cycle === "annual" && "por año"}
-                    </div>
-                    {price.save && (
-                      <div className="lp-plan-savings">
-                        <Icon icon="mdi:leaf" width={14} />
-                        {pricing.savingLabel} ${formatPrice(price.save)}{" "}
-                        {pricing.currency} · {price.percent}
-                      </div>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-
-                {plan.features && (
-                  <ul className="lp-plan-features">
-                    {plan.features.map((feat, fidx) => (
-                      <li key={fidx}>
-                        <Icon icon="mdi:check-circle" width={16} className="lp-feat-icon" />
-                        {feat}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <Link
-                  to="/login"
-                  className={`lp-btn ${
-                    plan.highlight ? "lp-btn-primary" : "lp-btn-ghost"
-                  }`}
-                  style={{ width: "100%", marginTop: "auto" }}
-                >
-                  {pricing.ctaLabel}
-                </Link>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        <p
-          style={{
-            textAlign: "center",
-            marginTop: 40,
-            fontSize: 13,
-            color: "rgba(245, 239, 224, 0.55)",
-          }}
-        >
-          {pricing.finePrint}
-        </p>
-      </div>
-
-      <style>{`
+const PRICING_SECTION_STYLES = `
         .landing-scope .lp-cycle-toggle {
           display: inline-flex;
           background: rgba(0, 0, 0, 0.3);
@@ -374,7 +216,167 @@ export default function PricingSection() {
         @media (max-width: 600px) {
           .landing-scope .lp-plans-grid { grid-template-columns: 1fr; max-width: 400px; }
         }
-      `}</style>
+`;
+
+export default function PricingSection() {
+  const { pricing } = landingCopy;
+  const [cycle, setCycle] = useState("monthly");
+
+  return (
+    <section
+      id="planes"
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        padding: "clamp(30px, 5vh, 60px) 0",
+        background: "var(--lp-bg)",
+        position: "relative",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        scrollMarginTop: "40px",
+      }}
+    >
+      {/* Fondo decorativo */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at 50% 0%, rgba(212, 175, 55, 0.1), transparent 60%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
+        <div style={{ textAlign: "center", maxWidth: 780, margin: "0 auto 32px" }}>
+          <h2 className="lp-h2">{pricing.title}</h2>
+          <p className="lp-lead" style={{ margin: "0 auto" }}>
+            {pricing.subtitle}
+          </p>
+        </div>
+
+        {/* Toggle de ciclo */}
+        <div className="lp-cycle-toggle">
+          {Object.values(pricing.cycles).map((c) => (
+            <button type="button"
+              key={c.key}
+              onClick={() => setCycle(c.key)}
+              className={`lp-cycle-btn ${cycle === c.key ? "active" : ""}`}
+            >
+              <span style={{ fontWeight: 700 }}>{c.label}</span>
+              <span
+                style={{
+                  fontSize: 12,
+                  opacity: 0.7,
+                  display: "block",
+                  marginTop: 2,
+                }}
+              >
+                {c.note}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Grid de planes */}
+        <div className="lp-plans-grid">
+          {pricing.plans.map((plan, i) => {
+            const price = plan.prices[cycle];
+            return (
+              <motion.div
+                layout
+                key={plan.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ duration: 0.45, delay: i * 0.06 }}
+                className={`lp-plan-card ${plan.highlight ? "highlight" : ""}`}
+              >
+                {plan.highlight && (
+                  <div className="lp-plan-badge">MÁS ELEGIDO</div>
+                )}
+
+                <div className="lp-plan-header">
+                  <div className="lp-plan-shield">
+                    <Icon icon={plan.icon || "mdi:shield-star"} width={22} />
+                  </div>
+                  <div>
+                    <div className="lp-plan-name">{plan.name}</div>
+                    <div className="lp-plan-divisions">{plan.divisions}</div>
+                  </div>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={cycle}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.25 }}
+                    className="lp-plan-price"
+                  >
+                    <div className="lp-plan-amount">
+                      <span className="lp-plan-currency">$</span>
+                      <span className="lp-plan-num">
+                        {formatPrice(price.amount)}
+                      </span>
+                      <span className="lp-plan-mxn">{pricing.currency}</span>
+                    </div>
+                    <div className="lp-plan-period">
+                      {cycle === "monthly" && "por mes"}
+                      {cycle === "semester" && "cada 6 meses"}
+                      {cycle === "annual" && "por año"}
+                    </div>
+                    {price.save && (
+                      <div className="lp-plan-savings">
+                        <Icon icon="mdi:leaf" width={14} />
+                        {pricing.savingLabel} ${formatPrice(price.save)}{" "}
+                        {pricing.currency} · {price.percent}
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+
+                {plan.features && (
+                  <ul className="lp-plan-features">
+                    {plan.features.map((feat, fidx) => (
+                      <li key={fidx}>
+                        <Icon icon="mdi:check-circle" width={16} className="lp-feat-icon" />
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <Link
+                  to="/login"
+                  className={`lp-btn ${
+                    plan.highlight ? "lp-btn-primary" : "lp-btn-ghost"
+                  }`}
+                  style={{ width: "100%", marginTop: "auto" }}
+                >
+                  {pricing.ctaLabel}
+                </Link>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 40,
+            fontSize: 13,
+            color: "rgba(245, 239, 224, 0.55)",
+          }}
+        >
+          {pricing.finePrint}
+        </p>
+      </div>
+
+      <style>{PRICING_SECTION_STYLES}</style>
     </section>
   );
 }

@@ -80,6 +80,146 @@ const fillClosedTransparentAreas = (ctx, size, fillColor) => {
   ctx.putImageData(imageData, 0, 0);
 };
 
+function PhotoUploaderPreview({
+  uploaderRef,
+  width,
+  height,
+  shape,
+  enableClipboardPaste,
+  handlePaste,
+  openFilePicker,
+  previewUrl,
+  isLoadingOriginal,
+  handleManualAdjust,
+  onClear,
+  fileInputRef,
+  handleFileChange,
+}) {
+  return (
+      <Container
+        ref={uploaderRef}
+        $width={width}
+        $height={height}
+        $shape={shape}
+        $canPaste={enableClipboardPaste}
+        tabIndex={enableClipboardPaste ? 0 : -1}
+        onPaste={handlePaste}
+        aria-label={enableClipboardPaste ? "Subir imagen o pegar desde el portapapeles" : undefined}
+      >
+        <button type="button" className="preview-area" onClick={openFilePicker} aria-label={previewUrl ? "Cambiar imagen" : "Seleccionar imagen"}>
+          {previewUrl ? <img src={previewUrl} alt="Preview" className="img-final" /> : <div className="placeholder"><RiImageAddLine /><span>Subir</span></div>}
+          <div className="overlay"><RiCropLine /><span>{previewUrl ? "Cambiar" : "Seleccionar"}</span></div>
+        </button>
+        {enableClipboardPaste && (
+          <div className="paste-hint">Ctrl/Cmd + V</div>
+        )}
+        {previewUrl && (
+          <div className="mini-tools">
+             <button aria-label="Recortar" type="button" className="tool-btn edit" onClick={handleManualAdjust} title="Recortar">
+                {isLoadingOriginal ? "..." : <RiCropLine />}
+             </button>
+             <button type="button" className="tool-btn delete" onClick={(e)=>{e.preventDefault(); onClear();}} aria-label="Eliminar imagen"><RiCloseLine /></button>
+          </div>
+        )}
+        <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleFileChange} aria-label="Archivo de imagen" />
+      </Container>
+  );
+}
+
+function PhotoCropEditor({ state, actions, canvasRef }) {
+  const {
+    isCropping,
+    bgRemovalEnabled,
+    shape,
+    zoom,
+    isProcessingBg,
+    isTeamLogo,
+    fillEmptySpacesEnabled,
+    emptySpacesColor,
+    applyBorder,
+    themeColor,
+  } = state;
+  const {
+    setIsCropping,
+    handleToggleBgRemoval,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    setZoom,
+    handleRemoveBgInside,
+    setFillEmptySpacesEnabled,
+    setEmptySpacesColor,
+    setApplyBorder,
+    handleConfirmCrop,
+  } = actions;
+
+  if (!isCropping) return null;
+
+  return (
+        <CropModalOverlay onMouseDown={(event) => event.target === event.currentTarget && setIsCropping(false)}>
+            <div className="crop-card">
+                <div className="header">
+                    <h3>Ajustar Imagen</h3>
+                    <ToggleLabel>
+                         <input type="checkbox" checked={bgRemovalEnabled} onChange={handleToggleBgRemoval} aria-label="Quitar fondo" />
+                         <span>Quitar Fondo</span>
+                    </ToggleLabel>
+                </div>
+
+                <div className="canvas-wrapper"
+                     role="group"
+                     aria-label="Área de recorte de imagen"
+                     onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
+                     onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+                   <canvas ref={canvasRef} />
+                   <div className={`mask ${shape}`}></div>
+                </div>
+
+                 <div className="controls-container">
+                    <div className="slider-group">
+                        <RiZoomOutLine />
+                        <input type="range" min="0.1" max="5" step="0.01" value={zoom} onChange={e=>setZoom(parseFloat(e.target.value))} aria-label="Nivel de zoom" />
+                        <RiZoomInLine />
+                    </div>
+                    {bgRemovalEnabled && (
+                        <button type="button" className="magic-btn" onClick={handleRemoveBgInside} disabled={isProcessingBg}>
+                             {isProcessingBg ? "Quitando fondo..." : <><RiEraserLine /> Ejecutar IA</>}
+                        </button>
+                    )}
+                    {isTeamLogo && (
+                        <>
+                            <div className="fill-empty-spaces-control">
+                                <ToggleLabel>
+                                    <input type="checkbox" checked={fillEmptySpacesEnabled} onChange={e => setFillEmptySpacesEnabled(e.target.checked)} aria-label="Rellenar espacios vacíos" />
+                                    <span><RiPaintFill /> Rellenar espacios vacíos</span>
+                                </ToggleLabel>
+                                <input
+                                    className="fill-color-input"
+                                    type="color"
+                                    value={emptySpacesColor}
+                                    onChange={e => setEmptySpacesColor(e.target.value)}
+                                    disabled={!fillEmptySpacesEnabled}
+                                    title="Color de relleno"
+                                    aria-label="Color de relleno"
+                                />
+                            </div>
+                            <ToggleLabel className="border-toggle">
+                                <input type="checkbox" checked={applyBorder} onChange={e => setApplyBorder(e.target.checked)} aria-label="Aplicar borde del uniforme" />
+                                <span style={{color: themeColor, fontWeight:'700'}}>Aplicar borde del uniforme</span>
+                            </ToggleLabel>
+                        </>
+                    )}
+                 </div>
+
+                <div className="actions">
+                    <BtnNormal titulo="Cancelar" funcion={() => setIsCropping(false)} />
+                    <button type="button" className="btn-confirm" onClick={handleConfirmCrop}><RiCheckLine /> Confirmar</button>
+                </div>
+            </div>
+        </CropModalOverlay>
+  );
+}
+
 export const PhotoUploader = memo(function PhotoUploader({ 
   previewUrl,    
   originalUrl,   
@@ -356,97 +496,26 @@ const handleRemoveBgInside = async () => {
 
   return (
     <>
-      <Container
-        ref={uploaderRef}
-        $width={width}
-        $height={height}
-        $shape={shape}
-        $canPaste={enableClipboardPaste}
-        tabIndex={enableClipboardPaste ? 0 : -1}
-        onPaste={handlePaste}
-        aria-label={enableClipboardPaste ? "Subir imagen o pegar desde el portapapeles" : undefined}
-      >
-        <button type="button" className="preview-area" onClick={openFilePicker} aria-label={previewUrl ? "Cambiar imagen" : "Seleccionar imagen"}>
-          {previewUrl ? <img src={previewUrl} alt="Preview" className="img-final" /> : <div className="placeholder"><RiImageAddLine /><span>Subir</span></div>}
-          <div className="overlay"><RiCropLine /><span>{previewUrl ? "Cambiar" : "Seleccionar"}</span></div>
-        </button>
-        {enableClipboardPaste && (
-          <div className="paste-hint">Ctrl/Cmd + V</div>
-        )}
-        {previewUrl && (
-          <div className="mini-tools">
-             <button aria-label="Recortar" type="button" className="tool-btn edit" onClick={handleManualAdjust} title="Recortar">
-                {isLoadingOriginal ? "..." : <RiCropLine />}
-             </button>
-             <button type="button" className="tool-btn delete" onClick={(e)=>{e.preventDefault(); onClear();}} aria-label="Eliminar imagen"><RiCloseLine /></button>
-          </div>
-        )}
-        <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleFileChange} aria-label="Archivo de imagen" />
-      </Container>
-      
-      {isCropping && (
-        <CropModalOverlay onMouseDown={(event) => event.target === event.currentTarget && setIsCropping(false)}>
-            <div className="crop-card">
-                <div className="header">
-                    <h3>Ajustar Imagen</h3>
-                    <ToggleLabel>
-                         <input type="checkbox" checked={bgRemovalEnabled} onChange={handleToggleBgRemoval} aria-label="Quitar fondo" />
-                         <span>Quitar Fondo</span>
-                    </ToggleLabel>
-                </div>
-
-                <div className="canvas-wrapper" 
-                     role="group"
-                     aria-label="Área de recorte de imagen"
-                     onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} 
-                     onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-                   <canvas ref={canvasRef} />
-                   <div className={`mask ${shape}`}></div>
-                </div>
-
-                 <div className="controls-container">
-                    <div className="slider-group">
-                        <RiZoomOutLine />
-                        <input type="range" min="0.1" max="5" step="0.01" value={zoom} onChange={e=>setZoom(parseFloat(e.target.value))} aria-label="Nivel de zoom" />
-                        <RiZoomInLine />
-                    </div>
-                    {bgRemovalEnabled && (
-                        <button type="button" className="magic-btn" onClick={handleRemoveBgInside} disabled={isProcessingBg}>
-                             {isProcessingBg ? "Quitando fondo..." : <><RiEraserLine /> Ejecutar IA</>}
-                        </button>
-                    )}
-                    {isTeamLogo && (
-                        <>
-                            <div className="fill-empty-spaces-control">
-                                <ToggleLabel>
-                                    <input type="checkbox" checked={fillEmptySpacesEnabled} onChange={e => setFillEmptySpacesEnabled(e.target.checked)} aria-label="Rellenar espacios vacíos" />
-                                    <span><RiPaintFill /> Rellenar espacios vacíos</span>
-                                </ToggleLabel>
-                                <input 
-                                    className="fill-color-input"
-                                    type="color"
-                                    value={emptySpacesColor}
-                                    onChange={e => setEmptySpacesColor(e.target.value)}
-                                    disabled={!fillEmptySpacesEnabled}
-                                    title="Color de relleno"
-                                    aria-label="Color de relleno"
-                                />
-                            </div>
-                            <ToggleLabel className="border-toggle">
-                                <input type="checkbox" checked={applyBorder} onChange={e => setApplyBorder(e.target.checked)} aria-label="Aplicar borde del uniforme" />
-                                <span style={{color: themeColor, fontWeight:'700'}}>Aplicar borde del uniforme</span>
-                            </ToggleLabel>
-                        </>
-                    )}
-                 </div>
-
-                <div className="actions">
-                    <BtnNormal titulo="Cancelar" funcion={() => setIsCropping(false)} />
-                    <button type="button" className="btn-confirm" onClick={handleConfirmCrop}><RiCheckLine /> Confirmar</button>
-                </div>
-            </div>
-        </CropModalOverlay>
-      )}
+      <PhotoUploaderPreview
+        uploaderRef={uploaderRef}
+        width={width}
+        height={height}
+        shape={shape}
+        enableClipboardPaste={enableClipboardPaste}
+        handlePaste={handlePaste}
+        openFilePicker={openFilePicker}
+        previewUrl={previewUrl}
+        isLoadingOriginal={isLoadingOriginal}
+        handleManualAdjust={handleManualAdjust}
+        onClear={onClear}
+        fileInputRef={fileInputRef}
+        handleFileChange={handleFileChange}
+      />
+      <PhotoCropEditor
+        state={{ isCropping, bgRemovalEnabled, shape, zoom, isProcessingBg, isTeamLogo, fillEmptySpacesEnabled, emptySpacesColor, applyBorder, themeColor }}
+        actions={{ setIsCropping, handleToggleBgRemoval, handleMouseDown, handleMouseMove, handleMouseUp, setZoom, handleRemoveBgInside, setFillEmptySpacesEnabled, setEmptySpacesColor, setApplyBorder, handleConfirmCrop }}
+        canvasRef={canvasRef}
+      />
     </>
   );
 });
