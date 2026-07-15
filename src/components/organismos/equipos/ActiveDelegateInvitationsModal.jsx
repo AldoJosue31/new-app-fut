@@ -109,7 +109,7 @@ export function ActiveDelegateInvitationsModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Invitaciones activas"
-      width="920px"
+      width="1000px"
       bodyPadding="0"
     >
       <ModalContent>
@@ -278,9 +278,15 @@ const Summary = styled.div`
 `;
 
 const TableScroll = styled.div`
-  width: 100%;
+  width: calc(100% - 32px);
+  margin: 12px 16px 16px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+
+  @media (max-width: 640px) {
+    width: calc(100% - 24px);
+    margin: 8px 12px 12px;
+  }
 `;
 
 const InvitationsTable = styled.table`
