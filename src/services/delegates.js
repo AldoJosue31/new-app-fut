@@ -135,6 +135,29 @@ export const getActiveDelegateInvitation = async (teamId) => {
   };
 };
 
+export const getActiveDelegateInvitations = async (teamIds = []) => {
+  const normalizedTeamIds = unique(teamIds);
+  if (!normalizedTeamIds.length) return [];
+
+  const { data, error } = await supabase
+    .from("delegate_invitations")
+    .select(
+      "id, team_id, invited_name, invited_email, created_at, expires_at, metadata"
+    )
+    .in("team_id", normalizedTeamIds)
+    .eq("is_used", false)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map((invitation) => ({
+    ...invitation,
+    invited_phone: invitation?.metadata?.invited_phone || null,
+  }));
+};
+
 export const createDelegateInvitation = async ({
   teamId,
   invitedName,
