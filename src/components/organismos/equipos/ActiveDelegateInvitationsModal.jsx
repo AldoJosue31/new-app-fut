@@ -282,6 +282,31 @@ const TableScroll = styled.div`
   margin: 12px 16px 16px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+    margin: 5px 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    background: ${({ theme }) => theme.colorScroll};
+    transition: background 0.3s ease;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: ${({ theme }) => theme.text};
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
 
   @media (max-width: 640px) {
     width: calc(100% - 24px);
