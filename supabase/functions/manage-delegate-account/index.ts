@@ -64,7 +64,7 @@ const authorizeTeamManager = async (
 
   const { data: team, error: teamError } = await adminClient
     .from("teams")
-    .select("id, division_id")
+    .select("id, name, division_id, delegate_name, contact_phone")
     .eq("id", teamId)
     .maybeSingle();
   if (teamError) throw teamError;
@@ -125,7 +125,9 @@ const authorizeTeamManager = async (
 
   return {
     adminClient,
+    actorProfileId: user.id,
     delegateProfileId: assignment.delegate_profile_id as string,
+    team,
   };
 };
 
@@ -150,13 +152,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "teamId es obligatorio." }, 400);
     }
 
-    const { adminClient, delegateProfileId } = await authorizeTeamManager(
-      req,
-      teamId,
-      supabaseUrl,
-      anonKey,
-      serviceRoleKey,
-    );
+    const { adminClient, actorProfileId, delegateProfileId, team } =
+      await authorizeTeamManager(
+        req,
+        teamId,
+        supabaseUrl,
+        anonKey,
+        serviceRoleKey,
+      );
 
     const { data: authData, error: authError } =
       await adminClient.auth.admin.getUserById(delegateProfileId);
@@ -178,6 +181,8 @@ Deno.serve(async (req) => {
     const fullName = normalizeName(body.fullName);
     const email = normalizeEmail(body.email);
     const password = String(body.password || "");
+    const reason = normalizeName(body.reason);
+    const confirmed = body.confirmed === true;
 
     if (!fullName) return jsonResponse({ error: "El nombre es obligatorio." }, 400);
     if (fullName.length > 45) {
@@ -190,9 +195,36 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "La nueva contrasena debe tener al menos 6 caracteres." }, 400);
     }
 
+    const changedFields: Array<"name" | "email" | "password"> = [];
+    if (fullName !== normalizeName(team.delegate_name)) changedFields.push("name");
+    if (email && email !== normalizeEmail(authData.user.email)) changedFields.push("email");
+    if (password) changedFields.push("password");
+
+    if (!changedFields.length) {
+      return jsonResponse({ error: "No hay cambios para aplicar." }, 400);
+    }
+    if (reason.length < 5 || reason.length > 240) {
+      return jsonResponse({
+        error: "Escribe un motivo de entre 5 y 240 caracteres.",
+      }, 400);
+    }
+    if (!confirmed) {
+      return jsonResponse({
+        error: "Debes confirmar expresamente el cambio de la cuenta.",
+      }, 400);
+    }
+
+    const [auditPreflight, notificationPreflight] = await Promise.all([
+      adminClient.from("delegate_account_audit_logs").select("id").limit(1),
+      adminClient.from("account_security_notifications").select("id").limit(1),
+    ]);
+    if (auditPreflight.error || notificationPreflight.error) {
+      throw auditPreflight.error || notificationPreflight.error;
+    }
+
     const authUpdates: { email?: string; password?: string } = {};
-    if (email && email !== normalizeEmail(authData.user.email)) authUpdates.email = email;
-    if (password) authUpdates.password = password;
+    if (changedFields.includes("email")) authUpdates.email = email;
+    if (changedFields.includes("password")) authUpdates.password = password;
 
     let updatedEmail = authData.user.email || "";
     if (Object.keys(authUpdates).length > 0) {
@@ -202,30 +234,82 @@ Deno.serve(async (req) => {
       updatedEmail = updatedAuth.user?.email || email || updatedEmail;
     }
 
-    const { data: updatedTeam, error: updateTeamError } = await adminClient
-      .from("teams")
-      .update({ delegate_name: fullName })
-      .eq("id", teamId)
-      .select("id, delegate_name, contact_phone")
-      .single();
-    if (updateTeamError) throw updateTeamError;
-
-    const profileUpdates: { full_name: string; email?: string } = {
-      full_name: fullName,
+    let updatedTeam = {
+      id: team.id,
+      delegate_name: team.delegate_name,
+      contact_phone: team.contact_phone,
     };
-    if (updatedEmail) profileUpdates.email = updatedEmail;
-    const { error: updateProfileError } = await adminClient
-      .from("profiles")
-      .update(profileUpdates)
-      .eq("id", delegateProfileId)
-      .eq("role", "delegate");
-    if (updateProfileError) throw updateProfileError;
+    if (changedFields.includes("name")) {
+      const { data, error: updateTeamError } = await adminClient
+        .from("teams")
+        .update({ delegate_name: fullName })
+        .eq("id", teamId)
+        .select("id, delegate_name, contact_phone")
+        .single();
+      if (updateTeamError) throw updateTeamError;
+      updatedTeam = data;
+    }
+
+    if (changedFields.includes("name") || changedFields.includes("email")) {
+      const profileUpdates: { full_name?: string; email?: string } = {};
+      if (changedFields.includes("name")) profileUpdates.full_name = fullName;
+      if (changedFields.includes("email") && updatedEmail) {
+        profileUpdates.email = updatedEmail;
+      }
+      const { error: updateProfileError } = await adminClient
+        .from("profiles")
+        .update(profileUpdates)
+        .eq("id", delegateProfileId)
+        .eq("role", "delegate");
+      if (updateProfileError) throw updateProfileError;
+    }
+
+    const { data: auditLog, error: auditError } = await adminClient
+      .from("delegate_account_audit_logs")
+      .insert({
+        team_id: teamId,
+        delegate_profile_id: delegateProfileId,
+        actor_profile_id: actorProfileId,
+        reason,
+        changed_fields: changedFields,
+      })
+      .select("id")
+      .single();
+    if (auditError) throw auditError;
+
+    const fieldLabels = {
+      name: "el nombre",
+      email: "el correo de acceso",
+      password: "la contrasena",
+    };
+    const changedLabels = changedFields.map((field) => fieldLabels[field]);
+    const changeSummary = changedLabels.length === 1
+      ? changedLabels[0]
+      : `${changedLabels.slice(0, -1).join(", ")} y ${changedLabels.at(-1)}`;
+
+    const { error: notificationError } = await adminClient
+      .from("account_security_notifications")
+      .insert({
+        user_id: delegateProfileId,
+        title: "Cambios en tu cuenta",
+        message: `Un administrador actualizo ${changeSummary} para ${team.name}. Motivo: ${reason}`,
+        metadata: {
+          team_id: teamId,
+          actor_profile_id: actorProfileId,
+          changed_fields: changedFields,
+          audit_id: auditLog.id,
+        },
+      });
+    if (notificationError) throw notificationError;
 
     return jsonResponse({
       success: true,
       email: updatedEmail,
       team: updatedTeam,
       credentialsUpdated: Object.keys(authUpdates).length > 0,
+      changedFields,
+      auditRecorded: true,
+      notificationCreated: true,
     });
   } catch (error) {
     console.error("manage-delegate-account:", error);

@@ -42,7 +42,13 @@ const EMPTY_DELEGATE_PROFILE_FORM = {
   fullName: "",
   email: "",
   password: "",
+  reason: "",
 };
+
+const normalizeDelegateName = (value = "") =>
+  value.normalize("NFC").trim().replace(/\s+/g, " ");
+
+const normalizeDelegateEmail = (value = "") => value.trim().toLowerCase();
 
 export function TeamForm({
   form,
@@ -84,6 +90,11 @@ export function TeamForm({
   const [savingDelegateProfile, setSavingDelegateProfile] = useState(false);
   const [delegateSaveSucceeded, setDelegateSaveSucceeded] = useState(false);
   const [showDelegateSavedNotice, setShowDelegateSavedNotice] = useState(false);
+  const [showDelegateChangeConfirm, setShowDelegateChangeConfirm] = useState(false);
+  const [delegateOriginalProfile, setDelegateOriginalProfile] = useState({
+    fullName: "",
+    email: "",
+  });
 
   const isLinkedDelegate = Boolean(linkedDelegateAssignment?.delegate_profile_id);
   const delegateDisplayName = (form.delegate_name || "").trim();
@@ -119,6 +130,8 @@ export function TeamForm({
     setLoadingDelegateProfile(false);
     setDelegateSaveSucceeded(false);
     setShowDelegateSavedNotice(false);
+    setShowDelegateChangeConfirm(false);
+    setDelegateOriginalProfile({ fullName: "", email: "" });
     hasLoadedInvitationRef.current = false;
   }, [teamId]);
 
@@ -199,6 +212,7 @@ export function TeamForm({
   const handleDelegateProfileChange = (event) => {
     const { name, value } = event.target;
     setDelegateProfileForm((current) => ({ ...current, [name]: value }));
+    setShowDelegateChangeConfirm(false);
   };
 
   const openInvitePanel = (event) => {
@@ -217,10 +231,16 @@ export function TeamForm({
     setShowUnlinkConfirm(false);
     setDelegateSaveSucceeded(false);
     setShowDelegateSavedNotice(false);
+    setShowDelegateChangeConfirm(false);
+    setDelegateOriginalProfile({
+      fullName: normalizeDelegateName(delegateDisplayName),
+      email: "",
+    });
     setDelegateProfileForm({
       fullName: delegateDisplayName,
       email: "",
       password: "",
+      reason: "",
     });
     onInvitePanelChange?.(true);
 
@@ -231,6 +251,10 @@ export function TeamForm({
         ...current,
         email: account?.email || "",
         password: "",
+      }));
+      setDelegateOriginalProfile((current) => ({
+        ...current,
+        email: normalizeDelegateEmail(account?.email || ""),
       }));
     } catch (error) {
       showToast?.(
@@ -245,11 +269,28 @@ export function TeamForm({
 
   const goBackToForm = (event) => {
     event.preventDefault();
+    setShowDelegateChangeConfirm(false);
     setActivePanel(TEAM_FORM_PANEL);
     onInvitePanelChange?.(false);
   };
 
-  const handleSaveDelegateProfile = async (event) => {
+  const getDelegateChangedFields = () => {
+    const fields = [];
+    const nextName = normalizeDelegateName(delegateProfileForm.fullName);
+    const nextEmail = normalizeDelegateEmail(delegateProfileForm.email);
+
+    if (nextName !== normalizeDelegateName(delegateOriginalProfile.fullName)) {
+      fields.push("name");
+    }
+    if (nextEmail && nextEmail !== normalizeDelegateEmail(delegateOriginalProfile.email)) {
+      fields.push("email");
+    }
+    if (delegateProfileForm.password) fields.push("password");
+
+    return fields;
+  };
+
+  const handleSaveDelegateProfile = async (event, confirmed = false) => {
     event.preventDefault();
 
     if (
@@ -260,9 +301,11 @@ export function TeamForm({
       return;
     }
 
-    const fullName = delegateProfileForm.fullName.trim();
+    const fullName = normalizeDelegateName(delegateProfileForm.fullName);
     const emailValidation = validateOptionalEmail(delegateProfileForm.email);
     const password = delegateProfileForm.password;
+    const reason = normalizeDelegateName(delegateProfileForm.reason);
+    const changedFields = getDelegateChangedFields();
 
     if (!fullName) {
       showToast?.("El nombre del delegado es obligatorio.", "error");
@@ -279,9 +322,29 @@ export function TeamForm({
       );
       return;
     }
+    if (!changedFields.length) {
+      showToast?.("No hay cambios para guardar.", "error");
+      return;
+    }
+    if (reason.length < 5 || reason.length > 240) {
+      showToast?.(
+        "Escribe un motivo de entre 5 y 240 caracteres.",
+        "error",
+      );
+      return;
+    }
+
+    const changesCredentials = changedFields.some((field) =>
+      ["email", "password"].includes(field),
+    );
+    if (changesCredentials && !confirmed) {
+      setShowDelegateChangeConfirm(true);
+      return;
+    }
 
     setSavingDelegateProfile(true);
     setDelegateSaveSucceeded(false);
+    setShowDelegateChangeConfirm(false);
 
     try {
       const result = await updateLinkedDelegateAccountService({
@@ -289,6 +352,8 @@ export function TeamForm({
         fullName,
         email: emailValidation.value,
         password,
+        reason,
+        confirmed: true,
       });
       const updatedTeam = result?.team;
       const nextFullName = updatedTeam?.delegate_name || fullName;
@@ -297,6 +362,11 @@ export function TeamForm({
         fullName: nextFullName,
         email: result?.email || emailValidation.value,
         password: "",
+        reason: "",
+      });
+      setDelegateOriginalProfile({
+        fullName: normalizeDelegateName(nextFullName),
+        email: normalizeDelegateEmail(result?.email || emailValidation.value),
       });
 
       onFormChange?.({
@@ -703,33 +773,96 @@ export function TeamForm({
           </InputText2>
         </FieldGroup>
 
+        <FieldGroup>
+          <label htmlFor="linked-delegate-reason">Motivo del cambio</label>
+          <ReasonTextarea
+            id="linked-delegate-reason"
+            name="reason"
+            value={delegateProfileForm.reason}
+            onChange={handleDelegateProfileChange}
+            placeholder="Ej. Correccion solicitada por el delegado"
+            disabled={loadingDelegateProfile || savingDelegateProfile}
+            minLength={5}
+            maxLength={240}
+            rows={3}
+          />
+          <FieldHint>
+            Se guardara en el historial de seguridad y se mostrara al delegado.
+          </FieldHint>
+        </FieldGroup>
+
         <PanelNotice>
           El correo actual se carga cuando esta disponible. La contrasena actual no puede
           mostrarse: deja ese campo vacio para conservarla o escribe una nueva para cambiarla.
         </PanelNotice>
 
-        <PrimaryActions>
-          <ActionButton
-            type="button"
-            onClick={handleSaveDelegateProfile}
-            disabled={
-              loadingDelegateProfile ||
-              savingDelegateProfile ||
-              delegateSaveSucceeded
-            }
-            $tone={delegateSaveSucceeded ? "success" : "primary"}
-            aria-live="polite"
-          >
-            {delegateSaveSucceeded ? <BiCheckCircle /> : <v.iconoguardar />}
-            <span>
-              {delegateSaveSucceeded
-                ? "Cambios aplicados"
-                : savingDelegateProfile
-                  ? "Guardando..."
-                  : "Guardar cambios"}
-            </span>
-          </ActionButton>
-        </PrimaryActions>
+        {showDelegateChangeConfirm ? (
+          <DelegateChangeConfirmation role="alert" aria-live="assertive">
+            <div className="confirmation-copy">
+              <strong>Confirma los cambios de acceso</strong>
+              <p>
+                Se modificaran las credenciales seleccionadas y el delegado recibira
+                un aviso inmediato. La accion quedara registrada en la auditoria.
+              </p>
+            </div>
+            <ChangedFieldList aria-label="Campos que se modificaran">
+              {getDelegateChangedFields().map((field) => (
+                <span key={field}>
+                  {field === "name"
+                    ? "Nombre"
+                    : field === "email"
+                      ? "Correo"
+                      : "Contrasena"}
+                </span>
+              ))}
+            </ChangedFieldList>
+            <ConfirmationActions>
+              <ActionButton
+                type="button"
+                onClick={() => setShowDelegateChangeConfirm(false)}
+                disabled={savingDelegateProfile}
+              >
+                Cancelar
+              </ActionButton>
+              <ActionButton
+                type="button"
+                onClick={(event) => handleSaveDelegateProfile(event, true)}
+                disabled={savingDelegateProfile}
+                $tone="primary"
+              >
+                <BiLockAlt />
+                <span>{savingDelegateProfile ? "Aplicando..." : "Confirmar y aplicar"}</span>
+              </ActionButton>
+            </ConfirmationActions>
+          </DelegateChangeConfirmation>
+        ) : (
+          <PrimaryActions>
+            <ActionButton
+              type="button"
+              onClick={handleSaveDelegateProfile}
+              disabled={
+                loadingDelegateProfile ||
+                savingDelegateProfile ||
+                delegateSaveSucceeded
+              }
+              $tone={delegateSaveSucceeded ? "success" : "primary"}
+              aria-live="polite"
+            >
+              {delegateSaveSucceeded ? <BiCheckCircle /> : <v.iconoguardar />}
+              <span>
+                {delegateSaveSucceeded
+                  ? "Cambios aplicados"
+                  : savingDelegateProfile
+                    ? "Guardando..."
+                    : getDelegateChangedFields().some((field) =>
+                          ["email", "password"].includes(field),
+                        )
+                      ? "Revisar cambios"
+                      : "Guardar cambios"}
+              </span>
+            </ActionButton>
+          </PrimaryActions>
+        )}
       </PanelCard>
     </PanelShell>
   );
@@ -1470,6 +1603,44 @@ const FieldGroup = styled.div`
   }
 `;
 
+const ReasonTextarea = styled.textarea`
+  width: 100%;
+  min-height: 82px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid ${({ theme }) => theme.color2 || theme.bg4};
+  border-radius: 10px;
+  background: ${({ theme }) => theme.bgtotal};
+  color: ${({ theme }) => theme.text};
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+
+  &::placeholder {
+    color: ${({ theme }) => theme.text};
+    opacity: 0.48;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 1px;
+    border-color: transparent;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+  }
+`;
+
+const FieldHint = styled.small`
+  color: ${({ theme }) => theme.text};
+  font-size: 0.75rem;
+  line-height: 1.4;
+  opacity: 0.68;
+`;
+
 const PanelNotice = styled.div`
   padding: 12px 14px;
   border-radius: 14px;
@@ -1486,6 +1657,70 @@ const PanelNotice = styled.div`
 const PrimaryActions = styled.div`
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+`;
+
+const DelegateChangeConfirmation = styled.div`
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(243, 156, 18, 0.32);
+  border-radius: 14px;
+  background: rgba(243, 156, 18, 0.1);
+  color: ${({ theme }) => theme.text};
+  animation: delegate-confirm-in 200ms cubic-bezier(0.25, 1, 0.5, 1) both;
+
+  .confirmation-copy {
+    display: grid;
+    gap: 4px;
+  }
+
+  strong {
+    font-size: 0.92rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    opacity: 0.82;
+  }
+
+  @keyframes delegate-confirm-in {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
+const ChangedFieldList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+
+  span {
+    padding: 5px 9px;
+    border: 1px solid rgba(243, 156, 18, 0.32);
+    border-radius: 999px;
+    background: ${({ theme }) => theme.bgtotal};
+    font-size: 0.74rem;
+    font-weight: 800;
+  }
+`;
+
+const ConfirmationActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
   flex-wrap: wrap;
 `;
 

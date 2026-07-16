@@ -366,6 +366,8 @@ export const updateLinkedDelegateAccountService = async ({
   fullName,
   email = "",
   password = "",
+  reason = "",
+  confirmed = false,
 }) =>
   invokeDelegateAccountFunction({
     action: "update",
@@ -373,6 +375,8 @@ export const updateLinkedDelegateAccountService = async ({
     fullName,
     email,
     password,
+    reason,
+    confirmed,
   });
 
 const invokeDelegateAccountFunction = async (body) => {

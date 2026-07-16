@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
+import { BiCheck, BiShieldQuarter } from 'react-icons/bi';
 import { supabase } from '../supabase/supabase.config';
 import { useAuthStore } from '../store/AuthStore';
 import { ROLES } from '../utils/constants';
@@ -16,6 +18,7 @@ export function AuthContextProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [authLoadingAction, setAuthLoadingAction] = useState(false);
   const [suspendedNotice, setSuspendedNotice] = useState(null);
+  const [securityNotices, setSecurityNotices] = useState([]);
 
   // Ref para mantener canal de presencia único por sesión
   const presenceRef = useRef(null);
@@ -274,6 +277,65 @@ export function AuthContextProvider({ children }) {
   }, [user?.id]);
 
   useEffect(() => {
+    if (!user?.id || profile?.role !== ROLES.DELEGATE) {
+      setSecurityNotices([]);
+      return undefined;
+    }
+
+    let mounted = true;
+    const addNotice = (notice) => {
+      if (!notice?.id || !mounted) return;
+      setSecurityNotices((current) => {
+        if (current.some((item) => item.id === notice.id)) return current;
+        return [...current, notice].sort(
+          (left, right) => new Date(left.created_at) - new Date(right.created_at),
+        );
+      });
+    };
+
+    const loadUnreadNotices = async () => {
+      const { data, error } = await supabase
+        .from('account_security_notifications')
+        .select('id, title, message, metadata, created_at, read_at')
+        .eq('user_id', user.id)
+        .is('read_at', null)
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+      if (error) {
+        console.warn('No se pudieron cargar los avisos de seguridad:', error.message);
+        return;
+      }
+      if (mounted) setSecurityNotices(data || []);
+    };
+
+    loadUnreadNotices();
+
+    const channel = supabase
+      .channel(`account-security-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'account_security_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        ({ new: notice }) => addNotice(notice),
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      try {
+        channel.unsubscribe();
+      } catch {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [profile?.role, user?.id]);
+
+  useEffect(() => {
     const cleanupPresence = () => {
       if (!presenceRef.current) return;
 
@@ -443,9 +505,54 @@ export function AuthContextProvider({ children }) {
     navigate('/login', { replace: true });
   };
 
+  const acknowledgeSecurityNotice = async () => {
+    const notice = securityNotices[0];
+    if (!notice || !user?.id) return;
+
+    setSecurityNotices((current) => current.filter((item) => item.id !== notice.id));
+    const { error } = await supabase
+      .from('account_security_notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', notice.id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.warn('No se pudo marcar el aviso como leido:', error.message);
+      setSecurityNotices((current) =>
+        current.some((item) => item.id === notice.id) ? current : [notice, ...current],
+      );
+    }
+  };
+
   return (
     <AuthContext.Provider value={value}>
       {children}
+      {securityNotices[0] && (
+        <SecurityNotice role="alert" aria-live="assertive">
+          <SecurityNoticeIcon aria-hidden="true">
+            <BiShieldQuarter />
+          </SecurityNoticeIcon>
+          <SecurityNoticeCopy>
+            <div className="notice-heading">
+              <strong>{securityNotices[0].title}</strong>
+              {securityNotices.length > 1 && (
+                <span>{securityNotices.length} avisos pendientes</span>
+              )}
+            </div>
+            <p>{securityNotices[0].message}</p>
+            <time dateTime={securityNotices[0].created_at}>
+              {new Date(securityNotices[0].created_at).toLocaleString('es-MX', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </time>
+          </SecurityNoticeCopy>
+          <SecurityNoticeButton type="button" onClick={acknowledgeSecurityNotice}>
+            <BiCheck />
+            Entendido
+          </SecurityNoticeButton>
+        </SecurityNotice>
+      )}
       {suspendedNotice && (
         <SuspendedOverlay>
           <SuspendedDialog>
@@ -516,3 +623,111 @@ const SuspendedDialog = ({ children }) => (
     {children}
   </div>
 );
+
+const SecurityNotice = styled.aside`
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 200000;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid rgba(28, 176, 246, 0.34);
+  border-radius: 16px;
+  background: ${({ theme }) => theme.bgcards || theme.bgtotal || '#101820'};
+  color: ${({ theme }) => theme.text || '#f8fafc'};
+  animation: security-notice-in 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
+
+  @keyframes security-notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 520px) {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
+const SecurityNoticeIcon = styled.span`
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(28, 176, 246, 0.14);
+  color: #1cb0f6;
+
+  svg {
+    font-size: 1.35rem;
+  }
+`;
+
+const SecurityNoticeCopy = styled.div`
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+
+  .notice-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  strong {
+    font-size: 0.94rem;
+  }
+
+  .notice-heading span,
+  time {
+    font-size: 0.72rem;
+    opacity: 0.68;
+  }
+
+  .notice-heading span {
+    flex: 0 0 auto;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+`;
+
+const SecurityNoticeButton = styled.button`
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid #1cb0f6;
+  border-radius: 10px;
+  background: #1cb0f6;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+`;
