@@ -33,13 +33,20 @@ const getAccessToken = async () => {
 
 const callAuthenticatedEndpoint = async (path, method, payload = {}) => {
   const accessToken = await getAccessToken();
-  const response = await fetch(path, {
+  const requestOptions = {
     method,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify(payload),
+  };
+
+  if (method !== "GET") {
+    requestOptions.body = JSON.stringify(payload);
+  }
+
+  const response = await fetch(path, {
+    ...requestOptions,
   });
 
   const data = await response.json().catch(() => ({}));
@@ -357,6 +364,15 @@ export const unlinkTeamDelegateService = async ({
     teamId,
     deleteAccount,
   });
+
+export const getLinkedDelegateProfileService = async (teamId) =>
+  callAuthenticatedEndpoint(
+    `/api/delegates/profile?teamId=${encodeURIComponent(teamId)}`,
+    "GET",
+  );
+
+export const updateLinkedDelegateProfileService = async (payload) =>
+  callAuthenticatedEndpoint("/api/delegates/profile", "PATCH", payload);
 
 const hydrateDelegateChangeRequests = async (requests = []) => {
   if (!requests.length) return [];
