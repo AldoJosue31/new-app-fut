@@ -4,9 +4,11 @@ import QRCode from "react-qr-code";
 import {
   BiArrowBack,
   BiBadgeCheck,
+  BiChevronRight,
   BiCopy,
   BiEnvelope,
   BiLink,
+  BiLockAlt,
   BiPhone,
   BiQr,
   BiRefresh,
@@ -21,14 +23,24 @@ import { v } from "../../../styles/variables";
 import {
   createDelegateInvitation,
   getActiveDelegateInvitation,
+  getLinkedDelegateProfileService,
   revokeDelegateInvitation,
   unlinkTeamDelegateService,
+  updateLinkedDelegateProfileService,
 } from "../../../services/delegates";
 import { FIELD_LIMITS, validateOptionalEmail } from "../../../utils/entityValidation";
 import { maxLengthFeedback } from "../../../utils/maxLengthFeedback";
 
 const TEAM_FORM_PANEL = "form";
 const TEAM_INVITE_PANEL = "invite";
+const TEAM_DELEGATE_PANEL = "delegate";
+
+const EMPTY_DELEGATE_PROFILE_FORM = {
+  fullName: "",
+  email: "",
+  password: "",
+  phone: "",
+};
 
 export function TeamForm({
   form,
@@ -54,12 +66,18 @@ export function TeamForm({
   const colorInputRef = useRef(null);
   const hasLoadedInvitationRef = useRef(false);
   const [activePanel, setActivePanel] = useState(TEAM_FORM_PANEL);
+  const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [activeInvitation, setActiveInvitation] = useState(null);
   const [loadingInvitation, setLoadingInvitation] = useState(false);
   const [inviteActionLoading, setInviteActionLoading] = useState(false);
   const [unlinkLoading, setUnlinkLoading] = useState(false);
   const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+  const [delegateProfileForm, setDelegateProfileForm] = useState(
+    EMPTY_DELEGATE_PROFILE_FORM,
+  );
+  const [loadingDelegateProfile, setLoadingDelegateProfile] = useState(false);
+  const [savingDelegateProfile, setSavingDelegateProfile] = useState(false);
 
   const isLinkedDelegate = Boolean(linkedDelegateAssignment?.delegate_profile_id);
   const delegateDisplayName = (form.delegate_name || "").trim();
@@ -87,7 +105,9 @@ export function TeamForm({
     setActivePanel(TEAM_FORM_PANEL);
     setShowUnlinkConfirm(false);
     setActiveInvitation(null);
+    setInviteName("");
     setInviteEmail("");
+    setDelegateProfileForm(EMPTY_DELEGATE_PROFILE_FORM);
     hasLoadedInvitationRef.current = false;
   }, [teamId]);
 
@@ -153,6 +173,15 @@ export function TeamForm({
     setInviteEmail(event.target.value);
   };
 
+  const handleInviteNameChange = (event) => {
+    setInviteName(event.target.value);
+  };
+
+  const handleDelegateProfileChange = (event) => {
+    const { name, value } = event.target;
+    setDelegateProfileForm((current) => ({ ...current, [name]: value }));
+  };
+
   const openInvitePanel = (event) => {
     event.preventDefault();
     setActivePanel(TEAM_INVITE_PANEL);
@@ -160,10 +189,117 @@ export function TeamForm({
     onInvitePanelChange?.(true);
   };
 
+  const openDelegateProfilePanel = async (event) => {
+    event.preventDefault();
+
+    if (!canManageDelegateLink || !teamId || !isLinkedDelegate) return;
+
+    setActivePanel(TEAM_DELEGATE_PANEL);
+    setShowUnlinkConfirm(false);
+    setDelegateProfileForm({
+      fullName: delegateDisplayName,
+      email: "",
+      password: "",
+      phone: form.contact_phone || "",
+    });
+    setLoadingDelegateProfile(true);
+    onInvitePanelChange?.(true);
+
+    try {
+      const response = await getLinkedDelegateProfileService(teamId);
+      const delegate = response?.delegate || {};
+
+      setDelegateProfileForm({
+        fullName: delegate.fullName || delegateDisplayName,
+        email: delegate.email || "",
+        password: "",
+        phone: delegate.phone || "",
+      });
+    } catch (error) {
+      showToast?.(
+        error.message || "No se pudo cargar la informacion del delegado.",
+        "error",
+      );
+    } finally {
+      setLoadingDelegateProfile(false);
+    }
+  };
+
   const goBackToForm = (event) => {
     event.preventDefault();
     setActivePanel(TEAM_FORM_PANEL);
     onInvitePanelChange?.(false);
+  };
+
+  const handleSaveDelegateProfile = async (event) => {
+    event.preventDefault();
+
+    const fullName = delegateProfileForm.fullName.trim();
+    const phone = delegateProfileForm.phone.trim();
+    const password = delegateProfileForm.password;
+    const emailValidation = validateOptionalEmail(delegateProfileForm.email);
+
+    if (!fullName) {
+      showToast?.("El nombre del delegado es obligatorio.", "error");
+      return;
+    }
+
+    if (!emailValidation.value || emailValidation.error) {
+      showToast?.(emailValidation.error || "El correo del delegado es obligatorio.", "error");
+      return;
+    }
+
+    if (password && (password.length < 6 || password.length > 72)) {
+      showToast?.(
+        "La nueva contrasena debe tener entre 6 y 72 caracteres.",
+        "error",
+      );
+      return;
+    }
+
+    setSavingDelegateProfile(true);
+
+    try {
+      const response = await updateLinkedDelegateProfileService({
+        teamId,
+        fullName,
+        email: emailValidation.value,
+        password,
+        phone,
+      });
+      const delegate = response?.delegate || {};
+      const nextFullName = delegate.fullName || fullName;
+      const nextPhone = delegate.phone || "";
+
+      setDelegateProfileForm({
+        fullName: nextFullName,
+        email: delegate.email || emailValidation.value,
+        password: "",
+        phone: nextPhone,
+      });
+
+      onFormChange?.({
+        target: { name: "delegate_name", value: nextFullName },
+      });
+      onFormChange?.({
+        target: { name: "contact_phone", value: nextPhone },
+      });
+      onDelegateLinkStateChanged?.({
+        teamId,
+        delegateName: nextFullName,
+        contactPhone: nextPhone,
+        delegateAssignment: linkedDelegateAssignment,
+      });
+
+      showToast?.("Informacion del delegado actualizada.", "success");
+    } catch (error) {
+      showToast?.(
+        error.message || "No se pudo actualizar la informacion del delegado.",
+        "error",
+      );
+    } finally {
+      setSavingDelegateProfile(false);
+    }
   };
 
   const copyInvitationLink = async (event) => {
@@ -202,7 +338,7 @@ export function TeamForm({
     try {
       const response = await createDelegateInvitation({
         teamId,
-        invitedName: form.delegate_name || null,
+        invitedName: inviteName.trim() || null,
         invitedEmail: emailValidation.value || null,
         invitedPhone: form.contact_phone || null,
       });
@@ -211,7 +347,7 @@ export function TeamForm({
         id: response.invitation_id,
         team_id: teamId,
         token: response.token,
-        invited_name: form.delegate_name || null,
+        invited_name: inviteName.trim() || null,
         invited_email: emailValidation.value || null,
         invited_phone: form.contact_phone || null,
         expires_at: response.expires_at,
@@ -313,10 +449,10 @@ export function TeamForm({
               <input
                 id="team-delegate-name"
                 className="form__field"
-                name="delegate_name"
-                value={form.delegate_name || ""}
-                onChange={onFormChange}
-                placeholder="Nombre del delegado"
+                name="invite_name"
+                value={inviteName}
+                onChange={handleInviteNameChange}
+                placeholder={delegateDisplayName || "Ej. Juan Pérez"}
                 {...maxLengthFeedback(FIELD_LIMITS.delegateName)}
               />
               <BiUser className="field-icon" />
@@ -425,10 +561,10 @@ export function TeamForm({
                   </div>
 
                   <InfoList>
-                    {form.delegate_name && (
+                    {activeInvitation.invited_name && (
                       <span>
                         <BiUser />
-                        {form.delegate_name}
+                        {activeInvitation.invited_name}
                       </span>
                     )}
                     {inviteEmail && (
@@ -455,15 +591,141 @@ export function TeamForm({
     </PanelShell>
   );
 
+  const renderDelegateProfilePanel = () => (
+    <PanelShell>
+      <PanelHeader>
+        <PanelBackButton type="button" onClick={goBackToForm}>
+          <BiArrowBack />
+          <span>Volver al equipo</span>
+        </PanelBackButton>
+        <strong>Editar informacion del delegado</strong>
+        <p>
+          Actualiza sus datos personales y, si es necesario, sus credenciales de acceso.
+        </p>
+      </PanelHeader>
+
+      {loadingDelegateProfile ? (
+        <StatusBox>Cargando informacion del delegado...</StatusBox>
+      ) : (
+        <PanelCard>
+          <DelegateProfileGrid>
+            <FieldGroup>
+              <label htmlFor="linked-delegate-name">Nombre del delegado</label>
+              <InputText2>
+                <input
+                  id="linked-delegate-name"
+                  className="form__field"
+                  name="fullName"
+                  value={delegateProfileForm.fullName}
+                  onChange={handleDelegateProfileChange}
+                  placeholder="Nombre completo"
+                  required
+                  {...maxLengthFeedback(FIELD_LIMITS.delegateName)}
+                />
+                <BiUser className="field-icon" />
+              </InputText2>
+            </FieldGroup>
+
+            <FieldGroup>
+              <label htmlFor="linked-delegate-email">Correo electronico</label>
+              <InputText2>
+                <input
+                  id="linked-delegate-email"
+                  className="form__field"
+                  name="email"
+                  type="email"
+                  value={delegateProfileForm.email}
+                  onChange={handleDelegateProfileChange}
+                  placeholder="Correo de acceso"
+                  required
+                  autoComplete="email"
+                  {...maxLengthFeedback(FIELD_LIMITS.email)}
+                />
+                <BiEnvelope className="field-icon" />
+              </InputText2>
+            </FieldGroup>
+
+            <FieldGroup>
+              <label htmlFor="linked-delegate-phone">Telefono</label>
+              <InputText2>
+                <input
+                  id="linked-delegate-phone"
+                  className="form__field"
+                  name="phone"
+                  type="tel"
+                  value={delegateProfileForm.phone}
+                  onChange={handleDelegateProfileChange}
+                  placeholder="Numero de contacto"
+                  autoComplete="tel"
+                  {...maxLengthFeedback(FIELD_LIMITS.phone)}
+                />
+                <BiPhone className="field-icon" />
+              </InputText2>
+            </FieldGroup>
+
+            <FieldGroup>
+              <label htmlFor="linked-delegate-password">
+                Nueva contrasena (opcional)
+              </label>
+              <InputText2>
+                <input
+                  id="linked-delegate-password"
+                  className="form__field"
+                  name="password"
+                  type="password"
+                  value={delegateProfileForm.password}
+                  onChange={handleDelegateProfileChange}
+                  placeholder="Dejar vacio para conservarla"
+                  autoComplete="new-password"
+                  minLength={6}
+                  maxLength={72}
+                />
+                <BiLockAlt className="field-icon" />
+              </InputText2>
+            </FieldGroup>
+          </DelegateProfileGrid>
+
+          <PanelNotice $tone="warning">
+            Si cambias el correo o la contrasena, el delegado debera usar los nuevos datos
+            en su proximo inicio de sesion.
+          </PanelNotice>
+
+          <PrimaryActions>
+            <ActionButton
+              type="button"
+              onClick={handleSaveDelegateProfile}
+              disabled={savingDelegateProfile}
+              $tone="primary"
+            >
+              <v.iconoguardar />
+              <span>
+                {savingDelegateProfile ? "Guardando..." : "Guardar delegado"}
+              </span>
+            </ActionButton>
+          </PrimaryActions>
+        </PanelCard>
+      )}
+    </PanelShell>
+  );
+
   const renderDelegateField = () => (
     <div className="full-width">
       <span className="label">Delegado</span>
       {isLinkedDelegate ? (
         <LinkedDelegateContainer>
-          <div className="delegate-info">
-            <span className="delegate-name">{delegateInputDisplay}</span>
-            <BiBadgeCheck className="verified-icon" />
-          </div>
+          <LinkedDelegateButton
+            type="button"
+            onClick={openDelegateProfilePanel}
+            disabled={!canManageDelegateLink}
+            aria-label={`Editar informacion de ${delegateInputDisplay}`}
+            title={canManageDelegateLink ? "Editar informacion del delegado" : undefined}
+          >
+            <span className="delegate-info">
+              <span className="delegate-name">{delegateInputDisplay}</span>
+              <BiBadgeCheck className="verified-icon" />
+            </span>
+            {canManageDelegateLink && <BiChevronRight className="edit-chevron" />}
+          </LinkedDelegateButton>
           {canManageDelegateLink && (
             <button aria-label="Desvincular"
               className="unlink-btn"
@@ -503,7 +765,9 @@ export function TeamForm({
 
       {isLinkedDelegate ? (
         <HelperText $tone="verified">
-          Delegado registrado y vinculado.
+          {canManageDelegateLink
+            ? "Delegado registrado. Haz clic en su nombre para editar sus datos."
+            : "Delegado registrado y vinculado."}
         </HelperText>
       ) : delegateDisplayName ? null : (
         <HelperText>
@@ -538,7 +802,12 @@ export function TeamForm({
   );
 
   const handleSubmit = (event) => {
-    if (activePanel === TEAM_INVITE_PANEL) {
+    if (activePanel === TEAM_DELEGATE_PANEL) {
+      handleSaveDelegateProfile(event);
+      return;
+    }
+
+    if (activePanel !== TEAM_FORM_PANEL) {
       event.preventDefault();
       return;
     }
@@ -554,6 +823,8 @@ export function TeamForm({
     >
       {activePanel === TEAM_INVITE_PANEL ? (
         renderInvitePanel()
+      ) : activePanel === TEAM_DELEGATE_PANEL ? (
+        renderDelegateProfilePanel()
       ) : (
         <>
           <div className="logo-section">
@@ -824,28 +1095,15 @@ const VerifiedInlineBadge = styled.div`
 const LinkedDelegateContainer = styled.div`
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 14px;
+  padding: 5px 6px;
   border-radius: 10px;
   background-color: ${({ theme }) => theme.bgtotal || "#ffffff"};
   border: 1px solid ${({ theme }) => theme.color2 || "#e2e8f0"};
   color: ${({ theme }) => theme.text};
   min-height: 48px;
-  
-  .delegate-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 700;
-    font-size: 0.95rem;
-  }
-
-  .verified-icon {
-    color: #1cb0f6;
-    font-size: 1.2rem;
-  }
 
   .unlink-btn {
     display: flex;
@@ -853,6 +1111,7 @@ const LinkedDelegateContainer = styled.div`
     justify-content: center;
     width: 32px;
     height: 32px;
+    flex: 0 0 32px;
     border: none;
     border-radius: 8px;
     background: rgba(231, 76, 60, 0.12);
@@ -867,6 +1126,77 @@ const LinkedDelegateContainer = styled.div`
 
     svg {
       font-size: 1.2rem;
+    }
+  }
+`;
+
+const LinkedDelegateButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  min-height: 38px;
+  flex: 1;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 180ms cubic-bezier(0.25, 1, 0.5, 1);
+
+  .delegate-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .delegate-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .verified-icon {
+    flex-shrink: 0;
+    color: #1cb0f6;
+    font-size: 1.2rem;
+  }
+
+  .edit-chevron {
+    flex-shrink: 0;
+    font-size: 1.15rem;
+    opacity: 0.55;
+    transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1), opacity 180ms ease;
+  }
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.bg4};
+
+    .edit-chevron {
+      opacity: 1;
+      transform: translateX(2px);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &, .edit-chevron {
+      transition: none;
     }
   }
 `;
@@ -1028,6 +1358,16 @@ const FieldGroup = styled.div`
     right: 14px;
     opacity: 0.45;
     font-size: 1.1rem;
+  }
+`;
+
+const DelegateProfileGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 `;
 
