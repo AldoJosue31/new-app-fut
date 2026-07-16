@@ -54,6 +54,7 @@ export function TeamForm({
   const colorInputRef = useRef(null);
   const hasLoadedInvitationRef = useRef(false);
   const [activePanel, setActivePanel] = useState(TEAM_FORM_PANEL);
+  const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [activeInvitation, setActiveInvitation] = useState(null);
   const [loadingInvitation, setLoadingInvitation] = useState(false);
@@ -87,6 +88,7 @@ export function TeamForm({
     setActivePanel(TEAM_FORM_PANEL);
     setShowUnlinkConfirm(false);
     setActiveInvitation(null);
+    setInviteName("");
     setInviteEmail("");
     hasLoadedInvitationRef.current = false;
   }, [teamId]);
@@ -153,6 +155,10 @@ export function TeamForm({
     setInviteEmail(event.target.value);
   };
 
+  const handleInviteNameChange = (event) => {
+    setInviteName(event.target.value);
+  };
+
   const openInvitePanel = (event) => {
     event.preventDefault();
     setActivePanel(TEAM_INVITE_PANEL);
@@ -202,7 +208,7 @@ export function TeamForm({
     try {
       const response = await createDelegateInvitation({
         teamId,
-        invitedName: form.delegate_name || null,
+        invitedName: inviteName.trim() || null,
         invitedEmail: emailValidation.value || null,
         invitedPhone: form.contact_phone || null,
       });
@@ -211,7 +217,7 @@ export function TeamForm({
         id: response.invitation_id,
         team_id: teamId,
         token: response.token,
-        invited_name: form.delegate_name || null,
+        invited_name: inviteName.trim() || null,
         invited_email: emailValidation.value || null,
         invited_phone: form.contact_phone || null,
         expires_at: response.expires_at,
@@ -313,10 +319,10 @@ export function TeamForm({
               <input
                 id="team-delegate-name"
                 className="form__field"
-                name="delegate_name"
-                value={form.delegate_name || ""}
-                onChange={onFormChange}
-                placeholder="Nombre del delegado"
+                name="invite_name"
+                value={inviteName}
+                onChange={handleInviteNameChange}
+                placeholder={delegateDisplayName || "Ej. Juan Pérez"}
                 {...maxLengthFeedback(FIELD_LIMITS.delegateName)}
               />
               <BiUser className="field-icon" />
@@ -425,10 +431,10 @@ export function TeamForm({
                   </div>
 
                   <InfoList>
-                    {form.delegate_name && (
+                    {activeInvitation.invited_name && (
                       <span>
                         <BiUser />
-                        {form.delegate_name}
+                        {activeInvitation.invited_name}
                       </span>
                     )}
                     {inviteEmail && (
