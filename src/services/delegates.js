@@ -33,20 +33,13 @@ const getAccessToken = async () => {
 
 const callAuthenticatedEndpoint = async (path, method, payload = {}) => {
   const accessToken = await getAccessToken();
-  const requestOptions = {
+  const response = await fetch(path, {
     method,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },
-  };
-
-  if (method !== "GET") {
-    requestOptions.body = JSON.stringify(payload);
-  }
-
-  const response = await fetch(path, {
-    ...requestOptions,
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -365,14 +358,48 @@ export const unlinkTeamDelegateService = async ({
     deleteAccount,
   });
 
-export const getLinkedDelegateProfileService = async (teamId) =>
-  callAuthenticatedEndpoint(
-    `/api/delegates/profile?teamId=${encodeURIComponent(teamId)}`,
-    "GET",
+export const getLinkedDelegateAccountService = async (teamId) =>
+  invokeDelegateAccountFunction({ action: "get", teamId });
+
+export const updateLinkedDelegateAccountService = async ({
+  teamId,
+  fullName,
+  email = "",
+  password = "",
+}) =>
+  invokeDelegateAccountFunction({
+    action: "update",
+    teamId,
+    fullName,
+    email,
+    password,
+  });
+
+const invokeDelegateAccountFunction = async (body) => {
+  const { data, error } = await supabase.functions.invoke(
+    "manage-delegate-account",
+    { body },
   );
 
-export const updateLinkedDelegateProfileService = async (payload) =>
-  callAuthenticatedEndpoint("/api/delegates/profile", "PATCH", payload);
+  if (!error) return data;
+
+  let responseBody = null;
+  try {
+    const response =
+      typeof error.context?.clone === "function"
+        ? error.context.clone()
+        : error.context;
+    responseBody = await response?.json();
+  } catch {
+    // La respuesta de la funcion no contenia JSON.
+  }
+
+  throw new Error(
+    responseBody?.error ||
+      error.message ||
+      "No se pudo completar la operacion del delegado.",
+  );
+};
 
 const hydrateDelegateChangeRequests = async (requests = []) => {
   if (!requests.length) return [];
