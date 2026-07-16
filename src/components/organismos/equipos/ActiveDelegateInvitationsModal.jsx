@@ -5,14 +5,19 @@ import {
   RiArrowDownSLine,
   RiArrowUpDownLine,
   RiArrowUpSLine,
+  RiDeleteBin6Line,
   RiEditLine,
   RiFileCopyLine,
   RiRefreshLine,
   RiTimeLine,
 } from "react-icons/ri";
 import { Toast } from "../../atomos/Toast";
+import { ConfirmModal } from "../ConfirmModal";
 import { Modal } from "../Modal";
-import { updateDelegateInvitation } from "../../../services/delegates";
+import {
+  deleteUsedDelegateInvitation,
+  updateDelegateInvitation,
+} from "../../../services/delegates";
 import { v } from "../../../styles/variables";
 
 const statusDefinitions = {
@@ -357,7 +362,10 @@ export function ActiveDelegateInvitationsModal({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [sort, setSort] = useState({ key: "status", direction: "asc" });
+  const [statusFilter, setStatusFilter] = useState("all");
   const [editingInvitation, setEditingInvitation] = useState(null);
+  const [deletingInvitation, setDeletingInvitation] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const shouldReduceMotion = useReducedMotion();
 
@@ -397,10 +405,20 @@ export function ActiveDelegateInvitationsModal({
     [invitations, now, teamNames]
   );
 
+  const filteredInvitations = useMemo(
+    () =>
+      statusFilter === "all"
+        ? invitationRows
+        : invitationRows.filter(
+            (invitation) => invitation.status === statusFilter
+          ),
+    [invitationRows, statusFilter]
+  );
+
   const sortedInvitations = useMemo(() => {
     const direction = sort.direction === "asc" ? 1 : -1;
 
-    return [...invitationRows].sort((first, second) => {
+    return [...filteredInvitations].sort((first, second) => {
       let comparison = 0;
 
       if (sort.key === "team") {
@@ -430,7 +448,7 @@ export function ActiveDelegateInvitationsModal({
 
       return comparison * direction;
     });
-  }, [invitationRows, sort]);
+  }, [filteredInvitations, sort]);
 
   const counts = useMemo(
     () =>
@@ -450,6 +468,10 @@ export function ActiveDelegateInvitationsModal({
       direction:
         current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
+  };
+
+  const handleStatusFilter = (status) => {
+    setStatusFilter((current) => (current === status ? "all" : status));
   };
 
   const handleCopy = async (invitation) => {
@@ -484,8 +506,34 @@ export function ActiveDelegateInvitationsModal({
     });
   };
 
+  const handleDeleteUsedInvitation = async () => {
+    if (!deletingInvitation?.id) return;
+
+    setDeleting(true);
+    try {
+      await deleteUsedDelegateInvitation(deletingInvitation.id);
+      await onInvitationUpdated?.();
+      setDeletingInvitation(null);
+      setToast({
+        show: true,
+        message: "Invitación usada eliminada del historial.",
+        type: "success",
+      });
+    } catch (deleteError) {
+      setToast({
+        show: true,
+        message:
+          deleteError.message || "No se pudo eliminar la invitación usada.",
+        type: "error",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleClose = () => {
     setEditingInvitation(null);
+    setDeletingInvitation(null);
     onClose();
   };
 
@@ -513,7 +561,9 @@ export function ActiveDelegateInvitationsModal({
               <strong>
                 {loading
                   ? "Consultando invitaciones"
-                  : `${invitationRows.length} invitaciones en el historial`}
+                  : statusFilter === "all"
+                    ? `${invitationRows.length} invitaciones en el historial`
+                    : `Mostrando ${filteredInvitations.length} de ${invitationRows.length} invitaciones`}
               </strong>
               <p>
                 Los cambios de estado y las ediciones se muestran automáticamente
@@ -522,15 +572,26 @@ export function ActiveDelegateInvitationsModal({
             </div>
 
             {!loading && invitationRows.length > 0 && (
-              <StatusSummary aria-label="Resumen de estados">
+              <StatusSummary aria-label="Filtrar invitaciones por estado">
                 {Object.entries(statusDefinitions).map(([status, definition]) => (
-                  <span key={status}>
+                  <button
+                    key={status}
+                    type="button"
+                    style={{ "--status-color": definition.color }}
+                    aria-pressed={statusFilter === status}
+                    onClick={() => handleStatusFilter(status)}
+                    title={
+                      statusFilter === status
+                        ? `Quitar filtro ${definition.label}`
+                        : `Mostrar invitaciones ${definition.label.toLowerCase()}`
+                    }
+                  >
                     <i
                       style={{ backgroundColor: definition.color }}
                       aria-hidden="true"
                     />
                     {definition.label} {counts[status]}
-                  </span>
+                  </button>
                 ))}
               </StatusSummary>
             )}
@@ -614,6 +675,21 @@ export function ActiveDelegateInvitationsModal({
                   </tr>
                 </thead>
                 <tbody>
+                  {sortedInvitations.length === 0 && (
+                    <tr>
+                      <td colSpan={6}>
+                        <FilteredEmpty>
+                          <span>No hay invitaciones con el estado seleccionado.</span>
+                          <button
+                            type="button"
+                            onClick={() => setStatusFilter("all")}
+                          >
+                            Ver todas
+                          </button>
+                        </FilteredEmpty>
+                      </td>
+                    </tr>
+                  )}
                   {sortedInvitations.map((invitation) => {
                     const status = statusDefinitions[invitation.status];
                     const progress = getProgress(invitation, now);
@@ -708,6 +784,17 @@ export function ActiveDelegateInvitationsModal({
                             >
                               <RiEditLine aria-hidden="true" />
                             </button>
+                            {invitation.status === "used" && (
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={() => setDeletingInvitation(invitation)}
+                                aria-label={`Eliminar invitación usada de ${invitation.teamName}`}
+                                title="Eliminar invitación usada"
+                              >
+                                <RiDeleteBin6Line aria-hidden="true" />
+                              </button>
+                            )}
                           </RowActions>
                         </td>
                       </tr>
@@ -730,6 +817,23 @@ export function ActiveDelegateInvitationsModal({
         }
         onClose={() => setEditingInvitation(null)}
         onSaved={handleSaved}
+      />
+
+      <ConfirmModal
+        isOpen={isOpen && Boolean(deletingInvitation)}
+        onClose={() => {
+          if (!deleting) setDeletingInvitation(null);
+        }}
+        onConfirm={handleDeleteUsedInvitation}
+        title="Eliminar invitación usada"
+        message={`¿Eliminar permanentemente la invitación de ${
+          deletingInvitation?.teamName || "este equipo"
+        }?`}
+        subMessage="Esta acción elimina únicamente el registro de la invitación. El delegado seguirá asignado al equipo."
+        confirmText={deleting ? "Eliminando…" : "Eliminar invitación"}
+        confirmIcon={<RiDeleteBin6Line />}
+        confirmDisabled={deleting}
+        thinButtons
       />
     </>
   );
@@ -782,19 +886,73 @@ const StatusSummary = styled.div`
   gap: 8px 14px;
   flex: 0 0 auto;
 
-  span {
+  button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid ${({ theme }) => theme.bg4};
+    border-radius: 8px;
+    background: transparent;
+    color: ${({ theme }) => theme.text};
+    font: inherit;
     font-size: 0.75rem;
     font-weight: 700;
     white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 160ms ease, background 160ms ease,
+      color 160ms ease;
+  }
+
+  button:hover,
+  button[aria-pressed="true"] {
+    border-color: var(--status-color);
+    background: color-mix(in srgb, var(--status-color) 10%, transparent);
+  }
+
+  button[aria-pressed="true"] {
+    color: var(--status-color);
+  }
+
+  button:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 2px;
   }
 
   i {
     width: 7px;
     height: 7px;
     border-radius: 50%;
+  }
+`;
+
+const FilteredEmpty = styled.div`
+  display: flex;
+  min-height: 140px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  opacity: 0.78;
+
+  button {
+    padding: 6px 9px;
+    border: 1px solid ${({ theme }) => theme.bg4};
+    border-radius: 8px;
+    background: ${({ theme }) => theme.bgcards};
+    color: ${v.colorPrincipal};
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  button:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 540px) {
+    flex-direction: column;
   }
 `;
 
@@ -1058,6 +1216,16 @@ const RowActions = styled.div`
     border-color: ${v.colorPrincipal};
     background: rgba(28, 176, 246, 0.08);
     color: ${v.colorPrincipal};
+  }
+
+  button.danger {
+    color: ${v.rojo};
+  }
+
+  button.danger:hover:not(:disabled) {
+    border-color: ${v.rojo};
+    background: rgba(245, 78, 65, 0.1);
+    color: ${v.rojo};
   }
 
   button:active:not(:disabled) {
