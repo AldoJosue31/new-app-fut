@@ -30,6 +30,15 @@ const tournamentBadgeCycle = keyframes`
   100% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
 `;
 
+const clockHandCycle = keyframes`
+  0%, 10% { transform: translateX(-50%) rotate(30deg); }
+  20%, 30% { transform: translateX(-50%) rotate(90deg); }
+  40%, 50% { transform: translateX(-50%) rotate(180deg); }
+  60%, 70% { transform: translateX(-50%) rotate(270deg); }
+  80%, 90% { transform: translateX(-50%) rotate(360deg); }
+  100% { transform: translateX(-50%) rotate(390deg); }
+`;
+
 function TeamCardComponent({
   team,
   onEdit,
@@ -38,6 +47,7 @@ function TeamCardComponent({
   onView,
   onInviteDelegate,
   isParticipating,
+  hasPendingDelegateInvitation = false,
   showTransferAction = true,
   showDeleteAction = true,
   showInviteAction = false,
@@ -172,13 +182,26 @@ function TeamCardComponent({
 
       <div className="card-body">
         <h3>{team.name}</h3>
-        <DelegateRow $linked={isLinkedDelegate}>
+        <DelegateRow
+          $linked={isLinkedDelegate}
+          $pending={hasPendingDelegateInvitation}
+        >
           <v.iconoUser className="icon" />
           {isLinkedDelegate ? (
             <VerifiedDelegatePill>
               <span>{delegateLabel}</span>
               <BiBadgeCheck />
             </VerifiedDelegatePill>
+          ) : hasPendingDelegateInvitation ? (
+            <PendingDelegatePill title="Invitacion de registro pendiente">
+              <span>{delegateLabel}</span>
+              <PendingInviteClock
+                role="img"
+                aria-label="Invitacion de registro pendiente"
+              >
+                <span className="clock-hand" />
+              </PendingInviteClock>
+            </PendingDelegatePill>
           ) : (
             <ManualDelegateText>{delegateLabel}</ManualDelegateText>
           )}
@@ -259,8 +282,9 @@ const DelegateRow = styled.div`
   margin-bottom: 8px;
 
   .icon {
-    color: ${({ $linked, theme }) => ($linked ? "#8bd6ff" : theme.text)};
-    opacity: ${({ $linked }) => ($linked ? 1 : 0.55)};
+    color: ${({ $linked, $pending, theme }) =>
+      $linked ? "#8bd6ff" : $pending ? "#f5a623" : theme.text};
+    opacity: ${({ $linked, $pending }) => ($linked || $pending ? 1 : 0.55)};
   }
 `;
 
@@ -454,6 +478,67 @@ const StatusBadge = styled.div`
     css`
       animation: ${statusBadgeCycle} 5s linear infinite;
     `}
+`;
+
+const PendingDelegatePill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: #8b95a7;
+  font-size: 0.85rem;
+  font-weight: 600;
+
+  > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+`;
+
+const PendingInviteClock = styled.span`
+  position: relative;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 1em;
+  box-sizing: border-box;
+  color: #f5a623;
+  border: 1.4px solid currentColor;
+  border-radius: 50%;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.5px;
+    height: 2.5px;
+    background: currentColor;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .clock-hand {
+    position: absolute;
+    bottom: 50%;
+    left: 50%;
+    width: 1.4px;
+    height: 0.32em;
+    background: currentColor;
+    border-radius: 999px;
+    transform: translateX(-50%) rotate(30deg);
+    transform-origin: 50% 100%;
+    animation: ${clockHandCycle} 4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .clock-hand {
+      animation: none;
+      opacity: 1;
+      transform: translateX(-50%) rotate(30deg);
+    }
+  }
 `;
 
 const TournamentBadge = styled.div`
