@@ -2,11 +2,17 @@ import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import {
+  BiCalendarX,
+  BiCheckShield,
   BiCheckCircle,
   BiErrorCircle,
+  BiLinkAlt,
+  BiLogIn,
   BiPhone,
   BiShieldQuarter,
+  BiTimeFive,
   BiUser,
+  BiXCircle,
 } from "react-icons/bi";
 import { Card } from "../moleculas/Card";
 import { Btnsave } from "../moleculas/Btnsave";
@@ -21,6 +27,9 @@ import {
   getDelegateInvitation,
 } from "../../services/delegates";
 import { v } from "../../styles/variables";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function RegisterDelegateTemplate({ token }) {
   const navigate = useNavigate();
@@ -64,10 +73,12 @@ export function RegisterDelegateTemplate({ token }) {
       }
     };
 
-    if (token) {
+    if (token && UUID_PATTERN.test(token)) {
       validate();
     } else {
-      setErrorMsg("Invitacion invalida.");
+      setErrorMsg(
+        "El enlace esta incompleto o fue copiado incorrectamente. Solicita al manager que te comparta la invitacion nuevamente.",
+      );
       setIsValidating(false);
     }
 
@@ -152,16 +163,21 @@ export function RegisterDelegateTemplate({ token }) {
 
   if (errorMsg) {
     return (
-      <FullScreenContainer>
-        <Card maxWidth="420px">
-          <ErrorState>
-            <BiErrorCircle size={52} color={v.rojo} />
-            <h3>Enlace invalido</h3>
-            <p>{errorMsg}</p>
-            <Btnsave titulo="Ir al inicio" funcion={() => navigate("/")} bgcolor={v.rojo} />
-          </ErrorState>
-        </Card>
-      </FullScreenContainer>
+      <InvitationStatusView
+        status="invalid"
+        message={errorMsg}
+        onLogin={() => navigate("/login")}
+      />
+    );
+  }
+
+  if (invitationData?.status && invitationData.status !== "active") {
+    return (
+      <InvitationStatusView
+        status={invitationData.status}
+        invitation={invitationData}
+        onLogin={() => navigate("/login")}
+      />
     );
   }
 
@@ -293,13 +309,133 @@ export function RegisterDelegateTemplate({ token }) {
   );
 }
 
+function InvitationStatusView({ status, invitation, message, onLogin }) {
+  const teamName = invitation?.team_name;
+  const leagueName = invitation?.league_name;
+  const formatDateTime = (value) =>
+    value
+      ? new Date(value).toLocaleString("es-MX", {
+          dateStyle: "long",
+          timeStyle: "short",
+        })
+      : null;
+
+  const stateContent = {
+    used: {
+      tone: "success",
+      Icon: BiCheckShield,
+      title: "Este enlace ya fue utilizado",
+      description: (
+        <>
+          La cuenta del delegado ya fue creada con esta invitación. Por seguridad,
+          cada enlace funciona una sola vez.
+        </>
+      ),
+      dateLabel: "Registro completado",
+      dateValue: formatDateTime(invitation?.used_at),
+    },
+    expired: {
+      tone: "warning",
+      Icon: BiCalendarX,
+      title: "El tiempo para registrarse terminó",
+      description: (
+        <>
+          El plazo definido por el manager termino y el enlace se desactivo
+          automáticamente para proteger el acceso. Solicita una invitación nueva
+          para completar el registro.
+        </>
+      ),
+      dateLabel: "La invitación venció",
+      dateValue: formatDateTime(invitation?.expires_at),
+    },
+    revoked: {
+      tone: "danger",
+      Icon: BiXCircle,
+      title: "Esta invitación fue cancelada",
+      description: (
+        <>
+          El manager desactivo este enlace antes de que fuera utilizado. Solicita una
+          invitación nueva para continuar con el registro.
+        </>
+      ),
+      dateLabel: "Invitación cancelada",
+      dateValue: formatDateTime(invitation?.revoked_at),
+    },
+    invalid: {
+      tone: "danger",
+      Icon: BiLinkAlt,
+      title: "No encontramos esta invitación",
+      description: message,
+    },
+  }[status] || {
+    tone: "danger",
+    Icon: BiErrorCircle,
+    title: "No se pudo abrir la invitación",
+    description: message || "Solicita al manager que te comparta un enlace nuevo.",
+  };
+
+  const { Icon } = stateContent;
+
+  return (
+    <FullScreenContainer>
+      <ThemeButtonWrapper>
+        <ToggleTema />
+      </ThemeButtonWrapper>
+
+      <StatusCard maxWidth="520px">
+        <InvitationState>
+          <StateIcon aria-hidden="true" $tone={stateContent.tone}>
+            <Icon />
+          </StateIcon>
+
+          <StateCopy>
+            <h1>{stateContent.title}</h1>
+            <p>{stateContent.description}</p>
+          </StateCopy>
+
+          {(teamName || stateContent.dateValue) && (
+            <StateDetails>
+              {teamName && (
+                <StateDetailRow>
+                  <BiUser aria-hidden="true" />
+                  <span>
+                    <small>Equipo</small>
+                    <strong>{teamName}</strong>
+                    {leagueName && <em>{leagueName}</em>}
+                  </span>
+                </StateDetailRow>
+              )}
+
+              {stateContent.dateValue && (
+                <StateDetailRow>
+                  <BiTimeFive aria-hidden="true" />
+                  <span>
+                    <small>{stateContent.dateLabel}</small>
+                    <strong>{stateContent.dateValue}</strong>
+                  </span>
+                </StateDetailRow>
+              )}
+            </StateDetails>
+          )}
+
+          <StateButton type="button" onClick={onLogin}>
+            <BiLogIn />
+            Iniciar sesión
+          </StateButton>
+        </InvitationState>
+      </StatusCard>
+    </FullScreenContainer>
+  );
+}
+
 const FullScreenContainer = styled.div`
   position: fixed;
   inset: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
   background: ${({ theme }) => theme.bgtotal};
-  z-index: 9999;
+  z-index: 1000;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -311,7 +447,7 @@ const ThemeButtonWrapper = styled.div`
   position: absolute;
   top: 20px;
   right: 20px;
-  z-index: 10000;
+  z-index: 1010;
 `;
 
 const Header = styled.div`
@@ -354,9 +490,180 @@ const HintText = styled.p`
   opacity: 0.78;
 `;
 
-const ErrorState = styled.div`
+const getStateColor = (tone) => {
+  if (tone === "success") return v.verde;
+  if (tone === "warning") return "#d97706";
+  return v.rojo;
+};
+
+const StatusCard = styled(Card)`
+  box-sizing: border-box;
+  padding: 34px;
+
+  @media (max-width: 520px) {
+    padding: 26px 22px;
+  }
+`;
+
+const InvitationState = styled.section`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 4px 0 0;
+  color: ${({ theme }) => theme.text};
+  animation: invitation-state-in 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
+
+  @keyframes invitation-state-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
+const StateIcon = styled.div`
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  background: ${({ $tone }) => `${getStateColor($tone)}1f`};
+  color: ${({ $tone }) => getStateColor($tone)};
+
+  svg {
+    font-size: 2.3rem;
+  }
+`;
+
+const StateCopy = styled.div`
+  display: grid;
+  gap: 10px;
+  max-width: 66ch;
   text-align: center;
-  padding: 20px;
+
+  h1 {
+    margin: 0;
+    color: ${({ theme }) => theme.text};
+    font-size: 1.5rem;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  p {
+    margin: 0;
+    color: ${({ theme }) => theme.text};
+    font-size: 0.95rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+`;
+
+const StateDetails = styled.div`
+  display: grid;
+  width: 100%;
+  box-sizing: border-box;
+  border-top: 1px solid ${({ theme }) => theme.bg4};
+  border-bottom: 1px solid ${({ theme }) => theme.bg4};
+  color: ${({ theme }) => theme.text};
+`;
+
+const StateDetailRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 4px;
+
+  & + & {
+    border-top: 1px solid ${({ theme }) => theme.bg4};
+  }
+
+  > svg {
+    flex: 0 0 auto;
+    color: ${v.colorPrincipal};
+    font-size: 1.35rem;
+  }
+
+  > span {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  small {
+    font-size: 0.875rem;
+    opacity: 0.72;
+  }
+
+  strong {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  em {
+    color: ${v.colorPrincipal};
+    font-size: 0.875rem;
+    font-style: normal;
+    font-weight: 700;
+  }
+`;
+
+const StateButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid ${v.colorPrincipal};
+  border-radius: 12px;
+  background: ${v.colorPrincipal};
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    background 180ms ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: #159bd8;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    background: #128bc2;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 2px;
+  }
+
+  svg {
+    font-size: 1.1rem;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 `;
 
 const SuccessContent = styled.div`
