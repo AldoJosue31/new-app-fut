@@ -1212,6 +1212,7 @@ const DeleteContent = styled.div`
   }
 `;
 
+
 const Form = styled.form`
   display: flex;
   flex-direction: column;
