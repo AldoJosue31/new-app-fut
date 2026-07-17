@@ -9,6 +9,12 @@ import {
 } from "react-icons/ri";
 import { v } from "../../../../../../styles/variables";
 import { supabase } from "../../../../../../supabase/supabase.config";
+import {
+  findBestScanMatch,
+  getScannedDateReview,
+  normalizeScanName,
+  resolveScannedTeamSides,
+} from "../../../../../../utils/cedulaScanMatching";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
@@ -64,97 +70,6 @@ const canvasToBlob = (canvas, mimeType, quality) => new Promise(resolve => {
   canvas.toBlob(resolve, mimeType, quality);
 });
 
-const normalizeName = (value = "") => String(value)
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase()
-  .replace(/\b(fc|futbol club|club deportivo|deportivo|equipo)\b/g, " ")
-  .replace(/[^a-z0-9]+/g, " ")
-  .trim();
-
-const levenshtein = (left = "", right = "") => {
-  if (!left.length) return right.length;
-  if (!right.length) return left.length;
-  const row = Array.from({ length: right.length + 1 }, (_, index) => index);
-  for (let i = 1; i <= left.length; i += 1) {
-    let diagonal = row[0];
-    row[0] = i;
-    for (let j = 1; j <= right.length; j += 1) {
-      const previous = row[j];
-      row[j] = left[i - 1] === right[j - 1]
-        ? diagonal
-        : Math.min(diagonal, row[j - 1], row[j]) + 1;
-      diagonal = previous;
-    }
-  }
-  return row[right.length];
-};
-
-const nameSimilarity = (left, right) => {
-  const a = normalizeName(left);
-  const b = normalizeName(right);
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-  const editScore = 1 - (levenshtein(a, b) / Math.max(a.length, b.length));
-  const aTokens = new Set(a.split(" ").filter(Boolean));
-  const bTokens = new Set(b.split(" ").filter(Boolean));
-  const intersection = [...aTokens].filter(token => bTokens.has(token)).length;
-  const tokenScore = intersection / Math.max(aTokens.size, bTokens.size, 1);
-  return Math.max(editScore, tokenScore * 0.94);
-};
-
-const bestMatch = (value, options, getLabel, threshold) => {
-  const ranked = options
-    .map(option => ({ option, score: nameSimilarity(value, getLabel(option)) }))
-    .sort((a, b) => b.score - a.score);
-  return ranked[0]?.score >= threshold ? ranked[0] : null;
-};
-
-const resolveTeamBlockSides = (firstName, secondName, actualTeams) => {
-  const [registeredLocal, registeredVisit] = actualTeams;
-  const firstReadable = Boolean(normalizeName(firstName));
-  const secondReadable = Boolean(normalizeName(secondName));
-  const oppositeSide = side => side === "local" ? "visit" : "local";
-
-  if (firstReadable && !secondReadable) {
-    const match = bestMatch(firstName, actualTeams, team => team.name, 0.42);
-    if (match) {
-      return {
-        firstSide: match.option.side,
-        secondSide: oppositeSide(match.option.side),
-        swapped: match.option.side === "visit",
-        ambiguous: false,
-      };
-    }
-  }
-
-  if (!firstReadable && secondReadable) {
-    const match = bestMatch(secondName, actualTeams, team => team.name, 0.42);
-    if (match) {
-      return {
-        firstSide: oppositeSide(match.option.side),
-        secondSide: match.option.side,
-        swapped: match.option.side === "local",
-        ambiguous: false,
-      };
-    }
-  }
-
-  const directScore = nameSimilarity(firstName, registeredLocal.name)
-    + nameSimilarity(secondName, registeredVisit.name);
-  const swappedScore = nameSimilarity(firstName, registeredVisit.name)
-    + nameSimilarity(secondName, registeredLocal.name);
-  const swapped = swappedScore >= 0.84 && swappedScore > directScore + 0.08;
-  const selectedScore = swapped ? swappedScore : directScore;
-
-  return {
-    firstSide: swapped ? "visit" : "local",
-    secondSide: swapped ? "local" : "visit",
-    swapped,
-    ambiguous: selectedScore < 0.84 || (firstReadable && secondReadable && Math.abs(directScore - swappedScore) < 0.08),
-  };
-};
-
 const playerName = (player) => (
   player?.full_name || `${player?.first_name || ""} ${player?.last_name || ""}`.trim()
 );
@@ -197,10 +112,11 @@ const fileToScanPayload = async (file) => {
   }
 };
 
-const invokeScanFunction = async (image) => {
+const invokeScanFunction = async (image, matchContext) => {
   const formData = new FormData();
   formData.append("image", image.blob, image.fileName);
   formData.append("mimeType", image.mimeType);
+  formData.append("matchContext", JSON.stringify(matchContext));
   const { data, error } = await supabase.functions.invoke("procesar-cedula", {
     body: formData,
   });
@@ -270,6 +186,21 @@ export function CedulaScanFlow({
     return () => query.removeEventListener?.("change", update);
   }, []);
 
+  const scanContext = useMemo(() => ({
+    teams: [
+      {
+        side: "local",
+        name: match?.local?.name || "Local",
+        players: localPlayers.map(playerName).filter(Boolean),
+      },
+      {
+        side: "visitor",
+        name: match?.visitante?.name || "Visitante",
+        players: visitPlayers.map(playerName).filter(Boolean),
+      },
+    ],
+  }), [localPlayers, match, visitPlayers]);
+
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
@@ -296,6 +227,7 @@ export function CedulaScanFlow({
     setPreviewAvailable(null);
     setRawScan(null);
     setScanProgress(0);
+    setApplyScannedDate(false);
   }, [showToast]);
 
   const selectPastedFile = useEffectEvent((image) => {
@@ -320,25 +252,44 @@ export function CedulaScanFlow({
       { side: "local", id: match?.local?.id, name: match?.local?.name || "Local" },
       { side: "visit", id: match?.visitante?.id, name: match?.visitante?.name || "Visitante" },
     ];
-    const teamAssignment = resolveTeamBlockSides(
+    const teamAssignment = resolveScannedTeamSides(
       rawScan.localTeam?.name,
       rawScan.visitorTeam?.name,
       actualTeams,
     );
     const localSide = teamAssignment.firstSide;
     const visitorSide = teamAssignment.secondSide;
-    const refereeMatch = bestMatch(rawScan.referee, referees, refereeName, 0.5);
+    const refereeMatch = findBestScanMatch(rawScan.referee, referees, refereeName, {
+      threshold: 0.36,
+      minMargin: 0.05,
+      strongThreshold: 0.82,
+    });
     const usedPlayerIds = new Set();
+    const localPool = localPlayers.map(player => ({ player, scanSide: "local" }));
+    const visitPool = visitPlayers.map(player => ({ player, scanSide: "visit" }));
     const players = (rawScan.players || []).map(scannedPlayer => {
       let side = scannedPlayer.team === "visitor" ? visitorSide : scannedPlayer.team === "local" ? localSide : null;
-      let pool = side === "local" ? localPlayers : side === "visit" ? visitPlayers : [...localPlayers, ...visitPlayers];
-      pool = pool.filter(player => !usedPlayerIds.has(String(player.id)));
-      const matched = bestMatch(scannedPlayer.name, pool, playerName, 0.5);
+      let pool = teamAssignment.ambiguous
+        ? [...localPool, ...visitPool]
+        : side === "local" ? localPool : side === "visit" ? visitPool : [...localPool, ...visitPool];
+      pool = pool.filter(candidate => !usedPlayerIds.has(String(candidate.player.id)));
+      const matched = findBestScanMatch(scannedPlayer.name, pool, candidate => playerName(candidate.player), {
+        threshold: 0.32,
+        minMargin: teamAssignment.ambiguous ? 0.07 : 0.055,
+        strongThreshold: 0.82,
+      });
+      let matchedPlayer = null;
       if (matched) {
-        usedPlayerIds.add(String(matched.option.id));
-        if (!side) side = localPlayers.some(player => String(player.id) === String(matched.option.id)) ? "local" : "visit";
+        usedPlayerIds.add(String(matched.option.player.id));
+        matchedPlayer = matched.option.player;
+        if (teamAssignment.ambiguous || !side) side = matched.option.scanSide;
       }
-      return { ...scannedPlayer, side, matched: matched?.option || null, confidence: matched?.score || 0 };
+      return {
+        ...scannedPlayer,
+        side,
+        matched: matchedPlayer,
+        confidence: matched?.score || 0,
+      };
     });
     const scores = { local: 0, visit: 0 };
     scores[localSide] = Number(rawScan.localTeam?.score) || 0;
@@ -351,7 +302,12 @@ export function CedulaScanFlow({
     if (scannedWalkover.absentTeam === "local") absentSide = localSide;
     if (scannedWalkover.absentTeam === "visitor") absentSide = visitorSide;
     if (!absentSide && scannedWalkover.absentTeamName) {
-      absentSide = bestMatch(scannedWalkover.absentTeamName, actualTeams, team => team.name, 0.42)?.option?.side || null;
+      absentSide = findBestScanMatch(scannedWalkover.absentTeamName, actualTeams, team => team.name, {
+        threshold: 0.28,
+        minMargin: 0.04,
+        strongThreshold: 0.76,
+        team: true,
+      })?.option?.side || null;
     }
     const walkover = {
       detected: Boolean(scannedWalkover.detected),
@@ -384,6 +340,7 @@ export function CedulaScanFlow({
 
   const scanImage = async () => {
     if (!file || scanning) return;
+    setApplyScannedDate(false);
     setScanning(true);
     setScanProgress(6);
     progressTimerRef.current = window.setInterval(() => {
@@ -402,7 +359,7 @@ export function CedulaScanFlow({
       if (prepared.error || !prepared.payload) throw prepared.error || new Error("No se pudo preparar la imagen.");
       const image = prepared.payload;
       setScanProgress(current => Math.max(current, 18));
-      const data = await invokeScanFunction(image);
+      const data = await invokeScanFunction(image, scanContext);
       if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -509,12 +466,30 @@ export function CedulaScanFlow({
     );
   }
 
-  const unmatchedPlayers = interpretation.players.filter(player => !player.matched).length;
-  const hasExistingDate = Boolean(currentDate);
-  const hasValidScannedDate = /^\d{4}-\d{2}-\d{2}$/.test(interpretation.date || "");
-  const interpretedDateLabel = hasExistingDate && hasValidScannedDate && !applyScannedDate
-    ? `${currentDate} · se conserva`
-    : interpretation.date || currentDate || "Sin detectar";
+  const unlinkedPlayers = interpretation.players.filter(player => !player.matched).length;
+  const interpretedPlayerGroups = [
+    {
+      side: "local",
+      name: match?.local?.name || "Local",
+      players: interpretation.players.filter(player => player.side === "local"),
+    },
+    {
+      side: "visit",
+      name: match?.visitante?.name || "Visitante",
+      players: interpretation.players.filter(player => player.side === "visit"),
+    },
+  ];
+  const playersWithoutTeam = interpretation.players.filter(
+    player => player.side !== "local" && player.side !== "visit",
+  );
+  if (playersWithoutTeam.length) {
+    interpretedPlayerGroups.push({
+      side: "unassigned",
+      name: "Equipo por revisar",
+      players: playersWithoutTeam,
+    });
+  }
+  const dateReview = getScannedDateReview(currentDate, interpretation.date, applyScannedDate);
   return (
     <ScanShell>
       <PanelHeading>
@@ -534,9 +509,19 @@ export function CedulaScanFlow({
             value={rawScan.walkover?.detected ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}` : "Resultado regular"}
           />
           <PlayerList>
-            {(rawScan.players || []).map((player, index) => (
-              <li key={`${player.name}-${index}`}><span>{player.name || "Nombre ilegible"}</span><small>{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small></li>
-            ))}
+            {(rawScan.players || []).map((player, index) => {
+              const hasMatch = Boolean(interpretation.players[index]?.matched);
+              const scannedName = player.name || "Nombre ilegible";
+              return (
+                <li key={`${player.name}-${index}`} className={!hasMatch ? "no-match" : ""}>
+                  <div className="player-copy">
+                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}</span>
+                    {!hasMatch && <small>Leído como: {scannedName}</small>}
+                  </div>
+                  <small className="player-stats">{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small>
+                </li>
+              );
+            })}
           </PlayerList>
         </DataColumn>
         <DataColumn>
@@ -544,9 +529,9 @@ export function CedulaScanFlow({
           <DataRow label="Local" value={`${match?.local?.name || "Local"} · ${interpretation.scores.local}`} />
           <DataRow label="Visitante" value={`${match?.visitante?.name || "Visitante"} · ${interpretation.scores.visit}`} />
           <DataRow label="Arbitro" value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"} warning={!interpretation.referee && Boolean(rawScan.referee)} />
-          <DataRow label="Fecha" value={interpretedDateLabel} />
+          <DataRow label="Fecha" value={dateReview.label} />
           <DataRow label="Hora" value={interpretation.time || "Sin detectar"} />
-          {hasExistingDate && hasValidScannedDate && (
+          {dateReview.canReplaceDate && (
             <DateApplyToggle>
               <input
                 id="apply-scanned-date"
@@ -556,7 +541,7 @@ export function CedulaScanFlow({
               />
               <label htmlFor="apply-scanned-date">
                 <strong>Reemplazar fecha actual</strong>
-                <span>Usar {interpretation.date} en lugar de {currentDate}</span>
+                <span>Usar {dateReview.normalizedScannedDate} en lugar de {dateReview.normalizedCurrentDate}</span>
               </label>
             </DateApplyToggle>
           )}
@@ -571,11 +556,43 @@ export function CedulaScanFlow({
               : "Resultado regular"}
             warning={interpretation.walkover.detected && !interpretation.walkover.winnerSide}
           />
-          <PlayerList>
-            {interpretation.players.map((player, index) => (
-              <li key={`${player.name}-${index}`} className={!player.matched ? "warning" : ""}><span>{player.matched ? playerName(player.matched) : `${player.name} (sin coincidencia)`}</span><small>{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small></li>
+          <PlayerGroups aria-label="Jugadores interpretados por equipo">
+            {interpretedPlayerGroups.map(group => (
+              <TeamPlayerGroup key={group.side}>
+                <PlayerGroupHeading>
+                  <strong>{group.name}</strong>
+                  <span>{group.players.length} {group.players.length === 1 ? "jugador" : "jugadores"}</span>
+                </PlayerGroupHeading>
+                {group.players.length ? (
+                  <GroupedPlayerList>
+                    {group.players.map((player, index) => {
+                      const registeredName = player.matched ? playerName(player.matched) : "";
+                      const scannedName = player.name || "Nombre ilegible";
+                      const showScannedName = registeredName
+                        && normalizeScanName(registeredName) !== normalizeScanName(scannedName);
+                      return (
+                        <li key={`${group.side}-${player.matched?.id || player.name}-${index}`} className={!player.matched ? "unlinked" : ""}>
+                          <div className="player-copy">
+                            <span>{registeredName || "Ninguna coincidencia"}</span>
+                            {showScannedName && <small>Leído como: {scannedName}</small>}
+                            {!registeredName && <small className="match-status">Leído como: {scannedName}</small>}
+                          </div>
+                          <small
+                            className="player-stats"
+                            title={!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined}
+                          >
+                            {player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR
+                          </small>
+                        </li>
+                      );
+                    })}
+                  </GroupedPlayerList>
+                ) : (
+                  <PlayerGroupEmpty>Sin jugadores detectados para este equipo.</PlayerGroupEmpty>
+                )}
+              </TeamPlayerGroup>
             ))}
-          </PlayerList>
+          </PlayerGroups>
         </DataColumn>
       </ComparisonGrid>
       {interpretation.teamAssignment.swapped && !interpretation.teamAssignment.ambiguous && (
@@ -584,14 +601,19 @@ export function CedulaScanFlow({
       {interpretation.teamAssignment.ambiguous && (
         <ReviewNotice>Los nombres de los equipos no dieron una coincidencia suficientemente clara. Revisa ambos marcadores antes de aplicar.</ReviewNotice>
       )}
-      {unmatchedPlayers > 0 && <ReviewNotice>{unmatchedPlayers} {unmatchedPlayers === 1 ? "jugador no se pudo vincular" : "jugadores no se pudieron vincular"}; no se aplicaran automaticamente.</ReviewNotice>}
+      {unlinkedPlayers > 0 && (
+        <ReviewNotice $tone="warning">
+          {unlinkedPlayers} {unlinkedPlayers === 1 ? "nombre detectado no tiene" : "nombres detectados no tienen"} un jugador equivalente en el plantel registrado. El marcador se conservara; sus estadisticas individuales quedaran sin asignar.
+        </ReviewNotice>
+      )}
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>
         <PrimaryAction
           type="button"
           onClick={() => onApply({
             ...interpretation,
-            applyDate: !hasExistingDate || applyScannedDate,
+            applyDate: dateReview.hasValidScannedDate
+              && (!dateReview.hasExistingDate || (dateReview.canReplaceDate && applyScannedDate)),
           })}
         >
           Aplicar escaneo
@@ -665,6 +687,39 @@ const DateApplyToggle = styled.div`
 `;
 const PlayerList = styled.ul`
   list-style:none;margin:12px 0 0;padding:0;max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:4px;
-  li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:${({theme})=>theme.bg3};font-size:.82rem;} li.warning{color:${v.rojo};} span{min-width:0;overflow-wrap:anywhere;} small{white-space:nowrap;opacity:.7;}
+  li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:${({theme})=>theme.bg3};font-size:.82rem;}
+  li.no-match{color:${v.rojo};}
+  .player-copy{display:flex;flex-direction:column;min-width:0;line-height:1.3;}
+  .player-copy span{font-weight:650;}
+  .player-copy small{white-space:normal;font-size:.7rem;opacity:.82;}
+  span{min-width:0;overflow-wrap:anywhere;} small{white-space:nowrap;opacity:.7;}
+  .player-stats{flex:0 0 auto;}
 `;
-const ReviewNotice = styled.p`margin:0;padding:10px 12px;border-radius:10px;background:${v.rojo}14;color:${({theme})=>theme.text};font-size:.84rem;line-height:1.4;`;
+const PlayerGroups = styled.div`
+  display:flex;flex-direction:column;max-height:270px;overflow:auto;margin-top:12px;border-top:1px solid ${({theme})=>theme.bg4};
+`;
+const TeamPlayerGroup = styled.section`
+  padding:11px 0;border-bottom:1px solid ${({theme})=>theme.bg4};
+`;
+const PlayerGroupHeading = styled.div`
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;font-size:.82rem;
+  strong{font-weight:800;overflow-wrap:anywhere;}
+  span{flex:0 0 auto;padding:3px 7px;border-radius:999px;background:${({theme})=>theme.bg3};font-size:.72rem;opacity:.76;}
+`;
+const GroupedPlayerList = styled(PlayerList)`
+  margin:0;max-height:none;overflow:visible;
+  .player-copy small{white-space:normal;font-size:.7rem;opacity:.66;}
+  li.unlinked{color:${v.rojo};}
+  li.unlinked .match-status{color:inherit;font-weight:600;opacity:.82;}
+  li.unlinked .player-stats{color:inherit;opacity:.9;}
+`;
+const PlayerGroupEmpty = styled.p`
+  margin:0;padding:6px 8px;color:${({theme})=>theme.text};font-size:.78rem;line-height:1.4;opacity:.64;
+`;
+const ReviewNotice = styled.p`
+  margin:0;padding:10px 12px;border-radius:10px;
+  background:${({theme,$tone})=>$tone === "warning"
+    ? `${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}18`
+    : `${v.rojo}14`};
+  color:${({theme})=>theme.text};font-size:.84rem;line-height:1.4;
+`;
