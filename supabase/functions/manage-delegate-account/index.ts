@@ -203,16 +203,26 @@ Deno.serve(async (req) => {
     if (!changedFields.length) {
       return jsonResponse({ error: "No hay cambios para aplicar." }, 400);
     }
-    if (reason.length < 5 || reason.length > 240) {
+    const changesCredentials = changedFields.some((field) =>
+      field === "email" || field === "password"
+    );
+    if (
+      reason.length > 240 ||
+      (reason.length > 0 && reason.length < 5) ||
+      (changesCredentials && !reason)
+    ) {
       return jsonResponse({
-        error: "Escribe un motivo de entre 5 y 240 caracteres.",
+        error: changesCredentials
+          ? "Escribe un motivo de entre 5 y 240 caracteres para cambiar los datos de acceso."
+          : "El motivo es opcional, pero si lo agregas debe tener entre 5 y 240 caracteres.",
       }, 400);
     }
-    if (!confirmed) {
+    if (changesCredentials && !confirmed) {
       return jsonResponse({
         error: "Debes confirmar expresamente el cambio de la cuenta.",
       }, 400);
     }
+    const auditReason = reason || "Actualizacion del nombre del delegado.";
 
     const [auditPreflight, notificationPreflight] = await Promise.all([
       adminClient.from("delegate_account_audit_logs").select("id").limit(1),
@@ -240,9 +250,16 @@ Deno.serve(async (req) => {
       contact_phone: team.contact_phone,
     };
     if (changedFields.includes("name")) {
+      const teamUpdates: { delegate_name: string; contact_phone?: null } = {
+        delegate_name: fullName,
+      };
+      if (team.contact_phone !== null && !String(team.contact_phone).trim()) {
+        teamUpdates.contact_phone = null;
+      }
+
       const { data, error: updateTeamError } = await adminClient
         .from("teams")
-        .update({ delegate_name: fullName })
+        .update(teamUpdates)
         .eq("id", teamId)
         .select("id, delegate_name, contact_phone")
         .single();
@@ -270,7 +287,7 @@ Deno.serve(async (req) => {
         team_id: teamId,
         delegate_profile_id: delegateProfileId,
         actor_profile_id: actorProfileId,
-        reason,
+        reason: auditReason,
         changed_fields: changedFields,
       })
       .select("id")
@@ -292,7 +309,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: delegateProfileId,
         title: "Cambios en tu cuenta",
-        message: `Un administrador actualizo ${changeSummary} para ${team.name}. Motivo: ${reason}`,
+        message: `Un administrador actualizo ${changeSummary} para ${team.name}. Motivo: ${auditReason}`,
         metadata: {
           team_id: teamId,
           actor_profile_id: actorProfileId,
