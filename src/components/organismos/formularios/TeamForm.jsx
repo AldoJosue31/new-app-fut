@@ -306,6 +306,9 @@ export function TeamForm({
     const password = delegateProfileForm.password;
     const reason = normalizeDelegateName(delegateProfileForm.reason);
     const changedFields = getDelegateChangedFields();
+    const changesCredentials = changedFields.some((field) =>
+      ["email", "password"].includes(field),
+    );
 
     if (!fullName) {
       showToast?.("El nombre del delegado es obligatorio.", "error");
@@ -326,17 +329,20 @@ export function TeamForm({
       showToast?.("No hay cambios para guardar.", "error");
       return;
     }
-    if (reason.length < 5 || reason.length > 240) {
+    if (
+      reason.length > 240 ||
+      (reason.length > 0 && reason.length < 5) ||
+      (changesCredentials && !reason)
+    ) {
       showToast?.(
-        "Escribe un motivo de entre 5 y 240 caracteres.",
+        changesCredentials
+          ? "Escribe un motivo de entre 5 y 240 caracteres para cambiar los datos de acceso."
+          : "El motivo es opcional, pero si lo agregas debe tener entre 5 y 240 caracteres.",
         "error",
       );
       return;
     }
 
-    const changesCredentials = changedFields.some((field) =>
-      ["email", "password"].includes(field),
-    );
     if (changesCredentials && !confirmed) {
       setShowDelegateChangeConfirm(true);
       return;
@@ -693,8 +699,13 @@ export function TeamForm({
     </PanelShell>
   );
 
-  const renderDelegateProfilePanel = () => (
-    <PanelShell>
+  const renderDelegateProfilePanel = () => {
+    const changesCredentials = getDelegateChangedFields().some((field) =>
+      ["email", "password"].includes(field),
+    );
+
+    return (
+      <PanelShell>
       <PanelHeader>
         <PanelBackButton
           type="button"
@@ -774,20 +785,30 @@ export function TeamForm({
         </FieldGroup>
 
         <FieldGroup>
-          <label htmlFor="linked-delegate-reason">Motivo del cambio</label>
+          <label htmlFor="linked-delegate-reason">
+            Motivo del cambio
+            <span>{changesCredentials ? " (obligatorio)" : " (opcional)"}</span>
+          </label>
           <ReasonTextarea
             id="linked-delegate-reason"
             name="reason"
             value={delegateProfileForm.reason}
             onChange={handleDelegateProfileChange}
-            placeholder="Ej. Correccion solicitada por el delegado"
+            placeholder={
+              changesCredentials
+                ? "Ej. Correccion solicitada por el delegado"
+                : "Opcional al cambiar solo el nombre"
+            }
             disabled={loadingDelegateProfile || savingDelegateProfile}
+            required={changesCredentials}
             minLength={5}
             maxLength={240}
             rows={3}
           />
           <FieldHint>
-            Se guardara en el historial de seguridad y se mostrara al delegado.
+            {changesCredentials
+              ? "Se guardara en el historial de seguridad y se mostrara al delegado."
+              : "Si lo dejas vacio, se registrara automaticamente como un cambio de nombre."}
           </FieldHint>
         </FieldGroup>
 
@@ -864,8 +885,9 @@ export function TeamForm({
           </PrimaryActions>
         )}
       </PanelCard>
-    </PanelShell>
-  );
+      </PanelShell>
+    );
+  };
 
   const renderDelegateField = () => (
     <div className="full-width">
