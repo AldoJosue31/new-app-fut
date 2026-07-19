@@ -311,7 +311,12 @@ const buildMatchWeekPreview = ({
   };
 };
 
-export function TorneoJornadasTab({ activeTournament: initialTournament, participatingTeams, refreshStandings }) {
+export function TorneoJornadasTab({
+  activeTournament: initialTournament,
+  participatingTeams,
+  refreshStandings,
+  divisionName = "",
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -1418,6 +1423,8 @@ export function TorneoJornadasTab({ activeTournament: initialTournament, partici
         onClose={() => setIsEditorOpen(false)}
         teams={participatingTeams}
         config={activeTournament.config}
+        divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName}
+        tournamentName={activeTournament?.season || activeTournament?.name || ""}
         onConfirm={handleConfirmFixtureUpdate}
         isLoading={loading}
         existingData={editorData} 

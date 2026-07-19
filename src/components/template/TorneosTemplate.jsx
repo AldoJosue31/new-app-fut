@@ -244,6 +244,7 @@ export function TorneosTemplate({
                     activeTournament={activeTournament} 
                     participatingTeams={participatingTeamsObj} 
                     refreshStandings={refreshStandings}
+                    divisionName={divisionName}
                  />
               ) : (
                  <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />

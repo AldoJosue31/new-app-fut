@@ -424,6 +424,12 @@ entrypoint = "./functions/procesar-cedula/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/procesar-cedula/*.html" ]
 
+[functions.procesar-rol-juego]
+enabled = true
+verify_jwt = true
+import_map = "./functions/procesar-rol-juego/deno.json"
+entrypoint = "./functions/procesar-rol-juego/index.ts"
+
 [functions.manage-delegate-account]
 enabled = true
 verify_jwt = true

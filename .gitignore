@@ -31,3 +31,4 @@ dist-ssr
 .codex/
 .cursor/
 .github/skills/
+.graphify-out

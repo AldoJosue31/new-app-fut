@@ -5,11 +5,13 @@ import { v } from "../../../../../styles/variables";
 import {
     RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine,
     RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line, RiAddLine,
-    RiHistoryLine, RiEyeLine, RiEyeOffLine, RiEdit2Line, RiLayoutGridLine
+    RiHistoryLine, RiEyeLine, RiEyeOffLine, RiEdit2Line, RiLayoutGridLine,
+    RiScan2Line
 } from "react-icons/ri";
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
+import { RolJuegoScanFlow } from "./RolJuegoScanFlow";
 import { validarFixture } from "../../../../../utils/fixtureAlgorithms";
 import {
     isOfficialJornadaName,
@@ -373,7 +375,9 @@ const getRecognizedMatchMarkers = (text = "", teamOptions = []) => {
 
 export function FixturePreviewModal({ 
     isOpen, onClose, onConfirm, teams = [], config, isLoading,
-    existingData = null 
+    existingData = null,
+    divisionName = "",
+    tournamentName = "",
 }) {
     const roundAnimationTimersRef = useRef({});
     const prevVisibleRoundsRef = useRef([]);
@@ -393,6 +397,7 @@ export function FixturePreviewModal({
     const [roundTextByIndex, setRoundTextByIndex] = useState({});
     const [focusedRoundIndex, setFocusedRoundIndex] = useState(null);
     const [activeSuggestion, setActiveSuggestion] = useState(null);
+    const [scanRoundIndex, setScanRoundIndex] = useState(null);
     const textInputRefs = useRef({});
 
     const teamOptions = useMemo(() => buildTeamOptions(teams), [teams]);
@@ -402,6 +407,7 @@ export function FixturePreviewModal({
         if (isOpen) {
             setShowConfirmedRounds(false);
             setViewMode("cards");
+            setScanRoundIndex(null);
             manualTextRoundsRef.current = new Set();
         }
     }, [isOpen, isEditMode]);
@@ -422,7 +428,7 @@ export function FixturePreviewModal({
                 })
                 : matches;
 
-        const { conflicts: latestConflicts } = validarFixture(finalMatches);
+        const { conflicts: latestConflicts } = validarFixture(finalMatches, config);
         const latestBlockingConflicts = Object.entries(latestConflicts).reduce(
             (acc, [rIndex, roundConflicts]) => {
                 const roundMatches = finalMatches.filter(
@@ -443,7 +449,9 @@ export function FixturePreviewModal({
         );
 
         if (Object.keys(latestBlockingConflicts).length > 0) {
-            alert("Hay equipos repetidos en una o mas jornadas. Corrige el texto antes de guardar.");
+            alert(
+                "El fixture tiene equipos repetidos dentro de una jornada o cruces duplicados entre jornadas. En modalidad de solo ida, un cruce solo puede repetirse en una jornada extra."
+            );
             return;
         }
 
@@ -791,6 +799,19 @@ export function FixturePreviewModal({
         }, 0);
     };
 
+    const handleApplyRolJuego = (pairs) => {
+        if (scanRoundIndex === null) return;
+        const normalizedRoundIndex = Number(scanRoundIndex);
+        handleReplaceRoundMatches(normalizedRoundIndex, pairs, { lockMatches: true });
+        manualTextRoundsRef.current.delete(String(scanRoundIndex));
+        setRoundTextByIndex((prev) => ({
+            ...prev,
+            [scanRoundIndex]: pairs.map((pair) => `${pair.local.name} vs ${pair.visitante.name}`).join(",\n"),
+        }));
+        setViewMode("cards");
+        setScanRoundIndex(null);
+    };
+
     useEffect(() => {
         if (!isOpen) {
             clearAllRoundTimers(roundAnimationTimersRef);
@@ -986,6 +1007,8 @@ export function FixturePreviewModal({
                                 // Detectar si la jornada está totalmente bloqueada (confirmada en BD)
                                 const roundMatches = matchesByRound[rIndex] || [];
                                 const roundIsLocked = isRoundLocked(rIndex);
+                                const roundIsScanned = roundMatches.length > 0
+                                    && roundMatches.every((match) => match.scanLocked);
                                 const roundTextStat = textRoundStats[rIndex] || {
                                     detected: 0,
                                     expected: countPlayableMatches(roundMatches) || defaultRoundMatchCount,
@@ -1006,13 +1029,13 @@ export function FixturePreviewModal({
                                         $animationState={animationState}
                                         $textMode={viewMode === "text"}
                                         onDragOver={(e) => { 
-                                            if(!roundIsLocked && !roundOnlySwapsTeams && animationState !== "exit") { 
+                                            if(!roundIsLocked && !roundIsScanned && !roundOnlySwapsTeams && animationState !== "exit") {
                                                 e.preventDefault(); 
                                                 e.dataTransfer.dropEffect = "move"; 
                                             }
                                         }}
                                         onDrop={(e) => { 
-                                            if(!roundIsLocked && !roundOnlySwapsTeams && animationState !== "exit") {
+                                            if(!roundIsLocked && !roundIsScanned && !roundOnlySwapsTeams && animationState !== "exit") {
                                                 handleDropOnJornada(e, Number(rIndex));
                                             }
                                         }}
@@ -1020,6 +1043,20 @@ export function FixturePreviewModal({
                                         <JornadaTitle $hasConflict={hasConflict} $locked={roundIsLocked}>
                                             <span className="title-text">{getRoundTitle(rIndex)}</span>
                                             <JornadaTitleActions>
+                                                {!roundIsLocked && (
+                                                    <RoundScanButton
+                                                        type="button"
+                                                        onClick={() => setScanRoundIndex(String(rIndex))}
+                                                        title={`Escanear rol de juego de ${getRoundTitle(rIndex)}`}
+                                                        aria-label={`Escanear rol de juego de ${getRoundTitle(rIndex)}`}
+                                                    >
+                                                        <RiScan2Line />
+                                                        <span>Escanear</span>
+                                                    </RoundScanButton>
+                                                )}
+                                                {roundIsScanned && (
+                                                    <ScannedBadge><RiCheckDoubleLine /> Escaneada</ScannedBadge>
+                                                )}
                                                 {viewMode === "text" && (
                                                     <RoundCountBadge $complete={roundTextStat.isComplete}>
                                                         <span>{roundTextStat.detected}/{roundTextStat.expected}</span>
@@ -1034,7 +1071,7 @@ export function FixturePreviewModal({
                                             <TextRoundEditor
                                                 rIndex={rIndex}
                                                 value={roundTextByIndex[rIndex] || ""}
-                                                disabled={roundIsLocked}
+                                                disabled={roundIsLocked || roundIsScanned}
                                                 hasConflict={hasConflict}
                                                 inputRef={(node) => {
                                                     if (node) textInputRefs.current[rIndex] = node;
@@ -1056,18 +1093,18 @@ export function FixturePreviewModal({
                                         <MatchesList>
                                             {roundMatches.map((match) => {
                                                 const isConflict = blockingConflicts[rIndex] && (
-                                                    blockingConflicts[rIndex].includes(match.local.id) || 
-                                                    blockingConflicts[rIndex].includes(match.visitante.id)
+                                                    blockingConflicts[rIndex].includes(String(match.local.id)) ||
+                                                    blockingConflicts[rIndex].includes(String(match.visitante.id))
                                                 );
                                                 return (
                                                     <FixtureMatchCard 
                                                         key={match.id}
                                                         match={match}
-                                                        canDragMatch={!match.roundLocked && match.roundType !== "extra"}
+                                                        canDragMatch={!match.locked && !match.roundLocked && match.roundType !== "extra"}
                                                         onDragStart={handleDragStart}
                                                         onTeamDragStart={handleTeamDragStart}
                                                         onDragOver={(e) => { 
-                                                            if(!match.roundLocked && match.roundType !== "extra") { 
+                                                            if(!match.locked && !match.roundLocked && match.roundType !== "extra") {
                                                                 e.preventDefault(); 
                                                                 e.dataTransfer.dropEffect = "move"; 
                                                             }
@@ -1089,8 +1126,20 @@ export function FixturePreviewModal({
                             })}
                         </Grid>
                     </ScrollArea>
+                    {scanRoundIndex !== null && (
+                        <RoundScanViewport>
+                            <RolJuegoScanFlow
+                                roundTitle={getRoundTitle(scanRoundIndex)}
+                                divisionName={divisionName}
+                                tournamentName={tournamentName}
+                                teams={teams}
+                                onCancel={() => setScanRoundIndex(null)}
+                                onApply={handleApplyRolJuego}
+                            />
+                        </RoundScanViewport>
+                    )}
                 </Content>
-                <Footer>
+                {scanRoundIndex === null && <Footer>
                     <WarningText>
                        * Haz click en un equipo para ver su ruta.<br/>
                        {isEditMode ? (
@@ -1112,7 +1161,7 @@ export function FixturePreviewModal({
                             disabled={isLoading || conflictCount > 0} 
                         />
                     </ActionWrapper>
-                </Footer>
+                </Footer>}
             </ModalContainer>
         </Overlay>,
         document.body
@@ -1386,7 +1435,11 @@ const CloseBtn = styled.button`
     &:hover { background: ${({ theme }) => theme.bg3}; color: ${v.colorError}; }
 `;
 
-const Content = styled.div`flex: 1; display: flex; flex-direction: column; background: ${({ theme }) => theme.bg2}; overflow: hidden;`;
+const Content = styled.div`position:relative;flex: 1; display: flex; flex-direction: column; background: ${({ theme }) => theme.bg2}; overflow: hidden;`;
+
+const RoundScanViewport = styled.div`
+    position:absolute;inset:0;z-index:3;overflow-y:auto;background:${({theme})=>theme.bg2};
+`;
 
 const Toolbar = styled.div`
     padding: 12px 24px; background: ${({ theme }) => theme.bgcards}; 
@@ -1567,6 +1620,17 @@ const JornadaTitleActions = styled.div`
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
+`;
+
+const RoundScanButton = styled.button`
+    min-height:28px;padding:4px 7px;border:1px solid ${v.colorPrincipal}55;border-radius:7px;background:${v.colorPrincipal}12;color:${v.colorPrincipal};display:inline-flex;align-items:center;gap:4px;font:inherit;font-size:.7rem;font-weight:750;cursor:pointer;
+    &:hover{background:${v.colorPrincipal};color:#fff;} &:focus-visible{outline:3px solid ${v.colorPrincipal}3d;outline-offset:2px;}
+    @media(max-width:600px){span{display:none;}svg{font-size:.95rem;}}
+`;
+
+const ScannedBadge = styled.div`
+    display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border-radius:999px;background:${v.colorPrincipal}14;color:${v.colorPrincipal};font-size:.68rem;font-weight:750;
+    @media(max-width:600px){font-size:0;svg{font-size:.9rem;}}
 `;
 
 const RoundCountBadge = styled.div`
