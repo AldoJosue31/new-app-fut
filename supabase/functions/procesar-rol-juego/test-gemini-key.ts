@@ -41,7 +41,7 @@ const client = new GoogleGenAI({ apiKey });
 async function test(thinkingConfig: any) {
   try {
     const interaction = await client.interactions.create({
-      model: "gemini-2.0-flash",
+      model: "gemini-3.5-flash",
       input: [
         { text: "Test prompt" },
         {

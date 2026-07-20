@@ -112,11 +112,6 @@ const fileToScanPayload = async (file) => {
     }
 };
 
-const CLIENT_MAX_RETRIES = 2;
-const CLIENT_BASE_DELAY_MS = 2000;
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const invokeScanFunctionOnce = async (image, scanContext) => {
     const formData = new FormData();
     formData.append("image", image.blob, image.fileName);
@@ -135,23 +130,14 @@ const invokeScanFunctionOnce = async (image, scanContext) => {
 
     const invocationError = new Error(responseBody?.error || error.message || "No se pudo escanear el rol de juego.");
     invocationError.code = responseBody?.code || "FUNCTION_ERROR";
-    invocationError.retryable = Boolean(responseBody?.retryable) || [502, 503, 504].includes(status);
+    invocationError.retryable = typeof responseBody?.retryable === "boolean"
+        ? responseBody.retryable
+        : [429, 502, 503, 504].includes(status);
+    invocationError.requestId = responseBody?.requestId || error?.context?.headers?.get?.("x-request-id") || "";
     throw invocationError;
 };
 
-const invokeScanFunction = async (image, scanContext) => {
-    let lastError;
-    for (let attempt = 0; attempt <= CLIENT_MAX_RETRIES; attempt++) {
-        try {
-            return await invokeScanFunctionOnce(image, scanContext);
-        } catch (error) {
-            lastError = error;
-            if (!error.retryable || attempt === CLIENT_MAX_RETRIES) throw error;
-            await delay(CLIENT_BASE_DELAY_MS * Math.pow(2, attempt));
-        }
-    }
-    throw lastError;
-};
+const invokeScanFunction = invokeScanFunctionOnce;
 
 const matchTeam = (name, teams, usedIds = new Set(), preferredId = "") => {
     const preferred = preferredId
@@ -240,6 +226,7 @@ export function RolJuegoScanFlow({
     const cameraInputRef = useRef(null);
     const progressTimerRef = useRef(null);
     const preparedImageRef = useRef(null);
+    const scanInFlightRef = useRef(false);
 
     const expectedMatches = Math.floor(teams.length / 2);
     const needsBye = teams.length % 2 === 1;
@@ -332,7 +319,8 @@ export function RolJuegoScanFlow({
     }, [byeId, expectedMatches, needsBye, preserveDetectedSchedule, reviewRows, teams.length]);
 
     const scanImage = async () => {
-        if (!file || scanning) return;
+        if (!file || scanInFlightRef.current) return;
+        scanInFlightRef.current = true;
         setScanning(true);
         setErrorMessage("");
         setScanProgress(6);
@@ -361,6 +349,7 @@ export function RolJuegoScanFlow({
             setErrorMessage(error?.message || "No se pudo escanear el rol de juego.");
             setScanProgress(0);
         } finally {
+            scanInFlightRef.current = false;
             if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
             progressTimerRef.current = null;
             setScanning(false);

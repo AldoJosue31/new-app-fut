@@ -1,6 +1,11 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI } from "@google/genai";
 import { type RawScheduleScan, selectScheduleForDivision } from "./matching.ts";
+import {
+  classifyProviderError,
+  selectGeminiModel,
+  shouldRetryProviderError,
+} from "./scanErrors.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
 const GEMINI_TIMEOUT_MS = 45_000;
@@ -12,43 +17,29 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/heif",
 ]);
 
-const teamNameField = (description: string) => ({
+const textField = () => ({
   type: "string",
-  description,
 });
 
 const gameScheduleSchema = {
   type: "object",
-  additionalProperties: false,
   properties: {
     entries: {
       type: "array",
-      maxItems: 40,
-      description:
-        "Una fila por partido o descanso visible. Repite los encabezados de division y jornada en cada fila.",
       items: {
         type: "object",
-        additionalProperties: false,
         properties: {
-          divisionLabel: teamNameField(
-            "Encabezado visible de division o categoria; vacio si no se alcanza a leer.",
-          ),
-          roundLabel: teamNameField(
-            "Encabezado visible de jornada o fecha; vacio si no se alcanza a leer.",
-          ),
-          localTeam: teamNameField(
-            "Transcripcion del equipo local o primero; vacio si la fila solo indica descanso.",
-          ),
-          visitorTeam: teamNameField(
-            "Transcripcion del equipo visitante o segundo; vacio si la fila solo indica descanso.",
-          ),
-          byeTeam: teamNameField(
-            "Equipo marcado como descanso; vacio si esta fila es un partido.",
-          ),
+          divisionLabel: textField(),
+          roundLabel: textField(),
+          scheduleLabel: textField(),
+          localTeam: textField(),
+          visitorTeam: textField(),
+          byeTeam: textField(),
         },
         required: [
           "divisionLabel",
           "roundLabel",
+          "scheduleLabel",
           "localTeam",
           "visitorTeam",
           "byeTeam",
@@ -63,6 +54,8 @@ type ScanContext = {
   divisionName: string;
   tournamentName: string;
   roundTitle: string;
+  roundStartDate: string;
+  roundEndDate: string;
   teams: Array<{ id: string; name: string }>;
 };
 
@@ -88,6 +81,8 @@ const normalizeScanContext = (value: unknown): ScanContext => {
         divisionName: "",
         tournamentName: "",
         roundTitle: "",
+        roundStartDate: "",
+        roundEndDate: "",
         teams: [],
       };
     }
@@ -97,6 +92,8 @@ const normalizeScanContext = (value: unknown): ScanContext => {
     divisionName?: unknown;
     tournamentName?: unknown;
     roundTitle?: unknown;
+    roundStartDate?: unknown;
+    roundEndDate?: unknown;
     teams?: unknown;
   };
   const rawTeams = Array.isArray(raw?.teams) ? raw.teams : [];
@@ -111,6 +108,8 @@ const normalizeScanContext = (value: unknown): ScanContext => {
     divisionName: sanitizeText(raw?.divisionName, 100),
     tournamentName: sanitizeText(raw?.tournamentName, 100),
     roundTitle: sanitizeText(raw?.roundTitle, 100),
+    roundStartDate: sanitizeText(raw?.roundStartDate, 10),
+    roundEndDate: sanitizeText(raw?.roundEndDate, 10),
     teams,
   };
 };
@@ -128,6 +127,9 @@ Lee la imagen como un rol, calendario o tabla de futbol amateur. La imagen puede
 - Incluye prioritariamente la jornada objetivo. Si hay varios bloques y los encabezados son ambiguos, conserva sus filas con sus respectivos encabezados para que el servidor elija por participantes.
 - Detecta palabras como DESCANSA, DESCANSO, BYE, LIBRE o SIN JUEGO. El equipo asociado debe ir en byeTeam y no dentro de matches.
 - No trates encabezados, horarios, canchas, categorias, arbitros, marcadores ni numeros de partido como nombres de equipo.
+- Para cada partido conserva su horario en scheduleLabel con exactamente tres segmentos separados por |: RANGO SEMANAL VISIBLE | DIA O FECHA DE LA COLUMNA | HORA DE LA FILA.
+- Repite el rango semanal visible en cada partido. Si solo se ve el dia y la hora, deja vacio el primer segmento pero conserva los separadores. Si ningun dato de horario es legible, usa una cadena vacia.
+- El dia y la hora pertenecen a la celda donde aparece el cruce: no los desplaces a otro partido y no inventes fechas.
 - La lista de participantes de la division objetivo es un vocabulario cerrado para decidir cual bloque es relevante. Busca el bloque con mayor cantidad de esos equipos.
 - No conviertas un equipo de otra division en un participante solo porque se parece ligeramente. Corrige OCR unicamente cuando la coincidencia sea clara y unica.
 - Si un nombre visible coincide claramente con un participante, usa exactamente el nombre registrado. Si no, conserva la transcripcion literal.
@@ -142,6 +144,7 @@ const buildInstructions = (context: ScanContext) =>
     context.divisionName || "La division de los participantes registrados"
   }
 - Jornada: ${context.roundTitle || "Jornada mostrada en la imagen"}
+- Rango configurado de la jornada: ${context.roundStartDate || "sin inicio"} a ${context.roundEndDate || "sin fin"}
 - Partidos esperados: ${Math.floor(context.teams.length / 2)}
 - Descanso esperado: ${context.teams.length % 2 === 1 ? "si, un equipo" : "no"}
 
@@ -159,29 +162,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Expose-Headers": "Retry-After, X-Request-Id",
 };
 
-const jsonResponse = (body: unknown, status = 200) =>
+const jsonResponse = (
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {},
+) =>
   Response.json(body, {
     status,
-    headers: corsHeaders,
+    headers: { ...corsHeaders, ...headers },
   });
 
-const isTimeoutError = (error: unknown) => {
-  const candidate = error as {
-    message?: string;
-    name?: string;
-    status?: number;
-  };
-  const message = `${candidate?.name || ""} ${candidate?.message || ""}`;
-  return [408, 504].includes(Number(candidate?.status)) ||
-    /abort|deadline|timed?\s*out|timeout/i.test(message);
-};
-
-const isTransientError = (error: unknown) => {
-  const status = Number((error as { status?: number })?.status);
-  return isTimeoutError(error) || [429, 500, 502, 503, 504].includes(status);
-};
+const delay = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const bytesToBase64 = (bytes: Uint8Array) => {
   const chunkSize = 0x8000;
@@ -260,6 +255,19 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Metodo no permitido." }, 405);
   }
 
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  const configuredModel = Deno.env.get("GEMINI_MODEL") || "";
+  const model = selectGeminiModel(configuredModel);
+  if (
+    configuredModel &&
+    configuredModel.replace(/^models\//i, "") !== model
+  ) {
+    console.warn(
+      "procesar-rol-juego: modelo retirado reemplazado",
+      JSON.stringify({ requestId, configuredModel, model }),
+    );
+  }
+
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
@@ -290,7 +298,6 @@ Deno.serve(async (req) => {
     }
 
     const client = new GoogleGenAI({ apiKey });
-    const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
     const instructions = buildInstructions(scanContext);
     const startedAt = performance.now();
     let attempts = 1;
@@ -305,8 +312,9 @@ Deno.serve(async (req) => {
         instructions,
       );
     } catch (error) {
-      if (!isTransientError(error)) throw error;
+      if (!shouldRetryProviderError(error)) throw error;
       attempts = 2;
+      await delay(900 + Math.floor(Math.random() * 600));
       interaction = await createInteraction(
         client,
         model,
@@ -322,6 +330,8 @@ Deno.serve(async (req) => {
     console.info(
       "procesar-rol-juego: metricas",
       JSON.stringify({
+        requestId,
+        model,
         durationMs: Math.round(performance.now() - startedAt),
         attempts,
         inputBytes,
@@ -339,6 +349,7 @@ Deno.serve(async (req) => {
     console.info(
       "procesar-rol-juego: seleccion",
       JSON.stringify({
+        requestId,
         divisionName: scanContext.divisionName,
         roundTitle: scanContext.roundTitle,
         matchedTeamCount: scan.matchedTeamCount,
@@ -349,30 +360,34 @@ Deno.serve(async (req) => {
       }),
     );
 
-    return jsonResponse({ scan });
+    return jsonResponse({ scan }, 200, { "X-Request-Id": requestId });
   } catch (error) {
-    console.error("procesar-rol-juego:", error);
-    if (isTransientError(error)) {
-      return jsonResponse({
-        error: isTimeoutError(error)
-          ? "El analisis tardo mas de lo esperado. Intenta nuevamente con la misma imagen."
-          : "El servicio de lectura esta temporalmente ocupado. Intenta nuevamente.",
-        code: isTimeoutError(error) ? "SCAN_TIMEOUT" : "SCAN_TEMPORARY_ERROR",
-        retryable: true,
-      }, 503);
-    }
-    const upstreamStatus = Number((error as { status?: unknown })?.status);
-    if (upstreamStatus === 400) {
-      return jsonResponse({
-        error: "El servicio de lectura rechazo la configuracion del analisis.",
-        code: "SCAN_CONFIGURATION_ERROR",
-        retryable: false,
-      }, 502);
+    const classification = classifyProviderError(error);
+    console.error(
+      "procesar-rol-juego: proveedor",
+      JSON.stringify({
+        requestId,
+        model,
+        upstreamStatus: classification.upstreamStatus,
+        upstreamCode: classification.upstreamCode,
+        name: classification.name,
+        message: classification.message,
+        responseCode: classification.responseCode,
+      }),
+    );
+    const responseHeaders: Record<string, string> = {
+      "X-Request-Id": requestId,
+    };
+    if (classification.retryAfterSeconds) {
+      responseHeaders["Retry-After"] = String(
+        classification.retryAfterSeconds,
+      );
     }
     return jsonResponse({
-      error: "No se pudo analizar el rol de juego. Intenta nuevamente.",
-      code: "SCAN_ANALYSIS_ERROR",
-      retryable: false,
-    }, 502);
+      error: classification.responseMessage,
+      code: classification.responseCode,
+      retryable: classification.retryable,
+      requestId,
+    }, classification.responseStatus, responseHeaders);
   }
 });
