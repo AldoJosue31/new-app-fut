@@ -3,8 +3,9 @@ import { GoogleGenAI } from "@google/genai";
 import { type RawScheduleScan, selectScheduleForDivision } from "./matching.ts";
 import {
   classifyProviderError,
+  selectGeminiFallbackModel,
   selectGeminiModel,
-  shouldRetryProviderError,
+  shouldFallbackProviderError,
 } from "./scanErrors.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
@@ -160,7 +161,7 @@ Las entries correctas deben maximizar participantes unicos de esa lista, respeta
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-request-id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Expose-Headers": "Retry-After, X-Request-Id",
 };
@@ -258,6 +259,10 @@ Deno.serve(async (req) => {
   const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
   const configuredModel = Deno.env.get("GEMINI_MODEL") || "";
   const model = selectGeminiModel(configuredModel);
+  const fallbackModel = selectGeminiFallbackModel(
+    Deno.env.get("GEMINI_FALLBACK_MODEL") || "",
+    model,
+  );
   if (
     configuredModel &&
     configuredModel.replace(/^models\//i, "") !== model
@@ -300,28 +305,38 @@ Deno.serve(async (req) => {
     const client = new GoogleGenAI({ apiKey });
     const instructions = buildInstructions(scanContext);
     const startedAt = performance.now();
-    let attempts = 1;
+    const attemptedModels: string[] = [];
+    let activeModel = model;
     let interaction;
 
+    const runModel = async (selectedModel: string) => {
+      attemptedModels.push(selectedModel);
+      return await createInteraction(
+        client,
+        selectedModel,
+        imageBase64,
+        mimeType,
+        instructions,
+      );
+    };
+
     try {
-      interaction = await createInteraction(
-        client,
-        model,
-        imageBase64,
-        mimeType,
-        instructions,
-      );
+      interaction = await runModel(model);
     } catch (error) {
-      if (!shouldRetryProviderError(error)) throw error;
-      attempts = 2;
-      await delay(900 + Math.floor(Math.random() * 600));
-      interaction = await createInteraction(
-        client,
-        model,
-        imageBase64,
-        mimeType,
-        instructions,
+      if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
+      const primaryFailure = classifyProviderError(error);
+      activeModel = fallbackModel;
+      console.warn(
+        "procesar-rol-juego: usando modelo alterno",
+        JSON.stringify({
+          requestId,
+          primaryModel: model,
+          fallbackModel,
+          cause: primaryFailure.responseCode,
+        }),
       );
+      await delay(600 + Math.floor(Math.random() * 400));
+      interaction = await runModel(fallbackModel);
     }
 
     if (!interaction.output_text) {
@@ -331,9 +346,11 @@ Deno.serve(async (req) => {
       "procesar-rol-juego: metricas",
       JSON.stringify({
         requestId,
-        model,
+        model: activeModel,
         durationMs: Math.round(performance.now() - startedAt),
-        attempts,
+        attempts: attemptedModels.length,
+        attemptedModels,
+        fallbackUsed: activeModel !== model,
         inputBytes,
         mimeType,
         inputTokens: interaction.usage?.total_input_tokens,
@@ -368,6 +385,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         requestId,
         model,
+        fallbackModel,
         upstreamStatus: classification.upstreamStatus,
         upstreamCode: classification.upstreamCode,
         name: classification.name,
@@ -387,6 +405,7 @@ Deno.serve(async (req) => {
       error: classification.responseMessage,
       code: classification.responseCode,
       retryable: classification.retryable,
+      retryAfterSeconds: classification.retryAfterSeconds || 0,
       requestId,
     }, classification.responseStatus, responseHeaders);
   }

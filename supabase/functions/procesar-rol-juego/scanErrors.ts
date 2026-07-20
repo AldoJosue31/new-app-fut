@@ -1,4 +1,5 @@
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
+export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3-flash-preview";
 
 type ProviderError = {
   status?: unknown;
@@ -9,6 +10,7 @@ type ProviderError = {
     code?: unknown;
     status?: unknown;
     message?: unknown;
+    details?: unknown;
   };
 };
 
@@ -22,16 +24,35 @@ export type ScanErrorClassification = {
   responseMessage: string;
   retryable: boolean;
   retryAfterSeconds?: number;
+  quotaKind?: "daily" | "spend" | "temporary";
 };
 
 const cleanModelName = (value: unknown) =>
   String(value || "").trim().replace(/^models\//i, "");
 
+const isRetiredModel = (model: string) =>
+  /^gemini-2\.0(?:-|$)/i.test(model) ||
+  /^gemini-3\.1-flash-lite-preview$/i.test(model);
+
 export const selectGeminiModel = (configuredModel: unknown) => {
   const candidate = cleanModelName(configuredModel);
-  return candidate && !/^gemini-2\.0(?:-|$)/i.test(candidate)
+  return candidate && !isRetiredModel(candidate)
     ? candidate
     : DEFAULT_GEMINI_MODEL;
+};
+
+export const selectGeminiFallbackModel = (
+  configuredModel: unknown,
+  primaryModel: unknown,
+) => {
+  const primary = cleanModelName(primaryModel);
+  const configured = cleanModelName(configuredModel);
+  const candidates = [
+    configured && !isRetiredModel(configured) ? configured : "",
+    DEFAULT_GEMINI_FALLBACK_MODEL,
+    DEFAULT_GEMINI_MODEL,
+  ];
+  return candidates.find((candidate) => candidate && candidate !== primary) || "";
 };
 
 const numberStatus = (value: unknown) => {
@@ -41,20 +62,94 @@ const numberStatus = (value: unknown) => {
     : 0;
 };
 
+const parseProviderPayload = (message: string) => {
+  const candidates = [message, message.slice(Math.max(0, message.indexOf("{")))];
+  for (const candidate of candidates) {
+    if (!candidate.startsWith("{")) continue;
+    try {
+      return JSON.parse(candidate) as {
+        error?: {
+          code?: unknown;
+          status?: unknown;
+          message?: unknown;
+          details?: unknown;
+        };
+      };
+    } catch { /* El SDK puede anteponer el estado al JSON. */ }
+  }
+  return null;
+};
+
+const secondsFromDuration = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.ceil(value));
+  }
+  const match = String(value || "").trim().match(/(\d+(?:\.\d+)?)\s*(ms|s|sec(?:ond)?s?)?/i);
+  if (!match) return 0;
+  const amount = Number(match[1]);
+  return Math.max(0, Math.ceil(match[2]?.toLowerCase() === "ms" ? amount / 1000 : amount));
+};
+
+const quotaMetadata = (details: unknown, message: string) => {
+  const entries = Array.isArray(details) ? details : [];
+  let retryAfterSeconds = 0;
+  const quotaParts: string[] = [];
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue;
+    const detail = entry as {
+      retryDelay?: unknown;
+      violations?: unknown;
+    };
+    retryAfterSeconds ||= secondsFromDuration(detail.retryDelay);
+    if (!Array.isArray(detail.violations)) continue;
+    for (const violation of detail.violations) {
+      if (!violation || typeof violation !== "object") continue;
+      const quota = violation as {
+        quotaId?: unknown;
+        quotaMetric?: unknown;
+      };
+      quotaParts.push(String(quota.quotaId || ""), String(quota.quotaMetric || ""));
+    }
+  }
+
+  if (!retryAfterSeconds) {
+    const retryMatch = message.match(/(?:please\s+)?retry(?:\s+in|\s+after)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(ms|s|sec(?:ond)?s?)/i);
+    if (retryMatch) retryAfterSeconds = secondsFromDuration(`${retryMatch[1]}${retryMatch[2]}`);
+  }
+
+  const quotaDetailsText = quotaParts.join(" ");
+  const quotaText = `${quotaDetailsText} ${message}`;
+  const quotaKind = /requests?perday|per[_-]?day|daily|\brpd\b/i.test(quotaText)
+    ? "daily"
+    : /spend|billing|factur|paid.?tier.?spend/i.test(quotaDetailsText)
+    ? "spend"
+    : "temporary";
+  return { retryAfterSeconds, quotaKind } as const;
+};
+
 const providerDetails = (error: unknown) => {
   const candidate = (error || {}) as ProviderError;
+  const rawMessage = String(
+    candidate.message || candidate.error?.message || "Error desconocido",
+  );
+  const payloadError = parseProviderPayload(rawMessage)?.error;
   const upstreamStatus = numberStatus(candidate.status) ||
-    numberStatus(candidate.error?.code) || numberStatus(candidate.code);
+    numberStatus(payloadError?.code) || numberStatus(candidate.error?.code) ||
+    numberStatus(candidate.code);
   const upstreamCode = String(
-    candidate.error?.status ||
+    payloadError?.status || candidate.error?.status ||
       (typeof candidate.code === "string" ? candidate.code : "") ||
       "",
   ).trim();
   const name = String(candidate.name || "Error").slice(0, 80);
-  const message = String(
-    candidate.message || candidate.error?.message || "Error desconocido",
-  ).slice(0, 500);
-  return { upstreamStatus, upstreamCode, name, message };
+  const providerMessage = String(payloadError?.message || rawMessage);
+  const message = providerMessage.slice(0, 500);
+  const quota = quotaMetadata(
+    payloadError?.details || candidate.error?.details,
+    providerMessage,
+  );
+  return { upstreamStatus, upstreamCode, name, message, ...quota };
 };
 
 const looksLikeUnavailableModel = (message: string, code: string) =>
@@ -98,6 +193,28 @@ export const classifyProviderError = (
       retryable: false,
     };
   }
+  if ((status === 429 || code === "RESOURCE_EXHAUSTED") && details.quotaKind === "daily") {
+    return {
+      ...details,
+      responseStatus: 429,
+      responseCode: "SCAN_DAILY_QUOTA_EXCEEDED",
+      responseMessage:
+        "Se alcanzo la cuota diaria de lecturas de Google para este proyecto. Se restablece a medianoche, hora del Pacifico, o puede ampliarse en Google AI Studio.",
+      retryable: false,
+      retryAfterSeconds: 300,
+    };
+  }
+  if ((status === 429 || code === "RESOURCE_EXHAUSTED") && details.quotaKind === "spend") {
+    return {
+      ...details,
+      responseStatus: 429,
+      responseCode: "SCAN_BILLING_LIMIT",
+      responseMessage:
+        "Google detuvo temporalmente las lecturas por el limite de gasto o facturacion del proyecto. Revisa la cuota en Google AI Studio.",
+      retryable: false,
+      retryAfterSeconds: 300,
+    };
+  }
   if (status === 429 || code === "RESOURCE_EXHAUSTED") {
     return {
       ...details,
@@ -106,7 +223,7 @@ export const classifyProviderError = (
       responseMessage:
         "Se alcanzo temporalmente el limite de lecturas. Espera unos segundos antes de intentar nuevamente.",
       retryable: true,
-      retryAfterSeconds: 20,
+      retryAfterSeconds: Math.min(120, Math.max(5, details.retryAfterSeconds || 20)),
     };
   }
   if ([401, 403].includes(status)) {
@@ -151,3 +268,11 @@ export const classifyProviderError = (
 
 export const shouldRetryProviderError = (error: unknown) =>
   classifyProviderError(error).responseCode === "SCAN_TEMPORARY_ERROR";
+
+export const shouldFallbackProviderError = (error: unknown) =>
+  [
+    "SCAN_MODEL_UNAVAILABLE",
+    "SCAN_RATE_LIMITED",
+    "SCAN_DAILY_QUOTA_EXCEEDED",
+    "SCAN_TEMPORARY_ERROR",
+  ].includes(classifyProviderError(error).responseCode);

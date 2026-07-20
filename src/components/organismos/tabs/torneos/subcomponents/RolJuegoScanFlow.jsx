@@ -27,6 +27,26 @@ const SUPPORTED_IMAGE_MIME_TYPES = new Set([
     "image/heif",
 ]);
 const BYE_TEAM = { id: "BYE", name: "DESCANSA", img: null, isBye: true };
+const SCAN_COOLDOWN_STORAGE_KEY = "rol-juego-scan-cooldown-until";
+
+const readScanCooldownUntil = () => {
+    if (typeof window === "undefined") return 0;
+    try {
+        const value = Number(window.sessionStorage.getItem(SCAN_COOLDOWN_STORAGE_KEY));
+        return Number.isFinite(value) && value > Date.now() ? value : 0;
+    } catch {
+        return 0;
+    }
+};
+
+const storeScanCooldownUntil = (value) => {
+    try {
+        if (value > Date.now()) window.sessionStorage.setItem(SCAN_COOLDOWN_STORAGE_KEY, String(value));
+        else window.sessionStorage.removeItem(SCAN_COOLDOWN_STORAGE_KEY);
+    } catch { /* El bloqueo sigue activo en memoria si sessionStorage no esta disponible. */ }
+};
+
+const secondsUntil = (timestamp) => Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
 
 const normalizeImageMimeType = (file) => {
     const mimeType = String(file?.type || "").toLowerCase();
@@ -118,7 +138,11 @@ const invokeScanFunctionOnce = async (image, scanContext) => {
     formData.append("mimeType", image.mimeType);
     formData.append("scanContext", JSON.stringify(scanContext));
 
-    const { data, error } = await supabase.functions.invoke("procesar-rol-juego", { body: formData });
+    const clientRequestId = globalThis.crypto?.randomUUID?.() || `scan-${Date.now()}`;
+    const { data, error } = await supabase.functions.invoke("procesar-rol-juego", {
+        body: formData,
+        headers: { "x-request-id": clientRequestId },
+    });
     if (!error) return data;
 
     const status = Number(error?.context?.status);
@@ -128,12 +152,20 @@ const invokeScanFunctionOnce = async (image, scanContext) => {
         responseBody = await response?.json();
     } catch { /* La respuesta no era JSON. */ }
 
-    const invocationError = new Error(responseBody?.error || error.message || "No se pudo escanear el rol de juego.");
-    invocationError.code = responseBody?.code || "FUNCTION_ERROR";
+    const responseHeaders = error?.context?.headers;
+    const gatewayCode = responseHeaders?.get?.("sb-error-code") || "";
+    const retryAfterHeader = Number(responseHeaders?.get?.("retry-after"));
+    const retryAfterSeconds = Number(responseBody?.retryAfterSeconds) || retryAfterHeader || 0;
+    const fallbackMessage = status === 429
+        ? "El servicio alcanzo temporalmente su limite de lecturas. Espera antes de volver a intentar."
+        : error.message;
+    const invocationError = new Error(responseBody?.error || fallbackMessage || "No se pudo escanear el rol de juego.");
+    invocationError.code = responseBody?.code || gatewayCode || "FUNCTION_ERROR";
     invocationError.retryable = typeof responseBody?.retryable === "boolean"
         ? responseBody.retryable
         : [429, 502, 503, 504].includes(status);
-    invocationError.requestId = responseBody?.requestId || error?.context?.headers?.get?.("x-request-id") || "";
+    invocationError.retryAfterSeconds = Math.max(0, Math.ceil(retryAfterSeconds));
+    invocationError.requestId = responseBody?.requestId || responseHeaders?.get?.("x-request-id") || clientRequestId;
     throw invocationError;
 };
 
@@ -221,12 +253,16 @@ export function RolJuegoScanFlow({
     const [scanning, setScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
+    const initialCooldownUntil = useRef(readScanCooldownUntil());
+    const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
+    const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
     const [coarseDevice, setCoarseDevice] = useState(false);
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const progressTimerRef = useRef(null);
     const preparedImageRef = useRef(null);
     const scanInFlightRef = useRef(false);
+    const cooldownUntilRef = useRef(initialCooldownUntil.current);
 
     const expectedMatches = Math.floor(teams.length / 2);
     const needsBye = teams.length % 2 === 1;
@@ -245,6 +281,33 @@ export function RolJuegoScanFlow({
 
     useEffect(() => () => {
         if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+    }, []);
+
+    useEffect(() => {
+        cooldownUntilRef.current = cooldownUntil;
+        let timerId = null;
+        const updateCooldown = () => {
+            const remaining = secondsUntil(cooldownUntilRef.current);
+            setCooldownSeconds(remaining);
+            if (remaining === 0) {
+                storeScanCooldownUntil(0);
+                if (timerId) window.clearInterval(timerId);
+            }
+        };
+        updateCooldown();
+        if (cooldownUntil > Date.now()) timerId = window.setInterval(updateCooldown, 1000);
+        return () => {
+            if (timerId) window.clearInterval(timerId);
+        };
+    }, [cooldownUntil]);
+
+    const startScanCooldown = useCallback((seconds) => {
+        const duration = Math.min(300, Math.max(1, Math.ceil(Number(seconds) || 0)));
+        const nextCooldownUntil = Math.max(cooldownUntilRef.current, Date.now() + duration * 1000);
+        cooldownUntilRef.current = nextCooldownUntil;
+        storeScanCooldownUntil(nextCooldownUntil);
+        setCooldownUntil(nextCooldownUntil);
+        setCooldownSeconds(secondsUntil(nextCooldownUntil));
     }, []);
 
     const selectFile = useCallback((nextFile) => {
@@ -319,7 +382,7 @@ export function RolJuegoScanFlow({
     }, [byeId, expectedMatches, needsBye, preserveDetectedSchedule, reviewRows, teams.length]);
 
     const scanImage = async () => {
-        if (!file || scanInFlightRef.current) return;
+        if (!file || scanInFlightRef.current || Date.now() < cooldownUntilRef.current) return;
         scanInFlightRef.current = true;
         setScanning(true);
         setErrorMessage("");
@@ -346,6 +409,7 @@ export function RolJuegoScanFlow({
                 review.rows.every((row) => row.date && row.time)
             );
         } catch (error) {
+            if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds);
             setErrorMessage(error?.message || "No se pudo escanear el rol de juego.");
             setScanProgress(0);
         } finally {
@@ -438,8 +502,10 @@ export function RolJuegoScanFlow({
                     <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); }}>
                         <RiRefreshLine /> Cambiar imagen
                     </SecondaryAction>
-                    <PrimaryAction type="button" disabled={scanning} onClick={scanImage}>
-                        <RiScan2Line /> {scanning ? `Escaneando ${scanProgress}%` : "Escanear rol"}
+                    <PrimaryAction type="button" disabled={scanning || cooldownSeconds > 0} onClick={scanImage}>
+                        <RiScan2Line /> {scanning
+                            ? `Escaneando ${scanProgress}%`
+                            : cooldownSeconds > 0 ? `Reintentar en ${cooldownSeconds}s` : "Escanear rol"}
                     </PrimaryAction>
                 </ChoiceRow>
             </ScanShell>
