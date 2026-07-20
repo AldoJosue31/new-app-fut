@@ -4,6 +4,7 @@ import {
   supabase,
   TOURNAMENT_STATUS,
 } from './shared';
+import { buildScannedMatchTimestamp } from '../../utils/scannedScheduleUtils';
 
 export const generarFixture = (equipos) => {
   const list = [...equipos];
@@ -127,12 +128,16 @@ export const iniciarTorneoService = async (
                 ? match.visitante.id
                 : null;
 
+            const scannedTimestamp = match.scanScheduleAccepted
+              ? buildScannedMatchTimestamp(match)
+              : null;
+
             matchesToInsert.push({
               jornada_id: jornadaDB.id,
               team1_id: match.local.id,
               team2_id: team2Id,
               status: 'Programado',
-              date: null,
+              date: scannedTimestamp,
             });
           }
         });

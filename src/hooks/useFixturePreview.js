@@ -91,11 +91,32 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         setMatches((prev) =>
             prev.map((match) => {
                 if (match.id !== matchId) return match;
-                if (match.roundLocked) return match;
+                if (match.roundLocked || match.scanLocked) return match;
                 return { ...match, locked: !match.locked };
             })
         );
     };
+
+    const unlockScannedMatch = useCallback((matchId) => {
+        setMatches((prev) =>
+            prev.map((match) => {
+                if (match.id !== matchId || match.roundLocked || !match.scanLocked) {
+                    return match;
+                }
+
+                return {
+                    ...match,
+                    locked: false,
+                    scanLocked: false,
+                    scannedDate: "",
+                    scannedTime: "",
+                    scanScheduleAction: match.scanScheduleAccepted ? "clear" : null,
+                    scanScheduleAccepted: false,
+                    scanScheduleSource: null,
+                };
+            })
+        );
+    }, []);
 
     const handleShuffle = () => {
         const hasManualLocks = matches.some((match) => match.locked && !match.roundLocked);
@@ -434,6 +455,7 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
     const handleReplaceRoundMatches = useCallback((roundIndex, nextPairs = [], options = {}) => {
         const normalizedRoundIndex = Number(roundIndex);
         const lockMatches = Boolean(options.lockMatches);
+        const preserveDetectedSchedule = Boolean(options.preserveDetectedSchedule);
 
         setMatches((prev) => {
             const roundMatches = prev.filter(
@@ -448,6 +470,13 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                 const current = roundMatches[index];
                 const isByeMatch =
                     pair.local?.id === "BYE" || pair.visitante?.id === "BYE";
+                const scanScheduleAccepted = Boolean(
+                    lockMatches &&
+                    preserveDetectedSchedule &&
+                    !isByeMatch &&
+                    pair.scannedDate &&
+                    pair.scannedTime
+                );
 
                 return normalizeByeMatch({
                     ...(current || {}),
@@ -459,7 +488,22 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                     visitante: pair.visitante,
                     jornadaIndex: normalizedRoundIndex,
                     locked: lockMatches || current?.locked || false,
-                    scanLocked: lockMatches || current?.scanLocked || false,
+                    scanLocked: lockMatches ? true : current?.scanLocked || false,
+                    scannedDate: lockMatches
+                        ? (scanScheduleAccepted ? pair.scannedDate : "")
+                        : current?.scannedDate || "",
+                    scannedTime: lockMatches
+                        ? (scanScheduleAccepted ? pair.scannedTime : "")
+                        : current?.scannedTime || "",
+                    scanScheduleAccepted: lockMatches
+                        ? scanScheduleAccepted
+                        : Boolean(current?.scanScheduleAccepted),
+                    scanScheduleAction: lockMatches
+                        ? (scanScheduleAccepted ? "apply" : null)
+                        : current?.scanScheduleAction || null,
+                    scanScheduleSource: lockMatches
+                        ? (scanScheduleAccepted ? "rol-juego" : null)
+                        : current?.scanScheduleSource || null,
                     roundLocked: false,
                     isByeMatch,
                     isGeneratedRound:
@@ -506,6 +550,7 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         isEditMode,
         handleTeamClick,
         toggleLock,
+        unlockScannedMatch,
         handleShuffle,
         handleAutoFix,
         handleDragStart,

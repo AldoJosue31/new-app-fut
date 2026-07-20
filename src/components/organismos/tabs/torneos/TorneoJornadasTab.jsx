@@ -25,6 +25,10 @@ import {
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 import {
+  buildScannedMatchTimestamp,
+  persistedDateTimeKey,
+} from "../../../../utils/scannedScheduleUtils";
+import {
   isOfficialJornadaName,
   isRepositionJornadaName,
   parseJornadaNumber,
@@ -714,6 +718,18 @@ export function TorneoJornadasTab({
   const handleConfirmFixtureUpdate = async (updatedMatches) => {
       setLoading(true);
       try {
+        const invalidScheduledMatch = updatedMatches.find(
+          (match) => match.scanScheduleAccepted && !buildScannedMatchTimestamp(match)
+        );
+        if (invalidScheduledMatch) {
+          throw new Error(
+            `El horario de ${invalidScheduledMatch.local?.name || "un partido"} está incompleto. Revísalo antes de guardar.`
+          );
+        }
+
+        const hasAcceptedScannedSchedules = updatedMatches.some(
+          (match) => match.scanScheduleAccepted && buildScannedMatchTimestamp(match)
+        );
         const originalMap = new Map(editorData.matches.map(m => [m.id, m]));
         const generatedRoundIndexes = [...new Set(
           updatedMatches
@@ -794,12 +810,18 @@ export function TorneoJornadasTab({
               return;
             }
 
+            const scannedTimestamp = m.scanScheduleAccepted
+              ? buildScannedMatchTimestamp(m)
+              : null;
+            const shouldApplyScannedSchedule = Boolean(scannedTimestamp);
+            const shouldClearScannedSchedule = m.scanScheduleAction === "clear";
+
             const payload = {
               jornada_id: targetJornadaId,
               team1_id: team1Id,
               team2_id: team2Id,
-              date: null,
-              status: 'Pendiente',
+              date: shouldApplyScannedSchedule ? scannedTimestamp : null,
+              status: shouldApplyScannedSchedule ? 'Programado' : 'Pendiente',
             };
 
             if (!m.dbId) {
@@ -815,8 +837,18 @@ export function TorneoJornadasTab({
             const jornadaChanged = String(original.jornada_id) !== String(targetJornadaId);
             const team1Changed = String(original.team1_id ?? '') !== String(team1Id ?? '');
             const team2Changed = String(original.team2_id ?? '') !== String(team2Id ?? '');
+            const scheduleChanged = shouldApplyScannedSchedule
+              ? persistedDateTimeKey(original.date) !== scannedTimestamp || original.status !== 'Programado'
+              : shouldClearScannedSchedule
+                ? Boolean(original.date) || original.status !== 'Pendiente'
+                : false;
 
-            if (jornadaChanged || team1Changed || team2Changed) {
+            if (
+              jornadaChanged ||
+              team1Changed ||
+              team2Changed ||
+              scheduleChanged
+            ) {
               updates.push({
                 id: m.dbId,
                 ...payload,
@@ -906,7 +938,9 @@ export function TorneoJornadasTab({
               show: true,
               message: generatedRoundIndexes.length > 0
                 ? "Nueva jornada generada y guardada correctamente."
-                : "Fixture reorganizado correctamente.",
+                : hasAcceptedScannedSchedules
+                  ? "Fixture y horarios escaneados guardados correctamente."
+                  : "Fixture reorganizado correctamente.",
               type: "success"
             });
 

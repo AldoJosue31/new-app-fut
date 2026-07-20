@@ -2,14 +2,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components";
 import {
     RiArrowLeftLine,
+    RiCalendarEventLine,
     RiCameraLine,
     RiFileImageLine,
     RiRefreshLine,
     RiScan2Line,
+    RiTimeLine,
 } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { findBestScanMatch } from "../../../../../utils/cedulaScanMatching";
+import {
+    normalizeScannedDate,
+    normalizeScannedTime,
+} from "../../../../../utils/scannedScheduleUtils";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
@@ -106,7 +112,12 @@ const fileToScanPayload = async (file) => {
     }
 };
 
-const invokeScanFunction = async (image, scanContext) => {
+const CLIENT_MAX_RETRIES = 2;
+const CLIENT_BASE_DELAY_MS = 2000;
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const invokeScanFunctionOnce = async (image, scanContext) => {
     const formData = new FormData();
     formData.append("image", image.blob, image.fileName);
     formData.append("mimeType", image.mimeType);
@@ -126,6 +137,20 @@ const invokeScanFunction = async (image, scanContext) => {
     invocationError.code = responseBody?.code || "FUNCTION_ERROR";
     invocationError.retryable = Boolean(responseBody?.retryable) || [502, 503, 504].includes(status);
     throw invocationError;
+};
+
+const invokeScanFunction = async (image, scanContext) => {
+    let lastError;
+    for (let attempt = 0; attempt <= CLIENT_MAX_RETRIES; attempt++) {
+        try {
+            return await invokeScanFunctionOnce(image, scanContext);
+        } catch (error) {
+            lastError = error;
+            if (!error.retryable || attempt === CLIENT_MAX_RETRIES) throw error;
+            await delay(CLIENT_BASE_DELAY_MS * Math.pow(2, attempt));
+        }
+    }
+    throw lastError;
 };
 
 const matchTeam = (name, teams, usedIds = new Set(), preferredId = "") => {
@@ -149,6 +174,9 @@ const emptyReviewRow = (index) => ({
     rawVisitor: "",
     localId: "",
     visitorId: "",
+    date: "",
+    time: "",
+    rawSchedule: null,
 });
 
 const buildRolJuegoReview = (scan, teams) => {
@@ -167,6 +195,9 @@ const buildRolJuegoReview = (scan, teams) => {
                 rawVisitor: String(match?.visitorTeam || ""),
                 localId: local ? String(local.id) : "",
                 visitorId: visitor ? String(visitor.id) : "",
+                date: normalizeScannedDate(match?.date),
+                time: normalizeScannedTime(match?.time),
+                rawSchedule: match?.rawSchedule || null,
             };
         });
 
@@ -187,6 +218,8 @@ export function RolJuegoScanFlow({
     roundTitle,
     divisionName = "",
     tournamentName = "",
+    roundStartDate = "",
+    roundEndDate = "",
     teams,
     onCancel,
     onApply,
@@ -198,6 +231,7 @@ export function RolJuegoScanFlow({
     const [reviewRows, setReviewRows] = useState([]);
     const [byeId, setByeId] = useState("");
     const [rawBye, setRawBye] = useState("");
+    const [preserveDetectedSchedule, setPreserveDetectedSchedule] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
@@ -247,6 +281,7 @@ export function RolJuegoScanFlow({
         setRawScan(null);
         setReviewRows([]);
         setByeId("");
+        setPreserveDetectedSchedule(false);
         setErrorMessage("");
         setScanProgress(0);
     }, []);
@@ -267,8 +302,10 @@ export function RolJuegoScanFlow({
         divisionName,
         tournamentName,
         roundTitle,
+        roundStartDate,
+        roundEndDate,
         teams: teams.map((team) => ({ id: String(team.id), name: team.name })),
-    }), [divisionName, roundTitle, teams, tournamentName]);
+    }), [divisionName, roundEndDate, roundStartDate, roundTitle, teams, tournamentName]);
 
     const reviewValidation = useMemo(() => {
         const selectedIds = reviewRows.flatMap((row) => [row.localId, row.visitorId]).filter(Boolean);
@@ -279,15 +316,20 @@ export function RolJuegoScanFlow({
             0,
         ) + (needsBye && !byeId ? 1 : 0);
         const allTeamsUsed = new Set(selectedIds).size === teams.length;
+        const completeScheduleRows = reviewRows.filter(
+            (row) => normalizeScannedDate(row.date) && normalizeScannedTime(row.time)
+        ).length;
         return {
             duplicates: new Set(duplicates),
             missingSlots,
+            completeScheduleRows,
+            scheduleIsValid: !preserveDetectedSchedule || completeScheduleRows === expectedMatches,
             isValid: reviewRows.length === expectedMatches
                 && missingSlots === 0
                 && duplicates.length === 0
                 && allTeamsUsed,
         };
-    }, [byeId, expectedMatches, needsBye, reviewRows, teams.length]);
+    }, [byeId, expectedMatches, needsBye, preserveDetectedSchedule, reviewRows, teams.length]);
 
     const scanImage = async () => {
         if (!file || scanning) return;
@@ -311,6 +353,10 @@ export function RolJuegoScanFlow({
             setReviewRows(review.rows);
             setByeId(review.byeId);
             setRawBye(review.rawBye);
+            setPreserveDetectedSchedule(
+                review.rows.length === expectedMatches &&
+                review.rows.every((row) => row.date && row.time)
+            );
         } catch (error) {
             setErrorMessage(error?.message || "No se pudo escanear el rol de juego.");
             setScanProgress(0);
@@ -326,14 +372,23 @@ export function RolJuegoScanFlow({
     };
 
     const applyReview = () => {
-        if (!reviewValidation.isValid) return;
+        if (!reviewValidation.isValid || !reviewValidation.scheduleIsValid) return;
         const teamMap = new Map(teams.map((team) => [String(team.id), team]));
         const pairs = reviewRows.map((row) => ({
             local: teamMap.get(row.localId),
             visitante: teamMap.get(row.visitorId),
+            scannedDate: preserveDetectedSchedule ? normalizeScannedDate(row.date) : "",
+            scannedTime: preserveDetectedSchedule ? normalizeScannedTime(row.time) : "",
         }));
-        if (needsBye) pairs.push({ local: teamMap.get(byeId), visitante: BYE_TEAM });
-        onApply(pairs);
+        if (needsBye) {
+            pairs.push({
+                local: teamMap.get(byeId),
+                visitante: BYE_TEAM,
+                scannedDate: "",
+                scannedTime: "",
+            });
+        }
+        onApply(pairs, { preserveDetectedSchedule });
     };
 
     if (!file) {
@@ -414,6 +469,23 @@ export function RolJuegoScanFlow({
                 <span>{reviewValidation.isValid ? `${teams.length} equipos interpretados` : "Completa los campos marcados y elimina equipos repetidos."}</span>
             </ReviewSummary>
 
+            <ScheduleOption $active={preserveDetectedSchedule}>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={preserveDetectedSchedule}
+                        onChange={(event) => setPreserveDetectedSchedule(event.target.checked)}
+                    />
+                    <span>
+                        <strong>Guardar fechas y horas detectadas</strong>
+                        <small>Es opcional. Puedes corregirlas antes de aplicar la jornada.</small>
+                    </span>
+                </label>
+                <ScheduleCount $complete={reviewValidation.completeScheduleRows === expectedMatches}>
+                    {reviewValidation.completeScheduleRows}/{expectedMatches} horarios completos
+                </ScheduleCount>
+            </ScheduleOption>
+
             <MatchReviewList>
                 {reviewRows.map((row, index) => (
                     <MatchReviewRow key={row.id}>
@@ -435,6 +507,36 @@ export function RolJuegoScanFlow({
                             </select>
                             {row.rawVisitor && <small>Leído como: {row.rawVisitor}</small>}
                         </TeamSelect>
+                        <ScheduleFields
+                            $invalid={preserveDetectedSchedule && !(normalizeScannedDate(row.date) && normalizeScannedTime(row.time))}
+                        >
+                            <div>
+                                <label htmlFor={`${row.id}-date`}><RiCalendarEventLine /> Fecha</label>
+                                <input
+                                    id={`${row.id}-date`}
+                                    type="date"
+                                    value={row.date}
+                                    onChange={(event) => updateRow(row.id, "date", event.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor={`${row.id}-time`}><RiTimeLine /> Hora</label>
+                                <input
+                                    id={`${row.id}-time`}
+                                    type="time"
+                                    value={row.time}
+                                    onChange={(event) => updateRow(row.id, "time", event.target.value)}
+                                />
+                            </div>
+                            <small>
+                                {row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel || row.rawSchedule?.timeLabel
+                                    ? `Detectado: ${[
+                                        row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel,
+                                        row.rawSchedule?.timeLabel,
+                                    ].filter(Boolean).join(" · ")}`
+                                    : "Sin horario legible; puedes capturarlo manualmente."}
+                            </small>
+                        </ScheduleFields>
                     </MatchReviewRow>
                 ))}
 
@@ -453,10 +555,19 @@ export function RolJuegoScanFlow({
             </MatchReviewList>
 
             {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
+            {preserveDetectedSchedule && !reviewValidation.scheduleIsValid && (
+                <ErrorNotice role="alert">
+                    Completa una fecha y una hora válidas para cada partido o desactiva el guardado de horarios.
+                </ErrorNotice>
+            )}
             <PrivacyNote>La imagen se usa solo para este análisis y no se guarda en el fixture.</PrivacyNote>
             <ChoiceRow>
                 <SecondaryAction type="button" onClick={onCancel}>Cancelar</SecondaryAction>
-                <PrimaryAction type="button" disabled={!reviewValidation.isValid} onClick={applyReview}>
+                <PrimaryAction
+                    type="button"
+                    disabled={!reviewValidation.isValid || !reviewValidation.scheduleIsValid}
+                    onClick={applyReview}
+                >
                     Aplicar y bloquear jornada
                 </PrimaryAction>
             </ChoiceRow>
@@ -504,11 +615,24 @@ const ReviewSummary = styled.div`
     display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:${({$valid})=>$valid ? `${v.colorPrincipal}14` : `${v.colorWarning}16`};color:${({$valid})=>$valid ? v.colorPrincipal : v.colorWarning};
     strong{font-size:.9rem;}span{font-size:.8rem;text-align:right;}@media(max-width:600px){align-items:flex-start;flex-direction:column;span{text-align:left;}}
 `;
+const ScheduleOption = styled.div`
+    display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 14px;border-radius:12px;border:1px solid ${({theme,$active})=>$active ? `${v.colorPrincipal}80` : theme.bg4};background:${({theme,$active})=>$active ? `${v.colorPrincipal}0D` : theme.bgcards};
+    >label{display:flex;align-items:flex-start;gap:10px;cursor:pointer;}input{width:18px;height:18px;margin-top:2px;accent-color:${v.colorPrincipal};}label span{display:flex;flex-direction:column;gap:3px;}strong{color:${({theme})=>theme.text};font-size:.9rem;}small{color:${({theme})=>theme.textFade};font-size:.76rem;line-height:1.35;}
+    @media(max-width:600px){align-items:flex-start;flex-direction:column;}
+`;
+const ScheduleCount = styled.span`
+    flex-shrink:0;padding:5px 8px;border-radius:999px;background:${({$complete})=>$complete ? `${v.colorPrincipal}18` : `${v.colorWarning}18`};color:${({$complete})=>$complete ? v.colorPrincipal : v.colorWarning};font-size:.75rem;font-weight:800;
+`;
 const MatchReviewList = styled.div`display:flex;flex-direction:column;gap:10px;`;
 const MatchReviewRow = styled.div`
     display:grid;grid-template-columns:30px minmax(0,1fr) 34px minmax(0,1fr);align-items:center;gap:10px;padding:12px;border-radius:12px;background:${({theme})=>theme.bgcards};border:1px solid ${({theme})=>theme.bg4};
     .match-number{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:${({theme})=>theme.bg3};color:${({theme})=>theme.textFade};font-size:.78rem;font-weight:800;}
     @media(max-width:650px){grid-template-columns:30px 1fr;align-items:start;.match-number{grid-row:1 / span 3;}.versus{display:none;}}
+`;
+const ScheduleFields = styled.div`
+    grid-column:2 / -1;display:grid;grid-template-columns:minmax(145px,1fr) minmax(125px,.8fr) minmax(190px,1.4fr);align-items:end;gap:10px;padding-top:10px;border-top:1px solid ${({theme})=>theme.bg3};
+    >div{display:flex;flex-direction:column;gap:4px;}label{display:flex;align-items:center;gap:5px;color:${({theme})=>theme.textFade};font-size:.72rem;font-weight:700;}label svg{color:${v.colorPrincipal};}input{width:100%;min-height:38px;border:1px solid ${({theme,$invalid})=>$invalid ? v.colorError : theme.bg4};border-radius:8px;background:${({theme})=>theme.bg2};color:${({theme})=>theme.text};padding:7px 9px;font:inherit;font-size:.84rem;}input:focus-visible{outline:3px solid ${v.colorPrincipal}35;outline-offset:1px;}small{align-self:center;color:${({theme})=>theme.textFade};font-size:.74rem;line-height:1.35;}
+    @media(max-width:650px){grid-column:2;grid-template-columns:1fr 1fr;small{grid-column:1 / -1;align-self:start;}}
 `;
 const TeamSelect = styled.div`
     min-width:0;display:flex;flex-direction:column;gap:4px;

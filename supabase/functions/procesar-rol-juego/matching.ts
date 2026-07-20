@@ -1,16 +1,24 @@
+import {
+  normalizeMatchSchedule,
+  type RawScheduleFields,
+  type ScheduleContext,
+} from "./schedule.ts";
+
 export type RegisteredTeam = {
   id: string;
   name: string;
 };
 
-export type RawScheduleSection = {
+export type RawScheduleSection = RawScheduleFields & {
   divisionLabel?: unknown;
   roundLabel?: unknown;
-  matches?: Array<{ localTeam?: unknown; visitorTeam?: unknown }>;
+  matches?: Array<
+    RawScheduleFields & { localTeam?: unknown; visitorTeam?: unknown }
+  >;
   byeTeam?: unknown;
 };
 
-export type RawScheduleEntry = {
+export type RawScheduleEntry = RawScheduleFields & {
   divisionLabel?: unknown;
   roundLabel?: unknown;
   localTeam?: unknown;
@@ -25,7 +33,7 @@ export type RawScheduleScan = {
   byeTeam?: unknown;
 };
 
-type SelectionContext = {
+type SelectionContext = ScheduleContext & {
   divisionName: string;
   roundTitle: string;
   teams: RegisteredTeam[];
@@ -245,6 +253,10 @@ const canonicalizeSection = (
     localTeam: string;
     visitorTeamId: string;
     visitorTeam: string;
+    date: string;
+    time: string;
+    dateTimeDetected: boolean;
+    rawSchedule: ReturnType<typeof normalizeMatchSchedule>["rawSchedule"];
   }>;
   let rejectedMatches = 0;
   let confidenceTotal = 0;
@@ -265,6 +277,14 @@ const canonicalizeSection = (
           visitor,
           sourceIndex,
           confidence: local.score + visitor.score,
+          schedule: normalizeMatchSchedule({
+            scheduleLabel: rawMatch?.scheduleLabel ?? section.scheduleLabel,
+            scheduleRangeLabel: rawMatch?.scheduleRangeLabel ??
+              section.scheduleRangeLabel,
+            dateLabel: rawMatch?.dateLabel ?? section.dateLabel,
+            weekdayLabel: rawMatch?.weekdayLabel ?? section.weekdayLabel,
+            timeLabel: rawMatch?.timeLabel ?? section.timeLabel,
+          }, context),
         };
       })
       .filter((match) => match !== null)
@@ -287,6 +307,7 @@ const canonicalizeSection = (
       localTeam: match.local.team.name,
       visitorTeamId: visitorId,
       visitorTeam: match.visitor.team.name,
+      ...match.schedule,
     });
     if (acceptedMatches.length >= expectedMatches) break;
   }
@@ -298,6 +319,10 @@ const canonicalizeSection = (
       localTeam: match.localTeam,
       visitorTeamId: match.visitorTeamId,
       visitorTeam: match.visitorTeam,
+      date: match.date,
+      time: match.time,
+      dateTimeDetected: match.dateTimeDetected,
+      rawSchedule: match.rawSchedule,
     }));
 
   let bye = resolveTeam(section.byeTeam, context.teams);
@@ -374,7 +399,15 @@ export const selectScheduleForDivision = (
     const localTeam = text(entry?.localTeam);
     const visitorTeam = text(entry?.visitorTeam);
     if (localTeam || visitorTeam) {
-      section.matches?.push({ localTeam, visitorTeam });
+      section.matches?.push({
+        localTeam,
+        visitorTeam,
+        scheduleLabel: text(entry?.scheduleLabel, 300),
+        scheduleRangeLabel: text(entry?.scheduleRangeLabel, 240),
+        dateLabel: text(entry?.dateLabel),
+        weekdayLabel: text(entry?.weekdayLabel),
+        timeLabel: text(entry?.timeLabel),
+      });
     }
     const byeTeam = text(entry?.byeTeam);
     if (byeTeam) section.byeTeam = byeTeam;

@@ -290,7 +290,7 @@ Deno.serve(async (req) => {
     }
 
     const client = new GoogleGenAI({ apiKey });
-    const model = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
+    const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
     const instructions = buildInstructions(scanContext);
     const startedAt = performance.now();
     let attempts = 1;
