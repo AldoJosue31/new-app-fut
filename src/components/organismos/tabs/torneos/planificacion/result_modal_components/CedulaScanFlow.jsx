@@ -15,10 +15,31 @@ import {
   normalizeScanName,
   resolveScannedTeamSides,
 } from "../../../../../../utils/cedulaScanMatching";
+import { normalizeScannedTime } from "../../../../../../utils/scannedScheduleUtils";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until";
+
+const readScanCooldownUntil = () => {
+  if (typeof window === "undefined") return 0;
+  try {
+    const value = Number(window.sessionStorage.getItem(SCAN_COOLDOWN_STORAGE_KEY));
+    return Number.isFinite(value) && value > Date.now() ? value : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const storeScanCooldownUntil = (value) => {
+  try {
+    if (value > Date.now()) window.sessionStorage.setItem(SCAN_COOLDOWN_STORAGE_KEY, String(value));
+    else window.sessionStorage.removeItem(SCAN_COOLDOWN_STORAGE_KEY);
+  } catch { /* El bloqueo sigue activo en memoria si sessionStorage no esta disponible. */ }
+};
+
+const secondsUntil = (timestamp) => Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
 
 const normalizeImageMimeType = (file) => {
   const mimeType = String(file?.type || "").toLowerCase();
@@ -117,8 +138,10 @@ const invokeScanFunction = async (image, matchContext) => {
   formData.append("image", image.blob, image.fileName);
   formData.append("mimeType", image.mimeType);
   formData.append("matchContext", JSON.stringify(matchContext));
+  const clientRequestId = globalThis.crypto?.randomUUID?.() || `cedula-${Date.now()}`;
   const { data, error } = await supabase.functions.invoke("procesar-cedula", {
     body: formData,
+    headers: { "x-request-id": clientRequestId },
   });
   if (!error) return data;
 
@@ -129,9 +152,20 @@ const invokeScanFunction = async (image, matchContext) => {
     responseBody = await response?.json();
   } catch { /* La respuesta no era JSON. */ }
 
-  const invocationError = new Error(responseBody?.error || error.message || "No se pudo escanear la cedula.");
-  invocationError.code = responseBody?.code || "FUNCTION_ERROR";
-  invocationError.retryable = Boolean(responseBody?.retryable) || [502, 503, 504].includes(status);
+  const responseHeaders = error?.context?.headers;
+  const gatewayCode = responseHeaders?.get?.("sb-error-code") || "";
+  const retryAfterHeader = Number(responseHeaders?.get?.("retry-after"));
+  const retryAfterSeconds = Number(responseBody?.retryAfterSeconds) || retryAfterHeader || 0;
+  const fallbackMessage = status === 429
+    ? "El servicio alcanzo temporalmente su limite de lecturas. Espera antes de volver a intentar."
+    : error.message;
+  const invocationError = new Error(responseBody?.error || fallbackMessage || "No se pudo escanear la cedula.");
+  invocationError.code = responseBody?.code || gatewayCode || "FUNCTION_ERROR";
+  invocationError.retryable = typeof responseBody?.retryable === "boolean"
+    ? responseBody.retryable
+    : [429, 502, 503, 504].includes(status);
+  invocationError.retryAfterSeconds = Math.max(0, Math.ceil(retryAfterSeconds));
+  invocationError.requestId = responseBody?.requestId || responseHeaders?.get?.("x-request-id") || clientRequestId;
   throw invocationError;
 };
 
@@ -161,6 +195,7 @@ export function CedulaScanFlow({
   localPlayers,
   visitPlayers,
   currentDate,
+  currentTime,
   onBack,
   onApply,
   showToast,
@@ -171,12 +206,18 @@ export function CedulaScanFlow({
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const initialCooldownUntil = useRef(readScanCooldownUntil());
+  const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
+  const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
   const [applyScannedDate, setApplyScannedDate] = useState(false);
+  const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [coarseDevice, setCoarseDevice] = useState(false);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const progressTimerRef = useRef(null);
   const preparedImageRef = useRef(null);
+  const scanInFlightRef = useRef(false);
+  const cooldownUntilRef = useRef(initialCooldownUntil.current);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -209,6 +250,33 @@ export function CedulaScanFlow({
     if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
   }, []);
 
+  useEffect(() => {
+    cooldownUntilRef.current = cooldownUntil;
+    let timerId = null;
+    const updateCooldown = () => {
+      const remaining = secondsUntil(cooldownUntilRef.current);
+      setCooldownSeconds(remaining);
+      if (remaining === 0) {
+        storeScanCooldownUntil(0);
+        if (timerId) window.clearInterval(timerId);
+      }
+    };
+    updateCooldown();
+    if (cooldownUntil > Date.now()) timerId = window.setInterval(updateCooldown, 1000);
+    return () => {
+      if (timerId) window.clearInterval(timerId);
+    };
+  }, [cooldownUntil]);
+
+  const startScanCooldown = useCallback((seconds) => {
+    const duration = Math.min(300, Math.max(1, Math.ceil(Number(seconds) || 0)));
+    const nextCooldownUntil = Math.max(cooldownUntilRef.current, Date.now() + duration * 1000);
+    cooldownUntilRef.current = nextCooldownUntil;
+    storeScanCooldownUntil(nextCooldownUntil);
+    setCooldownUntil(nextCooldownUntil);
+    setCooldownSeconds(secondsUntil(nextCooldownUntil));
+  }, []);
+
   const selectFile = useCallback((nextFile) => {
     if (!nextFile) return;
     if (!SUPPORTED_IMAGE_MIME_TYPES.has(normalizeImageMimeType(nextFile))) {
@@ -228,6 +296,7 @@ export function CedulaScanFlow({
     setRawScan(null);
     setScanProgress(0);
     setApplyScannedDate(false);
+    setApplyScannedTime(false);
   }, [showToast]);
 
   const selectPastedFile = useEffectEvent((image) => {
@@ -339,8 +408,10 @@ export function CedulaScanFlow({
   }, [localPlayers, match, rawScan, referees, visitPlayers]);
 
   const scanImage = async () => {
-    if (!file || scanning) return;
+    if (!file || scanInFlightRef.current || Date.now() < cooldownUntilRef.current) return;
+    scanInFlightRef.current = true;
     setApplyScannedDate(false);
+    setApplyScannedTime(false);
     setScanning(true);
     setScanProgress(6);
     progressTimerRef.current = window.setInterval(() => {
@@ -367,6 +438,7 @@ export function CedulaScanFlow({
       await new Promise(resolve => window.setTimeout(resolve, 320));
       setRawScan({ ...emptyScan, ...data.scan });
     } catch (error) {
+      if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds);
       let message = error?.message || "No se pudo escanear la cedula.";
       if (error?.context) {
         try {
@@ -377,6 +449,7 @@ export function CedulaScanFlow({
       showToast(message, "error");
       setScanProgress(0);
     } finally {
+      scanInFlightRef.current = false;
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
       setScanning(false);
@@ -451,14 +524,18 @@ export function CedulaScanFlow({
           </SecondaryAction>
           <ScanProgressButton
             type="button"
-            disabled={scanning}
+            disabled={scanning || cooldownSeconds > 0}
             onClick={scanImage}
             $scanning={scanning}
             $progress={scanning ? scanProgress : 100}
-            aria-label={scanning ? `Escaneando cedula ${scanProgress}%` : "Escanear cedula"}
+            aria-label={scanning
+              ? `Escaneando cedula ${scanProgress}%`
+              : cooldownSeconds > 0 ? `Reintentar escaneo en ${cooldownSeconds} segundos` : "Escanear cedula"}
           >
             <span className="button-content">
-              <RiScan2Line /> {scanning ? `Escaneando ${scanProgress}%` : "Escanear"}
+              <RiScan2Line /> {scanning
+                ? `Escaneando ${scanProgress}%`
+                : cooldownSeconds > 0 ? `Reintentar en ${cooldownSeconds}s` : "Escanear"}
             </span>
           </ScanProgressButton>
         </ChoiceRow>
@@ -490,6 +567,28 @@ export function CedulaScanFlow({
     });
   }
   const dateReview = getScannedDateReview(currentDate, interpretation.date, applyScannedDate);
+  const normalizedCurrentTime = normalizeScannedTime(currentTime);
+  const normalizedScannedTime = normalizeScannedTime(interpretation.time);
+  const timesMatch = Boolean(normalizedCurrentTime)
+    && Boolean(normalizedScannedTime)
+    && normalizedCurrentTime === normalizedScannedTime;
+  const canApplyScannedDate = dateReview.hasValidScannedDate && !dateReview.datesMatch;
+  const canApplyScannedTime = Boolean(normalizedScannedTime) && !timesMatch;
+  const hasDetectedScheduleChange = canApplyScannedDate || canApplyScannedTime;
+  const dateResultLabel = dateReview.hasValidScannedDate
+    ? dateReview.datesMatch
+      ? `${dateReview.normalizedScannedDate} · coincide`
+      : applyScannedDate
+      ? `${dateReview.normalizedScannedDate} · se aplicará`
+      : `${dateReview.normalizedCurrentDate || "Sin fecha actual"} · se conserva`
+    : dateReview.normalizedCurrentDate || "Sin detectar";
+  const timeResultLabel = normalizedScannedTime
+    ? timesMatch
+      ? `${normalizedScannedTime} · coincide`
+      : applyScannedTime
+      ? `${normalizedScannedTime} · se aplicará`
+      : `${normalizedCurrentTime || "Sin hora actual"} · se conserva`
+    : normalizedCurrentTime || "Sin detectar";
   return (
     <ScanShell>
       <PanelHeading>
@@ -529,21 +628,41 @@ export function CedulaScanFlow({
           <DataRow label="Local" value={`${match?.local?.name || "Local"} · ${interpretation.scores.local}`} />
           <DataRow label="Visitante" value={`${match?.visitante?.name || "Visitante"} · ${interpretation.scores.visit}`} />
           <DataRow label="Arbitro" value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"} warning={!interpretation.referee && Boolean(rawScan.referee)} />
-          <DataRow label="Fecha" value={dateReview.label} />
-          <DataRow label="Hora" value={interpretation.time || "Sin detectar"} />
-          {dateReview.canReplaceDate && (
-            <DateApplyToggle>
-              <input
-                id="apply-scanned-date"
-                type="checkbox"
-                checked={applyScannedDate}
-                onChange={event => setApplyScannedDate(event.target.checked)}
-              />
-              <label htmlFor="apply-scanned-date">
-                <strong>Reemplazar fecha actual</strong>
-                <span>Usar {dateReview.normalizedScannedDate} en lugar de {dateReview.normalizedCurrentDate}</span>
-              </label>
-            </DateApplyToggle>
+          <DataRow label="Fecha" value={dateResultLabel} />
+          <DataRow label="Hora" value={timeResultLabel} />
+          {hasDetectedScheduleChange && (
+            <ScheduleOptions aria-label="Programación detectada en la cédula">
+              <strong className="schedule-title">Aplicar programación detectada</strong>
+              <span className="schedule-help">Opcional. Los datos actuales se conservarán si no seleccionas estas opciones.</span>
+              {canApplyScannedDate && (
+                <ScheduleApplyToggle>
+                  <input
+                    id="apply-scanned-date"
+                    type="checkbox"
+                    checked={applyScannedDate}
+                    onChange={event => setApplyScannedDate(event.target.checked)}
+                  />
+                  <label htmlFor="apply-scanned-date">
+                    <strong>Usar fecha detectada</strong>
+                    <span>{dateReview.normalizedScannedDate}</span>
+                  </label>
+                </ScheduleApplyToggle>
+              )}
+              {canApplyScannedTime && (
+                <ScheduleApplyToggle>
+                  <input
+                    id="apply-scanned-time"
+                    type="checkbox"
+                    checked={applyScannedTime}
+                    onChange={event => setApplyScannedTime(event.target.checked)}
+                  />
+                  <label htmlFor="apply-scanned-time">
+                    <strong>Usar hora detectada</strong>
+                    <span>{normalizedScannedTime}</span>
+                  </label>
+                </ScheduleApplyToggle>
+              )}
+            </ScheduleOptions>
           )}
           <DataRow
             label="Resolucion"
@@ -612,8 +731,10 @@ export function CedulaScanFlow({
           type="button"
           onClick={() => onApply({
             ...interpretation,
-            applyDate: dateReview.hasValidScannedDate
-              && (!dateReview.hasExistingDate || (dateReview.canReplaceDate && applyScannedDate)),
+            date: dateReview.normalizedScannedDate,
+            time: normalizedScannedTime,
+            applyDate: canApplyScannedDate && applyScannedDate,
+            applyTime: canApplyScannedTime && applyScannedTime,
           })}
         >
           Aplicar escaneo
@@ -678,8 +799,13 @@ const ScanDataRow = styled.div`
   display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid ${({theme})=>theme.bg4};font-size:.86rem;
   span{opacity:.68;} strong{font-weight:700;overflow-wrap:anywhere;color:${({$warning})=>$warning ? v.rojo : "inherit"};}
 `;
-const DateApplyToggle = styled.div`
-  display:flex;align-items:flex-start;gap:10px;margin-top:10px;padding:10px;border-radius:10px;background:${({theme})=>theme.bg3};
+const ScheduleOptions = styled.fieldset`
+  display:flex;flex-direction:column;gap:8px;min-width:0;margin:12px 0 0;padding:11px;border:1px solid ${({theme})=>theme.bg4};border-radius:10px;background:${({theme})=>theme.bg3};color:inherit;
+  .schedule-title{font-size:.82rem;line-height:1.35;}
+  .schedule-help{font-size:.74rem;line-height:1.4;opacity:.72;}
+`;
+const ScheduleApplyToggle = styled.div`
+  display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:8px;background:${({theme})=>theme.bgcards};
   input{width:18px;height:18px;margin:1px 0 0;accent-color:${v.colorPrincipal};cursor:pointer;flex:0 0 auto;}
   label{display:flex;flex-direction:column;gap:2px;cursor:pointer;font-size:.82rem;line-height:1.35;}
   label strong{font-weight:750;}label span{opacity:.7;}

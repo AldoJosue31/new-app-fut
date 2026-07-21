@@ -1,5 +1,11 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { GoogleGenAI } from "@google/genai";
+import {
+  classifyProviderError,
+  selectGeminiFallbackModel,
+  selectGeminiModel,
+  shouldFallbackProviderError,
+} from "./scanErrors.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
 const GEMINI_TIMEOUT_MS = 45_000;
@@ -12,11 +18,10 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/heif",
 ]);
 
-const textField = (description: string) => ({ type: "string", description });
-const countField = (description: string) => ({ type: "integer", minimum: 0, description });
+const textField = (_description: string) => ({ type: "string" });
+const countField = (_description: string) => ({ type: "integer" });
 const playerSchema = {
   type: "object",
-  additionalProperties: false,
   properties: {
     name: textField("Nombre legible del jugador. Si el texto se parece claramente a un unico candidato registrado del mismo equipo, usar la escritura completa de ese candidato."),
     goals: countField("Cantidad de goles anotados."),
@@ -30,16 +35,12 @@ const playerSchema = {
 // JSON Schema es el equivalente del modelo Pydantic para la salida estructurada de Gemini.
 const matchSheetSchema = {
   type: "object",
-  additionalProperties: false,
   properties: {
     teamBlocks: {
       type: "array",
-      minItems: 2,
-      maxItems: 2,
       description: "Dos bloques neutrales de equipo en orden visual. Cada nombre, marcador y penal debe permanecer unido al mismo bloque, sin decidir cual es local o visitante.",
       items: {
         type: "object",
-        additionalProperties: false,
         properties: {
           block: { type: "string", enum: ["first", "second"], description: "first para el primer bloque visual y second para el otro." },
           name: textField("Nombre visible del equipo. Si coincide de forma aproximada con un equipo registrado del contexto, usar su escritura registrada."),
@@ -60,7 +61,6 @@ const matchSheetSchema = {
     observations: textField("Observaciones escritas en la cedula; vacio si no existen."),
     walkover: {
       type: "object",
-      additionalProperties: false,
       description: "Deteccion de inasistencia o victoria por default escrita en cualquier parte de la cedula, incluidas las listas de jugadores.",
       properties: {
         detected: { type: "boolean", description: "Verdadero solo si hay texto visible que indique que uno o ambos equipos no se presentaron, W.O. o victoria por default." },
@@ -98,25 +98,15 @@ Si un dato no es legible usa cadena vacia, cero o unknown segun su tipo. No inve
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-request-id",
+  "Access-Control-Expose-Headers": "Retry-After, X-Request-Id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const jsonResponse = (body: unknown, status = 200) => Response.json(body, {
+const jsonResponse = (body: unknown, status = 200, headers: HeadersInit = {}) => Response.json(body, {
   status,
-  headers: corsHeaders,
+  headers: { ...corsHeaders, ...headers },
 });
-
-const isTimeoutError = (error: unknown) => {
-  const candidate = error as { message?: string; name?: string; status?: number };
-  const message = `${candidate?.name || ""} ${candidate?.message || ""}`;
-  return [408, 504].includes(Number(candidate?.status)) || /abort|deadline|timed?\s*out|timeout/i.test(message);
-};
-
-const isTransientGeminiError = (error: unknown) => {
-  const status = Number((error as { status?: number })?.status);
-  return isTimeoutError(error) || [429, 500, 502, 503, 504].includes(status);
-};
 
 const createScanInteraction = (
   client: GoogleGenAI,
@@ -326,71 +316,94 @@ const readImageRequest = async (req: Request) => {
 };
 
 Deno.serve(async (req) => {
-    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-    if (req.method !== "POST") {
-      return jsonResponse({ error: "Metodo no permitido." }, 405);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  const responseHeaders = { "X-Request-Id": requestId };
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Metodo no permitido.", requestId }, 405, responseHeaders);
+  }
+
+  try {
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) {
+      return jsonResponse({ error: "GEMINI_API_KEY no esta configurada.", requestId }, 500, responseHeaders);
     }
 
+    let imageRequest;
     try {
-      const apiKey = Deno.env.get("GEMINI_API_KEY");
-      if (!apiKey) {
-        return jsonResponse({ error: "GEMINI_API_KEY no esta configurada." }, 500);
-      }
-
-      let imageRequest;
-      try {
-        imageRequest = await readImageRequest(req);
-      } catch {
-        return jsonResponse({ error: "No se pudo leer la imagen enviada." }, 400);
-      }
-      const { imageBase64, mimeType, inputBytes, matchContext } = imageRequest;
-      if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-        return jsonResponse({ error: "Formato de imagen no admitido." }, 400);
-      }
-      if (typeof imageBase64 !== "string" || !imageBase64.length || imageBase64.length > MAX_BASE64_LENGTH) {
-        return jsonResponse({ error: "La imagen esta vacia o excede el tamano permitido." }, 400);
-      }
-
-      const client = new GoogleGenAI({ apiKey });
-      const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
-      const scanInstructions = buildScanInstructions(matchContext);
-      const geminiStartedAt = performance.now();
-      let attempts = 1;
-      let interaction;
-      try {
-        interaction = await createScanInteraction(client, model, imageBase64, mimeType, scanInstructions);
-      } catch (error) {
-        if (!isTransientGeminiError(error)) throw error;
-        attempts = 2;
-        console.warn("procesar-cedula: reintentando lectura de alta resolucion", error);
-        interaction = await createScanInteraction(client, model, imageBase64, mimeType, scanInstructions);
-      }
-
-      const outputText = interaction.output_text;
-      if (!outputText) throw new Error("Gemini no devolvio contenido.");
-      console.info("procesar-cedula: metricas", JSON.stringify({
-        durationMs: Math.round(performance.now() - geminiStartedAt),
-        attempts,
-        inputBytes,
-        mimeType,
-        thinkingLevel: GEMINI_THINKING_LEVEL,
-        visualResolution: "high",
-        inputTokens: interaction.usage?.total_input_tokens,
-        thoughtTokens: interaction.usage?.total_thought_tokens,
-        outputTokens: interaction.usage?.total_output_tokens,
-      }));
-      return jsonResponse({ scan: normalizeGeminiScan(JSON.parse(outputText) as GeminiScan) });
-    } catch (error) {
-      console.error("procesar-cedula:", error);
-      if (isTransientGeminiError(error)) {
-        return jsonResponse({
-          error: isTimeoutError(error)
-            ? "El analisis tardo mas de lo esperado. Intenta nuevamente con la misma imagen."
-            : "El servicio de lectura esta temporalmente ocupado. Intenta nuevamente.",
-          code: isTimeoutError(error) ? "SCAN_TIMEOUT" : "SCAN_TEMPORARY_ERROR",
-          retryable: true,
-        }, 503);
-      }
-      return jsonResponse({ error: "No se pudo interpretar la cedula. Intenta con una foto mas clara." }, 502);
+      imageRequest = await readImageRequest(req);
+    } catch {
+      return jsonResponse({ error: "No se pudo leer la imagen enviada.", requestId }, 400, responseHeaders);
     }
+    const { imageBase64, mimeType, inputBytes, matchContext } = imageRequest;
+    if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+      return jsonResponse({ error: "Formato de imagen no admitido.", requestId }, 400, responseHeaders);
+    }
+    if (typeof imageBase64 !== "string" || !imageBase64.length || imageBase64.length > MAX_BASE64_LENGTH) {
+      return jsonResponse({ error: "La imagen esta vacia o excede el tamano permitido.", requestId }, 400, responseHeaders);
+    }
+
+    const client = new GoogleGenAI({ apiKey });
+    const model = selectGeminiModel(Deno.env.get("GEMINI_MODEL"));
+    const fallbackModel = selectGeminiFallbackModel(Deno.env.get("GEMINI_FALLBACK_MODEL"), model);
+    const scanInstructions = buildScanInstructions(matchContext);
+    const geminiStartedAt = performance.now();
+    const attemptedModels = [model];
+    let activeModel = model;
+    let interaction;
+    try {
+      interaction = await createScanInteraction(client, model, imageBase64, mimeType, scanInstructions);
+    } catch (error) {
+      if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
+      const primaryError = classifyProviderError(error);
+      console.warn("procesar-cedula: usando modelo de respaldo", JSON.stringify({
+        requestId,
+        model,
+        fallbackModel,
+        code: primaryError.responseCode,
+        upstreamStatus: primaryError.upstreamStatus,
+      }));
+      await new Promise(resolve => setTimeout(resolve, 600 + Math.floor(Math.random() * 401)));
+      activeModel = fallbackModel;
+      attemptedModels.push(fallbackModel);
+      interaction = await createScanInteraction(client, fallbackModel, imageBase64, mimeType, scanInstructions);
+    }
+
+    const outputText = interaction.output_text;
+    if (!outputText) throw new Error("Gemini no devolvio contenido.");
+    console.info("procesar-cedula: metricas", JSON.stringify({
+      requestId,
+      durationMs: Math.round(performance.now() - geminiStartedAt),
+      attempts: attemptedModels.length,
+      activeModel,
+      attemptedModels,
+      inputBytes,
+      mimeType,
+      thinkingLevel: GEMINI_THINKING_LEVEL,
+      visualResolution: "high",
+      inputTokens: interaction.usage?.total_input_tokens,
+      thoughtTokens: interaction.usage?.total_thought_tokens,
+      outputTokens: interaction.usage?.total_output_tokens,
+    }));
+    return jsonResponse({ scan: normalizeGeminiScan(JSON.parse(outputText) as GeminiScan), requestId }, 200, responseHeaders);
+  } catch (error) {
+    const classified = classifyProviderError(error);
+    console.error("procesar-cedula: error", JSON.stringify({
+      requestId,
+      code: classified.responseCode,
+      upstreamStatus: classified.upstreamStatus,
+      upstreamCode: classified.upstreamCode,
+      name: classified.name,
+    }));
+    const retryHeaders = classified.retryAfterSeconds
+      ? { ...responseHeaders, "Retry-After": String(classified.retryAfterSeconds) }
+      : responseHeaders;
+    return jsonResponse({
+      error: classified.responseMessage,
+      code: classified.responseCode,
+      retryable: classified.retryable,
+      retryAfterSeconds: classified.retryAfterSeconds,
+      requestId,
+    }, classified.responseStatus, retryHeaders);
+  }
 });
