@@ -6,6 +6,7 @@ import {
   selectGeminiModel,
   shouldFallbackProviderError,
 } from "./scanErrors.ts";
+import { createScanRequestFingerprint, EphemeralScanCache } from "./scanCache.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
 const GEMINI_TIMEOUT_MS = 45_000;
@@ -99,7 +100,7 @@ Si un dato no es legible usa cadena vacia, cero o unknown segun su tipo. No inve
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-request-id",
-  "Access-Control-Expose-Headers": "Retry-After, X-Request-Id",
+  "Access-Control-Expose-Headers": "Retry-After, X-Request-Id, X-Scan-Cache",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -281,6 +282,14 @@ const normalizeGeminiScan = (raw: GeminiScan) => {
   };
 };
 
+type NormalizedScan = ReturnType<typeof normalizeGeminiScan>;
+
+// Solo vive dentro del isolate caliente: nunca persiste imagenes ni resultados en disco.
+const scanResultCache = new EphemeralScanCache<NormalizedScan>({
+  ttlMs: 30 * 60 * 1000,
+  maxEntries: 24,
+});
+
 const bytesToBase64 = (bytes: Uint8Array) => {
   const chunkSize = 0x8000;
   let binary = "";
@@ -290,6 +299,38 @@ const bytesToBase64 = (bytes: Uint8Array) => {
   return btoa(binary);
 };
 
+const base64ToBytes = (value: string) => {
+  const encoded = value.replace(/^data:[^;,]+;base64,/i, "").replace(/\s+/g, "");
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+};
+
+const requestActor = (req: Request) => {
+  const token = String(req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const payload = token.split(".")[1];
+  if (!payload) return "authenticated";
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/")
+      .padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(normalized)) as { sub?: unknown; role?: unknown };
+    return String(claims.sub || claims.role || "authenticated").slice(0, 128);
+  } catch {
+    return "authenticated";
+  }
+};
+
+const fingerprintContext = (context: ScanContext) => ({
+  teams: [...context.teams]
+    .sort((left, right) => left.side.localeCompare(right.side))
+    .map(team => ({
+      side: team.side,
+      name: team.name,
+      players: [...team.players].sort((left, right) => left.localeCompare(right)),
+    })),
+});
+
 const readImageRequest = async (req: Request) => {
   const contentType = req.headers.get("content-type") || "";
   if (contentType.includes("multipart/form-data")) {
@@ -298,19 +339,23 @@ const readImageRequest = async (req: Request) => {
     if (!(image instanceof File)) throw new Error("INVALID_IMAGE_FILE");
     if (!image.size || image.size > 12 * 1024 * 1024) throw new Error("INVALID_IMAGE_SIZE");
     const mimeType = String(formData.get("mimeType") || image.type || "").toLowerCase();
+    const imageBytes = new Uint8Array(await image.arrayBuffer());
     return {
-      imageBase64: bytesToBase64(new Uint8Array(await image.arrayBuffer())),
+      imageBytes,
+      imageBase64: bytesToBase64(imageBytes),
       mimeType,
-      inputBytes: image.size,
+      inputBytes: imageBytes.byteLength,
       matchContext: normalizeScanContext(formData.get("matchContext")),
     };
   }
 
   const { imageBase64, mimeType, matchContext } = await req.json();
+  const imageBytes = typeof imageBase64 === "string" ? base64ToBytes(imageBase64) : new Uint8Array();
   return {
+    imageBytes,
     imageBase64,
     mimeType,
-    inputBytes: typeof imageBase64 === "string" ? Math.floor(imageBase64.length * 0.75) : 0,
+    inputBytes: imageBytes.byteLength,
     matchContext: normalizeScanContext(matchContext),
   };
 };
@@ -335,7 +380,7 @@ Deno.serve(async (req) => {
     } catch {
       return jsonResponse({ error: "No se pudo leer la imagen enviada.", requestId }, 400, responseHeaders);
     }
-    const { imageBase64, mimeType, inputBytes, matchContext } = imageRequest;
+    const { imageBytes, imageBase64, mimeType, inputBytes, matchContext } = imageRequest;
     if (!ALLOWED_MIME_TYPES.has(mimeType)) {
       return jsonResponse({ error: "Formato de imagen no admitido.", requestId }, 400, responseHeaders);
     }
@@ -343,49 +388,73 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "La imagen esta vacia o excede el tamano permitido.", requestId }, 400, responseHeaders);
     }
 
-    const client = new GoogleGenAI({ apiKey });
-    const model = selectGeminiModel(Deno.env.get("GEMINI_MODEL"));
-    const fallbackModel = selectGeminiFallbackModel(Deno.env.get("GEMINI_FALLBACK_MODEL"), model);
-    const scanInstructions = buildScanInstructions(matchContext);
-    const geminiStartedAt = performance.now();
-    const attemptedModels = [model];
-    let activeModel = model;
-    let interaction;
-    try {
-      interaction = await createScanInteraction(client, model, imageBase64, mimeType, scanInstructions);
-    } catch (error) {
-      if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
-      const primaryError = classifyProviderError(error);
-      console.warn("procesar-cedula: usando modelo de respaldo", JSON.stringify({
-        requestId,
+    const cacheKey = await createScanRequestFingerprint(imageBytes, mimeType, {
+      actor: requestActor(req),
+      matchContext: fingerprintContext(matchContext),
+    });
+    const cachedResult = await scanResultCache.getOrCreate(cacheKey, async () => {
+      const client = new GoogleGenAI({ apiKey });
+      // Las cedulas usan su propio perfil para no competir con el escaner de roles.
+      const model = selectGeminiModel(Deno.env.get("GEMINI_CEDULA_MODEL"));
+      const fallbackModel = selectGeminiFallbackModel(
+        Deno.env.get("GEMINI_CEDULA_FALLBACK_MODEL"),
         model,
-        fallbackModel,
-        code: primaryError.responseCode,
-        upstreamStatus: primaryError.upstreamStatus,
-      }));
-      await new Promise(resolve => setTimeout(resolve, 600 + Math.floor(Math.random() * 401)));
-      activeModel = fallbackModel;
-      attemptedModels.push(fallbackModel);
-      interaction = await createScanInteraction(client, fallbackModel, imageBase64, mimeType, scanInstructions);
-    }
+      );
+      const scanInstructions = buildScanInstructions(matchContext);
+      const geminiStartedAt = performance.now();
+      const attemptedModels = [model];
+      let activeModel = model;
+      let interaction;
+      try {
+        interaction = await createScanInteraction(client, model, imageBase64, mimeType, scanInstructions);
+      } catch (error) {
+        if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
+        const primaryError = classifyProviderError(error);
+        console.warn("procesar-cedula: usando modelo de respaldo", JSON.stringify({
+          requestId,
+          model,
+          fallbackModel,
+          code: primaryError.responseCode,
+          upstreamStatus: primaryError.upstreamStatus,
+          quotaKind: primaryError.quotaKind,
+          retryAfterSeconds: primaryError.retryAfterSeconds,
+        }));
+        if (primaryError.responseCode === "SCAN_TEMPORARY_ERROR") {
+          await new Promise(resolve => setTimeout(resolve, 600 + Math.floor(Math.random() * 401)));
+        }
+        activeModel = fallbackModel;
+        attemptedModels.push(fallbackModel);
+        interaction = await createScanInteraction(client, fallbackModel, imageBase64, mimeType, scanInstructions);
+      }
 
-    const outputText = interaction.output_text;
-    if (!outputText) throw new Error("Gemini no devolvio contenido.");
-    console.info("procesar-cedula: metricas", JSON.stringify({
+      const outputText = interaction.output_text;
+      if (!outputText) throw new Error("Gemini no devolvio contenido.");
+      console.info("procesar-cedula: metricas", JSON.stringify({
+        requestId,
+        durationMs: Math.round(performance.now() - geminiStartedAt),
+        attempts: attemptedModels.length,
+        activeModel,
+        attemptedModels,
+        inputBytes,
+        mimeType,
+        thinkingLevel: GEMINI_THINKING_LEVEL,
+        visualResolution: "high",
+        inputTokens: interaction.usage?.total_input_tokens,
+        thoughtTokens: interaction.usage?.total_thought_tokens,
+        outputTokens: interaction.usage?.total_output_tokens,
+      }));
+      return normalizeGeminiScan(JSON.parse(outputText) as GeminiScan);
+    });
+
+    const cacheHeader = cachedResult.source === "miss" ? "MISS" : cachedResult.source.toUpperCase();
+    if (cachedResult.source !== "miss") {
+      console.info("procesar-cedula: cache", JSON.stringify({ requestId, source: cachedResult.source }));
+    }
+    return jsonResponse({
+      scan: cachedResult.value,
       requestId,
-      durationMs: Math.round(performance.now() - geminiStartedAt),
-      attempts: attemptedModels.length,
-      activeModel,
-      attemptedModels,
-      inputBytes,
-      mimeType,
-      thinkingLevel: GEMINI_THINKING_LEVEL,
-      visualResolution: "high",
-      inputTokens: interaction.usage?.total_input_tokens,
-      thoughtTokens: interaction.usage?.total_thought_tokens,
-      outputTokens: interaction.usage?.total_output_tokens,
-    }));
-    return jsonResponse({ scan: normalizeGeminiScan(JSON.parse(outputText) as GeminiScan), requestId }, 200, responseHeaders);
+      cached: cachedResult.source !== "miss",
+    }, 200, { ...responseHeaders, "X-Scan-Cache": cacheHeader });
   } catch (error) {
     const classified = classifyProviderError(error);
     console.error("procesar-cedula: error", JSON.stringify({
@@ -394,6 +463,8 @@ Deno.serve(async (req) => {
       upstreamStatus: classified.upstreamStatus,
       upstreamCode: classified.upstreamCode,
       name: classified.name,
+      quotaKind: classified.quotaKind,
+      retryAfterSeconds: classified.retryAfterSeconds,
     }));
     const retryHeaders = classified.retryAfterSeconds
       ? { ...responseHeaders, "Retry-After": String(classified.retryAfterSeconds) }

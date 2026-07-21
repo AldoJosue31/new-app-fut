@@ -12,6 +12,7 @@ import { supabase } from "../../../../../supabase/supabase.config";
 import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
+import { reconcileRostersToScores } from "../../../../../utils/cedulaScoreResolution";
 
 // Componentes Modularizados
 import { ScoreHeader } from "./result_modal_components/ScoreHeader";
@@ -593,21 +594,18 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
     let nextLocal = makeScannedRoster("local", "l");
     let nextVisit = makeScannedRoster("visit", "v");
-    const assignedLocalScore =
-      nextLocal.reduce((total, player) => total + toStatNumber(player.goals), 0) +
-      nextVisit.reduce((total, player) => total + toStatNumber(player.ownGoals), 0);
-    const assignedVisitScore =
-      nextVisit.reduce((total, player) => total + toStatNumber(player.goals), 0) +
-      nextLocal.reduce((total, player) => total + toStatNumber(player.ownGoals), 0);
+    const scoreReconciliation = reconcileRostersToScores(nextLocal, nextVisit, scan.scores);
+    nextLocal = scoreReconciliation.localRoster;
+    nextVisit = scoreReconciliation.visitRoster;
 
     nextLocal = addUnassignedGoalsToRoster(
       nextLocal,
-      Math.max(0, toStatNumber(scan.scores?.local) - assignedLocalScore),
+      scoreReconciliation.unassignedGoals.local,
       "l-scan"
     );
     nextVisit = addUnassignedGoalsToRoster(
       nextVisit,
-      Math.max(0, toStatNumber(scan.scores?.visit) - assignedVisitScore),
+      scoreReconciliation.unassignedGoals.visit,
       "v-scan"
     );
 
@@ -652,7 +650,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         ? scannedWinnerId
           ? "W.O. detectado y aplicado. Revisa la victoria por default antes de guardar."
           : "Se detecto un W.O., pero debes elegir al ganador en General."
-        : "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.") + scheduleMessage,
+        : "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.")
+        + (Object.keys(scan.scoreResolutions || {}).length
+          ? " Las diferencias de goles se resolvieron según tu selección."
+          : "")
+        + scheduleMessage,
       type: scannedWalkover && !scannedWinnerId ? "warning" : "success"
     });
   }, [match, matchDate, matchTime, minPlayers]);

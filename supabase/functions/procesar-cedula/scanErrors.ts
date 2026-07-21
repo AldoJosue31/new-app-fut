@@ -1,5 +1,13 @@
-export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
-export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3-flash-preview";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash";
+
+const PACIFIC_TIME_ZONE = "America/Los_Angeles";
+const PACIFIC_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: PACIFIC_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 type ProviderError = {
   status?: unknown;
@@ -24,6 +32,37 @@ export type ScanErrorClassification = {
 
 const cleanModelName = (value: unknown) =>
   String(value || "").trim().replace(/^models\//i, "");
+
+const pacificDateKey = (timestamp: number) => {
+  const parts = PACIFIC_DATE_FORMATTER.formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+/** Segundos hasta el siguiente reinicio diario de Gemini (medianoche del Pacifico). */
+export const secondsUntilNextPacificMidnight = (now: Date = new Date()) => {
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs)) return 24 * 60 * 60;
+
+  const currentDateKey = pacificDateKey(nowMs);
+  let lowerBound = nowMs;
+  let upperBound = nowMs + 30 * 60 * 60 * 1000;
+
+  // 30 horas cubre los dias de 23, 24 y 25 horas; el bucle protege futuros
+  // cambios extraordinarios de zona horaria sin depender de la zona del runtime.
+  while (pacificDateKey(upperBound) === currentDateKey) {
+    upperBound += 6 * 60 * 60 * 1000;
+  }
+
+  // Busca el primer milisegundo que ya pertenece al dia siguiente en Los Angeles.
+  while (upperBound - lowerBound > 1) {
+    const midpoint = Math.floor((lowerBound + upperBound) / 2);
+    if (pacificDateKey(midpoint) === currentDateKey) lowerBound = midpoint;
+    else upperBound = midpoint;
+  }
+
+  return Math.max(1, Math.ceil((upperBound - nowMs) / 1000));
+};
 
 const isRetiredModel = (model: string) =>
   /^gemini-2\.0(?:-|$)/i.test(model) ||
@@ -124,7 +163,10 @@ const timeout = (status: number, message: string) =>
 const networkFailure = (message: string) =>
   /fetch failed|network|connection (?:closed|reset)|econnreset|socket hang up|temporary failure/i.test(message);
 
-export const classifyProviderError = (error: unknown): ScanErrorClassification => {
+export const classifyProviderError = (
+  error: unknown,
+  now: Date = new Date(),
+): ScanErrorClassification => {
   const details = providerDetails(error);
   const { upstreamStatus: status, upstreamCode: code, message } = details;
   if (status === 404 || unavailableModel(message, code)) return {
@@ -138,7 +180,7 @@ export const classifyProviderError = (error: unknown): ScanErrorClassification =
   if ((status === 429 || code === "RESOURCE_EXHAUSTED") && details.quotaKind === "daily") return {
     ...details, responseStatus: 429, responseCode: "SCAN_DAILY_QUOTA_EXCEEDED",
     responseMessage: "Se alcanzo la cuota diaria de lecturas de Google para este proyecto.",
-    retryable: false, retryAfterSeconds: 300,
+    retryable: false, retryAfterSeconds: secondsUntilNextPacificMidnight(now),
   };
   if ((status === 429 || code === "RESOURCE_EXHAUSTED") && details.quotaKind === "spend") return {
     ...details, responseStatus: 429, responseCode: "SCAN_BILLING_LIMIT",
@@ -158,7 +200,7 @@ export const classifyProviderError = (error: unknown): ScanErrorClassification =
     ...details, responseStatus: 502, responseCode: "SCAN_CONFIGURATION_ERROR",
     responseMessage: "El servicio de lectura rechazo la configuracion del analisis.", retryable: false,
   };
-  if ([500, 502, 503].includes(status) || networkFailure(message)) return {
+  if ((status >= 500 && status <= 599) || networkFailure(message)) return {
     ...details, responseStatus: 503, responseCode: "SCAN_TEMPORARY_ERROR",
     responseMessage: "El servicio de lectura esta temporalmente ocupado. Intenta nuevamente.",
     retryable: true, retryAfterSeconds: 5,
@@ -171,7 +213,5 @@ export const classifyProviderError = (error: unknown): ScanErrorClassification =
 
 export const shouldFallbackProviderError = (error: unknown) => [
   "SCAN_MODEL_UNAVAILABLE",
-  "SCAN_RATE_LIMITED",
-  "SCAN_DAILY_QUOTA_EXCEEDED",
   "SCAN_TEMPORARY_ERROR",
 ].includes(classifyProviderError(error).responseCode);
