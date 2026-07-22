@@ -16,6 +16,7 @@ import {
     normalizeScannedDate,
     normalizeScannedTime,
 } from "../../../../../utils/scannedScheduleUtils";
+import { runLocalRoleOcr } from "../../../../../utils/rolJuegoLocalOcr";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
@@ -132,11 +133,12 @@ const fileToScanPayload = async (file) => {
     }
 };
 
-const invokeScanFunctionOnce = async (image, scanContext) => {
+const invokeScanFunctionOnce = async (image, scanContext, clientOcr = null) => {
     const formData = new FormData();
     formData.append("image", image.blob, image.fileName);
     formData.append("mimeType", image.mimeType);
     formData.append("scanContext", JSON.stringify(scanContext));
+    if (clientOcr) formData.append("clientOcr", JSON.stringify(clientOcr));
 
     const clientRequestId = globalThis.crypto?.randomUUID?.() || `scan-${Date.now()}`;
     const { data, error } = await supabase.functions.invoke("procesar-rol-juego", {
@@ -394,7 +396,23 @@ export function RolJuegoScanFlow({
         try {
             const image = await (preparedImageRef.current || fileToScanPayload(file));
             setScanProgress((current) => Math.max(current, 18));
-            const data = await invokeScanFunction(image, scanContext);
+            let localScan = null;
+            try {
+                localScan = await runLocalRoleOcr(image.blob, scanContext);
+            } catch (localError) {
+                // La lectura local es una optimizacion: cualquier incompatibilidad
+                // de WASM, Worker o modelos conserva el flujo remoto actual.
+                console.info("OCR local de rol no disponible; usando respaldo remoto.", localError);
+            }
+            setScanProgress((current) => Math.max(current, 58));
+            // Edge vuelve a validar participantes, cobertura y confianza incluso
+            // cuando el navegador pudo resolver toda la jornada. Si la lectura
+            // local es fiable, la funcion responde sin consumir Gemini.
+            const data = await invokeScanFunction(
+                image,
+                scanContext,
+                localScan?.clientOcr || null,
+            );
             if (!data?.scan) throw new Error(data?.error || "La función no devolvió datos del escaneo.");
             if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
             progressTimerRef.current = null;
