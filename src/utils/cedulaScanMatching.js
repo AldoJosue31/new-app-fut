@@ -13,12 +13,49 @@ const normalizeOcrCharacters = (value) => value
   .replace(/[1|]/g, "i")
   .replace(/5/g, "s");
 
+const normalizeScanText = (value) => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase();
+
+// A bare number is a dorsal only when it is visibly separated from the name.
+// Explicit forms such as "#10Jose" may omit that separator without making
+// OCR substitutions at the beginning of a real name (5antos, 1van, 0scar)
+// disappear.
+const EXPLICIT_DORSAL_PREFIX = /^\s*(?:(?:dorsal|numero|num|nro|no|n)\s*(?:[.\u00b0\u00ba#:-]\s*)?|[#\u2116]\s*)(\d{1,3})(?:\s*[-.):]\s*|\s*)/;
+const BRACKETED_DORSAL_PREFIX = /^\s*\[(\d{1,3})\]\s*/;
+const BARE_DORSAL_PREFIX = /^\s*(\d{1,3})(?:\s*[-.):]\s*|\s+|$)/;
+
+const findLeadingDorsalMatch = (value) => {
+  const text = normalizeScanText(value);
+  return text.match(EXPLICIT_DORSAL_PREFIX)
+    || text.match(BRACKETED_DORSAL_PREFIX)
+    || text.match(BARE_DORSAL_PREFIX);
+};
+
+export const extractLeadingScanDorsal = (value = "") => {
+  const match = findLeadingDorsalMatch(value);
+  return match ? String(Number(match[1])) : "";
+};
+
+export const normalizeScanDorsal = (value) => {
+  if (value === null || value === undefined || value === "") return "";
+  const text = normalizeScanText(value).trim();
+  const direct = text.match(/^(?:#\s*)?(\d{1,3})$/);
+  const extracted = direct?.[1] || extractLeadingScanDorsal(text);
+  if (!extracted) return "";
+  const number = Number(extracted);
+  return Number.isInteger(number) && number >= 0 && number <= 999 ? String(number) : "";
+};
+
+const stripLeadingScanDorsal = (value) => {
+  const text = normalizeScanText(value);
+  const match = findLeadingDorsalMatch(text);
+  return match ? text.slice(match[0].length) : text;
+};
+
 export const normalizeScanName = (value = "", { team = false } = {}) => {
-  const normalized = normalizeOcrCharacters(String(value)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/^\s*\d{1,3}\s*[-.):]?\s*/, ""))
+  const normalized = normalizeOcrCharacters(stripLeadingScanDorsal(value))
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
@@ -204,6 +241,299 @@ export const findBestScanMatch = (
 
   if (top.score < threshold || margin < requiredMargin) return null;
   return { ...top, margin, runnerUpScore: runnerUp?.score || 0 };
+};
+
+const defaultScannedPlayerName = (row) => (
+  typeof row === "string" ? row : row?.name || ""
+);
+
+const defaultRegisteredPlayerName = (candidate) => {
+  if (!candidate || typeof candidate !== "object") return String(candidate || "");
+  return candidate.full_name
+    || candidate.name
+    || `${candidate.first_name || ""} ${candidate.last_name || ""}`.trim();
+};
+
+const defaultScannedPlayerDorsal = (row) => (
+  row && typeof row === "object"
+    ? row.dorsal ?? row.number ?? row.shirtNumber ?? row.shirt_number
+    : ""
+);
+
+const defaultRegisteredPlayerDorsal = (candidate) => (
+  candidate && typeof candidate === "object"
+    ? candidate.dorsal ?? candidate.number ?? candidate.shirtNumber ?? candidate.shirt_number
+    : ""
+);
+
+const defaultRegisteredPlayerKey = (candidate, index) => {
+  const identifier = candidate && typeof candidate === "object"
+    ? candidate.id ?? candidate.player_id
+    : undefined;
+  return identifier === undefined || identifier === null
+    ? `candidate-index:${index}`
+    : `candidate-id:${String(identifier)}`;
+};
+
+const compareRankedCandidates = (left, right) => (
+  right.score - left.score
+  || Number(right.tokenExact) - Number(left.tokenExact)
+  || left.candidateIndex - right.candidateIndex
+);
+
+const compareGlobalProposals = (left, right) => (
+  right.priority - left.priority
+  || right.score - left.score
+  || right.margin - left.margin
+  || right.normalizedLength - left.normalizedLength
+  || left.rowIndex - right.rowIndex
+);
+
+/**
+ * Resolves OCR player rows against the complete registered pool.
+ *
+ * Every row is ranked once against every candidate. A row may only propose its
+ * independently safe best candidate; it is never re-ranked after another row
+ * claims that candidate. Candidate conflicts are then resolved globally, with
+ * unique dorsals and exact names taking precedence over fuzzy names.
+ */
+export const resolveScannedPlayerMatches = (
+  rows = [],
+  candidates = [],
+  {
+    getRowName = defaultScannedPlayerName,
+    getRowDorsal = defaultScannedPlayerDorsal,
+    getCandidateName = defaultRegisteredPlayerName,
+    getCandidateDorsal = defaultRegisteredPlayerDorsal,
+    getCandidateKey = defaultRegisteredPlayerKey,
+    threshold = 0.72,
+    shortNameThreshold = 0.82,
+    minMargin = 0.08,
+    strongThreshold = 0.92,
+    strongMinMargin = 0.04,
+    dorsalNameFloor = 0.45,
+    dorsalConflictThreshold = 0.78,
+    team = false,
+  } = {},
+) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const uniqueCandidateKeys = new Set();
+  const candidateRecords = (Array.isArray(candidates) ? candidates : []).flatMap((candidate, candidateIndex) => {
+    const key = String(getCandidateKey(candidate, candidateIndex));
+    if (uniqueCandidateKeys.has(key)) return [];
+    uniqueCandidateKeys.add(key);
+    const label = String(getCandidateName(candidate) || "");
+    const normalizedName = normalizeScanName(label, { team });
+    return [{
+      candidate,
+      candidateIndex,
+      key,
+      label,
+      normalizedName,
+      fingerprint: scanNameFingerprint(label, { team }),
+      dorsal: normalizeScanDorsal(getCandidateDorsal(candidate)),
+    }];
+  });
+
+  const candidatesByDorsal = new Map();
+  for (const record of candidateRecords) {
+    if (!record.dorsal) continue;
+    const sameDorsal = candidatesByDorsal.get(record.dorsal) || [];
+    sameDorsal.push(record);
+    candidatesByDorsal.set(record.dorsal, sameDorsal);
+  }
+
+  const baseResults = [];
+  const proposals = [];
+
+  rows.forEach((row, rowIndex) => {
+    const rawName = String(getRowName(row, rowIndex) || "");
+    const normalizedName = normalizeScanName(rawName, { team });
+    const fingerprint = scanNameFingerprint(rawName, { team });
+    const explicitDorsal = normalizeScanDorsal(getRowDorsal(row, rowIndex));
+    const dorsal = explicitDorsal || extractLeadingScanDorsal(rawName);
+    const normalizedLength = normalizedName.replace(/\s+/g, "").length;
+    const ranked = candidateRecords.map(record => ({
+      ...record,
+      score: normalizedName ? scanNameSimilarity(rawName, record.label, { team }) : 0,
+      exact: Boolean(normalizedName) && normalizedName === record.normalizedName,
+      tokenExact: Boolean(fingerprint) && fingerprint === record.fingerprint,
+    })).sort(compareRankedCandidates);
+    const top = ranked[0];
+    const runnerUp = ranked[1];
+    const initialResult = {
+      row,
+      rowIndex,
+      matched: null,
+      option: null,
+      score: 0,
+      margin: 0,
+      runnerUpScore: runnerUp?.score || 0,
+      method: null,
+      dorsal,
+      reason: candidateRecords.length ? "weak-name" : "no-candidates",
+    };
+    baseResults.push(initialResult);
+
+    if (!candidateRecords.length) return;
+
+    const uniqueDorsalCandidate = dorsal && candidatesByDorsal.get(dorsal)?.length === 1
+      ? candidatesByDorsal.get(dorsal)[0]
+      : null;
+
+    if (uniqueDorsalCandidate) {
+      const dorsalRank = ranked.find(candidate => candidate.key === uniqueDorsalCandidate.key);
+      const exactNameCandidates = ranked.filter(candidate => candidate.tokenExact);
+      const exactNameConflict = exactNameCandidates.length === 1
+        && exactNameCandidates[0].key !== uniqueDorsalCandidate.key;
+      const strongNameConflict = Boolean(
+        normalizedName
+        && top
+        && top.key !== uniqueDorsalCandidate.key
+        && top.score >= dorsalConflictThreshold
+        && (dorsalRank?.score || 0) < dorsalNameFloor
+        && top.score - (dorsalRank?.score || 0) >= minMargin,
+      );
+
+      if (exactNameConflict || strongNameConflict) {
+        initialResult.reason = "dorsal-name-conflict";
+        initialResult.score = dorsalRank?.score || 0;
+        initialResult.runnerUpScore = top?.score || 0;
+        return;
+      }
+
+      proposals.push({
+        row,
+        rowIndex,
+        record: uniqueDorsalCandidate,
+        score: normalizedName ? dorsalRank?.score || 0 : 1,
+        margin: normalizedName && top?.key === uniqueDorsalCandidate.key
+          ? top.score - (runnerUp?.score || 0)
+          : 1,
+        runnerUpScore: runnerUp?.score || 0,
+        method: "dorsal",
+        dorsal,
+        exact: dorsalRank?.exact || false,
+        tokenExact: dorsalRank?.tokenExact || false,
+        normalizedLength,
+        priority: 3,
+      });
+      return;
+    }
+
+    if (!normalizedName || !top) {
+      initialResult.reason = dorsal ? "unknown-dorsal" : "empty-name";
+      return;
+    }
+
+    const equivalentMatches = ranked.filter(candidate => candidate.tokenExact);
+    if (equivalentMatches.length > 1) {
+      initialResult.reason = "ambiguous-name";
+      initialResult.score = top.score;
+      initialResult.margin = top.score - (runnerUp?.score || 0);
+      return;
+    }
+
+    if (equivalentMatches.length === 1) {
+      const exactCandidate = equivalentMatches[0];
+      const exactRunnerUp = ranked.find(candidate => candidate.key !== exactCandidate.key);
+      proposals.push({
+        row,
+        rowIndex,
+        record: exactCandidate,
+        score: exactCandidate.score,
+        margin: exactCandidate.score - (exactRunnerUp?.score || 0),
+        runnerUpScore: exactRunnerUp?.score || 0,
+        method: "exact-name",
+        dorsal,
+        exact: exactCandidate.exact,
+        tokenExact: true,
+        normalizedLength,
+        priority: 2,
+      });
+      return;
+    }
+
+    const requiredThreshold = normalizedLength < 6 || !normalizedName.includes(" ")
+      ? Math.max(threshold, shortNameThreshold)
+      : threshold;
+    const margin = top.score - (runnerUp?.score || 0);
+    const requiredMargin = top.score >= strongThreshold ? strongMinMargin : minMargin;
+    initialResult.score = top.score;
+    initialResult.margin = margin;
+    initialResult.runnerUpScore = runnerUp?.score || 0;
+
+    if (!normalizedName.includes(" ") && top.normalizedName.includes(" ")) {
+      initialResult.reason = "partial-name";
+      return;
+    }
+    if (top.score < requiredThreshold) {
+      initialResult.reason = "weak-name";
+      return;
+    }
+    if (runnerUp && margin < requiredMargin) {
+      initialResult.reason = "ambiguous-name";
+      return;
+    }
+
+    proposals.push({
+      row,
+      rowIndex,
+      record: top,
+      score: top.score,
+      margin,
+      runnerUpScore: runnerUp?.score || 0,
+      method: "fuzzy-name",
+      dorsal,
+      exact: false,
+      tokenExact: false,
+      normalizedLength,
+      priority: 1,
+    });
+  });
+
+  const proposalsByCandidate = new Map();
+  for (const proposal of proposals) {
+    const competing = proposalsByCandidate.get(proposal.record.key) || [];
+    competing.push(proposal);
+    proposalsByCandidate.set(proposal.record.key, competing);
+  }
+
+  for (const competing of proposalsByCandidate.values()) {
+    competing.sort(compareGlobalProposals);
+    const winner = competing[0];
+    const winnerResult = baseResults[winner.rowIndex];
+    Object.assign(winnerResult, {
+      matched: winner.record.candidate,
+      option: winner.record.candidate,
+      score: winner.score,
+      margin: winner.margin,
+      runnerUpScore: winner.runnerUpScore,
+      method: winner.method,
+      dorsal: winner.dorsal,
+      exact: winner.exact,
+      tokenExact: winner.tokenExact,
+      reason: null,
+    });
+
+    for (const loser of competing.slice(1)) {
+      Object.assign(baseResults[loser.rowIndex], {
+        score: loser.score,
+        margin: loser.margin,
+        runnerUpScore: loser.runnerUpScore,
+        method: loser.method,
+        dorsal: loser.dorsal,
+        exact: loser.exact,
+        tokenExact: loser.tokenExact,
+        suggested: loser.record.candidate,
+        reason: "candidate-conflict",
+        conflictWithRowIndex: winner.rowIndex,
+      });
+    }
+  }
+
+  return baseResults;
 };
 
 export const normalizeScanDate = (value = "") => {

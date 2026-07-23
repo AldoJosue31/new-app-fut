@@ -1,7 +1,8 @@
 import React from "react";
 import styled from "styled-components";
-import { RiLock2Line, RiLockUnlockLine } from "react-icons/ri";
+import { RiCalendarEventLine, RiLock2Line, RiLockUnlockLine } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
+import { formatDateWithWeekday, formatTimeTo12Hour } from "../../../../../utils/dateUtils";
 
 export const FixtureMatchCard = ({ 
     match, 
@@ -35,7 +36,13 @@ export const FixtureMatchCard = ({
             $isHighlighted={isHighlighted}
             $canDragMatch={canDragMatch}
         >
-            <LockIcon onClick={(e) => { e.stopPropagation(); toggleLock(match.id); }}>
+            <LockIcon
+                type="button"
+                disabled={match.roundLocked}
+                title={match.scanLocked ? "Desbloquear partido escaneado" : match.locked ? "Desbloquear partido" : "Bloquear partido"}
+                aria-label={match.scanLocked ? "Desbloquear partido escaneado" : match.locked ? "Desbloquear partido" : "Bloquear partido"}
+                onClick={(e) => { e.stopPropagation(); toggleLock(match); }}
+            >
                 {match.locked ? <RiLock2Line /> : <RiLockUnlockLine className="unlock" />}
             </LockIcon>
             
@@ -43,11 +50,11 @@ export const FixtureMatchCard = ({
                 <TeamName 
                     $align="left" 
                     $isSelected={isLocalSelected}
-                    $draggable={!match.roundLocked}
-                    draggable={!match.roundLocked}
+                    $draggable={!match.locked && !match.roundLocked}
+                    draggable={!match.locked && !match.roundLocked}
                     onDragStart={(e) => onTeamDragStart(e, match, "local")}
                     onDragOver={(e) => {
-                        if (!match.roundLocked) {
+                        if (!match.locked && !match.roundLocked) {
                             e.preventDefault();
                             e.stopPropagation();
                             e.dataTransfer.dropEffect = "move";
@@ -70,11 +77,11 @@ export const FixtureMatchCard = ({
                     $align="right" 
                     $isSelected={isVisitSelected}
                     $isBye={match.visitante.id === 'BYE'}
-                    $draggable={!match.roundLocked}
-                    draggable={!match.roundLocked}
+                    $draggable={!match.locked && !match.roundLocked}
+                    draggable={!match.locked && !match.roundLocked}
                     onDragStart={(e) => onTeamDragStart(e, match, "visitante")}
                     onDragOver={(e) => {
-                        if (!match.roundLocked) {
+                        if (!match.locked && !match.roundLocked) {
                             e.preventDefault();
                             e.stopPropagation();
                             e.dataTransfer.dropEffect = "move";
@@ -92,6 +99,13 @@ export const FixtureMatchCard = ({
                     {match.visitante.name}
                 </TeamName>
             </TeamsRow>
+            {match.scanScheduleAccepted && match.scannedDate && match.scannedTime && (
+                <ScannedSchedule>
+                    <RiCalendarEventLine />
+                    <span>{formatDateWithWeekday(match.scannedDate)}</span>
+                    <strong>{formatTimeTo12Hour(match.scannedTime)}</strong>
+                </ScannedSchedule>
+            )}
         </CardContainer>
     );
 };
@@ -176,13 +190,22 @@ const VersusBadge = styled.span`
     padding: 2px 6px; border-radius: 4px;
 `;
 
-const LockIcon = styled.div`
+const LockIcon = styled.button`
     position: absolute; top: -8px; right: -8px; 
     width: 24px; height: 24px; background: ${({theme}) => theme.bg}; border-radius: 50%;
+    border: 0; padding: 0;
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; color: ${v.colorPrincipal}; 
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
     cursor: pointer; z-index: 15;
     transition: transform 0.2s;
     &:hover { transform: scale(1.1); }
+    &:disabled { cursor: default; }
+    &:disabled:hover { transform: none; }
+    &:focus-visible { outline: 3px solid ${v.colorPrincipal}44; outline-offset: 2px; }
+`;
+
+const ScannedSchedule = styled.div`
+    display:flex;align-items:center;justify-content:center;gap:6px;margin-top:7px;padding-top:7px;border-top:1px solid ${({theme})=>theme.bg4};color:${({theme})=>theme.textFade};font-size:.72rem;
+    svg{color:${v.colorPrincipal};flex-shrink:0;}strong{color:${({theme})=>theme.text};font-size:.72rem;}
 `;

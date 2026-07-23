@@ -2098,7 +2098,16 @@ export function TorneoDefinicionTab({
             </TournamentStartOverlay>
         )}
 
-        <FixturePreviewModal isOpen={showPreviewModal} onClose={() => setShowPreviewModal(false)} onConfirm={handleConfirmFixture} teams={participatingTeams} config={form} isLoading={loading} />
+        <FixturePreviewModal
+            isOpen={showPreviewModal}
+            onClose={() => setShowPreviewModal(false)}
+            onConfirm={handleConfirmFixture}
+            teams={participatingTeams}
+            config={form}
+            divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName || ""}
+            tournamentName={activeTournament?.season || form?.season || ""}
+            isLoading={loading}
+        />
         <ConfirmModal
             isOpen={showEndTournamentModal}
             onClose={() => setShowEndTournamentModal(false)}
