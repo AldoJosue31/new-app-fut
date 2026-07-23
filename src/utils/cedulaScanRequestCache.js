@@ -91,7 +91,7 @@ const digestHex = async (bytes) => {
 export const createCedulaScanFingerprint = async (
   source,
   context = {},
-  version = "cedula-scan-v1",
+  version = "cedula-scan-v2-player-details",
 ) => {
   const imageBytes = await toBytes(source);
   const imageDigest = await digestHex(imageBytes);

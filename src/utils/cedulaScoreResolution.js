@@ -22,15 +22,23 @@ export const getCedulaScoreDiscrepancies = (scores = {}, players = []) => {
     local: toGoalCount(scores.local),
     visit: toGoalCount(scores.visit),
   };
-  const playerScores = getScannedPlayerScoreTotals(players);
-  const sidesWithMatchedPlayers = new Set(
-    players
-      .filter(player => player?.matched && ["local", "visit"].includes(player.side))
-      .map(player => player.side),
-  );
+  const assignablePlayers = players.filter(player => (
+    !Object.hasOwn(player || {}, "matched") || Boolean(player?.matched)
+  ));
+  const playerScores = getScannedPlayerScoreTotals(assignablePlayers);
+  const sidesWithMatchedContributions = new Set();
+  for (const player of assignablePlayers) {
+    if (player?.side === "local") {
+      sidesWithMatchedContributions.add("local");
+      if (toGoalCount(player.ownGoals) > 0) sidesWithMatchedContributions.add("visit");
+    } else if (player?.side === "visit") {
+      sidesWithMatchedContributions.add("visit");
+      if (toGoalCount(player.ownGoals) > 0) sidesWithMatchedContributions.add("local");
+    }
+  }
 
   return ["local", "visit"].flatMap(side => (
-    !sidesWithMatchedPlayers.has(side) || teamScores[side] === playerScores[side]
+    !sidesWithMatchedContributions.has(side) || teamScores[side] === playerScores[side]
       ? []
       : [{
           side,
@@ -42,7 +50,9 @@ export const getCedulaScoreDiscrepancies = (scores = {}, players = []) => {
 };
 
 export const resolveCedulaScores = (scores = {}, players = [], resolutions = {}) => {
-  const playerScores = getScannedPlayerScoreTotals(players);
+  const playerScores = getScannedPlayerScoreTotals(players.filter(player => (
+    !Object.hasOwn(player || {}, "matched") || Boolean(player?.matched)
+  )));
   return {
     local: resolutions.local === "players" ? playerScores.local : toGoalCount(scores.local),
     visit: resolutions.visit === "players" ? playerScores.visit : toGoalCount(scores.visit),

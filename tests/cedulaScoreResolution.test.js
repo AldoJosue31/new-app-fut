@@ -41,6 +41,33 @@ test("no solicita resolución si el equipo no tiene jugadores coincidentes", () 
   assert.deepEqual(result.unassignedGoals, { local: 9, visit: 0 });
 });
 
+test("detecta un autogol para el equipo beneficiado aunque el jugador sea rival", () => {
+  const discrepancies = getCedulaScoreDiscrepancies(
+    { local: 0, visit: 0 },
+    [{ side: "local", goals: 0, ownGoals: 1, matched: { id: 1 } }],
+  );
+
+  assert.deepEqual(discrepancies, [
+    { side: "visit", teamScore: 0, playerScore: 1, difference: 1 },
+  ]);
+});
+
+test("los goles de filas no vinculadas no se ofrecen como desglose asignable", () => {
+  const scores = { local: 4, visit: 0 };
+  const players = [
+    { side: "local", goals: 1, matched: { id: 1 } },
+    { side: "local", goals: 3, matched: null },
+  ];
+
+  assert.deepEqual(getCedulaScoreDiscrepancies(scores, players), [
+    { side: "local", teamScore: 4, playerScore: 1, difference: 3 },
+  ]);
+  assert.deepEqual(resolveCedulaScores(scores, players, { local: "players" }), {
+    local: 1,
+    visit: 0,
+  });
+});
+
 test("crea goles sin asignar cuando el marcador supera el desglose", () => {
   const result = reconcileRostersToScores(
     [{ playerId: 1, goals: 3, ownGoals: 0 }],

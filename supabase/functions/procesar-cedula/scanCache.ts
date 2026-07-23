@@ -1,4 +1,4 @@
-export const CEDULA_SCAN_CACHE_VERSION = "cedula-scan-v1";
+export const CEDULA_SCAN_CACHE_VERSION = "cedula-scan-v2-player-details";
 
 type CacheEntry<T> = {
   value: T;
@@ -28,12 +28,20 @@ export const createScanRequestFingerprint = async (
   imageBytes: Uint8Array,
   mimeType: string,
   scope: unknown,
+  attachments: Array<{ bytes: Uint8Array; mimeType: string }> = [],
 ) => {
   const imageHash = await sha256Hex(imageBytes);
+  const attachmentHashes = await Promise.all(
+    attachments.slice(0, 4).map(async attachment => ({
+      hash: await sha256Hex(attachment.bytes),
+      mimeType: String(attachment.mimeType || "").toLowerCase(),
+    })),
+  );
   const descriptor = JSON.stringify(canonicalize({
     version: CEDULA_SCAN_CACHE_VERSION,
     imageHash,
     mimeType: String(mimeType || "").toLowerCase(),
+    attachments: attachmentHashes,
     scope,
   }));
   return sha256Hex(new TextEncoder().encode(descriptor));

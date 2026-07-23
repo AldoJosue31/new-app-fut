@@ -23,6 +23,22 @@ Deno.test("la huella incluye imagen, contexto y no depende del orden de llaves",
   assertEquals(first === otherMatch, false, "otro partido no reutiliza el resultado");
 });
 
+Deno.test("la huella cambia cuando cambia un recorte de detalle", async () => {
+  const page = new Uint8Array([1, 2, 3, 4]);
+  const first = await createScanRequestFingerprint(page, "image/jpeg", { match: 7 }, [
+    { bytes: new Uint8Array([8, 8, 8]), mimeType: "image/jpeg" },
+  ]);
+  const repeated = await createScanRequestFingerprint(page, "image/jpeg", { match: 7 }, [
+    { bytes: new Uint8Array([8, 8, 8]), mimeType: "image/jpeg" },
+  ]);
+  const changed = await createScanRequestFingerprint(page, "image/jpeg", { match: 7 }, [
+    { bytes: new Uint8Array([9, 9, 9]), mimeType: "image/jpeg" },
+  ]);
+
+  assertEquals(first, repeated, "mismos recortes comparten huella");
+  assertEquals(first === changed, false, "otro recorte no reutiliza el resultado");
+});
+
 Deno.test("coalesce solicitudes concurrentes y conserva el exito", async () => {
   let calls = 0;
   let release!: (value: string) => void;

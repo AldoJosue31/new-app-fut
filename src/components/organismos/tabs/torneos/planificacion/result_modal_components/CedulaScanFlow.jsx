@@ -14,6 +14,7 @@ import {
   findBestScanMatch,
   getScannedDateReview,
   normalizeScanName,
+  resolveScannedPlayerMatches,
   resolveScannedTeamSides,
 } from "../../../../../../utils/cedulaScanMatching";
 import { normalizeScannedTime } from "../../../../../../utils/scannedScheduleUtils";
@@ -25,9 +26,15 @@ import {
   createCedulaScanFingerprint,
   getOrCreateCedulaScanRequest,
 } from "../../../../../../utils/cedulaScanRequestCache";
+import {
+  CEDULA_PLAYER_DETAIL_VERSION,
+  getCedulaPlayerDetailRegions,
+} from "../../../../../../utils/cedulaPlayerDetailRegions";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
+const MAX_PLAYER_DETAIL_SIDE = 2400;
+const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v2";
 const DAILY_QUOTA_CODE = "SCAN_DAILY_QUOTA_EXCEEDED";
@@ -75,12 +82,13 @@ const originalFilePayload = (file) => ({
   blob: file,
   mimeType: normalizeImageMimeType(file),
   fileName: file.name || "cedula",
+  detailImages: [],
 });
 
 const loadImageSource = async (file) => {
   if (typeof window.createImageBitmap === "function") {
     try {
-      const bitmap = await window.createImageBitmap(file);
+      const bitmap = await window.createImageBitmap(file, { imageOrientation: "from-image" });
       return {
         source: bitmap,
         width: bitmap.width,
@@ -113,13 +121,70 @@ const playerName = (player) => (
 
 const refereeName = (referee) => referee?.full_name || referee?.name || "";
 
+const playerDorsal = (player) => {
+  const value = player?.dorsal ?? player?.jersey_number ?? player?.number ?? "";
+  return value == null ? "" : String(value).trim().slice(0, 8);
+};
+
+const createPlayerDetailImages = async (decoded) => {
+  const regions = getCedulaPlayerDetailRegions(decoded.width, decoded.height);
+  const details = [];
+
+  for (const region of regions) {
+    const scale = Math.min(
+      2,
+      MAX_PLAYER_DETAIL_SIDE / Math.max(region.width, region.height),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(region.width * scale));
+    canvas.height = Math.max(1, Math.round(region.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) continue;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      decoded.source,
+      region.x,
+      region.y,
+      region.width,
+      region.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    let blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    if (blob?.size > MAX_PLAYER_DETAIL_BYTES) {
+      blob = await canvasToBlob(canvas, "image/jpeg", 0.78);
+    }
+    if (!blob || blob.size > MAX_PLAYER_DETAIL_BYTES) continue;
+    details.push({
+      blob,
+      mimeType: "image/jpeg",
+      fileName: `${region.id}.jpg`,
+      label: region.label,
+    });
+  }
+
+  return details;
+};
+
 const fileToScanPayload = async (file) => {
   const sourceMimeType = normalizeImageMimeType(file);
   let decoded = null;
+  let detailImages = [];
   try {
     decoded = await loadImageSource(file);
+    try {
+      detailImages = await createPlayerDetailImages(decoded);
+    } catch { /* La imagen completa sigue siendo util si un recorte no se puede crear. */ }
     const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(decoded.width, decoded.height));
-    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) return originalFilePayload(file);
+    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) {
+      return { ...originalFilePayload(file), detailImages };
+    }
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(decoded.width * scale));
@@ -140,10 +205,15 @@ const fileToScanPayload = async (file) => {
     if (!optimizedBlob) throw new Error("No se pudo optimizar la imagen.");
 
     const extension = outputMimeType === "image/png" ? "png" : outputMimeType === "image/webp" ? "webp" : "jpg";
-    return { blob: optimizedBlob, mimeType: outputMimeType, fileName: `cedula-optimizada.${extension}` };
+    return {
+      blob: optimizedBlob,
+      mimeType: outputMimeType,
+      fileName: `cedula-optimizada.${extension}`,
+      detailImages,
+    };
   } catch {
     // Gemini admite HEIC/HEIF; si el navegador no puede decodificarlo se envia intacto.
-    return originalFilePayload(file);
+    return { ...originalFilePayload(file), detailImages };
   } finally {
     decoded?.release?.();
   }
@@ -154,6 +224,9 @@ const invokeScanFunction = async (image, matchContext) => {
   formData.append("image", image.blob, image.fileName);
   formData.append("mimeType", image.mimeType);
   formData.append("matchContext", JSON.stringify(matchContext));
+  for (const detail of image.detailImages || []) {
+    formData.append("detailImages", detail.blob, detail.fileName);
+  }
   const clientRequestId = globalThis.crypto?.randomUUID?.() || `cedula-${Date.now()}`;
   const { data, error } = await supabase.functions.invoke("procesar-cedula", {
     body: formData,
@@ -250,11 +323,17 @@ export function CedulaScanFlow({
         side: "local",
         name: match?.local?.name || "Local",
         players: localPlayers.map(playerName).filter(Boolean),
+        playerCandidates: localPlayers
+          .map(player => ({ name: playerName(player), dorsal: playerDorsal(player) }))
+          .filter(player => player.name),
       },
       {
         side: "visitor",
         name: match?.visitante?.name || "Visitante",
         players: visitPlayers.map(playerName).filter(Boolean),
+        playerCandidates: visitPlayers
+          .map(player => ({ name: playerName(player), dorsal: playerDorsal(player) }))
+          .filter(player => player.name),
       },
     ],
   }), [localPlayers, match, visitPlayers]);
@@ -364,33 +443,60 @@ export function CedulaScanFlow({
       minMargin: 0.05,
       strongThreshold: 0.82,
     });
-    const usedPlayerIds = new Set();
     const localPool = localPlayers.map(player => ({ player, scanSide: "local" }));
     const visitPool = visitPlayers.map(player => ({ player, scanSide: "visit" }));
-    const players = (rawScan.players || []).map(scannedPlayer => {
-      let side = scannedPlayer.team === "visitor" ? visitorSide : scannedPlayer.team === "local" ? localSide : null;
-      let pool = teamAssignment.ambiguous
-        ? [...localPool, ...visitPool]
-        : side === "local" ? localPool : side === "visit" ? visitPool : [...localPool, ...visitPool];
-      pool = pool.filter(candidate => !usedPlayerIds.has(String(candidate.player.id)));
-      const matched = findBestScanMatch(scannedPlayer.name, pool, candidate => playerName(candidate.player), {
-        threshold: 0.32,
-        minMargin: teamAssignment.ambiguous ? 0.07 : 0.055,
-        strongThreshold: 0.82,
+    const scannedRows = (rawScan.players || []).map((scannedPlayer, index) => ({
+      scannedPlayer,
+      index,
+      side: scannedPlayer.team === "visitor"
+        ? visitorSide
+        : scannedPlayer.team === "local" ? localSide : null,
+    }));
+    const resolvedPlayers = Array(scannedRows.length);
+    const claimedPlayerIds = new Set();
+    const resolveRows = (rows, pool) => {
+      const matches = resolveScannedPlayerMatches(
+        rows.map(row => row.scannedPlayer),
+        pool,
+        {
+          getRowName: row => row.name,
+          getRowDorsal: row => row.jerseyNumber,
+          getCandidateName: candidate => playerName(candidate.player),
+          getCandidateDorsal: candidate => playerDorsal(candidate.player),
+          getCandidateKey: (candidate, candidateIndex) => (
+            `${candidate.scanSide}:${candidate.player.id ?? candidate.player.player_id ?? candidateIndex}`
+          ),
+        },
+      );
+      rows.forEach((row, rowIndex) => {
+        const matchResult = matches[rowIndex];
+        const candidate = matchResult?.matched || null;
+        const candidateId = candidate
+          ? `${candidate.scanSide}:${candidate.player.id ?? candidate.player.player_id ?? `${playerName(candidate.player)}|${playerDorsal(candidate.player)}`}`
+          : "";
+        const conflictsWithResolvedGroup = candidateId && claimedPlayerIds.has(candidateId);
+        if (candidateId && !conflictsWithResolvedGroup) claimedPlayerIds.add(candidateId);
+        resolvedPlayers[row.index] = {
+          ...row.scannedPlayer,
+          side: candidate && (teamAssignment.ambiguous || !row.side)
+            ? candidate.scanSide
+            : row.side,
+          matched: candidate && !conflictsWithResolvedGroup ? candidate.player : null,
+          confidence: candidate && !conflictsWithResolvedGroup ? matchResult.score : 0,
+          matchMethod: candidate && !conflictsWithResolvedGroup ? matchResult.method : null,
+          matchReason: conflictsWithResolvedGroup ? "candidate-conflict" : matchResult?.reason || null,
+        };
       });
-      let matchedPlayer = null;
-      if (matched) {
-        usedPlayerIds.add(String(matched.option.player.id));
-        matchedPlayer = matched.option.player;
-        if (teamAssignment.ambiguous || !side) side = matched.option.scanSide;
-      }
-      return {
-        ...scannedPlayer,
-        side,
-        matched: matchedPlayer,
-        confidence: matched?.score || 0,
-      };
-    });
+    };
+
+    if (teamAssignment.ambiguous) {
+      resolveRows(scannedRows, [...localPool, ...visitPool]);
+    } else {
+      resolveRows(scannedRows.filter(row => row.side === "local"), localPool);
+      resolveRows(scannedRows.filter(row => row.side === "visit"), visitPool);
+      resolveRows(scannedRows.filter(row => !row.side), [...localPool, ...visitPool]);
+    }
+    const players = resolvedPlayers.filter(Boolean);
     const scores = { local: 0, visit: 0 };
     scores[localSide] = Number(rawScan.localTeam?.score) || 0;
     scores[visitorSide] = Number(rawScan.visitorTeam?.score) || 0;
@@ -463,6 +569,7 @@ export function CedulaScanFlow({
       const image = prepared.payload;
       setScanProgress(current => Math.max(current, 18));
       const fingerprintContext = {
+        detailVersion: CEDULA_PLAYER_DETAIL_VERSION,
         matchId: match?.id || match?.match_id || match?.partido_id || "",
         localTeamId: match?.local?.id || "",
         visitorTeamId: match?.visitante?.id || "",
@@ -601,6 +708,9 @@ export function CedulaScanFlow({
   const unlinkedPlayers = interpretation.players.filter(
     player => !player.matched && !automaticallyUnassignedSides.has(player.side),
   ).length;
+  const uncertainGoalRows = interpretation.players.filter(player => (
+    player.goalsLegible === false || player.goalsConfidence === "low"
+  ));
   const scoreDiscrepancies = getCedulaScoreDiscrepancies(
     interpretation.scores,
     interpretation.players,
@@ -680,13 +790,20 @@ export function CedulaScanFlow({
             {(rawScan.players || []).map((player, index) => {
               const hasMatch = Boolean(interpretation.players[index]?.matched);
               const scannedName = player.name || "Nombre ilegible";
+              const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
               return (
-                <li key={`${player.name}-${index}`} className={!hasMatch ? "no-match" : ""}>
+                <li
+                  key={`${player.name}-${index}`}
+                  className={`${!hasMatch ? "no-match" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
+                >
                   <div className="player-copy">
-                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}</span>
+                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
                     {!hasMatch && <small>Leído como: {scannedName}</small>}
+                    {needsGoalReview && <small>Goles dudosos: {player.goalEvidence || "celda poco legible"}</small>}
                   </div>
-                  <small className="player-stats">{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small>
+                  <small className="player-stats" title={player.goalEvidence || undefined}>
+                    {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
+                  </small>
                 </li>
               );
             })}
@@ -758,18 +875,23 @@ export function CedulaScanFlow({
                       const scannedName = player.name || "Nombre ilegible";
                       const showScannedName = registeredName
                         && normalizeScanName(registeredName) !== normalizeScanName(scannedName);
+                      const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
                       return (
-                        <li key={`${group.side}-${player.matched?.id || player.name}-${index}`} className={!player.matched ? "unlinked" : ""}>
+                        <li
+                          key={`${group.side}-${player.matched?.id || player.name}-${index}`}
+                          className={`${!player.matched ? "unlinked" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
+                        >
                           <div className="player-copy">
-                            <span>{registeredName || "Ninguna coincidencia"}</span>
+                            <span>{registeredName || "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
                             {showScannedName && <small>Leído como: {scannedName}</small>}
                             {!registeredName && <small className="match-status">Leído como: {scannedName}</small>}
+                            {needsGoalReview && <small className="goal-status">Revisar GOL: {player.goalEvidence || "celda poco legible"}</small>}
                           </div>
                           <small
                             className="player-stats"
-                            title={!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined}
+                            title={player.goalEvidence || (!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined)}
                           >
-                            {player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR
+                            {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
                           </small>
                         </li>
                       );
@@ -863,6 +985,11 @@ export function CedulaScanFlow({
       {unlinkedPlayers > 0 && (
         <ReviewNotice $tone="warning">
           {unlinkedPlayers} {unlinkedPlayers === 1 ? "nombre detectado no tiene" : "nombres detectados no tienen"} un jugador equivalente en el plantel registrado. El marcador se conservara; sus estadisticas individuales quedaran sin asignar.
+        </ReviewNotice>
+      )}
+      {uncertainGoalRows.length > 0 && (
+        <ReviewNotice $tone="warning">
+          {uncertainGoalRows.length} {uncertainGoalRows.length === 1 ? "fila tiene" : "filas tienen"} la celda GOL poco legible. No se inventaron goles para esas filas; revisa la imagen antes de aplicar.
         </ReviewNotice>
       )}
       <ChoiceRow>
@@ -959,9 +1086,11 @@ const PlayerList = styled.ul`
   list-style:none;margin:12px 0 0;padding:0;max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:4px;
   li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:${({theme})=>theme.bg3};font-size:.82rem;}
   li.no-match{color:${v.rojo};}
+  li.goal-review{background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}12`};}
   .player-copy{display:flex;flex-direction:column;min-width:0;line-height:1.3;}
   .player-copy span{font-weight:650;}
   .player-copy small{white-space:normal;font-size:.7rem;opacity:.82;}
+  .player-copy .goal-status{color:${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};font-weight:650;opacity:1;}
   span{min-width:0;overflow-wrap:anywhere;} small{white-space:nowrap;opacity:.7;}
   .player-stats{flex:0 0 auto;}
 `;
