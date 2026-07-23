@@ -174,9 +174,17 @@ export const EquiposTemplate = ({
   const detailScrollPositionRef = useRef(0);
   const pendingDetailScrollPreserveOnOpenRef = useRef(false);
   const pendingDetailScrollRestoreRef = useRef(false);
+  const teamsGridRef = useRef(null);
+  const pendingTeamFilterRef = useRef("all");
+  const pendingTeamFilterCommitRef = useRef(null);
+  const teamGridPrewarmFrameRef = useRef(null);
+  const teamGridReadyFrameRef = useRef(null);
+  const teamGridCleanupTimeoutRef = useRef(null);
+  const teamGridLayersReadyRef = useRef(false);
   const { divisiones } = useDivisionStore();
 
   useEffect(() => {
+    pendingTeamFilterRef.current = "all";
     setTeamFilter("all");
   }, [visibleDivisionId]);
 
@@ -239,6 +247,10 @@ export const EquiposTemplate = ({
 
     return orderedTeams;
   }, [orderedTeams, participatingTeamIds, teamFilter]);
+  const teamLayoutDependency = useMemo(
+    () => `${teamFilter}:${filteredTeams.map((team) => team.id).join(",")}`,
+    [filteredTeams, teamFilter]
+  );
   const visibleTeamIds = useMemo(
     () => (equipos || []).map((team) => team.id).filter(Boolean),
     [equipos]
@@ -377,24 +389,141 @@ export const EquiposTemplate = ({
     return () => window.clearInterval(retryIntervalId);
   }, [invitationsError, isInvitationsModalOpen, loadDelegateInvitations]);
 
-  const teamMotion = shouldReduceMotion
-    ? {
-        initial: false,
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-        transition: { duration: 0.01 },
+  const teamMotion = useMemo(
+    () =>
+      shouldReduceMotion
+        ? {
+            initial: false,
+            animate: { opacity: 1 },
+            exit: { opacity: 0 },
+            transition: { duration: 0.01 },
+          }
+        : {
+            initial: { opacity: 0, y: 4 },
+            animate: { opacity: 1, y: 0 },
+            exit: {
+              opacity: 0,
+              transition: { duration: 0.1, ease: [0.4, 0, 1, 1] },
+            },
+            transition: {
+              layout: { duration: 0.24, ease: [0.25, 0.1, 0.25, 1] },
+              opacity: { duration: 0.12, ease: [0.22, 1, 0.36, 1] },
+              y: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+            },
+          },
+    [shouldReduceMotion]
+  );
+
+  const clearTeamGridAnimation = useCallback(() => {
+    if (teamGridPrewarmFrameRef.current !== null) {
+      window.cancelAnimationFrame(teamGridPrewarmFrameRef.current);
+      teamGridPrewarmFrameRef.current = null;
+    }
+
+    if (teamGridReadyFrameRef.current !== null) {
+      window.cancelAnimationFrame(teamGridReadyFrameRef.current);
+      teamGridReadyFrameRef.current = null;
+    }
+
+    if (teamGridCleanupTimeoutRef.current !== null) {
+      window.clearTimeout(teamGridCleanupTimeoutRef.current);
+      teamGridCleanupTimeoutRef.current = null;
+    }
+
+    pendingTeamFilterCommitRef.current = null;
+    teamGridLayersReadyRef.current = false;
+    teamsGridRef.current?.removeAttribute("data-team-grid-animating");
+  }, []);
+
+  const prepareTeamGridLayers = useCallback(() => {
+    if (shouldReduceMotion) return;
+
+    const grid = teamsGridRef.current;
+    if (!grid) return;
+
+    grid.setAttribute("data-team-grid-animating", "");
+
+    if (
+      teamGridLayersReadyRef.current ||
+      teamGridPrewarmFrameRef.current !== null ||
+      teamGridReadyFrameRef.current !== null
+    ) {
+      return;
+    }
+
+    if (teamGridCleanupTimeoutRef.current !== null) {
+      window.clearTimeout(teamGridCleanupTimeoutRef.current);
+    }
+
+    teamGridCleanupTimeoutRef.current = window.setTimeout(() => {
+      if (!pendingTeamFilterCommitRef.current) {
+        clearTeamGridAnimation();
       }
-    : {
-        initial: { opacity: 0, scale: 0.97, y: 8 },
-        animate: { opacity: 1, scale: 1, y: 0 },
-        exit: { opacity: 0, scale: 0.97, y: -6 },
-        transition: {
-          layout: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
-          opacity: { duration: 0.18 },
-          scale: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-          y: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-        },
+    }, 500);
+
+    teamGridPrewarmFrameRef.current = window.requestAnimationFrame(() => {
+      teamGridPrewarmFrameRef.current = null;
+      teamGridReadyFrameRef.current = window.requestAnimationFrame(() => {
+        teamGridReadyFrameRef.current = null;
+        teamGridLayersReadyRef.current = true;
+
+        const pendingCommit = pendingTeamFilterCommitRef.current;
+        pendingTeamFilterCommitRef.current = null;
+        pendingCommit?.();
+      });
+    });
+  }, [clearTeamGridAnimation, shouldReduceMotion]);
+
+  const handleTeamFilterPrewarm = useCallback(
+    (nextFilter) => {
+      if (nextFilter === pendingTeamFilterRef.current) return;
+      prepareTeamGridLayers();
+    },
+    [prepareTeamGridLayers]
+  );
+
+  const handleTeamFilterChange = useCallback(
+    (nextFilter) => {
+      if (nextFilter === pendingTeamFilterRef.current) return;
+
+      pendingTeamFilterRef.current = nextFilter;
+
+      const commitFilter = () => {
+        setTeamFilter(nextFilter);
+
+        if (teamGridCleanupTimeoutRef.current !== null) {
+          window.clearTimeout(teamGridCleanupTimeoutRef.current);
+        }
+
+        teamGridCleanupTimeoutRef.current = window.setTimeout(
+          clearTeamGridAnimation,
+          300
+        );
       };
+
+      if (shouldReduceMotion || !teamsGridRef.current) {
+        clearTeamGridAnimation();
+        commitFilter();
+        return;
+      }
+
+      if (teamGridLayersReadyRef.current) {
+        commitFilter();
+        return;
+      }
+
+      pendingTeamFilterCommitRef.current = commitFilter;
+      prepareTeamGridLayers();
+    },
+    [clearTeamGridAnimation, prepareTeamGridLayers, shouldReduceMotion]
+  );
+
+  useEffect(
+    () => () => {
+      clearTeamGridAnimation();
+    },
+    [clearTeamGridAnimation]
+  );
 
   useEffect(() => {
     if (!routeDivisionId && division?.id && !isDelegateView) {
@@ -598,7 +727,8 @@ export const EquiposTemplate = ({
                   type="button"
                   $active={teamFilter === "all"}
                   $tone={v.colorPrincipal}
-                  onClick={() => setTeamFilter("all")}
+                  onPointerDown={() => handleTeamFilterPrewarm("all")}
+                  onClick={() => handleTeamFilterChange("all")}
                   aria-pressed={teamFilter === "all"}
                   aria-controls="teams-grid"
                   aria-label={`Mostrar todos los equipos: ${orderedTeams.length}`}
@@ -616,7 +746,8 @@ export const EquiposTemplate = ({
                   type="button"
                   $active={teamFilter === "participating"}
                   $tone={v.verde}
-                  onClick={() => setTeamFilter("participating")}
+                  onPointerDown={() => handleTeamFilterPrewarm("participating")}
+                  onClick={() => handleTeamFilterChange("participating")}
                   aria-pressed={teamFilter === "participating"}
                   aria-controls="teams-grid"
                   aria-label={`Mostrar equipos en competencia: ${participatingTeamCount}`}
@@ -634,7 +765,8 @@ export const EquiposTemplate = ({
                   type="button"
                   $active={teamFilter === "linked"}
                   $tone={v.verde}
-                  onClick={() => setTeamFilter("linked")}
+                  onPointerDown={() => handleTeamFilterPrewarm("linked")}
+                  onClick={() => handleTeamFilterChange("linked")}
                   aria-pressed={teamFilter === "linked"}
                   aria-controls="teams-grid"
                   aria-label={`Mostrar equipos vinculados: ${delegateLinkCounts.linked}`}
@@ -654,7 +786,8 @@ export const EquiposTemplate = ({
                   type="button"
                   $active={teamFilter === "unlinked"}
                   $tone="#f59e0b"
-                  onClick={() => setTeamFilter("unlinked")}
+                  onPointerDown={() => handleTeamFilterPrewarm("unlinked")}
+                  onClick={() => handleTeamFilterChange("unlinked")}
                   aria-pressed={teamFilter === "unlinked"}
                   aria-controls="teams-grid"
                   aria-label={`Mostrar equipos sin vincular: ${delegateLinkCounts.unlinked}`}
@@ -800,7 +933,7 @@ export const EquiposTemplate = ({
             /* === MODO MANAGER/NORMAL: grid de cards === */
             <Card width="100%" maxWidth="100%">
               <div style={{ width: "100%" }}>
-                <Grid id="teams-grid">
+                <Grid ref={teamsGridRef} id="teams-grid">
                   {loading ? (
                     Array.from({ length: 8 }).map((_, index) => (
                       <TeamCardSkeleton key={index} />
@@ -814,11 +947,14 @@ export const EquiposTemplate = ({
                           return (
                             <AnimatedTeamCard
                               key={team.id}
+                              data-team-card=""
                               layout="position"
+                              layoutDependency={teamLayoutDependency}
                               {...teamMotion}
                             >
                               <TeamCard
                                 team={team}
+                                animateEntrance={false}
                                 hasPendingDelegateInvitation={teamsWithPendingInvitation.has(
                                   String(team.id)
                                 )}
@@ -863,7 +999,7 @@ export const EquiposTemplate = ({
                             description={filteredEmptyDescription}
                             actionComponent={
                               <BtnNormal
-                                funcion={() => setTeamFilter("all")}
+                                funcion={() => handleTeamFilterChange("all")}
                                 titulo="Ver todos los equipos"
                               />
                             }
@@ -1343,6 +1479,14 @@ const Grid = styled.div`
   gap: 25px;
   width: 100%;
   position: relative;
+
+  &[data-team-grid-animating] > [data-team-card] {
+    will-change: transform, opacity;
+  }
+
+  &[data-team-grid-animating] .team-card-continuous-motion {
+    animation-play-state: paused !important;
+  }
 `;
 
 const AnimatedTeamCard = styled(motion.div)`
