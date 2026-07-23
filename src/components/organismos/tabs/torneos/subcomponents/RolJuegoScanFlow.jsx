@@ -2,14 +2,21 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components";
 import {
     RiArrowLeftLine,
+    RiCalendarEventLine,
     RiCameraLine,
     RiFileImageLine,
     RiRefreshLine,
     RiScan2Line,
+    RiTimeLine,
 } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
 import { supabase } from "../../../../../supabase/supabase.config";
 import { findBestScanMatch } from "../../../../../utils/cedulaScanMatching";
+import {
+    normalizeScannedDate,
+    normalizeScannedTime,
+} from "../../../../../utils/scannedScheduleUtils";
+import { runLocalRoleOcr } from "../../../../../utils/rolJuegoLocalOcr";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
@@ -21,6 +28,26 @@ const SUPPORTED_IMAGE_MIME_TYPES = new Set([
     "image/heif",
 ]);
 const BYE_TEAM = { id: "BYE", name: "DESCANSA", img: null, isBye: true };
+const SCAN_COOLDOWN_STORAGE_KEY = "rol-juego-scan-cooldown-until";
+
+const readScanCooldownUntil = () => {
+    if (typeof window === "undefined") return 0;
+    try {
+        const value = Number(window.sessionStorage.getItem(SCAN_COOLDOWN_STORAGE_KEY));
+        return Number.isFinite(value) && value > Date.now() ? value : 0;
+    } catch {
+        return 0;
+    }
+};
+
+const storeScanCooldownUntil = (value) => {
+    try {
+        if (value > Date.now()) window.sessionStorage.setItem(SCAN_COOLDOWN_STORAGE_KEY, String(value));
+        else window.sessionStorage.removeItem(SCAN_COOLDOWN_STORAGE_KEY);
+    } catch { /* El bloqueo sigue activo en memoria si sessionStorage no esta disponible. */ }
+};
+
+const secondsUntil = (timestamp) => Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
 
 const normalizeImageMimeType = (file) => {
     const mimeType = String(file?.type || "").toLowerCase();
@@ -106,13 +133,18 @@ const fileToScanPayload = async (file) => {
     }
 };
 
-const invokeScanFunction = async (image, scanContext) => {
+const invokeScanFunctionOnce = async (image, scanContext, clientOcr = null) => {
     const formData = new FormData();
     formData.append("image", image.blob, image.fileName);
     formData.append("mimeType", image.mimeType);
     formData.append("scanContext", JSON.stringify(scanContext));
+    if (clientOcr) formData.append("clientOcr", JSON.stringify(clientOcr));
 
-    const { data, error } = await supabase.functions.invoke("procesar-rol-juego", { body: formData });
+    const clientRequestId = globalThis.crypto?.randomUUID?.() || `scan-${Date.now()}`;
+    const { data, error } = await supabase.functions.invoke("procesar-rol-juego", {
+        body: formData,
+        headers: { "x-request-id": clientRequestId },
+    });
     if (!error) return data;
 
     const status = Number(error?.context?.status);
@@ -122,11 +154,24 @@ const invokeScanFunction = async (image, scanContext) => {
         responseBody = await response?.json();
     } catch { /* La respuesta no era JSON. */ }
 
-    const invocationError = new Error(responseBody?.error || error.message || "No se pudo escanear el rol de juego.");
-    invocationError.code = responseBody?.code || "FUNCTION_ERROR";
-    invocationError.retryable = Boolean(responseBody?.retryable) || [502, 503, 504].includes(status);
+    const responseHeaders = error?.context?.headers;
+    const gatewayCode = responseHeaders?.get?.("sb-error-code") || "";
+    const retryAfterHeader = Number(responseHeaders?.get?.("retry-after"));
+    const retryAfterSeconds = Number(responseBody?.retryAfterSeconds) || retryAfterHeader || 0;
+    const fallbackMessage = status === 429
+        ? "El servicio alcanzo temporalmente su limite de lecturas. Espera antes de volver a intentar."
+        : error.message;
+    const invocationError = new Error(responseBody?.error || fallbackMessage || "No se pudo escanear el rol de juego.");
+    invocationError.code = responseBody?.code || gatewayCode || "FUNCTION_ERROR";
+    invocationError.retryable = typeof responseBody?.retryable === "boolean"
+        ? responseBody.retryable
+        : [429, 502, 503, 504].includes(status);
+    invocationError.retryAfterSeconds = Math.max(0, Math.ceil(retryAfterSeconds));
+    invocationError.requestId = responseBody?.requestId || responseHeaders?.get?.("x-request-id") || clientRequestId;
     throw invocationError;
 };
+
+const invokeScanFunction = invokeScanFunctionOnce;
 
 const matchTeam = (name, teams, usedIds = new Set(), preferredId = "") => {
     const preferred = preferredId
@@ -149,6 +194,9 @@ const emptyReviewRow = (index) => ({
     rawVisitor: "",
     localId: "",
     visitorId: "",
+    date: "",
+    time: "",
+    rawSchedule: null,
 });
 
 const buildRolJuegoReview = (scan, teams) => {
@@ -167,6 +215,9 @@ const buildRolJuegoReview = (scan, teams) => {
                 rawVisitor: String(match?.visitorTeam || ""),
                 localId: local ? String(local.id) : "",
                 visitorId: visitor ? String(visitor.id) : "",
+                date: normalizeScannedDate(match?.date),
+                time: normalizeScannedTime(match?.time),
+                rawSchedule: match?.rawSchedule || null,
             };
         });
 
@@ -187,6 +238,8 @@ export function RolJuegoScanFlow({
     roundTitle,
     divisionName = "",
     tournamentName = "",
+    roundStartDate = "",
+    roundEndDate = "",
     teams,
     onCancel,
     onApply,
@@ -198,14 +251,20 @@ export function RolJuegoScanFlow({
     const [reviewRows, setReviewRows] = useState([]);
     const [byeId, setByeId] = useState("");
     const [rawBye, setRawBye] = useState("");
+    const [preserveDetectedSchedule, setPreserveDetectedSchedule] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
+    const initialCooldownUntil = useRef(readScanCooldownUntil());
+    const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
+    const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
     const [coarseDevice, setCoarseDevice] = useState(false);
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const progressTimerRef = useRef(null);
     const preparedImageRef = useRef(null);
+    const scanInFlightRef = useRef(false);
+    const cooldownUntilRef = useRef(initialCooldownUntil.current);
 
     const expectedMatches = Math.floor(teams.length / 2);
     const needsBye = teams.length % 2 === 1;
@@ -224,6 +283,33 @@ export function RolJuegoScanFlow({
 
     useEffect(() => () => {
         if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+    }, []);
+
+    useEffect(() => {
+        cooldownUntilRef.current = cooldownUntil;
+        let timerId = null;
+        const updateCooldown = () => {
+            const remaining = secondsUntil(cooldownUntilRef.current);
+            setCooldownSeconds(remaining);
+            if (remaining === 0) {
+                storeScanCooldownUntil(0);
+                if (timerId) window.clearInterval(timerId);
+            }
+        };
+        updateCooldown();
+        if (cooldownUntil > Date.now()) timerId = window.setInterval(updateCooldown, 1000);
+        return () => {
+            if (timerId) window.clearInterval(timerId);
+        };
+    }, [cooldownUntil]);
+
+    const startScanCooldown = useCallback((seconds) => {
+        const duration = Math.min(300, Math.max(1, Math.ceil(Number(seconds) || 0)));
+        const nextCooldownUntil = Math.max(cooldownUntilRef.current, Date.now() + duration * 1000);
+        cooldownUntilRef.current = nextCooldownUntil;
+        storeScanCooldownUntil(nextCooldownUntil);
+        setCooldownUntil(nextCooldownUntil);
+        setCooldownSeconds(secondsUntil(nextCooldownUntil));
     }, []);
 
     const selectFile = useCallback((nextFile) => {
@@ -247,6 +333,7 @@ export function RolJuegoScanFlow({
         setRawScan(null);
         setReviewRows([]);
         setByeId("");
+        setPreserveDetectedSchedule(false);
         setErrorMessage("");
         setScanProgress(0);
     }, []);
@@ -267,8 +354,10 @@ export function RolJuegoScanFlow({
         divisionName,
         tournamentName,
         roundTitle,
+        roundStartDate,
+        roundEndDate,
         teams: teams.map((team) => ({ id: String(team.id), name: team.name })),
-    }), [divisionName, roundTitle, teams, tournamentName]);
+    }), [divisionName, roundEndDate, roundStartDate, roundTitle, teams, tournamentName]);
 
     const reviewValidation = useMemo(() => {
         const selectedIds = reviewRows.flatMap((row) => [row.localId, row.visitorId]).filter(Boolean);
@@ -279,18 +368,24 @@ export function RolJuegoScanFlow({
             0,
         ) + (needsBye && !byeId ? 1 : 0);
         const allTeamsUsed = new Set(selectedIds).size === teams.length;
+        const completeScheduleRows = reviewRows.filter(
+            (row) => normalizeScannedDate(row.date) && normalizeScannedTime(row.time)
+        ).length;
         return {
             duplicates: new Set(duplicates),
             missingSlots,
+            completeScheduleRows,
+            scheduleIsValid: !preserveDetectedSchedule || completeScheduleRows === expectedMatches,
             isValid: reviewRows.length === expectedMatches
                 && missingSlots === 0
                 && duplicates.length === 0
                 && allTeamsUsed,
         };
-    }, [byeId, expectedMatches, needsBye, reviewRows, teams.length]);
+    }, [byeId, expectedMatches, needsBye, preserveDetectedSchedule, reviewRows, teams.length]);
 
     const scanImage = async () => {
-        if (!file || scanning) return;
+        if (!file || scanInFlightRef.current || Date.now() < cooldownUntilRef.current) return;
+        scanInFlightRef.current = true;
         setScanning(true);
         setErrorMessage("");
         setScanProgress(6);
@@ -301,7 +396,23 @@ export function RolJuegoScanFlow({
         try {
             const image = await (preparedImageRef.current || fileToScanPayload(file));
             setScanProgress((current) => Math.max(current, 18));
-            const data = await invokeScanFunction(image, scanContext);
+            let localScan = null;
+            try {
+                localScan = await runLocalRoleOcr(image.blob, scanContext);
+            } catch (localError) {
+                // La lectura local es una optimizacion: cualquier incompatibilidad
+                // de WASM, Worker o modelos conserva el flujo remoto actual.
+                console.info("OCR local de rol no disponible; usando respaldo remoto.", localError);
+            }
+            setScanProgress((current) => Math.max(current, 58));
+            // Edge vuelve a validar participantes, cobertura y confianza incluso
+            // cuando el navegador pudo resolver toda la jornada. Si la lectura
+            // local es fiable, la funcion responde sin consumir Gemini.
+            const data = await invokeScanFunction(
+                image,
+                scanContext,
+                localScan?.clientOcr || null,
+            );
             if (!data?.scan) throw new Error(data?.error || "La función no devolvió datos del escaneo.");
             if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
             progressTimerRef.current = null;
@@ -311,10 +422,16 @@ export function RolJuegoScanFlow({
             setReviewRows(review.rows);
             setByeId(review.byeId);
             setRawBye(review.rawBye);
+            setPreserveDetectedSchedule(
+                review.rows.length === expectedMatches &&
+                review.rows.every((row) => row.date && row.time)
+            );
         } catch (error) {
+            if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds);
             setErrorMessage(error?.message || "No se pudo escanear el rol de juego.");
             setScanProgress(0);
         } finally {
+            scanInFlightRef.current = false;
             if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
             progressTimerRef.current = null;
             setScanning(false);
@@ -326,14 +443,23 @@ export function RolJuegoScanFlow({
     };
 
     const applyReview = () => {
-        if (!reviewValidation.isValid) return;
+        if (!reviewValidation.isValid || !reviewValidation.scheduleIsValid) return;
         const teamMap = new Map(teams.map((team) => [String(team.id), team]));
         const pairs = reviewRows.map((row) => ({
             local: teamMap.get(row.localId),
             visitante: teamMap.get(row.visitorId),
+            scannedDate: preserveDetectedSchedule ? normalizeScannedDate(row.date) : "",
+            scannedTime: preserveDetectedSchedule ? normalizeScannedTime(row.time) : "",
         }));
-        if (needsBye) pairs.push({ local: teamMap.get(byeId), visitante: BYE_TEAM });
-        onApply(pairs);
+        if (needsBye) {
+            pairs.push({
+                local: teamMap.get(byeId),
+                visitante: BYE_TEAM,
+                scannedDate: "",
+                scannedTime: "",
+            });
+        }
+        onApply(pairs, { preserveDetectedSchedule });
     };
 
     if (!file) {
@@ -394,8 +520,10 @@ export function RolJuegoScanFlow({
                     <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); }}>
                         <RiRefreshLine /> Cambiar imagen
                     </SecondaryAction>
-                    <PrimaryAction type="button" disabled={scanning} onClick={scanImage}>
-                        <RiScan2Line /> {scanning ? `Escaneando ${scanProgress}%` : "Escanear rol"}
+                    <PrimaryAction type="button" disabled={scanning || cooldownSeconds > 0} onClick={scanImage}>
+                        <RiScan2Line /> {scanning
+                            ? `Escaneando ${scanProgress}%`
+                            : cooldownSeconds > 0 ? `Reintentar en ${cooldownSeconds}s` : "Escanear rol"}
                     </PrimaryAction>
                 </ChoiceRow>
             </ScanShell>
@@ -413,6 +541,23 @@ export function RolJuegoScanFlow({
                 <strong>{reviewValidation.isValid ? "Jornada completa" : "Revisión necesaria"}</strong>
                 <span>{reviewValidation.isValid ? `${teams.length} equipos interpretados` : "Completa los campos marcados y elimina equipos repetidos."}</span>
             </ReviewSummary>
+
+            <ScheduleOption $active={preserveDetectedSchedule}>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={preserveDetectedSchedule}
+                        onChange={(event) => setPreserveDetectedSchedule(event.target.checked)}
+                    />
+                    <span>
+                        <strong>Guardar fechas y horas detectadas</strong>
+                        <small>Es opcional. Puedes corregirlas antes de aplicar la jornada.</small>
+                    </span>
+                </label>
+                <ScheduleCount $complete={reviewValidation.completeScheduleRows === expectedMatches}>
+                    {reviewValidation.completeScheduleRows}/{expectedMatches} horarios completos
+                </ScheduleCount>
+            </ScheduleOption>
 
             <MatchReviewList>
                 {reviewRows.map((row, index) => (
@@ -435,6 +580,36 @@ export function RolJuegoScanFlow({
                             </select>
                             {row.rawVisitor && <small>Leído como: {row.rawVisitor}</small>}
                         </TeamSelect>
+                        <ScheduleFields
+                            $invalid={preserveDetectedSchedule && !(normalizeScannedDate(row.date) && normalizeScannedTime(row.time))}
+                        >
+                            <div>
+                                <label htmlFor={`${row.id}-date`}><RiCalendarEventLine /> Fecha</label>
+                                <input
+                                    id={`${row.id}-date`}
+                                    type="date"
+                                    value={row.date}
+                                    onChange={(event) => updateRow(row.id, "date", event.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor={`${row.id}-time`}><RiTimeLine /> Hora</label>
+                                <input
+                                    id={`${row.id}-time`}
+                                    type="time"
+                                    value={row.time}
+                                    onChange={(event) => updateRow(row.id, "time", event.target.value)}
+                                />
+                            </div>
+                            <small>
+                                {row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel || row.rawSchedule?.timeLabel
+                                    ? `Detectado: ${[
+                                        row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel,
+                                        row.rawSchedule?.timeLabel,
+                                    ].filter(Boolean).join(" · ")}`
+                                    : "Sin horario legible; puedes capturarlo manualmente."}
+                            </small>
+                        </ScheduleFields>
                     </MatchReviewRow>
                 ))}
 
@@ -453,10 +628,19 @@ export function RolJuegoScanFlow({
             </MatchReviewList>
 
             {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
+            {preserveDetectedSchedule && !reviewValidation.scheduleIsValid && (
+                <ErrorNotice role="alert">
+                    Completa una fecha y una hora válidas para cada partido o desactiva el guardado de horarios.
+                </ErrorNotice>
+            )}
             <PrivacyNote>La imagen se usa solo para este análisis y no se guarda en el fixture.</PrivacyNote>
             <ChoiceRow>
                 <SecondaryAction type="button" onClick={onCancel}>Cancelar</SecondaryAction>
-                <PrimaryAction type="button" disabled={!reviewValidation.isValid} onClick={applyReview}>
+                <PrimaryAction
+                    type="button"
+                    disabled={!reviewValidation.isValid || !reviewValidation.scheduleIsValid}
+                    onClick={applyReview}
+                >
                     Aplicar y bloquear jornada
                 </PrimaryAction>
             </ChoiceRow>
@@ -504,11 +688,24 @@ const ReviewSummary = styled.div`
     display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:${({$valid})=>$valid ? `${v.colorPrincipal}14` : `${v.colorWarning}16`};color:${({$valid})=>$valid ? v.colorPrincipal : v.colorWarning};
     strong{font-size:.9rem;}span{font-size:.8rem;text-align:right;}@media(max-width:600px){align-items:flex-start;flex-direction:column;span{text-align:left;}}
 `;
+const ScheduleOption = styled.div`
+    display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 14px;border-radius:12px;border:1px solid ${({theme,$active})=>$active ? `${v.colorPrincipal}80` : theme.bg4};background:${({theme,$active})=>$active ? `${v.colorPrincipal}0D` : theme.bgcards};
+    >label{display:flex;align-items:flex-start;gap:10px;cursor:pointer;}input{width:18px;height:18px;margin-top:2px;accent-color:${v.colorPrincipal};}label span{display:flex;flex-direction:column;gap:3px;}strong{color:${({theme})=>theme.text};font-size:.9rem;}small{color:${({theme})=>theme.textFade};font-size:.76rem;line-height:1.35;}
+    @media(max-width:600px){align-items:flex-start;flex-direction:column;}
+`;
+const ScheduleCount = styled.span`
+    flex-shrink:0;padding:5px 8px;border-radius:999px;background:${({$complete})=>$complete ? `${v.colorPrincipal}18` : `${v.colorWarning}18`};color:${({$complete})=>$complete ? v.colorPrincipal : v.colorWarning};font-size:.75rem;font-weight:800;
+`;
 const MatchReviewList = styled.div`display:flex;flex-direction:column;gap:10px;`;
 const MatchReviewRow = styled.div`
     display:grid;grid-template-columns:30px minmax(0,1fr) 34px minmax(0,1fr);align-items:center;gap:10px;padding:12px;border-radius:12px;background:${({theme})=>theme.bgcards};border:1px solid ${({theme})=>theme.bg4};
     .match-number{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:${({theme})=>theme.bg3};color:${({theme})=>theme.textFade};font-size:.78rem;font-weight:800;}
     @media(max-width:650px){grid-template-columns:30px 1fr;align-items:start;.match-number{grid-row:1 / span 3;}.versus{display:none;}}
+`;
+const ScheduleFields = styled.div`
+    grid-column:2 / -1;display:grid;grid-template-columns:minmax(145px,1fr) minmax(125px,.8fr) minmax(190px,1.4fr);align-items:end;gap:10px;padding-top:10px;border-top:1px solid ${({theme})=>theme.bg3};
+    >div{display:flex;flex-direction:column;gap:4px;}label{display:flex;align-items:center;gap:5px;color:${({theme})=>theme.textFade};font-size:.72rem;font-weight:700;}label svg{color:${v.colorPrincipal};}input{width:100%;min-height:38px;border:1px solid ${({theme,$invalid})=>$invalid ? v.colorError : theme.bg4};border-radius:8px;background:${({theme})=>theme.bg2};color:${({theme})=>theme.text};padding:7px 9px;font:inherit;font-size:.84rem;}input:focus-visible{outline:3px solid ${v.colorPrincipal}35;outline-offset:1px;}small{align-self:center;color:${({theme})=>theme.textFade};font-size:.74rem;line-height:1.35;}
+    @media(max-width:650px){grid-column:2;grid-template-columns:1fr 1fr;small{grid-column:1 / -1;align-self:start;}}
 `;
 const TeamSelect = styled.div`
     min-width:0;display:flex;flex-direction:column;gap:4px;

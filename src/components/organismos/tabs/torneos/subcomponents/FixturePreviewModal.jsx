@@ -6,12 +6,13 @@ import {
     RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine,
     RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line, RiAddLine,
     RiHistoryLine, RiEyeLine, RiEyeOffLine, RiEdit2Line, RiLayoutGridLine,
-    RiScan2Line
+    RiScan2Line, RiLockUnlockLine
 } from "react-icons/ri";
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 import { RolJuegoScanFlow } from "./RolJuegoScanFlow";
+import { ConfirmModal } from "../../../ConfirmModal";
 import { validarFixture } from "../../../../../utils/fixtureAlgorithms";
 import {
     isOfficialJornadaName,
@@ -384,7 +385,7 @@ export function FixturePreviewModal({
     const manualTextRoundsRef = useRef(new Set());
     const {
         matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
-        handleTeamClick, toggleLock, handleShuffle, handleAutoFix,
+        handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
         handleDragStart, handleTeamDragStart, handleDropOnMatch,
         handleDropOnJornada, handleDropOnTeamSlot,
         handleGenerateExtraRound, handleGenerateRepositionRound,
@@ -398,6 +399,7 @@ export function FixturePreviewModal({
     const [focusedRoundIndex, setFocusedRoundIndex] = useState(null);
     const [activeSuggestion, setActiveSuggestion] = useState(null);
     const [scanRoundIndex, setScanRoundIndex] = useState(null);
+    const [pendingUnlockMatch, setPendingUnlockMatch] = useState(null);
     const textInputRefs = useRef({});
 
     const teamOptions = useMemo(() => buildTeamOptions(teams), [teams]);
@@ -408,6 +410,7 @@ export function FixturePreviewModal({
             setShowConfirmedRounds(false);
             setViewMode("cards");
             setScanRoundIndex(null);
+            setPendingUnlockMatch(null);
             manualTextRoundsRef.current = new Set();
         }
     }, [isOpen, isEditMode]);
@@ -462,7 +465,15 @@ export function FixturePreviewModal({
             const maxJornada = Math.max(...finalMatches.map(m => m.jornadaIndex), 0);
             const finalFixture = [];
             for (let i = 0; i <= maxJornada; i++) {
-                const matchesInRound = finalMatches.filter(m => m.jornadaIndex === i).map(m => ({ local: m.local, visitante: m.visitante }));
+                const matchesInRound = finalMatches
+                    .filter(m => m.jornadaIndex === i)
+                    .map(m => ({
+                        local: m.local,
+                        visitante: m.visitante,
+                        scannedDate: m.scanScheduleAccepted ? m.scannedDate : "",
+                        scannedTime: m.scanScheduleAccepted ? m.scannedTime : "",
+                        scanScheduleAccepted: Boolean(m.scanScheduleAccepted),
+                    }));
                 if (matchesInRound.length > 0) finalFixture.push({ name: `Jornada ${i + 1}`, matches: matchesInRound });
             }
             onConfirm(finalFixture);
@@ -799,10 +810,13 @@ export function FixturePreviewModal({
         }, 0);
     };
 
-    const handleApplyRolJuego = (pairs) => {
+    const handleApplyRolJuego = (pairs, { preserveDetectedSchedule = false } = {}) => {
         if (scanRoundIndex === null) return;
         const normalizedRoundIndex = Number(scanRoundIndex);
-        handleReplaceRoundMatches(normalizedRoundIndex, pairs, { lockMatches: true });
+        handleReplaceRoundMatches(normalizedRoundIndex, pairs, {
+            lockMatches: true,
+            preserveDetectedSchedule,
+        });
         manualTextRoundsRef.current.delete(String(scanRoundIndex));
         setRoundTextByIndex((prev) => ({
             ...prev,
@@ -810,6 +824,28 @@ export function FixturePreviewModal({
         }));
         setViewMode("cards");
         setScanRoundIndex(null);
+    };
+
+    const handleLockRequest = (match) => {
+        if (!match || match.roundLocked) return;
+
+        if (match.locked && match.scanLocked) {
+            if (match.scanScheduleAccepted && match.scannedDate && match.scannedTime) {
+                setPendingUnlockMatch(match);
+                return;
+            }
+
+            unlockScannedMatch(match.id);
+            return;
+        }
+
+        toggleLock(match.id);
+    };
+
+    const confirmScannedUnlock = () => {
+        if (!pendingUnlockMatch) return;
+        unlockScannedMatch(pendingUnlockMatch.id);
+        setPendingUnlockMatch(null);
     };
 
     useEffect(() => {
@@ -910,6 +946,7 @@ export function FixturePreviewModal({
             : renderedRoundIndexes;
 
     return createPortal(
+        <>
         <Overlay>
             <ModalContainer onClick={(e) => e.stopPropagation()}>
                 <Header>
@@ -1111,7 +1148,7 @@ export function FixturePreviewModal({
                                                         }}
                                                         onDrop={handleDropOnMatch}
                                                         onTeamDrop={handleDropOnTeamSlot}
-                                                        toggleLock={toggleLock}
+                                                        toggleLock={handleLockRequest}
                                                         isConflict={isConflict}
                                                         selectedTeamId={selectedTeamId}
                                                         onTeamClick={handleTeamClick}
@@ -1132,6 +1169,8 @@ export function FixturePreviewModal({
                                 roundTitle={getRoundTitle(scanRoundIndex)}
                                 divisionName={divisionName}
                                 tournamentName={tournamentName}
+                                roundStartDate={existingData?.jornadas?.[Number(scanRoundIndex)]?.start_date || ""}
+                                roundEndDate={existingData?.jornadas?.[Number(scanRoundIndex)]?.end_date || ""}
                                 teams={teams}
                                 onCancel={() => setScanRoundIndex(null)}
                                 onApply={handleApplyRolJuego}
@@ -1163,7 +1202,23 @@ export function FixturePreviewModal({
                     </ActionWrapper>
                 </Footer>}
             </ModalContainer>
-        </Overlay>,
+        </Overlay>
+        <ConfirmModal
+            isOpen={Boolean(pendingUnlockMatch)}
+            onClose={() => setPendingUnlockMatch(null)}
+            onConfirm={confirmScannedUnlock}
+            title="Desbloquear partido escaneado"
+            message={pendingUnlockMatch
+                ? `¿Quieres desbloquear ${pendingUnlockMatch.local?.name} vs ${pendingUnlockMatch.visitante?.name}?`
+                : "¿Quieres desbloquear este partido?"}
+            subMessage="Se eliminarán la fecha y la hora detectadas para este partido. Después podrás modificar el cruce."
+            confirmText="Desbloquear y borrar horario"
+            confirmColor={v.colorError}
+            confirmIcon={<RiLockUnlockLine />}
+            width="440px"
+            thinButtons
+        />
+        </>,
         document.body
     );
 }

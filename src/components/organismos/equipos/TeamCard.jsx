@@ -19,15 +19,15 @@ const fadeIn = keyframes`
 `;
 
 const statusBadgeCycle = keyframes`
-  0%, 44% { opacity: 0; transform: translateY(-5px) scale(0.95); visibility: hidden; }
-  50%, 94% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
-  100% { opacity: 0; transform: translateY(-5px) scale(0.95); visibility: hidden; }
+  0%, 44% { opacity: 0; transform: translateY(-5px) scale(0.95); }
+  50%, 94% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-5px) scale(0.95); }
 `;
 
 const tournamentBadgeCycle = keyframes`
-  0%, 44% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
-  50%, 94% { opacity: 0; transform: translateY(-5px) scale(0.95); visibility: hidden; }
-  100% { opacity: 1; transform: translateY(0) scale(1); visibility: visible; }
+  0%, 44% { opacity: 1; transform: translateY(0) scale(1); }
+  50%, 94% { opacity: 0; transform: translateY(-5px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 `;
 
 const clockHandCycle = keyframes`
@@ -47,6 +47,7 @@ function TeamCardComponent({
   onView,
   onInviteDelegate,
   isParticipating,
+  animateEntrance = true,
   hasPendingDelegateInvitation = false,
   showTransferAction = true,
   showDeleteAction = true,
@@ -92,7 +93,10 @@ function TeamCardComponent({
   }
 
   return (
-    <CardContainer onClick={() => onView(team)}>
+    <CardContainer
+      $animateEntrance={animateEntrance}
+      onClick={() => onView(team)}
+    >
       <div
         className="card-top"
         style={{ background: `linear-gradient(135deg, ${team.color}cc, ${team.color})` }}
@@ -157,13 +161,22 @@ function TeamCardComponent({
 
         <BadgePosition>
           <BadgeStack>
-            <StatusBadge $visible={!isParticipating} $alternates={isParticipating} $isActive={isActive}>
+            <StatusBadge
+              className="team-card-continuous-motion"
+              $visible={!isParticipating}
+              $alternates={isParticipating}
+              $isActive={isActive}
+            >
               {isActive ? <RiCheckboxCircleLine size={11} /> : <RiCloseCircleLine size={11} />}
               <span>{team.status}</span>
             </StatusBadge>
 
             {isParticipating && (
-              <TournamentBadge $visible $alternates>
+              <TournamentBadge
+                className="team-card-continuous-motion"
+                $visible
+                $alternates
+              >
                 <RiTrophyLine size={11} />
                 <span>En Torneo</span>
               </TournamentBadge>
@@ -196,6 +209,7 @@ function TeamCardComponent({
             <PendingDelegatePill title="Invitacion de registro pendiente">
               <span>{delegateLabel}</span>
               <PendingInviteClock
+                className="team-card-continuous-motion"
                 role="img"
                 aria-label="Invitacion de registro pendiente"
               >
@@ -234,7 +248,11 @@ const CardContainer = styled.div`
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  animation: ${fadeIn} 0.5s ease-out forwards;
+  ${({ $animateEntrance }) =>
+    $animateEntrance &&
+    css`
+      animation: ${fadeIn} 0.5s ease-out forwards;
+    `}
 
   &:hover {
     transform: translateY(-5px);
@@ -457,12 +475,12 @@ const sharedBadgeStyles = css`
   border: 1px solid rgba(255, 255, 255, 0.15);
   transition:
     opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
-    visibility 0.6s;
+    transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: ${({ $visible }) => ($visible ? 1 : 0)};
   transform: ${({ $visible }) =>
     $visible ? "translateY(0) scale(1)" : "translateY(-5px) scale(0.95)"};
-  visibility: ${({ $visible }) => ($visible ? "visible" : "hidden")};
+  visibility: ${({ $visible, $alternates }) =>
+    $visible || $alternates ? "visible" : "hidden"};
   pointer-events: ${({ $visible }) => ($visible ? "auto" : "none")};
 
   svg {
@@ -478,6 +496,10 @@ const StatusBadge = styled.div`
     css`
       animation: ${statusBadgeCycle} 5s linear infinite;
     `}
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const PendingDelegatePill = styled.div`
@@ -550,4 +572,8 @@ const TournamentBadge = styled.div`
     css`
       animation: ${tournamentBadgeCycle} 5s linear infinite;
     `}
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;

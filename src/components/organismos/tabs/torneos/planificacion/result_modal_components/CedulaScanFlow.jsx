@@ -3,6 +3,7 @@ import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
   RiCameraLine,
+  RiErrorWarningLine,
   RiFileImageLine,
   RiRefreshLine,
   RiScan2Line,
@@ -13,12 +14,55 @@ import {
   findBestScanMatch,
   getScannedDateReview,
   normalizeScanName,
+  resolveScannedPlayerMatches,
   resolveScannedTeamSides,
 } from "../../../../../../utils/cedulaScanMatching";
+import { normalizeScannedTime } from "../../../../../../utils/scannedScheduleUtils";
+import {
+  getCedulaScoreDiscrepancies,
+  resolveCedulaScores,
+} from "../../../../../../utils/cedulaScoreResolution";
+import {
+  createCedulaScanFingerprint,
+  getOrCreateCedulaScanRequest,
+} from "../../../../../../utils/cedulaScanRequestCache";
+import {
+  CEDULA_PLAYER_DETAIL_VERSION,
+  getCedulaPlayerDetailRegions,
+} from "../../../../../../utils/cedulaPlayerDetailRegions";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
+const MAX_PLAYER_DETAIL_SIDE = 2400;
+const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v2";
+const DAILY_QUOTA_CODE = "SCAN_DAILY_QUOTA_EXCEEDED";
+
+const readScanCooldownUntil = () => {
+  if (typeof window === "undefined") return 0;
+  try {
+    const value = Number(window.localStorage.getItem(SCAN_COOLDOWN_STORAGE_KEY));
+    return Number.isFinite(value) && value > Date.now() ? value : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const storeScanCooldownUntil = (value) => {
+  try {
+    if (value > Date.now()) window.localStorage.setItem(SCAN_COOLDOWN_STORAGE_KEY, String(value));
+    else window.localStorage.removeItem(SCAN_COOLDOWN_STORAGE_KEY);
+  } catch { /* El bloqueo sigue activo en memoria si localStorage no esta disponible. */ }
+};
+
+const secondsUntil = (timestamp) => Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+
+const formatCooldown = (seconds) => {
+  if (seconds >= 3600) return `${Math.ceil(seconds / 3600)} h`;
+  if (seconds >= 60) return `${Math.ceil(seconds / 60)} min`;
+  return `${seconds}s`;
+};
 
 const normalizeImageMimeType = (file) => {
   const mimeType = String(file?.type || "").toLowerCase();
@@ -38,12 +82,13 @@ const originalFilePayload = (file) => ({
   blob: file,
   mimeType: normalizeImageMimeType(file),
   fileName: file.name || "cedula",
+  detailImages: [],
 });
 
 const loadImageSource = async (file) => {
   if (typeof window.createImageBitmap === "function") {
     try {
-      const bitmap = await window.createImageBitmap(file);
+      const bitmap = await window.createImageBitmap(file, { imageOrientation: "from-image" });
       return {
         source: bitmap,
         width: bitmap.width,
@@ -76,13 +121,70 @@ const playerName = (player) => (
 
 const refereeName = (referee) => referee?.full_name || referee?.name || "";
 
+const playerDorsal = (player) => {
+  const value = player?.dorsal ?? player?.jersey_number ?? player?.number ?? "";
+  return value == null ? "" : String(value).trim().slice(0, 8);
+};
+
+const createPlayerDetailImages = async (decoded) => {
+  const regions = getCedulaPlayerDetailRegions(decoded.width, decoded.height);
+  const details = [];
+
+  for (const region of regions) {
+    const scale = Math.min(
+      2,
+      MAX_PLAYER_DETAIL_SIDE / Math.max(region.width, region.height),
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(region.width * scale));
+    canvas.height = Math.max(1, Math.round(region.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) continue;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(
+      decoded.source,
+      region.x,
+      region.y,
+      region.width,
+      region.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    let blob = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    if (blob?.size > MAX_PLAYER_DETAIL_BYTES) {
+      blob = await canvasToBlob(canvas, "image/jpeg", 0.78);
+    }
+    if (!blob || blob.size > MAX_PLAYER_DETAIL_BYTES) continue;
+    details.push({
+      blob,
+      mimeType: "image/jpeg",
+      fileName: `${region.id}.jpg`,
+      label: region.label,
+    });
+  }
+
+  return details;
+};
+
 const fileToScanPayload = async (file) => {
   const sourceMimeType = normalizeImageMimeType(file);
   let decoded = null;
+  let detailImages = [];
   try {
     decoded = await loadImageSource(file);
+    try {
+      detailImages = await createPlayerDetailImages(decoded);
+    } catch { /* La imagen completa sigue siendo util si un recorte no se puede crear. */ }
     const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(decoded.width, decoded.height));
-    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) return originalFilePayload(file);
+    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) {
+      return { ...originalFilePayload(file), detailImages };
+    }
 
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(decoded.width * scale));
@@ -103,10 +205,15 @@ const fileToScanPayload = async (file) => {
     if (!optimizedBlob) throw new Error("No se pudo optimizar la imagen.");
 
     const extension = outputMimeType === "image/png" ? "png" : outputMimeType === "image/webp" ? "webp" : "jpg";
-    return { blob: optimizedBlob, mimeType: outputMimeType, fileName: `cedula-optimizada.${extension}` };
+    return {
+      blob: optimizedBlob,
+      mimeType: outputMimeType,
+      fileName: `cedula-optimizada.${extension}`,
+      detailImages,
+    };
   } catch {
     // Gemini admite HEIC/HEIF; si el navegador no puede decodificarlo se envia intacto.
-    return originalFilePayload(file);
+    return { ...originalFilePayload(file), detailImages };
   } finally {
     decoded?.release?.();
   }
@@ -117,8 +224,13 @@ const invokeScanFunction = async (image, matchContext) => {
   formData.append("image", image.blob, image.fileName);
   formData.append("mimeType", image.mimeType);
   formData.append("matchContext", JSON.stringify(matchContext));
+  for (const detail of image.detailImages || []) {
+    formData.append("detailImages", detail.blob, detail.fileName);
+  }
+  const clientRequestId = globalThis.crypto?.randomUUID?.() || `cedula-${Date.now()}`;
   const { data, error } = await supabase.functions.invoke("procesar-cedula", {
     body: formData,
+    headers: { "x-request-id": clientRequestId },
   });
   if (!error) return data;
 
@@ -129,9 +241,20 @@ const invokeScanFunction = async (image, matchContext) => {
     responseBody = await response?.json();
   } catch { /* La respuesta no era JSON. */ }
 
-  const invocationError = new Error(responseBody?.error || error.message || "No se pudo escanear la cedula.");
-  invocationError.code = responseBody?.code || "FUNCTION_ERROR";
-  invocationError.retryable = Boolean(responseBody?.retryable) || [502, 503, 504].includes(status);
+  const responseHeaders = error?.context?.headers;
+  const gatewayCode = responseHeaders?.get?.("sb-error-code") || "";
+  const retryAfterHeader = Number(responseHeaders?.get?.("retry-after"));
+  const retryAfterSeconds = Number(responseBody?.retryAfterSeconds) || retryAfterHeader || (status === 429 ? 60 : 0);
+  const fallbackMessage = status === 429
+    ? "El servicio alcanzo temporalmente su limite de lecturas. Espera antes de volver a intentar."
+    : error.message;
+  const invocationError = new Error(responseBody?.error || fallbackMessage || "No se pudo escanear la cedula.");
+  invocationError.code = responseBody?.code || gatewayCode || "FUNCTION_ERROR";
+  invocationError.retryable = typeof responseBody?.retryable === "boolean"
+    ? responseBody.retryable
+    : [429, 502, 503, 504].includes(status);
+  invocationError.retryAfterSeconds = Math.max(0, Math.ceil(retryAfterSeconds));
+  invocationError.requestId = responseBody?.requestId || responseHeaders?.get?.("x-request-id") || clientRequestId;
   throw invocationError;
 };
 
@@ -161,6 +284,7 @@ export function CedulaScanFlow({
   localPlayers,
   visitPlayers,
   currentDate,
+  currentTime,
   onBack,
   onApply,
   showToast,
@@ -171,12 +295,19 @@ export function CedulaScanFlow({
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const initialCooldownUntil = useRef(readScanCooldownUntil());
+  const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
+  const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
   const [applyScannedDate, setApplyScannedDate] = useState(false);
+  const [applyScannedTime, setApplyScannedTime] = useState(false);
+  const [scoreResolutions, setScoreResolutions] = useState({});
   const [coarseDevice, setCoarseDevice] = useState(false);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const progressTimerRef = useRef(null);
   const preparedImageRef = useRef(null);
+  const scanInFlightRef = useRef(false);
+  const cooldownUntilRef = useRef(initialCooldownUntil.current);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -192,11 +323,17 @@ export function CedulaScanFlow({
         side: "local",
         name: match?.local?.name || "Local",
         players: localPlayers.map(playerName).filter(Boolean),
+        playerCandidates: localPlayers
+          .map(player => ({ name: playerName(player), dorsal: playerDorsal(player) }))
+          .filter(player => player.name),
       },
       {
         side: "visitor",
         name: match?.visitante?.name || "Visitante",
         players: visitPlayers.map(playerName).filter(Boolean),
+        playerCandidates: visitPlayers
+          .map(player => ({ name: playerName(player), dorsal: playerDorsal(player) }))
+          .filter(player => player.name),
       },
     ],
   }), [localPlayers, match, visitPlayers]);
@@ -207,6 +344,46 @@ export function CedulaScanFlow({
 
   useEffect(() => () => {
     if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    cooldownUntilRef.current = cooldownUntil;
+    let timerId = null;
+    const updateCooldown = () => {
+      const remaining = secondsUntil(cooldownUntilRef.current);
+      setCooldownSeconds(remaining);
+      if (remaining === 0) {
+        storeScanCooldownUntil(0);
+        if (timerId) window.clearInterval(timerId);
+      }
+    };
+    updateCooldown();
+    if (cooldownUntil > Date.now()) timerId = window.setInterval(updateCooldown, 1000);
+    return () => {
+      if (timerId) window.clearInterval(timerId);
+    };
+  }, [cooldownUntil]);
+
+  useEffect(() => {
+    const syncCooldownAcrossTabs = (event) => {
+      if (event.key !== SCAN_COOLDOWN_STORAGE_KEY) return;
+      const nextCooldownUntil = Number(event.newValue) || 0;
+      cooldownUntilRef.current = nextCooldownUntil;
+      setCooldownUntil(nextCooldownUntil);
+      setCooldownSeconds(secondsUntil(nextCooldownUntil));
+    };
+    window.addEventListener("storage", syncCooldownAcrossTabs);
+    return () => window.removeEventListener("storage", syncCooldownAcrossTabs);
+  }, []);
+
+  const startScanCooldown = useCallback((seconds, code) => {
+    const maxDuration = code === DAILY_QUOTA_CODE ? 26 * 60 * 60 : 5 * 60;
+    const duration = Math.min(maxDuration, Math.max(1, Math.ceil(Number(seconds) || 0)));
+    const nextCooldownUntil = Math.max(cooldownUntilRef.current, Date.now() + duration * 1000);
+    cooldownUntilRef.current = nextCooldownUntil;
+    storeScanCooldownUntil(nextCooldownUntil);
+    setCooldownUntil(nextCooldownUntil);
+    setCooldownSeconds(secondsUntil(nextCooldownUntil));
   }, []);
 
   const selectFile = useCallback((nextFile) => {
@@ -228,6 +405,8 @@ export function CedulaScanFlow({
     setRawScan(null);
     setScanProgress(0);
     setApplyScannedDate(false);
+    setApplyScannedTime(false);
+    setScoreResolutions({});
   }, [showToast]);
 
   const selectPastedFile = useEffectEvent((image) => {
@@ -264,33 +443,60 @@ export function CedulaScanFlow({
       minMargin: 0.05,
       strongThreshold: 0.82,
     });
-    const usedPlayerIds = new Set();
     const localPool = localPlayers.map(player => ({ player, scanSide: "local" }));
     const visitPool = visitPlayers.map(player => ({ player, scanSide: "visit" }));
-    const players = (rawScan.players || []).map(scannedPlayer => {
-      let side = scannedPlayer.team === "visitor" ? visitorSide : scannedPlayer.team === "local" ? localSide : null;
-      let pool = teamAssignment.ambiguous
-        ? [...localPool, ...visitPool]
-        : side === "local" ? localPool : side === "visit" ? visitPool : [...localPool, ...visitPool];
-      pool = pool.filter(candidate => !usedPlayerIds.has(String(candidate.player.id)));
-      const matched = findBestScanMatch(scannedPlayer.name, pool, candidate => playerName(candidate.player), {
-        threshold: 0.32,
-        minMargin: teamAssignment.ambiguous ? 0.07 : 0.055,
-        strongThreshold: 0.82,
+    const scannedRows = (rawScan.players || []).map((scannedPlayer, index) => ({
+      scannedPlayer,
+      index,
+      side: scannedPlayer.team === "visitor"
+        ? visitorSide
+        : scannedPlayer.team === "local" ? localSide : null,
+    }));
+    const resolvedPlayers = Array(scannedRows.length);
+    const claimedPlayerIds = new Set();
+    const resolveRows = (rows, pool) => {
+      const matches = resolveScannedPlayerMatches(
+        rows.map(row => row.scannedPlayer),
+        pool,
+        {
+          getRowName: row => row.name,
+          getRowDorsal: row => row.jerseyNumber,
+          getCandidateName: candidate => playerName(candidate.player),
+          getCandidateDorsal: candidate => playerDorsal(candidate.player),
+          getCandidateKey: (candidate, candidateIndex) => (
+            `${candidate.scanSide}:${candidate.player.id ?? candidate.player.player_id ?? candidateIndex}`
+          ),
+        },
+      );
+      rows.forEach((row, rowIndex) => {
+        const matchResult = matches[rowIndex];
+        const candidate = matchResult?.matched || null;
+        const candidateId = candidate
+          ? `${candidate.scanSide}:${candidate.player.id ?? candidate.player.player_id ?? `${playerName(candidate.player)}|${playerDorsal(candidate.player)}`}`
+          : "";
+        const conflictsWithResolvedGroup = candidateId && claimedPlayerIds.has(candidateId);
+        if (candidateId && !conflictsWithResolvedGroup) claimedPlayerIds.add(candidateId);
+        resolvedPlayers[row.index] = {
+          ...row.scannedPlayer,
+          side: candidate && (teamAssignment.ambiguous || !row.side)
+            ? candidate.scanSide
+            : row.side,
+          matched: candidate && !conflictsWithResolvedGroup ? candidate.player : null,
+          confidence: candidate && !conflictsWithResolvedGroup ? matchResult.score : 0,
+          matchMethod: candidate && !conflictsWithResolvedGroup ? matchResult.method : null,
+          matchReason: conflictsWithResolvedGroup ? "candidate-conflict" : matchResult?.reason || null,
+        };
       });
-      let matchedPlayer = null;
-      if (matched) {
-        usedPlayerIds.add(String(matched.option.player.id));
-        matchedPlayer = matched.option.player;
-        if (teamAssignment.ambiguous || !side) side = matched.option.scanSide;
-      }
-      return {
-        ...scannedPlayer,
-        side,
-        matched: matchedPlayer,
-        confidence: matched?.score || 0,
-      };
-    });
+    };
+
+    if (teamAssignment.ambiguous) {
+      resolveRows(scannedRows, [...localPool, ...visitPool]);
+    } else {
+      resolveRows(scannedRows.filter(row => row.side === "local"), localPool);
+      resolveRows(scannedRows.filter(row => row.side === "visit"), visitPool);
+      resolveRows(scannedRows.filter(row => !row.side), [...localPool, ...visitPool]);
+    }
+    const players = resolvedPlayers.filter(Boolean);
     const scores = { local: 0, visit: 0 };
     scores[localSide] = Number(rawScan.localTeam?.score) || 0;
     scores[visitorSide] = Number(rawScan.visitorTeam?.score) || 0;
@@ -339,8 +545,11 @@ export function CedulaScanFlow({
   }, [localPlayers, match, rawScan, referees, visitPlayers]);
 
   const scanImage = async () => {
-    if (!file || scanning) return;
+    if (!file || scanInFlightRef.current || Date.now() < cooldownUntilRef.current) return;
+    scanInFlightRef.current = true;
     setApplyScannedDate(false);
+    setApplyScannedTime(false);
+    setScoreResolutions({});
     setScanning(true);
     setScanProgress(6);
     progressTimerRef.current = window.setInterval(() => {
@@ -359,7 +568,23 @@ export function CedulaScanFlow({
       if (prepared.error || !prepared.payload) throw prepared.error || new Error("No se pudo preparar la imagen.");
       const image = prepared.payload;
       setScanProgress(current => Math.max(current, 18));
-      const data = await invokeScanFunction(image, scanContext);
+      const fingerprintContext = {
+        detailVersion: CEDULA_PLAYER_DETAIL_VERSION,
+        matchId: match?.id || match?.match_id || match?.partido_id || "",
+        localTeamId: match?.local?.id || "",
+        visitorTeamId: match?.visitante?.id || "",
+        scanContext,
+      };
+      let fingerprint = "";
+      try {
+        fingerprint = await createCedulaScanFingerprint(image.blob, fingerprintContext);
+      } catch { /* Navegadores antiguos pueden continuar sin cache local. */ }
+      const data = fingerprint
+        ? await getOrCreateCedulaScanRequest(
+          fingerprint,
+          () => invokeScanFunction(image, scanContext),
+        )
+        : await invokeScanFunction(image, scanContext);
       if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -367,6 +592,7 @@ export function CedulaScanFlow({
       await new Promise(resolve => window.setTimeout(resolve, 320));
       setRawScan({ ...emptyScan, ...data.scan });
     } catch (error) {
+      if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds, error.code);
       let message = error?.message || "No se pudo escanear la cedula.";
       if (error?.context) {
         try {
@@ -377,6 +603,7 @@ export function CedulaScanFlow({
       showToast(message, "error");
       setScanProgress(0);
     } finally {
+      scanInFlightRef.current = false;
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
       setScanning(false);
@@ -412,6 +639,7 @@ export function CedulaScanFlow({
   }
 
   if (!rawScan || !interpretation) {
+    const cooldownLabel = formatCooldown(cooldownSeconds);
     return (
       <ScanShell>
         <PanelHeading>
@@ -451,14 +679,18 @@ export function CedulaScanFlow({
           </SecondaryAction>
           <ScanProgressButton
             type="button"
-            disabled={scanning}
+            disabled={scanning || cooldownSeconds > 0}
             onClick={scanImage}
             $scanning={scanning}
             $progress={scanning ? scanProgress : 100}
-            aria-label={scanning ? `Escaneando cedula ${scanProgress}%` : "Escanear cedula"}
+            aria-label={scanning
+              ? `Escaneando cedula ${scanProgress}%`
+              : cooldownSeconds > 0 ? `Reintentar escaneo en ${cooldownLabel}` : "Escanear cedula"}
           >
             <span className="button-content">
-              <RiScan2Line /> {scanning ? `Escaneando ${scanProgress}%` : "Escanear"}
+              <RiScan2Line /> {scanning
+                ? `Escaneando ${scanProgress}%`
+                : cooldownSeconds > 0 ? `Reintentar en ${cooldownLabel}` : "Escanear"}
             </span>
           </ScanProgressButton>
         </ChoiceRow>
@@ -466,7 +698,31 @@ export function CedulaScanFlow({
     );
   }
 
-  const unlinkedPlayers = interpretation.players.filter(player => !player.matched).length;
+  const teamsWithoutMatchedPlayers = interpretation.teams.filter(team => (
+    Number(interpretation.scores[team.side]) > 0
+    && !interpretation.players.some(player => player.side === team.side && player.matched)
+  ));
+  const automaticallyUnassignedSides = new Set(
+    teamsWithoutMatchedPlayers.map(team => team.side),
+  );
+  const unlinkedPlayers = interpretation.players.filter(
+    player => !player.matched && !automaticallyUnassignedSides.has(player.side),
+  ).length;
+  const uncertainGoalRows = interpretation.players.filter(player => (
+    player.goalsLegible === false || player.goalsConfidence === "low"
+  ));
+  const scoreDiscrepancies = getCedulaScoreDiscrepancies(
+    interpretation.scores,
+    interpretation.players,
+  );
+  const hasUnresolvedScores = scoreDiscrepancies.some(
+    discrepancy => !scoreResolutions[discrepancy.side],
+  );
+  const resolvedScores = resolveCedulaScores(
+    interpretation.scores,
+    interpretation.players,
+    scoreResolutions,
+  );
   const interpretedPlayerGroups = [
     {
       side: "local",
@@ -490,6 +746,28 @@ export function CedulaScanFlow({
     });
   }
   const dateReview = getScannedDateReview(currentDate, interpretation.date, applyScannedDate);
+  const normalizedCurrentTime = normalizeScannedTime(currentTime);
+  const normalizedScannedTime = normalizeScannedTime(interpretation.time);
+  const timesMatch = Boolean(normalizedCurrentTime)
+    && Boolean(normalizedScannedTime)
+    && normalizedCurrentTime === normalizedScannedTime;
+  const canApplyScannedDate = dateReview.hasValidScannedDate && !dateReview.datesMatch;
+  const canApplyScannedTime = Boolean(normalizedScannedTime) && !timesMatch;
+  const hasDetectedScheduleChange = canApplyScannedDate || canApplyScannedTime;
+  const dateResultLabel = dateReview.hasValidScannedDate
+    ? dateReview.datesMatch
+      ? `${dateReview.normalizedScannedDate} · coincide`
+      : applyScannedDate
+      ? `${dateReview.normalizedScannedDate} · se aplicará`
+      : `${dateReview.normalizedCurrentDate || "Sin fecha actual"} · se conserva`
+    : dateReview.normalizedCurrentDate || "Sin detectar";
+  const timeResultLabel = normalizedScannedTime
+    ? timesMatch
+      ? `${normalizedScannedTime} · coincide`
+      : applyScannedTime
+      ? `${normalizedScannedTime} · se aplicará`
+      : `${normalizedCurrentTime || "Sin hora actual"} · se conserva`
+    : normalizedCurrentTime || "Sin detectar";
   return (
     <ScanShell>
       <PanelHeading>
@@ -512,13 +790,20 @@ export function CedulaScanFlow({
             {(rawScan.players || []).map((player, index) => {
               const hasMatch = Boolean(interpretation.players[index]?.matched);
               const scannedName = player.name || "Nombre ilegible";
+              const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
               return (
-                <li key={`${player.name}-${index}`} className={!hasMatch ? "no-match" : ""}>
+                <li
+                  key={`${player.name}-${index}`}
+                  className={`${!hasMatch ? "no-match" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
+                >
                   <div className="player-copy">
-                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}</span>
+                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
                     {!hasMatch && <small>Leído como: {scannedName}</small>}
+                    {needsGoalReview && <small>Goles dudosos: {player.goalEvidence || "celda poco legible"}</small>}
                   </div>
-                  <small className="player-stats">{player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR</small>
+                  <small className="player-stats" title={player.goalEvidence || undefined}>
+                    {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
+                  </small>
                 </li>
               );
             })}
@@ -529,21 +814,41 @@ export function CedulaScanFlow({
           <DataRow label="Local" value={`${match?.local?.name || "Local"} · ${interpretation.scores.local}`} />
           <DataRow label="Visitante" value={`${match?.visitante?.name || "Visitante"} · ${interpretation.scores.visit}`} />
           <DataRow label="Arbitro" value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"} warning={!interpretation.referee && Boolean(rawScan.referee)} />
-          <DataRow label="Fecha" value={dateReview.label} />
-          <DataRow label="Hora" value={interpretation.time || "Sin detectar"} />
-          {dateReview.canReplaceDate && (
-            <DateApplyToggle>
-              <input
-                id="apply-scanned-date"
-                type="checkbox"
-                checked={applyScannedDate}
-                onChange={event => setApplyScannedDate(event.target.checked)}
-              />
-              <label htmlFor="apply-scanned-date">
-                <strong>Reemplazar fecha actual</strong>
-                <span>Usar {dateReview.normalizedScannedDate} en lugar de {dateReview.normalizedCurrentDate}</span>
-              </label>
-            </DateApplyToggle>
+          <DataRow label="Fecha" value={dateResultLabel} />
+          <DataRow label="Hora" value={timeResultLabel} />
+          {hasDetectedScheduleChange && (
+            <ScheduleOptions aria-label="Programación detectada en la cédula">
+              <strong className="schedule-title">Aplicar programación detectada</strong>
+              <span className="schedule-help">Opcional. Los datos actuales se conservarán si no seleccionas estas opciones.</span>
+              {canApplyScannedDate && (
+                <ScheduleApplyToggle>
+                  <input
+                    id="apply-scanned-date"
+                    type="checkbox"
+                    checked={applyScannedDate}
+                    onChange={event => setApplyScannedDate(event.target.checked)}
+                  />
+                  <label htmlFor="apply-scanned-date">
+                    <strong>Usar fecha detectada</strong>
+                    <span>{dateReview.normalizedScannedDate}</span>
+                  </label>
+                </ScheduleApplyToggle>
+              )}
+              {canApplyScannedTime && (
+                <ScheduleApplyToggle>
+                  <input
+                    id="apply-scanned-time"
+                    type="checkbox"
+                    checked={applyScannedTime}
+                    onChange={event => setApplyScannedTime(event.target.checked)}
+                  />
+                  <label htmlFor="apply-scanned-time">
+                    <strong>Usar hora detectada</strong>
+                    <span>{normalizedScannedTime}</span>
+                  </label>
+                </ScheduleApplyToggle>
+              )}
+            </ScheduleOptions>
           )}
           <DataRow
             label="Resolucion"
@@ -570,18 +875,23 @@ export function CedulaScanFlow({
                       const scannedName = player.name || "Nombre ilegible";
                       const showScannedName = registeredName
                         && normalizeScanName(registeredName) !== normalizeScanName(scannedName);
+                      const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
                       return (
-                        <li key={`${group.side}-${player.matched?.id || player.name}-${index}`} className={!player.matched ? "unlinked" : ""}>
+                        <li
+                          key={`${group.side}-${player.matched?.id || player.name}-${index}`}
+                          className={`${!player.matched ? "unlinked" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
+                        >
                           <div className="player-copy">
-                            <span>{registeredName || "Ninguna coincidencia"}</span>
+                            <span>{registeredName || "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
                             {showScannedName && <small>Leído como: {scannedName}</small>}
                             {!registeredName && <small className="match-status">Leído como: {scannedName}</small>}
+                            {needsGoalReview && <small className="goal-status">Revisar GOL: {player.goalEvidence || "celda poco legible"}</small>}
                           </div>
                           <small
                             className="player-stats"
-                            title={!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined}
+                            title={player.goalEvidence || (!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined)}
                           >
-                            {player.goals || 0} G · {player.yellowCards || 0} TA · {player.redCards || 0} TR
+                            {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
                           </small>
                         </li>
                       );
@@ -595,6 +905,77 @@ export function CedulaScanFlow({
           </PlayerGroups>
         </DataColumn>
       </ComparisonGrid>
+      {scoreDiscrepancies.length > 0 && (
+        <ScoreDiscrepancyPanel aria-labelledby="score-discrepancy-title">
+          <ScoreDiscrepancyHeading>
+            <RiErrorWarningLine aria-hidden="true" />
+            <div>
+              <strong id="score-discrepancy-title">El marcador y los goles individuales no coinciden</strong>
+              <span>Elige cómo guardar el resultado de cada equipo antes de aplicar el escaneo.</span>
+            </div>
+          </ScoreDiscrepancyHeading>
+          <ScoreConflictList>
+            {scoreDiscrepancies.map(discrepancy => {
+              const teamName = discrepancy.side === "local"
+                ? match?.local?.name || "Local"
+                : match?.visitante?.name || "Visitante";
+              const teamScoreIsHigher = discrepancy.teamScore > discrepancy.playerScore;
+              return (
+                <ScoreConflict key={discrepancy.side}>
+                  <ScoreConflictSummary>
+                    <strong>{teamName}</strong>
+                    <span>Marcador: {discrepancy.teamScore} · Desglose de jugadores: {discrepancy.playerScore}</span>
+                  </ScoreConflictSummary>
+                  <ScoreResolutionOptions role="radiogroup" aria-label={`Resolver goles de ${teamName}`}>
+                    <ScoreResolutionOption $selected={scoreResolutions[discrepancy.side] === "team"}>
+                      <input
+                        type="radio"
+                        name={`score-resolution-${discrepancy.side}`}
+                        value="team"
+                        checked={scoreResolutions[discrepancy.side] === "team"}
+                        onChange={() => setScoreResolutions(current => ({
+                          ...current,
+                          [discrepancy.side]: "team",
+                        }))}
+                      />
+                      <span>
+                        <strong>Usar marcador del equipo: {discrepancy.teamScore}</strong>
+                        <small>{teamScoreIsHigher
+                          ? `${discrepancy.difference} ${discrepancy.difference === 1 ? "gol quedará" : "goles quedarán"} sin asignar a un jugador.`
+                          : `${discrepancy.difference} ${discrepancy.difference === 1 ? "gol individual excedente no se aplicará" : "goles individuales excedentes no se aplicarán"}; revisa el reparto en Planteles.`}</small>
+                      </span>
+                    </ScoreResolutionOption>
+                    <ScoreResolutionOption $selected={scoreResolutions[discrepancy.side] === "players"}>
+                      <input
+                        type="radio"
+                        name={`score-resolution-${discrepancy.side}`}
+                        value="players"
+                        checked={scoreResolutions[discrepancy.side] === "players"}
+                        onChange={() => setScoreResolutions(current => ({
+                          ...current,
+                          [discrepancy.side]: "players",
+                        }))}
+                      />
+                      <span>
+                        <strong>Usar desglose de jugadores: {discrepancy.playerScore}</strong>
+                        <small>El marcador del partido se ajustará a la suma de los goles individuales.</small>
+                      </span>
+                    </ScoreResolutionOption>
+                  </ScoreResolutionOptions>
+                </ScoreConflict>
+              );
+            })}
+          </ScoreConflictList>
+        </ScoreDiscrepancyPanel>
+      )}
+      {teamsWithoutMatchedPlayers.map(team => {
+        const teamScore = Number(interpretation.scores[team.side]) || 0;
+        return (
+          <ReviewNotice $tone="warning" key={`unassigned-${team.side}`}>
+            Ningún nombre escaneado de {team.name} coincide con su plantel. Se conservará el marcador de {teamScore} {teamScore === 1 ? "gol" : "goles"}; los goles sin una coincidencia quedarán como no asignados.
+          </ReviewNotice>
+        );
+      })}
       {interpretation.teamAssignment.swapped && !interpretation.teamAssignment.ambiguous && (
         <ReviewNotice>El orden de la cedula esta invertido respecto al partido. Cada marcador se conservo junto al nombre de su equipo.</ReviewNotice>
       )}
@@ -606,17 +987,28 @@ export function CedulaScanFlow({
           {unlinkedPlayers} {unlinkedPlayers === 1 ? "nombre detectado no tiene" : "nombres detectados no tienen"} un jugador equivalente en el plantel registrado. El marcador se conservara; sus estadisticas individuales quedaran sin asignar.
         </ReviewNotice>
       )}
+      {uncertainGoalRows.length > 0 && (
+        <ReviewNotice $tone="warning">
+          {uncertainGoalRows.length} {uncertainGoalRows.length === 1 ? "fila tiene" : "filas tienen"} la celda GOL poco legible. No se inventaron goles para esas filas; revisa la imagen antes de aplicar.
+        </ReviewNotice>
+      )}
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>
         <PrimaryAction
           type="button"
+          disabled={hasUnresolvedScores}
+          title={hasUnresolvedScores ? "Resuelve las diferencias de goles antes de continuar" : undefined}
           onClick={() => onApply({
             ...interpretation,
-            applyDate: dateReview.hasValidScannedDate
-              && (!dateReview.hasExistingDate || (dateReview.canReplaceDate && applyScannedDate)),
+            scores: resolvedScores,
+            scoreResolutions,
+            date: dateReview.normalizedScannedDate,
+            time: normalizedScannedTime,
+            applyDate: canApplyScannedDate && applyScannedDate,
+            applyTime: canApplyScannedTime && applyScannedTime,
           })}
         >
-          Aplicar escaneo
+          {hasUnresolvedScores ? "Elige cómo guardar los goles" : "Aplicar escaneo"}
         </PrimaryAction>
       </ChoiceRow>
     </ScanShell>
@@ -678,8 +1070,13 @@ const ScanDataRow = styled.div`
   display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid ${({theme})=>theme.bg4};font-size:.86rem;
   span{opacity:.68;} strong{font-weight:700;overflow-wrap:anywhere;color:${({$warning})=>$warning ? v.rojo : "inherit"};}
 `;
-const DateApplyToggle = styled.div`
-  display:flex;align-items:flex-start;gap:10px;margin-top:10px;padding:10px;border-radius:10px;background:${({theme})=>theme.bg3};
+const ScheduleOptions = styled.fieldset`
+  display:flex;flex-direction:column;gap:8px;min-width:0;margin:12px 0 0;padding:11px;border:1px solid ${({theme})=>theme.bg4};border-radius:10px;background:${({theme})=>theme.bg3};color:inherit;
+  .schedule-title{font-size:.82rem;line-height:1.35;}
+  .schedule-help{font-size:.74rem;line-height:1.4;opacity:.72;}
+`;
+const ScheduleApplyToggle = styled.div`
+  display:flex;align-items:flex-start;gap:10px;padding:8px;border-radius:8px;background:${({theme})=>theme.bgcards};
   input{width:18px;height:18px;margin:1px 0 0;accent-color:${v.colorPrincipal};cursor:pointer;flex:0 0 auto;}
   label{display:flex;flex-direction:column;gap:2px;cursor:pointer;font-size:.82rem;line-height:1.35;}
   label strong{font-weight:750;}label span{opacity:.7;}
@@ -689,9 +1086,11 @@ const PlayerList = styled.ul`
   list-style:none;margin:12px 0 0;padding:0;max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:4px;
   li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:${({theme})=>theme.bg3};font-size:.82rem;}
   li.no-match{color:${v.rojo};}
+  li.goal-review{background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}12`};}
   .player-copy{display:flex;flex-direction:column;min-width:0;line-height:1.3;}
   .player-copy span{font-weight:650;}
   .player-copy small{white-space:normal;font-size:.7rem;opacity:.82;}
+  .player-copy .goal-status{color:${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};font-weight:650;opacity:1;}
   span{min-width:0;overflow-wrap:anywhere;} small{white-space:nowrap;opacity:.7;}
   .player-stats{flex:0 0 auto;}
 `;
@@ -722,4 +1121,33 @@ const ReviewNotice = styled.p`
     ? `${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}18`
     : `${v.rojo}14`};
   color:${({theme})=>theme.text};font-size:.84rem;line-height:1.4;
+`;
+const ScoreDiscrepancyPanel = styled.section`
+  overflow:hidden;border:1px solid ${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};border-radius:12px;background:${({theme})=>theme.bgcards};
+`;
+const ScoreDiscrepancyHeading = styled.div`
+  display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}18`};
+  >svg{flex:0 0 auto;margin-top:2px;font-size:1.1rem;color:${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};}
+  >div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  strong{font-size:.9rem;line-height:1.35;}span{font-size:.78rem;line-height:1.4;opacity:.78;}
+`;
+const ScoreConflictList = styled.div`display:flex;flex-direction:column;`;
+const ScoreConflict = styled.div`
+  display:grid;grid-template-columns:minmax(180px,.72fr) minmax(0,1.6fr);gap:14px;padding:14px;
+  &+&{border-top:1px solid ${({theme})=>theme.bg4};}
+  @media(max-width:700px){grid-template-columns:1fr;gap:10px;}
+`;
+const ScoreConflictSummary = styled.div`
+  display:flex;flex-direction:column;gap:4px;align-self:start;
+  strong{font-size:.88rem;}span{font-size:.78rem;line-height:1.4;opacity:.74;}
+`;
+const ScoreResolutionOptions = styled.div`display:flex;flex-direction:column;gap:7px;`;
+const ScoreResolutionOption = styled.label`
+  display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border:1px solid ${({theme,$selected})=>$selected ? v.colorPrincipal : theme.bg4};border-radius:9px;background:${({theme,$selected})=>$selected ? `${v.colorPrincipal}12` : theme.bg3};cursor:pointer;transition:border-color 180ms ease-out,background-color 180ms ease-out;
+  input{width:17px;height:17px;margin:1px 0 0;accent-color:${v.colorPrincipal};flex:0 0 auto;cursor:pointer;}
+  >span{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  strong{font-size:.8rem;line-height:1.35;}small{font-size:.73rem;line-height:1.4;opacity:.74;}
+  &:hover{border-color:${v.colorPrincipal};}
+  &:focus-within{outline:3px solid ${v.colorPrincipal}33;outline-offset:2px;}
+  @media(prefers-reduced-motion:reduce){transition:none;}
 `;

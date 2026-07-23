@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-19T09:05:32.360672+00:00",
+  "generated_at": "2026-07-20T00:06:22.353797+00:00",
   "nodes": {
     "src_components_organismos_tabs_torneos_subcomponents_fixturepreviewmodal": {
       "code_fingerprint": "df0c1dd1b0ec0d2800629057781f23319e6042c10bae79f11240a53dea5d096c",
@@ -12,58 +12,87 @@
           "q": "Listo, ahora precisa mas el boton de Auto-correjir para que las corrija cuando si sea posible acomodando los partidos para que no se jueguen partidos repetidos en diferentes jornadas, etc"
         }
       ],
-      "score": 0.999595737,
+      "score": 0.985251559,
       "source_file": "src/components/organismos/tabs/torneos/subcomponents/FixturePreviewModal.jsx",
       "status": "tentative",
       "uses": 1
     },
     "src_hooks_usefixturepreview": {
-      "code_fingerprint": "d699c8b02889d8545b515f7a0ca6ca7e1315e41fea7b72184894c802b26eceb8",
+      "code_fingerprint": "26184f7513e53ee38010d79ac789412bffef3b1e658442bc0809a3545bd24704",
       "label": "useFixturePreview.js",
-      "last": "2026-07-19T08:40:20.326849+00:00",
+      "last": "2026-07-19T09:18:13.936975+00:00",
       "provenance": [
+        {
+          "date": "2026-07-19T09:18:13.936975+00:00",
+          "outcome": "useful",
+          "q": "Analiza fixtureAutoCorrection y propone un algoritmo robusto para K18 con dos jornadas confirmadas y una escaneada"
+        },
         {
           "date": "2026-07-19T08:40:20.326849+00:00",
           "outcome": "useful",
           "q": "Listo, ahora precisa mas el boton de Auto-correjir para que las corrija cuando si sea posible acomodando los partidos para que no se jueguen partidos repetidos en diferentes jornadas, etc"
         }
       ],
-      "score": 0.999595737,
+      "score": 1.971102338,
       "source_file": "src/hooks/useFixturePreview.js",
-      "status": "tentative",
-      "uses": 1
+      "status": "preferred",
+      "uses": 2
     },
     "src_utils_fixturealgorithms_autocorregirfixture": {
       "code_fingerprint": "6553c4c89886e66e872105e97d948a8ee2f992cd2807d2d871a2f3e30521c68a",
       "label": "autoCorregirFixture()",
-      "last": "2026-07-19T08:40:20.326849+00:00",
+      "last": "2026-07-19T09:26:04.374857+00:00",
+      "neg": 1,
       "provenance": [
+        {
+          "date": "2026-07-19T09:26:04.374857+00:00",
+          "outcome": "corrected",
+          "q": "Sigue igual, si lo hubiera hecho manual no habria error"
+        },
+        {
+          "date": "2026-07-19T09:18:13.936975+00:00",
+          "outcome": "useful",
+          "q": "Analiza fixtureAutoCorrection y propone un algoritmo robusto para K18 con dos jornadas confirmadas y una escaneada"
+        },
         {
           "date": "2026-07-19T08:40:20.326849+00:00",
           "outcome": "useful",
           "q": "Listo, ahora precisa mas el boton de Auto-correjir para que las corrija cuando si sea posible acomodando los partidos para que no se jueguen partidos repetidos en diferentes jornadas, etc"
         }
       ],
-      "score": 0.999595737,
+      "score": 0.985127528,
       "source_file": "src/utils/fixtureAlgorithms.js",
-      "status": "tentative",
-      "uses": 1
+      "status": "contested",
+      "uses": 2,
+      "verdict": "useful"
     },
     "src_utils_fixturealgorithms_validarfixture": {
       "code_fingerprint": "6553c4c89886e66e872105e97d948a8ee2f992cd2807d2d871a2f3e30521c68a",
       "label": "validarFixture()",
-      "last": "2026-07-19T08:40:20.326849+00:00",
+      "last": "2026-07-19T09:26:04.374857+00:00",
+      "neg": 1,
       "provenance": [
+        {
+          "date": "2026-07-19T09:26:04.374857+00:00",
+          "outcome": "corrected",
+          "q": "Sigue igual, si lo hubiera hecho manual no habria error"
+        },
+        {
+          "date": "2026-07-19T09:18:13.936975+00:00",
+          "outcome": "useful",
+          "q": "Analiza fixtureAutoCorrection y propone un algoritmo robusto para K18 con dos jornadas confirmadas y una escaneada"
+        },
         {
           "date": "2026-07-19T08:40:20.326849+00:00",
           "outcome": "useful",
           "q": "Listo, ahora precisa mas el boton de Auto-correjir para que las corrija cuando si sea posible acomodando los partidos para que no se jueguen partidos repetidos en diferentes jornadas, etc"
         }
       ],
-      "score": 0.999595737,
+      "score": 0.985127528,
       "source_file": "src/utils/fixtureAlgorithms.js",
-      "status": "tentative",
-      "uses": 1
+      "status": "contested",
+      "uses": 2,
+      "verdict": "useful"
     }
   },
   "version": 1

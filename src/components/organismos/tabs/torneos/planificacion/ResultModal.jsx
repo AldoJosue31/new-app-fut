@@ -12,6 +12,7 @@ import { supabase } from "../../../../../supabase/supabase.config";
 import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
+import { reconcileRostersToScores } from "../../../../../utils/cedulaScoreResolution";
 
 // Componentes Modularizados
 import { ScoreHeader } from "./result_modal_components/ScoreHeader";
@@ -593,29 +594,26 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
     let nextLocal = makeScannedRoster("local", "l");
     let nextVisit = makeScannedRoster("visit", "v");
-    const assignedLocalScore =
-      nextLocal.reduce((total, player) => total + toStatNumber(player.goals), 0) +
-      nextVisit.reduce((total, player) => total + toStatNumber(player.ownGoals), 0);
-    const assignedVisitScore =
-      nextVisit.reduce((total, player) => total + toStatNumber(player.goals), 0) +
-      nextLocal.reduce((total, player) => total + toStatNumber(player.ownGoals), 0);
+    const scoreReconciliation = reconcileRostersToScores(nextLocal, nextVisit, scan.scores);
+    nextLocal = scoreReconciliation.localRoster;
+    nextVisit = scoreReconciliation.visitRoster;
 
     nextLocal = addUnassignedGoalsToRoster(
       nextLocal,
-      Math.max(0, toStatNumber(scan.scores?.local) - assignedLocalScore),
+      scoreReconciliation.unassignedGoals.local,
       "l-scan"
     );
     nextVisit = addUnassignedGoalsToRoster(
       nextVisit,
-      Math.max(0, toStatNumber(scan.scores?.visit) - assignedVisitScore),
+      scoreReconciliation.unassignedGoals.visit,
       "v-scan"
     );
 
     setRosterLocal(nextLocal);
     setRosterVisit(nextVisit);
     if (scan.referee?.id) setSelectedReferee(scan.referee.id);
-    if (scan.applyDate !== false && /^\d{4}-\d{2}-\d{2}$/.test(scan.date || "")) setMatchDate(scan.date);
-    if (/^\d{2}:\d{2}$/.test(scan.time || "")) setMatchTime(scan.time);
+    if (scan.applyDate === true && /^\d{4}-\d{2}-\d{2}$/.test(scan.date || "")) setMatchDate(scan.date);
+    if (scan.applyTime === true && /^\d{2}:\d{2}$/.test(scan.time || "")) setMatchTime(scan.time);
     if (scan.observations) {
       setManualObservations(current => [current.trim(), scan.observations.trim()].filter(Boolean).join(" | "));
     }
@@ -634,16 +632,32 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setWoWinnerId(scannedWalkover ? scannedWinnerId : null);
     setActiveTab("general");
     setShowCedulaScanner(false);
+    const detectedScheduleCount = [
+      /^\d{4}-\d{2}-\d{2}$/.test(scan.date || "") && scan.date !== matchDate,
+      /^\d{2}:\d{2}$/.test(scan.time || "") && scan.time !== matchTime,
+    ].filter(Boolean).length;
+    const appliedScheduleCount = [scan.applyDate === true, scan.applyTime === true].filter(Boolean).length;
+    const scheduleMessage = detectedScheduleCount === 0
+      ? ""
+      : appliedScheduleCount === 0
+        ? " La programación detectada no se aplicó."
+        : appliedScheduleCount < detectedScheduleCount
+          ? " Solo se aplicaron los campos de programación seleccionados."
+          : " La programación seleccionada fue aplicada.";
     setToastConfig({
       show: true,
-      message: scannedWalkover
+      message: (scannedWalkover
         ? scannedWinnerId
           ? "W.O. detectado y aplicado. Revisa la victoria por default antes de guardar."
           : "Se detecto un W.O., pero debes elegir al ganador en General."
-        : "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.",
+        : "Datos de la cedula aplicados. Revisa el resultado antes de guardarlo.")
+        + (Object.keys(scan.scoreResolutions || {}).length
+          ? " Las diferencias de goles se resolvieron según tu selección."
+          : "")
+        + scheduleMessage,
       type: scannedWalkover && !scannedWinnerId ? "warning" : "success"
     });
-  }, [match, minPlayers]);
+  }, [match, matchDate, matchTime, minPlayers]);
 
   const handleFinalSave = async () => {
     if (isSavingRef.current) return;
@@ -754,6 +768,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             localPlayers={localPlayers}
             visitPlayers={visitPlayers}
             currentDate={matchDate}
+            currentTime={matchTime}
             onBack={() => setShowCedulaScanner(false)}
             onApply={handleApplyCedulaScan}
             showToast={(message, type = "error") => setToastConfig({ show: true, message, type })}
