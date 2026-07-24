@@ -610,6 +610,43 @@ export function CedulaScanFlow({
     }
   };
 
+  const startScanFromKeyboard = useEffectEvent(() => {
+    void scanImage();
+  });
+
+  useEffect(() => {
+    if (!file || rawScan) return undefined;
+
+    const handleEnterToScan = (event) => {
+      if (
+        event.key !== "Enter"
+        || event.repeat
+        || event.isComposing
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.shiftKey
+        || event.defaultPrevented
+        || scanInFlightRef.current
+        || Date.now() < cooldownUntilRef.current
+      ) return;
+
+      const target = event.target;
+      const interactiveTarget = target instanceof HTMLElement
+        && (
+          target.isContentEditable
+          || ["BUTTON", "INPUT", "SELECT", "TEXTAREA", "A"].includes(target.tagName)
+        );
+      if (interactiveTarget) return;
+
+      event.preventDefault();
+      startScanFromKeyboard();
+    };
+
+    window.addEventListener("keydown", handleEnterToScan);
+    return () => window.removeEventListener("keydown", handleEnterToScan);
+  }, [file, rawScan]);
+
   if (!file) {
     return (
       <ScanShell>
@@ -674,6 +711,11 @@ export function CedulaScanFlow({
           )}
         </PreviewFrame>
         <ChoiceRow>
+          {!coarseDevice && !scanning && cooldownSeconds === 0 && (
+            <ScanShortcut aria-hidden="true">
+              Presiona <kbd>Enter</kbd> para escanear
+            </ScanShortcut>
+          )}
           <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setRawScan(null); }}>
             <RiRefreshLine /> Cambiar foto
           </SecondaryAction>
@@ -681,6 +723,7 @@ export function CedulaScanFlow({
             type="button"
             disabled={scanning || cooldownSeconds > 0}
             onClick={scanImage}
+            aria-keyshortcuts="Enter"
             $scanning={scanning}
             $progress={scanning ? scanProgress : 100}
             aria-label={scanning
@@ -1019,7 +1062,16 @@ function DataRow({ label, value, warning = false }) {
   return <ScanDataRow $warning={warning}><span>{label}</span><strong>{value}</strong></ScanDataRow>;
 }
 
-const ScanShell = styled.section`display:flex;flex-direction:column;gap:18px;min-height:420px;`;
+const ScanShell = styled.section`
+  display:flex;
+  flex:1;
+  flex-direction:column;
+  gap:18px;
+  min-height:min(660px, calc(100dvh - 150px));
+  @media(max-width:700px){
+    min-height:min(620px, calc(100dvh - 132px));
+  }
+`;
 const PanelHeading = styled.div`
   display:flex;align-items:flex-start;gap:12px;
   button{width:36px;height:36px;display:grid;place-items:center;border:1px solid ${({theme})=>theme.bg4};border-radius:10px;background:transparent;color:${({theme})=>theme.text};cursor:pointer;font-size:1.1rem;}
@@ -1028,11 +1080,34 @@ const PanelHeading = styled.div`
   h4,p{margin:0;} h4{font-size:1.05rem;} p{margin-top:4px;opacity:.72;line-height:1.45;}
 `;
 const UploadZone = styled.button`
-  width:100%;min-height:250px;border:2px dashed ${({theme})=>theme.bg4};border-radius:14px;background:${({theme})=>theme.bg3};color:${({theme})=>theme.text};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;
+  width:100%;min-height:clamp(320px,52vh,560px);flex:1;border:2px dashed ${({theme})=>theme.bg4};border-radius:14px;background:${({theme})=>theme.bg3};color:${({theme})=>theme.text};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;
   svg{font-size:2rem;color:${v.colorPrincipal};} strong{font-size:1rem;} span{font-size:.82rem;opacity:.7;}
   &:hover{border-color:${v.colorPrincipal};} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
 `;
 const ChoiceRow = styled.div`display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;`;
+const ScanShortcut = styled.span`
+  align-self:center;
+  margin-right:auto;
+  color:${({theme})=>theme.text};
+  font-size:.78rem;
+  opacity:.68;
+  kbd{
+    display:inline-flex;
+    min-width:26px;
+    min-height:24px;
+    align-items:center;
+    justify-content:center;
+    margin:0 3px;
+    padding:2px 7px;
+    border:1px solid ${({theme})=>theme.bg4};
+    border-radius:6px;
+    background:${({theme})=>theme.bg3};
+    color:${({theme})=>theme.text};
+    font:inherit;
+    font-weight:750;
+    opacity:1;
+  }
+`;
 const Action = styled.button`
   min-height:40px;padding:9px 16px;border-radius:10px;font:inherit;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
   &:disabled{cursor:wait;opacity:.62;} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
@@ -1050,8 +1125,9 @@ const ScanProgressButton = styled(Action)`
 const scanSweep = keyframes`0%{transform:translateY(-56px);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateY(calc(100% + 8px));opacity:0;}`;
 const statusPulse = keyframes`0%,100%{opacity:.82;}50%{opacity:1;}`;
 const PreviewFrame = styled.div`
-  position:relative;height:min(52vh,480px);border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
+  position:relative;height:clamp(420px,62vh,650px);flex:1;border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
   img{width:100%;height:100%;object-fit:contain;}
+  @media(max-width:700px){height:min(58vh,560px);min-height:320px;}
 `;
 const PreviewFallback = styled.div`
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:#fff;

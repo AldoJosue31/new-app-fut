@@ -11,6 +11,7 @@ import {
   RiTrophyLine,
 } from "react-icons/ri";
 import { v } from "../../../styles/variables";
+import { Skeleton } from "../../atomos/Skeleton";
 import { DynamicTeamLogo } from "./DynamicTeamLogo";
 
 const fadeIn = keyframes`
@@ -236,6 +237,25 @@ function TeamCardComponent({
 }
 
 export const TeamCard = memo(TeamCardComponent);
+
+export const TeamCardSkeleton = () => (
+  <SkeletonContainer aria-hidden="true">
+    <div className="header-sk">
+      <Skeleton width="100%" height="100%" radius="0" />
+      <div className="logo-sk">
+        <Skeleton type="circle" width="85px" height="85px" />
+      </div>
+    </div>
+    <div className="body-sk">
+      <Skeleton width="70%" height="20px" />
+      <div className="delegate-sk">
+        <Skeleton type="circle" width="14px" height="14px" />
+        <Skeleton width="52%" height="14px" />
+      </div>
+      <Skeleton width="62%" height="12px" />
+    </div>
+  </SkeletonContainer>
+);
 
 const CardContainer = styled.div`
   width: 250px;
@@ -499,6 +519,45 @@ const StatusBadge = styled.div`
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
+  }
+`;
+
+const SkeletonContainer = styled.div`
+  width: 250px;
+  height: 260px;
+  background-color: ${({ theme }) => theme.bgtotal};
+  border: 1px solid ${({ theme }) => theme.bg4};
+  border-radius: 16px;
+  overflow: hidden;
+
+  .header-sk {
+    height: 110px;
+    position: relative;
+  }
+
+  .logo-sk {
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid ${({ theme }) => theme.bgtotal};
+    border-radius: 50%;
+  }
+
+  .body-sk {
+    padding: 40px 15px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .delegate-sk {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
   }
 `;
 

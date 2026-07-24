@@ -23,7 +23,10 @@ import { BtnNormal } from "../moleculas/BtnNormal";
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { Skeleton } from "../atomos/Skeleton";
 import { Toast } from "../atomos/Toast";
-import { TeamCard } from "../organismos/equipos/TeamCard";
+import {
+  TeamCard,
+  TeamCardSkeleton,
+} from "../organismos/equipos/TeamCard";
 import { TeamForm } from "../organismos/formularios/TeamForm";
 import { TeamTransferModal } from "../organismos/equipos/TeamTransferModal";
 import { ActiveDelegateInvitationsModal } from "../organismos/equipos/ActiveDelegateInvitationsModal";
@@ -96,6 +99,8 @@ export const EquiposTemplate = ({
   onTeamTransferred,
   tabs,
   participatingIds = [],
+  participationLoading = false,
+  delegateBindingsLoading = false,
   state,
   setState,
   accessRole,
@@ -164,6 +169,7 @@ export const EquiposTemplate = ({
   const [isInvitePanelActive, setIsInvitePanelActive] = useState(false);
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
   const [delegateInvitations, setDelegateInvitations] = useState([]);
+  const [invitationsResolvedKey, setInvitationsResolvedKey] = useState("");
   const [invitationStatusClock, setInvitationStatusClock] = useState(() => Date.now());
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [invitationsError, setInvitationsError] = useState("");
@@ -181,6 +187,7 @@ export const EquiposTemplate = ({
   const teamGridReadyFrameRef = useRef(null);
   const teamGridCleanupTimeoutRef = useRef(null);
   const teamGridLayersReadyRef = useRef(false);
+  const invitationRequestSequenceRef = useRef(0);
   const { divisiones } = useDivisionStore();
 
   useEffect(() => {
@@ -203,6 +210,35 @@ export const EquiposTemplate = ({
     [participatingIds]
   );
   const orderedTeams = useMemo(() => orderTeamsOnlyWhenNeeded(equipos), [equipos]);
+  const visibleTeamIdsKey = useMemo(
+    () =>
+      JSON.stringify(
+        [...new Set((equipos || []).map((team) => team?.id).filter(Boolean))]
+      ),
+    [equipos]
+  );
+  const visibleTeamIds = useMemo(
+    () => JSON.parse(visibleTeamIdsKey),
+    [visibleTeamIdsKey]
+  );
+  const invitationsRequestKey =
+    !isDelegateView && !loading && visibleTeamIds.length > 0
+      ? `${visibleDivisionId || "all"}:${visibleTeamIdsKey}`
+      : "";
+  const invitationsInitialLoading = Boolean(
+    invitationsRequestKey && invitationsResolvedKey !== invitationsRequestKey
+  );
+  const hasTeams = orderedTeams.length > 0;
+  const teamCardsLoading =
+    loading ||
+    (hasTeams &&
+      (participationLoading ||
+        delegateBindingsLoading ||
+        requestSummariesLoading ||
+        invitationsInitialLoading));
+  const allTeamsStatLoading = loading;
+  const competitionStatLoading = loading || (hasTeams && participationLoading);
+  const delegateStatsLoading = loading || (hasTeams && delegateBindingsLoading);
   const participatingTeamCount = useMemo(
     () =>
       orderedTeams.reduce(
@@ -251,10 +287,6 @@ export const EquiposTemplate = ({
     () => `${teamFilter}:${filteredTeams.map((team) => team.id).join(",")}`,
     [filteredTeams, teamFilter]
   );
-  const visibleTeamIds = useMemo(
-    () => (equipos || []).map((team) => team.id).filter(Boolean),
-    [equipos]
-  );
   const teamsWithPendingInvitation = useMemo(() => {
     const pendingTeamIds = new Set();
 
@@ -275,6 +307,15 @@ export const EquiposTemplate = ({
   }, [delegateInvitations, invitationStatusClock]);
 
   const loadDelegateInvitations = useCallback(async ({ silent = false } = {}) => {
+    const requestSequence = invitationRequestSequenceRef.current + 1;
+    invitationRequestSequenceRef.current = requestSequence;
+
+    if (!invitationsRequestKey) {
+      setDelegateInvitations([]);
+      setInvitationsResolvedKey("");
+      return;
+    }
+
     if (!silent) {
       setLoadingInvitations(true);
       setInvitationsError("");
@@ -282,19 +323,27 @@ export const EquiposTemplate = ({
 
     try {
       const invitations = await getDelegateInvitations(visibleTeamIds);
+      if (requestSequence !== invitationRequestSequenceRef.current) return;
+
       setDelegateInvitations(invitations);
       setInvitationStatusClock(Date.now());
       setInvitationsError("");
     } catch (error) {
-      if (!silent) {
+      if (
+        requestSequence === invitationRequestSequenceRef.current &&
+        !silent
+      ) {
         setInvitationsError(
           error.message || "No se pudieron cargar las invitaciones."
         );
       }
     } finally {
       if (!silent) setLoadingInvitations(false);
+      if (requestSequence === invitationRequestSequenceRef.current) {
+        setInvitationsResolvedKey(invitationsRequestKey);
+      }
     }
-  }, [visibleTeamIds]);
+  }, [invitationsRequestKey, visibleTeamIds]);
 
   const handleOpenInvitations = () => {
     setIsInvitationsModalOpen(true);
@@ -722,7 +771,10 @@ export const EquiposTemplate = ({
         <MainContainer $maxWidth={viewMaxWidth}>
           {!isDelegateView && (
             <OverviewToolbar>
-              <StatsStrip aria-label="Resumen de equipos">
+              <StatsStrip
+                aria-label="Resumen de equipos"
+                aria-busy={teamCardsLoading}
+              >
                 <CompactStat
                   type="button"
                   $active={teamFilter === "all"}
@@ -731,13 +783,24 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("all")}
                   aria-pressed={teamFilter === "all"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar todos los equipos: ${orderedTeams.length}`}
+                  aria-label={
+                    allTeamsStatLoading
+                      ? "Cargando total de equipos"
+                      : `Mostrar todos los equipos: ${orderedTeams.length}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone={v.colorPrincipal} aria-hidden="true">
                     <RiGroupLine />
                   </StatIcon>
                   <StatCopy>
-                    <StatValue>{loading ? "—" : orderedTeams.length}</StatValue>
+                    <StatValue>
+                      {allTeamsStatLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        orderedTeams.length
+                      )}
+                    </StatValue>
                     <StatLabel>Equipos</StatLabel>
                   </StatCopy>
                 </CompactStat>
@@ -750,13 +813,24 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("participating")}
                   aria-pressed={teamFilter === "participating"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar equipos en competencia: ${participatingTeamCount}`}
+                  aria-label={
+                    competitionStatLoading
+                      ? "Cargando equipos en competencia"
+                      : `Mostrar equipos en competencia: ${participatingTeamCount}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone={v.verde} aria-hidden="true">
                     <IoMdFootball />
                   </StatIcon>
                   <StatCopy>
-                    <StatValue>{loading ? "—" : participatingTeamCount}</StatValue>
+                    <StatValue>
+                      {competitionStatLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        participatingTeamCount
+                      )}
+                    </StatValue>
                     <StatLabel>En competencia</StatLabel>
                   </StatCopy>
                 </CompactStat>
@@ -769,14 +843,23 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("linked")}
                   aria-pressed={teamFilter === "linked"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar equipos vinculados: ${delegateLinkCounts.linked}`}
+                  aria-label={
+                    delegateStatsLoading
+                      ? "Cargando equipos vinculados"
+                      : `Mostrar equipos vinculados: ${delegateLinkCounts.linked}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone={v.verde} aria-hidden="true">
                     <RiCheckboxCircleLine />
                   </StatIcon>
                   <StatCopy>
                     <StatValue>
-                      {loading ? "—" : delegateLinkCounts.linked}
+                      {delegateStatsLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        delegateLinkCounts.linked
+                      )}
                     </StatValue>
                     <StatLabel>Vinculados</StatLabel>
                   </StatCopy>
@@ -790,13 +873,24 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("unlinked")}
                   aria-pressed={teamFilter === "unlinked"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar equipos sin vincular: ${delegateLinkCounts.unlinked}`}
+                  aria-label={
+                    delegateStatsLoading
+                      ? "Cargando equipos sin vincular"
+                      : `Mostrar equipos sin vincular: ${delegateLinkCounts.unlinked}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone="#f59e0b" aria-hidden="true">
                     <RiCloseCircleLine />
                   </StatIcon>
                   <StatCopy>
-                    <StatValue>{loading ? "—" : delegateLinkCounts.unlinked}</StatValue>
+                    <StatValue>
+                      {delegateStatsLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        delegateLinkCounts.unlinked
+                      )}
+                    </StatValue>
                     <StatLabel>Sin vincular</StatLabel>
                   </StatCopy>
                 </CompactStat>
@@ -933,8 +1027,13 @@ export const EquiposTemplate = ({
             /* === MODO MANAGER/NORMAL: grid de cards === */
             <Card width="100%" maxWidth="100%">
               <div style={{ width: "100%" }}>
-                <Grid ref={teamsGridRef} id="teams-grid">
-                  {loading ? (
+                <Grid
+                  ref={teamsGridRef}
+                  id="teams-grid"
+                  aria-busy={teamCardsLoading}
+                  aria-label={teamCardsLoading ? "Cargando equipos" : undefined}
+                >
+                  {teamCardsLoading ? (
                     Array.from({ length: 8 }).map((_, index) => (
                       <TeamCardSkeleton key={index} />
                     ))
@@ -1250,6 +1349,14 @@ const CompactStat = styled.button`
     outline-offset: 2px;
   }
 
+  &:disabled {
+    cursor: wait;
+  }
+
+  &:disabled:active {
+    transform: none;
+  }
+
   @media (min-width: 768px) {
     height: 44px;
     padding: 0 12px;
@@ -1295,6 +1402,10 @@ const StatCopy = styled.span`
 
 const StatValue = styled.strong`
   flex: 0 0 auto;
+  min-inline-size: 2ch;
+  min-height: 0.85em;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.92rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1303,6 +1414,10 @@ const StatValue = styled.strong`
     font-size: 0.98rem;
   }
 `;
+
+const StatNumberSkeleton = () => (
+  <Skeleton as="span" width="2ch" height="0.85em" radius="4px" />
+);
 
 const StatLabel = styled.span`
   min-width: 0;
@@ -1531,51 +1646,4 @@ const DelegateSkeletonBody = styled.div`
   border: 1px solid ${({ theme }) => theme.bg4};
   opacity: 0.6;
 `;
-
-const TeamCardSkeleton = () => (
-  <SkeletonContainer>
-    <div className="header-sk">
-      <Skeleton width="100%" height="100%" radius="0" />
-      <div className="logo-sk">
-        <Skeleton type="circle" width="85px" height="85px" />
-      </div>
-    </div>
-    <div className="body-sk">
-      <Skeleton width="70%" height="20px" />
-      <Skeleton width="50%" height="14px" />
-    </div>
-  </SkeletonContainer>
-);
-
-const SkeletonContainer = styled.div`
-  width: 250px;
-  height: 260px;
-  background-color: ${({ theme }) => theme.bgtotal};
-  border: 1px solid ${({ theme }) => theme.bg4};
-  border-radius: 16px;
-  overflow: hidden;
-
-  .header-sk {
-    height: 110px;
-    position: relative;
-  }
-
-  .logo-sk {
-    position: absolute;
-    bottom: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 4px solid ${({ theme }) => theme.bgtotal};
-    border-radius: 50%;
-  }
-
-  .body-sk {
-    padding: 40px 15px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-`;
-
 

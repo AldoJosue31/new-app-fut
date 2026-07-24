@@ -49,7 +49,7 @@ const playerSchema = {
     name: textField("Nombre observado en esta fila, sin reemplazarlo por un candidato registrado. Conserva abreviaturas y errores visibles.", 100),
     jerseyNumber: textField("Dorsal observado en la columna # de esta misma fila; vacio si no es legible.", 8),
     rowNumber: countField("Numero de fila visual dentro de este bloque, comenzando en 1.", 60),
-    goals: countField("Cantidad legible en la celda GOL de esta misma fila. Cero solo si la celda esta claramente vacia.", 20),
+    goals: countField("Cantidad legible en la celda GOL de esta misma fila, convertida a numero. Interpreta tanto cifras como palabras en español: 'uno'=1, 'dos'=2, 'tres'=3. Cero solo si la celda esta claramente vacia.", 20),
     goalsLegible: { type: "boolean", description: "Verdadero si la celda GOL se pudo leer con seguridad; falso si esta tapada, borrosa o ambigua." },
     goalEvidence: textField("Contenido crudo observado dentro de la celda GOL, por ejemplo '2', '||', 'X' o 'vacia'. Nunca copies el marcador del equipo.", 40),
     goalsConfidence: { type: "string", enum: ["high", "medium", "low"], description: "Confianza visual de la lectura exclusiva de la celda GOL." },
@@ -141,7 +141,9 @@ Ejemplo conceptual: si el primer bloque dice "Tigres" junto a 3 y el segundo dic
 - La tabla esperada tiene columnas # | JUGADOR | TIT | GOL | TA | TR. Primero ubica esos encabezados y los limites verticales de cada columna.
 - Procesa cada bloque por separado, de arriba hacia abajo. Sigue una sola banda horizontal por fila y nunca tomes el dorsal, TIT, TA, TR ni una marca de la fila superior/inferior como gol.
 - Usa la imagen completa para decidir a que bloque/equipo pertenece la tabla. Las imagenes adicionales, si existen, son ampliaciones de esas mismas tablas y solo sirven para verificar cada fila; no crean jugadores nuevos ni filas duplicadas.
-- En GOL: un numero N significa N goles; varias marcas inequivocas significan la cantidad de marcas; una unica palomita, cruz o raya aislada significa 1. Una celda claramente vacia significa goals=0, goalsLegible=true y goalEvidence='vacia'.
+- En GOL acepta cifras y cantidades escritas con letras. Convierte "cero", "uno", "dos", "tres", etc. al entero correspondiente en goals, pero conserva exactamente la escritura visible en goalEvidence. Ejemplos: "uno" => goals=1, goalEvidence="uno"; "DOS" => goals=2, goalEvidence="DOS"; "3" => goals=3, goalEvidence="3".
+- Un numero N significa N goles; varias marcas inequivocas significan la cantidad de marcas; una unica palomita, cruz o raya aislada significa 1. Una celda claramente vacia significa goals=0, goalsLegible=true y goalEvidence='vacia'.
+- Interpreta la cantidad solamente dentro de la celda GOL de esa fila. No confundas palabras o numeros del nombre del jugador, dorsal, TIT, TA o TR con goles.
 - Si la celda esta borrosa, cortada, tapada, parece invadida por otra columna o no puedes contar sus marcas con seguridad, usa goals=0, goalsLegible=false y goalsConfidence='low'. No adivines ni repartas el marcador general entre jugadores.
 - goalEvidence debe describir solo lo que ves dentro de GOL. Nunca copies ahi el marcador final del equipo.
 - Extrae las filas visibles relevantes aun cuando tengan cero goles, para conservar dorsal, tarjetas y posicion de fila. No agregues a todo el plantel registrado.

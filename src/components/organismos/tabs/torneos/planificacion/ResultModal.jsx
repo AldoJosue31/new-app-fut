@@ -751,7 +751,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     <Modal
       isOpen={isOpen}
       onClose={isSaving ? undefined : onClose}
-      width="950px"
+      width={showCedulaScanner ? "1280px" : "950px"}
+      maxHeight={showCedulaScanner ? "calc(100dvh - 24px)" : "calc(100dvh - 40px)"}
+      minHeight={showCedulaScanner ? "min(800px, calc(100dvh - 24px))" : "auto"}
+      overlayPadding={showCedulaScanner ? "12px" : "20px"}
+      bodyPadding={showCedulaScanner ? "clamp(14px, 2vw, 24px)" : "25px"}
       title="Definir Resultado"
       closeOnOverlayClick={false}
       headerActions={!showCedulaScanner ? (
@@ -760,7 +764,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         </ScanHeaderButton>
       ) : null}
     >
-      <Container>
+      <Container $scanner={showCedulaScanner}>
         {showCedulaScanner ? (
           <CedulaScanFlow
             match={match}
@@ -854,7 +858,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   );
 }
 
-const Container = styled.div` display: flex; flex-direction: column; gap: 15px; width: 100%; `;
+const Container = styled.div`
+  display: flex;
+  flex: ${({ $scanner }) => ($scanner ? "1" : "0 1 auto")};
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  min-height: 0;
+`;
 const ContentBody = styled.div` min-height: 350px; width: 100%; box-sizing: border-box; overflow: hidden; position: relative; `;
 const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;

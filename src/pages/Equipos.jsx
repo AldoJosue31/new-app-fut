@@ -21,6 +21,8 @@ export function Equipos({ state, setState }) {
       loading={data.loading}
       isUploading={data.uploading}
       participatingIds={data.participatingIds}
+      participationLoading={data.participationLoading}
+      delegateBindingsLoading={data.delegateBindingsLoading}
       accessRole={data.accessRole}
       canCreateTeams={data.canCreateTeams}
       canDeleteTeams={data.canDeleteTeams}

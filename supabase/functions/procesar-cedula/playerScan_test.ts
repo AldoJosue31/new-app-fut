@@ -1,4 +1,4 @@
-import { normalizeScannedPlayers } from "./playerScan.ts";
+import { normalizeScannedPlayers, parseScannedCount } from "./playerScan.ts";
 
 const assertEquals = (actual: unknown, expected: unknown, message: string) => {
   const actualJson = JSON.stringify(actual);
@@ -35,6 +35,62 @@ Deno.test("normaliza campos Gemini y aplica limites conservadores", () => {
     yellowCards: 2,
     redCards: 0,
   }, "Debe sanear texto, porcentajes y conteos sin aceptar autogoles implicitos.");
+});
+
+Deno.test("convierte goles escritos con letras o cifras sin perder la evidencia", () => {
+  assertEquals([
+    parseScannedCount("uno"),
+    parseScannedCount("DOS"),
+    parseScannedCount("tres goles"),
+    parseScannedCount("4"),
+    parseScannedCount("x5"),
+    parseScannedCount("dieciséis"),
+    parseScannedCount("sin cantidad"),
+  ], [1, 2, 3, 4, 5, 16, null], "Debe reconocer palabras españolas y cifras.");
+
+  const players = normalizeScannedPlayers([{
+    name: "Jugador Uno",
+    goals: "uno",
+    goalEvidence: "uno",
+    goalsLegible: true,
+  }, {
+    name: "Jugador Dos",
+    goals: 0,
+    goalEvidence: "DOS",
+    goalsLegible: true,
+  }, {
+    name: "Jugador Tres",
+    goals: "3",
+    goalEvidence: "3",
+    goalsLegible: true,
+  }, {
+    name: "Jugador Ilegible",
+    goals: "dos",
+    goalEvidence: "dos, pero borroso",
+    goalsLegible: false,
+  }]);
+
+  assertEquals(players.map(player => ({
+    name: player.name,
+    goals: player.goals,
+    evidence: player.goalEvidence,
+  })), [{
+    name: "Jugador Uno",
+    goals: 1,
+    evidence: "uno",
+  }, {
+    name: "Jugador Dos",
+    goals: 2,
+    evidence: "DOS",
+  }, {
+    name: "Jugador Tres",
+    goals: 3,
+    evidence: "3",
+  }, {
+    name: "Jugador Ilegible",
+    goals: 0,
+    evidence: "dos, pero borroso",
+  }], "Una celda ilegible sigue sin aplicar goles aunque contenga una palabra.");
 });
 
 Deno.test("conserva autogoles solo con evidencia explicita", () => {
