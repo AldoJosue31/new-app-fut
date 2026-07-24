@@ -23,7 +23,10 @@ import { BtnNormal } from "../moleculas/BtnNormal";
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { Skeleton } from "../atomos/Skeleton";
 import { Toast } from "../atomos/Toast";
-import { TeamCard } from "../organismos/equipos/TeamCard";
+import {
+  TeamCard,
+  TeamCardSkeleton,
+} from "../organismos/equipos/TeamCard";
 import { TeamForm } from "../organismos/formularios/TeamForm";
 import { TeamTransferModal } from "../organismos/equipos/TeamTransferModal";
 import { ActiveDelegateInvitationsModal } from "../organismos/equipos/ActiveDelegateInvitationsModal";
@@ -38,7 +41,9 @@ import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetai
 import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 import { supabase } from "../../supabase/supabase.config";
 import {
+  createDelegateInvitation,
   getDelegateInvitations,
+  getTeamDelegateBindings,
   getTeamsDelegateChangeRequests,
   reviewDelegateChangeRequest,
 } from "../../services/delegates";
@@ -50,6 +55,20 @@ const teamNameCollator = new Intl.Collator("es", {
   sensitivity: "base",
   numeric: true,
 });
+
+const isDelegateAccountLinked = (delegateAssignment) =>
+  Boolean(delegateAssignment?.delegate_profile_id);
+
+const isDelegateInvitationActive = (invitation, now = Date.now()) => {
+  const expiresAt = new Date(invitation?.expires_at).getTime();
+
+  return (
+    !invitation?.is_used &&
+    !invitation?.revoked_at &&
+    Number.isFinite(expiresAt) &&
+    expiresAt > now
+  );
+};
 
 const orderTeamsOnlyWhenNeeded = (teams) => {
   if (!Array.isArray(teams) || teams.length < 2) return teams || [];
@@ -65,6 +84,18 @@ const orderTeamsOnlyWhenNeeded = (teams) => {
         teamNameCollator.compare(first?.name || "", second?.name || "")
       )
     : teams;
+};
+
+const settleInvitationBatches = async (items, worker, batchSize = 4) => {
+  const results = [];
+
+  for (let index = 0; index < items.length; index += batchSize) {
+    const batch = items.slice(index, index + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(worker));
+    results.push(...batchResults);
+  }
+
+  return results;
 };
 
 export const EquiposTemplate = ({
@@ -96,6 +127,9 @@ export const EquiposTemplate = ({
   onTeamTransferred,
   tabs,
   participatingIds = [],
+  participationLoading = false,
+  delegateBindingsLoading = false,
+  delegateBindingsError = "",
   state,
   setState,
   accessRole,
@@ -164,6 +198,13 @@ export const EquiposTemplate = ({
   const [isInvitePanelActive, setIsInvitePanelActive] = useState(false);
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
   const [delegateInvitations, setDelegateInvitations] = useState([]);
+  const [invitationsResolvedKey, setInvitationsResolvedKey] = useState("");
+  const [bulkInvitationPromptDismissed, setBulkInvitationPromptDismissed] =
+    useState(false);
+  const [generatingBasicInvitations, setGeneratingBasicInvitations] =
+    useState(false);
+  const [basicInvitationGenerationCount, setBasicInvitationGenerationCount] =
+    useState(0);
   const [invitationStatusClock, setInvitationStatusClock] = useState(() => Date.now());
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [invitationsError, setInvitationsError] = useState("");
@@ -181,6 +222,8 @@ export const EquiposTemplate = ({
   const teamGridReadyFrameRef = useRef(null);
   const teamGridCleanupTimeoutRef = useRef(null);
   const teamGridLayersReadyRef = useRef(false);
+  const invitationRequestSequenceRef = useRef(0);
+  const basicInvitationGenerationRef = useRef(false);
   const { divisiones } = useDivisionStore();
 
   useEffect(() => {
@@ -203,6 +246,35 @@ export const EquiposTemplate = ({
     [participatingIds]
   );
   const orderedTeams = useMemo(() => orderTeamsOnlyWhenNeeded(equipos), [equipos]);
+  const visibleTeamIdsKey = useMemo(
+    () =>
+      JSON.stringify(
+        [...new Set((equipos || []).map((team) => team?.id).filter(Boolean))]
+      ),
+    [equipos]
+  );
+  const visibleTeamIds = useMemo(
+    () => JSON.parse(visibleTeamIdsKey),
+    [visibleTeamIdsKey]
+  );
+  const invitationsRequestKey =
+    !isDelegateView && !loading && visibleTeamIds.length > 0
+      ? `${visibleDivisionId || "all"}:${visibleTeamIdsKey}`
+      : "";
+  const invitationsInitialLoading = Boolean(
+    invitationsRequestKey && invitationsResolvedKey !== invitationsRequestKey
+  );
+  const hasTeams = orderedTeams.length > 0;
+  const teamCardsLoading =
+    loading ||
+    (hasTeams &&
+      (participationLoading ||
+        delegateBindingsLoading ||
+        requestSummariesLoading ||
+        invitationsInitialLoading));
+  const allTeamsStatLoading = loading;
+  const competitionStatLoading = loading || (hasTeams && participationLoading);
+  const delegateStatsLoading = loading || (hasTeams && delegateBindingsLoading);
   const participatingTeamCount = useMemo(
     () =>
       orderedTeams.reduce(
@@ -216,9 +288,7 @@ export const EquiposTemplate = ({
     () =>
       orderedTeams.reduce(
         (counts, team) => {
-          const isLinked = Boolean(
-            team?.delegateAssignment?.delegate_profile_id
-          );
+          const isLinked = isDelegateAccountLinked(team?.delegateAssignment);
           counts[isLinked ? "linked" : "unlinked"] += 1;
           return counts;
         },
@@ -235,13 +305,13 @@ export const EquiposTemplate = ({
 
     if (teamFilter === "linked") {
       return orderedTeams.filter((team) =>
-        Boolean(team?.delegateAssignment?.delegate_profile_id)
+        isDelegateAccountLinked(team?.delegateAssignment)
       );
     }
 
     if (teamFilter === "unlinked") {
       return orderedTeams.filter(
-        (team) => !team?.delegateAssignment?.delegate_profile_id
+        (team) => !isDelegateAccountLinked(team?.delegateAssignment)
       );
     }
 
@@ -251,30 +321,52 @@ export const EquiposTemplate = ({
     () => `${teamFilter}:${filteredTeams.map((team) => team.id).join(",")}`,
     [filteredTeams, teamFilter]
   );
-  const visibleTeamIds = useMemo(
-    () => (equipos || []).map((team) => team.id).filter(Boolean),
-    [equipos]
-  );
   const teamsWithPendingInvitation = useMemo(() => {
     const pendingTeamIds = new Set();
 
     delegateInvitations.forEach((invitation) => {
-      const expiresAt = new Date(invitation.expires_at).getTime();
-      const isPending =
-        !invitation.is_used &&
-        !invitation.revoked_at &&
-        Number.isFinite(expiresAt) &&
-        expiresAt > invitationStatusClock;
-
-      if (isPending && invitation.team_id) {
+      if (
+        isDelegateInvitationActive(invitation, invitationStatusClock) &&
+        invitation.team_id
+      ) {
         pendingTeamIds.add(String(invitation.team_id));
       }
     });
 
     return pendingTeamIds;
   }, [delegateInvitations, invitationStatusClock]);
+  const unlinkedTeamsWithoutInvitation = useMemo(
+    () =>
+      orderedTeams.filter(
+        (team) =>
+          team?.id != null &&
+          !isDelegateAccountLinked(team?.delegateAssignment) &&
+          !teamsWithPendingInvitation.has(String(team.id))
+      ),
+    [orderedTeams, teamsWithPendingInvitation]
+  );
+  const basicInvitationFooterCount = generatingBasicInvitations
+    ? basicInvitationGenerationCount
+    : unlinkedTeamsWithoutInvitation.length;
+  const showBasicInvitationFooter =
+    !bulkInvitationPromptDismissed &&
+    (generatingBasicInvitations ||
+      (!delegateBindingsLoading &&
+        !delegateBindingsError &&
+        !loadingInvitations &&
+        !invitationsError &&
+        unlinkedTeamsWithoutInvitation.length > 0));
 
   const loadDelegateInvitations = useCallback(async ({ silent = false } = {}) => {
+    const requestSequence = invitationRequestSequenceRef.current + 1;
+    invitationRequestSequenceRef.current = requestSequence;
+
+    if (!invitationsRequestKey) {
+      setDelegateInvitations([]);
+      setInvitationsResolvedKey("");
+      return;
+    }
+
     if (!silent) {
       setLoadingInvitations(true);
       setInvitationsError("");
@@ -282,21 +374,156 @@ export const EquiposTemplate = ({
 
     try {
       const invitations = await getDelegateInvitations(visibleTeamIds);
+      if (requestSequence !== invitationRequestSequenceRef.current) return;
+
       setDelegateInvitations(invitations);
       setInvitationStatusClock(Date.now());
       setInvitationsError("");
     } catch (error) {
-      if (!silent) {
+      if (
+        requestSequence === invitationRequestSequenceRef.current &&
+        !silent
+      ) {
         setInvitationsError(
           error.message || "No se pudieron cargar las invitaciones."
         );
       }
     } finally {
       if (!silent) setLoadingInvitations(false);
+      if (requestSequence === invitationRequestSequenceRef.current) {
+        setInvitationsResolvedKey(invitationsRequestKey);
+      }
     }
-  }, [visibleTeamIds]);
+  }, [invitationsRequestKey, visibleTeamIds]);
+
+  const handleGenerateBasicInvitations = async () => {
+    if (basicInvitationGenerationRef.current) return;
+
+    const teamsSnapshot = orderedTeams.filter((team) => team?.id != null);
+    if (!teamsSnapshot.length) return;
+
+    basicInvitationGenerationRef.current = true;
+    setBasicInvitationGenerationCount(unlinkedTeamsWithoutInvitation.length);
+    setGeneratingBasicInvitations(true);
+
+    try {
+      const teamIds = teamsSnapshot.map((team) => team.id);
+      const [freshInvitations, freshBindings] = await Promise.all([
+        getDelegateInvitations(teamIds),
+        getTeamDelegateBindings(teamIds),
+      ]);
+      const validationTime = Date.now();
+      const freshActiveInvitationTeamIds = new Set(
+        freshInvitations
+          .filter(
+            (invitation) =>
+              invitation?.team_id != null &&
+              isDelegateInvitationActive(invitation, validationTime)
+          )
+          .map((invitation) => String(invitation.team_id))
+      );
+      const eligibleTeams = teamsSnapshot.filter(
+        (team) =>
+          !isDelegateAccountLinked(freshBindings[team.id]) &&
+          !freshActiveInvitationTeamIds.has(String(team.id))
+      );
+
+      setDelegateInvitations(freshInvitations);
+      setInvitationStatusClock(Date.now());
+      setInvitationsError("");
+
+      if (!eligibleTeams.length) {
+        setBulkInvitationPromptDismissed(true);
+        showToast(
+          "Los equipos pendientes ya cuentan con delegado o invitación activa.",
+          "success"
+        );
+        return;
+      }
+
+      setBasicInvitationGenerationCount(eligibleTeams.length);
+
+      const results = await settleInvitationBatches(
+        eligibleTeams,
+        (team) => createDelegateInvitation({ teamId: team.id })
+      );
+      const generatedCount = results.filter(
+        (result) => result.status === "fulfilled"
+      ).length;
+      const failedCount = eligibleTeams.length - generatedCount;
+      const generatedAt = new Date().toISOString();
+      const createdInvitations = results.flatMap((result, index) =>
+        result.status === "fulfilled"
+          ? [
+              {
+                id: result.value.invitation_id,
+                team_id: result.value.team_id || eligibleTeams[index].id,
+                token: result.value.token,
+                invited_name: null,
+                invited_email: null,
+                invited_phone: null,
+                is_used: false,
+                used_at: null,
+                revoked_at: null,
+                created_at: generatedAt,
+                duration_started_at: generatedAt,
+                expires_at: result.value.expires_at,
+              },
+            ]
+          : []
+      );
+
+      if (createdInvitations.length) {
+        const createdInvitationIds = new Set(
+          createdInvitations.map((invitation) => String(invitation.id))
+        );
+        setDelegateInvitations((current) => [
+          ...createdInvitations,
+          ...current.filter(
+            (invitation) =>
+              !createdInvitationIds.has(String(invitation.id))
+          ),
+        ]);
+        setInvitationStatusClock(Date.now());
+      }
+
+      await loadDelegateInvitations({ silent: true });
+
+      if (failedCount === 0) {
+        setBulkInvitationPromptDismissed(true);
+        showToast(
+          generatedCount === 1
+            ? "Se generó 1 invitación básica con vencimiento de 7 días."
+            : `Se generaron ${generatedCount} invitaciones básicas con vencimiento de 7 días.`,
+          "success"
+        );
+      } else if (generatedCount > 0) {
+        showToast(
+          `Se generaron ${generatedCount} de ${eligibleTeams.length} invitaciones. ${failedCount} no pudieron crearse; puedes intentarlo de nuevo.`,
+          "error"
+        );
+      } else {
+        showToast(
+          eligibleTeams.length === 1
+            ? "No se pudo generar la invitación. Inténtalo de nuevo."
+            : `No se pudieron generar las ${eligibleTeams.length} invitaciones. Inténtalo de nuevo.`,
+          "error"
+        );
+      }
+    } catch (generationError) {
+      showToast(
+        generationError?.message ||
+          "No se pudieron validar ni generar las invitaciones.",
+        "error"
+      );
+    } finally {
+      basicInvitationGenerationRef.current = false;
+      setGeneratingBasicInvitations(false);
+    }
+  };
 
   const handleOpenInvitations = () => {
+    setBulkInvitationPromptDismissed(false);
     setIsInvitationsModalOpen(true);
     loadDelegateInvitations();
   };
@@ -722,7 +949,10 @@ export const EquiposTemplate = ({
         <MainContainer $maxWidth={viewMaxWidth}>
           {!isDelegateView && (
             <OverviewToolbar>
-              <StatsStrip aria-label="Resumen de equipos">
+              <StatsStrip
+                aria-label="Resumen de equipos"
+                aria-busy={teamCardsLoading}
+              >
                 <CompactStat
                   type="button"
                   $active={teamFilter === "all"}
@@ -731,13 +961,24 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("all")}
                   aria-pressed={teamFilter === "all"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar todos los equipos: ${orderedTeams.length}`}
+                  aria-label={
+                    allTeamsStatLoading
+                      ? "Cargando total de equipos"
+                      : `Mostrar todos los equipos: ${orderedTeams.length}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone={v.colorPrincipal} aria-hidden="true">
                     <RiGroupLine />
                   </StatIcon>
                   <StatCopy>
-                    <StatValue>{loading ? "—" : orderedTeams.length}</StatValue>
+                    <StatValue>
+                      {allTeamsStatLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        orderedTeams.length
+                      )}
+                    </StatValue>
                     <StatLabel>Equipos</StatLabel>
                   </StatCopy>
                 </CompactStat>
@@ -750,13 +991,24 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("participating")}
                   aria-pressed={teamFilter === "participating"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar equipos en competencia: ${participatingTeamCount}`}
+                  aria-label={
+                    competitionStatLoading
+                      ? "Cargando equipos en competencia"
+                      : `Mostrar equipos en competencia: ${participatingTeamCount}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone={v.verde} aria-hidden="true">
                     <IoMdFootball />
                   </StatIcon>
                   <StatCopy>
-                    <StatValue>{loading ? "—" : participatingTeamCount}</StatValue>
+                    <StatValue>
+                      {competitionStatLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        participatingTeamCount
+                      )}
+                    </StatValue>
                     <StatLabel>En competencia</StatLabel>
                   </StatCopy>
                 </CompactStat>
@@ -769,14 +1021,23 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("linked")}
                   aria-pressed={teamFilter === "linked"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar equipos vinculados: ${delegateLinkCounts.linked}`}
+                  aria-label={
+                    delegateStatsLoading
+                      ? "Cargando equipos vinculados"
+                      : `Mostrar equipos vinculados: ${delegateLinkCounts.linked}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone={v.verde} aria-hidden="true">
                     <RiCheckboxCircleLine />
                   </StatIcon>
                   <StatCopy>
                     <StatValue>
-                      {loading ? "—" : delegateLinkCounts.linked}
+                      {delegateStatsLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        delegateLinkCounts.linked
+                      )}
                     </StatValue>
                     <StatLabel>Vinculados</StatLabel>
                   </StatCopy>
@@ -790,13 +1051,24 @@ export const EquiposTemplate = ({
                   onClick={() => handleTeamFilterChange("unlinked")}
                   aria-pressed={teamFilter === "unlinked"}
                   aria-controls="teams-grid"
-                  aria-label={`Mostrar equipos sin vincular: ${delegateLinkCounts.unlinked}`}
+                  aria-label={
+                    delegateStatsLoading
+                      ? "Cargando equipos sin vincular"
+                      : `Mostrar equipos sin vincular: ${delegateLinkCounts.unlinked}`
+                  }
+                  disabled={teamCardsLoading}
                 >
                   <StatIcon $tone="#f59e0b" aria-hidden="true">
                     <RiCloseCircleLine />
                   </StatIcon>
                   <StatCopy>
-                    <StatValue>{loading ? "—" : delegateLinkCounts.unlinked}</StatValue>
+                    <StatValue>
+                      {delegateStatsLoading ? (
+                        <StatNumberSkeleton />
+                      ) : (
+                        delegateLinkCounts.unlinked
+                      )}
+                    </StatValue>
                     <StatLabel>Sin vincular</StatLabel>
                   </StatCopy>
                 </CompactStat>
@@ -933,8 +1205,13 @@ export const EquiposTemplate = ({
             /* === MODO MANAGER/NORMAL: grid de cards === */
             <Card width="100%" maxWidth="100%">
               <div style={{ width: "100%" }}>
-                <Grid ref={teamsGridRef} id="teams-grid">
-                  {loading ? (
+                <Grid
+                  ref={teamsGridRef}
+                  id="teams-grid"
+                  aria-busy={teamCardsLoading}
+                  aria-label={teamCardsLoading ? "Cargando equipos" : undefined}
+                >
+                  {teamCardsLoading ? (
                     Array.from({ length: 8 }).map((_, index) => (
                       <TeamCardSkeleton key={index} />
                     ))
@@ -1115,6 +1392,13 @@ export const EquiposTemplate = ({
           loading={loadingInvitations}
           error={invitationsError}
           onInvitationUpdated={() => loadDelegateInvitations({ silent: true })}
+          showBasicInvitationFooter={showBasicInvitationFooter}
+          basicInvitationTeamsCount={basicInvitationFooterCount}
+          generatingBasicInvitations={generatingBasicInvitations}
+          onGenerateBasicInvitations={handleGenerateBasicInvitations}
+          onDismissBasicInvitationFooter={() =>
+            setBulkInvitationPromptDismissed(true)
+          }
         />
 
         <TeamTransferModal
@@ -1250,6 +1534,14 @@ const CompactStat = styled.button`
     outline-offset: 2px;
   }
 
+  &:disabled {
+    cursor: wait;
+  }
+
+  &:disabled:active {
+    transform: none;
+  }
+
   @media (min-width: 768px) {
     height: 44px;
     padding: 0 12px;
@@ -1295,6 +1587,10 @@ const StatCopy = styled.span`
 
 const StatValue = styled.strong`
   flex: 0 0 auto;
+  min-inline-size: 2ch;
+  min-height: 0.85em;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.92rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1303,6 +1599,10 @@ const StatValue = styled.strong`
     font-size: 0.98rem;
   }
 `;
+
+const StatNumberSkeleton = () => (
+  <Skeleton as="span" width="2ch" height="0.85em" radius="4px" />
+);
 
 const StatLabel = styled.span`
   min-width: 0;
@@ -1531,51 +1831,4 @@ const DelegateSkeletonBody = styled.div`
   border: 1px solid ${({ theme }) => theme.bg4};
   opacity: 0.6;
 `;
-
-const TeamCardSkeleton = () => (
-  <SkeletonContainer>
-    <div className="header-sk">
-      <Skeleton width="100%" height="100%" radius="0" />
-      <div className="logo-sk">
-        <Skeleton type="circle" width="85px" height="85px" />
-      </div>
-    </div>
-    <div className="body-sk">
-      <Skeleton width="70%" height="20px" />
-      <Skeleton width="50%" height="14px" />
-    </div>
-  </SkeletonContainer>
-);
-
-const SkeletonContainer = styled.div`
-  width: 250px;
-  height: 260px;
-  background-color: ${({ theme }) => theme.bgtotal};
-  border: 1px solid ${({ theme }) => theme.bg4};
-  border-radius: 16px;
-  overflow: hidden;
-
-  .header-sk {
-    height: 110px;
-    position: relative;
-  }
-
-  .logo-sk {
-    position: absolute;
-    bottom: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 4px solid ${({ theme }) => theme.bgtotal};
-    border-radius: 50%;
-  }
-
-  .body-sk {
-    padding: 40px 15px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-`;
-
 

@@ -167,15 +167,27 @@ export const updateDelegateInvitation = async ({
   return parseRpcResponse("update_delegate_invitation", data, error);
 };
 
-export const deleteUsedDelegateInvitation = async (invitationId) => {
+export const deleteDelegateInvitation = async (invitationId) => {
+  const { data, error } = await supabase.rpc("delete_delegate_invitation", {
+    p_invitation_id: invitationId,
+  });
+
+  return parseRpcResponse("delete_delegate_invitation", data, error);
+};
+
+export const reactivateExpiredDelegateInvitation = async (invitationId) => {
   const { data, error } = await supabase.rpc(
-    "delete_used_delegate_invitation",
+    "reactivate_expired_delegate_invitation",
     {
       p_invitation_id: invitationId,
     }
   );
 
-  return parseRpcResponse("delete_used_delegate_invitation", data, error);
+  return parseRpcResponse(
+    "reactivate_expired_delegate_invitation",
+    data,
+    error
+  );
 };
 
 export const createDelegateInvitation = async ({

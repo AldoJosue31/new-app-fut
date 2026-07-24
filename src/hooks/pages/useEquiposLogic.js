@@ -94,6 +94,7 @@ export const useEquiposLogic = () => {
   const {
     equipos,
     loading,
+    cachedDivisionId,
     fetchEquipos,
     addEquipoLocal,
     updateEquipoLocal,
@@ -120,9 +121,12 @@ export const useEquiposLogic = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [participatingIds, setParticipatingIds] = useState([]);
+  const [participationResolvedKey, setParticipationResolvedKey] = useState("");
   const [teamDelegateBindings, setTeamDelegateBindings] = useState({});
+  const [delegateBindingsResolvedKey, setDelegateBindingsResolvedKey] = useState("");
+  const [delegateBindingsError, setDelegateBindingsError] = useState("");
   const [teamRequestSummaries, setTeamRequestSummaries] = useState({});
-  const [requestSummariesLoading, setRequestSummariesLoading] = useState(false);
+  const [requestSummariesResolvedKey, setRequestSummariesResolvedKey] = useState("");
   const [delegateBindingRefreshKey, setDelegateBindingRefreshKey] = useState(0);
   const [requestSummaryRefreshKey, setRequestSummaryRefreshKey] = useState(0);
 
@@ -169,6 +173,18 @@ export const useEquiposLogic = () => {
       ? [...new Set(rawVisibleTeams.map((team) => team?.id).filter(Boolean))]
       : []
   );
+  const hasVisibleTeams = visibleTeamIdsKey !== "[]";
+  const tournamentDivisionId = isDelegate ? effectiveDivision?.id : activeDivisionId;
+  const participationRequestKey = tournamentDivisionId
+    ? String(tournamentDivisionId)
+    : "";
+  const delegateBindingsRequestKey =
+    !isDelegate && hasVisibleTeams
+      ? `${delegateBindingRefreshKey}:${visibleTeamIdsKey}`
+      : "";
+  const requestSummariesRequestKey = hasVisibleTeams
+    ? `${profile?.role || "unknown"}:${requestSummaryRefreshKey}:${visibleTeamIdsKey}`
+    : "";
   const visibleTeams = Array.isArray(rawVisibleTeams)
     ? rawVisibleTeams.map((team) => ({
         ...team,
@@ -179,7 +195,24 @@ export const useEquiposLogic = () => {
           teamRequestSummaries[team.id] || createEmptyDelegateRequestSummary(),
       }))
     : [];
-  const visibleLoading = isDelegate ? delegateLoading : loading;
+  const managerTeamsLoading =
+    loading ||
+    Boolean(
+      activeDivisionId &&
+        String(cachedDivisionId ?? "") !== String(activeDivisionId)
+    );
+  const visibleLoading = isDelegate ? delegateLoading : managerTeamsLoading;
+  const participationLoading = Boolean(
+    participationRequestKey && participationResolvedKey !== participationRequestKey
+  );
+  const delegateBindingsLoading = Boolean(
+    delegateBindingsRequestKey &&
+      delegateBindingsResolvedKey !== delegateBindingsRequestKey
+  );
+  const requestSummariesLoading = Boolean(
+    requestSummariesRequestKey &&
+      requestSummariesResolvedKey !== requestSummariesRequestKey
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -266,40 +299,54 @@ export const useEquiposLogic = () => {
   }, [activeDivisionId, fetchEquipos, isDelegate, resetStore]);
 
   useEffect(() => {
-    const tournamentDivisionId = isDelegate ? effectiveDivision?.id : activeDivisionId;
+    let ignore = false;
 
     const fetchTournamentStatus = async () => {
       setParticipatingIds([]);
 
-      if (!tournamentDivisionId) return;
+      if (!participationRequestKey) {
+        setParticipationResolvedKey("");
+        return;
+      }
+
+      let nextParticipatingIds = [];
 
       try {
-        const torneo = await getTorneoActivo(tournamentDivisionId);
+        const torneo = await getTorneoActivo(participationRequestKey);
         if (torneo?.config && Array.isArray(torneo.config.participatingIds)) {
-          setParticipatingIds(torneo.config.participatingIds);
+          nextParticipatingIds = torneo.config.participatingIds;
         }
       } catch (error) {
         console.error("Error verificando estado de torneo:", error);
+      } finally {
+        if (!ignore) {
+          setParticipatingIds(nextParticipatingIds);
+          setParticipationResolvedKey(participationRequestKey);
+        }
       }
     };
 
     fetchTournamentStatus();
-  }, [activeDivisionId, effectiveDivision?.id, isDelegate]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [participationRequestKey]);
 
   useEffect(() => {
     let ignore = false;
     const teamIds = visibleTeamIdsKey ? JSON.parse(visibleTeamIdsKey) : [];
 
-    if (!teamIds.length) {
-      setRequestSummariesLoading(false);
+    if (!requestSummariesRequestKey || !teamIds.length) {
       setTeamRequestSummaries({});
+      setRequestSummariesResolvedKey("");
       return () => {
         ignore = true;
       };
     }
 
     const loadTeamRequestSummaries = async () => {
-      setRequestSummariesLoading(true);
+      setTeamRequestSummaries({});
 
       try {
         const summaries = await getTeamDelegateRequestSummaries(teamIds);
@@ -313,7 +360,7 @@ export const useEquiposLogic = () => {
         }
       } finally {
         if (!ignore) {
-          setRequestSummariesLoading(false);
+          setRequestSummariesResolvedKey(requestSummariesRequestKey);
         }
       }
     };
@@ -323,25 +370,31 @@ export const useEquiposLogic = () => {
     return () => {
       ignore = true;
     };
-  }, [profile?.role, requestSummaryRefreshKey, visibleTeamIdsKey]);
+  }, [requestSummariesRequestKey, visibleTeamIdsKey]);
 
   useEffect(() => {
     if (isDelegate) {
       setTeamDelegateBindings({});
+      setDelegateBindingsResolvedKey("");
+      setDelegateBindingsError("");
       return;
     }
 
     let ignore = false;
     const teamIds = visibleTeamIdsKey ? JSON.parse(visibleTeamIdsKey) : [];
 
-    if (!teamIds.length) {
+    if (!delegateBindingsRequestKey || !teamIds.length) {
       setTeamDelegateBindings({});
+      setDelegateBindingsResolvedKey("");
+      setDelegateBindingsError("");
       return () => {
         ignore = true;
       };
     }
 
     const loadTeamDelegateBindings = async () => {
+      setDelegateBindingsError("");
+
       try {
         const bindings = await getTeamDelegateBindings(teamIds);
         if (!ignore) {
@@ -351,6 +404,13 @@ export const useEquiposLogic = () => {
         if (!ignore) {
           console.error("Error cargando delegados vinculados:", error);
           setTeamDelegateBindings({});
+          setDelegateBindingsError(
+            error?.message || "No se pudieron validar los delegados vinculados."
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setDelegateBindingsResolvedKey(delegateBindingsRequestKey);
         }
       }
     };
@@ -360,7 +420,7 @@ export const useEquiposLogic = () => {
     return () => {
       ignore = true;
     };
-  }, [delegateBindingRefreshKey, isDelegate, visibleTeamIdsKey]);
+  }, [delegateBindingsRequestKey, isDelegate, visibleTeamIdsKey]);
 
   useEffect(() => {
     return () => {
@@ -909,6 +969,9 @@ export const useEquiposLogic = () => {
       selectedDivision: effectiveDivision,
       uploading,
       participatingIds,
+      participationLoading,
+      delegateBindingsLoading,
+      delegateBindingsError,
       accessRole: profile?.role || null,
       canCreateTeams: !isDelegate,
       canDeleteTeams: !isDelegate,
