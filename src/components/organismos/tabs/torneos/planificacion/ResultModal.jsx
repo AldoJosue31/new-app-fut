@@ -752,9 +752,9 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       isOpen={isOpen}
       onClose={isSaving ? undefined : onClose}
       width={showCedulaScanner ? "1280px" : "950px"}
-      maxHeight={showCedulaScanner ? "calc(100dvh - 24px)" : "calc(100dvh - 40px)"}
-      minHeight={showCedulaScanner ? "min(800px, calc(100dvh - 24px))" : "auto"}
-      overlayPadding={showCedulaScanner ? "12px" : "20px"}
+      maxHeight={showCedulaScanner ? "95dvh" : "calc(100dvh - 40px)"}
+      minHeight={showCedulaScanner ? "95dvh" : "auto"}
+      overlayPadding={showCedulaScanner ? "min(12px, 2.5dvh)" : "20px"}
       bodyPadding={showCedulaScanner ? "clamp(14px, 2vw, 24px)" : "25px"}
       title="Definir Resultado"
       closeOnOverlayClick={false}

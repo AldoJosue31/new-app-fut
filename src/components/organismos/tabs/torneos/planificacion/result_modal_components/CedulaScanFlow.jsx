@@ -647,6 +647,31 @@ export function CedulaScanFlow({
     return () => window.removeEventListener("keydown", handleEnterToScan);
   }, [file, rawScan]);
 
+  const scanLocalName = match?.local?.name || "Local";
+  const scanVisitorName = match?.visitante?.name || "Visitante";
+  const scanRoundName = match?.jornadas?.name || match?.jornada?.name || "";
+  const scanSchedule = [
+    currentDate,
+    currentTime ? String(currentTime).slice(0, 5) : "",
+  ].filter(Boolean).join(" · ");
+  const scanMatchContext = (
+    <ScanMatchContext
+      aria-label={`Partido a escanear: ${scanLocalName} contra ${scanVisitorName}`}
+    >
+      <span className="context-label">Partido a escanear</span>
+      <div className="context-teams">
+        <strong title={scanLocalName}>{scanLocalName}</strong>
+        <span className="context-versus" aria-hidden="true">vs</span>
+        <strong title={scanVisitorName}>{scanVisitorName}</strong>
+      </div>
+      {(scanRoundName || scanSchedule) && (
+        <span className="context-schedule">
+          {[scanRoundName, scanSchedule].filter(Boolean).join(" · ")}
+        </span>
+      )}
+    </ScanMatchContext>
+  );
+
   if (!file) {
     return (
       <ScanShell>
@@ -654,6 +679,7 @@ export function CedulaScanFlow({
           <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Escanear cedula</h4><p>Sube una foto clara y completa. La imagen solo se usa durante este escaneo.</p></div>
         </PanelHeading>
+        {scanMatchContext}
         <UploadZone tabIndex={0} onClick={() => uploadInputRef.current?.click()}>
           <RiFileImageLine />
           <strong>Cargar imagen</strong>
@@ -683,6 +709,7 @@ export function CedulaScanFlow({
           <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
+        {scanMatchContext}
         <PreviewFrame aria-busy={scanning}>
           {previewAvailable !== false ? (
             <img
@@ -1079,6 +1106,37 @@ const PanelHeading = styled.div`
   button:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
   h4,p{margin:0;} h4{font-size:1.05rem;} p{margin-top:4px;opacity:.72;line-height:1.45;}
 `;
+const ScanMatchContext = styled.section`
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  min-height:48px;
+  padding:9px 12px;
+  border:1px solid ${({theme})=>theme.bg4};
+  border-radius:12px;
+  background:${({theme})=>theme.bg3};
+  color:${({theme})=>theme.text};
+  .context-label{font-size:.78rem;font-weight:700;opacity:.76;}
+  .context-teams{display:flex;align-items:center;justify-content:center;gap:9px;min-width:0;}
+  .context-teams strong{min-width:0;max-width:42%;overflow-wrap:anywhere;text-align:center;font-size:.92rem;line-height:1.25;}
+  .context-versus{flex:0 0 auto;padding:2px 7px;border-radius:999px;background:${({theme})=>theme.bgcards};font-size:.7rem;font-weight:800;opacity:.78;}
+  .context-schedule{font-size:.76rem;font-weight:650;text-align:right;white-space:nowrap;opacity:.72;}
+  @media(max-width:700px){
+    grid-template-columns:1fr auto;
+    gap:7px 10px;
+    .context-teams{grid-column:1/-1;grid-row:2;justify-content:flex-start;}
+    .context-teams strong{max-width:calc(50% - 24px);}
+    .context-schedule{grid-column:2;grid-row:1;max-width:52vw;white-space:normal;}
+  }
+  @media(max-width:440px){
+    grid-template-columns:1fr;
+    .context-label,.context-schedule{grid-column:1;text-align:left;}
+    .context-label{grid-row:1;}
+    .context-teams{grid-row:2;}
+    .context-schedule{grid-row:3;max-width:none;}
+  }
+`;
 const UploadZone = styled.button`
   width:100%;min-height:clamp(320px,52vh,560px);flex:1;border:2px dashed ${({theme})=>theme.bg4};border-radius:14px;background:${({theme})=>theme.bg3};color:${({theme})=>theme.text};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;
   svg{font-size:2rem;color:${v.colorPrincipal};} strong{font-size:1rem;} span{font-size:.82rem;opacity:.7;}
@@ -1125,8 +1183,8 @@ const ScanProgressButton = styled(Action)`
 const scanSweep = keyframes`0%{transform:translateY(-56px);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateY(calc(100% + 8px));opacity:0;}`;
 const statusPulse = keyframes`0%,100%{opacity:.82;}50%{opacity:1;}`;
 const PreviewFrame = styled.div`
-  position:relative;height:clamp(420px,62vh,650px);flex:1;border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
-  img{width:100%;height:100%;object-fit:contain;}
+  position:relative;height:clamp(420px,64vh,680px);min-width:0;min-height:0;flex:1;border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
+  img{position:absolute;inset:10px;display:block;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;object-position:center;}
   @media(max-width:700px){height:min(58vh,560px);min-height:320px;}
 `;
 const PreviewFallback = styled.div`
