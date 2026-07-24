@@ -1,7 +1,5 @@
 import React from "react";
 import styled, { keyframes } from "styled-components";
-// Asegúrate de que la ruta a variables coincida con tu proyecto
-import { v } from "../../styles/variables"; 
 
 const shimmer = keyframes`
   0% { background-position: -200% 0; }
@@ -18,13 +16,38 @@ const Base = styled.div`
   );
   background-size: 200% 100%;
   animation: ${shimmer} 1.5s infinite linear;
-  border-radius: ${({radius}) => radius || '4px'};
-  width: ${({width}) => width || '100%'};
-  height: ${({height}) => height || '20px'};
+  border-radius: ${({$radius}) => $radius || "4px"};
+  width: ${({$width}) => $width || "100%"};
+  height: ${({$height}) => $height || "20px"};
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
-export const Skeleton = ({ width, height, radius, style, className }) => {
-  return <Base width={width} height={height} radius={radius} style={style} className={className} />;
+export const Skeleton = ({
+  width,
+  height,
+  radius,
+  type,
+  as,
+  style,
+  className,
+  "aria-hidden": ariaHidden = true,
+  ...rest
+}) => {
+  return (
+    <Base
+      as={as}
+      $width={width}
+      $height={height}
+      $radius={type === "circle" ? "50%" : radius}
+      style={style}
+      className={className}
+      aria-hidden={ariaHidden}
+      {...rest}
+    />
+  );
 };
 
 // Contenedor general para listas (opcional, ya lo tenías)

@@ -72,9 +72,67 @@ const comparableJersey = (value: string) => {
   return /^\d+$/.test(normalized) ? String(Number(normalized)) : normalized;
 };
 
+const SPANISH_COUNT_WORDS = new Map<string, number>([
+  ["cero", 0],
+  ["ningun", 0],
+  ["ninguno", 0],
+  ["ninguna", 0],
+  ["un", 1],
+  ["uno", 1],
+  ["una", 1],
+  ["dos", 2],
+  ["tres", 3],
+  ["cuatro", 4],
+  ["cinco", 5],
+  ["seis", 6],
+  ["siete", 7],
+  ["ocho", 8],
+  ["nueve", 9],
+  ["diez", 10],
+  ["once", 11],
+  ["doce", 12],
+  ["trece", 13],
+  ["catorce", 14],
+  ["quince", 15],
+  ["dieciseis", 16],
+  ["diecisiete", 17],
+  ["dieciocho", 18],
+  ["diecinueve", 19],
+  ["veinte", 20],
+]);
+
+/**
+ * Convierte conteos escritos con cifras o palabras en español. Devuelve null
+ * cuando el texto no contiene una cantidad inequívoca.
+ */
+export const parseScannedCount = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? Math.trunc(value) : null;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (value === null || value === undefined) return null;
+
+  const raw = cleanText(value, 80).toLowerCase();
+  if (!raw) return null;
+  const directNumber = raw.replace(",", ".").match(/^[+-]?\d+(?:\.\d+)?$/);
+  if (directNumber) return Math.trunc(Number(directNumber[0]));
+
+  const normalized = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9+-]+/g, " ")
+    .trim();
+  const numericMatch = normalized.match(/(?:^|\s|x)(\d{1,2})(?=$|\s)/);
+  if (numericMatch) return Number(numericMatch[1]);
+
+  for (const token of normalized.split(/\s+/)) {
+    const count = SPANISH_COUNT_WORDS.get(token);
+    if (count !== undefined) return count;
+  }
+  return null;
+};
+
 const boundedInteger = (value: unknown, maximum: number) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
+  const parsed = parseScannedCount(value);
+  if (parsed === null) return 0;
   return Math.min(maximum, Math.max(0, Math.trunc(parsed)));
 };
 
@@ -151,7 +209,16 @@ const normalizeCandidate = (value: unknown, sourceIndex: number): CandidatePlaye
     raw.goalsConfidence ?? raw.goalConfidence ?? raw.confidence,
   );
   const goalsLegible = normalizeLegibility(raw.goalsLegible);
-  const goals = goalsLegible ? boundedInteger(raw.goals, 20) : 0;
+  const declaredGoals = parseScannedCount(raw.goals);
+  const evidencedGoals = parseScannedCount(goalEvidence);
+  const resolvedGoals = evidencedGoals !== null
+      && evidencedGoals > 0
+      && (declaredGoals === null || declaredGoals === 0)
+    ? evidencedGoals
+    : declaredGoals ?? evidencedGoals ?? 0;
+  const goals = goalsLegible
+    ? Math.min(20, Math.max(0, resolvedGoals))
+    : 0;
   const declaredOwnGoals = boundedInteger(raw.ownGoals, 20);
   const ownGoals = hasExplicitOwnGoalEvidence(`${goalEvidence} ${ownGoalEvidence}`)
     ? declaredOwnGoals
