@@ -106,6 +106,7 @@ export function PlayerManager({
   leagueId,
   showToast,
   mode = "manager",
+  requiresDelegateApproval = true,
   onDelegateRequestSubmitted,
 }) {
   const {
@@ -491,7 +492,7 @@ export function PlayerManager({
         <div className="header-actions list-header">
           <div className="header-copy">
             <h3>{showArchived ? "Inhabilitados" : `Plantilla (${jugadores.length})`}</h3>
-            {isDelegateMode && (
+            {isDelegateMode && requiresDelegateApproval && (
               <DelegateHint>
                 <RiShieldCheckLine />
                 <span>Los cambios del delegado pasan por el flujo de aprobacion de la liga.</span>

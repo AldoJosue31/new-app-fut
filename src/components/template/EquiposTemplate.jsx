@@ -156,6 +156,12 @@ export const EquiposTemplate = ({
   const visibleDivisionId = routeDivisionId || division?.id;
   const isCreateRoute = teamId === "crear";
   const isDelegateView = accessRole === ROLES.DELEGATE;
+  const delegateTeam = isDelegateView ? equipos?.[0] : null;
+  const delegateChangesRequireApproval =
+    delegateTeam?.league?.delegate_changes_require_approval ?? true;
+  const editedTeamChangesRequireApproval =
+    teamToEdit?.league?.delegate_changes_require_approval ??
+    delegateChangesRequireApproval;
   const teamFromUrl = isCreateRoute
     ? null
     : equipos?.find((team) => String(team.id) === String(teamId));
@@ -1098,8 +1104,9 @@ export const EquiposTemplate = ({
 
           {isDelegateView && (
             <AccessBanner>
-              Puedes editar tu equipo y registrar jugadores. Si la liga exige aprobacion,
-              tus cambios se enviaran al manager antes de publicarse.
+              Puedes editar tu equipo y registrar jugadores.
+              {delegateChangesRequireApproval &&
+                " Tus cambios se enviaran al manager antes de publicarse."}
               {!requestSummariesLoading &&
                 (hasPendingDelegateRequests || hasDelegateReviewedUpdates) && (
                   <BannerMeta>
@@ -1336,7 +1343,13 @@ export const EquiposTemplate = ({
                 linkedDelegateAssignment={teamToEdit?.delegateAssignment || null}
                 onDelegateLinkStateChanged={onDelegateLinkStateChanged}
                 onInvitePanelChange={setIsInvitePanelActive}
-                saveLabel={isDelegateView ? "Enviar cambios" : "Guardar Equipo"}
+                saveLabel={
+                  isDelegateView
+                    ? editedTeamChangesRequireApproval
+                      ? "Enviar cambios"
+                      : "Guardar cambios"
+                    : "Guardar Equipo"
+                }
               />
             </TabContent>
           )}
@@ -1348,6 +1361,7 @@ export const EquiposTemplate = ({
                 leagueId={teamToEdit?.league?.id || division?.league_id}
                 showToast={showToast}
                 mode={isDelegateView ? "delegate" : "manager"}
+                requiresDelegateApproval={editedTeamChangesRequireApproval}
                 onDelegateRequestSubmitted={onDelegateRequestSubmitted}
               />
             </TabContent>
