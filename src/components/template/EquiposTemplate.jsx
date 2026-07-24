@@ -41,7 +41,9 @@ import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetai
 import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
 import { supabase } from "../../supabase/supabase.config";
 import {
+  createDelegateInvitation,
   getDelegateInvitations,
+  getTeamDelegateBindings,
   getTeamsDelegateChangeRequests,
   reviewDelegateChangeRequest,
 } from "../../services/delegates";
@@ -53,6 +55,20 @@ const teamNameCollator = new Intl.Collator("es", {
   sensitivity: "base",
   numeric: true,
 });
+
+const isDelegateAccountLinked = (delegateAssignment) =>
+  Boolean(delegateAssignment?.delegate_profile_id);
+
+const isDelegateInvitationActive = (invitation, now = Date.now()) => {
+  const expiresAt = new Date(invitation?.expires_at).getTime();
+
+  return (
+    !invitation?.is_used &&
+    !invitation?.revoked_at &&
+    Number.isFinite(expiresAt) &&
+    expiresAt > now
+  );
+};
 
 const orderTeamsOnlyWhenNeeded = (teams) => {
   if (!Array.isArray(teams) || teams.length < 2) return teams || [];
@@ -68,6 +84,18 @@ const orderTeamsOnlyWhenNeeded = (teams) => {
         teamNameCollator.compare(first?.name || "", second?.name || "")
       )
     : teams;
+};
+
+const settleInvitationBatches = async (items, worker, batchSize = 4) => {
+  const results = [];
+
+  for (let index = 0; index < items.length; index += batchSize) {
+    const batch = items.slice(index, index + batchSize);
+    const batchResults = await Promise.allSettled(batch.map(worker));
+    results.push(...batchResults);
+  }
+
+  return results;
 };
 
 export const EquiposTemplate = ({
@@ -101,6 +129,7 @@ export const EquiposTemplate = ({
   participatingIds = [],
   participationLoading = false,
   delegateBindingsLoading = false,
+  delegateBindingsError = "",
   state,
   setState,
   accessRole,
@@ -170,6 +199,12 @@ export const EquiposTemplate = ({
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
   const [delegateInvitations, setDelegateInvitations] = useState([]);
   const [invitationsResolvedKey, setInvitationsResolvedKey] = useState("");
+  const [bulkInvitationPromptDismissed, setBulkInvitationPromptDismissed] =
+    useState(false);
+  const [generatingBasicInvitations, setGeneratingBasicInvitations] =
+    useState(false);
+  const [basicInvitationGenerationCount, setBasicInvitationGenerationCount] =
+    useState(0);
   const [invitationStatusClock, setInvitationStatusClock] = useState(() => Date.now());
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [invitationsError, setInvitationsError] = useState("");
@@ -188,6 +223,7 @@ export const EquiposTemplate = ({
   const teamGridCleanupTimeoutRef = useRef(null);
   const teamGridLayersReadyRef = useRef(false);
   const invitationRequestSequenceRef = useRef(0);
+  const basicInvitationGenerationRef = useRef(false);
   const { divisiones } = useDivisionStore();
 
   useEffect(() => {
@@ -252,9 +288,7 @@ export const EquiposTemplate = ({
     () =>
       orderedTeams.reduce(
         (counts, team) => {
-          const isLinked = Boolean(
-            team?.delegateAssignment?.delegate_profile_id
-          );
+          const isLinked = isDelegateAccountLinked(team?.delegateAssignment);
           counts[isLinked ? "linked" : "unlinked"] += 1;
           return counts;
         },
@@ -271,13 +305,13 @@ export const EquiposTemplate = ({
 
     if (teamFilter === "linked") {
       return orderedTeams.filter((team) =>
-        Boolean(team?.delegateAssignment?.delegate_profile_id)
+        isDelegateAccountLinked(team?.delegateAssignment)
       );
     }
 
     if (teamFilter === "unlinked") {
       return orderedTeams.filter(
-        (team) => !team?.delegateAssignment?.delegate_profile_id
+        (team) => !isDelegateAccountLinked(team?.delegateAssignment)
       );
     }
 
@@ -291,20 +325,37 @@ export const EquiposTemplate = ({
     const pendingTeamIds = new Set();
 
     delegateInvitations.forEach((invitation) => {
-      const expiresAt = new Date(invitation.expires_at).getTime();
-      const isPending =
-        !invitation.is_used &&
-        !invitation.revoked_at &&
-        Number.isFinite(expiresAt) &&
-        expiresAt > invitationStatusClock;
-
-      if (isPending && invitation.team_id) {
+      if (
+        isDelegateInvitationActive(invitation, invitationStatusClock) &&
+        invitation.team_id
+      ) {
         pendingTeamIds.add(String(invitation.team_id));
       }
     });
 
     return pendingTeamIds;
   }, [delegateInvitations, invitationStatusClock]);
+  const unlinkedTeamsWithoutInvitation = useMemo(
+    () =>
+      orderedTeams.filter(
+        (team) =>
+          team?.id != null &&
+          !isDelegateAccountLinked(team?.delegateAssignment) &&
+          !teamsWithPendingInvitation.has(String(team.id))
+      ),
+    [orderedTeams, teamsWithPendingInvitation]
+  );
+  const basicInvitationFooterCount = generatingBasicInvitations
+    ? basicInvitationGenerationCount
+    : unlinkedTeamsWithoutInvitation.length;
+  const showBasicInvitationFooter =
+    !bulkInvitationPromptDismissed &&
+    (generatingBasicInvitations ||
+      (!delegateBindingsLoading &&
+        !delegateBindingsError &&
+        !loadingInvitations &&
+        !invitationsError &&
+        unlinkedTeamsWithoutInvitation.length > 0));
 
   const loadDelegateInvitations = useCallback(async ({ silent = false } = {}) => {
     const requestSequence = invitationRequestSequenceRef.current + 1;
@@ -345,7 +396,134 @@ export const EquiposTemplate = ({
     }
   }, [invitationsRequestKey, visibleTeamIds]);
 
+  const handleGenerateBasicInvitations = async () => {
+    if (basicInvitationGenerationRef.current) return;
+
+    const teamsSnapshot = orderedTeams.filter((team) => team?.id != null);
+    if (!teamsSnapshot.length) return;
+
+    basicInvitationGenerationRef.current = true;
+    setBasicInvitationGenerationCount(unlinkedTeamsWithoutInvitation.length);
+    setGeneratingBasicInvitations(true);
+
+    try {
+      const teamIds = teamsSnapshot.map((team) => team.id);
+      const [freshInvitations, freshBindings] = await Promise.all([
+        getDelegateInvitations(teamIds),
+        getTeamDelegateBindings(teamIds),
+      ]);
+      const validationTime = Date.now();
+      const freshActiveInvitationTeamIds = new Set(
+        freshInvitations
+          .filter(
+            (invitation) =>
+              invitation?.team_id != null &&
+              isDelegateInvitationActive(invitation, validationTime)
+          )
+          .map((invitation) => String(invitation.team_id))
+      );
+      const eligibleTeams = teamsSnapshot.filter(
+        (team) =>
+          !isDelegateAccountLinked(freshBindings[team.id]) &&
+          !freshActiveInvitationTeamIds.has(String(team.id))
+      );
+
+      setDelegateInvitations(freshInvitations);
+      setInvitationStatusClock(Date.now());
+      setInvitationsError("");
+
+      if (!eligibleTeams.length) {
+        setBulkInvitationPromptDismissed(true);
+        showToast(
+          "Los equipos pendientes ya cuentan con delegado o invitación activa.",
+          "success"
+        );
+        return;
+      }
+
+      setBasicInvitationGenerationCount(eligibleTeams.length);
+
+      const results = await settleInvitationBatches(
+        eligibleTeams,
+        (team) => createDelegateInvitation({ teamId: team.id })
+      );
+      const generatedCount = results.filter(
+        (result) => result.status === "fulfilled"
+      ).length;
+      const failedCount = eligibleTeams.length - generatedCount;
+      const generatedAt = new Date().toISOString();
+      const createdInvitations = results.flatMap((result, index) =>
+        result.status === "fulfilled"
+          ? [
+              {
+                id: result.value.invitation_id,
+                team_id: result.value.team_id || eligibleTeams[index].id,
+                token: result.value.token,
+                invited_name: null,
+                invited_email: null,
+                invited_phone: null,
+                is_used: false,
+                used_at: null,
+                revoked_at: null,
+                created_at: generatedAt,
+                duration_started_at: generatedAt,
+                expires_at: result.value.expires_at,
+              },
+            ]
+          : []
+      );
+
+      if (createdInvitations.length) {
+        const createdInvitationIds = new Set(
+          createdInvitations.map((invitation) => String(invitation.id))
+        );
+        setDelegateInvitations((current) => [
+          ...createdInvitations,
+          ...current.filter(
+            (invitation) =>
+              !createdInvitationIds.has(String(invitation.id))
+          ),
+        ]);
+        setInvitationStatusClock(Date.now());
+      }
+
+      await loadDelegateInvitations({ silent: true });
+
+      if (failedCount === 0) {
+        setBulkInvitationPromptDismissed(true);
+        showToast(
+          generatedCount === 1
+            ? "Se generó 1 invitación básica con vencimiento de 7 días."
+            : `Se generaron ${generatedCount} invitaciones básicas con vencimiento de 7 días.`,
+          "success"
+        );
+      } else if (generatedCount > 0) {
+        showToast(
+          `Se generaron ${generatedCount} de ${eligibleTeams.length} invitaciones. ${failedCount} no pudieron crearse; puedes intentarlo de nuevo.`,
+          "error"
+        );
+      } else {
+        showToast(
+          eligibleTeams.length === 1
+            ? "No se pudo generar la invitación. Inténtalo de nuevo."
+            : `No se pudieron generar las ${eligibleTeams.length} invitaciones. Inténtalo de nuevo.`,
+          "error"
+        );
+      }
+    } catch (generationError) {
+      showToast(
+        generationError?.message ||
+          "No se pudieron validar ni generar las invitaciones.",
+        "error"
+      );
+    } finally {
+      basicInvitationGenerationRef.current = false;
+      setGeneratingBasicInvitations(false);
+    }
+  };
+
   const handleOpenInvitations = () => {
+    setBulkInvitationPromptDismissed(false);
     setIsInvitationsModalOpen(true);
     loadDelegateInvitations();
   };
@@ -1214,6 +1392,13 @@ export const EquiposTemplate = ({
           loading={loadingInvitations}
           error={invitationsError}
           onInvitationUpdated={() => loadDelegateInvitations({ silent: true })}
+          showBasicInvitationFooter={showBasicInvitationFooter}
+          basicInvitationTeamsCount={basicInvitationFooterCount}
+          generatingBasicInvitations={generatingBasicInvitations}
+          onGenerateBasicInvitations={handleGenerateBasicInvitations}
+          onDismissBasicInvitationFooter={() =>
+            setBulkInvitationPromptDismissed(true)
+          }
         />
 
         <TeamTransferModal

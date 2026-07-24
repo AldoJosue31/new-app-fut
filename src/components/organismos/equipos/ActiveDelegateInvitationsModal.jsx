@@ -1,13 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
-import styled from "styled-components";
-import { motion, useReducedMotion } from "framer-motion";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import styled, { keyframes } from "styled-components";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   RiArrowDownSLine,
   RiArrowUpDownLine,
   RiArrowUpSLine,
+  RiCloseLine,
   RiDeleteBin6Line,
   RiEditLine,
   RiFileCopyLine,
+  RiQrCodeLine,
   RiRefreshLine,
   RiTimeLine,
 } from "react-icons/ri";
@@ -15,7 +17,8 @@ import { Toast } from "../../atomos/Toast";
 import { ConfirmModal } from "../ConfirmModal";
 import { Modal } from "../Modal";
 import {
-  deleteUsedDelegateInvitation,
+  deleteDelegateInvitation,
+  reactivateExpiredDelegateInvitation,
   updateDelegateInvitation,
 } from "../../../services/delegates";
 import { v } from "../../../styles/variables";
@@ -359,6 +362,11 @@ export function ActiveDelegateInvitationsModal({
   loading = false,
   error = "",
   onInvitationUpdated,
+  showBasicInvitationFooter = false,
+  basicInvitationTeamsCount = 0,
+  generatingBasicInvitations = false,
+  onGenerateBasicInvitations,
+  onDismissBasicInvitationFooter,
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [sort, setSort] = useState({ key: "status", direction: "asc" });
@@ -366,7 +374,10 @@ export function ActiveDelegateInvitationsModal({
   const [editingInvitation, setEditingInvitation] = useState(null);
   const [deletingInvitation, setDeletingInvitation] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [reactivatingInvitationId, setReactivatingInvitationId] =
+    useState(null);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const reactivatingInvitationRef = useRef(null);
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -506,28 +517,55 @@ export function ActiveDelegateInvitationsModal({
     });
   };
 
-  const handleDeleteUsedInvitation = async () => {
+  const handleDeleteInvitation = async () => {
     if (!deletingInvitation?.id) return;
 
     setDeleting(true);
     try {
-      await deleteUsedDelegateInvitation(deletingInvitation.id);
+      await deleteDelegateInvitation(deletingInvitation.id);
       await onInvitationUpdated?.();
       setDeletingInvitation(null);
       setToast({
         show: true,
-        message: "Invitación usada eliminada del historial.",
+        message: "Invitación eliminada permanentemente.",
         type: "success",
       });
     } catch (deleteError) {
       setToast({
         show: true,
         message:
-          deleteError.message || "No se pudo eliminar la invitación usada.",
+          deleteError.message || "No se pudo eliminar la invitación.",
         type: "error",
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleReactivateExpiredInvitation = async (invitation) => {
+    if (!invitation?.id || reactivatingInvitationRef.current) return;
+
+    reactivatingInvitationRef.current = invitation.id;
+    setReactivatingInvitationId(invitation.id);
+
+    try {
+      await reactivateExpiredDelegateInvitation(invitation.id);
+      await onInvitationUpdated?.();
+      setToast({
+        show: true,
+        message: "Invitación reactivada por 3 días.",
+        type: "success",
+      });
+    } catch (reactivationError) {
+      setToast({
+        show: true,
+        message:
+          reactivationError.message || "No se pudo reactivar la invitación.",
+        type: "error",
+      });
+    } finally {
+      reactivatingInvitationRef.current = null;
+      setReactivatingInvitationId(null);
     }
   };
 
@@ -536,6 +574,7 @@ export function ActiveDelegateInvitationsModal({
     setDeletingInvitation(null);
     onClose();
   };
+  const hasSingleBasicInvitation = basicInvitationTeamsCount === 1;
 
   return (
     <>
@@ -566,8 +605,9 @@ export function ActiveDelegateInvitationsModal({
                     : `Mostrando ${filteredInvitations.length} de ${invitationRows.length} invitaciones`}
               </strong>
               <p>
-                Los cambios de estado y las ediciones se muestran automáticamente
-                en tiempo real.
+                Los cambios se muestran en tiempo real. Las invitaciones usadas,
+                revocadas o caducadas se eliminan automáticamente después de 14
+                días.
               </p>
             </div>
 
@@ -784,13 +824,40 @@ export function ActiveDelegateInvitationsModal({
                             >
                               <RiEditLine aria-hidden="true" />
                             </button>
-                            {invitation.status === "used" && (
+                            {invitation.status === "expired" && (
+                              <button
+                                type="button"
+                                className="reactivate"
+                                onClick={() =>
+                                  handleReactivateExpiredInvitation(invitation)
+                                }
+                                disabled={Boolean(reactivatingInvitationId)}
+                                aria-busy={
+                                  reactivatingInvitationId === invitation.id
+                                }
+                                aria-label={`Reactivar por 3 días la invitación de ${invitation.teamName}`}
+                                title="Reactivar por 3 días"
+                              >
+                                <RiRefreshLine
+                                  className={
+                                    reactivatingInvitationId === invitation.id
+                                      ? "is-spinning"
+                                      : undefined
+                                  }
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            )}
+                            {invitation.status !== "active" && (
                               <button
                                 type="button"
                                 className="danger"
                                 onClick={() => setDeletingInvitation(invitation)}
-                                aria-label={`Eliminar invitación usada de ${invitation.teamName}`}
-                                title="Eliminar invitación usada"
+                                disabled={
+                                  reactivatingInvitationId === invitation.id
+                                }
+                                aria-label={`Eliminar invitación ${status.label.toLowerCase()} de ${invitation.teamName}`}
+                                title={`Eliminar invitación ${status.label.toLowerCase()}`}
                               >
                                 <RiDeleteBin6Line aria-hidden="true" />
                               </button>
@@ -804,6 +871,82 @@ export function ActiveDelegateInvitationsModal({
               </InvitationsTable>
             </TableScroll>
           )}
+
+          <AnimatePresence initial={false}>
+            {showBasicInvitationFooter && (
+              <BasicInvitationFooter
+                key="basic-delegate-invitations"
+                role="region"
+                aria-label="Crear invitaciones para equipos pendientes"
+                initial={
+                  shouldReduceMotion ? false : { opacity: 0, y: 8 }
+                }
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+                transition={{
+                  duration: shouldReduceMotion ? 0 : 0.2,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                <BasicInvitationIcon aria-hidden="true">
+                  <RiQrCodeLine />
+                </BasicInvitationIcon>
+
+                <BasicInvitationCopy>
+                  <strong>
+                    {hasSingleBasicInvitation
+                      ? "Hay 1 equipo sin cuenta de delegado vinculada ni invitación activa"
+                      : `Hay ${basicInvitationTeamsCount} equipos sin cuenta de delegado vinculada ni invitación activa`}
+                  </strong>
+                  <p>
+                    {hasSingleBasicInvitation
+                      ? "El nombre registrado no cuenta como vínculo. ¿Quieres crearle su enlace? "
+                      : "Los nombres registrados no cuentan como vínculo. ¿Quieres crearles su enlace? "}
+                    {hasSingleBasicInvitation
+                      ? "Se generará sin nombre, número ni correo sugeridos, con vencimiento predeterminado de 7 días."
+                      : "Se generarán sin nombre, número ni correo sugeridos, con vencimiento predeterminado de 7 días."}
+                  </p>
+                </BasicInvitationCopy>
+
+                <BasicInvitationActions>
+                  <GenerateBasicInvitationsButton
+                    type="button"
+                    onClick={onGenerateBasicInvitations}
+                    disabled={
+                      generatingBasicInvitations ||
+                      !onGenerateBasicInvitations
+                    }
+                    aria-busy={generatingBasicInvitations}
+                  >
+                    {generatingBasicInvitations && (
+                      <LoadingCircle aria-hidden="true" />
+                    )}
+                    <span aria-live="polite">
+                      {generatingBasicInvitations
+                        ? "Generando invitaciones…"
+                        : hasSingleBasicInvitation
+                          ? "Crear invitación"
+                          : `Crear ${basicInvitationTeamsCount} invitaciones`}
+                    </span>
+                  </GenerateBasicInvitationsButton>
+
+                  <DismissBasicInvitationButton
+                    type="button"
+                    onClick={onDismissBasicInvitationFooter}
+                    disabled={generatingBasicInvitations}
+                    aria-label="Ocultar sugerencia"
+                    title={
+                      generatingBasicInvitations
+                        ? "Espera a que termine la generación"
+                        : "Ocultar sugerencia"
+                    }
+                  >
+                    <RiCloseLine aria-hidden="true" />
+                  </DismissBasicInvitationButton>
+                </BasicInvitationActions>
+              </BasicInvitationFooter>
+            )}
+          </AnimatePresence>
         </ModalContent>
       </Modal>
 
@@ -824,12 +967,18 @@ export function ActiveDelegateInvitationsModal({
         onClose={() => {
           if (!deleting) setDeletingInvitation(null);
         }}
-        onConfirm={handleDeleteUsedInvitation}
-        title="Eliminar invitación usada"
+        onConfirm={handleDeleteInvitation}
+        title={`Eliminar invitación ${
+          deletingInvitation?.status
+            ? statusDefinitions[
+                deletingInvitation.status
+              ].label.toLowerCase()
+            : ""
+        }`}
         message={`¿Eliminar permanentemente la invitación de ${
           deletingInvitation?.teamName || "este equipo"
         }?`}
-        subMessage="Esta acción elimina únicamente el registro de la invitación. El delegado seguirá asignado al equipo."
+        subMessage="Se borrará definitivamente de la base de datos. Esta acción no desvincula al delegado del equipo."
         confirmText={deleting ? "Eliminando…" : "Eliminar invitación"}
         confirmIcon={<RiDeleteBin6Line />}
         confirmDisabled={deleting}
@@ -923,6 +1072,174 @@ const StatusSummary = styled.div`
     width: 7px;
     height: 7px;
     border-radius: 50%;
+  }
+`;
+
+const rotateLoader = keyframes`
+  to {
+    transform: rotate(360deg);
+  }
+`;
+
+const BasicInvitationFooter = styled(motion.aside)`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 13px 16px;
+  border-top: 1px solid ${({ theme }) => theme.bg4};
+  background: ${({ theme }) => theme.bgtotal};
+
+  @media (max-width: 640px) {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    padding: 12px;
+  }
+`;
+
+const BasicInvitationIcon = styled.span`
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(28, 176, 246, 0.12);
+  color: ${v.colorPrincipal};
+  font-size: 1.1rem;
+`;
+
+const BasicInvitationCopy = styled.div`
+  min-width: 0;
+
+  strong {
+    display: block;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    text-wrap: pretty;
+  }
+
+  p {
+    max-width: 76ch;
+    margin: 3px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    opacity: 0.76;
+    text-wrap: pretty;
+  }
+`;
+
+const BasicInvitationActions = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+
+  @media (max-width: 640px) {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+`;
+
+const GenerateBasicInvitationsButton = styled.button`
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border: 1px solid ${v.colorPrincipal};
+  border-radius: 10px;
+  background: ${v.colorPrincipal};
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    filter 160ms ease,
+    transform 120ms ease,
+    opacity 160ms ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.94);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.72;
+  }
+
+  @media (max-width: 640px) {
+    flex: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`;
+
+const DismissBasicInvitationButton = styled.button`
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: ${({ theme }) => theme.text};
+  font-size: 1.08rem;
+  cursor: pointer;
+  opacity: 0.62;
+  transition:
+    background 160ms ease,
+    opacity 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.bg4};
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${v.colorPrincipal};
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.3;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`;
+
+const LoadingCircle = styled.span`
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 2px solid rgba(255, 255, 255, 0.48);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ${rotateLoader} 700ms linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 `;
 
@@ -1222,10 +1539,24 @@ const RowActions = styled.div`
     color: ${v.rojo};
   }
 
+  button.reactivate {
+    color: ${v.verde};
+  }
+
+  button.reactivate:hover:not(:disabled) {
+    border-color: ${v.verde};
+    background: color-mix(in srgb, ${v.verde} 10%, transparent);
+    color: ${v.verde};
+  }
+
   button.danger:hover:not(:disabled) {
     border-color: ${v.rojo};
     background: rgba(245, 78, 65, 0.1);
     color: ${v.rojo};
+  }
+
+  svg.is-spinning {
+    animation: ${rotateLoader} 700ms linear infinite;
   }
 
   button:active:not(:disabled) {
@@ -1240,6 +1571,16 @@ const RowActions = styled.div`
   button:disabled {
     cursor: not-allowed;
     opacity: 0.35;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
+
+    svg.is-spinning {
+      animation: none;
+    }
   }
 `;
 

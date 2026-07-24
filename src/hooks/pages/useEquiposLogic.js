@@ -124,6 +124,7 @@ export const useEquiposLogic = () => {
   const [participationResolvedKey, setParticipationResolvedKey] = useState("");
   const [teamDelegateBindings, setTeamDelegateBindings] = useState({});
   const [delegateBindingsResolvedKey, setDelegateBindingsResolvedKey] = useState("");
+  const [delegateBindingsError, setDelegateBindingsError] = useState("");
   const [teamRequestSummaries, setTeamRequestSummaries] = useState({});
   const [requestSummariesResolvedKey, setRequestSummariesResolvedKey] = useState("");
   const [delegateBindingRefreshKey, setDelegateBindingRefreshKey] = useState(0);
@@ -375,6 +376,7 @@ export const useEquiposLogic = () => {
     if (isDelegate) {
       setTeamDelegateBindings({});
       setDelegateBindingsResolvedKey("");
+      setDelegateBindingsError("");
       return;
     }
 
@@ -384,12 +386,15 @@ export const useEquiposLogic = () => {
     if (!delegateBindingsRequestKey || !teamIds.length) {
       setTeamDelegateBindings({});
       setDelegateBindingsResolvedKey("");
+      setDelegateBindingsError("");
       return () => {
         ignore = true;
       };
     }
 
     const loadTeamDelegateBindings = async () => {
+      setDelegateBindingsError("");
+
       try {
         const bindings = await getTeamDelegateBindings(teamIds);
         if (!ignore) {
@@ -399,6 +404,9 @@ export const useEquiposLogic = () => {
         if (!ignore) {
           console.error("Error cargando delegados vinculados:", error);
           setTeamDelegateBindings({});
+          setDelegateBindingsError(
+            error?.message || "No se pudieron validar los delegados vinculados."
+          );
         }
       } finally {
         if (!ignore) {
@@ -963,6 +971,7 @@ export const useEquiposLogic = () => {
       participatingIds,
       participationLoading,
       delegateBindingsLoading,
+      delegateBindingsError,
       accessRole: profile?.role || null,
       canCreateTeams: !isDelegate,
       canDeleteTeams: !isDelegate,
