@@ -746,6 +746,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   };
 
   if (!isOpen || !match) return null;
+  const isPlayersTab = activeTab === 'local' || activeTab === 'visit';
 
   return (
     <Modal
@@ -786,7 +787,11 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             ) : (
             <>
                 <TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} />
-                <ContentBody>
+                <ContentBody
+                  $scrollable={isPlayersTab}
+                  tabIndex={isPlayersTab ? 0 : undefined}
+                  aria-label={isPlayersTab ? "Lista de jugadores del equipo" : undefined}
+                >
                     {activeTab === 'general' && (
                         <TabContent>
                             <GeneralTab 
@@ -866,7 +871,49 @@ const Container = styled.div`
   width: 100%;
   min-height: 0;
 `;
-const ContentBody = styled.div` min-height: 350px; width: 100%; box-sizing: border-box; overflow: hidden; position: relative; `;
+const ContentBody = styled.div`
+  width: 100%;
+  min-height: ${({ $scrollable }) => ($scrollable ? "min(350px, 42dvh)" : "350px")};
+  max-height: ${({ $scrollable }) => ($scrollable ? "min(52dvh, 560px)" : "none")};
+  box-sizing: border-box;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: ${({ $scrollable }) => ($scrollable ? "auto" : "hidden")};
+  overscroll-behavior: ${({ $scrollable }) => ($scrollable ? "contain" : "auto")};
+  -webkit-overflow-scrolling: touch;
+  padding-right: ${({ $scrollable }) => ($scrollable ? "6px" : "0")};
+  scrollbar-gutter: ${({ $scrollable }) => ($scrollable ? "stable" : "auto")};
+  scrollbar-width: thin;
+  scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
+
+  &::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 999px;
+    margin-block: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    min-height: 36px;
+    background: ${({ theme }) => theme.colorScroll};
+    background-clip: padding-box;
+    border: 1px solid transparent;
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: ${({ theme }) => theme.text};
+    background-clip: padding-box;
+  }
+
+  &:focus-visible {
+    outline: 3px solid ${v.colorPrincipal}44;
+    outline-offset: 2px;
+  }
+`;
 const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
 const LoadingState = styled.div` display: flex; justify-content: center; align-items: center; height: 300px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
