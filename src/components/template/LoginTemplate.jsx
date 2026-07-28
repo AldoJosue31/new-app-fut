@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { Btnsave } from "../moleculas/Btnsave";
@@ -7,7 +9,10 @@ import { Footer } from "../organismos/Footer";
 import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
 import { useAuthStore } from "../../store/AuthStore";
-import { useNavigate, useLocation } from 'react-router-dom'; // Agregamos useLocation
+import {
+  ROUTES,
+  sanitizeInternalPath,
+} from "../../lib/navigation/routes.js";
 import { Toast } from '../../components/atomos/Toast';
 
 const GoogleIcon = v.iconogoogle;
@@ -42,13 +47,11 @@ const getOAuthErrorMessage = (errorCode, errorDescription) => {
 };
 
 export function LoginTemplate() {
-    const navigate = useNavigate();
-    // 1. Necesitamos useLocation para leer la URL
-    const location = useLocation(); 
     const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
     const emailRef = useRef(null);
     const passRef = useRef(null);
     const authActionInFlight = useRef(false);
+    const [returnPath, setReturnPath] = useState(ROUTES.DASHBOARD);
 
     const [toastConfig, setToastConfig] = useState({
         show: false,
@@ -65,16 +68,27 @@ export function LoginTemplate() {
     };
 
     useEffect(() => {
-        // --- A. DETECCIÓN DE ERRORES POR URL (Desde Supabase/Google) ---
-        // Supabase devuelve los errores en el hash (#) de la URL, ejemplo: #error=server_error&error_description=...
-        const hashParams = new URLSearchParams(location.hash.substring(1));
-        const queryParams = new URLSearchParams(location.search);
-        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
-        const errorCode = hashParams.get('error') || queryParams.get('error');
+        const queryParams = new URLSearchParams(window.location.search);
+        setReturnPath(
+            sanitizeInternalPath(
+                queryParams.get("next"),
+                ROUTES.DASHBOARD,
+            ),
+        );
+
+        // El callback PKCE devuelve errores como query params.
+        const errorDescription = queryParams.get('error_description');
+        const errorCode = queryParams.get('error');
 
         if (errorDescription || errorCode) {
-            // Limpiamos la URL para que no se vea feo
-            window.history.replaceState(null, '', location.pathname);
+            queryParams.delete('error');
+            queryParams.delete('error_description');
+            const remainingQuery = queryParams.toString();
+            window.history.replaceState(
+                null,
+                '',
+                `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}`,
+            );
 
             showError(getOAuthErrorMessage(errorCode, errorDescription));
         }
@@ -84,11 +98,12 @@ export function LoginTemplate() {
         if (localError) {
             if (localError === 'unlinked_google') showError("Cuenta no vinculada.");
             else if (localError === 'unauthorized_role') showError("No tienes permisos de acceso.");
+            else if (localError === 'profile_unavailable') showError("No fue posible validar tu perfil.");
             localStorage.removeItem('auth_error');
         }
         
         if (emailRef.current) emailRef.current.focus();
-    }, [location.hash, location.pathname, location.search]);
+    }, []);
 
     const beginAuthAction = () => {
         if (authActionInFlight.current || authLoadingAction) return false;
@@ -110,9 +125,12 @@ export function LoginTemplate() {
         
         try {
             await loginWithEmail(email, password);
-            navigate('/dashboard', { replace: true });
+            window.location.replace(returnPath);
         } catch (err) {
-            if (err.code === 'ACCOUNT_SUSPENDED') return;
+            if (err.code === 'ACCOUNT_SUSPENDED') {
+                showError('Esta cuenta se encuentra bloqueada temporalmente.');
+                return;
+            }
             showError(getLoginErrorMessage(err));
         } finally {
             authActionInFlight.current = false;
@@ -123,7 +141,7 @@ export function LoginTemplate() {
         if (!beginAuthAction()) return;
 
         try {
-            await loginGoogle();
+            await loginGoogle(returnPath);
         } catch (err) {
             console.error("Google Login Error:", err);
             showError('No se pudo iniciar la conexión con Google.');

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import styled from "styled-components";
-import { NavLink, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthStore } from "../../../store/AuthStore";
 import { useDivisionStore } from "../../../store/DivisionStore";
@@ -10,6 +10,7 @@ import { ToggleTema } from "../ToggleTema";
 import { DivisionSelector } from "../../moleculas/DivisionSelector";
 import { ConfirmModal } from "../ConfirmModal";
 import { ROLES } from "../../../utils/constants";
+import { useNavigationProgress } from "../../app/NavigationProgress";
 
 const ManagerLinksArray = [
   { label: "Partidos", icon: "mdi:soccer-field", to: "/partidos" },
@@ -34,10 +35,10 @@ const AdminLinksArray = [
   { label: "Gestion Managers", icon: "eos-icons:admin-outlined", to: "/admin/managers" },
 ];
 
-export function Sidebar({ state, setState }) {
-  const location = useLocation();
+export function Sidebar({ state, setState, currentPath = "/" }) {
   const { cerrarSesion, profile, authLoadingAction } = useAuthStore();
   const { selectedDivision } = useDivisionStore();
+  const { startNavigation } = useNavigationProgress();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [logoutError, setLogoutError] = useState("");
 
@@ -53,6 +54,7 @@ export function Sidebar({ state, setState }) {
       await cerrarSesion();
       setShowLogoutModal(false);
       setState(false);
+      window.location.replace("/login");
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
       setLogoutError('No se pudo cerrar la sesión. Revisa tu conexión e inténtalo de nuevo.');
@@ -77,8 +79,8 @@ export function Sidebar({ state, setState }) {
     return to;
   };
 
-  const isTorneosRoute = /^\/(?:division\/\d+\/)?torneos(?:\/|$)/.test(location.pathname);
-  const isEquiposRoute = /^\/(?:division\/\d+\/)?equipos(?:\/|$)/.test(location.pathname);
+  const isTorneosRoute = /^\/(?:division\/\d+\/)?torneos(?:\/|$)/.test(currentPath);
+  const isEquiposRoute = /^\/(?:division\/\d+\/)?equipos(?:\/|$)/.test(currentPath);
   const getManagerLinkClass = (label, isActive) =>
     `Links${
       isActive ||
@@ -88,25 +90,67 @@ export function Sidebar({ state, setState }) {
         : ""
     }`;
 
+  const handleNavigationStart = (event, { destination, label }) => {
+    setState(false);
+
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    const destinationPath = String(destination).split(/[?#]/, 1)[0] || "/";
+    const normalizedCurrentPath =
+      currentPath.length > 1 ? currentPath.replace(/\/+$/, "") : currentPath;
+    const normalizedDestinationPath =
+      destinationPath.length > 1
+        ? destinationPath.replace(/\/+$/, "")
+        : destinationPath;
+
+    if (normalizedCurrentPath === normalizedDestinationPath) return;
+
+    startNavigation({
+      doneLabel: `${label} abierta`,
+      kind: "view",
+      label: `Abriendo ${label}`,
+      targetPath: destinationPath,
+    });
+  };
+
   const renderLinks = (
     links,
     getClassName = (_label, { isActive }) => `Links${isActive ? " active" : ""}`,
     getTo = (to) => to
   ) =>
-    links.map(({ icon, label, to, color }) => (
+    links.map(({ icon, label, to, color }) => {
+      const destination = getTo(to);
+      const isActive =
+        currentPath === destination ||
+        currentPath.startsWith(`${destination}/`);
+
+      return (
       <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
-        <NavLink
-          to={getTo(to)}
-          className={(navState) => getClassName(label, navState)}
-          onClick={() => setState(false)}
+        <Link
+          href={destination}
+          className={getClassName(label, { isActive })}
+          aria-current={isActive ? "page" : undefined}
+          onClick={(event) =>
+            handleNavigationStart(event, { destination, label })
+          }
         >
           <section className={state ? "content open" : "content"}>
             <Icon color={color} className="Linkicon" icon={icon} />
             <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
           </section>
-        </NavLink>
+        </Link>
       </div>
-    ));
+      );
+    });
 
   return (
     <Main $isOpen={state}>
@@ -117,10 +161,19 @@ export function Sidebar({ state, setState }) {
 
       <Container $isOpen={state} className={state ? "active" : ""}>
         <div className="Logocontent">
-          <NavLink to="/" className="logo-link" onClick={() => setState(false)}>
+          <Link
+            href={isDelegate ? "/equipos" : "/dashboard"}
+            className="logo-link"
+            onClick={(event) =>
+              handleNavigationStart(event, {
+                destination: isDelegate ? "/equipos" : "/dashboard",
+                label: "Panel",
+              })
+            }
+          >
             <div className="imgcontent"><img src={v.logo} alt="Logo" /></div>
             <h2>Bracket <br /> App</h2>
-          </NavLink>
+          </Link>
         </div>
 
         {isAdmin ? (
@@ -169,7 +222,9 @@ export function Sidebar({ state, setState }) {
           </button>
         </div>
 
-        {!isAdmin && !isDelegate && <DivisionSelector isOpen={state} />}
+        {!isAdmin && !isDelegate && (
+          <DivisionSelector isOpen={state} currentPath={currentPath} />
+        )}
       </Container>
 
       <ConfirmModal
@@ -191,7 +246,7 @@ export function Sidebar({ state, setState }) {
 
 const Main = styled.div`
   .Sidebarbutton {
-    display: none;
+    display: flex;
     position: fixed;
     top: 70px;
     left: 20px;

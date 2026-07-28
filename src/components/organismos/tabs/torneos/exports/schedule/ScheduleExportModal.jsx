@@ -3,7 +3,7 @@ import styled, { useTheme } from "styled-components";
 import { RiAddLine, RiLayoutGridLine, RiListCheck2, RiSubtractLine } from "react-icons/ri";
 import { Modal } from "../../../../Modal";
 import { v } from "../../../../../../styles/variables";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { addDaysToDate } from "../../../../../../utils/dateUtils";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import {

@@ -1,21 +1,17 @@
 // src/components/organismos/tabs/torneos/planificacion/MatchResolutionModal.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { Modal } from "../../../../../components/organismos/Modal"; 
 
 export function MatchResolutionModal({ isOpen, onClose, match, onResolve }) {
-  const [selectedOption, setSelectedOption] = useState('pendiente');
-
-  useEffect(() => {
-    if (isOpen && match?.resolution) {
-      if (match.resolution.type === 'pendiente') setSelectedOption('pendiente');
-      else if (match.resolution.goals1 > match.resolution.goals2) setSelectedOption('default_local');
-      else setSelectedOption('default_visitante');
-    } else {
-      setSelectedOption('pendiente');
-    }
-  }, [isOpen, match]);
+  const [selectedOption, setSelectedOption] = useState(() => {
+    if (!isOpen || !match?.resolution) return "pendiente";
+    if (match.resolution.type === "pendiente") return "pendiente";
+    return match.resolution.goals1 > match.resolution.goals2
+      ? "default_local"
+      : "default_visitante";
+  });
 
   if (!match) return null;
 

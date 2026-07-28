@@ -134,8 +134,6 @@ export function LigaDelegateRequestsTab({
   onReview,
   onRefresh,
   canReview = true,
-  title = "Solicitudes de Delegados",
-  subtitle = "Revisa, aprueba o rechaza cambios enviados por los delegados.",
 }) {
   const [activeFilter, setActiveFilter] = useState("pending");
   const [selectedRequest, setSelectedRequest] = useState(null);

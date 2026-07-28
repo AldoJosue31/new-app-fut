@@ -1,4 +1,4 @@
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
 
 export const actualizarConfigTorneoService = async (
   tournamentId,

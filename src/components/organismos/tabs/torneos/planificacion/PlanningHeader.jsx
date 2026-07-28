@@ -58,10 +58,7 @@ export const PlanningHeader = memo(
     const hasLocalDraft = localDraft.key === sourceKey;
     const localStart = hasLocalDraft ? localDraft.start : sourceStart;
     const localEnd = hasLocalDraft ? localDraft.end : sourceEnd;
-    const [isMobileViewport, setIsMobileViewport] = useState(() => {
-      if (typeof window === "undefined") return false;
-      return window.innerWidth <= 768;
-    });
+    const [isMobileViewport, setIsMobileViewport] = useState(false);
     const [isMobileControlsOpen, setIsMobileControlsOpen] = useState(false);
     const [isJornadaMenuOpen, setIsJornadaMenuOpen] = useState(false);
     const jornadaMenuRef = useRef(null);

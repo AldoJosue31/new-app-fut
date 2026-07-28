@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import styled, { css } from "styled-components";
 import { Modal } from "../Modal";
 import { Btnsave } from "../../moleculas/Btnsave";
@@ -6,19 +6,11 @@ import { v } from "../../../styles/variables";
 import { BiShieldQuarter, BiMailSend, BiLockAlt, BiUserCircle } from "react-icons/bi";
 
 export function ManagerEditAuthModal({ isOpen, onClose, manager, onUpdate }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(manager?.email || "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [focusedField, setFocusedField] = useState(null);
-
-  useEffect(() => {
-    if (manager) {
-      setEmail(manager.email || "");
-      setPassword(""); 
-      setFocusedField(null);
-    }
-  }, [manager, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

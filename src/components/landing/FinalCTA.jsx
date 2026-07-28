@@ -1,8 +1,7 @@
 // src/components/landing/FinalCTA.jsx
 import React, { useEffect, useRef, useState } from "react";
-import styled, { keyframes } from "styled-components";
-import { Link } from "react-router-dom";
-import { landingCopy } from "../../pages/landing/copy";
+import styled from "styled-components";
+import { landingCopy } from "../../views/landing/copy";
 
 function useReveal() {
   const [visible, setVisible] = useState(false);
@@ -56,9 +55,9 @@ export default function FinalCTA() {
               </ChecklistGrid>
 
               <CTABtns>
-                <Link to="/login" className="lp-btn lp-btn-primary" id="final-cta-primary">
+                <a href="/login" className="lp-btn lp-btn-primary" id="final-cta-primary">
                   {finalCta.ctaPrimary} →
-                </Link>
+                </a>
                 <a href="#planes" className="lp-btn lp-btn-ghost" id="final-cta-secondary">
                   Ver planes
                 </a>
@@ -105,16 +104,6 @@ export default function FinalCTA() {
 }
 
 // ─── KEYFRAMES ───────────────────────────
-const rotateSlow = keyframes`
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-`;
-
-const gradientPulse = keyframes`
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
-`;
-
 // ─── STYLED ──────────────────────────────
 const Section = styled.section`
   position: relative;

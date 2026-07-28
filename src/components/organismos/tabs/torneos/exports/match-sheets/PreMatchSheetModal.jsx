@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useEffectEvent, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { createGlobalStyle } from "styled-components";
 import { v } from "../../../../../../styles/variables";
 import { Modal } from "../../../../Modal";
 import { Btnsave } from "../../../../../moleculas/Btnsave";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { RiPrinterLine } from "react-icons/ri";
 import { MatchSheetA4 } from "./MatchSheetA4"; 
 
@@ -62,15 +62,17 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
     const [players, setPlayers] = useState({ local: [], visit: [] });
     const [config, setConfig] = useState({ showPenalties: false });
 
+    const fetchDataEvent = useEffectEvent(fetchData);
+
     useEffect(() => {
         if (isOpen && matchId) {
-            fetchData();
+            fetchDataEvent();
         } else {
             setMatchData(null);
         }
     }, [isOpen, matchId]);
 
-    const fetchData = async () => {
+    async function fetchData() {
         setLoading(true);
         try {
             const { data: match, error: matchError } = await supabase
@@ -137,7 +139,7 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const handlePrint = () => {
         window.print();

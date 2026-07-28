@@ -16,7 +16,7 @@ export const normalizeDate = (dateInput) => {
         }
         // Soporte para ISO "2026-02-06T22:00:00.000Z"
         return dateStr.split('T')[0];
-    } catch (e) {
+    } catch {
         console.error("Error normalizando fecha:", dateInput);
         return "";
     }

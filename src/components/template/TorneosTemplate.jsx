@@ -1,20 +1,69 @@
-import React, { useCallback, useState, useEffect, useLayoutEffect, useRef } from "react";
+import React, {
+  lazy,
+  Suspense,
+  useCallback,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import styled from "styled-components";
 import { v } from "../../styles/variables";
-import { useNavigate, useParams } from "react-router-dom";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation"; 
 import { EmptyState } from "../organismos/EmptyState"; 
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
-import { TorneoDefinicionTab } from "../organismos/tabs/torneos/TorneoDefinicionTab";
 import { TorneoDefinitionModeLoading } from "../TorneoDefinitionMode";
 import { getTournamentAutoRedirectPreference } from "../../utils/tournamentPreferences";
-import { TorneoJornadasTab } from "../organismos/tabs/torneos/TorneoJornadasTab";
-import { TorneosStandingsTab } from "../organismos/tabs/torneos/TorneosStandingsTab";
-import { GoleadoresTab } from "../organismos/tabs/torneos/GoleadoresTab"; 
 import { Device } from "../../styles/breakpoints"; 
 import { getTopScorersService } from "../../services/estadisticas";
+import {
+  buildTournamentPath,
+  parseTournamentRoute,
+} from "../../lib/navigation/tournamentRoutes.js";
+
+const TorneoDefinicionTab = lazy(() =>
+  import("../organismos/tabs/torneos/TorneoDefinicionTab").then((module) => ({
+    default: module.TorneoDefinicionTab,
+  })),
+);
+const TorneoJornadasTab = lazy(() =>
+  import("../organismos/tabs/torneos/TorneoJornadasTab").then((module) => ({
+    default: module.TorneoJornadasTab,
+  })),
+);
+const TorneosStandingsTab = lazy(() =>
+  import("../organismos/tabs/torneos/TorneosStandingsTab").then((module) => ({
+    default: module.TorneosStandingsTab,
+  })),
+);
+const GoleadoresTab = lazy(() =>
+  import("../organismos/tabs/torneos/GoleadoresTab").then((module) => ({
+    default: module.GoleadoresTab,
+  })),
+);
+
+const TOURNAMENT_TAB_LIST = Object.freeze([
+  { id: "definir", label: "Torneo", icon: <v.iconocorona /> },
+  { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
+  {
+    id: "standings",
+    label: "Clasificacion",
+    icon: <RiBarChartGroupedLine />,
+  },
+  { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> },
+]);
+
+const navigateWithBrowser = (href, { replace = false } = {}) => {
+  if (typeof window === "undefined") return;
+  if (replace) {
+    window.location.replace(href);
+  } else {
+    window.location.assign(href);
+  }
+};
 
 export function TorneosTemplate({ 
   form, onChange, onSubmit, loading, divisionName, activeTournament,
@@ -23,51 +72,76 @@ export function TorneosTemplate({
   onTournamentReset, state, setState, partidos,
   onResetSetupDraft,
   currentDivisionId,
-  leagueData // <-- AHORA RECIBE LA LIGA DESDE LA PÁGINA
+  leagueData, // <-- AHORA RECIBE LA LIGA DESDE LA PÁGINA
+  jornadaId,
+  navigate = navigateWithBrowser,
+  pathname = "/torneos",
+  routeDivisionId,
+  tab,
+  tournamentOrTab,
 }) {
-  const navigate = useNavigate();
-  const {
-    divisionId: routeDivisionId,
-    torneoOrTab,
-    tab: tabOrJornadaId,
-    jornadaId: jornadaIdParam,
-  } = useParams();
-  
-  const tabList = [
-    { id: "definir", label: "Torneo", icon: <v.iconocorona /> },
-    { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
-    { id: "standings", label: "Clasificacion", icon: <RiBarChartGroupedLine /> },
-    { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> } 
-  ];
-
-  const validTabIds = tabList.map(t => t.id);
-  const routeHasTournamentId = /^\d+$/.test(String(torneoOrTab || ""));
-  const routeTournamentId = routeHasTournamentId ? torneoOrTab : null;
-  const routeTab = routeHasTournamentId ? tabOrJornadaId : torneoOrTab;
-  const routeJornadaId =
-    routeTab === "jornadas"
-      ? routeHasTournamentId
-        ? jornadaIdParam
-        : tabOrJornadaId
-      : null;
-  const isValidTab = validTabIds.includes(routeTab);
-  const shouldAutoRedirectToJornadas = getTournamentAutoRedirectPreference();
-  const defaultTab = activeTournament && shouldAutoRedirectToJornadas ? "jornadas" : "definir";
+  const tournamentRoute = useMemo(
+    () =>
+      parseTournamentRoute({
+        jornadaId,
+        tab,
+        tournamentOrTab,
+      }),
+    [jornadaId, tab, tournamentOrTab],
+  );
+  const routeTournamentId = tournamentRoute.tournamentId;
+  const routeTab = tournamentRoute.tab;
+  const routeJornadaId = tournamentRoute.jornadaId;
+  const isValidTab = tournamentRoute.isTabValid;
+  const [shouldAutoRedirectToJornadas, setShouldAutoRedirectToJornadas] =
+    useState(null);
+  const defaultTab =
+    activeTournament && shouldAutoRedirectToJornadas === true
+      ? "jornadas"
+      : "definir";
   const activeTab = isValidTab ? routeTab : defaultTab;
-  const isResolvingInitialTab = !isValidTab && isLoadingData;
+  const isResolvingInitialTab =
+    !isValidTab &&
+    (isLoadingData || shouldAutoRedirectToJornadas === null);
   const isWideView = ["jornadas", "standings", "goleadores"].includes(activeTab);
   const activeTournamentRef = useRef(activeTournament);
   const resetSetupDraftRef = useRef(onResetSetupDraft);
   const canResetOnUnmountRef = useRef(false);
   const visibleDivisionId = routeDivisionId || currentDivisionId;
   const visibleTournamentId = activeTournament?.id || routeTournamentId;
-  const getTorneosPath = useCallback((nextTabId) => {
-    const jornadaSuffix =
-      nextTabId === "jornadas" && routeJornadaId ? `/${routeJornadaId}` : "";
-    return visibleDivisionId
-      ? `/division/${visibleDivisionId}/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}${jornadaSuffix}`
-      : `/torneos${visibleTournamentId ? `/${visibleTournamentId}` : ""}/${nextTabId}${jornadaSuffix}`;
-  }, [routeJornadaId, visibleDivisionId, visibleTournamentId]);
+  const getTorneosPath = useCallback(
+    (
+      nextTabId,
+      nextJornadaId = nextTabId === "jornadas" ? routeJornadaId : "",
+    ) =>
+      buildTournamentPath({
+        divisionId: visibleDivisionId,
+        tournamentId: visibleTournamentId,
+        tab: nextTabId,
+        jornadaId: nextJornadaId,
+      }),
+    [routeJornadaId, visibleDivisionId, visibleTournamentId],
+  );
+  const getJornadaPath = useCallback(
+    (nextJornadaId) => getTorneosPath("jornadas", nextJornadaId),
+    [getTorneosPath],
+  );
+  const navigateWithinTournament = useCallback(
+    (href, options = {}) =>
+      navigate(href, {
+        ...options,
+        clientOnly: true,
+        preventScrollReset: true,
+      }),
+    [navigate],
+  );
+
+  useEffect(() => {
+    const preferenceTimer = window.setTimeout(() => {
+      setShouldAutoRedirectToJornadas(getTournamentAutoRedirectPreference());
+    }, 0);
+    return () => window.clearTimeout(preferenceTimer);
+  }, []);
 
   useEffect(() => {
     activeTournamentRef.current = activeTournament;
@@ -78,7 +152,7 @@ export function TorneosTemplate({
     if (!activeTournament && activeTab === "definir" && newTabId !== "definir") {
       onResetSetupDraft?.();
     }
-    navigate(getTorneosPath(newTabId));
+    navigateWithinTournament(getTorneosPath(newTabId));
   };
 
   useEffect(() => {
@@ -95,6 +169,8 @@ export function TorneosTemplate({
   }, []);
 
   useLayoutEffect(() => {
+    if (!isValidTab && shouldAutoRedirectToJornadas === null) return;
+
     if (!routeDivisionId && currentDivisionId && activeTab) {
       navigate(getTorneosPath(activeTab), { replace: true });
       return;
@@ -109,11 +185,16 @@ export function TorneosTemplate({
       return;
     }
 
+    if (tournamentRoute.needsRouteCleanup) {
+      navigate(getTorneosPath(activeTab), { replace: true });
+      return;
+    }
+
     if (isValidTab) return;
     if (isLoadingData && !activeTournament) return;
 
     navigate(getTorneosPath(defaultTab), { replace: true });
-  }, [activeTab, activeTournament, currentDivisionId, defaultTab, getTorneosPath, isLoadingData, isValidTab, navigate, routeDivisionId, routeTournamentId]);
+  }, [activeTab, activeTournament, currentDivisionId, defaultTab, getTorneosPath, isLoadingData, isValidTab, navigate, routeDivisionId, routeTournamentId, shouldAutoRedirectToJornadas, tournamentRoute.needsRouteCleanup]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
   const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;
@@ -122,27 +203,39 @@ export function TorneosTemplate({
   const headerMeasureRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(118);
 
-  const fetchGoleadores = useCallback(async () => {
+  const fetchGoleadores = useCallback(async ({ signal = null } = {}) => {
     if (!activeTournament?.id) {
       setGoleadores([]);
       return;
     }
     try {
-      const data = await getTopScorersService({ tournamentId: activeTournament.id, limit: 50 });
+      const data = await getTopScorersService({
+        tournamentId: activeTournament.id,
+        limit: 50,
+        signal,
+      });
+      if (signal?.aborted) return;
       setGoleadores(data || []);
     } catch (err) {
+      if (signal?.aborted) return;
       console.error("Error fetchGoleadores:", err);
       setGoleadores([]);
     }
-  }, [activeTournament]);
+  }, [activeTournament?.id]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(fetchGoleadores, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [fetchGoleadores]);
+    if (!["definir", "goleadores"].includes(activeTab)) return;
 
-  useEffect(() => {
-  }, [refreshStandings]);
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => fetchGoleadores({ signal: abortController.signal }),
+      0
+    );
+    return () => {
+      window.clearTimeout(timeoutId);
+      abortController.abort();
+    };
+  }, [activeTab, fetchGoleadores]);
 
   useLayoutEffect(() => {
     const node = headerMeasureRef.current;
@@ -183,7 +276,7 @@ export function TorneosTemplate({
             marginBottom="0"
             state={state}
             setState={setState}
-            tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+            tabs={<TabsNavigation tabs={TOURNAMENT_TAB_LIST} activeTab={activeTab} setActiveTab={handleTabChange} />}
           />
         </HeaderMeasure>
 
@@ -207,7 +300,7 @@ export function TorneosTemplate({
           marginBottom="0"
           state={state}
           setState={setState}
-          tabs={<TabsNavigation tabs={tabList} activeTab={activeTab} setActiveTab={handleTabChange} />}
+          tabs={<TabsNavigation tabs={TOURNAMENT_TAB_LIST} activeTab={activeTab} setActiveTab={handleTabChange} />}
         />
       </HeaderMeasure>
 
@@ -216,6 +309,13 @@ export function TorneosTemplate({
         $headerHeight={headerHeight}
       >
         <ContentGrid $isWide={isWideView}>
+          <Suspense
+            fallback={
+              <FullWidthTab $isConstrained={activeTab === "jornadas"}>
+                <TorneoDefinitionModeLoading />
+              </FullWidthTab>
+            }
+          >
           {activeTab === "definir" && (
             <FullWidthTab>
               <TorneoDefinicionTab 
@@ -225,6 +325,9 @@ export function TorneosTemplate({
                   onInclude={onInclude} onExclude={onExclude} minPlayers={minPlayers}
                   isLoading={isLoadingData} reglas={reglas} setReglas={setReglas}
                   onTournamentReset={onTournamentReset}
+                  onGoToJornadas={() =>
+                    navigateWithinTournament(getTorneosPath("jornadas", ""))
+                  }
                   standings={standings}
                   partidos={partidos}
                   goleadores={goleadores}
@@ -242,9 +345,13 @@ export function TorneosTemplate({
               ) : activeTournament ? (
                  <TorneoJornadasTab 
                     activeTournament={activeTournament} 
+                    buildJornadaPath={getJornadaPath}
+                    navigate={navigateWithinTournament}
+                    pathname={pathname}
                     participatingTeams={participatingTeamsObj} 
                     refreshStandings={refreshStandings}
                     divisionName={divisionName}
+                    routeJornadaId={routeJornadaId}
                  />
               ) : (
                  <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
@@ -296,8 +403,9 @@ export function TorneosTemplate({
               ) : (
                  <EmptyState title="Sin Datos" description="Inicia un torneo para ver goleadores." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />
               )}
-            </FullWidthTab>
+             </FullWidthTab>
           )}
+          </Suspense>
         </ContentGrid>
       </StyledContentContainer>
     </>

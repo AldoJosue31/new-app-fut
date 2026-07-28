@@ -1,5 +1,5 @@
 import React from "react";
-import { landingCopy } from "../../pages/landing/copy";
+import { landingCopy } from "../../views/landing/copy";
 
 // ─── Nav links estructurales del footer ─────────────────────────────────────
 const FOOTER_SECTIONS = [

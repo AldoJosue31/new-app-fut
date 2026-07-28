@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "../../supabase/supabase.config";
+import { supabase } from "../../lib/supabase/browserClient.js";
 import { useAuthStore } from "../../store/AuthStore";
 
 let ligaCache = {

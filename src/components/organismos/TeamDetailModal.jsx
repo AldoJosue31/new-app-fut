@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import dynamic from "next/dynamic";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "./Modal";
+import { Skeleton } from "../atomos/Skeleton";
 import { useSort } from "../../hooks/useSort";
-import { supabase } from "../../supabase/supabase.config";
+import { supabase } from "../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../services/estadisticas";
 import {
   getTeamDelegateChangeRequests,
@@ -12,19 +14,65 @@ import {
   STATS_TABS,
   TEAM_DETAIL_VIEWS,
 } from "./teamDetailModal/constants";
-import { TeamDetailDelegateRequestsView } from "./teamDetailModal/submenus/TeamDetailDelegateRequestsView";
 import { TeamDetailOverviewView } from "./teamDetailModal/submenus/TeamDetailOverviewView";
-import { TeamDetailPlayersView } from "./teamDetailModal/submenus/TeamDetailPlayersView";
-import { TeamDetailStatsView } from "./teamDetailModal/submenus/TeamDetailStatsView";
 import { DetailContainer } from "./teamDetailModal/styles";
 
-const subscribeToWindowWidth = (onStoreChange) => {
-  window.addEventListener("resize", onStoreChange);
-  return () => window.removeEventListener("resize", onStoreChange);
-};
+function TeamDetailViewLoading() {
+  return (
+    <div
+      aria-busy="true"
+      aria-label="Cargando vista del equipo"
+      style={{ display: "grid", gap: "12px", width: "100%" }}
+    >
+      <Skeleton width="34%" height="36px" />
+      <Skeleton width="100%" height="92px" />
+      <Skeleton width="100%" height="92px" />
+      <Skeleton width="100%" height="92px" />
+    </div>
+  );
+}
 
-const getWindowWidth = () => window.innerWidth;
-const getServerWindowWidth = () => 1024;
+const TeamDetailDelegateRequestsView = dynamic(
+  () =>
+    import(
+      "./teamDetailModal/submenus/TeamDetailDelegateRequestsView"
+    ).then((module) => module.TeamDetailDelegateRequestsView),
+  { loading: TeamDetailViewLoading, ssr: false },
+);
+const TeamDetailPlayersView = dynamic(
+  () =>
+    import("./teamDetailModal/submenus/TeamDetailPlayersView").then(
+      (module) => module.TeamDetailPlayersView,
+    ),
+  { loading: TeamDetailViewLoading, ssr: false },
+);
+const TeamDetailStatsView = dynamic(
+  () =>
+    import("./teamDetailModal/submenus/TeamDetailStatsView").then(
+      (module) => module.TeamDetailStatsView,
+    ),
+  { loading: TeamDetailViewLoading, ssr: false },
+);
+
+const playerSortOptions = Object.freeze(
+  PLAYER_SORT_OPTIONS.map((option) => {
+    const OptionIcon = option.Icon;
+    return {
+      ...option,
+      icon: <OptionIcon />,
+    };
+  }),
+);
+
+const statsTabs = Object.freeze(
+  STATS_TABS.map((tab) => {
+    const TabIcon = tab.Icon;
+    return {
+      ...tab,
+      icon: <TabIcon />,
+    };
+  }),
+);
 
 export function TeamDetailModal({
   isOpen,
@@ -42,17 +90,21 @@ export function TeamDetailModal({
   const [activeStatsTab, setActiveStatsTab] = useState("results");
   const [statsData, setStatsData] = useState(null);
   const [hasActiveTournament, setHasActiveTournament] = useState(false);
+  const [loadingTournamentStatus, setLoadingTournamentStatus] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [delegateRequests, setDelegateRequests] = useState([]);
   const [loadingDelegateRequests, setLoadingDelegateRequests] = useState(false);
 
   const initializedForTeamRef = useRef(null);
-
-  const windowWidth = useSyncExternalStore(
-    subscribeToWindowWidth,
-    getWindowWidth,
-    getServerWindowWidth,
-  );
+  const wasOpenRef = useRef(false);
+  const activeTournamentRef = useRef(null);
+  const playersLoadedForTeamRef = useRef(null);
+  const statsLoadedForTeamRef = useRef(null);
+  const delegateRequestsLoadedForTeamRef = useRef(null);
+  const playersRef = useRef([]);
+  const statsDataRef = useRef(null);
+  const delegateRequestsRef = useRef([]);
+  const requestAbortControllerRef = useRef(null);
   const resultsRailRef = useRef(null);
   const upcomingRailRef = useRef(null);
 
@@ -70,33 +122,130 @@ export function TeamDetailModal({
     direction: "descending",
   });
 
-  const checkTournamentStatus = useCallback(async () => {
-    if (!team || !division) return;
+  const loadTournamentStatus = useCallback(async () => {
+    const teamId = team?.id;
+    const divisionId = division?.id;
+    if (!teamId || !divisionId) return null;
+    if (activeTournamentRef.current) return activeTournamentRef.current;
 
-    setLoadingStats(true);
-
+    const signal = requestAbortControllerRef.current?.signal;
+    setLoadingTournamentStatus(true);
     try {
-      const { data: torneoSel, error: tournamentError } = await supabase
+      let query = supabase
         .from("tournaments")
-        .select("id")
-        .eq("division_id", division.id)
+        .select("id, config")
+        .eq("division_id", divisionId)
         .eq("status", "Activo")
-        .single();
+        .maybeSingle();
+      if (signal) query = query.abortSignal(signal);
 
-      if (tournamentError || !torneoSel) {
-        console.warn(
-          "TeamDetailModal.checkTournamentStatus: No hay torneo activo para la division",
-          { error: tournamentError }
-        );
-        setHasActiveTournament(false);
-        setStatsData(null);
-        return;
+      const { data: torneoSel, error: tournamentError } = await query;
+
+      if (signal?.aborted || initializedForTeamRef.current !== teamId) {
+        return null;
       }
 
-      const tournamentId = torneoSel.id;
-      setHasActiveTournament(true);
+      if (tournamentError) {
+        console.error(
+          "TeamDetailModal.loadTournamentStatus:",
+          tournamentError,
+        );
+      }
 
-      const data = await getTeamTournamentStats(team.id, division.id);
+      if (tournamentError || !torneoSel) {
+        activeTournamentRef.current = null;
+        setHasActiveTournament(false);
+        setStatsData(null);
+        return null;
+      }
+
+      activeTournamentRef.current = torneoSel;
+      setHasActiveTournament(true);
+      return torneoSel;
+    } catch (error) {
+      if (initializedForTeamRef.current === teamId) {
+        console.error(
+          "TeamDetailModal.loadTournamentStatus - unexpected error:",
+          error,
+        );
+        activeTournamentRef.current = null;
+        setHasActiveTournament(false);
+        setStatsData(null);
+      }
+      return null;
+    } finally {
+      if (initializedForTeamRef.current === teamId) {
+        setLoadingTournamentStatus(false);
+      }
+    }
+  }, [division?.id, team?.id]);
+
+  const loadPlayers = useCallback(async (force = false) => {
+    const teamId = team?.id;
+    if (!teamId) return [];
+    if (!force && playersLoadedForTeamRef.current === teamId) {
+      return playersRef.current;
+    }
+
+    const signal = requestAbortControllerRef.current?.signal;
+    setLoadingPlayers(true);
+    try {
+      let query = supabase
+        .from("players")
+        .select("*")
+        .eq("team_id", teamId);
+      if (signal) query = query.abortSignal(signal);
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      if (signal?.aborted || initializedForTeamRef.current !== teamId) {
+        return [];
+      }
+
+      const nextPlayers = data || [];
+      playersLoadedForTeamRef.current = teamId;
+      playersRef.current = nextPlayers;
+      setPlayers(nextPlayers);
+      return nextPlayers;
+    } catch (error) {
+      if (initializedForTeamRef.current === teamId) {
+        console.error("Error cargando la plantilla:", error);
+        setPlayers([]);
+      }
+      return [];
+    } finally {
+      if (initializedForTeamRef.current === teamId) {
+        setLoadingPlayers(false);
+      }
+    }
+  }, [team?.id]);
+
+  const loadStats = useCallback(async (knownTournament = null, force = false) => {
+    const teamId = team?.id;
+    const divisionId = division?.id;
+    if (!teamId || !divisionId) return null;
+    if (!force && statsLoadedForTeamRef.current === teamId) {
+      return statsDataRef.current;
+    }
+
+    const signal = requestAbortControllerRef.current?.signal;
+    setLoadingStats(true);
+    try {
+      const tournament =
+        knownTournament ||
+        activeTournamentRef.current ||
+        (await loadTournamentStatus());
+      if (!tournament) return null;
+
+      const data = await getTeamTournamentStats(teamId, divisionId, {
+        tournament,
+        signal,
+      });
+      if (signal?.aborted || initializedForTeamRef.current !== teamId) {
+        return null;
+      }
+
       const safeData =
         data && data.hasTournament
           ? data
@@ -106,45 +255,86 @@ export function TeamDetailModal({
               upcomingRivals: [],
               playerStats: [],
             };
-
-      setStatsData({
+      const nextStatsData = {
         ...safeData,
-        tournamentId,
-      });
-    } catch (error) {
-      console.error("TeamDetailModal.checkTournamentStatus - unexpected error:", error);
-      setHasActiveTournament(false);
-      setStatsData(null);
-    } finally {
-      setLoadingStats(false);
-    }
-  }, [division, team]);
+        tournamentId: tournament.id,
+      };
 
-  const loadDelegateRequests = useCallback(async () => {
-    if (!team?.id) return [];
+      statsLoadedForTeamRef.current = teamId;
+      statsDataRef.current = nextStatsData;
+      setStatsData(nextStatsData);
+      return nextStatsData;
+    } catch (error) {
+      if (initializedForTeamRef.current === teamId) {
+        console.error("Error cargando las estadísticas:", error);
+        setStatsData(null);
+      }
+      return null;
+    } finally {
+      if (initializedForTeamRef.current === teamId) {
+        setLoadingStats(false);
+      }
+    }
+  }, [division?.id, loadTournamentStatus, team?.id]);
+
+  const loadDelegateRequests = useCallback(async (force = false) => {
+    const teamId = team?.id;
+    if (!teamId) return [];
+    if (
+      !force &&
+      delegateRequestsLoadedForTeamRef.current === teamId
+    ) {
+      return delegateRequestsRef.current;
+    }
+
+    const signal = requestAbortControllerRef.current?.signal;
     setLoadingDelegateRequests(true);
     try {
-      const requests = await getTeamDelegateChangeRequests(team.id);
+      const requests = await getTeamDelegateChangeRequests(teamId, { signal });
+      if (signal?.aborted || initializedForTeamRef.current !== teamId) {
+        return [];
+      }
+
+      delegateRequestsLoadedForTeamRef.current = teamId;
+      delegateRequestsRef.current = requests;
       setDelegateRequests(requests);
       return requests;
     } catch (error) {
-      console.error("Error cargando solicitudes del delegado:", error);
-      setDelegateRequests([]);
+      if (initializedForTeamRef.current === teamId) {
+        console.error("Error cargando solicitudes del delegado:", error);
+        setDelegateRequests([]);
+      }
       return [];
     } finally {
-      setLoadingDelegateRequests(false);
+      if (initializedForTeamRef.current === teamId) {
+        setLoadingDelegateRequests(false);
+      }
     }
   }, [team?.id]);
 
   useEffect(() => {
     if (!isOpen) {
+      if (!wasOpenRef.current) return;
+
+      wasOpenRef.current = false;
+      requestAbortControllerRef.current?.abort();
+      requestAbortControllerRef.current = null;
       initializedForTeamRef.current = null;
+      activeTournamentRef.current = null;
+      playersLoadedForTeamRef.current = null;
+      statsLoadedForTeamRef.current = null;
+      delegateRequestsLoadedForTeamRef.current = null;
+      playersRef.current = [];
+      statsDataRef.current = null;
+      delegateRequestsRef.current = [];
       setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW);
       setActiveStatsTab("results");
       setPlayers([]);
       setStatsData(null);
       setHasActiveTournament(false);
       setLoadingPlayers(false);
+      setLoadingStats(false);
+      setLoadingTournamentStatus(false);
       setDelegateRequests([]);
       setLoadingDelegateRequests(false);
       return;
@@ -154,8 +344,23 @@ export function TeamDetailModal({
 
     // Si ya se inicializó para este equipo, no resetear (evita que cambiar de pestaña/ventana regrese a OVERVIEW)
     if (initializedForTeamRef.current === team.id) return;
+    wasOpenRef.current = true;
+    requestAbortControllerRef.current?.abort();
+    requestAbortControllerRef.current = new AbortController();
     initializedForTeamRef.current = team.id;
 
+    activeTournamentRef.current = null;
+    playersLoadedForTeamRef.current = null;
+    statsLoadedForTeamRef.current = null;
+    delegateRequestsLoadedForTeamRef.current = null;
+    playersRef.current = [];
+    statsDataRef.current = null;
+    delegateRequestsRef.current = [];
+    setPlayers([]);
+    setStatsData(null);
+    setHasActiveTournament(false);
+    setLoadingPlayers(false);
+    setLoadingStats(false);
     setDelegateRequests([]);
     setLoadingDelegateRequests(false);
     
@@ -163,53 +368,52 @@ export function TeamDetailModal({
       setActiveView(TEAM_DETAIL_VIEWS.STATS);
     } else if (initialView === "delegate-requests") {
       setActiveView(TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS);
-      loadDelegateRequests();
+      void loadDelegateRequests();
     } else {
       setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW);
     }
     
     setActiveStatsTab("results");
 
-    if (division) {
-      checkTournamentStatus();
-      return;
+    if (initialView === "stats") {
+      void loadStats();
+    } else if (division) {
+      void loadTournamentStatus();
     }
+  }, [
+    division,
+    initialView,
+    isOpen,
+    loadDelegateRequests,
+    loadStats,
+    loadTournamentStatus,
+    team,
+  ]);
 
-    setHasActiveTournament(false);
-    setStatsData(null);
-  }, [checkTournamentStatus, division, initialView, isOpen, loadDelegateRequests, team]);
+  useEffect(
+    () => () => {
+      requestAbortControllerRef.current?.abort();
+      requestAbortControllerRef.current = null;
+    },
+    [],
+  );
 
-  const handleShowPlayers = async () => {
+  const handleShowPlayers = () => {
     if (!team) return;
 
     setActiveView(TEAM_DETAIL_VIEWS.PLAYERS);
-    setLoadingPlayers(true);
-
-    try {
-      const { data } = await supabase
-        .from("players")
-        .select("*")
-        .eq("team_id", team.id);
-
-      setPlayers(data || []);
-    } catch (error) {
-      console.error(error);
-      setPlayers([]);
-    } finally {
-      setLoadingPlayers(false);
-    }
+    void loadPlayers();
   };
 
   const handleShowStats = () => {
     setActiveStatsTab("results");
     setActiveView(TEAM_DETAIL_VIEWS.STATS);
+    void loadStats();
   };
 
-
-
-  const handleShowDelegateRequests = async () => {
+  const handleShowDelegateRequests = () => {
     setActiveView(TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS);
-    await loadDelegateRequests();
+    void loadDelegateRequests();
   };
 
   const handleReviewDelegateRequest = async ({
@@ -223,28 +427,12 @@ export function TeamDetailModal({
       reviewNotes,
     });
 
-    await loadDelegateRequests();
+    await loadDelegateRequests(true);
     onDelegateRequestsUpdated?.(result);
     return result;
   };
 
   if (!team) return null;
-
-  const sortOptions = PLAYER_SORT_OPTIONS.map((option) => {
-    const OptionIcon = option.Icon;
-    return {
-      ...option,
-      icon: <OptionIcon />,
-    };
-  });
-
-  const statsTabs = STATS_TABS.map((tab) => {
-    const TabIcon = tab.Icon;
-    return {
-      ...tab,
-      icon: <TabIcon />,
-    };
-  });
 
   const getModalTitle = () => {
     if (activeView === TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS) {
@@ -258,9 +446,6 @@ export function TeamDetailModal({
   };
 
   const getModalWidth = () => {
-    const isMobile = windowWidth < 768;
-    if (isMobile) return "100%";
-
     if (activeView === TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS) return "960px";
     return activeView === TEAM_DETAIL_VIEWS.OVERVIEW ? "550px" : "850px";
   };
@@ -281,7 +466,7 @@ export function TeamDetailModal({
             onSortChange={requestSort}
             players={players}
             sortConfig={sortConfig}
-            sortOptions={sortOptions}
+            sortOptions={playerSortOptions}
             sortedPlayers={sortedPlayers}
           />
         )}
@@ -308,7 +493,7 @@ export function TeamDetailModal({
             canReview={canReviewDelegateRequests}
             loading={loadingDelegateRequests}
             onBack={() => setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW)}
-            onRefresh={loadDelegateRequests}
+            onRefresh={() => loadDelegateRequests(true)}
             onReview={handleReviewDelegateRequest}
             requests={delegateRequests}
             team={team}
@@ -319,7 +504,7 @@ export function TeamDetailModal({
           <TeamDetailOverviewView
             division={division}
             hasActiveTournament={hasActiveTournament}
-            loadingStats={loadingStats}
+            loadingStats={loadingTournamentStatus}
             onShowDelegateRequests={handleShowDelegateRequests}
             onShowPlayers={handleShowPlayers}
             onShowStats={handleShowStats}

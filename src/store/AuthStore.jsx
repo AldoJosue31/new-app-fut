@@ -1,11 +1,24 @@
 import { create } from 'zustand';
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
+import {
+  buildAuthCallbackPath,
+  ROUTES,
+} from "../lib/navigation/routes.js";
+import { useDivisionStore } from './DivisionStore';
 import { useEquiposStore } from './EquiposStore';
 import { ROLES } from '../utils/constants';
 
 export const useAuthStore = create((set, get) => {
   const clearSessionState = () => {
-    set({ user: null, profile: null });
+    set({
+      authLoadingAction: false,
+      isLoading: false,
+      profile: null,
+      serverAuthReason: null,
+      serverAuthStatus: "anonymous",
+      user: null,
+    });
+    useDivisionStore.getState().resetStore();
     useEquiposStore.getState().resetStore();
   };
 
@@ -90,7 +103,7 @@ export const useAuthStore = create((set, get) => {
 
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('id, role, is_suspended')
+          .select('*')
           .eq('id', sessionUser.id)
           .single();
 
@@ -125,21 +138,30 @@ export const useAuthStore = create((set, get) => {
           throw suspendedError;
         }
 
-        set({ user: sessionUser });
+        set({
+          isLoading: false,
+          profile,
+          serverAuthReason: null,
+          serverAuthStatus: "authenticated",
+          user: sessionUser,
+        });
         return data;
       } finally {
         set({ authLoadingAction: false });
       }
     },
 
-    loginGoogle: async () => {
+    loginGoogle: async (returnPath = ROUTES.DASHBOARD) => {
       set({ authLoadingAction: true });
 
       try {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: new URL('/login', window.location.origin).toString(),
+            redirectTo: buildAuthCallbackPath(
+              window.location.origin,
+              returnPath,
+            ),
             queryParams: {
               prompt: 'select_account',
             },
@@ -190,10 +212,47 @@ export const useAuthStore = create((set, get) => {
 
     fetchProfile,
 
+    hydrateServerAuth: (snapshot) => {
+      if (snapshot?.status === "authenticated") {
+        set({
+          isLoading: false,
+          profile: snapshot.profile,
+          serverAuthReason: null,
+          serverAuthStatus: snapshot.status,
+          user: snapshot.user,
+        });
+        return;
+      }
+
+      if (snapshot?.status === "profile-unavailable") {
+        set({
+          isLoading: true,
+          profile: null,
+          serverAuthReason: snapshot.reason || null,
+          serverAuthStatus: snapshot.status,
+          user: snapshot.user || null,
+        });
+        return;
+      }
+
+      set({
+        isLoading: false,
+        profile: null,
+        serverAuthReason: snapshot?.reason || null,
+        serverAuthStatus: snapshot?.status || "anonymous",
+        user: null,
+      });
+    },
+
+    clearSessionState,
+    setAuthState: (nextState) => set(nextState),
+
     user: null,
     profile: null,
     isLoading: true,
     authLoadingAction: false,
+    serverAuthReason: null,
+    serverAuthStatus: "pending",
   };
 
   return actions;

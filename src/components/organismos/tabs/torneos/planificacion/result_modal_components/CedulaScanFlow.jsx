@@ -9,7 +9,7 @@ import {
   RiScan2Line,
 } from "react-icons/ri";
 import { v } from "../../../../../../styles/variables";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import {
   findBestScanMatch,
   getScannedDateReview,
@@ -295,9 +295,9 @@ export function CedulaScanFlow({
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
-  const initialCooldownUntil = useRef(readScanCooldownUntil());
-  const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
-  const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [cooldownHydrated, setCooldownHydrated] = useState(false);
   const [applyScannedDate, setApplyScannedDate] = useState(false);
   const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [scoreResolutions, setScoreResolutions] = useState({});
@@ -307,7 +307,7 @@ export function CedulaScanFlow({
   const progressTimerRef = useRef(null);
   const preparedImageRef = useRef(null);
   const scanInFlightRef = useRef(false);
-  const cooldownUntilRef = useRef(initialCooldownUntil.current);
+  const cooldownUntilRef = useRef(0);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -315,6 +315,14 @@ export function CedulaScanFlow({
     update();
     query.addEventListener?.("change", update);
     return () => query.removeEventListener?.("change", update);
+  }, []);
+
+  useEffect(() => {
+    const storedCooldownUntil = readScanCooldownUntil();
+    cooldownUntilRef.current = storedCooldownUntil;
+    setCooldownUntil(storedCooldownUntil);
+    setCooldownSeconds(secondsUntil(storedCooldownUntil));
+    setCooldownHydrated(true);
   }, []);
 
   const scanContext = useMemo(() => ({
@@ -347,6 +355,8 @@ export function CedulaScanFlow({
   }, []);
 
   useEffect(() => {
+    if (!cooldownHydrated) return undefined;
+
     cooldownUntilRef.current = cooldownUntil;
     let timerId = null;
     const updateCooldown = () => {
@@ -362,7 +372,7 @@ export function CedulaScanFlow({
     return () => {
       if (timerId) window.clearInterval(timerId);
     };
-  }, [cooldownUntil]);
+  }, [cooldownHydrated, cooldownUntil]);
 
   useEffect(() => {
     const syncCooldownAcrossTabs = (event) => {

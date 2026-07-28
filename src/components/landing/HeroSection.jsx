@@ -2,9 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { landingCopy } from "../../pages/landing/copy";
+import { landingCopy } from "../../views/landing/copy";
 import RealStandingsTable from "../organismos/tabs/torneos/subcomponents/StandingsTable";
 import { Toast } from "../atomos/Toast";
 
@@ -112,12 +111,12 @@ export default function HeroSection() {
             <p className="lp-lead">{hero.subtitle}</p>
 
             <ButtonGroup>
-              <Link to="/login" className="lp-btn lp-btn-primary" id="hero-cta-primary">
+              <a href="/login" className="lp-btn lp-btn-primary" id="hero-cta-primary">
                 {hero.ctaPrimary} <span className="arrow-icon"><Icon icon="mdi:arrow-right" /></span>
-              </Link>
-              <Link to="/login" className="lp-btn lp-btn-ghost" id="hero-cta-secondary">
+              </a>
+              <a href="/login" className="lp-btn lp-btn-ghost" id="hero-cta-secondary">
                 <Icon icon="mdi:play" width={16} /> {hero.ctaSecondary}
-              </Link>
+              </a>
             </ButtonGroup>
 
             <StatsGroup>

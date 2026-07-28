@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
+import { MdMenu } from 'react-icons/md';
 import { Title } from '../atomos/Title';
-import { v } from '../../styles/variables';
 
 const HeaderContainer = styled.div`
   display: flex;
@@ -133,7 +133,7 @@ export const PageHeader = ({ title, children, tabs, maxWidth, marginBottom, stat
           <LeftArea>
             {setState && (
               <MenuButton onClick={() => setState(!state)}>
-                <v.iconomenu />
+                <MdMenu />
               </MenuButton>
             )}
           </LeftArea>

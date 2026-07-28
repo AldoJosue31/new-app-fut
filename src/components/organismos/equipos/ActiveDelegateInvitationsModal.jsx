@@ -368,7 +368,7 @@ export function ActiveDelegateInvitationsModal({
   onGenerateBasicInvitations,
   onDismissBasicInvitationFooter,
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(0);
   const [sort, setSort] = useState({ key: "status", direction: "asc" });
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingInvitation, setEditingInvitation] = useState(null);

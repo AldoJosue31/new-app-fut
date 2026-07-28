@@ -77,7 +77,7 @@ export function ConfiguracionTemplate({ state, setState }) {
   const handleLinkGoogle = async () => {
     setLoadingLink(true);
     try {
-      await linkGoogleIdentity(`${window.location.origin}/configuracion`);
+      await linkGoogleIdentity();
     } catch (error) {
       alert("Error: " + error.message);
       setLoadingLink(false);

@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "@google/genai": "npm:@google/genai@2.11.0",
+    "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.110.8"
+  },
+  "tasks": {
+    "test:edge": "deno test --allow-env --allow-net supabase/functions"
+  }
+}

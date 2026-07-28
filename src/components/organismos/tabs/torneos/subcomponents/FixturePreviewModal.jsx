@@ -1,4 +1,14 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+"use client";
+
+import dynamic from "next/dynamic";
+import React, {
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../styles/variables";
@@ -11,13 +21,23 @@ import {
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
-import { RolJuegoScanFlow } from "./RolJuegoScanFlow";
 import { ConfirmModal } from "../../../ConfirmModal";
 import { validarFixture } from "../../../../../utils/fixtureAlgorithms";
 import {
     isOfficialJornadaName,
     isRepositionJornadaName,
 } from "../../../../../utils/jornadaUtils";
+
+const RolJuegoScanFlow = dynamic(
+    () =>
+        import("./RolJuegoScanFlow").then(
+            (module) => module.RolJuegoScanFlow,
+        ),
+    {
+        loading: () => null,
+        ssr: false,
+    },
+);
 
 const ROUND_ANIMATION_MS = 220;
 const sortRoundIndexes = (indexes) => [...indexes].sort((a, b) => Number(a) - Number(b));
@@ -380,6 +400,11 @@ export function FixturePreviewModal({
     divisionName = "",
     tournamentName = "",
 }) {
+    const mounted = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
     const roundAnimationTimersRef = useRef({});
     const prevVisibleRoundsRef = useRef([]);
     const manualTextRoundsRef = useRef(new Set());
@@ -938,7 +963,7 @@ export function FixturePreviewModal({
         clearAllRoundTimers(roundAnimationTimersRef);
     }, []);
 
-    if (!isOpen) return null;
+    if (!mounted || !isOpen) return null;
 
     const displayedRoundIndexes =
         renderedRoundIndexes.length === 0 && visibleRoundIndexes.length > 0

@@ -11,28 +11,40 @@ export function TabsNavigation({
 }) {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, opacity: 0 });
   const containerRef = useRef(null);
-  const tabsRef = useRef([]);
+  const tabsRef = useRef(new Map());
   const rafRef = useRef(null);
 
   const updateIndicator = useCallback(() => {
-    const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
-    const currentTab = tabsRef.current[activeIndex];
+    const currentTab = tabsRef.current.get(activeTab);
 
     if (!currentTab) return;
 
-    setIndicatorStyle({
-      left: currentTab.offsetLeft,
-      width: currentTab.offsetWidth,
-      opacity: 1,
+    const nextLeft = currentTab.offsetLeft;
+    const nextWidth = currentTab.offsetWidth;
+
+    setIndicatorStyle((current) => {
+      if (
+        current.left === nextLeft &&
+        current.width === nextWidth &&
+        current.opacity === 1
+      ) {
+        return current;
+      }
+
+      return {
+        left: nextLeft,
+        width: nextWidth,
+        opacity: 1,
+      };
     });
-  }, [activeTab, tabs]);
+  }, [activeTab]);
 
   const scheduleIndicatorUpdate = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
       updateIndicator();
-      requestAnimationFrame(updateIndicator);
     });
   }, [updateIndicator]);
 
@@ -45,27 +57,20 @@ export function TabsNavigation({
   }, [scheduleIndicatorUpdate]);
 
   useEffect(() => {
-    const handleResize = () => scheduleIndicatorUpdate();
-    window.addEventListener("resize", handleResize);
-
     let resizeObserver = null;
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(() => scheduleIndicatorUpdate());
 
       if (containerRef.current) resizeObserver.observe(containerRef.current);
-      tabsRef.current.forEach((tab) => {
-        if (tab) resizeObserver.observe(tab);
-      });
+    } else {
+      window.addEventListener("resize", scheduleIndicatorUpdate);
     }
 
-    const timeoutId = setTimeout(scheduleIndicatorUpdate, 80);
-
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", scheduleIndicatorUpdate);
       if (resizeObserver) resizeObserver.disconnect();
-      clearTimeout(timeoutId);
     };
-  }, [scheduleIndicatorUpdate, tabs]);
+  }, [scheduleIndicatorUpdate]);
 
   return (
     <Container ref={containerRef}>
@@ -76,11 +81,15 @@ export function TabsNavigation({
           opacity: indicatorStyle.opacity,
         }}
       />
-      {tabs.map((tab, index) => (
+      {tabs.map((tab) => (
         <TabButton
           key={tab.id}
           ref={(el) => {
-            tabsRef.current[index] = el;
+            if (el) {
+              tabsRef.current.set(tab.id, el);
+            } else {
+              tabsRef.current.delete(tab.id);
+            }
           }}
           $active={activeTab === tab.id}
           $showLabelsOnMobile={showLabelsOnMobile}
@@ -108,6 +117,10 @@ export const TabContent = styled.div`
     to {
       opacity: 1;
     }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 `;
 

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useEffectEvent, useCallback, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import styled, { keyframes } from "styled-components";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Toast } from "../../../atomos/Toast";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
-import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
 import {
   actualizarConfigTorneoService,
   bulkInsertMatchesService,
@@ -37,7 +36,22 @@ import {
 } from "../../../../utils/jornadaUtils";
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
-import { NormalizeJornadaDatesModal } from "./planificacion/NormalizeJornadaDatesModal";
+
+const FixturePreviewModal = dynamic(
+  () =>
+    import("./subcomponents/FixturePreviewModal").then(
+      (module) => module.FixturePreviewModal
+    ),
+  { loading: () => null, ssr: false }
+);
+
+const NormalizeJornadaDatesModal = dynamic(
+  () =>
+    import("./planificacion/NormalizeJornadaDatesModal").then(
+      (module) => module.NormalizeJornadaDatesModal
+    ),
+  { loading: () => null, ssr: false }
+);
 
 const getDateDurationDays = (startDate, endDate) => {
   if (!startDate || !endDate) return null;
@@ -317,25 +331,14 @@ const buildMatchWeekPreview = ({
 
 export function TorneoJornadasTab({
   activeTournament: initialTournament,
+  buildJornadaPath,
+  navigate,
+  pathname = "/torneos/jornadas",
   participatingTeams,
   refreshStandings,
   divisionName = "",
+  routeJornadaId,
 }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const {
-    torneoOrTab,
-    tab: tabOrJornadaId,
-    jornadaId: jornadaIdParam,
-  } = useParams();
-  const routeHasTournamentId = /^\d+$/.test(String(torneoOrTab || ""));
-  const routeTab = routeHasTournamentId ? tabOrJornadaId : torneoOrTab;
-  const routeJornadaId =
-    routeTab === "jornadas"
-      ? routeHasTournamentId
-        ? jornadaIdParam
-        : tabOrJornadaId
-      : null;
   const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
   const [repositionMappings, setRepositionMappings] = useState([]);
@@ -353,6 +356,7 @@ export function TorneoJornadasTab({
   const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
   const currentJornadaMatchesRequestRef = useRef(0);
+  const routeJornadaMatchesRequestRef = useRef(0);
 
   const tournamentConfig = useMemo(() => {
     if (!activeTournament?.config) return {};
@@ -371,38 +375,23 @@ export function TorneoJornadasTab({
     setActiveTournament(initialTournament);
   }, [initialTournament]);
 
-  useEffect(() => {
-    if (activeTournament?.id) {
-        loadTournamentData();
-    }
-  }, [activeTournament?.id]);
-
-  const buildJornadaPath = useCallback(
-    (jornadaId) => {
-      if (!jornadaId) return location.pathname;
-
-      const cleanPath = location.pathname.replace(/\/+$/, "");
-      const nextJornadaPath = `/jornadas/${jornadaId}`;
-
-      if (/\/jornadas(?:\/[^/]+)?$/.test(cleanPath)) {
-        return cleanPath.replace(/\/jornadas(?:\/[^/]+)?$/, nextJornadaPath);
-      }
-
-      return `${cleanPath}${nextJornadaPath}`;
-    },
-    [location.pathname]
-  );
-
   const syncJornadaPath = useCallback(
     (jornadaId, options = {}) => {
-      if (!jornadaId || !location.pathname.includes("/jornadas")) return;
+      if (
+        !jornadaId ||
+        !pathname.includes("/jornadas") ||
+        typeof buildJornadaPath !== "function" ||
+        typeof navigate !== "function"
+      ) {
+        return;
+      }
 
       const nextPath = buildJornadaPath(jornadaId);
-      if (nextPath !== location.pathname.replace(/\/+$/, "")) {
+      if (nextPath !== pathname.replace(/\/+$/, "")) {
         navigate(nextPath, options);
       }
     },
-    [buildJornadaPath, location.pathname, navigate]
+    [buildJornadaPath, navigate, pathname]
   );
 
   const resolveSelectedJornada = useCallback((sortedJornadas = [], preferredJornadaId = null) => {
@@ -480,7 +469,7 @@ export function TorneoJornadasTab({
       }
   };
 
-  const loadTournamentData = useCallback(async ({ preserveData = false } = {}) => {
+  const loadTournamentData = async ({ preserveData = false } = {}) => {
       setLoading(true);
       if (!preserveData) {
         setJornadas([]);
@@ -511,7 +500,7 @@ export function TorneoJornadasTab({
       } finally {
         setLoading(false);
       }
-  }, [activeTournament?.id, currentJornadaIndex, routeJornadaId]);
+  };
 
   const fetchAllTournamentMatches = async () => {
       try {
@@ -693,6 +682,17 @@ export function TorneoJornadasTab({
           if (throwOnError) throw error;
       }
   };
+
+  const loadTournamentDataEvent = useEffectEvent(loadTournamentData);
+  const fetchCurrentJornadaMatchesEvent = useEffectEvent(
+    fetchCurrentJornadaMatches
+  );
+
+  useEffect(() => {
+    if (activeTournament?.id) {
+      loadTournamentDataEvent();
+    }
+  }, [activeTournament?.id]);
 
   const handleOpenFixtureEditor = async () => {
       setLoading(true);
@@ -1115,27 +1115,24 @@ export function TorneoJornadasTab({
     if (targetIndex === -1 || targetIndex === currentJornadaIndex) return;
 
     const targetJornada = jornadas[targetIndex];
-    let isCancelled = false;
+    const requestId = routeJornadaMatchesRequestRef.current + 1;
+    routeJornadaMatchesRequestRef.current = requestId;
 
     setCurrentMatches([]);
     setCurrentMatchesJornadaId(null);
     setLoading(true);
     setCurrentJornadaIndex(targetIndex);
 
-    fetchCurrentJornadaMatches(
+    fetchCurrentJornadaMatchesEvent(
       targetJornada.id,
       jornadas,
       repositionMappings,
       repositionMatchMappings
     ).finally(() => {
-      if (!isCancelled) {
+      if (requestId === routeJornadaMatchesRequestRef.current) {
         setLoading(false);
       }
     });
-
-    return () => {
-      isCancelled = true;
-    };
   }, [
     activeTournament?.id,
     currentJornadaIndex,
@@ -1452,31 +1449,35 @@ export function TorneoJornadasTab({
     <TabContainer>
       <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
       
-      <FixturePreviewModal 
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        teams={participatingTeams}
-        config={activeTournament.config}
-        divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName}
-        tournamentName={activeTournament?.season || activeTournament?.name || ""}
-        onConfirm={handleConfirmFixtureUpdate}
-        isLoading={loading}
-        existingData={editorData} 
-      />
+      {isEditorOpen && (
+        <FixturePreviewModal
+          isOpen
+          onClose={() => setIsEditorOpen(false)}
+          teams={participatingTeams}
+          config={activeTournament.config}
+          divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName}
+          tournamentName={activeTournament?.season || activeTournament?.name || ""}
+          onConfirm={handleConfirmFixtureUpdate}
+          isLoading={loading}
+          existingData={editorData}
+        />
+      )}
 
-      <NormalizeJornadaDatesModal
-        isOpen={isDateNormalizerOpen}
-        onClose={() => setIsDateNormalizerOpen(false)}
-        onApply={handleNormalizeJornadaDates}
-        onApplyMatches={handleNormalizeMatchDates}
-        rows={sevenDayPreview.rows}
-        irregularCount={sevenDayPreview.irregularCount}
-        anchorStartDate={sevenDayPreview.anchorStartDate}
-        matchRows={matchWeekPreview.rows}
-        matchIssueCount={matchWeekPreview.irregularCount}
-        initialView={matchWeekPreview.needsAdjustment ? "matches" : "jornadas"}
-        jornadaDurationDays={jornadaDurationDays}
-      />
+      {isDateNormalizerOpen && (
+        <NormalizeJornadaDatesModal
+          isOpen
+          onClose={() => setIsDateNormalizerOpen(false)}
+          onApply={handleNormalizeJornadaDates}
+          onApplyMatches={handleNormalizeMatchDates}
+          rows={sevenDayPreview.rows}
+          irregularCount={sevenDayPreview.irregularCount}
+          anchorStartDate={sevenDayPreview.anchorStartDate}
+          matchRows={matchWeekPreview.rows}
+          matchIssueCount={matchWeekPreview.irregularCount}
+          initialView={matchWeekPreview.needsAdjustment ? "matches" : "jornadas"}
+          jornadaDurationDays={jornadaDurationDays}
+        />
+      )}
 
        {isPhaseAssignment ? (
           <JornadaPlanificacion 

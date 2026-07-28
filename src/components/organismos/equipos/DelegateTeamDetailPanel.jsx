@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { supabase } from "../../../supabase/supabase.config";
+import { supabase } from "../../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../../services/estadisticas";
 import {
   getTeamDelegateChangeRequests,

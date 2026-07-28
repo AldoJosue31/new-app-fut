@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { RiArrowRightCircleLine, RiCheckLine } from "react-icons/ri";
 import {
@@ -7,7 +7,14 @@ import {
 } from "../utils/tournamentPreferences";
 
 export function TournamentAutoRedirectPreference() {
-  const [enabled, setEnabled] = useState(getTournamentAutoRedirectPreference);
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    const hydrationTimer = window.setTimeout(() => {
+      setEnabled(getTournamentAutoRedirectPreference());
+    }, 0);
+    return () => window.clearTimeout(hydrationTimer);
+  }, []);
 
   const handleToggle = () => {
     const nextValue = !enabled;

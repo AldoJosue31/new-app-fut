@@ -1,0 +1,5 @@
+-- M1: archivo de seed reproducible.
+--
+-- Los fixtures de anonimo, delegate, manager y admin se agregaran cuando el
+-- snapshot base pueda validarse con `supabase db reset` en un entorno local
+-- aislado. No se copian datos de produccion en este archivo.

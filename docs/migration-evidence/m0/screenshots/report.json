@@ -1,0 +1,120 @@
+{
+  "baseUrl": "http://127.0.0.1:5173",
+  "capturedAt": "2026-07-26T00:31:25.863Z",
+  "pages": [
+    {
+      "route": "/",
+      "viewport": "desktop",
+      "requestedUrl": "http://127.0.0.1:5173/",
+      "finalUrl": "http://127.0.0.1:5173/",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\home-desktop.png",
+      "consoleErrors": [
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true bad bad true bad",
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true secondary secondary true secondary"
+      ],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/landing",
+      "viewport": "desktop",
+      "requestedUrl": "http://127.0.0.1:5173/landing",
+      "finalUrl": "http://127.0.0.1:5173/landing",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\landing-desktop.png",
+      "consoleErrors": [
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true bad bad true bad",
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true secondary secondary true secondary"
+      ],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/login",
+      "viewport": "desktop",
+      "requestedUrl": "http://127.0.0.1:5173/login",
+      "finalUrl": "http://127.0.0.1:5173/login",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\login-desktop.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/share/standings/1",
+      "viewport": "desktop",
+      "requestedUrl": "http://127.0.0.1:5173/share/standings/1",
+      "finalUrl": "http://127.0.0.1:5173/share/standings/1",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\public-standings-desktop.png",
+      "consoleErrors": [
+        "Error fetching public data: Error: Torneo no encontrado.\n    at fetchData (http://127.0.0.1:5173/src/pages/PublicStandings.jsx?t=1784928247213:90:17)",
+        "Error fetching public data: Error: Torneo no encontrado.\n    at fetchData (http://127.0.0.1:5173/src/pages/PublicStandings.jsx?t=1784928247213:90:17)"
+      ],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/",
+      "viewport": "mobile",
+      "requestedUrl": "http://127.0.0.1:5173/",
+      "finalUrl": "http://127.0.0.1:5173/",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\home-mobile.png",
+      "consoleErrors": [
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true bad bad true bad",
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true secondary secondary true secondary"
+      ],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/landing",
+      "viewport": "mobile",
+      "requestedUrl": "http://127.0.0.1:5173/landing",
+      "finalUrl": "http://127.0.0.1:5173/landing",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\landing-mobile.png",
+      "consoleErrors": [
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true bad bad true bad",
+        "Received `%s` for a non-boolean attribute `%s`.\n\nIf you want to write it to the DOM, pass a string instead: %s=\"%s\" or %s={value.toString()}. true secondary secondary true secondary"
+      ],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/login",
+      "viewport": "mobile",
+      "requestedUrl": "http://127.0.0.1:5173/login",
+      "finalUrl": "http://127.0.0.1:5173/login",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\login-mobile.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "serverErrors": []
+    },
+    {
+      "route": "/share/standings/1",
+      "viewport": "mobile",
+      "requestedUrl": "http://127.0.0.1:5173/share/standings/1",
+      "finalUrl": "http://127.0.0.1:5173/share/standings/1",
+      "status": 200,
+      "title": "Bracket app (development)",
+      "screenshot": "docs\\migration-evidence\\m0\\screenshots\\public-standings-mobile.png",
+      "consoleErrors": [
+        "Error fetching public data: Error: Torneo no encontrado.\n    at fetchData (http://127.0.0.1:5173/src/pages/PublicStandings.jsx?t=1784928247213:90:17)",
+        "Error fetching public data: Error: Torneo no encontrado.\n    at fetchData (http://127.0.0.1:5173/src/pages/PublicStandings.jsx?t=1784928247213:90:17)"
+      ],
+      "pageErrors": [],
+      "serverErrors": []
+    }
+  ]
+}

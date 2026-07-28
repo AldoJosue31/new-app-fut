@@ -1,4 +1,4 @@
-import { toPng } from 'html-to-image';
+import "client-only";
 
 export const exportElementAsPNG = async (
   elementRef,
@@ -9,6 +9,7 @@ export const exportElementAsPNG = async (
 
   try {
     const element = elementRef.current;
+    const { toPng } = await import("html-to-image");
     const safeFileName = String(fileName || 'exportacion').replace(/\.png$/i, '');
     const transparentFallback =
       'data:image/svg+xml;charset=utf-8,' +

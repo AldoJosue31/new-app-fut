@@ -1,5 +1,5 @@
 // src/components/organismos/tabs/torneos/planificacion/ResultModal.jsx
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useEffectEvent, useMemo, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { Modal } from "../../../Modal";
@@ -8,7 +8,7 @@ import { Btnsave } from "../../../../moleculas/Btnsave";
 import { Toast } from "../../../../atomos/Toast";
 import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
-import { supabase } from "../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../lib/supabase/browserClient.js";
 import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
@@ -196,6 +196,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setParticipationStats({ local: {}, visit: {} });
   }, [buildEmptyRoster]);
 
+  const fetchAllDataEvent = useEffectEvent(fetchAllData);
+
   useEffect(() => {
     latestLoadRequestRef.current += 1;
     const requestId = latestLoadRequestRef.current;
@@ -205,7 +207,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       setLoading(true);
       setIsSaving(false);
       isSavingRef.current = false;
-      fetchAllData(requestId);
+      fetchAllDataEvent(requestId);
       return;
     }
 
@@ -257,7 +259,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     }
   };
 
-  const fetchAllData = async (requestId) => {
+  async function fetchAllData(requestId) {
     try {
       const matchId = Number(match.id);
       if(isNaN(matchId)) throw new Error("ID de partido inválido");
@@ -743,7 +745,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     } catch (e) {
       setToastConfig({ show: true, message: "Error al guardar: " + (e?.message || e), type: "error" });
     } finally { setLoading(false); setIsSaving(false); isSavingRef.current = false; }
-  };
+  }
 
   if (!isOpen || !match) return null;
   const isPlayersTab = activeTab === 'local' || activeTab === 'visit';
