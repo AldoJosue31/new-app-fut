@@ -756,9 +756,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       onClose={isSaving ? undefined : onClose}
       width={showCedulaScanner ? "1280px" : "950px"}
       maxHeight={showCedulaScanner ? "95dvh" : "calc(100dvh - 40px)"}
-      minHeight={showCedulaScanner ? "95dvh" : "auto"}
+      minHeight={showCedulaScanner
+        ? "95dvh"
+        : isPlayersTab
+          ? "min(760px, calc(100dvh - 40px))"
+          : "auto"}
       overlayPadding={showCedulaScanner ? "min(12px, 2.5dvh)" : "20px"}
       bodyPadding={showCedulaScanner ? "clamp(14px, 2vw, 24px)" : "25px"}
+      bodyOverflowY={showCedulaScanner || isPlayersTab ? "hidden" : "auto"}
       title="Definir Resultado"
       closeOnOverlayClick={false}
       headerActions={!showCedulaScanner ? (
@@ -767,7 +772,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         </ScanHeaderButton>
       ) : null}
     >
-      <Container $scanner={showCedulaScanner}>
+      <Container $fill={showCedulaScanner || isPlayersTab}>
         {showCedulaScanner ? (
           <CedulaScanFlow
             match={match}
@@ -867,7 +872,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
 const Container = styled.div`
   display: flex;
-  flex: ${({ $scanner }) => ($scanner ? "1" : "0 1 auto")};
+  flex: ${({ $fill }) => ($fill ? "1 1 auto" : "0 1 auto")};
   flex-direction: column;
   gap: 15px;
   width: 100%;
@@ -875,14 +880,17 @@ const Container = styled.div`
 `;
 const ContentBody = styled.div`
   width: 100%;
-  min-height: ${({ $scrollable }) => ($scrollable ? "min(350px, 42dvh)" : "350px")};
-  max-height: ${({ $scrollable }) => ($scrollable ? "min(52dvh, 560px)" : "none")};
+  flex: ${({ $scrollable }) => ($scrollable ? "1 1 0" : "0 1 auto")};
+  min-height: ${({ $scrollable }) => ($scrollable ? "0" : "350px")};
+  max-height: none;
   box-sizing: border-box;
   position: relative;
   overflow-x: hidden;
   overflow-y: ${({ $scrollable }) => ($scrollable ? "auto" : "hidden")};
   overscroll-behavior: ${({ $scrollable }) => ($scrollable ? "contain" : "auto")};
   -webkit-overflow-scrolling: touch;
+  touch-action: ${({ $scrollable }) => ($scrollable ? "pan-y" : "auto")};
+  scroll-padding-block: 8px;
   padding-right: ${({ $scrollable }) => ($scrollable ? "6px" : "0")};
   scrollbar-gutter: ${({ $scrollable }) => ($scrollable ? "stable" : "auto")};
   scrollbar-width: thin;
@@ -916,7 +924,7 @@ const ContentBody = styled.div`
     outline-offset: 2px;
   }
 `;
-const Footer = styled.div` display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
+const Footer = styled.div` flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
 const LoadingState = styled.div` display: flex; justify-content: center; align-items: center; height: 300px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
 const ScanHeaderButton = styled.button`
