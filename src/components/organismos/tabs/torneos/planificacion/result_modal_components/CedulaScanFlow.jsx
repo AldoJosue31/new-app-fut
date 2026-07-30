@@ -30,12 +30,15 @@ import {
   CEDULA_PLAYER_DETAIL_VERSION,
   getCedulaPlayerDetailRegions,
 } from "../../../../../../utils/cedulaPlayerDetailRegions";
+import {
+  MAX_SCAN_IMAGE_BYTES,
+  canvasToBlob,
+  isPotentialImageFile,
+  prepareImageForScan,
+} from "../../../../../../utils/scanImageUtils";
 
-const MAX_FILE_BYTES = 12 * 1024 * 1024;
-const MAX_IMAGE_SIDE = 2200;
 const MAX_PLAYER_DETAIL_SIDE = 2400;
 const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
-const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v2";
 const DAILY_QUOTA_CODE = "SCAN_DAILY_QUOTA_EXCEEDED";
 
@@ -63,57 +66,6 @@ const formatCooldown = (seconds) => {
   if (seconds >= 60) return `${Math.ceil(seconds / 60)} min`;
   return `${seconds}s`;
 };
-
-const normalizeImageMimeType = (file) => {
-  const mimeType = String(file?.type || "").toLowerCase();
-  if (mimeType === "image/jpg") return "image/jpeg";
-  if (mimeType === "image/x-heic") return "image/heic";
-  if (mimeType === "image/x-heif") return "image/heif";
-  if (SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) return mimeType;
-
-  const extension = String(file?.name || "").split(".").pop()?.toLowerCase();
-  if (["jpg", "jpeg"].includes(extension)) return "image/jpeg";
-  if (["heic", "heif"].includes(extension)) return `image/${extension}`;
-  if (["png", "webp"].includes(extension)) return `image/${extension}`;
-  return mimeType;
-};
-
-const originalFilePayload = (file) => ({
-  blob: file,
-  mimeType: normalizeImageMimeType(file),
-  fileName: file.name || "cedula",
-  detailImages: [],
-});
-
-const loadImageSource = async (file) => {
-  if (typeof window.createImageBitmap === "function") {
-    try {
-      const bitmap = await window.createImageBitmap(file, { imageOrientation: "from-image" });
-      return {
-        source: bitmap,
-        width: bitmap.width,
-        height: bitmap.height,
-        release: () => bitmap.close(),
-      };
-    } catch { /* El navegador puede no decodificar HEIC/HEIF. */ }
-  }
-
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-    const release = () => URL.revokeObjectURL(objectUrl);
-    image.onload = () => resolve({ source: image, width: image.width, height: image.height, release });
-    image.onerror = () => {
-      release();
-      reject(new Error("El navegador no puede optimizar este formato."));
-    };
-    image.src = objectUrl;
-  });
-};
-
-const canvasToBlob = (canvas, mimeType, quality) => new Promise(resolve => {
-  canvas.toBlob(resolve, mimeType, quality);
-});
 
 const playerName = (player) => (
   player?.full_name || `${player?.first_name || ""} ${player?.last_name || ""}`.trim()
@@ -172,52 +124,11 @@ const createPlayerDetailImages = async (decoded) => {
   return details;
 };
 
-const fileToScanPayload = async (file) => {
-  const sourceMimeType = normalizeImageMimeType(file);
-  let decoded = null;
-  let detailImages = [];
-  try {
-    decoded = await loadImageSource(file);
-    try {
-      detailImages = await createPlayerDetailImages(decoded);
-    } catch { /* La imagen completa sigue siendo util si un recorte no se puede crear. */ }
-    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(decoded.width, decoded.height));
-    if (scale === 1 && file.size <= 2.5 * 1024 * 1024) {
-      return { ...originalFilePayload(file), detailImages };
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(decoded.width * scale));
-    canvas.height = Math.max(1, Math.round(decoded.height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas no disponible");
-    context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
-
-    const preferredMimeType = sourceMimeType === "image/png" && file.size < 3 * 1024 * 1024
-      ? "image/png"
-      : sourceMimeType === "image/webp" ? "image/webp" : "image/jpeg";
-    let optimizedBlob = await canvasToBlob(canvas, preferredMimeType, 0.9);
-    let outputMimeType = preferredMimeType;
-    if (!optimizedBlob && preferredMimeType !== "image/jpeg") {
-      outputMimeType = "image/jpeg";
-      optimizedBlob = await canvasToBlob(canvas, outputMimeType, 0.9);
-    }
-    if (!optimizedBlob) throw new Error("No se pudo optimizar la imagen.");
-
-    const extension = outputMimeType === "image/png" ? "png" : outputMimeType === "image/webp" ? "webp" : "jpg";
-    return {
-      blob: optimizedBlob,
-      mimeType: outputMimeType,
-      fileName: `cedula-optimizada.${extension}`,
-      detailImages,
-    };
-  } catch {
-    // Gemini admite HEIC/HEIF; si el navegador no puede decodificarlo se envia intacto.
-    return { ...originalFilePayload(file), detailImages };
-  } finally {
-    decoded?.release?.();
-  }
-};
+const fileToScanPayload = (file) => prepareImageForScan(file, {
+  fallbackName: "cedula",
+  optimizedName: "cedula-optimizada",
+  createDetailImages: createPlayerDetailImages,
+});
 
 const invokeScanFunction = async (image, matchContext) => {
   const formData = new FormData();
@@ -398,11 +309,11 @@ export function CedulaScanFlow({
 
   const selectFile = useCallback((nextFile) => {
     if (!nextFile) return;
-    if (!SUPPORTED_IMAGE_MIME_TYPES.has(normalizeImageMimeType(nextFile))) {
-      showToast("Usa una imagen JPG, PNG, WEBP, HEIC o HEIF.", "error");
+    if (!isPotentialImageFile(nextFile)) {
+      showToast("Selecciona un archivo de imagen.", "error");
       return;
     }
-    if (nextFile.size > MAX_FILE_BYTES) {
+    if (nextFile.size > MAX_SCAN_IMAGE_BYTES) {
       showToast("La imagen debe pesar menos de 12 MB.", "error");
       return;
     }
@@ -705,8 +616,31 @@ export function CedulaScanFlow({
             </PrimaryAction>
           )}
         </ChoiceRow>
-        <input ref={uploadInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" onChange={event => selectFile(event.target.files?.[0])} aria-label="Subir foto de cédula" />
-        <input ref={cameraInputRef} hidden type="file" accept="image/*" capture="environment" onChange={event => selectFile(event.target.files?.[0])} aria-label="Tomar foto de cédula" />
+        <input
+          ref={uploadInputRef}
+          hidden
+          type="file"
+          accept="image/*"
+          onChange={(event) => {
+            const nextFile = event.target.files?.[0];
+            event.target.value = "";
+            selectFile(nextFile);
+          }}
+          aria-label="Subir foto de cédula"
+        />
+        <input
+          ref={cameraInputRef}
+          hidden
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(event) => {
+            const nextFile = event.target.files?.[0];
+            event.target.value = "";
+            selectFile(nextFile);
+          }}
+          aria-label="Tomar foto de cédula"
+        />
       </ScanShell>
     );
   }
