@@ -1,20 +1,18 @@
 import styled from "styled-components";
 import { v } from "../../../styles/variables";
 import { DashboardCard } from "./DashboardCard";
-import { useNavigate } from "react-router-dom";
 import { useDivisionStore } from "../../../store/DivisionStore";
 
 export const SummaryDashboard = ({ stats, userName }) => {
-    const navigate = useNavigate();
     const { setDivision } = useDivisionStore();
 
     const handleDivisionClick = (division) => {
         setDivision(division);
         // Si hay torneo activo, vamos a torneos, si no, a equipos
         if (division.activeTournament) {
-            navigate('/torneos');
+            window.location.assign('/torneos');
         } else {
-            navigate('/equipos');
+            window.location.assign('/equipos');
         }
     };
 
@@ -59,7 +57,7 @@ export const SummaryDashboard = ({ stats, userName }) => {
                 ))}
                 
                 {/* Tarjeta para agregar nueva división */}
-                <AddCard onClick={() => navigate('/liga/divisions')}>
+                <AddCard onClick={() => window.location.assign('/liga/divisions')}>
                     <v.agregar />
                     <span>Nueva División</span>
                 </AddCard>

@@ -1,7 +1,6 @@
 // src/components/organismos/tabs/torneos/subcomponents/StandingsTable.jsx
 import React from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { v } from '../../../../../styles/variables';
 import { Device } from '../../../../../styles/breakpoints';
@@ -10,8 +9,6 @@ import { Skeleton } from '../../../../atomos/Skeleton';
 import { DynamicTeamLogo } from '../../../../organismos/equipos/DynamicTeamLogo'; 
 
 export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false, hideBottomInfo = false }) {
-  const navigate = useNavigate();
-
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
     if (rank <= config.ascensos) return { color: '#22c55e', label: 'Ascenso Directo' };
@@ -109,7 +106,9 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                       $isEven={isEven} // <-- PASAMOS LA PROP EXPLÍCITA AQUÍ
                       onDoubleClick={() => {
                           if (!isPublic) {
-                              navigate(`/equipos/${fila.id}`, { state: { initialView: 'stats' } });
+                              window.location.assign(
+                                `/equipos/${encodeURIComponent(fila.id)}?view=stats`,
+                              );
                           }
                       }}
                       title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}

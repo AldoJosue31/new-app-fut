@@ -28,14 +28,9 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
     const selectedPlayer = players.find((player) => String(player.id) === String(slot.playerId)) || null;
     const selectedLabel = selectedPlayer ? getPlayerLabel(selectedPlayer) : "";
     const [isOpen, setIsOpen] = useState(false);
-    const [inputValue, setInputValue] = useState(selectedLabel);
+    const [draftValue, setDraftValue] = useState(selectedLabel);
     const [menuStyle, setMenuStyle] = useState(null);
-
-    useEffect(() => {
-        if (!isOpen || !selectedLabel) {
-            setInputValue(selectedLabel);
-        }
-    }, [selectedLabel, isOpen]);
+    const inputValue = isOpen ? draftValue : selectedLabel;
 
     useEffect(() => {
         if (!isOpen) return;
@@ -46,7 +41,7 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
 
             if (!clickedInsideInput && !clickedInsideMenu) {
                 setIsOpen(false);
-                setInputValue(selectedLabel);
+                setDraftValue(selectedLabel);
             }
         };
 
@@ -109,14 +104,14 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
 
     const handleSelectPlayer = (player) => {
         onUpdate(team, idx, 'playerId', player.id);
-        setInputValue(getPlayerLabel(player));
+        setDraftValue(getPlayerLabel(player));
         setIsOpen(false);
     };
 
     const handleKeyDown = (event) => {
         if (event.key === "Escape") {
             setIsOpen(false);
-            setInputValue(selectedLabel);
+            setDraftValue(selectedLabel);
             return;
         }
 
@@ -144,13 +139,14 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
                 value={inputValue}
                 placeholder="Seleccionar jugador..."
                 onFocus={(event) => {
+                    setDraftValue(selectedLabel);
                     setIsOpen(true);
                     if (selectedLabel && inputValue === selectedLabel) {
                         event.target.select();
                     }
                 }}
                 onChange={(event) => {
-                    setInputValue(event.target.value);
+                    setDraftValue(event.target.value);
                     if (!isOpen) setIsOpen(true);
                 }}
                 onKeyDown={handleKeyDown}
@@ -196,14 +192,19 @@ const SearchablePlayerSelect = ({ slot, idx, team, players, globalRoster, onUpda
 const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkover, onUpdate }) => {
     const hasSelectedPlayer = Boolean(slot.playerId);
     const hasUnassignedGoals = !hasSelectedPlayer && !isWalkover && toStatNumber(slot.goals) > 0;
-    const [animateSelect, setAnimateSelect] = useState(false);
+    const selectShellRef = useRef(null);
     const [ownGoalsOpen, setOwnGoalsOpen] = useState(() => Boolean(parseInt(slot.ownGoals, 10)));
 
     useEffect(() => {
         if (!slot?.idTemp) return;
-        setAnimateSelect(true);
-        const timer = setTimeout(() => setAnimateSelect(false), 260);
-        return () => clearTimeout(timer);
+        selectShellRef.current?.animate(
+            [
+                { transform: "scale(1)", boxShadow: "0 0 0 0 rgba(28, 176, 246, 0)" },
+                { transform: "scale(1.015)", boxShadow: "0 0 0 4px rgba(28, 176, 246, 0.14)" },
+                { transform: "scale(1)", boxShadow: "0 0 0 0 rgba(28, 176, 246, 0)" },
+            ],
+            { duration: 260, easing: "ease-out" },
+        );
     }, [slot.playerId, slot.idTemp]);
 
     const handleOwnGoalsToggle = () => {
@@ -221,7 +222,7 @@ const PlayerRow = React.memo(({ slot, idx, team, players, globalRoster, isWalkov
     return (
         <RowContainer>
             <div className="player-select">
-                <PlayerSelectShell $selected={hasSelectedPlayer} $animate={animateSelect}>
+                <PlayerSelectShell ref={selectShellRef} $selected={hasSelectedPlayer}>
                     <SearchablePlayerSelect
                         slot={slot}
                         idx={idx}

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useEffectEvent, useState } from "react";
 import { createPortal } from "react-dom"; // IMPORTANTE: Para renderizar fuera del #root
 import styled from "styled-components";
 import { v } from "../../../../../../styles/variables";
 import { Modal } from "../../../../Modal";
 import { Btnsave } from "../../../../../moleculas/Btnsave";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { RiPrinterLine } from "react-icons/ri";
 import { MatchSheetA4 } from "./MatchSheetA4";
 
@@ -12,13 +12,15 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
     const [loading, setLoading] = useState(true);
     const [processedMatches, setProcessedMatches] = useState([]);
 
+    const fetchAllMatchDataEvent = useEffectEvent(fetchAllMatchData);
+
     useEffect(() => {
         if (isOpen && matchesToPrint?.length > 0) {
-            fetchAllMatchData();
+            fetchAllMatchDataEvent();
         }
     }, [isOpen, matchesToPrint]);
 
-    const fetchAllMatchData = async () => {
+    async function fetchAllMatchData() {
         setLoading(true);
         try {
             const matchIds = matchesToPrint.map(m => m.id);
@@ -109,7 +111,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const handlePrint = () => {
         window.print();
@@ -120,7 +122,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
         try {
             const date = new Date(dateString);
             return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
-        } catch (e) { return dateString; }
+        } catch { return dateString; }
     };
 
     const formatTime = (timeString) => {

@@ -5,22 +5,30 @@ import styled from "styled-components";
 const transparencyCache = new Map();
 
 export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showPenalties }) => {
-    const [isLogoTransparent, setIsLogoTransparent] = useState(false);
-    const [logoLoaded, setLogoLoaded] = useState(false);
-
     const leagueName = matchData?.jornada?.tournament?.division?.league?.name || "LIGA DE FÚTBOL";
     const leagueLogoUrl = matchData?.jornada?.tournament?.division?.league?.logo_url;
+    const [logoAnalysis, setLogoAnalysis] = useState({
+        url: null,
+        isTransparent: false,
+        loaded: false,
+    });
+    const cachedTransparency = leagueLogoUrl
+        ? transparencyCache.get(leagueLogoUrl)
+        : undefined;
+    const hasCurrentAnalysis = logoAnalysis.url === leagueLogoUrl;
+    const isLogoTransparent = cachedTransparency ??
+        (hasCurrentAnalysis ? logoAnalysis.isTransparent : false);
+    const logoLoaded = !leagueLogoUrl ||
+        cachedTransparency !== undefined ||
+        (hasCurrentAnalysis && logoAnalysis.loaded);
 
     // --- ALGORITMO DE DETECCIÓN DE TRANSPARENCIA ---
     useEffect(() => {
         if (!leagueLogoUrl) {
-            setLogoLoaded(true);
             return;
         }
 
         if (transparencyCache.has(leagueLogoUrl)) {
-            setIsLogoTransparent(transparencyCache.get(leagueLogoUrl));
-            setLogoLoaded(true);
             return;
         }
 
@@ -55,13 +63,19 @@ export const MatchSheetA4 = ({ matchData, players, formatDate, formatTime, showP
                 const isTransparent = transparentCount > (size * size * 0.03);
                 
                 transparencyCache.set(leagueLogoUrl, isTransparent);
-                setIsLogoTransparent(isTransparent);
-                setLogoLoaded(true);
+                setLogoAnalysis({
+                    url: leagueLogoUrl,
+                    isTransparent,
+                    loaded: true,
+                });
             } catch (error) {
                 console.warn("No se pudo analizar la transparencia del logo:", error);
                 transparencyCache.set(leagueLogoUrl, false);
-                setIsLogoTransparent(false);
-                setLogoLoaded(true);
+                setLogoAnalysis({
+                    url: leagueLogoUrl,
+                    isTransparent: false,
+                    loaded: true,
+                });
             }
         };
 

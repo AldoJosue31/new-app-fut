@@ -1,6 +1,7 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
-import { useNavigate } from "react-router-dom";
 import {
   BiCalendarX,
   BiCheckShield,
@@ -21,7 +22,7 @@ import { Title } from "../atomos/Title";
 import { ToggleTema } from "../organismos/ToggleTema";
 import { Modal } from "../organismos/Modal";
 import { Toast } from "../atomos/Toast";
-import { supabase } from "../../supabase/supabase.config";
+import { supabase } from "../../lib/supabase/browserClient.js";
 import {
   acceptDelegateInvitation,
   getDelegateInvitation,
@@ -31,23 +32,31 @@ import { v } from "../../styles/variables";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function RegisterDelegateTemplate({ token }) {
-  const navigate = useNavigate();
-  const [invitationData, setInvitationData] = useState(null);
-  const [isValidating, setIsValidating] = useState(true);
-  const [errorMsg, setErrorMsg] = useState(null);
+export function RegisterDelegateTemplate({
+  token,
+  initialInvitation = null,
+  initialError = null,
+}) {
+  const [invitationData, setInvitationData] =
+    useState(initialInvitation);
+  const [isValidating, setIsValidating] = useState(
+    !initialInvitation && !initialError,
+  );
+  const [errorMsg, setErrorMsg] = useState(initialError);
   const [isRegistering, setIsRegistering] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [toast, setToast] = useState({ show: false, message: "", type: "error" });
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
+    fullName: initialInvitation?.invited_name || "",
+    email: initialInvitation?.invited_email || "",
     password: "",
-    contactPhone: "",
+    contactPhone: initialInvitation?.invited_phone || "",
   });
 
   useEffect(() => {
+    if (initialInvitation || initialError) return undefined;
+
     let ignore = false;
 
     const validate = async () => {
@@ -85,7 +94,7 @@ export function RegisterDelegateTemplate({ token }) {
     return () => {
       ignore = true;
     };
-  }, [token]);
+  }, [initialError, initialInvitation, token]);
 
   useEffect(() => {
     let timer;
@@ -97,12 +106,12 @@ export function RegisterDelegateTemplate({ token }) {
     } else if (showSuccessModal && countdown === 0) {
       (async () => {
         await supabase.auth.signOut();
-        navigate("/login", { replace: true });
+        window.location.replace("/login");
       })();
     }
 
     return () => clearTimeout(timer);
-  }, [countdown, navigate, showSuccessModal]);
+  }, [countdown, showSuccessModal]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -166,7 +175,7 @@ export function RegisterDelegateTemplate({ token }) {
       <InvitationStatusView
         status="invalid"
         message={errorMsg}
-        onLogin={() => navigate("/login")}
+        onLogin={() => window.location.assign("/login")}
       />
     );
   }
@@ -176,7 +185,7 @@ export function RegisterDelegateTemplate({ token }) {
       <InvitationStatusView
         status={invitationData.status}
         invitation={invitationData}
-        onLogin={() => navigate("/login")}
+        onLogin={() => window.location.assign("/login")}
       />
     );
   }
@@ -316,6 +325,7 @@ function InvitationStatusView({ status, invitation, message, onLogin }) {
     value
       ? new Date(value).toLocaleString("es-MX", {
           dateStyle: "long",
+          timeZone: "America/Mexico_City",
           timeStyle: "short",
         })
       : null;

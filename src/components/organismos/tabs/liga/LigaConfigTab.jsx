@@ -10,7 +10,7 @@ import { PhotoUploader } from "../../../moleculas/PhotoUploader";
 import { Toast } from "../../../atomos/Toast";
 import { Skeleton } from "../../../atomos/Skeleton";
 import { uploadImageToSupabase } from "../../../../utils/uploadHandler";
-import { supabase } from "../../../../supabase/supabase.config";
+import { supabase } from "../../../../lib/supabase/browserClient.js";
 
 export function LigaConfigTab({ data, onUpdate, loading }) {
   const [tempName, setTempName] = useState(data?.name || "");

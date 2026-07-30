@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
 import {
   getOfficialJornadaNumberForMatch,
   useTorneoStandingsLogic,

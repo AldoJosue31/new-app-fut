@@ -1,7 +1,6 @@
-import { removeBackground as imglyRemove } from "@imgly/background-removal";
-
 export const removeLogoBackground = async (imageFile) => {
     try {
+        const { removeBackground: imglyRemove } = await import("@imgly/background-removal");
         // 1. Ejecución de la IA
         const aiBlob = await imglyRemove(imageFile);
 

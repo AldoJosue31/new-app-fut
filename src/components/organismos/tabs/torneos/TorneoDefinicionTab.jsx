@@ -1,6 +1,14 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+"use client";
+
+import dynamic from "next/dynamic";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useEffectEvent,
+  useRef,
+} from "react";
 import styled from "styled-components";
-import { useLocation, useNavigate } from "react-router-dom";
 import { v } from "../../../../styles/variables";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine, RiInformationLine, RiDeleteBinLine, RiArrowRightLine,
@@ -18,11 +26,6 @@ import { Tooltip } from "../../../atomos/Tooltip";
 import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
 import { TorneoDefinitionMode } from "../../../TorneoDefinitionMode";
 import { TorneoDashboard } from "./subcomponents/TorneoDashboard";
-import { TabGeneral, TabScoring, TabFormat, TabGameRules } from "./subcomponents/TorneoFormTabs";
-import { FixturePreviewModal } from "./subcomponents/FixturePreviewModal";
-import { PlayoffAdvanceModal } from "./subcomponents/PlayoffAdvanceModal";
-import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
-import { TournamentSummaryModal } from "./exports/summary/TournamentSummaryModal";
 import {
   actualizarConfigTorneoService,
   bulkInsertMatchesService,
@@ -51,8 +54,68 @@ import {
   parseJornadaNumber,
 } from "../../../../utils/jornadaUtils";
 import { buildTorneoStandingsSnapshot } from "../../../../hooks/useTorneoStandingsLogic";
-import { supabase } from "../../../../supabase/supabase.config";
+import { supabase } from "../../../../lib/supabase/browserClient.js";
 import { useDivisionStore } from "../../../../store/DivisionStore";
+
+const TournamentSummaryModal = dynamic(
+  () =>
+    import("./exports/summary/TournamentSummaryModal").then(
+      (module) => module.TournamentSummaryModal,
+    ),
+  {
+    loading: () => null,
+    ssr: false,
+  },
+);
+const FixturePreviewModal = dynamic(
+  () =>
+    import("./subcomponents/FixturePreviewModal").then(
+      (module) => module.FixturePreviewModal,
+    ),
+  { loading: () => null, ssr: false },
+);
+const PlayoffAdvanceModal = dynamic(
+  () =>
+    import("./subcomponents/PlayoffAdvanceModal").then(
+      (module) => module.PlayoffAdvanceModal,
+    ),
+  { loading: () => null, ssr: false },
+);
+const TournamentConfigModal = dynamic(
+  () =>
+    import("./subcomponents/TournamentConfigModal").then(
+      (module) => module.TournamentConfigModal,
+    ),
+  { loading: () => null, ssr: false },
+);
+const TabGeneral = dynamic(
+  () =>
+    import("./subcomponents/TorneoFormTabs").then(
+      (module) => module.TabGeneral,
+    ),
+  { loading: () => null, ssr: false },
+);
+const TabScoring = dynamic(
+  () =>
+    import("./subcomponents/TorneoFormTabs").then(
+      (module) => module.TabScoring,
+    ),
+  { loading: () => null, ssr: false },
+);
+const TabFormat = dynamic(
+  () =>
+    import("./subcomponents/TorneoFormTabs").then(
+      (module) => module.TabFormat,
+    ),
+  { loading: () => null, ssr: false },
+);
+const TabGameRules = dynamic(
+  () =>
+    import("./subcomponents/TorneoFormTabs").then(
+      (module) => module.TabGameRules,
+    ),
+  { loading: () => null, ssr: false },
+);
 
 const normalizeMatchStatus = (status) => String(status || "").trim().toLowerCase();
 const hasRegisteredScoreValue = (value) =>
@@ -99,11 +162,11 @@ export function TorneoDefinicionTab({
     form, onChange, onSubmit, loading, divisionName, activeTournament, 
     allTeams, participatingIds, onInclude, onExclude,
     isLoading, reglas, setReglas, onTournamentReset, leagueData,
+    onGoToJornadas,
     partidos = [], goleadores = [], standings = []
 }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { divisiones, fetchDivisiones } = useDivisionStore();
+  const divisiones = useDivisionStore((store) => store.divisiones);
+  const fetchDivisiones = useDivisionStore((store) => store.fetchDivisiones);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false); 
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
@@ -140,9 +203,7 @@ export function TorneoDefinicionTab({
   const [configDraftReglas, setConfigDraftReglas] = useState(null);
   const [configDraftUseLeagueRules, setConfigDraftUseLeagueRules] = useState(true);
   const [tournamentEvents, setTournamentEvents] = useState([]);
-  const [dashboardJornadas, setDashboardJornadas] = useState([]);
   const [selectedStatusJornada, setSelectedStatusJornada] = useState(null);
-  const [animatedJornadaPercent, setAnimatedJornadaPercent] = useState(0);
   const jornadaBarsRef = useRef(null);
   const jornadaBarsDragRef = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
   const jornadaBarsWasDraggingRef = useRef(false);
@@ -222,7 +283,7 @@ export function TorneoDefinicionTab({
   }, [leagueData]);
 
   // 2. AUTO-SINCRONIZACIÓN AL CARGAR LA PÁGINA
-  useEffect(() => {
+  const syncLeagueRules = useEffectEvent(() => {
     if (!activeTournament && useLeagueRules) {
         onChange({ target: { name: 'minPlayers', value: defaultLeagueConfig.minPlayers }});
         onChange({ target: { name: 'minPlayersToRegister', value: defaultLeagueConfig.minPlayersToRegister }});
@@ -244,14 +305,22 @@ export function TorneoDefinicionTab({
             observaciones: defaultLeagueConfig.observaciones
         }));
     }
-  }, [defaultLeagueConfig, activeTournament]); 
+  });
 
   useEffect(() => {
+    syncLeagueRules();
+  }, [defaultLeagueConfig, activeTournament]);
+
+  const captureConfigDraft = useEffectEvent(() => {
     if (!showConfigModal || activeTournament) return;
 
     setConfigDraftForm({ ...form });
     setConfigDraftReglas({ ...reglas });
     setConfigDraftUseLeagueRules(useLeagueRules);
+  });
+
+  useEffect(() => {
+    captureConfigDraft();
   }, [showConfigModal, activeTournament]);
 
   useEffect(() => {
@@ -760,42 +829,17 @@ export function TorneoDefinicionTab({
       : "";
   const isInPlayoffPhase = Boolean(currentPlayoffPhaseKey);
 
-  useEffect(() => {
-      let ignore = false;
-
-      const fetchDashboardJornadas = async () => {
-          if (!activeTournament?.id) {
-              setDashboardJornadas([]);
-              return;
-          }
-
-          try {
-              const jornadas = await getJornadas(activeTournament.id);
-              if (!ignore) setDashboardJornadas(jornadas || []);
-          } catch (error) {
-              console.warn("No se pudieron cargar jornadas para el dashboard:", error);
-              if (!ignore) setDashboardJornadas([]);
-          }
-      };
-
-      fetchDashboardJornadas();
-
-      return () => {
-          ignore = true;
-      };
-  }, [activeTournament?.id]);
-
   const allTournamentJornadas = useMemo(() => {
-      const jornadas = dashboardJornadas.length > 0
-          ? dashboardJornadas
-          : Array.isArray(activeTournament?.jornadas) ? activeTournament.jornadas : [];
+      const jornadas = Array.isArray(activeTournament?.jornadas)
+          ? activeTournament.jornadas
+          : [];
       return [...jornadas].sort((a, b) => {
           const aNumber = parseJornadaNumber(a?.name, Number.MAX_SAFE_INTEGER);
           const bNumber = parseJornadaNumber(b?.name, Number.MAX_SAFE_INTEGER);
           if (aNumber !== bNumber) return aNumber - bNumber;
           return String(a?.name || "").localeCompare(String(b?.name || ""), "es", { sensitivity: "base" });
       });
-  }, [activeTournament?.jornadas, dashboardJornadas]);
+  }, [activeTournament?.jornadas]);
 
   const activeJornadas = useMemo(() => {
       return allTournamentJornadas
@@ -1097,6 +1141,7 @@ export function TorneoDefinicionTab({
 
   useEffect(() => {
       let ignore = false;
+      const abortController = new AbortController();
 
       const fetchTournamentEvents = async () => {
           if (!activeTournament?.id) {
@@ -1108,11 +1153,13 @@ export function TorneoDefinicionTab({
               const { data, error } = await supabase
                   .from("match_events")
                   .select("event_type, matches!inner(jornadas!inner(tournament_id))")
-                  .eq("matches.jornadas.tournament_id", activeTournament.id);
+                  .eq("matches.jornadas.tournament_id", activeTournament.id)
+                  .abortSignal(abortController.signal);
 
               if (error) throw error;
               if (!ignore) setTournamentEvents(data || []);
           } catch (error) {
+              if (abortController.signal.aborted) return;
               console.warn("No se pudieron cargar eventos del torneo:", error);
               if (!ignore) setTournamentEvents([]);
           }
@@ -1122,6 +1169,7 @@ export function TorneoDefinicionTab({
 
       return () => {
           ignore = true;
+          abortController.abort();
       };
   }, [activeTournament?.id]);
 
@@ -1310,37 +1358,6 @@ export function TorneoDefinicionTab({
           ? `Estatus de la Jornada ${jornadaNumber}`
           : `Estatus de ${name}`;
   }, [currentJornadaSummary.isPlayoff, currentJornadaSummary.name, currentJornadaSummary.number]);
-
-  useEffect(() => {
-      const targetPercent = Number(currentJornadaSummary.percent) || 0;
-      let frameId;
-      const duration = 650;
-      const startTime = performance.now();
-      const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-      if (prefersReducedMotion) {
-          setAnimatedJornadaPercent(targetPercent);
-          return undefined;
-      }
-
-      setAnimatedJornadaPercent(0);
-
-      const animate = (now) => {
-          const elapsed = now - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-
-          setAnimatedJornadaPercent(Math.round(targetPercent * eased));
-
-          if (progress < 1) {
-              frameId = requestAnimationFrame(animate);
-          }
-      };
-
-      frameId = requestAnimationFrame(animate);
-
-      return () => cancelAnimationFrame(frameId);
-  }, [currentJornadaSummary.number, currentJornadaSummary.percent]);
 
   const handleJornadaBarsWheel = (event) => {
       const scroller = jornadaBarsRef.current;
@@ -1648,14 +1665,7 @@ export function TorneoDefinicionTab({
   const isVueltasLocked = tournamentProgress.current > Math.ceil((activeJornadas.length || tournamentProgress.total || 1) / 2);
 
   const handleGoToJornadas = () => {
-      const torneosMatch = location.pathname.match(/(\/division\/\d+\/torneos)(?:\/(\d+))?/);
-      if (torneosMatch) {
-          const [, basePath, torneoId] = torneosMatch;
-          navigate(`${basePath}${torneoId ? `/${torneoId}` : ""}/jornadas`);
-          return;
-      }
-
-      navigate("/torneos/jornadas");
+      onGoToJornadas?.();
   };
 
   const openSetupConfigTab = (tabId) => {
@@ -1853,9 +1863,9 @@ export function TorneoDefinicionTab({
                         </div>
                         <div
                             className="ring-progress"
-                            style={{ "--progress": `${animatedJornadaPercent}%` }}
+                            style={{ "--progress": `${currentJornadaSummary.percent}%` }}
                         >
-                            <span>{animatedJornadaPercent}%</span>
+                            <span>{currentJornadaSummary.percent}%</span>
                         </div>
                     </div>
                     <div className="mini-progress">
@@ -2098,16 +2108,18 @@ export function TorneoDefinicionTab({
             </TournamentStartOverlay>
         )}
 
-        <FixturePreviewModal
-            isOpen={showPreviewModal}
-            onClose={() => setShowPreviewModal(false)}
-            onConfirm={handleConfirmFixture}
-            teams={participatingTeams}
-            config={form}
-            divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName || ""}
-            tournamentName={activeTournament?.season || form?.season || ""}
-            isLoading={loading}
-        />
+        {showPreviewModal && (
+            <FixturePreviewModal
+                isOpen
+                onClose={() => setShowPreviewModal(false)}
+                onConfirm={handleConfirmFixture}
+                teams={participatingTeams}
+                config={form}
+                divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName || ""}
+                tournamentName={activeTournament?.season || form?.season || ""}
+                isLoading={loading}
+            />
+        )}
         <ConfirmModal
             isOpen={showEndTournamentModal}
             onClose={() => setShowEndTournamentModal(false)}
@@ -2221,23 +2233,27 @@ export function TorneoDefinicionTab({
             confirmIcon={<RiArrowRightLine/>}
             thinButtons
         />
-        <PlayoffAdvanceModal
-            isOpen={showPlayoffPreviewModal}
-            onClose={() => setShowPlayoffPreviewModal(false)}
-            onConfirm={handleConfirmPlayoffAdvance}
-            preview={playoffPreview}
-            isLoading={isAdvancingPhase}
-        />
+        {showPlayoffPreviewModal && (
+            <PlayoffAdvanceModal
+                isOpen
+                onClose={() => setShowPlayoffPreviewModal(false)}
+                onConfirm={handleConfirmPlayoffAdvance}
+                preview={playoffPreview}
+                isLoading={isAdvancingPhase}
+            />
+        )}
 
         {activeTournament ? (
-            <TournamentConfigModal
-                isOpen={showConfigModal}
-                onClose={() => setShowConfigModal(false)}
-                activeTournament={activeTournament}
-                onSave={handleSaveActiveConfig}
-                isVueltasLocked={isVueltasLocked}
-                isStartDateLocked={isFirstJornadaConfirmed}
-            />
+            showConfigModal && (
+                <TournamentConfigModal
+                    isOpen
+                    onClose={() => setShowConfigModal(false)}
+                    activeTournament={activeTournament}
+                    onSave={handleSaveActiveConfig}
+                    isVueltasLocked={isVueltasLocked}
+                    isStartDateLocked={isFirstJornadaConfirmed}
+                />
+            )
         ) : (
         <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configurar Reglas" width="650px" closeOnOverlayClick={false}>
             <ModalContentStyled>
@@ -2278,18 +2294,20 @@ export function TorneoDefinicionTab({
         </Modal>
         )}
 
-        <TournamentSummaryModal
-            isOpen={showSummaryModal}
-            onClose={() => setShowSummaryModal(false)}
-            activeTournament={activeTournament}
-            leagueData={leagueData}
-            participatingTeams={participatingTeams}
-            partidos={partidos}
-            allTournamentJornadas={allTournamentJornadas}
-            tournamentFinalResults={tournamentFinalResults}
-            stats={tournamentStats}
-            standings={standings}
-        />
+        {showSummaryModal && (
+          <TournamentSummaryModal
+              isOpen
+              onClose={() => setShowSummaryModal(false)}
+              activeTournament={activeTournament}
+              leagueData={leagueData}
+              participatingTeams={participatingTeams}
+              partidos={partidos}
+              allTournamentJornadas={allTournamentJornadas}
+              tournamentFinalResults={tournamentFinalResults}
+              stats={tournamentStats}
+              standings={standings}
+          />
+        )}
     </StyledCardWrapper>
   );
 }

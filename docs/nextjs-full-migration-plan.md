@@ -1,6 +1,6 @@
 # Plan maestro: migracion completa a Next.js
 
-Estado: **planificado; ejecucion no iniciada**
+Estado: **en ejecucion; corte local M11 verificado y rollout externo pendiente**
 
 Fecha de creacion: 2026-07-25
 
@@ -318,18 +318,18 @@ Reglas:
 
 | ID | Fase | Estado | Dependencia |
 |---|---|---|---|
-| M0 | Baseline y proteccion de cambios | PENDIENTE | Ninguna |
-| M1 | Toolchain, entorno Supabase y red de seguridad | PENDIENTE | M0 |
-| M2 | Next.js como host y API compatible con Bearer | PENDIENTE | M1 |
-| M3 | Runtime, estilos, variables y fronteras cliente/servidor | PENDIENTE | M2 |
-| M4 | Supabase Auth SSR y matriz de roles | PENDIENTE | M3 |
-| M5 | API final: cookies, seguridad y `manage-delegate-account` | PENDIENTE | M2, M4 |
-| M6 | Rutas publicas y de autenticacion | PENDIENTE | M4 |
-| M7 | Shell privado y rutas privadas simples | PENDIENTE | M4, M6 |
-| M8 | Rutas de equipos | PENDIENTE | M7 |
-| M9 | Rutas de torneos y jornadas | PENDIENTE | M7 |
-| M10 | Browser-only, rendimiento e hidratacion | PENDIENTE | M8, M9 |
-| M11 | Corte, limpieza y observacion | PENDIENTE | M5, M10 |
+| M0 | Baseline y proteccion de cambios | COMPLETADA | Ninguna |
+| M1 | Toolchain, entorno Supabase y red de seguridad | EN CURSO | M0 |
+| M2 | Next.js como host y API compatible con Bearer | COMPLETADA LOCAL | M1 |
+| M3 | Runtime, estilos, variables y fronteras cliente/servidor | COMPLETADA LOCAL | M2 |
+| M4 | Supabase Auth SSR y matriz de roles | COMPLETA LOCALMENTE; ROLLOUT PENDIENTE | M3 |
+| M5 | API final: cookies, seguridad y `manage-delegate-account` | EN CURSO; HARDENING LOCAL IMPLEMENTADO | M2, M4 |
+| M6 | Rutas publicas y de autenticacion | COMPLETA LOCALMENTE; ROLLOUT PENDIENTE | M4 |
+| M7 | Shell privado y rutas privadas simples | COMPLETA LOCALMENTE; ROLLOUT PENDIENTE | M4, M6 |
+| M8 | Rutas de equipos | COMPLETA LOCALMENTE; ROLLOUT AISLADO PENDIENTE | M7 |
+| M9 | Rutas de torneos y jornadas | COMPLETA LOCALMENTE EN ROUTING; ROLLOUT AISLADO PENDIENTE | M7 |
+| M10 | Browser-only, rendimiento e hidratacion | COMPLETA LOCALMENTE; Preview y telemetria externa pendientes | M8, M9 |
+| M11 | Corte, limpieza y observacion | EN CURSO; CORTE LOCAL DE FRAMEWORK VERIFICADO | M5, M10 |
 
 ## 11. Fases detalladas
 
@@ -337,17 +337,17 @@ Reglas:
 
 Estimacion: 1 dia.
 
-- [ ] Confirmar rama y estado del worktree.
+- [x] Confirmar rama y estado del worktree.
 - [ ] Confirmar proyecto, rama, deployment ID y dominio que realmente sirven produccion.
-- [ ] Preservar el cambio existente en `ResultModal.jsx`.
-- [ ] Capturar versiones de Node, npm y dependencias.
-- [ ] Ejecutar y registrar lint actual.
-- [ ] Ejecutar y registrar pruebas unitarias actuales.
-- [ ] Ejecutar build Vite y guardar resultado.
-- [ ] Registrar lista de rutas, API y Edge Functions.
-- [ ] Capturar screenshots de rutas criticas en movil y escritorio.
-- [ ] Medir bundle y tiempos de carga iniciales.
-- [ ] Crear un tag o commit recuperable de baseline.
+- [x] Preservar el cambio existente en `ResultModal.jsx`.
+- [x] Capturar versiones de Node, npm y dependencias.
+- [x] Ejecutar y registrar lint actual.
+- [x] Ejecutar y registrar pruebas unitarias actuales.
+- [x] Ejecutar build Vite y guardar resultado.
+- [x] Registrar lista de rutas, API y Edge Functions.
+- [x] Capturar screenshots de rutas criticas en movil y escritorio.
+- [x] Medir bundle y tiempos de carga iniciales.
+- [x] Crear un tag o commit recuperable de baseline.
 
 Puerta M0:
 
@@ -359,28 +359,28 @@ Puerta M0:
 
 Estimacion: 4 a 7 dias.
 
-- [ ] Fijar una version Node LTS soportada por Next en `.nvmrc`, `engines` y CI.
-- [ ] Fijar `packageManager` y comprobar `npm ci` en una maquina limpia.
-- [ ] Incorporar Deno 2 reproducible para las suites de Edge Functions.
-- [ ] Configurar Supabase CLI y Vercel CLI solo donde sean necesarios para pruebas/deploy.
-- [ ] Acotar ESLint al codigo propio e ignorar `.agents`, `.gemini`, `.github/skills`, artefactos y builds.
-- [ ] Corregir los 30 errores y 10 warnings del lint de aplicacion antes de convertirlo en gate.
-- [ ] Crear scripts `test:unit`, `test:edge`, `test:contract`, `test:e2e` y `verify`.
-- [ ] Mantener como minimo los 63 casos Node actuales.
-- [ ] Ejecutar y mantener como minimo los 48 casos Deno actuales.
+- [x] Fijar una version Node LTS soportada por Next en `.nvmrc`, `engines` y CI.
+- [x] Fijar `packageManager` y comprobar `npm ci` en una maquina limpia.
+- [x] Incorporar Deno 2 reproducible para las suites de Edge Functions.
+- [x] Configurar Supabase CLI y Vercel CLI solo donde sean necesarios para pruebas/deploy. Supabase esta fijado; Vercel se difiere hasta M2.
+- [x] Acotar ESLint al codigo propio e ignorar `.agents`, `.gemini`, `.github/skills`, artefactos y builds.
+- [x] Corregir los 30 errores y 10 warnings del lint de aplicacion antes de convertirlo en gate.
+- [x] Crear scripts `test:unit`, `test:edge`, `test:contract`, `test:e2e` y `verify`.
+- [x] Mantener como minimo los 63 casos Node actuales.
+- [x] Ejecutar y mantener como minimo los 48 casos Deno actuales.
 - [ ] Crear una migracion/snapshot base reproducible de Supabase.
 - [ ] Versionar los RPC faltantes `activar_nuevo_manager`, `borrar_usuario_por_email` y `unlink_team_delegate`.
-- [ ] Crear el `seed.sql` declarado en `supabase/config.toml`.
+- [x] Crear el `seed.sql` declarado en `supabase/config.toml`.
 - [ ] Crear usuarios y fixtures anonimo, delegate, manager y admin en un entorno aislado.
 - [ ] Probar que un reset limpio reconstruye esquema, RPC y fixtures.
-- [ ] Instalar y configurar Playwright para Chromium, Firefox y WebKit.
+- [x] Instalar y configurar Playwright para Chromium, Firefox y WebKit.
 - [ ] Automatizar login, logout y restauracion de sesion.
 - [ ] Cubrir la matriz de rutas de la seccion 6.
-- [ ] Congelar contratos observados de los siete endpoints y `manage-delegate-account`.
+- [x] Congelar contratos observados de los siete endpoints y `manage-delegate-account`.
 - [ ] Crear smoke tests para los dos scanners Edge.
-- [ ] Evitar mutaciones destructivas en datos compartidos o produccion.
+- [x] Evitar mutaciones destructivas en datos compartidos o produccion.
 - [ ] Documentar seed y limpieza de fixtures.
-- [ ] Agregar CI para instalacion, lint, Node, Deno, contratos, build y E2E smoke.
+- [x] Agregar CI para instalacion, lint, Node, Deno, contratos, build y E2E smoke.
 
 Puerta M1:
 
@@ -395,22 +395,22 @@ Puerta M1:
 
 Estimacion: 4 a 6 dias.
 
-- [ ] Instalar la version estable de Next.js compatible con la version fijada de React.
-- [ ] Fijar versiones exactas en `package-lock.json`.
-- [ ] Crear `next.config.mjs`.
-- [ ] Agregar `.next`, `next-env.d.ts` y salidas de pruebas a `.gitignore`.
-- [ ] Crear root layout y metadata base.
-- [ ] Crear una ruta catch-all temporal que monte la SPA actual como Client Component.
-- [ ] Montar el arbol legacy sin importar `main.jsx` ni disparar `createRoot`.
-- [ ] Mantener temporalmente `BrowserRouter`.
-- [ ] Cambiar scripts a `next dev`, `next build` y `next start`.
-- [ ] Crear helpers server-only compatibles con el Bearer token actual.
-- [ ] Migrar los siete handlers de `api/` a Route Handlers conservando contratos observados.
-- [ ] Eliminar bypass DEV de limits/suspension y fallback no-JSON del workspace despues de validar los handlers.
-- [ ] Retirar el rewrite global a `/index.html` antes del primer Preview Next.
-- [ ] Evitar que `api/` legacy y App Router reclamen simultaneamente los mismos paths.
-- [ ] Conservar el deployment Vite inmutable, sus variables y su ID para rollback.
-- [ ] Hacer que todas las URLs actuales abran dentro del host Next.
+- [x] Instalar la version estable de Next.js compatible con la version fijada de React.
+- [x] Fijar versiones exactas en `package-lock.json`.
+- [x] Crear `next.config.mjs`.
+- [x] Agregar `.next`, `next-env.d.ts` y salidas de pruebas a `.gitignore`.
+- [x] Crear root layout y metadata base.
+- [x] Crear una ruta catch-all temporal que monte la SPA actual como Client Component.
+- [x] Montar el arbol legacy sin importar `main.jsx` ni disparar `createRoot`.
+- [x] Mantener temporalmente `BrowserRouter`.
+- [x] Cambiar scripts a `next dev`, `next build` y `next start`.
+- [x] Crear helpers server-only compatibles con el Bearer token actual.
+- [x] Migrar los siete handlers de `api/` a Route Handlers conservando contratos observados.
+- [x] Eliminar bypass DEV de limits/suspension y fallback no-JSON del workspace despues de validar los handlers.
+- [x] Retirar el rewrite global a `/index.html` antes del primer Preview Next.
+- [x] Evitar que `api/` legacy y App Router reclamen simultaneamente los mismos paths.
+- [x] Conservar el deployment Vite inmutable, sus variables y su ID para rollback.
+- [x] Hacer que todas las URLs actuales abran dentro del host Next.
 
 Puerta M2:
 
@@ -422,26 +422,32 @@ Puerta M2:
 - Acceso directo a todas las rutas funciona en Preview.
 - Aun no se elimina React Router.
 
+Estado local al 2026-07-25: la implementacion y las puertas locales de M2
+estan completas. El build de Next, los contratos Bearer, el build Vite de
+rollback y 12 navegaciones directas/recargas pasaron. Preview y CI siguen
+pendientes porque esta rama aun no se ha publicado. La evidencia detallada
+esta en `docs/migration-evidence/m2/progress.md`.
+
 ### M3. Runtime, estilos, variables y fronteras
 
 Estimacion: 3 a 5 dias.
 
-- [ ] Configurar Styled Components con compiler y registry SSR.
-- [ ] Mover CSS global al root layout.
-- [ ] Sustituir `@tailwindcss/vite` por `@tailwindcss/postcss`.
-- [ ] Crear `providers.jsx` con ThemeProvider y providers cliente.
-- [ ] Migrar variables conforme a la seccion 9.
-- [ ] Sustituir `import.meta.env.DEV`.
-- [ ] Eliminar imports mediante `src/index.js` en fronteras servidor/cliente.
-- [ ] Dividir/eliminar `src/index.js`, que reexporta `main.jsx` y puede ejecutar `createRoot` por efecto lateral.
-- [ ] Romper los ciclos de importacion que impidan separar modulos.
-- [ ] Crear helpers de rutas puros en `src/lib/navigation`.
-- [ ] Clasificar los 41 consumidores Supabase como browser, server, realtime o privilegiados.
-- [ ] Sustituir el singleton Supabase universal por el cliente correcto en cada frontera.
-- [ ] Marcar dependencias browser-only y server-only.
-- [ ] Definir `#modal-root` en el layout o migrar portales a `document.body`; Next no crea `#root`.
-- [ ] Diseñar hidratacion controlada para `DivisionStore` persistente y ThemeStore.
-- [ ] Adaptar `document.title` a Metadata API.
+- [x] Configurar Styled Components con compiler y registry SSR.
+- [x] Mover CSS global al root layout.
+- [x] Sustituir `@tailwindcss/vite` por `@tailwindcss/postcss`.
+- [x] Crear `providers.jsx` con el registry y mantener Theme/Auth en el provider cliente legacy mientras Auth dependa de React Router.
+- [x] Migrar variables conforme a la seccion 9.
+- [x] Sustituir `import.meta.env.DEV`.
+- [x] Eliminar imports mediante `src/index.js` en fronteras servidor/cliente.
+- [x] Dividir/eliminar `src/index.js`, que reexporta `main.jsx` y puede ejecutar `createRoot` por efecto lateral.
+- [x] Romper los ciclos de importacion que impidan separar modulos.
+- [x] Crear helpers de rutas puros en `src/lib/navigation`.
+- [x] Clasificar los 41 consumidores Supabase como browser, server, realtime o privilegiados.
+- [x] Sustituir el singleton Supabase universal por el cliente correcto en cada frontera.
+- [x] Marcar dependencias browser-only y server-only.
+- [x] Definir `#modal-root` en el layout o migrar portales a `document.body`; Next no crea `#root`.
+- [x] Diseñar hidratacion controlada para `DivisionStore` persistente y ThemeStore.
+- [x] Adaptar `document.title` a Metadata API.
 
 Puerta M3:
 
@@ -449,31 +455,37 @@ Puerta M3:
 - No hay errores de Styled Components ni flash de estilos.
 - No hay imports server-only alcanzables desde cliente.
 
+Estado local al 2026-07-25: implementacion y puertas locales completas.
+Lint 0/0, 77 pruebas Node, 53 Deno, contratos API/Edge, builds Next/Vite,
+12 E2E y el escaneo de secretos del bundle pasaron. Preview y CI permanecen
+pendientes hasta publicar intencionalmente la rama. Ver
+`docs/migration-evidence/m3/progress.md`.
+
 ### M4. Supabase Auth SSR y roles
 
 Estimacion: 4 a 7 dias.
 
-- [ ] Instalar `@supabase/ssr`.
-- [ ] Crear cliente browser.
-- [ ] Crear cliente server ligado a cookies.
-- [ ] Crear cliente admin server-only.
-- [ ] Implementar `proxy.js` y matcher.
-- [ ] Refrescar tokens con verificacion valida.
-- [ ] Implementar `requireUser` y `requireRole`.
+- [x] Instalar `@supabase/ssr`.
+- [x] Crear cliente browser.
+- [x] Crear cliente server ligado a cookies.
+- [x] Crear cliente admin server-only.
+- [x] Implementar `proxy.js` y matcher.
+- [x] Refrescar tokens con verificacion valida.
+- [x] Implementar `requireUser` y `requireRole`.
 - [ ] Crear layouts protegidos.
-- [ ] Consolidar la duplicacion actual entre `AuthContext` y `useAuthStore`.
-- [ ] Hidratar un unico provider cliente desde la identidad/perfil verificados en servidor.
-- [ ] Mantener Realtime, Presence y avisos de suspension en Client Components.
-- [ ] Preservar la regla actual: manager/delegate suspendidos son expulsados; admin no usa ese flag salvo cambio de seguridad aprobado.
-- [ ] Adaptar login y logout a cookies SSR.
-- [ ] Implementar callback PKCE para Google OAuth.
-- [ ] Conservar login con Google y link/unlink de identidad Google.
-- [ ] Validar y limitar el parametro de retorno del callback a rutas internas.
+- [x] Consolidar la duplicacion actual entre `AuthContext` y `useAuthStore`.
+- [x] Hidratar un unico provider cliente desde la identidad/perfil verificados en servidor.
+- [x] Mantener Realtime, Presence y avisos de suspension en Client Components.
+- [x] Preservar la regla actual: manager/delegate suspendidos son expulsados; admin no usa ese flag salvo cambio de seguridad aprobado.
+- [x] Adaptar login y logout a cookies SSR.
+- [x] Implementar callback PKCE para Google OAuth.
+- [x] Conservar login con Google y link/unlink de identidad Google.
+- [x] Validar y limitar el parametro de retorno del callback a rutas internas.
 - [ ] Actualizar la allowlist de redirects de Supabase para Local, Preview y Production.
-- [ ] Sustituir los errores OAuth del hash por query params compatibles con el callback.
-- [ ] Probar expiracion y refresh de token.
-- [ ] Evitar cache compartida en respuestas autenticadas.
-- [ ] Validar la matriz anonimo/delegate/manager/admin.
+- [x] Sustituir los errores OAuth del hash por query params compatibles con el callback.
+- [x] Probar expiracion y refresh de token a nivel de contrato.
+- [x] Evitar cache compartida en respuestas autenticadas.
+- [x] Validar la matriz anonimo/delegate/manager/admin con unitarias y E2E anonimo.
 
 Puerta M4:
 
@@ -482,30 +494,41 @@ Puerta M4:
 - Un usuario no puede acceder a datos o rutas de otro rol.
 - Presence y suspension siguen funcionando.
 
+Estado local al 2026-07-26: implementacion SSR Auth completa. Manager, admin y
+delegate pasaron login, recarga, rutas permitidas/prohibidas y logout contra el
+build Next local conectado al proyecto hospedado, sin mutaciones de negocio.
+La suspension real y Presence concurrente se difieren a usuarios aislados para
+no alterar produccion. Tambien quedan como tareas de rollout los layouts por
+route group y la allowlist de Preview/Production. Ver
+`docs/migration-evidence/m4/progress.md` y
+`docs/migration-evidence/m4/production-role-smoke.md`.
+
 ### M5. API final: cookies, seguridad y `manage-delegate-account`
 
 Estimacion: 4 a 7 dias.
 
-- [ ] Completar las librerias server-only descritas en la seccion 7.
-- [ ] Admitir cookie SSR y Bearer durante una ventana de compatibilidad medida.
-- [ ] Proteger mutaciones con cookies mediante SameSite y validacion de `Origin`.
-- [ ] Marcar handlers autenticados como runtime Node, dinamicos y no cacheables.
-- [ ] Enviar `Cache-Control: private, no-store` en workspace y respuestas privadas.
-- [ ] Probar que dos usuarios nunca comparten una respuesta cacheada.
-- [ ] Migrar `manage-delegate-account` a `POST /api/delegates/account`.
-- [ ] Cambiar su consumidor y conservar actions `get` y `update`.
-- [ ] Probar propietario, `league_admin`, admin y usuario de otra liga.
-- [ ] Comprobar usuarios suspendidos/eliminados y rol del objetivo en operaciones administrativas.
-- [ ] Congelar o corregir explicitamente la politica de acceso a workspace.
-- [ ] Preservar autorizacion user-scoped/RLS de `unlink_team_delegate`.
+- [x] Completar las librerias server-only descritas en la seccion 7.
+- [x] Admitir cookie SSR y Bearer durante una ventana de compatibilidad medida.
+- [x] Proteger mutaciones con cookies mediante SameSite y validacion de `Origin`.
+- [x] Marcar handlers autenticados como runtime Node, dinamicos y no cacheables.
+- [x] Enviar `Cache-Control: private, no-store` en workspace y respuestas privadas.
+- [x] Probar que dos usuarios nunca comparten una respuesta cacheada.
+- [x] Migrar `manage-delegate-account` a `POST /api/delegates/account`.
+- [x] Cambiar su consumidor y conservar actions `get` y `update`.
+- [x] Probar propietario, `league_admin`, admin y usuario de otra liga.
+- [x] Comprobar usuarios suspendidos/eliminados y rol del objetivo en operaciones administrativas.
+- [x] Congelar explicitamente la politica de workspace: usuario autenticado y propietario de la liga; otra liga responde `404`.
+- [x] Preservar autorizacion user-scoped/RLS de `unlink_team_delegate`.
 - [ ] Probar y endurecer compensacion ante fallos parciales de create, suspension, unlink y account update.
-- [ ] Sanear errores internos de Supabase antes de responder.
-- [ ] Agregar request/correlation ID y medicion por endpoint.
+- [x] Sanear errores internos de Supabase antes de responder.
+- [x] Agregar request/correlation ID.
+- [ ] Agregar medicion por endpoint.
 - [ ] Agregar rate limit servidor por usuario a los scanners o verificar uno equivalente en Supabase.
-- [ ] Ejecutar pruebas de contrato y efectos persistidos de los ocho Route Handlers.
+- [x] Ejecutar pruebas locales de contrato de los ocho Route Handlers.
+- [ ] Ejecutar pruebas de efectos persistidos de los ocho Route Handlers en un proyecto aislado.
 - [ ] Retirar Bearer interno solo si no existe consumidor externo documentado.
 - [ ] Retirar `manage-delegate-account` Edge solo despues de comprobar cero trafico y rollback.
-- [ ] Eliminar definitivamente `api/_lib` y `api/` si aun permanecen como fuente.
+- [x] Eliminar definitivamente `api/_lib` y `api/` como fuentes activas.
 
 Puerta M5:
 
@@ -514,6 +537,16 @@ Puerta M5:
 - Ningun consumidor frontend de los siete paths originales necesita cambiar su URL.
 - No existe acceso a service role desde cliente.
 - No quedan bypass DEV, fallback no-JSON ni implementaciones duplicadas.
+
+Estado local al 2026-07-26: la implementacion principal y el hardening local de
+M5 estan en curso avanzado. Los ocho Route Handlers compilan y sus contratos
+locales cubren Bearer/cookie, CSRF por `Origin`, cache privada, request ID,
+errores saneados y roles. `manage-delegate-account` ya tiene Route Handler y su
+consumidor usa `/api/delegates/account`; la Edge Function se conserva solo como
+rollback. Quedan pendientes las pruebas persistidas en un proyecto aislado, la
+compensacion completa de operaciones multi-sistema, medicion, rate limiting de
+scanners, Preview y el retiro basado en trafico de Bearer/Edge. Ver
+`docs/migration-evidence/m5/progress.md`.
 
 ### M6. Rutas publicas y autenticacion
 
@@ -529,14 +562,14 @@ Orden:
 6. `/delegate/invitation/[token]`
 7. `/`
 
-- [ ] Crear pages y layouts nativos.
-- [ ] Sustituir Links.
-- [ ] Pasar params como props donde sea posible.
-- [ ] Implementar metadata y Open Graph publicos.
-- [ ] Probar error, cancelacion y exito del login Google.
-- [ ] Probar retorno a `/configuracion` al vincular identidad Google.
-- [ ] Definir loading, error y not-found.
-- [ ] Retirar estas rutas del catch-all legacy.
+- [x] Crear pages y limites nativos para las rutas publicas.
+- [x] Sustituir Links de React Router por navegacion web compatible con Next y el rollback Vite.
+- [x] Pasar params como props donde sea posible.
+- [x] Implementar metadata y Open Graph publicos.
+- [x] Probar por contrato error, cancelacion y exito del login Google.
+- [x] Probar por contrato retorno a `/configuracion` al vincular identidad Google.
+- [x] Definir loading de datos, error y not-found.
+- [x] Retirar estas rutas del catch-all legacy convirtiendolo en `[...legacyPath]`.
 
 Puerta M6:
 
@@ -544,20 +577,31 @@ Puerta M6:
 - Acceso directo y recarga conservan comportamiento.
 - Invitaciones invalidas y expiradas mantienen su feedback.
 
+Estado local al 2026-07-26: `/`, `/landing`, `/login`,
+`/share/standings/[torneoId]`, `/invitation/[token]` y
+`/delegate/invitation/[token]` son rutas explicitas de App Router.
+Tabla publica e invitaciones reciben su lectura inicial desde el servidor con
+el cliente Supabase publico; no usan service role. El HTML util sin JavaScript,
+acceso directo, recarga, hidratacion y responsive pasaron 39 E2E en Chromium,
+mobile Chromium y WebKit. El callback PKCE ya era nativo y sus contratos cubren
+exito, cancelacion, errores y retorno interno. Preview, OAuth real hospedado y
+una invitacion valida desechable quedan como validacion de rollout. Ver
+`docs/migration-evidence/m6/progress.md`.
+
 ### M7. Shell privado y rutas simples
 
 Estimacion: 3 a 5 dias.
 
-- [ ] Crear layout privado con Sidebar.
-- [ ] Migrar estado activo de Sidebar con `usePathname`.
-- [ ] Migrar `/dashboard`.
-- [ ] Migrar `/partidos`.
-- [ ] Migrar `/configuracion`.
-- [ ] Migrar `/liga` y `/liga/[tab]`.
-- [ ] Migrar `/admin/managers`.
-- [ ] Sustituir redirects cliente por redirects servidor cuando aplique.
-- [ ] Eliminar `React.lazy` de AdminManagers.
-- [ ] Retirar rutas migradas del catch-all.
+- [x] Crear layout privado con Sidebar.
+- [x] Migrar estado activo de Sidebar con `usePathname`.
+- [x] Migrar `/dashboard`.
+- [x] Migrar `/partidos`.
+- [x] Migrar `/configuracion`.
+- [x] Migrar `/liga` y `/liga/[tab]`.
+- [x] Migrar `/admin/managers`.
+- [x] Sustituir redirects cliente por redirects servidor cuando aplique.
+- [x] Eliminar `React.lazy` de AdminManagers.
+- [x] Retirar rutas migradas del catch-all.
 
 Puerta M7:
 
@@ -565,47 +609,65 @@ Puerta M7:
 - Roles y redirects coinciden con el contrato.
 - Back/forward y refresh funcionan.
 
+Estado local al 2026-07-27: las seis rutas privadas simples son paginas
+explicitas de App Router y usan un shell compartido con Sidebar, `usePathname`
+y guardas SSR por rol. Manager, Admin y Delegado pasaron autenticacion real,
+recarga, permisos, salida y lecturas sin mutaciones de negocio. El menu movil
+paso a 390 x 844 y el historial Dashboard/Partidos paso atras y adelante. Los
+gates finales reportan lint 0/0, 95 Node, 53 Edge, 21 Next/Auth, build Next,
+45 E2E en Chromium/mobile/WebKit y build Vite. El Preview hospedado queda como
+validacion de rollout. Ver `docs/migration-evidence/m7/progress.md`.
+
 ### M8. Equipos
 
 Estimacion: 4 a 7 dias.
 
-- [ ] Migrar rutas legacy `/equipos`.
-- [ ] Migrar rutas canonicas por division.
-- [ ] Pasar `divisionId` y `teamId` desde App Router.
-- [ ] Conservar `teamId = crear`.
-- [ ] Sustituir `location.state.initialView` por `?view=`.
-- [ ] Preservar `view` al canonizar una ruta legacy y eliminarlo al cerrar detalle.
-- [ ] Conservar que delegate permanezca en legacy y manager/admin canonice a la division seleccionada.
-- [ ] Hidratar la division persistida sin flash ni redirect a una division incorrecta.
-- [ ] Sustituir `preventScrollReset`.
-- [ ] Probar modal de detalle, alta, edicion, transferencia y delegados.
-- [ ] Probar rutas de manager y delegate por separado.
-- [ ] Retirar rutas de equipos del catch-all.
+- [x] Migrar rutas legacy `/equipos`.
+- [x] Migrar rutas canonicas por division.
+- [x] Pasar `divisionId` y `teamId` desde App Router.
+- [x] Conservar `teamId = crear`.
+- [x] Sustituir `location.state.initialView` por `?view=`.
+- [x] Preservar `view` al canonizar una ruta legacy y eliminarlo al cerrar detalle.
+- [x] Conservar que delegate permanezca en legacy y manager/admin canonice a la division seleccionada.
+- [x] Hidratar la division persistida sin flash ni redirect a una division incorrecta.
+- [x] Sustituir `preventScrollReset`.
+- [x] Probar modal de detalle, alta, edicion, transferencia y delegados sin enviar mutaciones a produccion.
+- [x] Probar rutas de manager y delegate por separado.
+- [x] Retirar rutas de equipos del catch-all.
 
 Puerta M8:
 
 - Cualquier vista de equipo importante tiene URL recargable y compartible.
 - No hay diferencias funcionales entre ruta legacy y canonica.
 
+Estado M8 (2026-07-27): completa localmente. Las cuatro rutas explicitas ya
+usan App Router con guard SSR, validacion de segmentos y adaptador de
+navegacion Next. Manager y delegate pasaron smoke real de rutas; los modales
+de detalle, alta, edicion, transferencia y solicitudes se abrieron y cerraron
+sin enviar formularios. Los gates reportan lint 0/0, 98 Node, 53 Edge, 21
+Next/Auth, build Next, 51 E2E en Chromium/mobile/WebKit y build Vite. Las
+mutaciones con fixtures desechables y el Preview hospedado quedan como
+validacion de rollout. Ver `docs/migration-evidence/m8/progress.md`.
+
 ### M9. Torneos y jornadas
 
 Estimacion: 6 a 10 dias.
 
-- [ ] Crear un helper puro y probado `parseTournamentRoute`.
-- [ ] Crear paginas explicitas de cero a tres segmentos para rutas legacy.
-- [ ] Crear la misma expansion explicita bajo `division/[divisionId]`.
-- [ ] Delegar todas las paginas en un unico `TorneosPageClient`.
-- [ ] Conservar torneo, tab y jornada en URL.
-- [ ] Validar que jornada solo tenga significado bajo el tab `jornadas`.
-- [ ] Canonizar division, torneo activo y tab exactamente como la aplicacion actual.
-- [ ] Al cambiar division, conservar tab y descartar torneo/jornada.
-- [ ] Migrar navegacion de `TorneosTemplate`.
-- [ ] Migrar navegacion de `TorneoJornadasTab`.
-- [ ] Migrar definicion, standings, goleadores y jornadas.
+- [x] Crear un helper puro y probado `parseTournamentRoute`.
+- [x] Crear paginas explicitas de cero a tres segmentos para rutas legacy.
+- [x] Crear la misma expansion explicita bajo `division/[divisionId]`.
+- [x] Delegar todas las paginas en un unico adaptador cliente `NativeTournamentsPage`.
+- [x] Conservar torneo, tab y jornada en URL.
+- [x] Validar que jornada solo tenga significado bajo el tab `jornadas`.
+- [x] Canonizar division, torneo activo y tab exactamente como la aplicacion actual.
+- [x] Al cambiar division, conservar tab y descartar torneo/jornada.
+- [x] Migrar navegacion de `TorneosTemplate`.
+- [x] Migrar navegacion de `TorneoJornadasTab`.
+- [x] Migrar definicion, standings, goleadores y jornadas a las rutas nativas.
 - [ ] Probar fixture, planificacion, resultados y playoffs.
 - [ ] Probar escaneo de rol y cedula.
 - [ ] Probar exports de calendario, standings, cedulas y resumen.
-- [ ] Retirar rutas de torneos del catch-all.
+- [x] Retirar rutas de torneos del catch-all.
 
 Puerta M9:
 
@@ -613,26 +675,43 @@ Puerta M9:
 - Escaneos, planificacion, resultados y exports pasan pruebas.
 - El catch-all legacy ya no recibe ninguna ruta funcional.
 
+Estado M9 (2026-07-27): completa localmente en routing. Ocho paginas
+explicitas cubren las rutas legacy y canonicas, con helper puro, guard SSR,
+adaptador Next y sincronizacion de torneo, tab y jornada en URL. El smoke real
+de Manager paso para el estado sin torneo activo en sus cuatro divisiones y no
+ejecuto mutaciones de negocio. Los gates confirmados reportan lint 0/0, 102
+Node, 53 Edge, 21 Next/Auth/API, build Next, build Vite y 57 E2E. El build Vite
+final paso despues del patch de `AuthStore` con 1026 modulos en
+aproximadamente 39 segundos; solo emitio los warnings conocidos de OpenCV y
+chunks grandes. El reset de `DivisionStore` entre roles quedo confirmado:
+Manager salio desde
+`/division/94/torneos/definir`; Admin abrio `/torneos` sin heredar division ni
+mostrar `División no encontrada`, y tras recarga canonizo a
+`/torneos/definir` conservando el estado sin division. Ambas sesiones cerraron
+sin mutaciones de negocio. Preview hospedado y flujos con torneo activo,
+escaneos y exports quedan pendientes sobre fixtures aislados. Ver
+`docs/migration-evidence/m9/progress.md`.
+
 ### M10. Browser-only, rendimiento e hidratacion
 
 Estimacion: 3 a 5 dias.
 
-- [ ] Revalidar los 64 archivos browser-sensitive del inventario.
-- [ ] Marcar puntos de entrada interactivos con `"use client"`.
-- [ ] Corregir inicializadores `localStorage` sin guard en `useTorneosLogic`.
-- [ ] Mover `window.location.origin` fuera del render de TeamForm y DelegateInviteModal.
-- [ ] Eliminar `window.innerWidth` del render inicial de TorneoDashboard.
-- [ ] Revisar `Date.now()` inicial en vistas con countdown para evitar mismatch.
-- [ ] Cargar PaddleOCR con `next/dynamic` y `ssr: false` cuando sea necesario.
-- [ ] Aislar `@imgly/background-removal`.
-- [ ] Convertir imports estaticos de `@imgly/background-removal` y `html-to-image` en cargas cliente diferidas.
-- [ ] Aislar canvas, workers, portales, `html-to-image` y `jspdf`.
-- [ ] Mover accesos a `localStorage` fuera de inicializacion de servidor.
-- [ ] Corregir diferencias de hidratacion.
-- [ ] Analizar bundle por ruta.
-- [ ] Comparar metricas con baseline.
-- [ ] Instrumentar errores cliente/servidor, Web Vitals, request IDs y latencia de API.
-- [ ] Verificar movil, escritorio y reduced motion.
+- [x] Revalidar los 64 archivos browser-sensitive del inventario.
+- [x] Marcar puntos de entrada interactivos con `"use client"`.
+- [x] Corregir inicializadores `localStorage` sin guard en `useTorneosLogic`.
+- [x] Mover `window.location.origin` fuera del render de TeamForm y DelegateInviteModal.
+- [x] Eliminar `window.innerWidth` del render inicial de TorneoDashboard.
+- [x] Revisar `Date.now()` inicial en vistas con countdown para evitar mismatch.
+- [x] Cargar PaddleOCR de forma diferida cuando el usuario inicia un escaneo.
+- [x] Aislar `@imgly/background-removal`.
+- [x] Convertir imports estaticos de `@imgly/background-removal` y `html-to-image` en cargas cliente diferidas.
+- [x] Aislar canvas, workers, portales, `html-to-image` y `jspdf`.
+- [x] Mover accesos a `localStorage` fuera de inicializacion de servidor.
+- [x] Corregir diferencias de hidratacion.
+- [x] Analizar bundle por ruta.
+- [x] Comparar metricas con baseline.
+- [x] Instrumentar errores cliente/servidor, Web Vitals, request IDs y latencia de API.
+- [x] Verificar movil, escritorio y reduced motion.
 
 Puerta M10:
 
@@ -641,24 +720,38 @@ Puerta M10:
 - Ninguna ruta carga OCR/PDF si no lo necesita.
 - No hay regresion superior al 10% en las metricas acordadas frente al baseline.
 
+M10 quedo completada localmente el 2026-07-27. El inventario evoluciono a 73
+archivos browser-sensitive y no conserva inicializadores de estado que lean
+directamente `window`, storage o `Date.now()`. PaddleOCR, IMG.LY,
+`html-to-image` y jsPDF quedaron fuera de los grafos iniciales auditados. El
+shell de Torneos redujo 59.5% su gzip frente al baseline; incluso el tab mas
+pesado, Jornadas, redujo 27.0%. Landing redujo aproximadamente 33.6% y Equipos
+7.7%. Se agregaron buffers locales para Web Vitals y errores cliente,
+`Server-Timing`/request IDs en Route Handlers y pruebas reales de TTFB. La
+validacion movil encontro y corrigio el menu no funcional de Landing con
+estado accesible y cierre por Escape. Los gates finales reportan lint 0/0,
+102 Node, 53 Edge, 21 Next/Auth/API, build Next, build Vite y 60 E2E. La
+telemetria externa, Preview y el adelgazamiento de traces server quedan para
+M11. Ver `docs/migration-evidence/m10/progress.md`.
+
 ### M11. Corte, limpieza y observacion
 
 Estimacion: 2 a 4 dias mas ventana de observacion.
 
-- [ ] Ejecutar `verify` completo local.
+- [x] Ejecutar el conjunto completo de gates locales de `verify`.
 - [ ] Desplegar Preview con entorno aislado.
 - [ ] Ejecutar E2E y contratos contra Preview.
 - [ ] Ejecutar smoke manual de flujos criticos.
 - [ ] Confirmar proyecto, rama de produccion, dominio, runtime y variables reales de Vercel.
-- [ ] Verificar que el rewrite SPA fue retirado desde M2.
-- [ ] Eliminar `react-router-dom`.
-- [ ] Eliminar `src/main.jsx`.
-- [ ] Eliminar `src/routes` y `src/router.jsx`.
-- [ ] Eliminar `index.html`.
-- [ ] Eliminar `vite.config.js`.
-- [ ] Eliminar Vite, plugin React Vite, plugin Tailwind Vite y React Refresh.
-- [ ] Eliminar catch-all de compatibilidad.
-- [ ] Ejecutar busquedas de residuos.
+- [x] Verificar que el rewrite SPA fue retirado desde M2.
+- [x] Eliminar `react-router-dom`.
+- [x] Eliminar `src/main.jsx`.
+- [x] Eliminar `src/routes` y `src/router.jsx`.
+- [x] Eliminar `index.html`.
+- [x] Eliminar `vite.config.js`.
+- [x] Eliminar Vite, plugin React Vite, plugin Tailwind Vite y React Refresh.
+- [x] Eliminar catch-all de compatibilidad.
+- [x] Ejecutar busquedas de residuos.
 - [ ] Ensayar rollback en un alias no productivo.
 - [ ] Probar Next mediante alias interno durante un ciclo funcional completo.
 - [ ] Usar canary 5-10% si el plan de Vercel lo permite; si no, usar una cohorte interna por alias.
@@ -673,6 +766,19 @@ Puerta M11:
 - Se cumple toda la Definition of Done.
 - Produccion funciona sin codigo de compatibilidad.
 - El rollback fue ensayado y documentado.
+
+Estado local al 2026-07-27: el corte de framework esta completo y verificado.
+React Router DOM, Vite, Fast Refresh, el arranque SPA, el catch-all y sus
+archivos puente ya no existen en codigo, scripts, dependencias ni lockfile. Una
+ruta desconocida devuelve el 404 raiz de la aplicacion. Pasaron lint estricto,
+102 Node, 53 Edge, 21 Next/Auth/API, build Next y 63 E2E en Chromium, WebKit y
+Chromium movil. Preview, smoke funcional aislado, telemetria externa,
+canary/alias, rollback ensayado y produccion siguen pendientes. Los providers y
+adaptadores cliente Next se movieron a `src/components/app`; `src/legacy` ya no
+existe. Solo se conserva la migracion puntual `legacySession*` para convertir
+sesiones antiguas de local storage a cookies SSR. El trace de Torneos bajo de
+24.50 MB a 3.20 MB y ya no contiene Paddle, ONNX ni jsPDF. Ver
+`docs/migration-evidence/m11/progress.md`.
 
 ## 12. Matriz E2E minima
 
@@ -784,27 +890,27 @@ No se puede marcar este plan como completado hasta comprobar cada punto:
 
 - [ ] `npm run verify` termina con codigo 0.
 - [ ] `npm ci` funciona en CI limpia con Node/npm fijados.
-- [ ] Lint termina con cero errores y cero warnings.
-- [ ] Pasan al menos 63 pruebas Node y 48 pruebas Deno.
-- [ ] `next build` termina con codigo 0.
+- [x] Lint termina con cero errores y cero warnings.
+- [x] Pasan al menos 63 pruebas Node y 48 pruebas Deno.
+- [x] `next build` termina con codigo 0.
 - [ ] Pasan las 68 expectativas ruta/rol y E2E en tres navegadores.
 - [ ] Los ocho Route Handlers pasan contratos y efectos persistidos.
 - [ ] Los dos scanners Edge pasan smoke tests desde la app Next.
 - [ ] Todas las URLs de la seccion 6 pasan acceso directo y recarga.
-- [ ] No existe `react-router-dom` en codigo ni dependencias.
-- [ ] No existe Vite en scripts, dependencias o configuracion.
-- [ ] No existe el directorio legacy `api/`.
-- [ ] No existe el rewrite global hacia `index.html`.
-- [ ] No existe capa catch-all legacy.
-- [ ] No existe `import.meta.env`.
+- [x] No existe `react-router-dom` en codigo ni dependencias.
+- [x] No existe Vite en scripts, dependencias o configuracion.
+- [x] No existe el directorio legacy `api/`.
+- [x] No existe el rewrite global hacia `index.html`.
+- [x] No existe capa catch-all legacy.
+- [x] No existe `import.meta.env`.
 - [ ] Ningun secreto privado aparece en bundles o respuestas.
-- [ ] Respuestas privadas son `private, no-store` y pasan aislamiento entre usuarios.
-- [ ] Mutaciones por cookie pasan la prueba CSRF.
-- [ ] Auth usa cookies SSR y verificacion de identidad segura.
-- [ ] Roles se validan en servidor y no solo en UI.
-- [ ] No hay errores de hidratacion.
-- [ ] E2E no registra `pageerror` ni 5xx inesperados.
-- [ ] Rutas ajenas a OCR/PDF no descargan sus bundles pesados.
+- [x] Respuestas privadas son `private, no-store` y pasan aislamiento entre usuarios.
+- [x] Mutaciones por cookie pasan la prueba CSRF.
+- [x] Auth usa cookies SSR y verificacion de identidad segura.
+- [x] Roles se validan en servidor y no solo en UI.
+- [x] No hay errores de hidratacion.
+- [x] E2E no registra `pageerror` ni 5xx inesperados.
+- [x] Rutas ajenas a OCR/PDF no descargan sus bundles pesados.
 - [ ] El entorno Supabase puede reconstruirse desde cero.
 - [ ] No hay regresiones bloqueantes de accesibilidad o responsive.
 - [ ] Error rate y rendimiento permanecen dentro de umbral durante 72 horas.
@@ -819,18 +925,18 @@ Actualizar esta tabla durante la ejecucion:
 
 | Fase | Commit | Preview | Comandos ejecutados | Resultado | Fecha |
 |---|---|---|---|---|---|
-| M0 |  |  |  |  |  |
-| M1 |  |  |  |  |  |
-| M2 |  |  |  |  |  |
-| M3 |  |  |  |  |  |
-| M4 |  |  |  |  |  |
-| M5 |  |  |  |  |  |
-| M6 |  |  |  |  |  |
-| M7 |  |  |  |  |  |
-| M8 |  |  |  |  |  |
-| M9 |  |  |  |  |  |
-| M10 |  |  |  |  |  |
-| M11 |  |  |  |  |  |
+| M0 | `0c08368` | Aplicacion Vite local | build, lint, 63 Node, capturas 8 viewports | COMPLETADA; ver `docs/migration-evidence/m0/baseline.md` | 2026-07-25 |
+| M1 | Sin commit aun | Artefacto Vite local | npm ci, lint 0/0, 74 Node, 53 Deno, 16 contratos, build, 12 E2E, Supabase 28/28 | EN CURSO; faltan snapshot/reset y fixtures aislados en un runtime compatible; ver `docs/migration-evidence/m1/progress.md` | 2026-07-25 |
+| M2 | Sin commit aun | Host Next local | lint, 74 Node, 53 Deno, contratos, Next/Vite build, 12 E2E | COMPLETADA LOCAL; ver `docs/migration-evidence/m2/progress.md` | 2026-07-25 |
+| M3 | Sin commit aun | Host Next local | lint, 77 Node, 53 Deno, contratos, Next/Vite build, bundle scan, 12 E2E | COMPLETADA LOCAL; ver `docs/migration-evidence/m3/progress.md` | 2026-07-25 |
+| M4 | Sin commit aun | Host Next SSR local | login real de 3 roles, lint, 87 Node, 15 Next/Auth, 53 Edge, Next/Vite build, bundle scan, 21 E2E | COMPLETA LOCALMENTE; rollout aislado/allowlist/layouts pendientes; ver `docs/migration-evidence/m4/progress.md` | 2026-07-26 |
+| M5 | Sin commit aun | Host Next local | lint, 95 Node, 53 Edge, 21 Next/Auth, Next/Vite build, contratos API | HARDENING LOCAL IMPLEMENTADO; efectos aislados, metricas, rate limits y rollout pendientes; ver `docs/migration-evidence/m5/progress.md` | 2026-07-26 |
+| M6 | Sin commit aun | Host Next local | lint, 95 Node, 21 Next/Auth, Next/Vite build, 39 E2E | COMPLETA LOCALMENTE; rollout pendiente; ver `docs/migration-evidence/m6/progress.md` | 2026-07-26 |
+| M7 | Sin commit aun | Host Next local | 3 roles reales, lint, 95 Node, 53 Edge, 21 Next/Auth, Next/Vite build, 45 E2E | COMPLETA LOCALMENTE; rollout pendiente; ver `docs/migration-evidence/m7/progress.md` | 2026-07-27 |
+| M8 | Sin commit aun | Host Next local | 2 roles reales, lint, 98 Node, 53 Edge, 21 Next/Auth, Next/Vite build, 51 E2E | COMPLETA LOCALMENTE; mutaciones aisladas/rollout pendientes; ver `docs/migration-evidence/m8/progress.md` | 2026-07-27 |
+| M9 | Sin commit aun | Host Next local | Manager real sin torneo activo en 4 divisiones; reset Manager/Admin confirmado; lint, 102 Node, 53 Edge, 21 Next/Auth/API, Next/Vite build, 57 E2E | COMPLETA LOCALMENTE EN ROUTING; Preview hospedado y flujos con torneo activo/exports aislados pendientes; ver `docs/migration-evidence/m9/progress.md` | 2026-07-27 |
+| M10 | Sin commit aun | Host Next local | lint, 102 Node, 53 Edge, 21 Next/Auth/API, Next/Vite build, bundle audit, Web Vitals/errores, desktop/mobile/reduced motion, 60 E2E | COMPLETA LOCALMENTE; Preview, telemetria externa y server traces pendientes; ver `docs/migration-evidence/m10/progress.md` | 2026-07-27 |
+| M11 | Sin commit aun | Host Next local | lockfile offline, residuos, refactor providers, traces, lint, 102 Node, 53 Edge, 21 Next/Auth/API, build Next, 63 E2E, 404 real | CORTE LOCAL VERIFICADO; rollout/observacion pendientes; ver `docs/migration-evidence/m11/progress.md` | 2026-07-27 |
 
 ## 17. Referencias tecnicas
 

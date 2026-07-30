@@ -10,13 +10,12 @@ import {
     RiTimeLine,
 } from "react-icons/ri";
 import { v } from "../../../../../styles/variables";
-import { supabase } from "../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../lib/supabase/browserClient.js";
 import { findBestScanMatch } from "../../../../../utils/cedulaScanMatching";
 import {
     normalizeScannedDate,
     normalizeScannedTime,
 } from "../../../../../utils/scannedScheduleUtils";
-import { runLocalRoleOcr } from "../../../../../utils/rolJuegoLocalOcr";
 
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_SIDE = 2200;
@@ -255,16 +254,16 @@ export function RolJuegoScanFlow({
     const [scanning, setScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
-    const initialCooldownUntil = useRef(readScanCooldownUntil());
-    const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
-    const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
+    const [cooldownUntil, setCooldownUntil] = useState(0);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
+    const [cooldownHydrated, setCooldownHydrated] = useState(false);
     const [coarseDevice, setCoarseDevice] = useState(false);
     const uploadInputRef = useRef(null);
     const cameraInputRef = useRef(null);
     const progressTimerRef = useRef(null);
     const preparedImageRef = useRef(null);
     const scanInFlightRef = useRef(false);
-    const cooldownUntilRef = useRef(initialCooldownUntil.current);
+    const cooldownUntilRef = useRef(0);
 
     const expectedMatches = Math.floor(teams.length / 2);
     const needsBye = teams.length % 2 === 1;
@@ -277,6 +276,14 @@ export function RolJuegoScanFlow({
         return () => query.removeEventListener?.("change", update);
     }, []);
 
+    useEffect(() => {
+        const storedCooldownUntil = readScanCooldownUntil();
+        cooldownUntilRef.current = storedCooldownUntil;
+        setCooldownUntil(storedCooldownUntil);
+        setCooldownSeconds(secondsUntil(storedCooldownUntil));
+        setCooldownHydrated(true);
+    }, []);
+
     useEffect(() => () => {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
     }, [previewUrl]);
@@ -286,6 +293,8 @@ export function RolJuegoScanFlow({
     }, []);
 
     useEffect(() => {
+        if (!cooldownHydrated) return undefined;
+
         cooldownUntilRef.current = cooldownUntil;
         let timerId = null;
         const updateCooldown = () => {
@@ -301,7 +310,7 @@ export function RolJuegoScanFlow({
         return () => {
             if (timerId) window.clearInterval(timerId);
         };
-    }, [cooldownUntil]);
+    }, [cooldownHydrated, cooldownUntil]);
 
     const startScanCooldown = useCallback((seconds) => {
         const duration = Math.min(300, Math.max(1, Math.ceil(Number(seconds) || 0)));
@@ -398,6 +407,9 @@ export function RolJuegoScanFlow({
             setScanProgress((current) => Math.max(current, 18));
             let localScan = null;
             try {
+                const { runLocalRoleOcr } = await import(
+                    "../../../../../utils/rolJuegoLocalOcr"
+                );
                 localScan = await runLocalRoleOcr(image.blob, scanContext);
             } catch (localError) {
                 // La lectura local es una optimizacion: cualquier incompatibilidad

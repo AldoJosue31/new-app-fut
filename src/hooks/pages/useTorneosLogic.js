@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { 
     iniciarTorneoService, 
     updateJornadaFechas, 
@@ -75,8 +74,90 @@ const createLeagueRuleDraft = (leagueData) => {
   };
 };
 
-export const useTorneosLogic = () => {
-  const { divisionId: routeDivisionId } = useParams();
+const createDefaultTournamentRules = () => ({
+  horaInicio: "08:00",
+  horaFin: "22:00",
+  minutosPorTiempo: "",
+  minutosDescanso: "",
+  jornadaDurationDays: 7,
+  cambios: "Ilimitados",
+  observaciones: "",
+});
+
+const createDefaultTournamentForm = () => ({
+  season: "",
+  startDate: new Date().toISOString().split("T")[0],
+  vueltas: "1",
+  minPlayers: 7,
+  minPlayersToRegister: 7,
+  maxPlayers: 25,
+  format: TOURNAMENT_FORMAT.LEAGUE,
+  tieBreakType: "normal",
+  winPoints: 3,
+  drawPoints: 1,
+  lossPoints: 0,
+  zonaLiguilla: false,
+  clasificados: 4,
+  hasRepechaje: false,
+  repechajeTeams: 0,
+  playoffReseed: true,
+  playoffTieBreaker: "bestSeed",
+  repechajeLegs: "single",
+  playoffLegsRound32: "single",
+  playoffLegsRound16: "single",
+  playoffLegsQuarterfinals: "single",
+  playoffLegsSemifinals: "single",
+  playoffLegsFinal: "single",
+  countGoalsPlayoffs: false,
+  countGoalsRepechaje: false,
+  maxTeams: 16,
+  ascensos: 0,
+  descensos: 0,
+});
+
+const readStoredTournamentRulesDraft = () => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const savedData =
+      window.localStorage.getItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY) ||
+      window.localStorage.getItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
+    if (!savedData) return null;
+
+    const parsed = JSON.parse(savedData);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearStoredTournamentRulesDraft = () => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
+  } catch {
+    // The in-memory draft remains usable when browser storage is unavailable.
+  }
+};
+
+const writeStoredTournamentRulesDraft = (draftData) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      TOURNAMENT_RULES_DRAFT_STORAGE_KEY,
+      JSON.stringify(draftData),
+    );
+  } catch {
+    // Persisting the draft is optional and must not block tournament creation.
+  }
+};
+
+export const useTorneosLogic = ({ routeDivisionId } = {}) => {
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const { selectedDivision, setDivision } = useDivisionStore();
@@ -94,83 +175,49 @@ export const useTorneosLogic = () => {
   const [standings, setStandings] = useState([]);
   const [partidos, setPartidos] = useState([]);
 
-  const [reglas, setReglas] = useState(() => {
-    const savedData =
-      localStorage.getItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY) ||
-      localStorage.getItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
-    if (savedData) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.reglasDraft) return parsed.reglasDraft;
-    }
-    return {
-      horaInicio: "08:00",
-      horaFin: "22:00",
-      minutosPorTiempo: "", 
-      minutosDescanso: "",
-      jornadaDurationDays: 7,
-      cambios: "Ilimitados",
-      observaciones: ""
-    };
-  });
+  const [reglas, setReglas] = useState(createDefaultTournamentRules);
 
   const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
-  const [form, setForm] = useState(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const defaultForm = {
-      season: "",
-      startDate: today,
-      vueltas: "1",       
-      minPlayers: 7,
-      minPlayersToRegister: 7,
-      maxPlayers: 25, 
-      format: TOURNAMENT_FORMAT.LEAGUE,
-      tieBreakType: "normal", // <-- CORREGIDO A NORMAL
-      winPoints: 3,
-      drawPoints: 1,
-      lossPoints: 0,
-      zonaLiguilla: false,
-      clasificados: 4, 
-      hasRepechaje: false,
-      repechajeTeams: 0,
-      playoffReseed: true,
-      playoffTieBreaker: "bestSeed",
-      repechajeLegs: "single",
-      playoffLegsRound32: "single",
-      playoffLegsRound16: "single",
-      playoffLegsQuarterfinals: "single",
-      playoffLegsSemifinals: "single",
-      playoffLegsFinal: "single",
-      countGoalsPlayoffs: false,
-      countGoalsRepechaje: false,
-      maxTeams: 16,
-      ascensos: 0,
-      descensos: 0
-    };
-
-    const savedRules =
-      localStorage.getItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY) ||
-      localStorage.getItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
-    if (savedRules) {
-        const parsed = JSON.parse(savedRules);
-        const parsedRepechajeTeams = parseInt(parsed.repechajeTeams, 10) || 0;
-        return {
-            ...defaultForm,
-            ...parsed,
-            hasRepechaje: parsed.hasRepechaje ?? parsedRepechajeTeams > 0,
-            season: "", 
-            startDate: today
-        };
-    }
-    
-    return defaultForm;
-  });
+  const [form, setForm] = useState(createDefaultTournamentForm);
+  const selectedDivisionRef = useRef(selectedDivision);
+  const formRef = useRef(form);
   const effectiveDivision =
     divisionContext ||
     (activeDivisionId && selectedDivision?.id !== activeDivisionId ? null : selectedDivision);
 
   const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
   const closeToast = () => setToastConfig({ ...toastConfig, show: false });
+
+  useEffect(() => {
+    selectedDivisionRef.current = selectedDivision;
+  }, [selectedDivision]);
+
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
+
+  useEffect(() => {
+    const parsed = readStoredTournamentRulesDraft();
+    if (!parsed) return;
+
+    if (
+      parsed.reglasDraft &&
+      typeof parsed.reglasDraft === "object" &&
+      !Array.isArray(parsed.reglasDraft)
+    ) {
+      setReglas((current) => ({ ...current, ...parsed.reglasDraft }));
+    }
+
+    const parsedRepechajeTeams = parseInt(parsed.repechajeTeams, 10) || 0;
+    setForm((current) => ({
+      ...current,
+      ...parsed,
+      hasRepechaje: parsed.hasRepechaje ?? parsedRepechajeTeams > 0,
+      season: "",
+      startDate: current.startDate,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!form.hasRepechaje && form.repechajeTeams !== 0) {
@@ -217,13 +264,17 @@ export const useTorneosLogic = () => {
     setIsLoadingData(true); 
     try {
       const workspace = await getDivisionWorkspace(activeDivisionId);
-      const resolvedDivision = workspace?.division || selectedDivision;
+      const selectedDivisionSnapshot = selectedDivisionRef.current;
+      const resolvedDivision = workspace?.division || selectedDivisionSnapshot;
       const torneo = workspace?.activeTournament || null;
       const teams = workspace?.teams || [];
       const lData = workspace?.league || resolvedDivision?.league || null;
 
       setDivisionContext(resolvedDivision);
-      if (resolvedDivision && selectedDivision?.id !== resolvedDivision.id) {
+      if (
+        resolvedDivision &&
+        selectedDivisionSnapshot?.id !== resolvedDivision.id
+      ) {
         setDivision(resolvedDivision);
       }
       setActiveTournament(torneo);
@@ -288,8 +339,14 @@ export const useTorneosLogic = () => {
       } else {
         setStandings([]);
         setPartidos([]);
+        const minPlayersToRegister =
+          parseInt(formRef.current.minPlayersToRegister, 10) || 0;
         const defaultParticipating = processedTeams
-            .filter(t => t.status === TEAM_STATUS.ACTIVE && t.playerCount >= (parseInt(form.minPlayersToRegister, 10) || 0))
+            .filter(
+              (team) =>
+                team.status === TEAM_STATUS.ACTIVE &&
+                team.playerCount >= minPlayersToRegister,
+            )
             .map(t => t.id);
         setParticipatingIds(defaultParticipating);
       }
@@ -301,7 +358,7 @@ export const useTorneosLogic = () => {
     } finally {
       setIsLoadingData(false);
     }
-  }, [activeDivisionId, form.minPlayersToRegister, selectedDivision, setDivision]);
+  }, [activeDivisionId, setDivision]);
 
   useEffect(() => {
     fetchData();
@@ -387,8 +444,7 @@ export const useTorneosLogic = () => {
 
   const resetDraftToLeagueRules = useCallback(() => {
     const nextDraft = createLeagueRuleDraft(leagueData);
-    localStorage.removeItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
-    localStorage.removeItem(LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY);
+    clearStoredTournamentRulesDraft();
     setForm(nextDraft.form);
     setReglas(nextDraft.reglas);
   }, [leagueData]);
@@ -397,7 +453,7 @@ export const useTorneosLogic = () => {
     if (activeTournament) return; 
 
     const draftData = { ...form, reglasDraft: reglas };
-    localStorage.setItem(TOURNAMENT_RULES_DRAFT_STORAGE_KEY, JSON.stringify(draftData));
+    writeStoredTournamentRulesDraft(draftData);
 
     const max = parseInt(form.maxTeams || 0);
     if (max > 0 && participatingIds.length > max) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import styled, { css } from "styled-components";
-import { useLocation, useNavigate } from "react-router-dom";
 import { v } from "../../styles/variables";
 import { useDivisionStore } from "../../store/DivisionStore";
 import {
@@ -14,86 +14,72 @@ import { Btnsave } from "../moleculas/Btnsave";
 import { IoIosArrowDown } from "react-icons/io";
 import { RiDeleteBinLine } from "react-icons/ri";
 import { BiTransfer } from "react-icons/bi";
+import {
+  buildTournamentPath,
+  parseTournamentRoute,
+} from "../../lib/navigation/tournamentRoutes.js";
+import { useNavigationProgress } from "../app/NavigationProgress";
 
-export function DivisionSelector({ isOpen }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const {
-    divisiones,
-    selectedDivision,
-    setDivision,
-    fetchDivisiones,
-  } = useDivisionStore();
+export function DivisionSelector({ isOpen, currentPath = "/" }) {
+  const router = useRouter();
+  const divisiones = useDivisionStore((store) => store.divisiones);
+  const selectedDivision = useDivisionStore(
+    (store) => store.selectedDivision,
+  );
+  const setDivision = useDivisionStore((store) => store.setDivision);
+  const fetchDivisiones = useDivisionStore(
+    (store) => store.fetchDivisiones,
+  );
+  const { completeNavigation, startNavigation } =
+    useNavigationProgress();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [newDivisionName, setNewDivisionName] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
   const [pendingDivision, setPendingDivision] = useState(null);
-  const [switchProgress, setSwitchProgress] = useState({
-    isVisible: false,
-    isDone: false,
-  });
-  const progressTimers = useRef([]);
+  const pendingTimerRef = useRef(null);
   const isSwitchingDivision = Boolean(pendingDivision);
   const selectedDivisionId = selectedDivision?.id || "";
 
   useEffect(() => {
-    fetchDivisiones();
-  }, [fetchDivisiones]);
+    if (divisiones.length === 0) {
+      fetchDivisiones();
+    }
+  }, [divisiones.length, fetchDivisiones]);
 
   useEffect(() => {
     return () => {
-      progressTimers.current.forEach(clearTimeout);
+      if (pendingTimerRef.current) {
+        window.clearTimeout(pendingTimerRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
     if (!pendingDivision || selectedDivision?.id !== pendingDivision.id) return;
 
-    progressTimers.current.forEach(clearTimeout);
-    progressTimers.current = [];
-    setPendingDivision(null);
-    setSwitchProgress({
-      isVisible: true,
-      isDone: true,
+    if (pendingTimerRef.current) {
+      window.clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+    }
+    completeNavigation({
+      label: `${pendingDivision.name} activa`,
     });
-
-    progressTimers.current = [
-      setTimeout(() => {
-        setSwitchProgress({
-          isVisible: false,
-          isDone: false,
-        });
-      }, 700),
-    ];
-  }, [pendingDivision, selectedDivision?.id]);
-
-  const clearProgressTimers = () => {
-    progressTimers.current.forEach(clearTimeout);
-    progressTimers.current = [];
-  };
+    setPendingDivision(null);
+  }, [completeNavigation, pendingDivision, selectedDivision?.id]);
 
   const showDivisionProgress = (division) => {
-    clearProgressTimers();
+    if (pendingTimerRef.current) {
+      window.clearTimeout(pendingTimerRef.current);
+    }
     setPendingDivision(division);
-    setSwitchProgress({
-      isVisible: true,
-      isDone: false,
-    });
 
-    progressTimers.current = [
-      setTimeout(() => {
-        setPendingDivision((current) => (current?.id === division?.id ? null : current));
-        setSwitchProgress((current) =>
-          current.isDone
-            ? current
-            : {
-                isVisible: false,
-                isDone: false,
-              }
-        );
-      }, 8000),
-    ];
+    pendingTimerRef.current = window.setTimeout(() => {
+      setPendingDivision((current) =>
+        current?.id === division?.id ? null : current
+      );
+      pendingTimerRef.current = null;
+    }, 8000);
   };
 
   const changeDivision = (division) => {
@@ -101,21 +87,46 @@ export function DivisionSelector({ isOpen }) {
 
     showDivisionProgress(division);
 
-    const torneosMatch = location.pathname.match(/(?:\/division\/\d+)?\/torneos\/?([^/]*)?\/?([^/]*)?/);
-    if (torneosMatch) {
-      const firstSegment = torneosMatch[1] || "";
-      const secondSegment = torneosMatch[2] || "";
-      const currentTab = /^\d+$/.test(firstSegment) ? secondSegment || "definir" : firstSegment || "definir";
-      navigate(`/division/${division.id}/torneos/${currentTab}`, { replace: true });
+    const pathSegments = currentPath.split(/[?#]/, 1)[0].split("/").filter(Boolean);
+    const tournamentsIndex = pathSegments.indexOf("torneos");
+    if (tournamentsIndex !== -1) {
+      const tournamentRoute = parseTournamentRoute({
+        tournamentOrTab: pathSegments[tournamentsIndex + 1],
+        tab: pathSegments[tournamentsIndex + 2],
+        jornadaId: pathSegments[tournamentsIndex + 3],
+      });
+      const destination = buildTournamentPath({
+        divisionId: division.id,
+        tab: tournamentRoute.tab || "definir",
+      });
+      startNavigation({
+        doneLabel: `${division.name} activa`,
+        kind: "division",
+        label: `Cambiando a ${division.name}`,
+        targetPath: destination,
+      });
+      router.replace(destination, { scroll: false });
       return;
     }
 
-    const equiposMatch = location.pathname.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
+    const equiposMatch = currentPath.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
     if (equiposMatch) {
-      navigate(`/division/${division.id}/equipos`, { replace: true });
+      const destination = `/division/${division.id}/equipos`;
+      startNavigation({
+        doneLabel: `${division.name} activa`,
+        kind: "division",
+        label: `Cambiando a ${division.name}`,
+        targetPath: destination,
+      });
+      router.replace(destination, { scroll: false });
       return;
     }
 
+    startNavigation({
+      doneLabel: `${division.name} activa`,
+      kind: "division",
+      label: `Cambiando a ${division.name}`,
+    });
     setDivision(division);
   };
 
@@ -242,20 +253,6 @@ export function DivisionSelector({ isOpen }) {
           </CompactView>
         </ViewStack>
       </MainContainer>
-
-      <DivisionProgressBar
-        $isVisible={switchProgress.isVisible}
-        $isDone={switchProgress.isDone}
-        role="status"
-        aria-live="polite"
-      >
-        <div className="progress-copy">
-          {switchProgress.isDone ? "Division cambiada" : "Cambiando division"}
-        </div>
-        <div className="progress-track">
-          <div className="progress-fill" />
-        </div>
-      </DivisionProgressBar>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Gestionar Divisiones">
         <CrudContainer>
@@ -534,67 +531,6 @@ const SelectWrapper = styled.div`
   @keyframes divisionSpinner {
     to {
       transform: rotate(360deg);
-    }
-  }
-`;
-
-const DivisionProgressBar = styled.div`
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 120;
-  pointer-events: none;
-  opacity: ${({ $isVisible }) => ($isVisible ? 1 : 0)};
-  transform: translateY(${({ $isVisible }) => ($isVisible ? "0" : "10px")});
-  transition: opacity 0.2s ease, transform 0.2s ease;
-
-  .progress-copy {
-    position: absolute;
-    right: 16px;
-    bottom: 10px;
-    max-width: min(320px, calc(100vw - 32px));
-    padding: 7px 10px;
-    border-radius: 8px;
-    background: ${({ theme }) => theme.bgcards};
-    border: 1px solid ${({ theme, $isDone }) => ($isDone ? v.verde : theme.primary || v.colorPrincipal)};
-    color: ${({ theme }) => theme.text};
-    box-shadow: ${({ theme }) => theme.boxshadowGray || "0 8px 20px rgba(0, 0, 0, 0.16)"};
-    font-size: 0.78rem;
-    font-weight: 800;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .progress-track {
-    width: 100%;
-    height: 4px;
-    background: ${({ theme }) => theme.bg4};
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    width: 100%;
-    transform-origin: left center;
-    transform: scaleX(${({ $isDone }) => ($isDone ? 1 : 0.72)});
-    background: ${({ theme, $isDone }) =>
-      $isDone ? v.verde : `linear-gradient(90deg, ${theme.primary || v.colorPrincipal}, ${v.colorselector})`};
-    box-shadow: 0 0 12px ${({ $isDone }) => ($isDone ? `${v.verde}80` : `${v.colorPrincipal}80`)};
-    transition: transform 0.42s ease, background 0.2s ease;
-    animation: ${({ $isDone }) => ($isDone ? "none" : "divisionProgress 0.9s ease-in-out infinite")};
-  }
-
-  @keyframes divisionProgress {
-    0% {
-      transform: translateX(-24%) scaleX(0.72);
-    }
-    50% {
-      transform: translateX(18%) scaleX(0.72);
-    }
-    100% {
-      transform: translateX(0) scaleX(0.72);
     }
   }
 `;

@@ -91,6 +91,7 @@ export function TeamForm({
   const [delegateSaveSucceeded, setDelegateSaveSucceeded] = useState(false);
   const [showDelegateSavedNotice, setShowDelegateSavedNotice] = useState(false);
   const [showDelegateChangeConfirm, setShowDelegateChangeConfirm] = useState(false);
+  const [clientOrigin, setClientOrigin] = useState("");
   const [delegateOriginalProfile, setDelegateOriginalProfile] = useState({
     fullName: "",
     email: "",
@@ -101,9 +102,13 @@ export function TeamForm({
   const delegateInputDisplay = isLinkedDelegate
     ? delegateDisplayName || "Delegado vinculado"
     : delegateDisplayName;
-  const invitationUrl = activeInvitation?.token
-    ? `${window.location.origin}/delegate/invitation/${activeInvitation.token}`
+  const invitationUrl = activeInvitation?.token && clientOrigin
+    ? `${clientOrigin}/delegate/invitation/${activeInvitation.token}`
     : "";
+
+  useEffect(() => {
+    setClientOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     const color = form.color || "#000000";

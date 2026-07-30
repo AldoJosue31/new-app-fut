@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import styled, { keyframes, css } from "styled-components";
 import { IoIosArrowUp, IoIosArrowDown } from "react-icons/io";
 
@@ -12,13 +12,18 @@ export function InputNumber({
   max = 999, 
   step = 1 
 }) {
-  const [animate, setAnimate] = useState(false);
+  const inputRef = useRef(null);
 
   // Efecto de rebote cuando cambia el valor
   useEffect(() => {
-    setAnimate(true);
-    const timer = setTimeout(() => setAnimate(false), 200);
-    return () => clearTimeout(timer);
+    inputRef.current?.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.2)", color: "#1cb0f6" },
+        { transform: "scale(1)" },
+      ],
+      { duration: 200, easing: "ease-in-out" },
+    );
   }, [value]);
 
   const emitChange = (newValue) => {
@@ -60,6 +65,7 @@ export function InputNumber({
   return (
     <Container>
       <StyledInput
+        ref={inputRef}
         id={id}
         type="text" // Usamos text para control total (evitar scroll del mouse nativo si se desea)
         inputMode="numeric"
@@ -67,7 +73,6 @@ export function InputNumber({
         placeholder={placeholder}
         value={value}
         onChange={handleInputChange}
-        $animate={animate}
         autoComplete="off"
       />
       <Controls>

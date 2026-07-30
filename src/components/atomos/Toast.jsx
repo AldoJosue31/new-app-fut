@@ -1,4 +1,9 @@
-import React, { useEffect, useEffectEvent, useState } from 'react';
+import React, {
+    useEffect,
+    useEffectEvent,
+    useState,
+    useSyncExternalStore,
+} from 'react';
 import { createPortal } from 'react-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { v } from '../../styles/variables';
@@ -8,6 +13,11 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000,
     // 1. Agregamos un estado para saber si el Toast ha sido activado alguna vez
     const [hasBeenShown, setHasBeenShown] = useState(show);
     const onAutoClose = useEffectEvent(onClose);
+    const mounted = useSyncExternalStore(
+        () => () => {},
+        () => true,
+        () => false,
+    );
 
     useEffect(() => {
         if (show && duration) {
@@ -42,7 +52,7 @@ export function Toast({ show, message, type = 'error', onClose, duration = 3000,
 
     if (inline) return content;
 
-    if (typeof window === 'undefined' || !document.body) return null;
+    if (!mounted || !document.body) return null;
 
     return createPortal(content, document.body);
 }

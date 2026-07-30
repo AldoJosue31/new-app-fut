@@ -14,7 +14,7 @@ const formatDate = (dateString) => {
         const [year, month, day] = datePart.split('-').map(Number);
         const date = new Date(year, month - 1, day);
         return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    } catch (e) { return dateString; }
+    } catch { return dateString; }
 };
 
 const formatTime = (timeString) => {
@@ -25,7 +25,7 @@ const formatTime = (timeString) => {
         const ampm = hours >= 12 ? 'PM' : 'AM';
         hours = hours % 12 || 12;
         return `${hours}:${minutes} ${ampm}`;
-    } catch (e) { return timePart; }
+    } catch { return timePart; }
 };
 
 const toScoreNumber = (value) => {

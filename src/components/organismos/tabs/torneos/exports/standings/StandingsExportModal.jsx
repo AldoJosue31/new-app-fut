@@ -4,7 +4,7 @@ import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
 import { Modal } from "../../../../Modal";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
 import StandingsExportLayout from "./StandingsExportLayout";
 

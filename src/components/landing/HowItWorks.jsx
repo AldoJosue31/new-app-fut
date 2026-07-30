@@ -1,7 +1,7 @@
 // src/components/landing/HowItWorks.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { RiSettings3Line, RiGroupLine, RiCalendarCheckLine } from "react-icons/ri";
-import { landingCopy } from "../../pages/landing/copy";
+import { landingCopy } from "../../views/landing/copy";
 
 // ─── Datos estáticos por paso ──────────────────────────────────────────────
 const STEP_ICONS = [RiSettings3Line, RiGroupLine, RiCalendarCheckLine];

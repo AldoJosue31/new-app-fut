@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import styled, { keyframes } from "styled-components";
+import { getModalRoot } from "../../lib/dom/getModalRoot.js";
 import { v } from "../../styles/variables";
 import { 
   RiImageAddLine, RiZoomInLine, RiZoomOutLine, 
@@ -416,7 +417,7 @@ function PhotoCropEditor({ state, actions, canvasRef }) {
         </div>
       </div>
     </CropModalOverlay>,
-    document.getElementById("root") || document.body
+    getModalRoot(),
   );
 }
 

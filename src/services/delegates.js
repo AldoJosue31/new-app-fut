@@ -1,4 +1,4 @@
-import { supabase } from "../supabase/supabase.config";
+import { supabase } from "../lib/supabase/browserClient.js";
 
 const parseRpcResponse = (rpcName, data, error) => {
   if (error) throw error;
@@ -273,15 +273,20 @@ export const submitDelegateChangeRequest = async ({
 
 
 
-export const getTeamDelegateChangeRequests = async (teamId) => {
+export const getTeamDelegateChangeRequests = async (
+  teamId,
+  { signal = null } = {},
+) => {
   if (!teamId) return [];
 
-  const { data: requests, error: requestsError } = await supabase
+  let query = supabase
     .from("delegate_change_requests")
     .select("*")
     .eq("team_id", teamId)
     .order("created_at", { ascending: false });
+  if (signal) query = query.abortSignal(signal);
 
+  const { data: requests, error: requestsError } = await query;
   if (requestsError) throw requestsError;
   return hydrateDelegateChangeRequests(requests || []);
 };
@@ -371,7 +376,10 @@ export const unlinkTeamDelegateService = async ({
   });
 
 export const getLinkedDelegateAccountService = async (teamId) =>
-  invokeDelegateAccountFunction({ action: "get", teamId });
+  callAuthenticatedEndpoint("/api/delegates/account", "POST", {
+    action: "get",
+    teamId,
+  });
 
 export const updateLinkedDelegateAccountService = async ({
   teamId,
@@ -381,7 +389,7 @@ export const updateLinkedDelegateAccountService = async ({
   reason = "",
   confirmed = false,
 }) =>
-  invokeDelegateAccountFunction({
+  callAuthenticatedEndpoint("/api/delegates/account", "POST", {
     action: "update",
     teamId,
     fullName,
@@ -390,32 +398,6 @@ export const updateLinkedDelegateAccountService = async ({
     reason,
     confirmed,
   });
-
-const invokeDelegateAccountFunction = async (body) => {
-  const { data, error } = await supabase.functions.invoke(
-    "manage-delegate-account",
-    { body },
-  );
-
-  if (!error) return data;
-
-  let responseBody = null;
-  try {
-    const response =
-      typeof error.context?.clone === "function"
-        ? error.context.clone()
-        : error.context;
-    responseBody = await response?.json();
-  } catch {
-    // La respuesta de la funcion no contenia JSON.
-  }
-
-  throw new Error(
-    responseBody?.error ||
-      error.message ||
-      "No se pudo completar la operacion del delegado.",
-  );
-};
 
 const hydrateDelegateChangeRequests = async (requests = []) => {
   if (!requests.length) return [];

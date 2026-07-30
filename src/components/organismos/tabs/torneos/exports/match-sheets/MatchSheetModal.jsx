@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useEffectEvent, useState, useRef, useMemo } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
 import { v } from "../../../../../../styles/variables";
 import { Modal } from "../../../../Modal";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { ExportDownloadButton, ExportPreviewHeader } from '../shared/ExportPreviewHeader';
 import MatchSheetExportLayout from "./MatchSheetExportLayout";
@@ -26,12 +26,14 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
     const [isExporting, setIsExporting] = useState(false);
     const exportComponentRef = useRef(null);
 
+    const fetchSheetDataEvent = useEffectEvent(fetchSheetData);
+
     // Sincronizar tema inicial
     useEffect(() => {
         if (isOpen) {
             const isAppDark = theme.bgtotal && theme.bgtotal.toLowerCase() !== '#ffffff' && theme.bgtotal.toLowerCase() !== '#f3f4f6';
             setIsDarkExport(isAppDark);
-            if (matchId) fetchSheetData();
+            if (matchId) fetchSheetDataEvent();
         }
     }, [isOpen, matchId, theme]);
 
@@ -57,7 +59,7 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
         return () => window.removeEventListener('resize', calculateScale);
     }, [isOpen, isMobileLayout]);
 
-    const fetchSheetData = async () => {
+    async function fetchSheetData() {
         setLoading(true);
         try {
             const { data: matchData, error: matchError } = await supabase
@@ -97,7 +99,7 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }
 
     const processPlayers = (allEvents, matchData) => {
         if (!matchData) return;

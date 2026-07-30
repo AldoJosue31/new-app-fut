@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
 
 const normalizeOptionalText = (value) => {
   if (value == null) return null;

@@ -1,5 +1,12 @@
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
 import { resolveRepositionMappings } from '../utils/jornadaUtils';
+
+const withAbortSignal = (query, signal) =>
+  signal ? query.abortSignal(signal) : query;
+
+const isAbortError = (error) =>
+  error?.name === 'AbortError' ||
+  String(error?.message || '').toLowerCase().includes('abort');
 
 
 
@@ -7,6 +14,7 @@ export const getTopScorersService = async ({
   division = null,
   tournamentId = null,
   limit = 10,
+  signal = null,
 } = {}) => {
   let query = supabase
     .from('view_goleadores')
@@ -21,24 +29,37 @@ export const getTopScorersService = async ({
     query = query.eq('tournament_id', tid);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await withAbortSignal(query, signal);
   if (error) {
+    if (isAbortError(error)) return [];
     console.error('getTopScorersService error:', error);
     throw error;
   }
   return data || [];
 };
 
-export const getTeamTournamentStats = async (teamId, divisionId) => {
+export const getTeamTournamentStats = async (
+  teamId,
+  divisionId,
+  { tournament = null, signal = null } = {},
+) => {
   try {
-    const { data: torneo, error: tError } = await supabase
-      .from('tournaments')
-      .select('id, config')
-      .eq('division_id', divisionId)
-      .eq('status', 'Activo')
-      .single();
+    let torneo = tournament;
 
-    if (tError || !torneo) return null;
+    if (!torneo) {
+      const { data, error } = await withAbortSignal(
+        supabase
+          .from('tournaments')
+          .select('id, config')
+          .eq('division_id', divisionId)
+          .eq('status', 'Activo')
+          .maybeSingle(),
+        signal,
+      );
+
+      if (error || !data) return null;
+      torneo = data;
+    }
 
     const tournamentId = torneo.id;
     const tournamentConfig =
@@ -62,46 +83,61 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
       { data: goleadoresView, error: goleadoresError },
       { data: events, error: eventsError },
     ] = await Promise.all([
-      supabase
-        .from('matches')
-        .select(`
-          id, goals1, goals2, date, status, observations,
-          team1:teams!team1_id(id, name, logo_url, color),
-          team2:teams!team2_id(id, name, logo_url, color),
-          jornadas!inner(id, name, tournament_id)
-        `)
-        .eq('jornadas.tournament_id', tournamentId)
-        .or(`team1_id.eq.${teamId},team2_id.eq.${teamId}`)
-        .order('date', { ascending: true, nullsFirst: false }),
-      supabase
-        .from('jornadas')
-        .select('id, name, start_date, end_date')
-        .eq('tournament_id', tournamentId),
-      supabase
-        .from('players')
-        .select('id, first_name, last_name, dorsal, photo_url')
-        .eq('team_id', teamId)
-        .order('dorsal', { ascending: true, nullsFirst: false }),
-      supabase
-        .from('view_goleadores')
-        .select('player_id, first_name, last_name, dorsal, photo_url, goals')
-        .eq('tournament_id', Number(tournamentId))
-        .eq('team_id', Number(teamId)),
-      supabase
-        .from('match_events')
-        .select(`
-          match_id,
-          event_type,
-          player_id,
-          players!inner (
-            id, first_name, last_name, dorsal, team_id, photo_url
-          ),
-          matches!inner (
-            jornadas!inner ( tournament_id )
-          )
-        `)
-        .eq('matches.jornadas.tournament_id', tournamentId)
-        .eq('players.team_id', teamId),
+      withAbortSignal(
+        supabase
+          .from('matches')
+          .select(`
+            id, goals1, goals2, date, status, observations,
+            team1:teams!team1_id(id, name, logo_url, color),
+            team2:teams!team2_id(id, name, logo_url, color),
+            jornadas!inner(id, name, tournament_id)
+          `)
+          .eq('jornadas.tournament_id', tournamentId)
+          .or(`team1_id.eq.${teamId},team2_id.eq.${teamId}`)
+          .order('date', { ascending: true, nullsFirst: false }),
+        signal,
+      ),
+      withAbortSignal(
+        supabase
+          .from('jornadas')
+          .select('id, name, start_date, end_date')
+          .eq('tournament_id', tournamentId),
+        signal,
+      ),
+      withAbortSignal(
+        supabase
+          .from('players')
+          .select('id, first_name, last_name, dorsal, photo_url')
+          .eq('team_id', teamId)
+          .order('dorsal', { ascending: true, nullsFirst: false }),
+        signal,
+      ),
+      withAbortSignal(
+        supabase
+          .from('view_goleadores')
+          .select('player_id, first_name, last_name, dorsal, photo_url, goals')
+          .eq('tournament_id', Number(tournamentId))
+          .eq('team_id', Number(teamId)),
+        signal,
+      ),
+      withAbortSignal(
+        supabase
+          .from('match_events')
+          .select(`
+            match_id,
+            event_type,
+            player_id,
+            players!inner (
+              id, first_name, last_name, dorsal, team_id, photo_url
+            ),
+            matches!inner (
+              jornadas!inner ( tournament_id )
+            )
+          `)
+          .eq('matches.jornadas.tournament_id', tournamentId)
+          .eq('players.team_id', teamId),
+        signal,
+      ),
     ]);
 
     if (matchesError) throw matchesError;
@@ -218,7 +254,12 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
         const dateB = b.date ? new Date(b.date).getTime() : 0;
         return dateB - dateA;
       })
-      .map(({ isCompleted, time, ...match }) => match);
+      .map((match) => {
+        const publicMatch = { ...match };
+        delete publicMatch.isCompleted;
+        delete publicMatch.time;
+        return publicMatch;
+      });
 
     const upcomingRivals = normalizedMatches
       .filter((match) => !match.isCompleted)
@@ -227,7 +268,11 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
         const dateB = b.date ? new Date(b.date).getTime() : Number.MAX_SAFE_INTEGER;
         return dateA - dateB;
       })
-      .map(({ isCompleted, ...match }) => match);
+      .map((match) => {
+        const publicMatch = { ...match };
+        delete publicMatch.isCompleted;
+        return publicMatch;
+      });
 
     const statsMap = {};
     const appearancesByPlayer = {};
@@ -312,6 +357,7 @@ export const getTeamTournamentStats = async (teamId, divisionId) => {
       playerStats,
     };
   } catch (error) {
+    if (signal?.aborted || isAbortError(error)) return null;
     console.error('Error obteniendo stats:', error);
     return null;
   }

@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import {
   RiBookLine,
@@ -17,6 +16,7 @@ import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
 import { LigaRulesTab } from "../organismos/tabs/liga/LigaRulesTab";
 
 export function LigaTemplate({
+  routeTab,
   loading,
   leagueData,
   referees = [],
@@ -33,8 +33,6 @@ export function LigaTemplate({
   state,
   setState,
 }) {
-  const navigate = useNavigate();
-  const { tab } = useParams();
   const tabList = [
     { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
     { id: "rules", label: "Plantilla Reglas", icon: <RiBookLine /> },
@@ -43,10 +41,10 @@ export function LigaTemplate({
   ];
 
   const validTabIds = tabList.map((currentTab) => currentTab.id);
-  const activeTab = validTabIds.includes(tab) ? tab : "general";
+  const activeTab = validTabIds.includes(routeTab) ? routeTab : "general";
 
   const handleTabChange = (newTabId) => {
-    navigate(`/liga/${newTabId}`);
+    window.location.assign(`/liga/${newTabId}`);
   };
 
   if (!loading && !leagueData) {

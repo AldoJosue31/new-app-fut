@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { Icon } from "@iconify/react";
-import { landingCopy } from "../../pages/landing/copy";
+import { landingCopy } from "../../views/landing/copy";
 
 const BENEFIT_EXTRA = [
   {

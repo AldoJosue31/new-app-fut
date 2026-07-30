@@ -1,7 +1,6 @@
-import { removeBackground as imglyRemove } from "@imgly/background-removal";
-
 export const removePersonBackground = async (imageFile) => {
     try {
+        const { removeBackground: imglyRemove } = await import("@imgly/background-removal");
         // Al NO pasarle configuración, la librería usa su propio CDN oficial automáticamente
         const blob = await imglyRemove(imageFile);
         
