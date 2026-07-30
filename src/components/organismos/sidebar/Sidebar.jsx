@@ -264,7 +264,7 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
 
 const Main = styled.div`
   .Sidebarbutton {
-    display: flex;
+    display: none;
     position: fixed;
     top: 70px;
     left: 20px;
