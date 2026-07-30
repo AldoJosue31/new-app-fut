@@ -182,26 +182,28 @@ export const useAuthStore = create((set, get) => {
         const currentProfile = get().profile;
 
         if (currentUser?.id && currentProfile?.id === currentUser.id) {
-          try {
-            const { error: lastSeenError } = await supabase
-              .from('profiles')
-              .update({
-                metadata: {
-                  ...(currentProfile.metadata || {}),
-                  last_seen_at: new Date().toISOString(),
-                },
-              })
-              .eq('id', currentUser.id);
+          void (async () => {
+            try {
+              const { error: lastSeenError } = await supabase
+                .from('profiles')
+                .update({
+                  metadata: {
+                    ...(currentProfile.metadata || {}),
+                    last_seen_at: new Date().toISOString(),
+                  },
+                })
+                .eq('id', currentUser.id);
 
-            if (lastSeenError) {
-              console.warn('No se pudo actualizar la última actividad:', lastSeenError.message);
+              if (lastSeenError) {
+                console.warn('No se pudo actualizar la última actividad:', lastSeenError.message);
+              }
+            } catch (error) {
+              console.warn('No se pudo registrar la última actividad:', error);
             }
-          } catch (error) {
-            console.warn('No se pudo registrar la última actividad:', error);
-          }
+          })();
         }
 
-        const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
+        const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
         if (signOutError) throw signOutError;
 
         clearSessionState();

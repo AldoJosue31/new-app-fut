@@ -36,33 +36,49 @@ const AdminLinksArray = [
 ];
 
 export function Sidebar({ state, setState, currentPath = "/" }) {
-  const { cerrarSesion, profile, authLoadingAction } = useAuthStore();
-  const { selectedDivision } = useDivisionStore();
+  const cerrarSesion = useAuthStore((authState) => authState.cerrarSesion);
+  const profile = useAuthStore((authState) => authState.profile);
+  const authLoadingAction = useAuthStore(
+    (authState) => authState.authLoadingAction
+  );
+  const selectedDivision = useDivisionStore(
+    (divisionState) => divisionState.selectedDivision
+  );
   const { startNavigation } = useNavigationProgress();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const isAdmin = profile?.role === ROLES.ADMIN;
   const isDelegate = profile?.role === ROLES.DELEGATE;
+  const isManager = profile?.role === ROLES.MANAGER;
+  const hasResolvedRole = isAdmin || isDelegate || isManager;
+  const logoutPending = isLoggingOut || authLoadingAction;
+  const sidebarHomePath = isDelegate
+    ? "/equipos"
+    : isAdmin || isManager
+      ? "/dashboard"
+      : currentPath;
 
   const handleLogout = async () => {
-    if (authLoadingAction) return;
+    if (logoutPending) return;
 
     setLogoutError("");
+    setIsLoggingOut(true);
+    setState(false);
 
     try {
       await cerrarSesion();
-      setShowLogoutModal(false);
-      setState(false);
       window.location.replace("/login");
     } catch (error) {
+      setIsLoggingOut(false);
       console.error('Error al cerrar sesión:', error);
       setLogoutError('No se pudo cerrar la sesión. Revisa tu conexión e inténtalo de nuevo.');
     }
   };
 
   const openLogoutModal = () => {
-    if (authLoadingAction) return;
+    if (logoutPending) return;
     setLogoutError("");
     setShowLogoutModal(true);
   };
@@ -162,11 +178,11 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
       <Container $isOpen={state} className={state ? "active" : ""}>
         <div className="Logocontent">
           <Link
-            href={isDelegate ? "/equipos" : "/dashboard"}
+            href={sidebarHomePath}
             className="logo-link"
             onClick={(event) =>
               handleNavigationStart(event, {
-                destination: isDelegate ? "/equipos" : "/dashboard",
+                destination: sidebarHomePath,
                 label: "Panel",
               })
             }
@@ -176,19 +192,19 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
           </Link>
         </div>
 
-        {isAdmin ? (
+        {!isLoggingOut && isAdmin ? (
           <>
             <MenuLabel>Administracion</MenuLabel>
             {renderLinks(AdminLinksArray)}
           </>
-        ) : isDelegate ? (
+        ) : !isLoggingOut && isDelegate ? (
           <>
             <MenuLabel>Delegado</MenuLabel>
             {renderLinks(DelegateLinksArray)}
             <Divider />
             {renderLinks(DelegateSecondaryLinks)}
           </>
-        ) : (
+        ) : !isLoggingOut && isManager ? (
           <>
             {renderLinks(
               ManagerLinksArray,
@@ -198,9 +214,9 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
             <Divider />
             {renderLinks(ManagerSecondaryLinks)}
           </>
-        )}
+        ) : null}
 
-        <Divider />
+        {hasResolvedRole && !isLoggingOut && <Divider />}
         <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
           <ToggleTema />
         </div>
@@ -210,33 +226,35 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
             type="button"
             className="Links logoutButton"
             onClick={openLogoutModal}
-            disabled={authLoadingAction}
+            disabled={logoutPending}
             aria-label="Cerrar sesión"
           >
             <span className={state ? "content open" : "content"}>
               <Icon className="Linkicon" icon="material-symbols:logout-rounded" color={v.rojo} style={{ fontSize: "28px" }} />
               <span className={state ? "label_ver" : "label_oculto"} style={{ color: v.rojo, fontWeight: "600" }}>
-                Cerrar Sesion
+                {isLoggingOut ? "Cerrando..." : "Cerrar Sesion"}
               </span>
             </span>
           </button>
         </div>
 
-        {!isAdmin && !isDelegate && (
+        {isManager && !isLoggingOut && (
           <DivisionSelector isOpen={state} currentPath={currentPath} />
         )}
       </Container>
 
       <ConfirmModal
         isOpen={showLogoutModal}
-        onClose={() => !authLoadingAction && setShowLogoutModal(false)}
+        onClose={() => !logoutPending && setShowLogoutModal(false)}
         onConfirm={handleLogout}
-        title="Cerrar Sesion"
-        message="Estas seguro de que deseas salir?"
-        subMessage="Tendras que iniciar sesion nuevamente para acceder."
-        confirmText={authLoadingAction ? "Cerrando..." : "Salir"}
+        title="Cerrar sesión"
+        message="¿Estás seguro de que deseas salir?"
+        subMessage="Tendrás que iniciar sesión nuevamente para acceder."
+        confirmText="Salir"
         confirmColor={v.rojo}
-        confirmDisabled={authLoadingAction}
+        confirmDisabled={logoutPending}
+        loading={isLoggingOut}
+        loadingMessage="Cerrando sesión..."
       >
         {logoutError && <LogoutError role="alert">{logoutError}</LogoutError>}
       </ConfirmModal>

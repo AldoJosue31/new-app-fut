@@ -172,7 +172,7 @@ export function TorneosTemplate({
     if (!isValidTab && shouldAutoRedirectToJornadas === null) return;
 
     if (!routeDivisionId && currentDivisionId && activeTab) {
-      navigate(getTorneosPath(activeTab), { replace: true });
+      navigateWithinTournament(getTorneosPath(activeTab), { replace: true });
       return;
     }
 
@@ -181,20 +181,20 @@ export function TorneosTemplate({
       activeTournament?.id &&
       String(routeTournamentId || "") !== String(activeTournament.id)
     ) {
-      navigate(getTorneosPath(activeTab), { replace: true });
+      navigateWithinTournament(getTorneosPath(activeTab), { replace: true });
       return;
     }
 
     if (tournamentRoute.needsRouteCleanup) {
-      navigate(getTorneosPath(activeTab), { replace: true });
+      navigateWithinTournament(getTorneosPath(activeTab), { replace: true });
       return;
     }
 
     if (isValidTab) return;
     if (isLoadingData && !activeTournament) return;
 
-    navigate(getTorneosPath(defaultTab), { replace: true });
-  }, [activeTab, activeTournament, currentDivisionId, defaultTab, getTorneosPath, isLoadingData, isValidTab, navigate, routeDivisionId, routeTournamentId, shouldAutoRedirectToJornadas, tournamentRoute.needsRouteCleanup]);
+    navigateWithinTournament(getTorneosPath(defaultTab), { replace: true });
+  }, [activeTab, activeTournament, currentDivisionId, defaultTab, getTorneosPath, isLoadingData, isValidTab, navigateWithinTournament, routeDivisionId, routeTournamentId, shouldAutoRedirectToJornadas, tournamentRoute.needsRouteCleanup]);
 
   const participatingTeamsObj = allTeams.filter(t => participatingIds.includes(t.id));
   const isPreparingActiveTab = isLoadingData && activeTournament && participatingIds.length > 0 && participatingTeamsObj.length === 0;
