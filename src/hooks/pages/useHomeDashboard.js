@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabase/supabase.config';
+import { supabase } from "../../lib/supabase/browserClient.js";
 import { UserAuth } from '../../context/AuthContent';
 
 export const useHomeDashboard = () => {

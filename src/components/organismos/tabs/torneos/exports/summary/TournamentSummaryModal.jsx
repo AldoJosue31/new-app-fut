@@ -5,7 +5,7 @@ import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
 import { Modal } from "../../../../Modal";
 import { ExportPreviewHeader } from "../shared/ExportPreviewHeader";
 import { TournamentSummaryA4 } from "./TournamentSummaryA4";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { v } from "../../../../../../styles/variables";
 import {
     buildTorneoStandingsSnapshot,
@@ -127,10 +127,17 @@ export const TournamentSummaryModal = ({
         leagueLogo: null
     });
     const summaryStandings = useMemo(() => {
-        const selectedJornadaView =
-            typeof window !== "undefined" && activeTournament?.id
-                ? localStorage.getItem(getStandingsViewStorageKey(activeTournament.id)) || "recent"
-                : "recent";
+        let selectedJornadaView = "recent";
+        if (typeof window !== "undefined" && activeTournament?.id) {
+            try {
+                selectedJornadaView =
+                    window.localStorage.getItem(
+                        getStandingsViewStorageKey(activeTournament.id),
+                    ) || "recent";
+            } catch {
+                selectedJornadaView = "recent";
+            }
+        }
 
         return buildTorneoStandingsSnapshot({
             torneo: activeTournament,

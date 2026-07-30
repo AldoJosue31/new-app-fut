@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import styled from "styled-components";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   RiCheckboxCircleLine,
   RiCloseCircleLine,
@@ -39,7 +38,7 @@ import { ConfirmModal } from "../organismos/ConfirmModal";
 import { EmptyState } from "../organismos/EmptyState";
 import { DelegateTeamDetailPanel } from "../organismos/equipos/DelegateTeamDetailPanel";
 import { LigaDelegateRequestsTab } from "../organismos/tabs/liga/LigaDelegateRequestsTab";
-import { supabase } from "../../supabase/supabase.config";
+import { supabase } from "../../lib/supabase/browserClient.js";
 import {
   createDelegateInvitation,
   getDelegateInvitations,
@@ -48,6 +47,10 @@ import {
   reviewDelegateChangeRequest,
 } from "../../services/delegates";
 import { useDivisionStore } from "../../store/DivisionStore";
+import {
+  buildTeamsPath,
+  TEAM_DETAIL_VIEWS,
+} from "../../lib/navigation/teamRoutes.js";
 import { ROLES } from "../../utils/constants";
 import { v } from "../../styles/variables";
 
@@ -98,6 +101,14 @@ const settleInvitationBatches = async (items, worker, batchSize = 4) => {
   return results;
 };
 
+const navigateWithBrowser = (href, { replace = false } = {}) => {
+  if (replace) {
+    window.location.replace(href);
+  } else {
+    window.location.assign(href);
+  }
+};
+
 export const EquiposTemplate = ({
   equipos,
   division,
@@ -132,6 +143,10 @@ export const EquiposTemplate = ({
   delegateBindingsError = "",
   state,
   setState,
+  routeDivisionId,
+  teamId,
+  initialView,
+  navigate = navigateWithBrowser,
   accessRole,
   canCreateTeams = true,
   canDeleteTeams = true,
@@ -145,14 +160,10 @@ export const EquiposTemplate = ({
     rejectedTeamsCount: 0,
   },
 }) => {
-  const { divisionId: routeDivisionId, teamId } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
   const shouldReduceMotion = useReducedMotion();
   const [globalRequests, setGlobalRequests] = useState([]);
   const [loadingGlobalRequests, setLoadingGlobalRequests] = useState(false);
   const [isGlobalRequestsOpen, setIsGlobalRequestsOpen] = useState(false);
-  const initialView = location.state?.initialView;
   const visibleDivisionId = routeDivisionId || division?.id;
   const isCreateRoute = teamId === "crear";
   const isDelegateView = accessRole === ROLES.DELEGATE;
@@ -211,7 +222,7 @@ export const EquiposTemplate = ({
     useState(false);
   const [basicInvitationGenerationCount, setBasicInvitationGenerationCount] =
     useState(0);
-  const [invitationStatusClock, setInvitationStatusClock] = useState(() => Date.now());
+  const [invitationStatusClock, setInvitationStatusClock] = useState(0);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [invitationsError, setInvitationsError] = useState("");
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -230,7 +241,7 @@ export const EquiposTemplate = ({
   const teamGridLayersReadyRef = useRef(false);
   const invitationRequestSequenceRef = useRef(0);
   const basicInvitationGenerationRef = useRef(false);
-  const { divisiones } = useDivisionStore();
+  const divisiones = useDivisionStore((store) => store.divisiones);
 
   useEffect(() => {
     pendingTeamFilterRef.current = "all";
@@ -240,12 +251,15 @@ export const EquiposTemplate = ({
   const showToast = (msg, type = "success") =>
     setToast({ show: true, msg, type });
 
-  const getEquiposPath = useCallback((nextTeamId = "") => {
-    const suffix = nextTeamId ? `/${nextTeamId}` : "";
-    return visibleDivisionId
-      ? `/division/${visibleDivisionId}/equipos${suffix}`
-      : `/equipos${suffix}`;
-  }, [visibleDivisionId]);
+  const getEquiposPath = useCallback(
+    (nextTeamId = "", nextView = "") =>
+      buildTeamsPath({
+        divisionId: visibleDivisionId,
+        teamId: nextTeamId,
+        view: nextView,
+      }),
+    [visibleDivisionId],
+  );
 
   const participatingTeamIds = useMemo(
     () => new Set(participatingIds.map((id) => String(id))),
@@ -760,14 +774,20 @@ export const EquiposTemplate = ({
 
   useEffect(() => {
     if (!routeDivisionId && division?.id && !isDelegateView) {
-      const suffix = teamId ? `/${teamId}` : "";
-      navigate(`/division/${division.id}/equipos${suffix}`, {
+      navigate(getEquiposPath(teamId, initialView), {
         replace: true,
         preventScrollReset: true,
-        state: location.state,
       });
     }
-  }, [division?.id, isDelegateView, location.state, navigate, routeDivisionId, teamId]);
+  }, [
+    division?.id,
+    getEquiposPath,
+    initialView,
+    isDelegateView,
+    navigate,
+    routeDivisionId,
+    teamId,
+  ]);
 
   useEffect(() => {
     if (!isCreateRoute) {
@@ -852,7 +872,10 @@ export const EquiposTemplate = ({
     detailScrollPositionRef.current =
       window.scrollY || document.documentElement.scrollTop || 0;
     pendingDetailScrollPreserveOnOpenRef.current = true;
-    navigate(getEquiposPath(team.id), { preventScrollReset: true });
+    navigate(getEquiposPath(team.id), {
+      clientOnly: true,
+      preventScrollReset: true,
+    });
   }, [getEquiposPath, navigate]);
 
   const handleTransferTeam = useCallback((currentTeam) => {
@@ -862,7 +885,10 @@ export const EquiposTemplate = ({
 
   const handleCloseDetail = () => {
     pendingDetailScrollRestoreRef.current = true;
-    navigate(getEquiposPath(), { preventScrollReset: true });
+    navigate(getEquiposPath(), {
+      clientOnly: true,
+      preventScrollReset: true,
+    });
   };
 
   const handleOpenCreate = () => {
@@ -1142,10 +1168,16 @@ export const EquiposTemplate = ({
                       detailScrollPositionRef.current =
                         window.scrollY || document.documentElement.scrollTop || 0;
                       pendingDetailScrollPreserveOnOpenRef.current = true;
-                      navigate(getEquiposPath(firstPendingTeam.id), { 
-                        preventScrollReset: true,
-                        state: { initialView: "delegate-requests" }
-                      });
+                      navigate(
+                        getEquiposPath(
+                          firstPendingTeam.id,
+                          TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS,
+                        ),
+                        {
+                          clientOnly: true,
+                          preventScrollReset: true,
+                        },
+                      );
                     }
                   }
                 }}
@@ -1368,15 +1400,17 @@ export const EquiposTemplate = ({
           )}
         </Modal>
 
-        <TeamDetailModal
-          isOpen={!!teamFromUrl}
-          onClose={handleCloseDetail}
-          team={teamFromUrl}
-          division={teamFromUrlDivision}
-          initialView={initialView}
-          canReviewDelegateRequests={!isDelegateView}
-          onDelegateRequestsUpdated={onDelegateRequestSubmitted}
-        />
+        {teamFromUrl && (
+          <TeamDetailModal
+            isOpen
+            onClose={handleCloseDetail}
+            team={teamFromUrl}
+            division={teamFromUrlDivision}
+            initialView={initialView}
+            canReviewDelegateRequests={!isDelegateView}
+            onDelegateRequestsUpdated={onDelegateRequestSubmitted}
+          />
+        )}
 
         <Modal
           isOpen={isGlobalRequestsOpen}

@@ -1,15 +1,13 @@
 // src/utils/imageProcessor.js
-import { removeBackground as bgEngine } from "./bgRemoval";
+import "client-only";
 
-// 1. Exportamos el motor modularizado de IA
-export const removeBackground = bgEngine;
-
-// Dummy para evitar el error de importación en tus otras pantallas (Equipos.jsx, etc)
-export const preloadBackgroundRemoval = () => {
-  console.log("Motor IA @imgly (Vía CDN) listo para usarse.");
+// Load the AI engine only after the user explicitly requests background removal.
+export const removeBackground = async (...args) => {
+  const { removeBackground: bgEngine } = await import("./bgRemoval");
+  return bgEngine(...args);
 };
 
-// 2. Compresión ultra rápida a WebP
+// Compresión ultra rápida a WebP
 export const compressImage = (file, maxWidth = 800, quality = 0.8) => {
   return new Promise((resolve, reject) => {
     if (!file) {

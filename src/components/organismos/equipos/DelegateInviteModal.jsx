@@ -26,15 +26,20 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
   const [loading, setLoading] = useState(false);
   const [loadingInvitation, setLoadingInvitation] = useState(false);
   const [activeInvitation, setActiveInvitation] = useState(null);
+  const [clientOrigin, setClientOrigin] = useState("");
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [form, setForm] = useState({
     invitedName: "",
     invitedEmail: "",
   });
 
-  const invitationUrl = activeInvitation?.token
-    ? `${window.location.origin}/delegate/invitation/${activeInvitation.token}`
+  const invitationUrl = activeInvitation?.token && clientOrigin
+    ? `${clientOrigin}/delegate/invitation/${activeInvitation.token}`
     : "";
+
+  useEffect(() => {
+    setClientOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !team?.id) return undefined;

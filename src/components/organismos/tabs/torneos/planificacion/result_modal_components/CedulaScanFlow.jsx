@@ -9,7 +9,7 @@ import {
   RiScan2Line,
 } from "react-icons/ri";
 import { v } from "../../../../../../styles/variables";
-import { supabase } from "../../../../../../supabase/supabase.config";
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import {
   findBestScanMatch,
   getScannedDateReview,
@@ -295,9 +295,9 @@ export function CedulaScanFlow({
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
-  const initialCooldownUntil = useRef(readScanCooldownUntil());
-  const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil.current);
-  const [cooldownSeconds, setCooldownSeconds] = useState(secondsUntil(initialCooldownUntil.current));
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [cooldownHydrated, setCooldownHydrated] = useState(false);
   const [applyScannedDate, setApplyScannedDate] = useState(false);
   const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [scoreResolutions, setScoreResolutions] = useState({});
@@ -307,7 +307,7 @@ export function CedulaScanFlow({
   const progressTimerRef = useRef(null);
   const preparedImageRef = useRef(null);
   const scanInFlightRef = useRef(false);
-  const cooldownUntilRef = useRef(initialCooldownUntil.current);
+  const cooldownUntilRef = useRef(0);
 
   useEffect(() => {
     const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
@@ -315,6 +315,14 @@ export function CedulaScanFlow({
     update();
     query.addEventListener?.("change", update);
     return () => query.removeEventListener?.("change", update);
+  }, []);
+
+  useEffect(() => {
+    const storedCooldownUntil = readScanCooldownUntil();
+    cooldownUntilRef.current = storedCooldownUntil;
+    setCooldownUntil(storedCooldownUntil);
+    setCooldownSeconds(secondsUntil(storedCooldownUntil));
+    setCooldownHydrated(true);
   }, []);
 
   const scanContext = useMemo(() => ({
@@ -347,6 +355,8 @@ export function CedulaScanFlow({
   }, []);
 
   useEffect(() => {
+    if (!cooldownHydrated) return undefined;
+
     cooldownUntilRef.current = cooldownUntil;
     let timerId = null;
     const updateCooldown = () => {
@@ -362,7 +372,7 @@ export function CedulaScanFlow({
     return () => {
       if (timerId) window.clearInterval(timerId);
     };
-  }, [cooldownUntil]);
+  }, [cooldownHydrated, cooldownUntil]);
 
   useEffect(() => {
     const syncCooldownAcrossTabs = (event) => {
@@ -839,12 +849,16 @@ export function CedulaScanFlow({
       : `${normalizedCurrentTime || "Sin hora actual"} · se conserva`
     : normalizedCurrentTime || "Sin detectar";
   return (
-    <ScanShell>
+    <ScanShell $review>
       <PanelHeading>
         <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
         <div><h4>Revisar escaneo</h4><p>Compara lo detectado con los datos registrados antes de aplicarlo.</p></div>
       </PanelHeading>
-      <ComparisonGrid>
+      <ReviewScrollArea
+        tabIndex={0}
+        aria-label="Datos detectados, datos interpretados y diferencias de goles"
+      >
+        <ComparisonGrid>
         <DataColumn>
           <h5>Datos detectados</h5>
           <DataRow label="Equipo detectado 1" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
@@ -1062,6 +1076,7 @@ export function CedulaScanFlow({
           {uncertainGoalRows.length} {uncertainGoalRows.length === 1 ? "fila tiene" : "filas tienen"} la celda GOL poco legible. No se inventaron goles para esas filas; revisa la imagen antes de aplicar.
         </ReviewNotice>
       )}
+      </ReviewScrollArea>
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>
         <PrimaryAction
@@ -1094,9 +1109,17 @@ const ScanShell = styled.section`
   flex:1;
   flex-direction:column;
   gap:18px;
-  min-height:min(660px, calc(100dvh - 150px));
-  @media(max-width:700px){
-    min-height:min(620px, calc(100dvh - 132px));
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:${({$review})=>$review ? "hidden" : "auto"};
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  scrollbar-gutter:stable;
+
+  &:focus-visible{
+    outline:3px solid ${v.colorPrincipal}44;
+    outline-offset:2px;
   }
 `;
 const PanelHeading = styled.div`
@@ -1187,6 +1210,36 @@ const PreviewFrame = styled.div`
   img{position:absolute;inset:10px;display:block;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;object-position:center;}
   @media(max-width:700px){height:min(58vh,560px);min-height:320px;}
 `;
+const ReviewScrollArea = styled.div`
+  display:block;
+  flex:1 1 0;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  scroll-padding-block:8px;
+  scrollbar-gutter:stable;
+  padding:2px 6px 2px 2px;
+  scrollbar-width:thin;
+  scrollbar-color:${({theme})=>theme.colorScroll} transparent;
+
+  > * + *{margin-top:18px;}
+  &::-webkit-scrollbar{width:7px;}
+  &::-webkit-scrollbar-track{background:transparent;border-radius:999px;margin-block:4px;}
+  &::-webkit-scrollbar-thumb{
+    min-height:36px;
+    border:1px solid transparent;
+    border-radius:999px;
+    background:${({theme})=>theme.colorScroll};
+    background-clip:padding-box;
+  }
+  &:focus-visible{
+    outline:3px solid ${v.colorPrincipal}44;
+    outline-offset:-1px;
+  }
+`;
 const PreviewFallback = styled.div`
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:#fff;
   svg{font-size:2.2rem;color:${v.colorPrincipal};}strong{font-size:.96rem;}span{max-width:34ch;font-size:.84rem;overflow-wrap:anywhere;}small{max-width:46ch;font-size:.76rem;line-height:1.4;opacity:.68;}
@@ -1217,7 +1270,7 @@ const ScheduleApplyToggle = styled.div`
   &:focus-within{outline:3px solid ${v.colorPrincipal}33;outline-offset:2px;}
 `;
 const PlayerList = styled.ul`
-  list-style:none;margin:12px 0 0;padding:0;max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:4px;
+  list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;
   li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:${({theme})=>theme.bg3};font-size:.82rem;}
   li.no-match{color:${v.rojo};}
   li.goal-review{background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}12`};}
@@ -1229,7 +1282,7 @@ const PlayerList = styled.ul`
   .player-stats{flex:0 0 auto;}
 `;
 const PlayerGroups = styled.div`
-  display:flex;flex-direction:column;max-height:270px;overflow:auto;margin-top:12px;border-top:1px solid ${({theme})=>theme.bg4};
+  display:flex;flex-direction:column;margin-top:12px;border-top:1px solid ${({theme})=>theme.bg4};
 `;
 const TeamPlayerGroup = styled.section`
   padding:11px 0;border-bottom:1px solid ${({theme})=>theme.bg4};

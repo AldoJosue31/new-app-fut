@@ -103,7 +103,7 @@ const IconBox = styled.div`
   &:hover {
     opacity: 1;
     transform: scale(1.1);
-    color: ${({ theme, $type }) => $type === 'info' ? '#1cb0f6' : '#ffcc00'};
+    color: ${({ $type }) => $type === 'info' ? '#1cb0f6' : '#ffcc00'};
   }
 `;
 

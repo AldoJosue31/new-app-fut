@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { BiCheck, BiShieldQuarter } from 'react-icons/bi';
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
+import { migrateLegacyLocalStorageSession } from "../lib/supabase/legacySessionMigration.js";
+import { ROUTES } from "../lib/navigation/routes.js";
 import { useAuthStore } from '../store/AuthStore';
 import { ROLES } from '../utils/constants';
 
@@ -12,11 +13,14 @@ const PRESENCE_HEARTBEAT_MS = 30000;
 const MANAGER_ACCESS_EVENT = 'manager-access-change';
 
 export function AuthContextProvider({ children }) {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [authLoadingAction, setAuthLoadingAction] = useState(false);
+  const {
+    authLoadingAction,
+    clearSessionState,
+    isLoading,
+    loginWithEmail,
+    profile,
+    user,
+  } = useAuthStore();
   const [suspendedNotice, setSuspendedNotice] = useState(null);
   const [securityNotices, setSecurityNotices] = useState([]);
 
@@ -33,7 +37,11 @@ export function AuthContextProvider({ children }) {
     profileRef.current = profile;
   }, [profile]);
 
-  const clearBrokenSession = async () => {
+  const clearSession = useEffectEvent(() => {
+    clearSessionState();
+  });
+
+  const clearBrokenSession = useEffectEvent(async () => {
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (err) {
@@ -47,10 +55,8 @@ export function AuthContextProvider({ children }) {
 
     userRef.current = null;
     profileRef.current = null;
-    setUser(null);
-    setProfile(null);
-    useAuthStore.setState({ user: null, profile: null });
-  };
+    clearSessionState();
+  });
 
   const isInvalidRefreshTokenError = (error) => {
     const message = String(error?.message || error || "").toLowerCase();
@@ -74,9 +80,7 @@ export function AuthContextProvider({ children }) {
     }
     userRef.current = null;
     profileRef.current = null;
-    setUser(null);
-    setProfile(null);
-    useAuthStore.setState({ user: null, profile: null });
+    clearSessionState();
   });
 
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
@@ -91,6 +95,16 @@ export function AuthContextProvider({ children }) {
         .single();
 
       if (error) {
+        if (["PGRST116", "PGRST123"].includes(error.code)) {
+          console.warn("AuthContext: Perfil no encontrado. Cerrando sesion...");
+          localStorage.setItem("auth_error", "profile_unavailable");
+          await supabase.auth.signOut();
+          userRef.current = null;
+          profileRef.current = null;
+          clearSessionState();
+          return;
+        }
+
         // SOLUCIÓN: Si es un error de conexión o fetch, NO cerramos sesión.
         // Solo logueamos el error y permitimos que la sesión continúe.
         // El usuario podrá seguir navegando y se reintentará luego.
@@ -104,19 +118,18 @@ export function AuthContextProvider({ children }) {
         await supabase.auth.signOut();
         userRef.current = null;
         profileRef.current = null;
-        setUser(null);
-        setProfile(null);
+        clearSessionState();
         return;
       }
 
       const authorizedRoles = [ROLES.MANAGER, ROLES.ADMIN, ROLES.DELEGATE];
       if (!authorizedRoles.includes(data.role)) {
         console.warn(`AuthContext: Rol no autorizado (${data.role}). Cerrando sesión...`);
+        localStorage.setItem("auth_error", "unauthorized_role");
         await supabase.auth.signOut();
         userRef.current = null;
         profileRef.current = null;
-        setUser(null);
-        setProfile(null);
+        clearSessionState();
         return;
       }
 
@@ -126,8 +139,12 @@ export function AuthContextProvider({ children }) {
       }
 
       profileRef.current = data;
-      setProfile(data);
-      useAuthStore.setState({ profile: data });
+      useAuthStore.setState({
+        isLoading: false,
+        profile: data,
+        serverAuthReason: null,
+        serverAuthStatus: "authenticated",
+      });
     } catch (err) {
       console.error("Error crítico validando perfil:", err);
       // Opcional: Decidir si cerrar sesión aquí o no. 
@@ -152,7 +169,7 @@ export function AuthContextProvider({ children }) {
           }
         } finally {
           if (showLoader && mounted) {
-            setIsLoading(false);
+            useAuthStore.setState({ isLoading: false });
           }
         }
       }, 0);
@@ -160,14 +177,19 @@ export function AuthContextProvider({ children }) {
 
     async function init() {
       try {
+        await migrateLegacyLocalStorageSession();
         const { data: { session } } = await supabase.auth.getSession();
         
         if (mounted) {
           if (session?.user) {
             userRef.current = session.user;
-            setUser(session.user);
-            useAuthStore.setState({ user: session.user });
+            useAuthStore.setState({
+              isLoading: !profileRef.current,
+              user: session.user,
+            });
             await validateProfile(session.user);
+          } else {
+            clearSession();
           }
         }
       } catch (error) {
@@ -176,7 +198,7 @@ export function AuthContextProvider({ children }) {
           await clearBrokenSession();
         }
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) useAuthStore.setState({ isLoading: false });
       }
     }
 
@@ -199,19 +221,19 @@ export function AuthContextProvider({ children }) {
           return;
         }
 
-        setIsLoading(true);
+        useAuthStore.setState({ isLoading: true });
         userRef.current = currentUser;
         profileRef.current = null;
-        setUser(currentUser);
-        setProfile(null);
-        useAuthStore.setState({ user: currentUser });
+        useAuthStore.setState({
+          profile: null,
+          user: currentUser,
+        });
 
         validateAfterAuthEvent(currentUser, true);
       }
       else if (event === 'TOKEN_REFRESHED') {
         const currentUser = session?.user ?? null;
         userRef.current = currentUser;
-        setUser(currentUser);
         useAuthStore.setState({ user: currentUser });
 
         if (currentUser) {
@@ -222,10 +244,7 @@ export function AuthContextProvider({ children }) {
         if (authValidationTimer) window.clearTimeout(authValidationTimer);
         userRef.current = null;
         profileRef.current = null;
-        setUser(null);
-        setProfile(null);
-        setIsLoading(false);
-        useAuthStore.setState({ user: null, profile: null });
+        clearSession();
       }
     });
 
@@ -260,7 +279,6 @@ export function AuthContextProvider({ children }) {
           }
 
           if (updatedProfile?.id === user.id) {
-            setProfile(updatedProfile);
             useAuthStore.setState({ profile: updatedProfile });
           }
         }
@@ -478,31 +496,17 @@ export function AuthContextProvider({ children }) {
     };
   }, [profile?.id, profile?.role, user?.id]);
 
-  // --- Funciones Públicas ---
-  async function signInWithEmail(email, password) {
-    setAuthLoadingAction(true);
-    try {
-      const res = await supabase.auth.signInWithPassword({ email, password });
-      setAuthLoadingAction(false);
-      if (res.error) throw res.error;
-      return res;
-    } catch (err) {
-      setAuthLoadingAction(false);
-      throw err;
-    }
-  }
-
   const value = {
     user,
     profile,
     isLoading,
     authLoadingAction,
-    signInWithEmail,
+    signInWithEmail: loginWithEmail,
   };
 
   const handleSuspendedNoticeClose = () => {
     setSuspendedNotice(null);
-    navigate('/login', { replace: true });
+    window.location.replace(ROUTES.LOGIN);
   };
 
   const acknowledgeSecurityNotice = async () => {

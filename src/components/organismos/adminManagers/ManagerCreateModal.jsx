@@ -10,7 +10,7 @@ import { Modal } from "../Modal";
 import { ManagerDetailModal } from "./ManagerDetailModal";
 import { TabsNavigation, TabContent } from "../../moleculas/TabsNavigation";
 import { v } from "../../../styles/variables";
-import { supabase } from "../../../supabase/supabase.config";
+import { supabase } from "../../../lib/supabase/browserClient.js";
 import { 
   BiCopy, 
   BiLink, 

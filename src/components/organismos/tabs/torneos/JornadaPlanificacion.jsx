@@ -149,10 +149,7 @@ export function JornadaPlanificacion({
   const [draggedMatch, setDraggedMatch] = useState(null);
   const [selectedPendingMatch, setSelectedPendingMatch] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.innerWidth <= 768;
-  });
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
@@ -1174,6 +1171,7 @@ export function JornadaPlanificacion({
       />
 
       <MatchResolutionModal
+        key={`${matchToResolve?.id || "none"}-${resolutionModalOpen}`}
         isOpen={resolutionModalOpen}
         onClose={() => setResolutionModalOpen(false)}
         match={matchToResolve}

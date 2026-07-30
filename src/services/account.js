@@ -1,4 +1,8 @@
-import { supabase } from "../supabase/supabase.config";
+import { supabase } from "../lib/supabase/browserClient.js";
+import {
+  buildAuthCallbackPath,
+  ROUTES,
+} from "../lib/navigation/routes.js";
 
 export const getLeagueNameByOwner = async (userId) => {
   if (!userId) return null;
@@ -22,10 +26,17 @@ export const updateProfileName = async (userId, fullName) => {
   if (error) throw error;
 };
 
-export const linkGoogleIdentity = async (redirectTo) => {
+export const linkGoogleIdentity = async (
+  returnPath = ROUTES.CONFIGURATION,
+) => {
   const { error } = await supabase.auth.linkIdentity({
     provider: "google",
-    options: { redirectTo },
+    options: {
+      redirectTo: buildAuthCallbackPath(
+        window.location.origin,
+        returnPath,
+      ),
+    },
   });
 
   if (error) throw error;

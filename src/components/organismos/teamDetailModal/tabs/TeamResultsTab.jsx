@@ -296,32 +296,38 @@ export function TeamResultsTab({
       (match) => getMatchFilterResult(match) === resultFilter
     );
   }, [matchHistory, resultFilter]);
+  const visibleMatchHistory = loadingStats ? [] : renderedMatchHistory;
+  const visibleResultsPhase = loadingStats ? "idle" : resultsPhase;
 
   const { railState: resultsRailState, scrollRail: scrollResultsRail } =
-    useHorizontalRail(resultsRailRef, renderedMatchHistory.length);
+    useHorizontalRail(resultsRailRef, visibleMatchHistory.length);
   const { railState: upcomingRailState, scrollRail: scrollUpcomingRail } =
     useHorizontalRail(upcomingRailRef, upcomingRivals.length);
 
   useEffect(() => {
     if (loadingStats) {
-      setRenderedMatchHistory([]);
-      setResultsPhase("idle");
       return undefined;
     }
 
     if (isFirstResultsRenderRef.current) {
       isFirstResultsRenderRef.current = false;
-      setRenderedMatchHistory(filteredMatchHistory);
-      setResultsPhase("entering");
-
       const initialEnterTimeout = setTimeout(() => {
+        setRenderedMatchHistory(filteredMatchHistory);
+        setResultsPhase("entering");
+      }, 0);
+      const initialSettleTimeout = setTimeout(() => {
         setResultsPhase("idle");
       }, 220);
 
-      return () => clearTimeout(initialEnterTimeout);
+      return () => {
+        clearTimeout(initialEnterTimeout);
+        clearTimeout(initialSettleTimeout);
+      };
     }
 
-    setResultsPhase("leaving");
+    const leaveTimeout = setTimeout(() => {
+      setResultsPhase("leaving");
+    }, 0);
 
     const exitTimeout = setTimeout(() => {
       const rail = resultsRailRef?.current;
@@ -335,6 +341,7 @@ export function TeamResultsTab({
     }, 340);
 
     return () => {
+      clearTimeout(leaveTimeout);
       clearTimeout(exitTimeout);
       clearTimeout(settleTimeout);
     };
@@ -370,15 +377,15 @@ export function TeamResultsTab({
           $isScrollable={resultsRailState.isScrollable}
         >
           <RailItemsRow
-            $phase={resultsPhase}
-            $stretch={loadingStats || renderedMatchHistory.length === 0}
+            $phase={visibleResultsPhase}
+            $stretch={loadingStats || visibleMatchHistory.length === 0}
           >
             {loadingStats ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <MatchCardSkeleton key={index} />
               ))
-            ) : renderedMatchHistory.length > 0 ? (
-              renderedMatchHistory.map((match) => {
+            ) : visibleMatchHistory.length > 0 ? (
+              visibleMatchHistory.map((match) => {
                 const { badgeColor, badgeLetter, hasPenalties, penaltyStatus } =
                   getMatchBadge(match);
 

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDivisionStore } from "../../store/DivisionStore";
 import { useEquiposStore } from "../../store/EquiposStore";
 import { useAuthStore } from "../../store/AuthStore";
-import { supabase } from "../../supabase/supabase.config";
+import { supabase } from "../../lib/supabase/browserClient.js";
 import { generateTeamLogo } from "../../utils/logoGenerator";
 import { removeBackground } from "../../utils/imageProcessor";
 import { TEAM_STATUS, ROLES } from "../../utils/constants";
@@ -85,10 +84,7 @@ const uploadDelegateTeamLogo = async ({
   );
 };
 
-export const useEquiposLogic = () => {
-  const { divisionId: routeDivisionId } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+export const useEquiposLogic = ({ routeDivisionId } = {}) => {
   const { selectedDivision, setDivision } = useDivisionStore();
   const { profile } = useAuthStore();
   const {
@@ -115,9 +111,7 @@ export const useEquiposLogic = () => {
   const [delegateLoading, setDelegateLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [teamToEdit, setTeamToEdit] = useState(null);
-  const [teamToView, setTeamToView] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [participatingIds, setParticipatingIds] = useState([]);
@@ -856,12 +850,6 @@ export const useEquiposLogic = () => {
     setIsFormOpen(true);
   };
 
-  const openDetailModal = (team, initialView = null) => {
-    setTeamToView(team);
-    setIsDetailOpen(true);
-    navigate(location.pathname, { replace: true, state: { ...location.state, initialView } });
-  };
-
   const openDeleteConfirmation = (id) => {
     if (isDelegate) return;
 
@@ -875,7 +863,6 @@ export const useEquiposLogic = () => {
     const currentTeam =
       equipos.find((team) => team.id === teamId) ||
       teamToEdit ||
-      teamToView ||
       null;
 
     if (currentTeam) {
@@ -883,9 +870,6 @@ export const useEquiposLogic = () => {
     }
 
     setTeamToEdit((current) =>
-      current?.id === teamId ? { ...current, ...patch } : current
-    );
-    setTeamToView((current) =>
       current?.id === teamId ? { ...current, ...patch } : current
     );
   };
@@ -994,19 +978,15 @@ export const useEquiposLogic = () => {
     modals: {
       isFormOpen,
       setIsFormOpen,
-      isDetailOpen,
-      setIsDetailOpen,
       isDeleteModalOpen,
       setIsDeleteModalOpen,
       teamToEdit,
-      teamToView,
     },
     actions: {
       handleSave,
       confirmDelete,
       openCreateModal,
       openEditModal,
-      openDetailModal,
       openDeleteConfirmation,
       handleDelegateLinkStateChanged,
       refreshDelegateRequestSummaries,

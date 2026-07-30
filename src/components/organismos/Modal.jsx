@@ -1,7 +1,9 @@
-import React, { useLayoutEffect } from "react";
+import React, { useLayoutEffect, useSyncExternalStore } from "react";
 import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
 import { AiOutlineClose } from "react-icons/ai";
+
+import { getModalRoot } from "../../lib/dom/getModalRoot.js";
 
 let openModalCount = 0;
 let previousBodyStyles = null;
@@ -64,6 +66,12 @@ export const Modal = ({
   bodyOverflowY = "auto",
   width = "500px",
 }) => {
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
   useLayoutEffect(() => {
     if (!isOpen) return undefined;
 
@@ -71,7 +79,7 @@ export const Modal = ({
     return unlockPageScroll;
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!mounted || !isOpen) return null;
 
   return createPortal(
     <Overlay $padding={overlayPadding} onClick={closeOnOverlayClick ? onClose : undefined}>
@@ -97,7 +105,7 @@ export const Modal = ({
         <Body $padding={bodyPadding} $overflowY={bodyOverflowY}>{children}</Body>
       </ModalContainer>
     </Overlay>,
-    document.getElementById("root")
+    getModalRoot(),
   );
 };
 
@@ -111,7 +119,6 @@ const Overlay = styled.div`
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -121,6 +128,10 @@ const Overlay = styled.div`
   overflow: hidden;
   overscroll-behavior: contain;
   touch-action: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const ModalContainer = styled.div`
@@ -131,12 +142,16 @@ const ModalContainer = styled.div`
   min-height: ${({ $minHeight }) => $minHeight};
   border-radius: 16px;
   box-shadow: none;
-  animation: ${slideIn} 0.3s ease-out;
+  animation: ${slideIn} 0.18s ease-out;
   display: flex;
   flex-direction: column;
   overflow: ${({ $allowOverflow }) => ($allowOverflow ? "visible" : "hidden")};
   color: ${({ theme }) => theme.text};
   touch-action: auto;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const Header = styled.div`

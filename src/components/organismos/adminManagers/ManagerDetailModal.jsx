@@ -22,6 +22,11 @@ import {
 
 const HEARTBEAT_ONLINE_GRACE_MS = 75000;
 
+const formatLimitInput = (value) => {
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
+
 export const ManagerDetailModal = ({
   isOpen,
   onClose,
@@ -31,11 +36,14 @@ export const ManagerDetailModal = ({
   onUpdateSuspension,
 }) => {
   const [activeTab, setActiveTab] = useState(0);
-  const [now, setNow] = useState(Date.now());
-  const [limitForm, setLimitForm] = useState({
-    max_divisions_total: "",
-    max_teams_total: "",
-    max_players_total: "",
+  const [now, setNow] = useState(0);
+  const [limitForm, setLimitForm] = useState(() => {
+    const league = manager?.leagues?.[0];
+    return {
+      max_divisions_total: formatLimitInput(league?.max_divisions_total),
+      max_teams_total: formatLimitInput(league?.max_teams_total),
+      max_players_total: formatLimitInput(league?.max_players_total),
+    };
   });
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingSuspension, setSavingSuspension] = useState(false);
@@ -43,19 +51,13 @@ export const ManagerDetailModal = ({
   useEffect(() => {
     if (!isOpen) return undefined;
 
-    setNow(Date.now());
+    const initialTimer = setTimeout(() => setNow(Date.now()), 0);
     const timer = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(timer);
+    };
   }, [isOpen, manager?.id]);
-
-  useEffect(() => {
-    const league = manager?.leagues?.[0];
-    setLimitForm({
-      max_divisions_total: formatLimitInput(league?.max_divisions_total),
-      max_teams_total: formatLimitInput(league?.max_teams_total),
-      max_players_total: formatLimitInput(league?.max_players_total),
-    });
-  }, [isOpen, manager?.id, manager?.leagues]);
 
   const managerTabs = [
     { id: 0, label: "Perfil & Cuenta", icon: <BiUserCircle size={20} /> },
@@ -120,7 +122,7 @@ export const ManagerDetailModal = ({
     const isOnline = presence?.online === true;
     const lastSeenAt = presence?.last_seen_at || getLastSeenAt(mgr);
     const lastSeenTime = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
-    const isRecentlySeen = Number.isFinite(lastSeenTime) && lastSeenTime > 0 && now - lastSeenTime < HEARTBEAT_ONLINE_GRACE_MS;
+    const isRecentlySeen = now > 0 && Number.isFinite(lastSeenTime) && lastSeenTime > 0 && now - lastSeenTime < HEARTBEAT_ONLINE_GRACE_MS;
 
     if (isOnline || isRecentlySeen) {
       return {
@@ -150,11 +152,6 @@ export const ManagerDetailModal = ({
       isOnline: false,
       lastSeenAt,
     };
-  };
-
-  const formatLimitInput = (value) => {
-    if (value === null || value === undefined) return "";
-    return String(value);
   };
 
   const parseLimitInput = (value) => {

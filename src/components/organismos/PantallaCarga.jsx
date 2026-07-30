@@ -1,7 +1,7 @@
 import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
 // Asegúrate de que esta ruta sea correcta hacia tu imagen
-import logo from '/logo_app.png'; 
+const logo = '/logo_app.png';
 
 // CAMBIO AQUÍ: Usamos 'export const' en lugar de definirlo y luego usar 'export default'
 export const PantallaCarga = () => {

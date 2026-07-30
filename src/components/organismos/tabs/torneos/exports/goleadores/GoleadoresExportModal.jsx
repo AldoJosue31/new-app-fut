@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 import { Modal } from "../../../../Modal";
 import { v } from "../../../../../../styles/variables";
@@ -10,7 +10,7 @@ import {
   RiSunLine,
 } from 'react-icons/ri';
 import { exportElementAsPNG } from '../../../../../../utils/imageExporter';
-import { supabase } from '../../../../../../supabase/supabase.config';
+import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import GoleadoresExportLayout from './GoleadoresExportLayout';
 import { ExportDownloadButton } from '../shared/ExportPreviewHeader';
 
@@ -150,9 +150,11 @@ export default function GoleadoresExportModal({
     }
   }, [customPlayerLimit, playerLimitMode, torneo?.id, visualizationMode]);
 
+  const fetchMetaInfoEvent = useEffectEvent(fetchMetaInfo);
+
   useEffect(() => {
     if (!isOpen || !torneo?.id) return;
-    fetchMetaInfo();
+    fetchMetaInfoEvent();
   }, [isOpen, torneo?.id, activeJornadaName, activeJornadaSummary]);
 
   useEffect(() => {
@@ -161,7 +163,7 @@ export default function GoleadoresExportModal({
     }
   }, [isOpen]);
 
-  const fetchMetaInfo = async () => {
+  async function fetchMetaInfo() {
     try {
       const { data } = await supabase
         .from('tournaments')
@@ -191,7 +193,7 @@ export default function GoleadoresExportModal({
     } catch (error) {
       console.error('Error fetching goleadores meta info:', error);
     }
-  };
+  }
 
   useEffect(() => {
     if (!isOpen) return;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from '../supabase/supabase.config';
+import { supabase } from "../lib/supabase/browserClient.js";
 
 export const useDivisionStore = create(
   persist(
@@ -98,6 +98,7 @@ export const useDivisionStore = create(
     }),
     {
       name: 'division-storage',
+      skipHydration: true,
     }
   )
 );

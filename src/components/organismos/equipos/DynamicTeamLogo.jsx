@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 
 // 1. Algoritmo Determinista: Convierte un texto en un número único y constante
 const getHash = (str) => {

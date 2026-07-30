@@ -174,10 +174,11 @@ export const TorneoDashboard = ({
     
     // --- BREAKPOINT UNIFICADO: 900px ---
     const BREAKPOINT = 900;
-    const [isMobile, setIsMobile] = useState(window.innerWidth < BREAKPOINT);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < BREAKPOINT);
+        handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);

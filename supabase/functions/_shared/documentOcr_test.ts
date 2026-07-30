@@ -88,7 +88,7 @@ Deno.test("auto sin secreto conserva el camino Gemini sin llamar red", async () 
 });
 
 Deno.test("Vision usa header secreto y normaliza coordenadas por pagina", async () => {
-  let receivedHeaders: Headers | null = null;
+  let receivedApiKey: string | null = null;
   let receivedBody: Record<string, unknown> | null = null;
   const resolution = await resolveDocumentOcr({
     imageBase64: "AQID",
@@ -96,7 +96,7 @@ Deno.test("Vision usa header secreto y normaliza coordenadas por pagina", async 
     apiKey: "vision-secret",
     policy: "google-vision",
     fetchImpl: async (_input, init) => {
-      receivedHeaders = new Headers(init?.headers);
+      receivedApiKey = new Headers(init?.headers).get("x-goog-api-key");
       receivedBody = JSON.parse(String(init?.body || "{}"));
       return Response.json({
         responses: [{
@@ -143,7 +143,7 @@ Deno.test("Vision usa header secreto y normaliza coordenadas por pagina", async 
     },
   });
 
-  assertEquals(receivedHeaders?.get("x-goog-api-key"), "vision-secret", "La clave va en header");
+  assertEquals(receivedApiKey, "vision-secret", "La clave va en header");
   assert(!JSON.stringify(receivedBody).includes("vision-secret"), "La clave no se filtra al body");
   assertEquals(resolution.result?.lines[0].boundingBox, {
     x: 0.1,

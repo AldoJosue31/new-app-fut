@@ -35,7 +35,7 @@ const ToggleContainer = styled.div`
 `;
 
 const ToggleButton = styled.button`
-  background: ${({ theme, $active }) => $active ? v.colorPrincipal : 'transparent'};
+  background: ${({ $active }) => $active ? v.colorPrincipal : 'transparent'};
   color: ${({ theme, $active }) => $active ? '#fff' : theme.text};
   border: none;
   border-radius: 6px;

@@ -34,10 +34,7 @@ export const TorneosStandingsTab = ({
   const [activeView, setActiveView] = useState('table');
   const normalizedForcedView = ['table', 'bracket'].includes(forcedView) ? forcedView : null;
   const renderedView = normalizedForcedView || activeView;
-  const [selectedJornadaView, setSelectedJornadaView] = useState(() => {
-    if (!torneo?.id || typeof window === 'undefined') return 'recent';
-    return localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent';
-  });
+  const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
 
   useEffect(() => {
     if (onRefresh && !isPublic) {
@@ -55,13 +52,23 @@ export const TorneosStandingsTab = ({
       setSelectedJornadaView('recent');
       return;
     }
-    setSelectedJornadaView(localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent');
+    try {
+      setSelectedJornadaView(
+        window.localStorage.getItem(getStandingsViewStorageKey(torneo.id)) || 'recent'
+      );
+    } catch {
+      setSelectedJornadaView('recent');
+    }
   }, [torneo?.id]);
 
   const handleSelectedJornadaViewChange = (nextValue) => {
     setSelectedJornadaView(nextValue);
     if (torneo?.id && typeof window !== 'undefined') {
-      localStorage.setItem(getStandingsViewStorageKey(torneo.id), nextValue);
+      try {
+        window.localStorage.setItem(getStandingsViewStorageKey(torneo.id), nextValue);
+      } catch {
+        // The selection remains available in memory when storage is unavailable.
+      }
     }
   };
 

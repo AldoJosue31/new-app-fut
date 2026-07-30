@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@iconify/react";
-import { landingCopy } from "../../pages/landing/copy";
+import { landingCopy } from "../../views/landing/copy";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(amount);
@@ -350,15 +349,15 @@ export default function PricingSection() {
                   </ul>
                 )}
 
-                <Link
-                  to="/login"
+                <a
+                  href="/login"
                   className={`lp-btn ${
                     plan.highlight ? "lp-btn-primary" : "lp-btn-ghost"
                   }`}
                   style={{ width: "100%", marginTop: "auto" }}
                 >
                   {pricing.ctaLabel}
-                </Link>
+                </a>
               </motion.div>
             );
           })}

@@ -10,8 +10,13 @@ export type CacheSource = "hit" | "miss" | "coalesced";
 const bytesToHex = (bytes: Uint8Array) =>
   [...bytes].map(byte => byte.toString(16).padStart(2, "0")).join("");
 
-const sha256Hex = async (bytes: Uint8Array) =>
-  bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
+const sha256Hex = async (bytes: Uint8Array) => {
+  const digestInput = new Uint8Array(bytes.byteLength);
+  digestInput.set(bytes);
+  return bytesToHex(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", digestInput.buffer)),
+  );
+};
 
 const canonicalize = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(canonicalize);

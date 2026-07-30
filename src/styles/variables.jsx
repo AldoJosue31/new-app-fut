@@ -13,7 +13,6 @@ import { TbBrandSupabase } from "react-icons/tb";
 import { FaReact } from "react-icons/fa";
 import { BsArrowDown, BsArrowUpShort } from "react-icons/bs";
 import { FaBalanceScale } from "react-icons/fa";
-import logo from "/logo_app.png";
 import { FcGoogle } from "react-icons/fc";
 
 import { RiCloseLine } from "react-icons/ri";
@@ -28,6 +27,8 @@ import { IoIosArrowForward } from "react-icons/io"
 
 import { GrFormPrevious, GrCaretNext } from "react-icons/gr"
 import { MdOutlineBorderAll } from "react-icons/md"
+
+const logo = "/logo_app.png";
 import { MdAlternateEmail } from "react-icons/md";
 import { RiLockPasswordLine } from "react-icons/ri"
 import { MdDriveFileRenameOutline } from "react-icons/md"
@@ -74,9 +75,9 @@ export const v = {
     xlSpacing: `32px`,
     xxlSpacing: `48px`,
     borderRadius: `6px`,
-    tabTransitionDuration: `300ms`,
+    tabTransitionDuration: `180ms`,
     tabTransitionTiming: `cubic-bezier(0.25, 0.8, 0.25, 1)`,
-    tabTransition: `300ms cubic-bezier(0.25, 0.8, 0.25, 1)`,
+    tabTransition: `180ms cubic-bezier(0.25, 0.8, 0.25, 1)`,
 
     paletacolores: CiPalette,
     emoji: BsEmojiLaughing,

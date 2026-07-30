@@ -1,11 +1,8 @@
 import styled, { keyframes } from "styled-components";
 import { v } from "../../../styles/variables";
-import { useNavigate } from "react-router-dom";
 import { BtnNormal } from "../../moleculas/BtnNormal";
 
 export const WelcomeDashboard = ({ userName }) => {
-    const navigate = useNavigate();
-
     return (
         <Container>
             <Content>
@@ -37,7 +34,7 @@ export const WelcomeDashboard = ({ userName }) => {
 
                 <ActionButtons>
                 <BtnNormal 
-                  funcion={() => navigate('/liga/divisions')}
+                  funcion={() => window.location.assign('/liga/divisions')}
                   titulo="Comenzar Ahora"
                 />
                         

@@ -1,7 +1,8 @@
+"use client";
+
 import React, { useCallback, useState, useEffect } from "react";
 import styled from "styled-components";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../../supabase/supabase.config";
+import { supabase } from "../../lib/supabase/browserClient.js";
 import { v } from "../../styles/variables";
 import { Card } from "../moleculas/Card";
 import { Btnsave } from "../moleculas/Btnsave";
@@ -12,11 +13,17 @@ import { Modal } from "../organismos/Modal";
 import { Toast } from "../atomos/Toast";
 import { BiErrorCircle, BiCheckCircle, BiTrophy, BiFootball } from "react-icons/bi";
 
-export function RegisterManagerTemplate({ token }) {
-  const navigate = useNavigate();
-  const [invitationData, setInvitationData] = useState(null);
-  const [isValidating, setIsValidating] = useState(true);
-  const [errorMsg, setErrorMsg] = useState(null);
+export function RegisterManagerTemplate({
+  token,
+  initialInvitation = null,
+  initialError = null,
+}) {
+  const [invitationData, setInvitationData] =
+    useState(initialInvitation);
+  const [isValidating, setIsValidating] = useState(
+    !initialInvitation && !initialError,
+  );
+  const [errorMsg, setErrorMsg] = useState(initialError);
   const [form, setForm] = useState({ fullName: "", email: "", password: "", leagueName: "" });
   const [isRegistering, setIsRegistering] = useState(false);
   
@@ -29,11 +36,13 @@ export function RegisterManagerTemplate({ token }) {
 
   const handleRedirectLogin = useCallback(async () => {
       await supabase.auth.signOut();
-      navigate("/login");
-  }, [navigate]);
+      window.location.assign("/login");
+  }, []);
 
   // Validación inicial del token
   useEffect(() => {
+    if (initialInvitation || initialError) return;
+
     const validate = async () => {
       try {
         const { data, error } = await supabase.rpc("get_manager_invitation", {
@@ -53,7 +62,7 @@ export function RegisterManagerTemplate({ token }) {
       }
     };
     if(token) validate();
-  }, [token]);
+  }, [initialError, initialInvitation, token]);
 
   // Lógica del Contador y Redirección de Éxito
   useEffect(() => {
@@ -142,7 +151,7 @@ export function RegisterManagerTemplate({ token }) {
             <BiErrorCircle size={50} color={v.rojo} />
             <h3 style={{color:v.rojo}}>Enlace Inválido</h3>
             <p>{errorMsg}</p>
-            <Btnsave titulo="Ir al Inicio" funcion={() => navigate("/")} bgcolor={v.rojo} />
+            <Btnsave titulo="Ir al Inicio" funcion={() => window.location.assign("/")} bgcolor={v.rojo} />
          </div>
       </Card>
     </FullScreenContainer>

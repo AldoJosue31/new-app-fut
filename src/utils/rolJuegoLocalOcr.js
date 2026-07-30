@@ -1,3 +1,5 @@
+import "client-only";
+
 import {
     findBestScanMatch,
     normalizeScanName,

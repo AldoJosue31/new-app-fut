@@ -1,7 +1,7 @@
-import { create } from 'zustand';
+import { create } from "zustand";
+
 import { Dark, Light } from "../styles/themes";
 
-// Detecta el tema del sistema (con protección por si no existe window)
 const getSystemTheme = () => {
   if (typeof window === "undefined" || !window.matchMedia) return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -9,59 +9,60 @@ const getSystemTheme = () => {
     : "light";
 };
 
-// Inicializa: primero localStorage, si no existe usa el sistema
-const getInitialTheme = () => {
-  if (typeof window === "undefined") return getSystemTheme();
+const getStoredTheme = () => {
+  if (typeof window === "undefined") return null;
 
-  const stored = localStorage.getItem("theme");
-  if (stored === "light" || stored === "dark") return stored;
-
-  return getSystemTheme();
+  try {
+    const stored = window.localStorage.getItem("theme");
+    return stored === "light" || stored === "dark" ? stored : null;
+  } catch {
+    return null;
+  }
 };
 
-export const useThemeStore = create((set, get) => {
-  const initialTheme = getInitialTheme();
-
-  // (Opcional) escuchar cambios del sistema SOLO si el usuario no eligió manualmente
-  if (typeof window !== "undefined" && window.matchMedia) {
-    const stored = localStorage.getItem("theme");
-
-    if (stored !== "light" && stored !== "dark") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-
-      const handler = (e) => {
-        const newTheme = e.matches ? "dark" : "light";
-        set({
-          theme: newTheme,
-          themeStyle: newTheme === "light" ? Light : Dark,
-        });
-      };
-
-      if (mq.addEventListener) {
-        mq.addEventListener("change", handler);
-      } else {
-        mq.addListener(handler); // navegadores antiguos
-      }
-    }
-  }
-
-  return {
-    theme: initialTheme,
-    themeStyle: initialTheme === "light" ? Light : Dark,
-
-    setTheme: () => {
-      const { theme } = get();
-      const newTheme = theme === "light" ? "dark" : "light";
-      const newStyle = newTheme === "light" ? Light : Dark;
-
-      try {
-        localStorage.setItem("theme", newTheme);
-      } catch (e) {}
-
-      set({
-        theme: newTheme,
-        themeStyle: newStyle,
-      });
-    },
-  };
+const toThemeState = (theme) => ({
+  theme,
+  themeStyle: theme === "light" ? Light : Dark,
 });
+
+export const useThemeStore = create((set, get) => ({
+  hasHydrated: false,
+  theme: "light",
+  themeStyle: Light,
+
+  setTheme: () => {
+    const newTheme = get().theme === "light" ? "dark" : "light";
+
+    try {
+      window.localStorage.setItem("theme", newTheme);
+    } catch {
+      // localStorage can be unavailable in private browser contexts.
+    }
+
+    set({
+      ...toThemeState(newTheme),
+      hasHydrated: true,
+    });
+  },
+}));
+
+export const initializeThemeStore = () => {
+  if (typeof window === "undefined") return undefined;
+
+  const storedTheme = getStoredTheme();
+  useThemeStore.setState({
+    ...toThemeState(storedTheme || getSystemTheme()),
+    hasHydrated: true,
+  });
+
+  if (storedTheme || !window.matchMedia) return undefined;
+
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const handleSystemThemeChange = (event) => {
+    if (getStoredTheme()) return;
+    useThemeStore.setState(toThemeState(event.matches ? "dark" : "light"));
+  };
+
+  mediaQuery.addEventListener("change", handleSystemThemeChange);
+  return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
+};

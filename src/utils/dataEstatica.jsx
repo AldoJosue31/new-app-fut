@@ -4,20 +4,24 @@ import {
     AiOutlineSetting,
 } from "react-icons/ai";
 
+const IconoUser = v.iconoUser;
+const IconoSettings = v.iconoSettings;
+const IconoCerrarSesion = v.iconoCerrarSesion;
+
 export const DesplegableUser = [
     {
         text: "Mi perfil",
-        icono: <v.iconoUser />,
+        icono: <IconoUser />,
         tipo: "miperfil",
     },
     {
         text: "Configuracion",
-        icono: <v.iconoSettings />,
+        icono: <IconoSettings />,
         tipo: "configuracion",
     },
     {
         text: "Cerrar sesión",
-        icono: <v.iconoCerrarSesion />,
+        icono: <IconoCerrarSesion />,
         tipo: "cerrarsesion",
     },
 ];

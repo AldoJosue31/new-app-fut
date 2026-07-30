@@ -1,35 +1,72 @@
-# Logs
-logs
+# Dependencies and package-manager caches
+/node_modules/
+/.npm-cache/
+/.pnpm-store/
+/.yarn/cache/
+/.yarn/unplugged/
+.pnp.*
+
+# Next.js and generated build output
+/.next/
+/out/
+/dist/
+/dist-ssr/
+/.turbo/
+next-env.d.ts
+*.tsbuildinfo
+
+# Test output (the source files under /tests stay versioned)
+/coverage/
+/.nyc_output/
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+
+# Logs and local runtime state
+/logs/
 *.log
+*.pid
+*.pid.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-.npm-cache/
-dist
-dist-ssr
-*.local
+# Local environment files and secrets
 .env
+.env.*
+!.env.example
+*.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
+# Hosting and local service state
+/.vercel/
+/supabase/.branches/
+/supabase/.temp/
+
+# Editor files
+/.vscode/*
+!/.vscode/extensions.json
+/.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# AI Agents & CLI Tools
-.agents/
-.gemini/
-.claude/
-.codex/
-.cursor/
-.github/skills/
-.graphify-out
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local AI/analysis tools and generated previews
+/.agents/
+/.gemini/
+/.claude/
+/.codex/
+/.cursor/
+/.impeccable/
+/.github/skills/
+/graphify-out/
+/hyperframes-bracket-promo/
