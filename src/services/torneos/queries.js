@@ -1,5 +1,18 @@
 import { supabase, TOURNAMENT_STATUS } from './shared';
 
+const withAbortSignal = (query, signal) =>
+  signal ? query.abortSignal(signal) : query;
+
+const uniqueIds = (values = []) => [
+  ...new Set(values.filter((value) => value !== null && value !== undefined)),
+];
+
+const getRows = async (query, signal) => {
+  const { data, error } = await withAbortSignal(query, signal);
+  if (error) throw error;
+  return data || [];
+};
+
 export const getJornadas = async (tournamentId) => {
   const { data, error } = await supabase
     .from('jornadas')
@@ -50,70 +63,108 @@ export const getEquiposDivision = async (divisionId) => {
 };
 
 export const getAllMatchesByTournament = async (tournamentId) => {
-  try {
-    const { data, error } = await supabase
-      .from('matches')
-      .select('*, jornadas!inner(id, name, tournament_id)')
-      .eq('jornadas.tournament_id', tournamentId);
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*, jornadas!inner(id, name, tournament_id)')
+    .eq('jornadas.tournament_id', tournamentId);
 
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error en getAllMatchesByTournament:', error);
-    return [];
-  }
+  if (error) throw error;
+  return data || [];
 };
 
 export const getPartidosExternosRango = async (
   startDate,
   endDate,
   currentTournamentId,
-  leagueId
+  leagueId,
+  { signal = null } = {},
 ) => {
-  try {
-    if (!startDate || !endDate || !leagueId) return [];
+  if (!startDate || !endDate || !leagueId) return [];
 
-    const { data, error } = await supabase
+  // Scope each step before reading matches. Besides reducing the result set,
+  // this prevents PostgREST from building one very large RLS plan spanning
+  // matches, jornadas, tournaments, divisions and teams twice.
+  const divisions = await getRows(
+    supabase
+      .from('divisions')
+      .select('id, name')
+      .eq('league_id', leagueId),
+    signal,
+  );
+  const divisionIds = uniqueIds(divisions.map((division) => division.id));
+  if (divisionIds.length === 0) return [];
+
+  let tournamentsQuery = supabase
+    .from('tournaments')
+    .select('id, division_id, status')
+    .in('division_id', divisionIds);
+
+  if (currentTournamentId) {
+    tournamentsQuery = tournamentsQuery.neq('id', currentTournamentId);
+  }
+
+  const tournaments = await getRows(tournamentsQuery, signal);
+  const tournamentIds = uniqueIds(
+    tournaments.map((tournament) => tournament.id),
+  );
+  if (tournamentIds.length === 0) return [];
+
+  const jornadas = await getRows(
+    supabase
+      .from('jornadas')
+      .select('id, name, tournament_id')
+      .in('tournament_id', tournamentIds),
+    signal,
+  );
+  const jornadaIds = uniqueIds(jornadas.map((jornada) => jornada.id));
+  if (jornadaIds.length === 0) return [];
+
+  const matches = await getRows(
+    supabase
       .from('matches')
-      .select(`
-        id,
-        date,
-        status,
-        team1:teams!team1_id ( name, logo_url ),
-        team2:teams!team2_id ( name, logo_url ),
-        jornadas!inner (
-          id,
-          name,
-          tournament_id,
-          tournaments!inner (
-            status,
-            divisions!inner ( name, league_id, id )
-          )
-        )
-      `)
+      .select('id, date, status, jornada_id, team1_id, team2_id')
+      .in('jornada_id', jornadaIds)
       .gte('date', `${startDate} 00:00:00`)
       .lte('date', `${endDate} 23:59:59`)
       .neq('status', 'Pendiente')
       .neq('status', 'Cancelado')
-      .order('date', { ascending: true });
+      .order('date', { ascending: true }),
+    signal,
+  );
+  if (matches.length === 0) return [];
 
-    if (error) throw error;
+  const teamIds = uniqueIds(
+    matches.flatMap((match) => [match.team1_id, match.team2_id]),
+  );
+  const teams = teamIds.length > 0
+    ? await getRows(
+        supabase
+          .from('teams')
+          .select('id, name, logo_url')
+          .in('id', teamIds),
+        signal,
+      )
+    : [];
 
-    const matchesFiltrados = (data || []).filter((match) => {
-      const matchTournamentId = match.jornadas?.tournament_id;
-      const matchLeagueId = match.jornadas?.tournaments?.divisions?.league_id;
+  const divisionsById = new Map(
+    divisions.map((division) => [String(division.id), division]),
+  );
+  const tournamentsById = new Map(
+    tournaments.map((tournament) => [String(tournament.id), tournament]),
+  );
+  const jornadasById = new Map(
+    jornadas.map((jornada) => [String(jornada.id), jornada]),
+  );
+  const teamsById = new Map(
+    teams.map((team) => [String(team.id), team]),
+  );
 
-      if (
-        currentTournamentId &&
-        String(matchTournamentId) === String(currentTournamentId)
-      ) {
-        return false;
-      }
-
-      return String(matchLeagueId) === String(leagueId);
-    });
-
-    return matchesFiltrados.map((match) => {
+  return matches.map((match) => {
+      const jornada = jornadasById.get(String(match.jornada_id));
+      const tournament = tournamentsById.get(String(jornada?.tournament_id));
+      const division = divisionsById.get(String(tournament?.division_id));
+      const team1 = teamsById.get(String(match.team1_id));
+      const team2 = teamsById.get(String(match.team2_id));
       let datePart = '';
       let timePart = '00:00';
 
@@ -135,25 +186,20 @@ export const getPartidosExternosRango = async (
       return {
         id: `ext-${match.id}`,
         original_id: match.id,
-        jornada_id: match.jornadas?.id,
-        jornada_name: match.jornadas?.name,
+        jornada_id: jornada?.id,
+        jornada_name: jornada?.name,
         rawDate: datePart,
         date: datePart,
         time: timePart,
-        local_name: match.team1?.name || 'Equipo Local',
-        visitante_name: match.team2?.name || 'Equipo Visita',
-        local_logo: match.team1?.logo_url,
-        visitante_logo: match.team2?.logo_url,
-        division_name:
-          match.jornadas?.tournaments?.divisions?.name || 'Otra Division',
+        local_name: team1?.name || 'Equipo Local',
+        visitante_name: team2?.name || 'Equipo Visita',
+        local_logo: team1?.logo_url,
+        visitante_logo: team2?.logo_url,
+        division_name: division?.name || 'Otra Division',
         status: match.status,
         isExternal: true,
       };
     });
-  } catch (error) {
-    console.error('Error obteniendo partidos externos:', error);
-    return [];
-  }
 };
 
 export const getTournamentConfigService = async (tournamentId) => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useLayoutEffect, useRef } from "react";
 import { addDaysToDate } from "../utils/dateUtils";
+import { getErrorDetails, isAbortError } from "../utils/errorUtils";
 import { getPartidosExternosRango } from "../services/torneos";
 import {
   getJornadaReferenceNumber,
@@ -53,6 +54,11 @@ export const usePlanificacionMatches = (
   const [externalMatches, setExternalMatches] = useState([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
   const externalMatchesRequestRef = useRef(0);
+  const externalMatchesAbortRef = useRef(null);
+  const activeTournamentId = activeTournament?.id;
+  const activeLeagueId =
+    activeTournament?.division?.league_id ||
+    activeTournament?.divisions?.league_id;
 
   const jornadaStatus = jornadaData?.status;
   const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
@@ -179,11 +185,9 @@ export const usePlanificacionMatches = (
   };
 
   const fetchExternalMatches = useCallback(async (startDateToCheck) => {
-      if (!activeTournament?.id) return [];
+      if (!activeTournamentId) return [];
       
-      const leagueId = activeTournament.division?.league_id || activeTournament.divisions?.league_id;
-      
-      if (!leagueId) {
+      if (!activeLeagueId) {
           console.warn("No se encontró league_id en activeTournament");
           return [];
       }
@@ -191,37 +195,61 @@ export const usePlanificacionMatches = (
       const endDate = addDaysToDate(startDateToCheck, 7);
       const requestId = externalMatchesRequestRef.current + 1;
       externalMatchesRequestRef.current = requestId;
+
+      externalMatchesAbortRef.current?.abort();
+      const abortController = new AbortController();
+      externalMatchesAbortRef.current = abortController;
       
       setLoadingExternal(true);
       try {
           const data = await getPartidosExternosRango(
               startDateToCheck, 
               endDate, 
-              activeTournament.id, 
-              leagueId
+              activeTournamentId,
+              activeLeagueId,
+              { signal: abortController.signal },
           );
           if (requestId === externalMatchesRequestRef.current) {
               setExternalMatches(data);
           }
           return data;
       } catch (err) {
-          console.error("Error fetching external matches:", err);
+          if (
+            abortController.signal.aborted ||
+            isAbortError(err) ||
+            requestId !== externalMatchesRequestRef.current
+          ) {
+            return [];
+          }
+          console.error(
+            "Error obteniendo partidos externos:",
+            getErrorDetails(err),
+          );
           return [];
       } finally {
+          if (externalMatchesAbortRef.current === abortController) {
+              externalMatchesAbortRef.current = null;
+          }
           if (requestId === externalMatchesRequestRef.current) {
               setLoadingExternal(false);
           }
       }
-  }, [activeTournament]);
+  }, [activeLeagueId, activeTournamentId]);
 
   useEffect(() => {
     if (showExternalMatches && weekStartDate) {
         fetchExternalMatches(weekStartDate);
     } else if (!showExternalMatches) {
         externalMatchesRequestRef.current += 1;
+        externalMatchesAbortRef.current?.abort();
+        externalMatchesAbortRef.current = null;
         setExternalMatches([]);
         setLoadingExternal(false);
     }
+
+    return () => {
+      externalMatchesAbortRef.current?.abort();
+    };
   }, [showExternalMatches, weekStartDate, fetchExternalMatches]);
 
   const toggleExternalMatches = () => setShowExternalMatches(prev => !prev);

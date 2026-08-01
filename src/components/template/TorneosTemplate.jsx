@@ -17,6 +17,7 @@ import { EmptyState } from "../organismos/EmptyState";
 import { RiCalendarEventLine, RiBarChartGroupedLine, RiFootballLine } from "react-icons/ri"; 
 import { TorneoDefinitionModeLoading } from "../TorneoDefinitionMode";
 import { getTournamentAutoRedirectPreference } from "../../utils/tournamentPreferences";
+import { getErrorDetails } from "../../utils/errorUtils";
 import { Device } from "../../styles/breakpoints"; 
 import { getTopScorersService } from "../../services/estadisticas";
 import {
@@ -218,7 +219,7 @@ export function TorneosTemplate({
       setGoleadores(data || []);
     } catch (err) {
       if (signal?.aborted) return;
-      console.error("Error fetchGoleadores:", err);
+      console.error("Error obteniendo goleadores:", getErrorDetails(err));
       setGoleadores([]);
     }
   }, [activeTournament?.id]);

@@ -1,14 +1,56 @@
 import { supabase } from "../lib/supabase/browserClient.js";
 import { resolveRepositionMappings } from '../utils/jornadaUtils';
+import { isAbortError } from '../utils/errorUtils';
 
 const withAbortSignal = (query, signal) =>
   signal ? query.abortSignal(signal) : query;
 
-const isAbortError = (error) =>
-  error?.name === 'AbortError' ||
-  String(error?.message || '').toLowerCase().includes('abort');
+const QUERY_ID_BATCH_SIZE = 50;
+const QUERY_PAGE_SIZE = 1000;
 
+const uniqueIds = (values = []) => [
+  ...new Set(values.filter((value) => value !== null && value !== undefined)),
+];
 
+const getRows = async (query, signal) => {
+  const { data, error } = await withAbortSignal(query, signal);
+  if (error) throw error;
+  return data || [];
+};
+
+const getRowsInBatches = async ({
+  table,
+  select,
+  column,
+  ids,
+  signal,
+  configureQuery = (query) => query,
+}) => {
+  const rows = [];
+
+  for (let index = 0; index < ids.length; index += QUERY_ID_BATCH_SIZE) {
+    const batch = ids.slice(index, index + QUERY_ID_BATCH_SIZE);
+    let from = 0;
+
+    while (true) {
+      const query = configureQuery(
+        supabase
+          .from(table)
+          .select(select)
+          .in(column, batch)
+          .order('id', { ascending: true })
+          .range(from, from + QUERY_PAGE_SIZE - 1),
+      );
+      const page = await getRows(query, signal);
+      rows.push(...page);
+
+      if (page.length < QUERY_PAGE_SIZE) break;
+      from += QUERY_PAGE_SIZE;
+    }
+  }
+
+  return rows;
+};
 
 export const getTopScorersService = async ({
   division = null,
@@ -16,26 +58,281 @@ export const getTopScorersService = async ({
   limit = 10,
   signal = null,
 } = {}) => {
-  let query = supabase
-    .from('view_goleadores')
-    .select('*')
-    .order('goals', { ascending: false })
-    .limit(limit);
+  try {
+    const requestedTournamentId = tournamentId === null || tournamentId === ''
+      ? null
+      : Number(tournamentId);
+    const requestedLimit = Math.max(0, Number(limit) || 0);
 
-  if (division) query = query.eq('division_name', division);
+    if (
+      requestedTournamentId !== null &&
+      !Number.isFinite(requestedTournamentId)
+    ) {
+      return [];
+    }
 
-  if (tournamentId) {
-    const tid = Number(tournamentId);
-    query = query.eq('tournament_id', tid);
-  }
+    let divisions = [];
+    if (division) {
+      divisions = await getRows(
+        supabase
+          .from('divisions')
+          .select('id, name')
+          .eq('name', division),
+        signal,
+      );
+      if (divisions.length === 0) return [];
+    }
 
-  const { data, error } = await withAbortSignal(query, signal);
-  if (error) {
-    if (isAbortError(error)) return [];
-    console.error('getTopScorersService error:', error);
+    let tournamentsQuery = supabase
+      .from('tournaments')
+      .select('id, division_id');
+
+    if (requestedTournamentId !== null) {
+      tournamentsQuery = tournamentsQuery.eq('id', requestedTournamentId);
+    } else if (divisions.length > 0) {
+      tournamentsQuery = tournamentsQuery.in(
+        'division_id',
+        uniqueIds(divisions.map((item) => item.id)),
+      );
+    }
+
+    let tournaments = await getRows(tournamentsQuery, signal);
+    if (divisions.length > 0 && requestedTournamentId !== null) {
+      const allowedDivisionIds = new Set(
+        divisions.map((item) => String(item.id)),
+      );
+      tournaments = tournaments.filter((tournament) =>
+        allowedDivisionIds.has(String(tournament.division_id)),
+      );
+    }
+    if (tournaments.length === 0 || requestedLimit === 0) return [];
+
+    const tournamentIds = uniqueIds(
+      tournaments.map((tournament) => tournament.id),
+    );
+    const divisionIds = uniqueIds(
+      tournaments.map((tournament) => tournament.division_id),
+    );
+
+    if (divisions.length === 0) {
+      divisions = await getRowsInBatches({
+        table: 'divisions',
+        select: 'id, name',
+        column: 'id',
+        ids: divisionIds,
+        signal,
+      });
+    }
+
+    const jornadas = await getRowsInBatches({
+      table: 'jornadas',
+      select: 'id, tournament_id',
+      column: 'tournament_id',
+      ids: tournamentIds,
+      signal,
+    });
+    const jornadaIds = uniqueIds(jornadas.map((jornada) => jornada.id));
+    if (jornadaIds.length === 0) return [];
+
+    const matches = await getRowsInBatches({
+      table: 'matches',
+      select: 'id, jornada_id',
+      column: 'jornada_id',
+      ids: jornadaIds,
+      signal,
+    });
+    const matchIds = uniqueIds(matches.map((match) => match.id));
+    if (matchIds.length === 0) return [];
+
+    const events = await getRowsInBatches({
+      table: 'match_events',
+      select: 'id, match_id, player_id',
+      column: 'match_id',
+      ids: matchIds,
+      signal,
+      configureQuery: (query) => query.eq('event_type', 'goal'),
+    });
+    if (events.length === 0) return [];
+
+    const jornadasById = new Map(
+      jornadas.map((jornada) => [String(jornada.id), jornada]),
+    );
+    const tournamentIdByMatchId = new Map(
+      matches.map((match) => [
+        String(match.id),
+        jornadasById.get(String(match.jornada_id))?.tournament_id,
+      ]),
+    );
+    const goalsByPlayerAndTournament = new Map();
+
+    events.forEach((event) => {
+      const eventTournamentId = tournamentIdByMatchId.get(String(event.match_id));
+      if (event.player_id == null || eventTournamentId == null) return;
+
+      const key = `${event.player_id}:${eventTournamentId}`;
+      const current = goalsByPlayerAndTournament.get(key) || {
+        playerId: event.player_id,
+        tournamentId: eventTournamentId,
+        goals: 0,
+      };
+      current.goals += 1;
+      goalsByPlayerAndTournament.set(key, current);
+    });
+
+    const scorerGroups = [...goalsByPlayerAndTournament.values()];
+    const playerIds = uniqueIds(scorerGroups.map((group) => group.playerId));
+    const players = await getRowsInBatches({
+      table: 'players',
+      select: 'id, first_name, last_name, dorsal, photo_url, team_id',
+      column: 'id',
+      ids: playerIds,
+      signal,
+    });
+    const teamIds = uniqueIds(players.map((player) => player.team_id));
+    const teams = await getRowsInBatches({
+      table: 'teams',
+      select: 'id, name, logo_url, color',
+      column: 'id',
+      ids: teamIds,
+      signal,
+    });
+
+    const playersById = new Map(
+      players.map((player) => [String(player.id), player]),
+    );
+    const teamsById = new Map(
+      teams.map((team) => [String(team.id), team]),
+    );
+    const tournamentsById = new Map(
+      tournaments.map((tournament) => [String(tournament.id), tournament]),
+    );
+    const divisionsById = new Map(
+      divisions.map((item) => [String(item.id), item]),
+    );
+
+    return scorerGroups
+      .map((group) => {
+        const player = playersById.get(String(group.playerId));
+        const team = teamsById.get(String(player?.team_id));
+        const tournament = tournamentsById.get(String(group.tournamentId));
+        const tournamentDivision = divisionsById.get(
+          String(tournament?.division_id),
+        );
+
+        if (!player || !team || !tournament || !tournamentDivision) return null;
+
+        return {
+          player_id: player.id,
+          first_name: player.first_name,
+          last_name: player.last_name,
+          dorsal: player.dorsal,
+          photo_url: player.photo_url,
+          team_id: team.id,
+          team_name: team.name,
+          team_logo: team.logo_url,
+          team_color: team.color,
+          tournament_id: tournament.id,
+          division_id: tournamentDivision.id,
+          division_name: tournamentDivision.name,
+          goals: group.goals,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.goals - a.goals)
+      .slice(0, requestedLimit);
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error)) return [];
     throw error;
   }
-  return data || [];
+};
+
+export const getGoalEventsByTournamentService = async (
+  tournamentId,
+  { signal = null } = {},
+) => {
+  try {
+    const requestedTournamentId = Number(tournamentId);
+    if (!Number.isFinite(requestedTournamentId)) return [];
+
+    const jornadas = await getRows(
+      supabase
+        .from('jornadas')
+        .select('id, name, tournament_id')
+        .eq('tournament_id', requestedTournamentId)
+        .order('id', { ascending: true }),
+      signal,
+    );
+    const jornadaIds = uniqueIds(jornadas.map((jornada) => jornada.id));
+    if (jornadaIds.length === 0) return [];
+
+    const matches = await getRowsInBatches({
+      table: 'matches',
+      select: 'id, status, team1_id, team2_id, jornada_id',
+      column: 'jornada_id',
+      ids: jornadaIds,
+      signal,
+    });
+    const matchIds = uniqueIds(matches.map((match) => match.id));
+    if (matchIds.length === 0) return [];
+
+    const events = await getRowsInBatches({
+      table: 'match_events',
+      select: 'id, match_id, player_id, event_type',
+      column: 'match_id',
+      ids: matchIds,
+      signal,
+      configureQuery: (query) =>
+        query.or('event_type.ilike.%gol%,event_type.ilike.%goal%'),
+    });
+    if (events.length === 0) return [];
+
+    const playerIds = uniqueIds(events.map((event) => event.player_id));
+    const players = await getRowsInBatches({
+      table: 'players',
+      select: 'id, first_name, last_name, dorsal, photo_url, team_id',
+      column: 'id',
+      ids: playerIds,
+      signal,
+    });
+
+    const jornadasById = new Map(
+      jornadas.map((jornada) => [String(jornada.id), jornada]),
+    );
+    const matchesById = new Map(
+      matches.map((match) => [String(match.id), match]),
+    );
+    const playersById = new Map(
+      players.map((player) => [String(player.id), player]),
+    );
+
+    return events
+      .map((event) => {
+        const match = matchesById.get(String(event.match_id));
+        const jornada = jornadasById.get(String(match?.jornada_id));
+        const player = playersById.get(String(event.player_id));
+        if (!match || !jornada || !player) return null;
+
+        return {
+          id: event.id,
+          match_id: event.match_id,
+          player_id: event.player_id,
+          event_type: event.event_type,
+          players: player,
+          matches: {
+            id: match.id,
+            status: match.status,
+            team1_id: match.team1_id,
+            team2_id: match.team2_id,
+            jornadas: jornada,
+          },
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => Number(a.id) - Number(b.id));
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error)) return [];
+    throw error;
+  }
 };
 
 export const getTeamTournamentStats = async (

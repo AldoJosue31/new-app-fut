@@ -15,6 +15,12 @@ import {
   resolveDocumentOcr,
 } from "../_shared/documentOcr.ts";
 import { validateClientScheduleScan } from "./clientScan.ts";
+import {
+  authorizeRateLimitedRequest,
+  corsJsonResponse,
+  type CorsDecision,
+  resolveCors,
+} from "../_shared/edgeSecurity.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
 const GEMINI_TIMEOUT_MS = 45_000;
@@ -176,23 +182,12 @@ ${JSON.stringify(context.teams)}
 # Criterio final
 Las entries correctas deben maximizar participantes unicos de esa lista, respetar la division y jornada indicadas y no contener equipos ajenos. El servidor agrupara las filas por encabezado y hara una segunda validacion determinista.${buildOcrHint(ocr)}`;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-request-id",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Expose-Headers": "Retry-After, X-Request-Id, X-Scan-Provider",
-};
-
-const jsonResponse = (
-  body: unknown,
-  status = 200,
-  headers: Record<string, string> = {},
-) =>
-  Response.json(body, {
-    status,
-    headers: { ...corsHeaders, ...headers },
-  });
+const createJsonResponse = (cors: CorsDecision) =>
+  (
+    body: unknown,
+    status = 200,
+    headers: Record<string, string> = {},
+  ) => corsJsonResponse(cors, body, status, headers);
 
 const delay = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -269,14 +264,33 @@ const createInteraction = (
   });
 
 Deno.serve(async (req) => {
+  const cors = resolveCors(req, {
+    exposeHeaders: "Retry-After, X-Request-Id, X-Scan-Provider",
+  });
+  const jsonResponse = createJsonResponse(cors);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return cors.allowed
+      ? new Response("ok", { headers: cors.headers })
+      : jsonResponse({ error: "Origen no permitido." }, 403);
+  }
+  if (!cors.allowed) {
+    return jsonResponse({ error: "Origen no permitido." }, 403);
   }
   if (req.method !== "POST") {
     return jsonResponse({ error: "Metodo no permitido." }, 405);
   }
 
   const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
+  const rateLimit = await authorizeRateLimitedRequest(req, {
+    scope: "procesar-rol-juego",
+  });
+  if (!rateLimit.allowed) {
+    return jsonResponse(
+      { ...rateLimit.body, requestId },
+      rateLimit.status || 503,
+      { "X-Request-Id": requestId, ...rateLimit.headers },
+    );
+  }
   const configuredModel = Deno.env.get("GEMINI_MODEL") || "";
   const model = selectGeminiModel(configuredModel);
   const fallbackModel = selectGeminiFallbackModel(

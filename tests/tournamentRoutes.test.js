@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildTournamentDivisionSwitchPath,
   buildTournamentPath,
   isPositiveTournamentPathId,
   parseTournamentPathname,
@@ -125,4 +126,35 @@ test("deriva los parametros actuales desde el pathname del navegador", () => {
   });
   assert.equal(parseTournamentPathname("/division/invalida/torneos"), null);
   assert.equal(parseTournamentPathname("/equipos"), null);
+});
+
+test("cambiar division conserva el tab y descarta ids de la division anterior", () => {
+  assert.equal(
+    buildTournamentDivisionSwitchPath({
+      divisionId: 95,
+      pathname: "/division/94/torneos/123/jornadas/456",
+    }),
+    "/division/95/torneos/jornadas",
+  );
+  assert.equal(
+    buildTournamentDivisionSwitchPath({
+      divisionId: 95,
+      pathname: "/division/94/torneos/123/standings",
+    }),
+    "/division/95/torneos/standings",
+  );
+  assert.equal(
+    buildTournamentDivisionSwitchPath({
+      divisionId: 95,
+      pathname: "/division/94/torneos",
+    }),
+    "/division/95/torneos/definir",
+  );
+  assert.equal(
+    buildTournamentDivisionSwitchPath({
+      divisionId: 95,
+      pathname: "/equipos",
+    }),
+    "",
+  );
 });

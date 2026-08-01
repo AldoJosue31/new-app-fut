@@ -149,3 +149,20 @@ export const buildTournamentPath = ({
     .map((segment) => encodeURIComponent(String(segment)))
     .join("/")}`;
 };
+
+export const buildTournamentDivisionSwitchPath = ({
+  divisionId,
+  pathname,
+} = {}) => {
+  if (!isPositiveTournamentPathId(divisionId)) return "";
+
+  const pathnameRoute = parseTournamentPathname(pathname);
+  if (!pathnameRoute) return "";
+
+  const tournamentRoute = parseTournamentRoute(pathnameRoute);
+
+  return buildTournamentPath({
+    divisionId,
+    tab: tournamentRoute.tab || "definir",
+  });
+};
