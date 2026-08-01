@@ -57,6 +57,18 @@ const jsonRequest = (body: unknown, method = "POST") =>
     body: method === "POST" ? JSON.stringify(body) : undefined,
   });
 
+const crossOriginRequest = (origin: string) =>
+  new Request(
+    "https://project.supabase.co/functions/v1/manage-delegate-account",
+    {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "POST",
+      },
+    },
+  );
+
 Deno.test("manage-delegate-account conserva preflight CORS y metodo POST", async () => {
   const handler = createHandler({ getEnv: configuredEnv });
   const optionsResponse = await handler(jsonRequest({}, "OPTIONS"));
@@ -73,6 +85,28 @@ Deno.test("manage-delegate-account conserva preflight CORS y metodo POST", async
     await getResponse.json(),
     { error: "Metodo no permitido." },
     "GET debe conservar su error JSON",
+  );
+});
+
+Deno.test("manage-delegate-account limita CORS a origenes configurados", async () => {
+  const handler = createHandler({
+    getEnv: (name) =>
+      name === "EDGE_ALLOWED_ORIGINS" ? "https://app.example" : "test-value",
+  });
+  const allowed = await handler(crossOriginRequest("https://app.example"));
+  const denied = await handler(crossOriginRequest("https://attacker.example"));
+
+  assertEquals(allowed.status, 200, "el origen configurado debe pasar");
+  assertEquals(
+    allowed.headers.get("Access-Control-Allow-Origin"),
+    "https://app.example",
+    "debe reflejar el origen configurado",
+  );
+  assertEquals(denied.status, 403, "un origen ajeno debe fallar cerrado");
+  assertEquals(
+    denied.headers.get("Access-Control-Allow-Origin"),
+    null,
+    "el origen ajeno no debe recibir ACAO",
   );
 });
 

@@ -15,7 +15,6 @@ import {
   getJornadas,
   getMatchesByIdsService,
   getMatchesByJornadaService,
-  getPendingMatchesByTournamentService,
   getTournamentConfigService,
   guardarJornadaService,
   resetMatchResultService,
@@ -103,6 +102,13 @@ const hasValidJornadaCadence = (jornadas = [], jornadaDurationDays = 7) => {
     ) === jornadaDurationDays;
   });
 };
+
+const resolveGlobalPendingMatches = (matches = []) =>
+  (matches || []).filter(
+    (match) =>
+      match.status === "Pendiente" ||
+      (match.status === "Programado" && !match.date)
+  );
 
 const sortJornadasForDateNormalization = (jornadas = [], configuredMappings = []) => {
   const resolvedMappings = resolveRepositionMappings({
@@ -357,6 +363,7 @@ export function TorneoJornadasTab({
   const [editorData, setEditorData] = useState(null); 
   const currentJornadaMatchesRequestRef = useRef(0);
   const routeJornadaMatchesRequestRef = useRef(0);
+  const tournamentDataLoadRef = useRef({ tournamentId: null, promise: null });
 
   const tournamentConfig = useMemo(() => {
     if (!activeTournament?.config) return {};
@@ -462,7 +469,8 @@ export function TorneoJornadasTab({
           targetJornada.id,
           jornadas,
           repositionMappings,
-          repositionMatchMappings
+          repositionMatchMappings,
+          { matchesSource: allTournamentMatches }
         );
       } finally {
         setLoading(false);
@@ -485,32 +493,40 @@ export function TorneoJornadasTab({
         const sortedJornadas = jornadasResult?.jornadas || [];
         const selectedJornada = jornadasResult?.selectedJornada || null;
 
-        await Promise.all([
-          fetchGlobalPendingMatches(),
-          fetchAllTournamentMatches(),
-          selectedJornada?.id
-            ? fetchCurrentJornadaMatches(
-                selectedJornada.id,
-                sortedJornadas,
-                updatedMappings?.jornadaMappings || [],
-                updatedMappings?.matchMappings || []
-              )
-            : Promise.resolve(),
-        ]);
+        const tournamentMatches = await fetchAllTournamentMatches();
+
+        if (selectedJornada?.id) {
+          await fetchCurrentJornadaMatches(
+            selectedJornada.id,
+            sortedJornadas,
+            updatedMappings?.jornadaMappings || [],
+            updatedMappings?.matchMappings || [],
+            { matchesSource: tournamentMatches }
+          );
+        }
       } finally {
         setLoading(false);
       }
   };
 
-  const fetchAllTournamentMatches = async () => {
+  const fetchAllTournamentMatches = async ({
+    preserveOnError = false,
+    throwOnError = false,
+  } = {}) => {
       try {
           const data = await getAllMatchesByTournament(activeTournament.id);
-          setAllTournamentMatches(data || []);
-          return data || [];
+          const matches = data || [];
+          setAllTournamentMatches(matches);
+          setGlobalPendingMatches(resolveGlobalPendingMatches(matches));
+          return matches;
       } catch (error) {
           console.error("Error fetchAllTournamentMatches:", error);
-          setAllTournamentMatches([]);
-          return [];
+          if (!preserveOnError) {
+            setAllTournamentMatches([]);
+            setGlobalPendingMatches([]);
+          }
+          if (throwOnError) throw error;
+          return null;
       }
   };
 
@@ -573,7 +589,11 @@ export function TorneoJornadasTab({
     jornadasSource = jornadas,
     mappingsSource = repositionMappings,
     matchMappingsSource = repositionMatchMappings,
-    { preserveOnError = false, throwOnError = false } = {}
+    {
+      preserveOnError = false,
+      throwOnError = false,
+      matchesSource = null,
+    } = {}
   ) => {
     const requestId = currentJornadaMatchesRequestRef.current + 1;
     currentJornadaMatchesRequestRef.current = requestId;
@@ -590,13 +610,32 @@ export function TorneoJornadasTab({
         ? matchMappingsSource
         : [];
 
-      const directMatches = await getMatchesByJornadaService(jornadaId);
+      const canReuseTournamentMatches = Array.isArray(matchesSource);
+      const directMatches = canReuseTournamentMatches
+        ? matchesSource.filter(
+            (match) => String(match?.jornada_id) === String(jornadaId)
+          )
+        : await getMatchesByJornadaService(jornadaId);
 
       const extraMatchIds = normalizedMatchMappings
         .filter((mapping) => String(mapping?.originalJornadaId) === String(jornadaId))
         .map((mapping) => mapping.matchId)
         .filter(Boolean);
-      const extraMatches = await getMatchesByIdsService(extraMatchIds);
+      const sourceExtraMatches = canReuseTournamentMatches
+        ? matchesSource.filter((match) =>
+            extraMatchIds.some((matchId) => String(matchId) === String(match?.id))
+          )
+        : [];
+      const missingExtraMatchIds = canReuseTournamentMatches
+        ? extraMatchIds.filter(
+            (matchId) =>
+              !sourceExtraMatches.some(
+                (match) => String(match?.id) === String(matchId)
+              )
+          )
+        : extraMatchIds;
+      const fetchedExtraMatches = await getMatchesByIdsService(missingExtraMatchIds);
+      const extraMatches = [...sourceExtraMatches, ...fetchedExtraMatches];
 
       const mergedMatches = [...directMatches];
       extraMatches.forEach((match) => {
@@ -666,24 +705,26 @@ export function TorneoJornadasTab({
     }
   };
 
-  const fetchGlobalPendingMatches = async ({ throwOnError = false } = {}) => {
-      try {
-          const data = await getPendingMatchesByTournamentService(activeTournament.id);
+  const loadTournamentDataEvent = useEffectEvent(() => {
+    const tournamentId = activeTournament?.id;
+    const currentLoad = tournamentDataLoadRef.current;
 
-          // Se mantiene la busqueda de Programados sin fecha para que la UI 
-          // los detecte de tu base de datos y no se vuelvan invisibles.
-          const realPendingMatches = data.filter(m => 
-              m.status === 'Pendiente' || (m.status === 'Programado' && !m.date)
-          );
+    if (
+      currentLoad.promise &&
+      String(currentLoad.tournamentId) === String(tournamentId)
+    ) {
+      return currentLoad.promise;
+    }
 
-          setGlobalPendingMatches(realPendingMatches);
-      } catch (error) {
-          console.error("Error fetchGlobalPending:", error);
-          if (throwOnError) throw error;
+    const promise = loadTournamentData().finally(() => {
+      if (tournamentDataLoadRef.current.promise === promise) {
+        tournamentDataLoadRef.current = { tournamentId: null, promise: null };
       }
-  };
+    });
 
-  const loadTournamentDataEvent = useEffectEvent(loadTournamentData);
+    tournamentDataLoadRef.current = { tournamentId, promise };
+    return promise;
+  });
   const fetchCurrentJornadaMatchesEvent = useEffectEvent(
     fetchCurrentJornadaMatches
   );
@@ -1092,7 +1133,13 @@ export function TorneoJornadasTab({
       const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
       const selectedJornada = updatedJornadasResult?.selectedJornada || null;
       if (selectedJornada?.id) {
-        await fetchCurrentJornadaMatches(selectedJornada.id, updatedJornadasResult.jornadas);
+        await fetchCurrentJornadaMatches(
+          selectedJornada.id,
+          updatedJornadasResult.jornadas,
+          repositionMappings,
+          repositionMatchMappings,
+          { matchesSource: allTournamentMatches }
+        );
       }
     } catch (error) {
       console.error(error);
@@ -1127,7 +1174,8 @@ export function TorneoJornadasTab({
       targetJornada.id,
       jornadas,
       repositionMappings,
-      repositionMatchMappings
+      repositionMatchMappings,
+      { matchesSource: allTournamentMatches }
     ).finally(() => {
       if (requestId === routeJornadaMatchesRequestRef.current) {
         setLoading(false);
@@ -1135,6 +1183,7 @@ export function TorneoJornadasTab({
     });
   }, [
     activeTournament?.id,
+    allTournamentMatches,
     currentJornadaIndex,
     jornadas,
     repositionMappings,
@@ -1172,16 +1221,16 @@ export function TorneoJornadasTab({
         type: "success",
       });
 
-      await fetchAllTournamentMatches();
+      const tournamentMatches = await fetchAllTournamentMatches();
       if (jornadas[currentJornadaIndex]?.id) {
         await fetchCurrentJornadaMatches(
           jornadas[currentJornadaIndex].id,
           jornadas,
           repositionMappings,
-          repositionMatchMappings
+          repositionMatchMappings,
+          { matchesSource: tournamentMatches }
         );
       }
-      await fetchGlobalPendingMatches();
       setDataVersion((prev) => prev + 1);
     } catch (error) {
       console.error(error);
@@ -1205,8 +1254,7 @@ export function TorneoJornadasTab({
         const updatedMappings = await fetchTournamentConfig();
         const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
         const updatedJornadas = updatedJornadasResult?.jornadas || [];
-        await fetchGlobalPendingMatches();
-        await fetchAllTournamentMatches();
+        const tournamentMatches = await fetchAllTournamentMatches();
 
         const jornadaToRefresh =
           updatedJornadasResult?.selectedJornada ||
@@ -1218,7 +1266,8 @@ export function TorneoJornadasTab({
             jornadaToRefresh.id,
             updatedJornadas,
             updatedMappings?.jornadaMappings || [],
-            updatedMappings?.matchMappings || []
+            updatedMappings?.matchMappings || [],
+            { matchesSource: tournamentMatches }
           );
         }
         
@@ -1246,8 +1295,7 @@ export function TorneoJornadasTab({
         const updatedMappings = await fetchTournamentConfig();
         const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
         const updatedJornadas = updatedJornadasResult?.jornadas || [];
-        await fetchGlobalPendingMatches();
-        await fetchAllTournamentMatches();
+        const tournamentMatches = await fetchAllTournamentMatches();
 
         const jornadaToRefresh =
           updatedJornadasResult?.selectedJornada ||
@@ -1259,7 +1307,8 @@ export function TorneoJornadasTab({
             jornadaToRefresh.id,
             updatedJornadas,
             updatedMappings?.jornadaMappings || [],
-            updatedMappings?.matchMappings || []
+            updatedMappings?.matchMappings || [],
+            { matchesSource: tournamentMatches }
           );
         }
     } catch (error) {
@@ -1364,20 +1413,31 @@ export function TorneoJornadasTab({
     );
 
     const currentJornadaId = jornadas[currentJornadaIndex]?.id;
+    const refreshTournamentMatches = Promise.resolve().then(async () => {
+      const tournamentMatches = await fetchAllTournamentMatches({
+        preserveOnError: true,
+        throwOnError: true,
+      });
+
+      if (currentJornadaId) {
+        await fetchCurrentJornadaMatches(
+          currentJornadaId,
+          jornadas,
+          repositionMappings,
+          repositionMatchMappings,
+          {
+            preserveOnError: true,
+            throwOnError: true,
+            matchesSource: tournamentMatches,
+          }
+        );
+      }
+    });
     const refreshTasks = [
       refreshStandings
         ? Promise.resolve().then(() => refreshStandings())
         : Promise.resolve(),
-      currentJornadaId
-        ? fetchCurrentJornadaMatches(
-            currentJornadaId,
-            jornadas,
-            repositionMappings,
-            repositionMatchMappings,
-            { preserveOnError: true, throwOnError: true }
-          )
-        : Promise.resolve(),
-      fetchGlobalPendingMatches({ throwOnError: true }),
+      refreshTournamentMatches,
     ];
 
     void Promise.allSettled(refreshTasks).then((results) => {
@@ -1414,9 +1474,14 @@ export function TorneoJornadasTab({
 
     await new Promise(res => setTimeout(res, 100));
     if (refreshStandings) await refreshStandings();
-    await fetchCurrentJornadaMatches(jornadas[currentJornadaIndex].id);
-    await fetchGlobalPendingMatches();
-    await fetchAllTournamentMatches();
+    const tournamentMatches = await fetchAllTournamentMatches();
+    await fetchCurrentJornadaMatches(
+      jornadas[currentJornadaIndex].id,
+      jornadas,
+      repositionMappings,
+      repositionMatchMappings,
+      { matchesSource: tournamentMatches }
+    );
 
     return resetResult;
   };

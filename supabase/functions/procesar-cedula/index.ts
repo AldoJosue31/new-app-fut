@@ -16,6 +16,12 @@ import {
 } from "../_shared/documentOcr.ts";
 import { validateClientCedulaScan } from "./clientScan.ts";
 import { normalizeScannedPlayers } from "./playerScan.ts";
+import {
+  authorizeRateLimitedRequest,
+  corsJsonResponse,
+  type CorsDecision,
+  resolveCors,
+} from "../_shared/edgeSecurity.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
 const MAX_DETAIL_IMAGES = 2;
@@ -154,17 +160,9 @@ Si la frase esta escrita dentro del bloque de jugadores de un equipo, usa first 
 Marca walkover.detected=true solamente cuando exista evidencia textual visible. Si ambos equipos aparecen como ausentes usa absentTeamBlock=both. Si la frase existe pero no se puede determinar el bloque usa unknown.
 Si un texto no es legible usa cadena vacia o unknown segun su tipo. Para una celda GOL ilegible conserva goalsLegible=false; no la confundas con una celda vacia. No inventes jugadores, resultados, fechas ni arbitros.`;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-request-id",
-  "Access-Control-Expose-Headers": "Retry-After, X-Request-Id, X-Scan-Cache, X-Scan-Provider",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const jsonResponse = (body: unknown, status = 200, headers: HeadersInit = {}) => Response.json(body, {
-  status,
-  headers: { ...corsHeaders, ...headers },
-});
+const createJsonResponse = (cors: CorsDecision) =>
+  (body: unknown, status = 200, headers: HeadersInit = {}) =>
+    corsJsonResponse(cors, body, status, headers);
 
 type ScanDetailImage = {
   imageBase64: string;
@@ -506,11 +504,33 @@ const readImageRequest = async (req: Request) => {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const cors = resolveCors(req, {
+    exposeHeaders: "Retry-After, X-Request-Id, X-Scan-Cache, X-Scan-Provider",
+  });
+  const jsonResponse = createJsonResponse(cors);
+  if (req.method === "OPTIONS") {
+    return cors.allowed
+      ? new Response("ok", { headers: cors.headers })
+      : jsonResponse({ error: "Origen no permitido." }, 403);
+  }
+  if (!cors.allowed) {
+    return jsonResponse({ error: "Origen no permitido." }, 403);
+  }
   const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
   const responseHeaders = { "X-Request-Id": requestId };
   if (req.method !== "POST") {
     return jsonResponse({ error: "Metodo no permitido.", requestId }, 405, responseHeaders);
+  }
+
+  const rateLimit = await authorizeRateLimitedRequest(req, {
+    scope: "procesar-cedula",
+  });
+  if (!rateLimit.allowed) {
+    return jsonResponse(
+      { ...rateLimit.body, requestId },
+      rateLimit.status || 503,
+      { ...responseHeaders, ...rateLimit.headers },
+    );
   }
 
   try {

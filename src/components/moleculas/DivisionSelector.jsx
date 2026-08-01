@@ -14,10 +14,7 @@ import { Btnsave } from "../moleculas/Btnsave";
 import { IoIosArrowDown } from "react-icons/io";
 import { RiDeleteBinLine } from "react-icons/ri";
 import { BiTransfer } from "react-icons/bi";
-import {
-  buildTournamentPath,
-  parseTournamentRoute,
-} from "../../lib/navigation/tournamentRoutes.js";
+import { buildTournamentDivisionSwitchPath } from "../../lib/navigation/tournamentRoutes.js";
 import { useNavigationProgress } from "../app/NavigationProgress";
 
 export function DivisionSelector({ isOpen, currentPath = "/" }) {
@@ -87,29 +84,24 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
 
     showDivisionProgress(division);
 
-    const pathSegments = currentPath.split(/[?#]/, 1)[0].split("/").filter(Boolean);
-    const tournamentsIndex = pathSegments.indexOf("torneos");
-    if (tournamentsIndex !== -1) {
-      const tournamentRoute = parseTournamentRoute({
-        tournamentOrTab: pathSegments[tournamentsIndex + 1],
-        tab: pathSegments[tournamentsIndex + 2],
-        jornadaId: pathSegments[tournamentsIndex + 3],
-      });
-      const destination = buildTournamentPath({
-        divisionId: division.id,
-        tab: tournamentRoute.tab || "definir",
-      });
+    const activePath =
+      typeof window === "undefined" ? currentPath : window.location.pathname;
+    const tournamentDestination = buildTournamentDivisionSwitchPath({
+      divisionId: division.id,
+      pathname: activePath,
+    });
+    if (tournamentDestination) {
       startNavigation({
         doneLabel: `${division.name} activa`,
         kind: "division",
         label: `Cambiando a ${division.name}`,
-        targetPath: destination,
+        targetPath: tournamentDestination,
       });
-      router.replace(destination, { scroll: false });
+      router.replace(tournamentDestination, { scroll: false });
       return;
     }
 
-    const equiposMatch = currentPath.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
+    const equiposMatch = activePath.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
     if (equiposMatch) {
       const destination = `/division/${division.id}/equipos`;
       startNavigation({

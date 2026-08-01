@@ -1,14 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const jsonResponse = (body: unknown, status = 200) =>
-  Response.json(body, { status, headers: corsHeaders });
+import { corsJsonResponse, resolveCors } from "../_shared/edgeSecurity.ts";
 
 const fail = (message: string, status: number): never => {
   const error = new Error(message) as Error & { status?: number };
@@ -147,8 +138,17 @@ export const createHandler = (dependencies: HandlerDependencies = {}) => {
   const authorize = dependencies.authorizeTeamManager || authorizeTeamManager;
 
   return async (req: Request) => {
+    const cors = resolveCors(req, { getEnv });
+    const jsonResponse = (body: unknown, status = 200) =>
+      corsJsonResponse(cors, body, status);
+
     if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
+      return cors.allowed
+        ? new Response("ok", { headers: cors.headers })
+        : jsonResponse({ error: "Origen no permitido." }, 403);
+    }
+    if (!cors.allowed) {
+      return jsonResponse({ error: "Origen no permitido." }, 403);
     }
     if (req.method !== "POST") {
       return jsonResponse({ error: "Metodo no permitido." }, 405);

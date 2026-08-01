@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from "../lib/supabase/browserClient.js";
+import { getGoalEventsByTournamentService } from '../services/estadisticas';
+import { getErrorDetails, isAbortError } from '../utils/errorUtils';
 import {
   getOfficialJornadaNumberForMatch,
   useTorneoStandingsLogic,
@@ -56,59 +57,6 @@ const sortScorers = (a, b) => {
   return fullNameA.localeCompare(fullNameB, 'es', { sensitivity: 'base' });
 };
 
-const GOAL_EVENTS_PAGE_SIZE = 1000;
-
-const fetchGoalEventsByTournament = async (torneoId) => {
-  const allRows = [];
-  let from = 0;
-
-  while (true) {
-    const to = from + GOAL_EVENTS_PAGE_SIZE - 1;
-
-    const { data, error } = await supabase
-      .from('match_events')
-      .select(`
-        id,
-        match_id,
-        player_id,
-        event_type,
-        players!inner (
-          id,
-          first_name,
-          last_name,
-          dorsal,
-          photo_url,
-          team_id
-        ),
-        matches!inner (
-          id,
-          status,
-          team1_id,
-          team2_id,
-          jornadas!inner (
-            id,
-            name,
-            tournament_id
-          )
-        )
-      `)
-      .eq('matches.jornadas.tournament_id', torneoId)
-      .or('event_type.ilike.%gol%,event_type.ilike.%goal%')
-      .order('id', { ascending: true })
-      .range(from, to);
-
-    if (error) throw error;
-
-    const rows = Array.isArray(data) ? data : [];
-    allRows.push(...rows);
-
-    if (rows.length < GOAL_EVENTS_PAGE_SIZE) break;
-    from += GOAL_EVENTS_PAGE_SIZE;
-  }
-
-  return allRows;
-};
-
 export const useTorneoGoleadoresLogic = ({
   torneo,
   equipos = [],
@@ -143,6 +91,7 @@ export const useTorneoGoleadoresLogic = ({
 
   useEffect(() => {
     let mounted = true;
+    const abortController = new AbortController();
 
     const loadGoalEvents = async () => {
       if (!torneo?.id) {
@@ -165,14 +114,20 @@ export const useTorneoGoleadoresLogic = ({
       try {
         setIsLoadingEvents(true);
 
-        const data = await fetchGoalEventsByTournament(torneo.id);
+        const data = await getGoalEventsByTournamentService(torneo.id, {
+          signal: abortController.signal,
+        });
 
-        if (mounted) {
+        if (mounted && !abortController.signal.aborted) {
           setGoalEvents(Array.isArray(data) ? data : []);
           setEventsReady(true);
         }
       } catch (error) {
-        console.error('Error fetching goleadores by jornada:', error);
+        if (abortController.signal.aborted || isAbortError(error)) return;
+        console.error(
+          'Error obteniendo goleadores por jornada:',
+          getErrorDetails(error),
+        );
         if (mounted) {
           setGoalEvents([]);
           setEventsReady(true);
@@ -186,6 +141,7 @@ export const useTorneoGoleadoresLogic = ({
 
     return () => {
       mounted = false;
+      abortController.abort();
     };
   }, [goalEventsProp, torneo?.id]);
 
