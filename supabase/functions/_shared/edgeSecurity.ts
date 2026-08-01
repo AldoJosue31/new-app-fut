@@ -88,6 +88,30 @@ const rejected = (
   headers,
 });
 
+const bearerRole = (authorization: string) => {
+  const payload = authorization.replace(/^Bearer\s+/i, "").split(".")[1];
+  if (!payload) return "";
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/")
+      .padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    return String((JSON.parse(atob(normalized)) as { role?: unknown }).role || "");
+  } catch {
+    return "";
+  }
+};
+
+export const isServiceRoleRequest = (
+  req: Request,
+  getEnv: EnvironmentReader = readEnvironment,
+) => {
+  const authorization = req.headers.get("Authorization") || "";
+  const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  return Boolean(
+    (serviceRoleKey && authorization === `Bearer ${serviceRoleKey}`) ||
+      bearerRole(authorization) === "service_role",
+  );
+};
+
 export const authorizeRateLimitedRequest = async (
   req: Request,
   options: RateLimitOptions,
@@ -101,6 +125,14 @@ export const authorizeRateLimitedRequest = async (
   const authorization = req.headers.get("Authorization") || "";
   if (!authorization.startsWith("Bearer ")) {
     return rejected(401, "No autorizado.", "EDGE_AUTH_REQUIRED");
+  }
+
+  // Las verificaciones operativas usan la service role desde un entorno de
+  // servidor. El gateway de estas funciones valida primero la firma JWT
+  // (verify_jwt=true); aqui solo distinguimos el rol ya autenticado para no
+  // consumir la cuota de un usuario final.
+  if (isServiceRoleRequest(req, getEnv)) {
+    return { allowed: true };
   }
 
   const supabaseUrl = getEnv("SUPABASE_URL");

@@ -32,6 +32,14 @@ Deno.test("elige un modelo alterno vigente", () => {
   assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.5-flash", "respaldo por defecto");
 });
 
+Deno.test("usa el modelo alterno ante incompatibilidad de configuracion", () => {
+  assertEquals(
+    shouldFallbackProviderError({ status: 400, message: "Request contains an invalid argument" }),
+    true,
+    "fallback de compatibilidad",
+  );
+});
+
 Deno.test("clasifica cuota temporal y conserva la espera", () => {
   const error = {
     status: 429,

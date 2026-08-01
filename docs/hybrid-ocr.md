@@ -79,6 +79,8 @@ Reglas conservadoras:
 
 Por lo anterior, la ruta local reduce llamadas principalmente en roles impresos. En cedulas manuscritas, Vision o Gemini seguiran siendo necesarios con mayor frecuencia; eso es una medida de precision, no un fallo del sistema.
 
+La salida estructurada de la cedula usa un JSON Schema deliberadamente compacto. Limites de longitud, rangos, cardinalidad y campos adicionales se validan en la normalizacion determinista del servidor; no deben duplicarse en el schema enviado a Interactions, porque el proveedor puede rechazar schemas complejos con HTTP 400 antes de analizar la imagen.
+
 ## Configuracion
 
 Los secretos se configuran en Supabase, nunca como variables `VITE_*` ni dentro del repositorio:
@@ -172,4 +174,4 @@ node --test tests/*.test.js
 deno test supabase/functions/_shared/documentOcr_test.ts supabase/functions/procesar-cedula/*_test.ts supabase/functions/procesar-rol-juego/*_test.ts
 ```
 
-Las pruebas de Edge no necesitan claves reales: el adaptador HTTP debe recibir `fetch` inyectado y usar respuestas simuladas. Las verificaciones contra el proyecto remoto se ejecutan por separado con los scripts `verify-cedula-edge.mjs` y `verify-rol-juego-edge.mjs`.
+Las pruebas de Edge no necesitan claves reales: el adaptador HTTP debe recibir `fetch` inyectado y usar respuestas simuladas. Las verificaciones contra el proyecto remoto se ejecutan por separado con los scripts `verify-cedula-edge.mjs` y `verify-rol-juego-edge.mjs`; ambos aceptan `--smoke` para probar el contrato del proveedor con una imagen sintetica y sin datos personales.

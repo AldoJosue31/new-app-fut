@@ -102,6 +102,46 @@ Deno.test("el limitador falla si no hay Bearer", async () => {
   assertEquals(decision.status, 401, "la autenticacion debe ser obligatoria");
 });
 
+Deno.test("la service role permite verificaciones sin consumir cuota", async () => {
+  let rpcCalled = false;
+  const decision = await authorizeRateLimitedRequest(
+    request(undefined, "Bearer server-only-key"),
+    {
+      scope: "procesar-cedula",
+      getEnv: env({
+        EDGE_RATE_LIMIT_MODE: "enforce",
+        SUPABASE_SERVICE_ROLE_KEY: "server-only-key",
+      }),
+      fetcher: async () => {
+        rpcCalled = true;
+        return new Response(null, { status: 500 });
+      },
+    },
+  );
+
+  assertEquals(decision.allowed, true, "la service role debe continuar");
+  assertEquals(rpcCalled, false, "no debe consultar el RPC de usuarios");
+});
+
+Deno.test("reconoce la service role JWT ya validada por el gateway", async () => {
+  const payload = btoa(JSON.stringify({ role: "service_role" }))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const decision = await authorizeRateLimitedRequest(
+    request(undefined, `Bearer header.${payload}.gateway-signature`),
+    {
+      scope: "procesar-rol-juego",
+      getEnv: env({ EDGE_RATE_LIMIT_MODE: "enforce" }),
+      fetcher: async () => {
+        throw new Error("no debe consultar el RPC");
+      },
+    },
+  );
+
+  assertEquals(decision.allowed, true, "la service role JWT debe continuar");
+});
+
 Deno.test("el limitador propaga 429 y Retry-After", async () => {
   const decision = await authorizeRateLimitedRequest(request(), {
     scope: "procesar-rol-juego",

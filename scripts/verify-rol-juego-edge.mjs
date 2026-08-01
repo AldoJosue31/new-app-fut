@@ -23,22 +23,31 @@ const parseEnvFile = (contents) => Object.fromEntries(
 );
 
 const localEnv = parseEnvFile(await readFile(".env", "utf8"));
-const supabaseUrl = localEnv.VITE_APP_SUPABASE_URL;
-const authKey = localEnv.VITE_APP_SUPABASE_ANON_KEY ||
-  localEnv.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.VITE_APP_SUPABASE_URL || localEnv.VITE_APP_SUPABASE_URL;
+const authKey = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  localEnv.SUPABASE_SERVICE_ROLE_KEY ||
+  localEnv.VITE_APP_SUPABASE_ANON_KEY;
 if (!supabaseUrl || !authKey) {
   throw new Error("Faltan URL o credenciales de Supabase en .env");
 }
 
-const extension = path.extname(imagePath).toLowerCase();
+const smokePng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+const extension = imagePath === "--smoke" ? ".png" : path.extname(imagePath).toLowerCase();
 const mimeType = extension === ".png"
   ? "image/png"
   : extension === ".webp"
   ? "image/webp"
   : "image/jpeg";
-const image = await readFile(imagePath);
+const image = imagePath === "--smoke" ? smokePng : await readFile(imagePath);
 const formData = new FormData();
-formData.append("image", new Blob([image], { type: mimeType }), path.basename(imagePath));
+formData.append(
+  "image",
+  new Blob([image], { type: mimeType }),
+  imagePath === "--smoke" ? "smoke.png" : path.basename(imagePath),
+);
 formData.append("mimeType", mimeType);
 const contextText = rawContext.startsWith("base64:")
   ? Buffer.from(rawContext.slice(7), "base64").toString("utf8")
@@ -69,6 +78,7 @@ console.log(JSON.stringify({
   requestId: response.headers.get("x-request-id") || body?.requestId || "",
   code: body?.code || "",
   error: body?.error || "",
+  diagnostic: body?.diagnostic || null,
   scan: body?.scan || null,
 }, null, 2));
 if (!response.ok) process.exitCode = 1;
