@@ -1,5 +1,5 @@
-export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
-export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3-flash-preview";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash";
 
 type ProviderError = {
   status?: unknown;
