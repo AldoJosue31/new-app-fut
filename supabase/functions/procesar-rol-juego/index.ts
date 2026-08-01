@@ -18,6 +18,7 @@ import { validateClientScheduleScan } from "./clientScan.ts";
 import {
   authorizeRateLimitedRequest,
   corsJsonResponse,
+  isServiceRoleRequest,
   type CorsDecision,
   resolveCors,
 } from "../_shared/edgeSecurity.ts";
@@ -514,6 +515,14 @@ Deno.serve(async (req) => {
       retryable: classification.retryable,
       retryAfterSeconds: classification.retryAfterSeconds || 0,
       requestId,
+      diagnostic: isServiceRoleRequest(req)
+        ? {
+          upstreamStatus: classification.upstreamStatus,
+          upstreamCode: classification.upstreamCode,
+          name: classification.name,
+          message: classification.message,
+        }
+        : undefined,
     }, classification.responseStatus, responseHeaders);
   }
 });

@@ -55,5 +55,35 @@ begin
   ) then
     raise exception 'public tournament RPC is no longer available to anon';
   end if;
+
+  if has_function_privilege(
+    'anon',
+    'app_private.can_read_match_event(bigint)',
+    'EXECUTE'
+  ) then
+    raise exception 'anon can execute the private match-event authorization helper';
+  end if;
+
+  if not has_function_privilege(
+    'authenticated',
+    'app_private.can_read_match_event(bigint)',
+    'EXECUTE'
+  ) then
+    raise exception 'authenticated cannot evaluate the match-events read policy';
+  end if;
+
+  select count(*)
+  into v_policy_count
+  from pg_policies
+  where schemaname = 'public'
+    and tablename = 'match_events'
+    and policyname = 'scoped_authenticated_read'
+    and cmd = 'SELECT'
+    and 'authenticated' = any(roles)
+    and qual = 'app_private.can_read_match_event(match_id)';
+
+  if v_policy_count <> 1 then
+    raise exception 'match_events is not using the optimized scoped read policy';
+  end if;
 end;
 $$;

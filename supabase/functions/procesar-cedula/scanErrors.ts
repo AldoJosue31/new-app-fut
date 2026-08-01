@@ -213,5 +213,6 @@ export const classifyProviderError = (
 
 export const shouldFallbackProviderError = (error: unknown) => [
   "SCAN_MODEL_UNAVAILABLE",
+  "SCAN_CONFIGURATION_ERROR",
   "SCAN_TEMPORARY_ERROR",
 ].includes(classifyProviderError(error).responseCode);

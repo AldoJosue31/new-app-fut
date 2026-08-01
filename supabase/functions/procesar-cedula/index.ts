@@ -19,6 +19,7 @@ import { normalizeScannedPlayers } from "./playerScan.ts";
 import {
   authorizeRateLimitedRequest,
   corsJsonResponse,
+  isServiceRoleRequest,
   type CorsDecision,
   resolveCors,
 } from "../_shared/edgeSecurity.ts";
@@ -37,28 +38,21 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/heif",
 ]);
 
-const textField = (description: string, maxLength = 240) => ({
-  type: "string",
-  description,
-  maxLength,
-});
-const countField = (description: string, maximum = 99) => ({
-  type: "integer",
-  description,
-  minimum: 0,
-  maximum,
-});
+// Mantener el schema compacto evita que Interactions rechace como invalida una
+// salida estructurada demasiado compleja. Las restricciones de longitud,
+// rangos y contenido se aplican despues en la normalizacion determinista.
+const textField = (_description: string, _maxLength = 240) => ({ type: "string" });
+const countField = (_description: string, _maximum = 99) => ({ type: "integer" });
 const playerSchema = {
   type: "object",
-  additionalProperties: false,
   properties: {
     name: textField("Nombre observado en esta fila, sin reemplazarlo por un candidato registrado. Conserva abreviaturas y errores visibles.", 100),
     jerseyNumber: textField("Dorsal observado en la columna # de esta misma fila; vacio si no es legible.", 8),
     rowNumber: countField("Numero de fila visual dentro de este bloque, comenzando en 1.", 60),
     goals: countField("Cantidad legible en la celda GOL de esta misma fila, convertida a numero. Interpreta tanto cifras como palabras en español: 'uno'=1, 'dos'=2, 'tres'=3. Cero solo si la celda esta claramente vacia.", 20),
-    goalsLegible: { type: "boolean", description: "Verdadero si la celda GOL se pudo leer con seguridad; falso si esta tapada, borrosa o ambigua." },
+    goalsLegible: { type: "boolean" },
     goalEvidence: textField("Contenido crudo observado dentro de la celda GOL, por ejemplo '2', '||', 'X' o 'vacia'. Nunca copies el marcador del equipo.", 40),
-    goalsConfidence: { type: "string", enum: ["high", "medium", "low"], description: "Confianza visual de la lectura exclusiva de la celda GOL." },
+    goalsConfidence: { type: "string", enum: ["high", "medium", "low"] },
     ownGoals: countField("Autogoles indicados explicitamente como AG/AUTOGOL en esta fila; cero si no existe esa anotacion.", 20),
     yellowCards: countField("Cantidad de marcas dentro de la celda TA de esta misma fila.", 2),
     redCards: countField("Cantidad de marcas dentro de la celda TR de esta misma fila.", 2),
@@ -80,26 +74,18 @@ const playerSchema = {
 // JSON Schema es el equivalente del modelo Pydantic para la salida estructurada de Gemini.
 const matchSheetSchema = {
   type: "object",
-  additionalProperties: false,
   properties: {
     teamBlocks: {
       type: "array",
-      minItems: 2,
-      maxItems: 2,
-      description: "Dos bloques neutrales de equipo en orden visual. Cada nombre, marcador y penal debe permanecer unido al mismo bloque, sin decidir cual es local o visitante.",
       items: {
         type: "object",
-        additionalProperties: false,
         properties: {
-          block: { type: "string", enum: ["first", "second"], description: "first para el primer bloque visual y second para el otro." },
+          block: { type: "string", enum: ["first", "second"] },
           name: textField("Nombre visible del equipo. Si coincide de forma aproximada con un equipo registrado del contexto, usar su escritura registrada."),
           score: countField("Marcador final escrito para este mismo equipo. No usar el orden local/visitante ni recalcularlo con los jugadores."),
           penaltyScore: countField("Goles de tanda de penales escritos para este mismo equipo; cero si no hay tanda."),
           players: {
             type: "array",
-            description: "Filas visibles de jugadores de este mismo bloque que tengan nombre/dorsal o alguna marca en TIT, GOL, TA o TR. No mezclar el otro equipo ni duplicar filas entre imagen y recortes.",
-            minItems: 0,
-            maxItems: 60,
             items: playerSchema,
           },
         },
@@ -112,11 +98,9 @@ const matchSheetSchema = {
     observations: textField("Observaciones escritas en la cedula; vacio si no existen."),
     walkover: {
       type: "object",
-      additionalProperties: false,
-      description: "Deteccion de inasistencia o victoria por default escrita en cualquier parte de la cedula, incluidas las listas de jugadores.",
       properties: {
-        detected: { type: "boolean", description: "Verdadero solo si hay texto visible que indique que uno o ambos equipos no se presentaron, W.O. o victoria por default." },
-        absentTeamBlock: { type: "string", enum: ["first", "second", "both", "unknown", "none"], description: "Bloque visual del equipo que no se presento. No clasificarlo como local o visitante." },
+        detected: { type: "boolean" },
+        absentTeamBlock: { type: "string", enum: ["first", "second", "both", "unknown", "none"] },
         absentTeamName: textField("Nombre del equipo ausente tal como aparece escrito; vacio si no aparece."),
         evidence: textField("Frase visible que sustenta la deteccion, por ejemplo 'No se presento equipo X'."),
       },
@@ -743,6 +727,14 @@ Deno.serve(async (req) => {
       retryable: classified.retryable,
       retryAfterSeconds: classified.retryAfterSeconds,
       requestId,
+      diagnostic: isServiceRoleRequest(req)
+        ? {
+          upstreamStatus: classified.upstreamStatus,
+          upstreamCode: classified.upstreamCode,
+          name: classified.name,
+          message: classified.message,
+        }
+        : undefined,
     }, classified.responseStatus, retryHeaders);
   }
 });
