@@ -12,14 +12,14 @@ const assertEquals = (actual: unknown, expected: unknown, message: string) => {
   if (actual !== expected) throw new Error(`${message}: esperado ${expected}, recibido ${actual}`);
 };
 
-Deno.test("usa Flash Lite estable y reemplaza modelos retirados", () => {
+Deno.test("usa Gemini 3.6 Flash y reemplaza modelos retirados", () => {
   assertEquals(selectGeminiModel("models/gemini-2.0-flash"), DEFAULT_GEMINI_MODEL, "modelo primario");
   assertEquals(
     selectGeminiModel("gemini-3.1-flash-lite-preview"),
     DEFAULT_GEMINI_MODEL,
     "preview retirado",
   );
-  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.1-flash-lite", "modelo estable por defecto");
+  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.6-flash", "modelo principal por defecto");
   assertEquals(selectGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash", "modelo vigente");
 });
 
@@ -55,7 +55,7 @@ Deno.test("clasifica cuota temporal y conserva la espera", () => {
   const classified = classifyProviderError(error);
   assertEquals(classified.responseCode, "SCAN_RATE_LIMITED", "codigo");
   assertEquals(classified.retryAfterSeconds, 33, "Retry-After");
-  assertEquals(shouldFallbackProviderError(error), false, "no duplica llamadas por limite temporal");
+  assertEquals(shouldFallbackProviderError(error), true, "usa respaldo por limite temporal");
 });
 
 Deno.test("calcula el reinicio diario en la medianoche de Los Angeles", () => {
@@ -71,7 +71,7 @@ Deno.test("calcula el reinicio diario en la medianoche de Los Angeles", () => {
   );
 });
 
-Deno.test("la cuota diaria espera al reinicio y no consume el fallback", () => {
+Deno.test("la cuota diaria conserva el reinicio y usa el modelo de respaldo", () => {
   const error = {
     status: 429,
     message: JSON.stringify({
@@ -85,7 +85,7 @@ Deno.test("la cuota diaria espera al reinicio y no consume el fallback", () => {
   const classified = classifyProviderError(error, new Date("2026-07-20T10:00:00.000Z"));
   assertEquals(classified.responseCode, "SCAN_DAILY_QUOTA_EXCEEDED", "codigo diario");
   assertEquals(classified.retryAfterSeconds, 21 * 60 * 60, "espera al reinicio");
-  assertEquals(shouldFallbackProviderError(error), false, "no duplica llamadas por cuota diaria");
+  assertEquals(shouldFallbackProviderError(error), true, "usa respaldo por cuota diaria");
 });
 
 Deno.test("clasifica indisponibilidad del proveedor", () => {
@@ -95,12 +95,12 @@ Deno.test("clasifica indisponibilidad del proveedor", () => {
   assertEquals(shouldFallbackProviderError({ status: 503 }), true, "usa respaldo");
 });
 
-Deno.test("solo usa respaldo por modelo no disponible o error temporal", () => {
+Deno.test("usa respaldo por indisponibilidad o agotamiento del modelo principal", () => {
   assertEquals(
     shouldFallbackProviderError({ status: 404, message: "Model is not available" }),
     true,
     "modelo no disponible",
   );
-  assertEquals(shouldFallbackProviderError({ status: 429 }), false, "429 sin respaldo");
+  assertEquals(shouldFallbackProviderError({ status: 429 }), true, "429 con respaldo");
   assertEquals(shouldFallbackProviderError({ status: 504 }), false, "timeout sin segunda llamada");
 });

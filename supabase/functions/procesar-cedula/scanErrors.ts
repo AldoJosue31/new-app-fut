@@ -1,4 +1,4 @@
-export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
 export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash";
 
 const PACIFIC_TIME_ZONE = "America/Los_Angeles";
@@ -214,5 +214,7 @@ export const classifyProviderError = (
 export const shouldFallbackProviderError = (error: unknown) => [
   "SCAN_MODEL_UNAVAILABLE",
   "SCAN_CONFIGURATION_ERROR",
+  "SCAN_RATE_LIMITED",
+  "SCAN_DAILY_QUOTA_EXCEEDED",
   "SCAN_TEMPORARY_ERROR",
 ].includes(classifyProviderError(error).responseCode);
