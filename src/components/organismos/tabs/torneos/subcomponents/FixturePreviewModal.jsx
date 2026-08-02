@@ -27,6 +27,7 @@ import {
     isOfficialJornadaName,
     isRepositionJornadaName,
 } from "../../../../../utils/jornadaUtils";
+import { resolveScannedSchedule } from "../../../../../utils/scannedScheduleUtils";
 
 const RolJuegoScanFlow = dynamic(
     () =>
@@ -492,13 +493,21 @@ export function FixturePreviewModal({
             for (let i = 0; i <= maxJornada; i++) {
                 const matchesInRound = finalMatches
                     .filter(m => m.jornadaIndex === i)
-                    .map(m => ({
-                        local: m.local,
-                        visitante: m.visitante,
-                        scannedDate: m.scanScheduleAccepted ? m.scannedDate : "",
-                        scannedTime: m.scanScheduleAccepted ? m.scannedTime : "",
-                        scanScheduleAccepted: Boolean(m.scanScheduleAccepted),
-                    }));
+                    .map(m => {
+                        const schedule = resolveScannedSchedule(m);
+                        const scanScheduleAccepted = Boolean(
+                            m.scanScheduleAccepted && schedule.complete
+                        );
+                        return {
+                            local: m.local,
+                            visitante: m.visitante,
+                            date: scanScheduleAccepted ? schedule.date : "",
+                            time: scanScheduleAccepted ? schedule.time : "",
+                            scannedDate: scanScheduleAccepted ? schedule.date : "",
+                            scannedTime: scanScheduleAccepted ? schedule.time : "",
+                            scanScheduleAccepted,
+                        };
+                    });
                 if (matchesInRound.length > 0) finalFixture.push({ name: `Jornada ${i + 1}`, matches: matchesInRound });
             }
             onConfirm(finalFixture);

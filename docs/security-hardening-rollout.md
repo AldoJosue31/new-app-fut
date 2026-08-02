@@ -20,12 +20,13 @@ liga. Esto evita cambiar las operaciones de administradores y delegados.
 Definir estos secretos antes de desplegar las funciones:
 
 ```text
-EDGE_ALLOWED_ORIGINS=https://preview-estable.example,https://app.example
+EDGE_ALLOWED_ORIGINS=https://preview-estable.example,https://app.example,http://localhost:3000
 EDGE_RATE_LIMIT_MODE=shadow
 ```
 
-`EDGE_ALLOWED_ORIGINS` acepta origenes exactos separados por comas. Los origenes
-locales en los puertos 3000, 4173 y 5173 se permiten para desarrollo. El valor
+`EDGE_ALLOWED_ORIGINS` acepta origenes exactos separados por comas. Si el
+frontend local invoca las Edge Functions remotas, los origenes locales que se
+usen en los puertos 3000, 4173 y 5173 deben agregarse al mismo secreto. El valor
 `*` existe solo como rollback de emergencia; no debe quedar en produccion.
 
 Los limites de ventana fija son:
