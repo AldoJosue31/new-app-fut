@@ -13,6 +13,9 @@ import { ROLES } from "../../../utils/constants";
 import { useNavigationProgress } from "../../app/NavigationProgress";
 
 const SIDEBAR_LAYER = 200;
+export const SIDEBAR_OPEN_WIDTH = 236;
+export const SIDEBAR_COLLAPSED_WIDTH = 88;
+const SIDEBAR_TOGGLE_SIZE = 44;
 
 const ManagerLinksArray = [
   { label: "Partidos", icon: "mdi:soccer-field", to: "/partidos" },
@@ -278,8 +281,8 @@ const Main = styled.div`
     position: fixed;
     top: 72px;
     left: 20px;
-    width: 44px;
-    height: 44px;
+    width: ${SIDEBAR_TOGGLE_SIZE}px;
+    height: ${SIDEBAR_TOGGLE_SIZE}px;
     border-radius: 50%;
     background: ${({ theme }) => theme.bgcards};
     border: 1px solid ${({ theme }) => theme.bg5};
@@ -317,7 +320,11 @@ const Main = styled.div`
   @media ${Device.tablet} {
     .Sidebarbutton {
       display: flex;
-      left: ${({ $isOpen }) => ($isOpen ? "238px" : "66px")};
+      left: ${({ $isOpen }) =>
+        `${
+          ($isOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_COLLAPSED_WIDTH) -
+          SIDEBAR_TOGGLE_SIZE / 2
+        }px`};
     }
   }
 
@@ -355,7 +362,7 @@ const Container = styled.div`
   left: 0;
   z-index: ${SIDEBAR_LAYER};
   height: 100%;
-  width: 260px;
+  width: ${SIDEBAR_OPEN_WIDTH}px;
   transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(-100%)")};
   transition: transform 280ms ease, width 280ms ease;
   box-shadow: ${({ $isOpen, theme }) => ($isOpen ? theme.boxshadowGray : "none")};
@@ -377,10 +384,10 @@ const Container = styled.div`
     transform: none;
     position: fixed;
     box-shadow: none;
-    width: 88px;
+    width: ${SIDEBAR_COLLAPSED_WIDTH}px;
 
     &.active {
-      width: 260px;
+      width: ${SIDEBAR_OPEN_WIDTH}px;
     }
   }
 
@@ -388,15 +395,15 @@ const Container = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 108px;
-    padding: 18px 16px 30px;
+    min-height: 100px;
+    padding: 16px 14px 26px;
     box-sizing: border-box;
 
     .logo-link {
       display: flex;
       justify-content: ${({ $isOpen }) => ($isOpen ? "flex-start" : "center")};
       align-items: center;
-      gap: 13px;
+      gap: 10px;
       text-decoration: none;
       color: inherit;
       width: 100%;
@@ -413,8 +420,8 @@ const Container = styled.div`
       display: flex;
       justify-content: center;
       align-items: center;
-      width: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
-      height: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
+      width: ${({ $isOpen }) => ($isOpen ? "50px" : "48px")};
+      height: ${({ $isOpen }) => ($isOpen ? "50px" : "48px")};
       flex: 0 0 auto;
       cursor: pointer;
       transition: width 280ms ease, height 280ms ease, transform 180ms ease;
@@ -434,7 +441,7 @@ const Container = styled.div`
       gap: 5px;
       min-width: 0;
       margin: 0;
-      font-size: 21px;
+      font-size: 20px;
       line-height: 1;
       letter-spacing: -0.025em;
       white-space: nowrap;
@@ -453,8 +460,7 @@ const Container = styled.div`
   }
 
   .LinkContainer {
-    margin: 9px 0 9px 8px;
-    margin-right: 10px;
+    margin: 7px 8px;
     transition: all 0.3s ease-in-out;
     position: relative;
     text-transform: uppercase;
@@ -468,7 +474,7 @@ const Container = styled.div`
     text-decoration: none;
     width: 100%;
     color: ${(props) => props.theme.text};
-    height: 60px;
+    height: 56px;
     position: relative;
     cursor: pointer;
 
@@ -487,6 +493,10 @@ const Container = styled.div`
         transition: 0.3s ease-in-out;
         opacity: 1;
         display: initial;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .label_oculto {
@@ -496,8 +506,8 @@ const Container = styled.div`
 
       &.open {
         justify-content: start;
-        gap: 20px;
-        padding: 20px;
+        gap: ${() => v.mdSpacing};
+        padding: ${() => v.mdSpacing};
       }
     }
 
@@ -537,7 +547,7 @@ const Divider = styled.div`
   height: 1px;
   width: 100%;
   background: ${(props) => props.theme.bg4};
-  margin: ${() => v.lgSpacing} 0;
+  margin: ${() => v.mdSpacing} 0;
 `;
 
 const MenuLabel = styled.span`
@@ -547,7 +557,7 @@ const MenuLabel = styled.span`
   text-transform: uppercase;
   color: ${({ theme }) => theme.text};
   opacity: 0.5;
-  margin: 10px 0 5px 20px;
+  margin: 10px 0 5px 16px;
 
   @media ${Device.tablet} {
     display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
