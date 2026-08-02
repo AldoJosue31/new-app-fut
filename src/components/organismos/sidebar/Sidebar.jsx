@@ -12,6 +12,8 @@ import { ConfirmModal } from "../ConfirmModal";
 import { ROLES } from "../../../utils/constants";
 import { useNavigationProgress } from "../../app/NavigationProgress";
 
+const SIDEBAR_LAYER = 200;
+
 const ManagerLinksArray = [
   { label: "Partidos", icon: "mdi:soccer-field", to: "/partidos" },
   { label: "Equipos", icon: "fluent:people-team-24-filled", to: "/equipos" },
@@ -171,11 +173,19 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
   return (
     <Main $isOpen={state}>
       <Overlay $isOpen={state} onClick={() => setState(false)} />
-      <button type="button" className="Sidebarbutton" onClick={() => setState(!state)} aria-label={state ? "Cerrar menú" : "Abrir menú"}>
-        <v.iconoflechaderecha />
+      <button
+        type="button"
+        className="Sidebarbutton"
+        onClick={() => setState(!state)}
+        aria-controls="app-sidebar"
+        aria-expanded={state}
+        aria-label={state ? "Cerrar menú" : "Abrir menú"}
+        title={state ? "Cerrar menú" : "Abrir menú"}
+      >
+        <v.iconoflechaderecha aria-hidden="true" />
       </button>
 
-      <Container $isOpen={state} className={state ? "active" : ""}>
+      <Container id="app-sidebar" $isOpen={state} className={state ? "active" : ""}>
         <div className="Logocontent">
           <Link
             href={sidebarHomePath}
@@ -187,8 +197,8 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
               })
             }
           >
-            <div className="imgcontent"><img src={v.logo} alt="Logo" /></div>
-            <h2>Bracket <br /> App</h2>
+            <div className="imgcontent"><img src={v.logo} alt="" /></div>
+            <h2>Bracket <span>App</span></h2>
           </Link>
         </div>
 
@@ -266,28 +276,55 @@ const Main = styled.div`
   .Sidebarbutton {
     display: none;
     position: fixed;
-    top: 70px;
+    top: 72px;
     left: 20px;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: ${(props) => props.theme.bgtgderecha};
-    box-shadow: 0 0 4px ${(props) => props.theme.bg3}, 0 0 7px ${(props) => props.theme.bg};
+    background: ${({ theme }) => theme.bgcards};
+    border: 1px solid ${({ theme }) => theme.bg5};
+    box-shadow: 0 8px 22px rgba(4, 31, 48, 0.18);
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.3s ease-in-out;
-    z-index: 51;
-    color: ${(props) => props.theme.text};
-    border: 0;
+    transition: left 280ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+    z-index: ${SIDEBAR_LAYER + 1};
+    color: ${({ theme }) => theme.primary};
     padding: 0;
+
+    svg {
+      font-size: 1.45rem;
+      transform: rotate(${({ $isOpen }) => ($isOpen ? "180deg" : "0deg")});
+      transition: transform 280ms ease;
+    }
+
+    &:hover {
+      background: ${({ theme }) => theme.bg6};
+      border-color: ${({ theme }) => theme.primary};
+      box-shadow: 0 10px 24px rgba(4, 31, 48, 0.24);
+    }
+
+    &:active {
+      transform: scale(0.94);
+    }
+
+    &:focus-visible {
+      outline: 3px solid ${({ theme }) => theme.primary};
+      outline-offset: 3px;
+    }
   }
 
   @media ${Device.tablet} {
     .Sidebarbutton {
       display: flex;
-      left: 68px;
-      transform: ${({ $isOpen }) => ($isOpen ? "translateX(173px) rotate(180deg)" : "initial")};
+      left: ${({ $isOpen }) => ($isOpen ? "238px" : "66px")};
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .Sidebarbutton,
+    .Sidebarbutton svg {
+      transition: none;
     }
   }
 `;
@@ -299,7 +336,7 @@ const Overlay = styled.div`
   width: 100%;
   height: 100vh;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 49;
+  z-index: ${SIDEBAR_LAYER - 1};
   opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
   visibility: ${({ $isOpen }) => ($isOpen ? "visible" : "hidden")};
   transition: opacity 0.3s ease;
@@ -316,11 +353,11 @@ const Container = styled.div`
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 50;
+  z-index: ${SIDEBAR_LAYER};
   height: 100%;
   width: 260px;
   transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(-100%)")};
-  transition: transform 0.3s ease-in-out;
+  transition: transform 280ms ease, width 280ms ease;
   box-shadow: ${({ $isOpen, theme }) => ($isOpen ? theme.boxshadowGray : "none")};
   overflow-y: auto;
   overflow-x: hidden;
@@ -351,39 +388,67 @@ const Container = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    padding-bottom: 60px;
-    padding-top: 20px;
+    min-height: 108px;
+    padding: 18px 16px 30px;
+    box-sizing: border-box;
 
     .logo-link {
       display: flex;
-      justify-content: center;
+      justify-content: ${({ $isOpen }) => ($isOpen ? "flex-start" : "center")};
       align-items: center;
+      gap: 13px;
       text-decoration: none;
       color: inherit;
       width: 100%;
+      min-width: 0;
+      border-radius: 12px;
+
+      &:focus-visible {
+        outline: 3px solid ${({ theme }) => theme.primary};
+        outline-offset: 4px;
+      }
     }
 
     .imgcontent {
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 30px;
+      width: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
+      height: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
+      flex: 0 0 auto;
       cursor: pointer;
-      transition: 0.3s ease;
-      transform: ${({ $isOpen, theme }) => ($isOpen ? "scale(0.7)" : `scale(1.5) rotate(${theme.logorotate})`)};
+      transition: width 280ms ease, height 280ms ease, transform 180ms ease;
 
       img {
         width: 100%;
-        animation: flotar 1.7s ease-in-out infinite alternate;
+        height: 100%;
+        object-fit: contain;
+        filter: drop-shadow(0 5px 8px rgba(4, 31, 48, 0.16));
       }
     }
 
     h2 {
-      color: #fff;
-      display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
-      margin-left: 10px;
-      font-size: 20px;
-      transition: 0.3s;
+      color: ${({ theme }) => theme.text};
+      display: ${({ $isOpen }) => ($isOpen ? "flex" : "none")};
+      align-items: baseline;
+      gap: 5px;
+      min-width: 0;
+      margin: 0;
+      font-size: 21px;
+      line-height: 1;
+      letter-spacing: -0.025em;
+      white-space: nowrap;
+
+      span {
+        color: ${({ theme }) => theme.primary};
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    .Logocontent .imgcontent {
+      transition: none;
     }
   }
 

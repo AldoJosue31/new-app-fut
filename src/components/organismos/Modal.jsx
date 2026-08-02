@@ -62,6 +62,8 @@ export const Modal = ({
   overlayPadding = "20px",
   maxHeight = "calc(100dvh - 40px)",
   minHeight = "auto",
+  smallScreenMaxHeight = null,
+  smallScreenMinHeight = null,
   bodyPadding = "25px",
   bodyOverflowY = "auto",
   width = "500px",
@@ -87,6 +89,8 @@ export const Modal = ({
         $width={width}
         $maxHeight={maxHeight}
         $minHeight={minHeight}
+        $smallScreenMaxHeight={smallScreenMaxHeight}
+        $smallScreenMinHeight={smallScreenMinHeight}
         $allowOverflow={!!headerActions}
         onClick={(e) => e.stopPropagation()}
       >
@@ -148,6 +152,11 @@ const ModalContainer = styled.div`
   overflow: ${({ $allowOverflow }) => ($allowOverflow ? "visible" : "hidden")};
   color: ${({ theme }) => theme.text};
   touch-action: auto;
+
+  @media (max-width: 1023px) {
+    max-height: ${({ $smallScreenMaxHeight, $maxHeight }) => $smallScreenMaxHeight || $maxHeight};
+    min-height: ${({ $smallScreenMinHeight, $minHeight }) => $smallScreenMinHeight || $minHeight};
+  }
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
