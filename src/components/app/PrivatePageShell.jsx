@@ -9,7 +9,11 @@ import { usePathname } from "next/navigation";
 import styled from "styled-components";
 
 import ErrorBoundary from "../organismos/ErrorBoundary.jsx";
-import { Sidebar } from "../organismos/sidebar/Sidebar.jsx";
+import {
+  Sidebar,
+  SIDEBAR_COLLAPSED_WIDTH,
+  SIDEBAR_OPEN_WIDTH,
+} from "../organismos/sidebar/Sidebar.jsx";
 import { Device } from "../../styles/breakpoints.jsx";
 import PrivatePageProviders from "./PrivatePageProviders.jsx";
 import { NavigationProgressBar } from "./NavigationProgress.jsx";
@@ -52,7 +56,7 @@ const Container = styled.main`
   min-height: 100vh;
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
-  transition: 0.1s ease-in-out;
+  transition: grid-template-columns 280ms ease;
 
   .contentSidebar {
     position: absolute;
@@ -74,10 +78,10 @@ const Container = styled.main`
   }
 
   @media ${Device.tablet} {
-    grid-template-columns: 88px 1fr;
+    grid-template-columns: ${SIDEBAR_COLLAPSED_WIDTH}px minmax(0, 1fr);
 
     &.active {
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: ${SIDEBAR_OPEN_WIDTH}px minmax(0, 1fr);
     }
 
     .contentRouters {

@@ -754,16 +754,14 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     <Modal
       isOpen={isOpen}
       onClose={isSaving ? undefined : onClose}
-      width={showCedulaScanner ? "1280px" : "950px"}
-      maxHeight={showCedulaScanner ? "95dvh" : "calc(100dvh - 40px)"}
-      minHeight={showCedulaScanner
-        ? "95dvh"
-        : isPlayersTab
-          ? "min(760px, calc(100dvh - 40px))"
-          : "auto"}
-      overlayPadding={showCedulaScanner ? "min(12px, 2.5dvh)" : "20px"}
-      bodyPadding={showCedulaScanner ? "clamp(14px, 2vw, 24px)" : "25px"}
-      bodyOverflowY={showCedulaScanner || isPlayersTab ? "hidden" : "auto"}
+      width={showCedulaScanner ? "min(1280px, 95vw)" : "min(1120px, 95vw)"}
+      maxHeight="95dvh"
+      minHeight="95dvh"
+      smallScreenMaxHeight="96dvh"
+      smallScreenMinHeight="96dvh"
+      overlayPadding="min(8px, 2dvh)"
+      bodyPadding="clamp(12px, 2.5vw, 25px)"
+      bodyOverflowY="hidden"
       title="Definir Resultado"
       closeOnOverlayClick={false}
       headerActions={!showCedulaScanner ? (
@@ -772,7 +770,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         </ScanHeaderButton>
       ) : null}
     >
-      <Container $fill={showCedulaScanner || isPlayersTab}>
+      <Container>
         {showCedulaScanner ? (
           <CedulaScanFlow
             match={match}
@@ -793,11 +791,18 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             <LoadingState>{isSaving ? "Guardando resultado..." : "Procesando datos..."}</LoadingState>
             ) : (
             <>
-                <TabsNavigation tabs={modalTabs} activeTab={activeTab} setActiveTab={setActiveTab} />
+                <TabsNavigation
+                  tabs={modalTabs}
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  showLabelsOnMobile
+                  equalWidth
+                  compact
+                  ariaLabel="Secciones del resultado"
+                />
                 <ContentBody
-                  $scrollable={isPlayersTab}
-                  tabIndex={isPlayersTab ? 0 : undefined}
-                  aria-label={isPlayersTab ? "Lista de jugadores del equipo" : undefined}
+                  tabIndex={0}
+                  aria-label={isPlayersTab ? "Lista de jugadores del equipo" : "Contenido de la sección seleccionada"}
                 >
                     {activeTab === 'general' && (
                         <TabContent>
@@ -872,27 +877,27 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
 const Container = styled.div`
   display: flex;
-  flex: ${({ $fill }) => ($fill ? "1 1 auto" : "0 1 auto")};
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 15px;
+  gap: 6px;
   width: 100%;
   min-height: 0;
 `;
 const ContentBody = styled.div`
   width: 100%;
-  flex: ${({ $scrollable }) => ($scrollable ? "1 1 0" : "0 1 auto")};
-  min-height: ${({ $scrollable }) => ($scrollable ? "0" : "350px")};
+  flex: 1 1 0;
+  min-height: 0;
   max-height: none;
   box-sizing: border-box;
   position: relative;
   overflow-x: hidden;
-  overflow-y: ${({ $scrollable }) => ($scrollable ? "auto" : "hidden")};
-  overscroll-behavior: ${({ $scrollable }) => ($scrollable ? "contain" : "auto")};
+  overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: ${({ $scrollable }) => ($scrollable ? "pan-y" : "auto")};
+  touch-action: pan-y;
   scroll-padding-block: 8px;
-  padding-right: ${({ $scrollable }) => ($scrollable ? "6px" : "0")};
-  scrollbar-gutter: ${({ $scrollable }) => ($scrollable ? "stable" : "auto")};
+  padding-right: 6px;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: ${({ theme }) => theme.colorScroll} transparent;
 
@@ -924,9 +929,43 @@ const ContentBody = styled.div`
     outline-offset: 2px;
   }
 `;
-const Footer = styled.div` flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 15px; margin-top: 10px; padding-top: 15px; border-top: 1px solid ${({theme})=>theme.bg4}; flex-wrap: wrap; `;
+const Footer = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 0;
+  padding-top: 8px;
+  border-top: 1px solid ${({theme})=>theme.bg4};
+  flex-wrap: wrap;
+
+  > button {
+    box-sizing: border-box;
+    min-height: 38px;
+    padding: 6px 16px;
+    border-bottom-width: 3px;
+    border-radius: 12px;
+    font-size: 13px;
+
+    .content {
+      gap: 8px;
+      line-height: 1;
+    }
+  }
+
+  @media (max-width: 560px) {
+    gap: 6px;
+    padding-top: 6px;
+
+    > button {
+      flex: 1 1 120px;
+      min-height: 44px;
+      padding: 6px 10px;
+    }
+  }
+`;
 const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
-const LoadingState = styled.div` display: flex; justify-content: center; align-items: center; height: 300px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
+const LoadingState = styled.div` display: flex; flex: 1 1 auto; justify-content: center; align-items: center; min-height: 180px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
 const ScanHeaderButton = styled.button`
   min-height: 34px;
   padding: 7px 12px;
