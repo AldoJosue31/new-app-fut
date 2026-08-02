@@ -10,6 +10,7 @@ import {
     buildRepositionJornadaName,
     isOfficialJornadaName,
 } from "../utils/jornadaUtils";
+import { resolveScannedSchedule } from "../utils/scannedScheduleUtils";
 
 const normalizeByeMatch = (match) => {
     const localId = match.local?.id;
@@ -108,6 +109,8 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                     ...match,
                     locked: false,
                     scanLocked: false,
+                    date: null,
+                    time: null,
                     scannedDate: "",
                     scannedTime: "",
                     scanScheduleAction: match.scanScheduleAccepted ? "clear" : null,
@@ -470,12 +473,12 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                 const current = roundMatches[index];
                 const isByeMatch =
                     pair.local?.id === "BYE" || pair.visitante?.id === "BYE";
+                const resolvedSchedule = resolveScannedSchedule(pair);
                 const scanScheduleAccepted = Boolean(
                     lockMatches &&
                     preserveDetectedSchedule &&
                     !isByeMatch &&
-                    pair.scannedDate &&
-                    pair.scannedTime
+                    resolvedSchedule.complete
                 );
 
                 return normalizeByeMatch({
@@ -489,11 +492,17 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                     jornadaIndex: normalizedRoundIndex,
                     locked: lockMatches || current?.locked || false,
                     scanLocked: lockMatches ? true : current?.scanLocked || false,
+                    date: lockMatches
+                        ? (scanScheduleAccepted ? resolvedSchedule.date : null)
+                        : current?.date ?? null,
+                    time: lockMatches
+                        ? (scanScheduleAccepted ? resolvedSchedule.time : null)
+                        : current?.time ?? null,
                     scannedDate: lockMatches
-                        ? (scanScheduleAccepted ? pair.scannedDate : "")
+                        ? (scanScheduleAccepted ? resolvedSchedule.date : "")
                         : current?.scannedDate || "",
                     scannedTime: lockMatches
-                        ? (scanScheduleAccepted ? pair.scannedTime : "")
+                        ? (scanScheduleAccepted ? resolvedSchedule.time : "")
                         : current?.scannedTime || "",
                     scanScheduleAccepted: lockMatches
                         ? scanScheduleAccepted

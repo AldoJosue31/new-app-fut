@@ -94,6 +94,21 @@ Deno.test("CORS no habilita localhost implicitamente", () => {
   );
 });
 
+Deno.test("CORS permite localhost cuando se declara explicitamente", () => {
+  const cors = resolveCors(request("http://localhost:3000"), {
+    getEnv: env({
+      EDGE_ALLOWED_ORIGINS:
+        "https://futbolapp.vercel.app,http://localhost:3000",
+    }),
+  });
+  assertEquals(cors.allowed, true, "localhost configurado debe pasar");
+  assertEquals(
+    cors.headers["Access-Control-Allow-Origin"],
+    "http://localhost:3000",
+    "debe reflejar el origen local exacto",
+  );
+});
+
 Deno.test("el limitador falla si no hay Bearer", async () => {
   const decision = await authorizeRateLimitedRequest(request(undefined, ""), {
     scope: "procesar-cedula",

@@ -856,13 +856,22 @@ export function TorneoJornadasTab({
               : null;
             const shouldApplyScannedSchedule = Boolean(scannedTimestamp);
             const shouldClearScannedSchedule = m.scanScheduleAction === "clear";
+            const original = m.dbId ? originalMap.get(m.dbId) : null;
 
             const payload = {
               jornada_id: targetJornadaId,
               team1_id: team1Id,
               team2_id: team2Id,
-              date: shouldApplyScannedSchedule ? scannedTimestamp : null,
-              status: shouldApplyScannedSchedule ? 'Programado' : 'Pendiente',
+              date: shouldApplyScannedSchedule
+                ? scannedTimestamp
+                : shouldClearScannedSchedule
+                  ? null
+                  : original?.date || null,
+              status: shouldApplyScannedSchedule
+                ? 'Programado'
+                : shouldClearScannedSchedule
+                  ? 'Pendiente'
+                  : original?.status || 'Pendiente',
             };
 
             if (!m.dbId) {
@@ -872,7 +881,6 @@ export function TorneoJornadasTab({
               return;
             }
 
-            const original = originalMap.get(m.dbId);
             if (!original) return;
 
             const jornadaChanged = String(original.jornada_id) !== String(targetJornadaId);
