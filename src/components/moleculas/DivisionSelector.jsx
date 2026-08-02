@@ -287,8 +287,10 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
 }
 
 const MainContainer = styled.div`
-  margin: 7px 8px;
-  min-height: 56px;
+  margin: 9px 0;
+  margin-left: 8px;
+  margin-right: 10px;
+  min-height: 60px;
   position: relative;
   display: flex;
   align-items: center;
@@ -462,7 +464,7 @@ const SelectWrapper = styled.div`
 
   select {
     width: 100%;
-    padding: 9px 34px 9px 10px;
+    padding: 10px 38px 10px 12px;
     appearance: none;
     background: transparent;
     border: none;
@@ -506,7 +508,7 @@ const SelectWrapper = styled.div`
 
   .loading-icon {
     position: absolute;
-    right: 10px;
+    right: 12px;
     top: 50%;
     width: 16px;
     height: 16px;

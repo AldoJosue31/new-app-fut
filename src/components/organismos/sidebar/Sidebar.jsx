@@ -395,15 +395,15 @@ const Container = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100px;
-    padding: 16px 14px 26px;
+    min-height: 108px;
+    padding: 18px 16px 30px;
     box-sizing: border-box;
 
     .logo-link {
       display: flex;
       justify-content: ${({ $isOpen }) => ($isOpen ? "flex-start" : "center")};
       align-items: center;
-      gap: 10px;
+      gap: 13px;
       text-decoration: none;
       color: inherit;
       width: 100%;
@@ -420,8 +420,8 @@ const Container = styled.div`
       display: flex;
       justify-content: center;
       align-items: center;
-      width: ${({ $isOpen }) => ($isOpen ? "50px" : "48px")};
-      height: ${({ $isOpen }) => ($isOpen ? "50px" : "48px")};
+      width: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
+      height: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
       flex: 0 0 auto;
       cursor: pointer;
       transition: width 280ms ease, height 280ms ease, transform 180ms ease;
@@ -441,7 +441,7 @@ const Container = styled.div`
       gap: 5px;
       min-width: 0;
       margin: 0;
-      font-size: 20px;
+      font-size: 21px;
       line-height: 1;
       letter-spacing: -0.025em;
       white-space: nowrap;
@@ -460,7 +460,8 @@ const Container = styled.div`
   }
 
   .LinkContainer {
-    margin: 7px 8px;
+    margin: 9px 0 9px 8px;
+    margin-right: 10px;
     transition: all 0.3s ease-in-out;
     position: relative;
     text-transform: uppercase;
@@ -474,7 +475,7 @@ const Container = styled.div`
     text-decoration: none;
     width: 100%;
     color: ${(props) => props.theme.text};
-    height: 56px;
+    height: 60px;
     position: relative;
     cursor: pointer;
 
@@ -506,8 +507,8 @@ const Container = styled.div`
 
       &.open {
         justify-content: start;
-        gap: ${() => v.mdSpacing};
-        padding: ${() => v.mdSpacing};
+        gap: 20px;
+        padding: 20px;
       }
     }
 
@@ -547,7 +548,7 @@ const Divider = styled.div`
   height: 1px;
   width: 100%;
   background: ${(props) => props.theme.bg4};
-  margin: ${() => v.mdSpacing} 0;
+  margin: ${() => v.lgSpacing} 0;
 `;
 
 const MenuLabel = styled.span`
@@ -557,7 +558,7 @@ const MenuLabel = styled.span`
   text-transform: uppercase;
   color: ${({ theme }) => theme.text};
   opacity: 0.5;
-  margin: 10px 0 5px 16px;
+  margin: 10px 0 5px 20px;
 
   @media ${Device.tablet} {
     display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
