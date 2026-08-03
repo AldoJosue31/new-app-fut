@@ -53,6 +53,7 @@ import {
 } from "../../lib/navigation/teamRoutes.js";
 import { ROLES } from "../../utils/constants";
 import { v } from "../../styles/variables";
+import { useDivisionNavigationCompletion } from "../../hooks/useDivisionNavigationCompletion";
 
 const teamNameCollator = new Intl.Collator("es", {
   sensitivity: "base",
@@ -292,6 +293,15 @@ export const EquiposTemplate = ({
         delegateBindingsLoading ||
         requestSummariesLoading ||
         invitationsInitialLoading));
+  const isDivisionContentReady =
+    !teamCardsLoading &&
+    Boolean(division) &&
+    String(division?.id || "") === String(routeDivisionId || "");
+
+  useDivisionNavigationCompletion({
+    divisionId: division?.id,
+    isReady: isDivisionContentReady,
+  });
   const allTeamsStatLoading = loading;
   const competitionStatLoading = loading || (hasTeams && participationLoading);
   const delegateStatsLoading = loading || (hasTeams && delegateBindingsLoading);

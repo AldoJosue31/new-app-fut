@@ -23,6 +23,7 @@ const EMPTY_TRANSITION = Object.freeze({
   kind: "view",
   label: "",
   startedPath: "",
+  targetDivisionId: "",
   targetPath: "",
 });
 
@@ -71,6 +72,7 @@ export function NavigationProgressProvider({ children }) {
       doneLabel = "Vista abierta",
       kind = "view",
       label = "Abriendo vista",
+      targetDivisionId = "",
       targetPath = "",
     } = {}) => {
       clearTimers();
@@ -81,13 +83,16 @@ export function NavigationProgressProvider({ children }) {
         kind,
         label,
         startedPath: normalizePath(pathname),
-        targetPath: normalizePath(targetPath),
+        targetDivisionId: String(targetDivisionId || ""),
+        targetPath: targetPath ? normalizePath(targetPath) : "",
       });
 
-      fallbackTimerRef.current = window.setTimeout(() => {
-        setTransition(EMPTY_TRANSITION);
-        fallbackTimerRef.current = null;
-      }, 10000);
+      if (kind !== "division") {
+        fallbackTimerRef.current = window.setTimeout(() => {
+          setTransition(EMPTY_TRANSITION);
+          fallbackTimerRef.current = null;
+        }, 10000);
+      }
     },
     [clearTimers, pathname],
   );
@@ -101,6 +106,7 @@ export function NavigationProgressProvider({ children }) {
     if (
       !transition.isVisible ||
       transition.isDone ||
+      transition.kind === "division" ||
       normalizePath(pathname) === transition.startedPath
     ) {
       return undefined;
@@ -113,6 +119,7 @@ export function NavigationProgressProvider({ children }) {
     pathname,
     transition.isDone,
     transition.isVisible,
+    transition.kind,
     transition.startedPath,
   ]);
 

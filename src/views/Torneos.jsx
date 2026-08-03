@@ -4,6 +4,7 @@ import React from "react";
 import { TorneosTemplate } from "../components/template/TorneosTemplate";
 import { Toast } from "../components/atomos/Toast"; 
 import { useTorneosLogic } from "../hooks/pages/useTorneosLogic"; 
+import { useDivisionNavigationCompletion } from "../hooks/useDivisionNavigationCompletion";
 
 export function Torneos({
   jornadaId,
@@ -17,6 +18,15 @@ export function Torneos({
 }) {
   const { state, actions, formData, toast } = useTorneosLogic({
     routeDivisionId,
+  });
+  const isDivisionContentReady =
+    !state.isLoadingData &&
+    Boolean(state.divisionName) &&
+    String(state.divisionId || "") === String(routeDivisionId || "");
+
+  useDivisionNavigationCompletion({
+    divisionId: state.divisionId,
+    isReady: isDivisionContentReady,
   });
 
   return (
