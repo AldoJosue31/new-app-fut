@@ -13,7 +13,6 @@ import {
   RiRefreshLine,
   RiTimeLine,
 } from "react-icons/ri";
-import { Toast } from "../../atomos/Toast";
 import { ConfirmModal } from "../ConfirmModal";
 import { Modal } from "../Modal";
 import {
@@ -22,6 +21,7 @@ import {
   updateDelegateInvitation,
 } from "../../../services/delegates";
 import { v } from "../../../styles/variables";
+import { notify } from "../../../lib/notifications/notify.js";
 
 const statusDefinitions = {
   active: { label: "Activa", rank: 0, color: v.verde },
@@ -376,7 +376,6 @@ export function ActiveDelegateInvitationsModal({
   const [deleting, setDeleting] = useState(false);
   const [reactivatingInvitationId, setReactivatingInvitationId] =
     useState(null);
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const reactivatingInvitationRef = useRef(null);
   const shouldReduceMotion = useReducedMotion();
 
@@ -490,31 +489,21 @@ export function ActiveDelegateInvitationsModal({
 
     try {
       await copyText(invitationUrl);
-      setToast({
-        show: true,
-        message:
+      notify.success(
           invitation.status === "active"
             ? "Enlace de invitación copiado."
             : "Enlace copiado. Esta invitación ya no está activa.",
-        type: "success",
-      });
+        { duration: 2500 },
+      );
     } catch {
-      setToast({
-        show: true,
-        message: "No se pudo copiar el enlace.",
-        type: "error",
-      });
+      notify.error("No se pudo copiar el enlace.");
     }
   };
 
   const handleSaved = async () => {
     await onInvitationUpdated?.();
     setEditingInvitation(null);
-    setToast({
-      show: true,
-      message: "Invitación actualizada correctamente.",
-      type: "success",
-    });
+    notify.success("Invitación actualizada correctamente.");
   };
 
   const handleDeleteInvitation = async () => {
@@ -525,18 +514,11 @@ export function ActiveDelegateInvitationsModal({
       await deleteDelegateInvitation(deletingInvitation.id);
       await onInvitationUpdated?.();
       setDeletingInvitation(null);
-      setToast({
-        show: true,
-        message: "Invitación eliminada permanentemente.",
-        type: "success",
-      });
+      notify.success("Invitación eliminada permanentemente.");
     } catch (deleteError) {
-      setToast({
-        show: true,
-        message:
-          deleteError.message || "No se pudo eliminar la invitación.",
-        type: "error",
-      });
+      notify.error(
+        deleteError.message || "No se pudo eliminar la invitación.",
+      );
     } finally {
       setDeleting(false);
     }
@@ -551,18 +533,11 @@ export function ActiveDelegateInvitationsModal({
     try {
       await reactivateExpiredDelegateInvitation(invitation.id);
       await onInvitationUpdated?.();
-      setToast({
-        show: true,
-        message: "Invitación reactivada por 3 días.",
-        type: "success",
-      });
+      notify.success("Invitación reactivada por 3 días.");
     } catch (reactivationError) {
-      setToast({
-        show: true,
-        message:
-          reactivationError.message || "No se pudo reactivar la invitación.",
-        type: "error",
-      });
+      notify.error(
+        reactivationError.message || "No se pudo reactivar la invitación.",
+      );
     } finally {
       reactivatingInvitationRef.current = null;
       setReactivatingInvitationId(null);
@@ -578,13 +553,6 @@ export function ActiveDelegateInvitationsModal({
 
   return (
     <>
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast((current) => ({ ...current, show: false }))}
-      />
-
       <Modal
         isOpen={isOpen}
         onClose={handleClose}

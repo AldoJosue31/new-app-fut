@@ -15,6 +15,7 @@ import {
   LEGACY_TOURNAMENT_RULES_DRAFT_STORAGE_KEY,
   TOURNAMENT_RULES_DRAFT_STORAGE_KEY,
 } from "../../utils/storageKeys";
+import { notify } from "../../lib/notifications/notify";
 
 const getParsedLeagueConfig = (leagueData) => {
   if (!leagueData?.default_config) return {};
@@ -177,8 +178,6 @@ export const useTorneosLogic = ({ routeDivisionId } = {}) => {
 
   const [reglas, setReglas] = useState(createDefaultTournamentRules);
 
-  const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
-
   const [form, setForm] = useState(createDefaultTournamentForm);
   const selectedDivisionRef = useRef(selectedDivision);
   const formRef = useRef(form);
@@ -186,8 +185,8 @@ export const useTorneosLogic = ({ routeDivisionId } = {}) => {
     divisionContext ||
     (activeDivisionId && selectedDivision?.id !== activeDivisionId ? null : selectedDivision);
 
-  const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
-  const closeToast = () => setToastConfig({ ...toastConfig, show: false });
+  const showToast = (message, type = "error") =>
+    notify.show(message, { type });
 
   useEffect(() => {
     selectedDivisionRef.current = selectedDivision;
@@ -570,10 +569,6 @@ export const useTorneosLogic = ({ routeDivisionId } = {}) => {
       form,
       reglas,
       minPlayers: form.minPlayers
-    },
-    toast: {
-      ...toastConfig,
-      close: closeToast
     }
   };
 };

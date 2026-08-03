@@ -5,7 +5,7 @@ import styled, { keyframes } from "styled-components";
 import { Icon } from "@iconify/react";
 import { landingCopy } from "../../views/landing/copy";
 import RealStandingsTable from "../organismos/tabs/torneos/subcomponents/StandingsTable";
-import { Toast } from "../atomos/Toast";
+import { InlineStatus } from "../atomos/InlineStatus";
 
 // --- CONTADOR ANIMADO ---
 function useCountUp(target, duration = 1800, shouldStart = false) {
@@ -183,14 +183,10 @@ export default function HeroSection() {
                   </TabContent>
                 </AppWindow>
 
-                <div className="hero-toast-wrapper">
-                  <Toast 
-                    inline={true}
-                    show={true} 
-                    message="Jornada 12 cerrada con éxito" 
-                    type="success" 
-                    duration={9999999} 
-                    onClose={() => {}} 
+                <div className="hero-status-wrapper">
+                  <InlineStatus
+                    message="Jornada 12 cerrada con éxito"
+                    type="success"
                   />
                 </div>
               </FloatingGroup>
@@ -281,21 +277,21 @@ const HeroWrapper = styled.section`
   position: relative;
   min-height: 100vh;
   
-  .hero-toast-wrapper {
+  .hero-status-wrapper {
     position: absolute;
     inset: 0;
     z-index: 10;
     pointer-events: none;
   }
 
-  .hero-toast-wrapper > div {
+  .hero-status-wrapper > div {
     top: -35px !important;
     bottom: auto !important;
     left: auto !important;
     right: -45px !important;
     min-width: 260px !important;
     box-shadow: 0 16px 32px rgba(0,0,0,0.4) !important;
-    pointer-events: auto;
+    pointer-events: none;
     
     @media (max-width: 768px) {
       top: -25px !important;

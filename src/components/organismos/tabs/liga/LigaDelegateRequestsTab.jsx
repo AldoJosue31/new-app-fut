@@ -17,7 +17,7 @@ import { EmptyState } from "../../EmptyState";
 import { Modal } from "../../Modal";
 import { Skeleton } from "../../../atomos/Skeleton";
 import { TabsNavigation } from "../../../moleculas/TabsNavigation";
-import { Toast } from "../../../atomos/Toast";
+import { notify } from "../../../../lib/notifications/notify.js";
 
 const FILTER_TABS = [
   { id: "pending", label: "Pendientes", icon: <RiTimeLine /> },
@@ -139,7 +139,6 @@ export function LigaDelegateRequestsTab({
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [savingDecision, setSavingDecision] = useState(null);
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   const metrics = useMemo(() => {
     const pending = requests.filter((request) => request.status === "pending").length;
@@ -172,11 +171,7 @@ export function LigaDelegateRequestsTab({
     if (!selectedRequest?.id) return;
 
     if (decision === "reject" && !reviewNotes.trim()) {
-      setToast({
-        show: true,
-        message: "Agrega una nota para explicar el rechazo al delegado.",
-        type: "error",
-      });
+      notify.warning("Agrega una nota para explicar el rechazo al delegado.");
       return;
     }
 
@@ -189,21 +184,16 @@ export function LigaDelegateRequestsTab({
         reviewNotes: reviewNotes.trim() || null,
       });
 
-      setToast({
-        show: true,
-        message:
-          result.status === "applied"
-            ? "Solicitud aprobada y aplicada."
-            : "Solicitud rechazada.",
-        type: "success",
-      });
+      notify.success(
+        result.status === "applied"
+          ? "Solicitud aprobada y aplicada."
+          : "Solicitud rechazada.",
+      );
 
       closeModal();
     } catch (error) {
-      setToast({
-        show: true,
-        message: error.message || "No se pudo procesar la solicitud.",
-        type: "error",
+      notify.error(error, {
+        description: error.message || "No se pudo procesar la solicitud.",
       });
       setSavingDecision(null);
     }
@@ -213,13 +203,6 @@ export function LigaDelegateRequestsTab({
 
   return (
     <>
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast((current) => ({ ...current, show: false }))}
-      />
-
       <Card maxWidth="1000px" width="100%">
         <SummaryGrid>
           <SummaryCard>

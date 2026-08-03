@@ -7,10 +7,10 @@ import { CardHeader } from "../../../moleculas/CardHeader";
 import { InputText2 } from "../../formularios/InputText2";
 import { Btnsave } from "../../../moleculas/Btnsave";
 import { PhotoUploader } from "../../../moleculas/PhotoUploader";
-import { Toast } from "../../../atomos/Toast";
 import { Skeleton } from "../../../atomos/Skeleton";
 import { uploadImageToSupabase } from "../../../../utils/uploadHandler";
 import { supabase } from "../../../../lib/supabase/browserClient.js";
+import { notify } from "../../../../lib/notifications/notify.js";
 
 export function LigaConfigTab({ data, onUpdate, loading }) {
   const [tempName, setTempName] = useState(data?.name || "");
@@ -23,7 +23,6 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
   const [previewUrl, setPreviewUrl] = useState(data?.logo_url || null);
   const [originalUrl, setOriginalUrl] = useState(data?.original_logo_url || null);
   const [imageChanged, setImageChanged] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   const hasUnsavedChanges =
     imageChanged ||
@@ -71,11 +70,10 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
     setOriginalUrl(null);
     setImageChanged(true);
 
-    setToast({
-      show: true,
-      message: "Logo removido temporalmente. Guarda los cambios para borrarlo definitivamente.",
-      type: "error",
-    });
+    notify.info(
+      "Logo removido temporalmente. Guarda los cambios para borrarlo definitivamente.",
+      { duration: 5000 },
+    );
   };
 
   const deleteOldImagesFromBucket = async () => {
@@ -103,7 +101,7 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
   const handleSave = async () => {
     if (!tempName.trim()) {
-      setToast({ show: true, message: "El nombre de la liga es obligatorio", type: "error" });
+      notify.error("El nombre de la liga es obligatorio", { duration: 5000 });
       return;
     }
 
@@ -149,24 +147,14 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
         setImageChanged(false);
         setLogoFile(null);
         setOriginalFile(null);
-        setToast({
-          show: true,
-          message: "Configuración actualizada con éxito.",
-          type: "success",
-        });
+        notify.success("Configuración actualizada con éxito.", { duration: 5000 });
       }
     } catch {
-      setToast({
-        show: true,
-        message: "Ocurrió un error al guardar los cambios.",
-        type: "error",
-      });
+      notify.error("Ocurrió un error al guardar los cambios.", { duration: 5000 });
     } finally {
       setIsSaving(false);
     }
   };
-
-  const closeToast = () => setToast((current) => ({ ...current, show: false }));
 
   if (loading) {
     return (
@@ -201,14 +189,6 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
   return (
     <>
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={closeToast}
-        duration={5000}
-      />
-
       <Card maxWidth="800px">
         <CardHeader Icono={RiSettings4Line} titulo="Configuración General de la Liga" />
 

@@ -2,7 +2,6 @@
 
 import React from "react";
 import { TorneosTemplate } from "../components/template/TorneosTemplate";
-import { Toast } from "../components/atomos/Toast"; 
 import { useTorneosLogic } from "../hooks/pages/useTorneosLogic"; 
 import { useDivisionNavigationCompletion } from "../hooks/useDivisionNavigationCompletion";
 
@@ -16,7 +15,7 @@ export function Torneos({
   tab,
   tournamentOrTab,
 }) {
-  const { state, actions, formData, toast } = useTorneosLogic({
+  const { state, actions, formData } = useTorneosLogic({
     routeDivisionId,
   });
   const isDivisionContentReady =
@@ -30,15 +29,7 @@ export function Torneos({
   });
 
   return (
-    <>
-      <Toast 
-          show={toast.show} 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={toast.close}
-      />
-
-      <TorneosTemplate
+    <TorneosTemplate
         state={sidebarState}
         setState={setSidebarState}
         jornadaId={jornadaId}
@@ -74,7 +65,6 @@ export function Torneos({
         refreshStandings={actions.refreshData}
         onTournamentReset={actions.refreshData}
         onResetSetupDraft={actions.resetDraftToLeagueRules}
-      />
-    </>
+    />
   );
 }

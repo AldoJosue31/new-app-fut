@@ -13,9 +13,10 @@ import {
   ROUTES,
   sanitizeInternalPath,
 } from "../../lib/navigation/routes.js";
-import { Toast } from '../../components/atomos/Toast';
+import { notify } from "../../lib/notifications/notify.js";
 
 const GoogleIcon = v.iconogoogle;
+const showLoginError = (message) => notify.error(message, { duration: 6000 });
 
 const getLoginErrorMessage = (error) => {
     const code = error?.code;
@@ -53,20 +54,6 @@ export function LoginTemplate() {
     const authActionInFlight = useRef(false);
     const [returnPath, setReturnPath] = useState(ROUTES.DASHBOARD);
 
-    const [toastConfig, setToastConfig] = useState({
-        show: false,
-        message: '',
-        type: 'error'
-    });
-
-    const showError = (message) => {
-        setToastConfig({ show: true, message, type: 'error' });
-    };
-
-    const handleCloseToast = () => {
-        setToastConfig((prev) => ({ ...prev, show: false }));
-    };
-
     useEffect(() => {
         const queryParams = new URLSearchParams(window.location.search);
         setReturnPath(
@@ -90,15 +77,15 @@ export function LoginTemplate() {
                 `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}`,
             );
 
-            showError(getOAuthErrorMessage(errorCode, errorDescription));
+            showLoginError(getOAuthErrorMessage(errorCode, errorDescription));
         }
 
         // --- B. DETECCIÓN DE ERRORES LOCALES (AuthContext) ---
         const localError = localStorage.getItem('auth_error');
         if (localError) {
-            if (localError === 'unlinked_google') showError("Cuenta no vinculada.");
-            else if (localError === 'unauthorized_role') showError("No tienes permisos de acceso.");
-            else if (localError === 'profile_unavailable') showError("No fue posible validar tu perfil.");
+            if (localError === 'unlinked_google') showLoginError("Cuenta no vinculada.");
+            else if (localError === 'unauthorized_role') showLoginError("No tienes permisos de acceso.");
+            else if (localError === 'profile_unavailable') showLoginError("No fue posible validar tu perfil.");
             localStorage.removeItem('auth_error');
         }
         
@@ -120,7 +107,7 @@ export function LoginTemplate() {
         
         if (!email || !password) {
             authActionInFlight.current = false;
-            return showError('Ingresa correo y contraseña.');
+            return showLoginError('Ingresa correo y contraseña.');
         }
         
         try {
@@ -128,10 +115,10 @@ export function LoginTemplate() {
             window.location.replace(returnPath);
         } catch (err) {
             if (err.code === 'ACCOUNT_SUSPENDED') {
-                showError('Esta cuenta se encuentra bloqueada temporalmente.');
+                showLoginError('Esta cuenta se encuentra bloqueada temporalmente.');
                 return;
             }
-            showError(getLoginErrorMessage(err));
+            showLoginError(getLoginErrorMessage(err));
         } finally {
             authActionInFlight.current = false;
         }
@@ -144,7 +131,7 @@ export function LoginTemplate() {
             await loginGoogle(returnPath);
         } catch (err) {
             console.error("Google Login Error:", err);
-            showError('No se pudo iniciar la conexión con Google.');
+            showLoginError('No se pudo iniciar la conexión con Google.');
             authActionInFlight.current = false;
         }
     };
@@ -153,15 +140,6 @@ export function LoginTemplate() {
         <Container>
             <BackgroundLayer />
             
-            <Toast 
-                show={toastConfig.show} 
-                message={toastConfig.message} 
-                type={toastConfig.type} 
-                onClose={handleCloseToast}
-                // Aumentamos un poco la duración para que dé tiempo a leer tras el redirect
-                duration={6000} 
-            />
-
             <Card>
                 {/* ... (Todo el contenido visual sigue igual) ... */}
                 <ContentLogo>

@@ -4,7 +4,7 @@ import { v } from "../../../../../styles/variables";
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { Modal } from "../../../Modal";
 import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
-import { Toast } from "../../../../atomos/Toast";
+import { notify } from "../../../../../lib/notifications/notify.js";
 import { 
     RiFileList3Line, RiCoinLine, RiGitMergeLine 
 } from "react-icons/ri";
@@ -23,7 +23,6 @@ export function TournamentConfigModal({
 }) {
     const [configTab, setConfigTab] = useState("general");
     const [editedConfig, setEditedConfig] = useState(INITIAL_TOURNAMENT_CONFIG);
-    const [toast, setToast] = useState({ show: false, message: '', type: '' });
 
     // --- EFECTO: CARGAR DATOS REALES (SIN DEFAULTS FORZADOS) ---
     useEffect(() => {
@@ -93,7 +92,7 @@ export function TournamentConfigModal({
         const descensos = parseInt(editedConfig.descensos) || 0;
         
         if ((ascensos + descensos) > maxTeams) {
-            setToast({ show: true, message: `Error: Ascensos + Descensos superan el total de equipos (${maxTeams}).`, type: 'error' });
+            notify.error(`Ascensos + Descensos superan el total de equipos (${maxTeams}).`);
             return false;
         }
         return true;
@@ -148,7 +147,6 @@ export function TournamentConfigModal({
 
     return (
         <>
-            <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />
             <Modal isOpen={isOpen} onClose={onClose} title="Ajustes de Torneo (En Curso)" width="600px" closeOnOverlayClick={false}>
                 <ModalContent>
                     <TabsNavigation 

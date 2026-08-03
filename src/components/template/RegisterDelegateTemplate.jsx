@@ -21,13 +21,13 @@ import { InputText2 } from "../organismos/formularios/InputText2";
 import { Title } from "../atomos/Title";
 import { ToggleTema } from "../organismos/ToggleTema";
 import { Modal } from "../organismos/Modal";
-import { Toast } from "../atomos/Toast";
 import { supabase } from "../../lib/supabase/browserClient.js";
 import {
   acceptDelegateInvitation,
   getDelegateInvitation,
 } from "../../services/delegates";
 import { v } from "../../styles/variables";
+import { notify } from "../../lib/notifications/notify.js";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,7 +46,6 @@ export function RegisterDelegateTemplate({
   const [isRegistering, setIsRegistering] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [countdown, setCountdown] = useState(3);
-  const [toast, setToast] = useState({ show: false, message: "", type: "error" });
   const [form, setForm] = useState({
     fullName: initialInvitation?.invited_name || "",
     email: initialInvitation?.invited_email || "",
@@ -156,7 +155,7 @@ export function RegisterDelegateTemplate({
           "Ese correo ya existe. Inicia sesion con esa cuenta y luego pide al manager que te asigne manualmente o use otro correo.";
       }
 
-      setToast({ show: true, message, type: "error" });
+      notify.error(message);
     } finally {
       setIsRegistering(false);
     }
@@ -192,13 +191,6 @@ export function RegisterDelegateTemplate({
 
   return (
     <FullScreenContainer>
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast((current) => ({ ...current, show: false }))}
-      />
-
       <ThemeButtonWrapper>
         <ToggleTema />
       </ThemeButtonWrapper>

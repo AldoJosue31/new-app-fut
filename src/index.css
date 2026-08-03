@@ -1,1 +1,91 @@
 @import "tailwindcss";
+
+:root {
+  --app-z-toast: 210000;
+}
+
+body [data-sileo-viewport] {
+  --sileo-width: min(350px, calc(100vw - 24px));
+  z-index: var(--app-z-toast);
+  font-family: "Poppins", sans-serif;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+}
+
+body [data-sileo-viewport][data-theme="light"] {
+  --app-toast-surface: #ffffff;
+  --app-toast-title: #22313d;
+  --app-toast-text: #5c6875;
+  --app-toast-shadow: rgba(18, 45, 66, 0.2);
+  --sileo-state-success: #287a3e;
+  --sileo-state-error: #b8322a;
+  --sileo-state-warning: #8a5c00;
+  --sileo-state-info: #0875a5;
+}
+
+body [data-sileo-viewport][data-theme="dark"] {
+  --app-toast-surface: #18282f;
+  --app-toast-title: #f7fafc;
+  --app-toast-text: #cad4d9;
+  --app-toast-shadow: rgba(0, 0, 0, 0.44);
+  --sileo-state-success: #74d17c;
+  --sileo-state-error: #ff8278;
+  --sileo-state-warning: #f5c451;
+  --sileo-state-info: #55c6ff;
+}
+
+body [data-sileo-canvas] {
+  filter: drop-shadow(0 14px 30px var(--app-toast-shadow));
+  transition: filter 180ms ease-out;
+}
+
+body [data-sileo-pill],
+body [data-sileo-body] {
+  fill: var(--app-toast-surface);
+  transition: fill 180ms ease-out;
+}
+
+body [data-sileo-viewport][data-theme] [data-sileo-title] {
+  color: var(--app-toast-title);
+  overflow: hidden;
+  max-width: calc(var(--sileo-width) - 56px);
+  text-overflow: ellipsis;
+  text-transform: none;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: color 180ms ease-out;
+}
+
+body [data-sileo-viewport][data-theme] [data-sileo-description] {
+  color: var(--app-toast-text);
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  transition: color 180ms ease-out;
+}
+
+@media (forced-colors: active) {
+  body [data-sileo-toast] {
+    outline: 1px solid CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body [data-sileo-viewport],
+  body [data-sileo-viewport] *,
+  body [data-sileo-viewport] *::before,
+  body [data-sileo-viewport] *::after {
+    animation-delay: 0s !important;
+    animation-duration: 0s !important;
+    transition-delay: 0s !important;
+    transition-duration: 0s !important;
+  }
+}
+
+@media print {
+  body [data-sileo-viewport] {
+    display: none !important;
+  }
+}
