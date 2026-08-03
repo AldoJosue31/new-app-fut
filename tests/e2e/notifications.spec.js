@@ -54,6 +54,12 @@ test("login muestra una sola notificación global, legible y sobre los modales",
     surface: window.getComputedStyle(
       element.querySelector("[data-sileo-pill]"),
     ).fill,
+    border: window.getComputedStyle(
+      element.querySelector("[data-sileo-pill]"),
+    ).stroke,
+    borderWidth: window.getComputedStyle(
+      element.querySelector("[data-sileo-pill]"),
+    ).strokeWidth,
     title: window.getComputedStyle(
       element.querySelector("[data-sileo-title]"),
     ).color,
@@ -67,9 +73,28 @@ test("login muestra una sola notificación global, legible y sobre los modales",
 
   expect(palette).toEqual({
     surface: "rgb(24, 40, 47)",
+    border: "rgb(52, 80, 91)",
+    borderWidth: "0.75px",
     title: "rgb(247, 250, 252)",
     text: "rgb(202, 212, 217)",
     accent: "rgb(255, 130, 120)",
+  });
+
+  const shadowMotion = await toast.evaluate((element) => {
+    const canvas = element.querySelector("[data-sileo-canvas]");
+    const styles = window.getComputedStyle(canvas);
+
+    return {
+      animationName: styles.animationName,
+      animationDuration: styles.animationDuration,
+      animationIterationCount: styles.animationIterationCount,
+    };
+  });
+
+  expect(shadowMotion).toEqual({
+    animationName: "app-toast-shadow-pulse",
+    animationDuration: "0.48s",
+    animationIterationCount: "1",
   });
   expect(pageErrors).toEqual([]);
   expect(serverErrors).toEqual([]);
@@ -97,6 +122,12 @@ test.describe("tema claro", () => {
       surface: window.getComputedStyle(
         element.querySelector("[data-sileo-pill]"),
       ).fill,
+      border: window.getComputedStyle(
+        element.querySelector("[data-sileo-pill]"),
+      ).stroke,
+      borderWidth: window.getComputedStyle(
+        element.querySelector("[data-sileo-pill]"),
+      ).strokeWidth,
       title: window.getComputedStyle(
         element.querySelector("[data-sileo-title]"),
       ).color,
@@ -110,6 +141,8 @@ test.describe("tema claro", () => {
 
     expect(palette).toEqual({
       surface: "rgb(255, 255, 255)",
+      border: "rgb(217, 230, 242)",
+      borderWidth: "0.75px",
       title: "rgb(34, 49, 61)",
       text: "rgb(92, 104, 117)",
       accent: "rgb(184, 50, 42)",
@@ -136,6 +169,9 @@ test.describe("movimiento reducido", () => {
         "(prefers-reduced-motion: reduce)",
       ).matches,
       transitionDuration: window.getComputedStyle(element).transitionDuration,
+      shadowAnimationDuration: window.getComputedStyle(
+        element.querySelector("[data-sileo-canvas]"),
+      ).animationDuration,
     }));
 
     expect(motionState.prefersReducedMotion).toBe(true);
@@ -144,5 +180,6 @@ test.describe("movimiento reducido", () => {
         .split(", ")
         .every((duration) => duration === "0s"),
     ).toBe(true);
+    expect(motionState.shadowAnimationDuration).toBe("0s");
   });
 });
