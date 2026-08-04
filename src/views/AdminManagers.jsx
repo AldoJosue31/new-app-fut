@@ -10,10 +10,13 @@ import {
   updateManagerSuspensionService,
   updateManagerCredentialsService,
 } from "../services/adminManagers";
+import { notify } from "../lib/notifications/notify.js";
 
 const PRESENCE_CHANNEL = "online-managers";
 const MANAGERS_REFRESH_MS = 30000;
 const MANAGER_ACCESS_EVENT = "manager-access-change";
+const showAdminNotification = (message, type = "success") =>
+  notify.show(message, { type });
 
 export function AdminManagers({ state, setState }) { 
   const [managers, setManagers] = useState([]);
@@ -36,14 +39,7 @@ export function AdminManagers({ state, setState }) {
     divisionsAffected: []
   });
 
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-
   const presenceRef = useRef(null);
-
-  const showToast = (message, type = "success") => {
-    setToast({ show: true, message, type });
-  };
-  const closeToast = () => setToast({ ...toast, show: false });
 
   const fetchManagers = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -72,7 +68,7 @@ export function AdminManagers({ state, setState }) {
 
     if (error) {
       console.error("Error fetching managers:", error);
-      if (!silent) showToast("Error al cargar lista de managers", "error");
+      if (!silent) showAdminNotification("Error al cargar lista de managers", "error");
     } else {
       setManagers(data || []);
     }
@@ -202,12 +198,12 @@ export function AdminManagers({ state, setState }) {
         leagueName,
       });
 
-      showToast("Manager creado correctamente");
+      showAdminNotification("Manager creado correctamente");
       setCreateModalOpen(false);
       await fetchManagers();
       return true;
     } catch (error) {
-      showToast(error.message, "error");
+      showAdminNotification(error, "error");
       return false;
     } finally {
       setLoading(false);
@@ -222,19 +218,19 @@ export function AdminManagers({ state, setState }) {
         password: newPassword,
       });
 
-      showToast("Credenciales actualizadas correctamente", "success");
+      showAdminNotification("Credenciales actualizadas correctamente");
       await fetchManagers();
       return true;
     } catch (error) {
       console.error("Error actualizando credenciales:", error);
-      showToast("Error: " + error.message, "error");
+      showAdminNotification("Error: " + error.message, "error");
       return false;
     }
   };
 
   const handleUpdateManagerLimits = async (leagueId, limits) => {
     if (!leagueId) {
-      showToast("No se encontro la liga del manager", "error");
+      showAdminNotification("No se encontro la liga del manager", "error");
       return false;
     }
 
@@ -250,7 +246,7 @@ export function AdminManagers({ state, setState }) {
         ...normalizedLimits,
       });
 
-      showToast("Limites actualizados correctamente", "success");
+      showAdminNotification("Limites actualizados correctamente");
       if (league) {
         setManagers((currentManagers) =>
           currentManagers.map((manager) => ({
@@ -267,14 +263,14 @@ export function AdminManagers({ state, setState }) {
       return true;
     } catch (error) {
       console.error("Error actualizando limites:", error);
-      showToast("Error al actualizar limites: " + error.message, "error");
+      showAdminNotification("Error al actualizar limites: " + error.message, "error");
       return false;
     }
   };
 
   const handleUpdateManagerSuspension = async (userId, suspended) => {
     if (!userId) {
-      showToast("No se encontro el manager", "error");
+      showAdminNotification("No se encontro el manager", "error");
       return false;
     }
 
@@ -284,9 +280,8 @@ export function AdminManagers({ state, setState }) {
         suspended,
       });
 
-      showToast(
+      showAdminNotification(
         suspended ? "Cuenta bloqueada correctamente" : "Cuenta reactivada correctamente",
-        "success"
       );
 
       if (profile) {
@@ -317,7 +312,7 @@ export function AdminManagers({ state, setState }) {
       return true;
     } catch (error) {
       console.error("Error actualizando suspension:", error);
-      showToast("Error al actualizar acceso: " + error.message, "error");
+      showAdminNotification("Error al actualizar acceso: " + error.message, "error");
       return false;
     }
   };
@@ -345,10 +340,10 @@ export function AdminManagers({ state, setState }) {
   const handleConfirmDelete = async () => {
     try {
       await deleteManagerAdminService(deleteModalState.emailToDelete);
-      showToast("Usuario eliminado correctamente");
+      showAdminNotification("Usuario eliminado correctamente");
       await fetchManagers();
     } catch (error) {
-      showToast("Error al eliminar: " + error.message, "error");
+      showAdminNotification("Error al eliminar: " + error.message, "error");
     } finally {
       setDeleteModalState({ isOpen: false, emailToDelete: null, divisionsAffected: [] });
     }
@@ -384,8 +379,6 @@ export function AdminManagers({ state, setState }) {
       handleConfirmDelete={handleConfirmDelete}
       openDeleteModal={openDeleteModal}
       handleCreate={handleCreate}
-      toast={toast}
-      closeToast={closeToast}
     />
   );
 }

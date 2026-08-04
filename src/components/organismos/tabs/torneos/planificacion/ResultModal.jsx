@@ -5,7 +5,6 @@ import { v } from "../../../../../styles/variables";
 import { Modal } from "../../../Modal";
 import { BtnNormal } from "../../../../moleculas/BtnNormal";
 import { Btnsave } from "../../../../moleculas/Btnsave";
-import { Toast } from "../../../../atomos/Toast";
 import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../lib/supabase/browserClient.js";
@@ -13,6 +12,7 @@ import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
 import { reconcileRostersToScores } from "../../../../../utils/cedulaScoreResolution";
+import { notify } from "../../../../../lib/notifications/notify.js";
 
 // Componentes Modularizados
 import { ScoreHeader } from "./result_modal_components/ScoreHeader";
@@ -68,7 +68,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showCedulaScanner, setShowCedulaScanner] = useState(false);
-  const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
   const isSavingRef = useRef(false);
   const latestLoadRequestRef = useRef(0);
@@ -180,7 +179,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setActiveTab('general');
     setShowConfirm(false);
     setShowCedulaScanner(false);
-    setToastConfig({ show: false, message: '', type: 'error' });
     setReferees([]);
     setLocalPlayers([]);
     setVisitPlayers([]);
@@ -367,7 +365,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
     } catch (error) {
       if (requestId !== latestLoadRequestRef.current) return;
-      setToastConfig({ show: true, message: "Error cargando datos: " + (error?.message || error), type: "error" });
+      notify.error("Error cargando datos: " + (error?.message || error));
     } finally {
       if (requestId === latestLoadRequestRef.current) setLoading(false);
     }
@@ -428,7 +426,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     const setter = isLocal ? setRosterLocal : setRosterVisit;
 
     if (players.length === 0) {
-      setToastConfig({ show: true, message: "No hay jugadores disponibles para autocompletar.", type: "warning" });
+      notify.warning("No hay jugadores disponibles para autocompletar.");
       return;
     }
 
@@ -437,7 +435,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       .filter(index => index >= 0);
 
     if (emptyStarterIndexes.length === 0) {
-      setToastConfig({ show: true, message: "Los titulares ya estan completos.", type: "warning" });
+      notify.warning("Los titulares ya estan completos.");
       return;
     }
 
@@ -473,18 +471,15 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setter(updatedRoster);
 
     if (playersAdded === 0) {
-      setToastConfig({ show: true, message: "No hay mas jugadores disponibles para completar titulares.", type: "warning" });
+      notify.warning("No hay mas jugadores disponibles para completar titulares.");
       return;
     }
 
-    setToastConfig({
-      show: true,
-      message:
+    notify.success(
         playersAdded === 1
           ? "Se agrego 1 titular segun asistencias."
           : `Se agregaron ${playersAdded} titulares segun asistencias.`,
-      type: "success"
-    });
+    );
   }, [localPlayers, participationStats.local, participationStats.visit, rosterLocal, rosterVisit, visitPlayers]);
 
   const handleClearRoster = useCallback((team) => {
@@ -500,11 +495,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       red: false
     })));
 
-    setToastConfig({
-      show: true,
-      message: "Se limpio la alineacion y sus estadisticas.",
-      type: "success"
-    });
+    notify.info("Se limpio la alineacion y sus estadisticas.");
   }, []);
 
   const handleToggleWalkover = (newValue) => {
@@ -538,18 +529,18 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     // Validación estricta del árbitro independientemente de si es o no W.O. 
     // (A menos que sea únicamente una edición de fecha sin W.O. y sin rosters)
     if (!isOnlyDateUpdate && !selectedReferee) {
-        return setToastConfig({ show: true, message: "Debe asignar un árbitro.", type: "error" });
+        return notify.error("Debe asignar un árbitro.");
     }
 
     if (isWalkover) {
-        if (!woWinnerId) return setToastConfig({ show: true, message: "Seleccione la resolucion por default.", type: "error" });
+        if (!woWinnerId) return notify.error("Seleccione la resolucion por default.");
     } else if (!isOnlyDateUpdate) {
-        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return setToastConfig({ show: true, message: `Advertencia: Pocos jugadores registrados.`, type: "warning" });
+        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return notify.warning("Pocos jugadores registrados.");
         if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
-          if (parseInt(penalties.local) === parseInt(penalties.visit)) return setToastConfig({ show: true, message: "Los penales no pueden terminar en empate.", type: "error" });
+          if (parseInt(penalties.local) === parseInt(penalties.visit)) return notify.error("Los penales no pueden terminar en empate.");
         }
     }
-    if (!isWalkover && (!matchDate || !matchTime)) return setToastConfig({ show: true, message: "La fecha y hora son obligatorias.", type: "error" });
+    if (!isWalkover && (!matchDate || !matchTime)) return notify.error("La fecha y hora son obligatorias.");
 
     setShowConfirm(true);
   };
@@ -646,9 +637,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         : appliedScheduleCount < detectedScheduleCount
           ? " Solo se aplicaron los campos de programación seleccionados."
           : " La programación seleccionada fue aplicada.";
-    setToastConfig({
-      show: true,
-      message: (scannedWalkover
+    notify.show(
+      (scannedWalkover
         ? scannedWinnerId
           ? "W.O. detectado y aplicado. Revisa la victoria por default antes de guardar."
           : "Se detecto un W.O., pero debes elegir al ganador en General."
@@ -657,8 +647,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
           ? " Las diferencias de goles se resolvieron según tu selección."
           : "")
         + scheduleMessage,
-      type: scannedWalkover && !scannedWinnerId ? "warning" : "success"
-    });
+      { type: scannedWalkover && !scannedWinnerId ? "warning" : "success" },
+    );
   }, [match, matchDate, matchTime, minPlayers]);
 
   const handleFinalSave = async () => {
@@ -738,12 +728,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         observations: finalObsParts.join(" | "), 
         date: fullDate
       });
-      
+
+      notify.success(
+        isOnlyDateUpdate
+          ? "Programación del partido actualizada."
+          : "Resultado guardado correctamente.",
+      );
       latestLoadRequestRef.current += 1;
       resetModalState();
       onClose();
     } catch (e) {
-      setToastConfig({ show: true, message: "Error al guardar: " + (e?.message || e), type: "error" });
+      notify.error("Error al guardar: " + (e?.message || e));
     } finally { setLoading(false); setIsSaving(false); isSavingRef.current = false; }
   }
 
@@ -781,7 +776,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             currentTime={matchTime}
             onBack={() => setShowCedulaScanner(false)}
             onApply={handleApplyCedulaScan}
-            showToast={(message, type = "error") => setToastConfig({ show: true, message, type })}
+            showToast={(message, type = "error") => notify.show(message, { type })}
           />
         ) : (
           <>
@@ -868,9 +863,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
          <ConfirmResultOverlay match={match} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading || isSaving} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
       )}
 
-      <ToastContainerFix>
-        <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({...toastConfig, show: false})} />
-      </ToastContainerFix>
     </Modal>
   );
 }
@@ -964,7 +956,6 @@ const Footer = styled.div`
     }
   }
 `;
-const ToastContainerFix = styled.div` position: absolute; top: 0; left: 0; width: 100%; z-index: 100001; pointer-events: none; `;
 const LoadingState = styled.div` display: flex; flex: 1 1 auto; justify-content: center; align-items: center; min-height: 180px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
 const ScanHeaderButton = styled.button`
   min-height: 34px;

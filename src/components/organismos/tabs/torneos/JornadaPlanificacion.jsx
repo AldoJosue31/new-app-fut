@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import styled, { css, keyframes } from "styled-components";
 import { v } from "../../../../styles/variables";
 import { Btnsave } from "../../../moleculas/Btnsave";
-import { Toast } from "../../../atomos/Toast";
 import {
   RiArrowGoBackLine,
   RiCheckDoubleLine,
@@ -42,6 +41,7 @@ import { ConfirmModal } from "../../ConfirmModal";
 import { MatchResolutionModal } from "./planificacion/MatchResolutionModal";
 import { RepositionPlannerModal } from "./planificacion/RepositionPlannerModal";
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
+import { notify } from "../../../../lib/notifications/notify.js";
 
 const getMatchTeamsLabel = (match) => {
   if (!match) return "";
@@ -156,7 +156,6 @@ export function JornadaPlanificacion({
   const [savingResultMatchId, setSavingResultMatchId] = useState(null);
   const [matchToResetResult, setMatchToResetResult] = useState(null);
   const [resettingResultMatchId, setResettingResultMatchId] = useState(null);
-  const [toast, setToast] = useState({ show: false, msg: "", type: "" });
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
@@ -482,17 +481,9 @@ export function JornadaPlanificacion({
       setScheduledMatches((matches) => matches.map(resetMatch));
       setAllPendingMatches((matches) => matches.map(resetMatch));
       setMatchToResetResult(null);
-      setToast({
-        show: true,
-        msg: "Resultado deshecho. El partido vuelve a quedar pendiente.",
-        type: "success",
-      });
+      notify.success("Resultado deshecho. El partido vuelve a quedar pendiente.");
     } catch (error) {
-      setToast({
-        show: true,
-        msg: error?.message || "No se pudo deshacer el resultado",
-        type: "error",
-      });
+      notify.error(error?.message || "No se pudo deshacer el resultado");
     } finally {
       setResettingResultMatchId(null);
     }
@@ -657,11 +648,7 @@ export function JornadaPlanificacion({
 
   const handleConfirmJornada = async () => {
     if (isRepositionMode && (!repositionWeek.startDate || !repositionWeek.endDate)) {
-      setToast({
-        show: true,
-        msg: "Define el inicio y fin de la semana de reposicion",
-        type: "error",
-      });
+      notify.error("Define el inicio y fin de la semana de reposicion");
       return;
     }
 
@@ -713,11 +700,7 @@ export function JornadaPlanificacion({
           })
         );
         clearDraft();
-        setToast({
-          show: true,
-          msg: "Jornada confirmada correctamente",
-          type: "success",
-        });
+        notify.success("Jornada confirmada correctamente");
       } catch (serverErr) {
         console.error("Error guardando:", serverErr);
         const serverMessage =
@@ -750,16 +733,16 @@ export function JornadaPlanificacion({
             setConflictsFound(syntheticConflicts);
             setConflictModalOpen(true);
           } else {
-            setToast({ show: true, msg: serverMessage, type: "error" });
+            notify.error(serverMessage);
           }
         } else {
-          setToast({ show: true, msg: serverMessage, type: "error" });
+          notify.error(serverMessage);
         }
         return;
       }
     } catch (err) {
       console.error(err);
-      setToast({ show: true, msg: "Error verificando horarios", type: "error" });
+      notify.error("Error verificando horarios");
     } finally {
       setIsCheckingConflicts(false);
     }
@@ -806,17 +789,9 @@ export function JornadaPlanificacion({
         jornadaName: jornadaData?.name,
       });
       setUndoJornadaModalOpen(false);
-      setToast({
-        show: true,
-        msg: "Confirmacion deshecha. Puedes editar la jornada nuevamente.",
-        type: "success",
-      });
+      notify.success("Confirmacion deshecha. Puedes editar la jornada nuevamente.");
     } catch (error) {
-      setToast({
-        show: true,
-        msg: error?.message || "No se pudo deshacer la confirmacion",
-        type: "error",
-      });
+      notify.error(error?.message || "No se pudo deshacer la confirmacion");
     } finally {
       setIsUndoingConfirmation(false);
     }
@@ -857,13 +832,6 @@ export function JornadaPlanificacion({
 
   return (
     <Container>
-      <Toast
-        show={toast.show}
-        message={toast.msg}
-        type={toast.type}
-        onClose={() => setToast({ ...toast, show: false })}
-      />
-
       <PlanningHeader
         jornadaIndex={jornadaIndex}
         jornadaData={headerJornadaData}
@@ -1183,11 +1151,7 @@ export function JornadaPlanificacion({
         onClose={() => setRepositionPlannerOpen(false)}
         onContinue={() => {
           if (!repositionWeek.startDate || !repositionWeek.endDate) {
-            setToast({
-              show: true,
-              msg: "Define el inicio y fin de la semana de reposicion",
-              type: "error",
-            });
+            notify.error("Define el inicio y fin de la semana de reposicion");
             return;
           }
 
@@ -1225,11 +1189,7 @@ export function JornadaPlanificacion({
             isRepositionMode &&
             (!repositionWeek.startDate || !repositionWeek.endDate)
           ) {
-            setToast({
-              show: true,
-              msg: "Define el inicio y fin de la semana de reposicion",
-              type: "error",
-            });
+            notify.error("Define el inicio y fin de la semana de reposicion");
             return;
           }
           setConfirmJornadaModalOpen(false);

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { Badge } from "../../atomos/Badge";
-import { Toast } from "../../atomos/Toast";
 import { BtnNormal } from "../../moleculas/BtnNormal";
 import { Btnsave } from "../../moleculas/Btnsave";
 import { ConfirmModal } from "../ConfirmModal";
@@ -11,6 +10,7 @@ import { ManagerDetailModal } from "./ManagerDetailModal";
 import { TabsNavigation, TabContent } from "../../moleculas/TabsNavigation";
 import { v } from "../../../styles/variables";
 import { supabase } from "../../../lib/supabase/browserClient.js";
+import { notify } from "../../../lib/notifications/notify.js";
 import { 
   BiCopy, 
   BiLink, 
@@ -27,8 +27,6 @@ import {
 export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
   const [activeTab, setActiveTab] = useState(0);
   
-  // --- ESTADOS DE FEEDBACK ---
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: "", message: "", onConfirm: null });
 
   // --- ESTADOS MANUAL ---
@@ -80,13 +78,12 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
         });
 
         if (success) {
-          setToast({ show: true, message: "Manager creado correctamente", type: "success" });
           setManualForm({ fullName: "", email: "", password: "", leagueName: "" });
           onClose();
         }
       }
     } catch (error) {
-      setToast({ show: true, message: "Error: " + error.message, type: "error" });
+      notify.error("Error: " + error.message);
     } finally {
       setLoadingManual(false);
     }
@@ -108,10 +105,10 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
       
       const url = `${window.location.origin}/invitation/${data.token}`;
       setGeneratedLink(url);
-      setToast({ show: true, message: "Enlace generado", type: "success" });
+      notify.success("Enlace generado");
       if(activeTab === 2) fetchInvitations(); 
     } catch (error) {
-      setToast({ show: true, message: error.message, type: "error" });
+      notify.error(error);
     } finally {
       setLoadingLink(false);
     }
@@ -127,8 +124,13 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
       .select("*")
       .order("created_at", { ascending: false });
     
-    if(error) console.error(error);
-    setInvitations(data || []);
+    if (error) {
+      console.error(error);
+      notify.error("No se pudo cargar el historial de invitaciones.");
+      setInvitations([]);
+    } else {
+      setInvitations(data || []);
+    }
     setLoadingHistory(false);
   };
 
@@ -172,21 +174,21 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
         
         if(error) throw error;
 
-        setToast({ show: true, message: "Eliminado correctamente", type: "success" });
+        notify.success("Invitación eliminada correctamente");
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         // Recargamos la lista para ver cambios
         fetchInvitations();
 
     } catch (error) {
         console.error("Delete error:", error);
-        setToast({ show: true, message: "Error al borrar: " + error.message, type: "error" });
+        notify.error("Error al borrar: " + error.message);
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
     }
   };
 
   const viewUsedDetails = async (invitation) => {
     if(!invitation.league_name) {
-        setToast({ show: true, message: "Sin datos de liga", type: "warning" });
+        notify.warning("La invitación no contiene datos de liga.");
         return;
     }
     try {
@@ -207,17 +209,21 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
             });
             setShowDetail(true);
         } else {
-            setToast({ show: true, message: "Liga no encontrada", type: "error" });
+            notify.error("Liga no encontrada");
         }
     } catch {
-        setToast({ show: true, message: "Error cargando detalles", type: "error" });
+        notify.error("Error cargando detalles");
     }
   };
 
-  const copyLink = (token) => {
+  const copyLink = async (token) => {
       const url = `${window.location.origin}/invitation/${token}`;
-      navigator.clipboard.writeText(url);
-      setToast({ show: true, message: "Copiado", type: "success" });
+      try {
+        await navigator.clipboard.writeText(url);
+        notify.success("Enlace copiado", { duration: 2500 });
+      } catch {
+        notify.error("No se pudo copiar el enlace. Inténtalo nuevamente.");
+      }
   };
 
   useEffect(() => {
@@ -231,13 +237,6 @@ export const ManagerCreateModal = ({ isOpen, onClose, handleCreate }) => {
 
   return (
     <>
-      <Toast 
-        show={toast.show} 
-        message={toast.message} 
-        type={toast.type} 
-        onClose={() => setToast({...toast, show: false})} 
-      />
-
       <ConfirmModal 
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal({...confirmModal, isOpen: false})}

@@ -10,8 +10,8 @@ import { InputText2 } from "../organismos/formularios/InputText2";
 import { Title } from "../atomos/Title";
 import { ToggleTema } from "../organismos/ToggleTema";
 import { Modal } from "../organismos/Modal";
-import { Toast } from "../atomos/Toast";
 import { BiErrorCircle, BiCheckCircle, BiTrophy, BiFootball } from "react-icons/bi";
+import { notify } from "../../lib/notifications/notify.js";
 
 export function RegisterManagerTemplate({
   token,
@@ -30,9 +30,6 @@ export function RegisterManagerTemplate({
   // Estado para el Modal de Éxito
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [countdown, setCountdown] = useState(3);
-
-  // Estado para el Toast de Error
-  const [toast, setToast] = useState({ show: false, message: "", type: "error" });
 
   const handleRedirectLogin = useCallback(async () => {
       await supabase.auth.signOut();
@@ -83,8 +80,7 @@ export function RegisterManagerTemplate({
     
     const finalLeagueName = invitationData.league_name || form.leagueName;
     if(!finalLeagueName) {
-        // Usamos Toast para validaciones también
-        setToast({ show: true, message: "Por favor asigna un nombre a tu liga.", type: "error" });
+        notify.error("Por favor asigna un nombre a tu liga.");
         setIsRegistering(false);
         return;
     }
@@ -125,10 +121,9 @@ export function RegisterManagerTemplate({
         
       } else {
          // Caso raro donde signUp requiere confirmación por email manual antes de continuar
-         setToast({ show: true, message: "Revisa tu correo para confirmar la cuenta.", type: "success" });
+         notify.success("Revisa tu correo para confirmar la cuenta.");
       }
     } catch (err) {
-      // --- MANEJO DE ERRORES CON TOAST ---
       let message = err.message;
       
       // Traducción del error común de Supabase
@@ -136,7 +131,7 @@ export function RegisterManagerTemplate({
         message = "Este correo electrónico ya está registrado. Por favor inicia sesión.";
       }
       
-      setToast({ show: true, message: message, type: "error" });
+      notify.error(message);
     } finally {
       setIsRegistering(false);
     }
@@ -159,14 +154,6 @@ export function RegisterManagerTemplate({
 
   return (
     <FullScreenContainer>
-      {/* --- TOAST PARA ERRORES --- */}
-      <Toast 
-        show={toast.show} 
-        message={toast.message} 
-        type={toast.type} 
-        onClose={() => setToast({ ...toast, show: false })} 
-      />
-
       <ThemeButtonWrapper><ToggleTema /></ThemeButtonWrapper>
       
       <Card maxWidth="500px">

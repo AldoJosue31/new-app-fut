@@ -6,8 +6,8 @@ import { RiCoinLine, RiErrorWarningLine, RiGroupLine } from "react-icons/ri";
 import { Card } from "../../../moleculas/Card";
 import { CardHeader } from "../../../moleculas/CardHeader";
 import { Btnsave } from "../../../moleculas/Btnsave";
-import { Toast } from "../../../atomos/Toast";
 import { Skeleton } from "../../../atomos/Skeleton";
+import { notify } from "../../../../lib/notifications/notify.js";
 
 export function LigaRulesTab({ data, onUpdate, loading }) {
   const [config, setConfig] = useState({
@@ -29,7 +29,6 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   useEffect(() => {
     if (data?.default_config) {
@@ -51,10 +50,10 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
       const success = await onUpdate({ default_config: config });
       if (success) {
         setHasChanges(false);
-        setToast({ show: true, message: "Plantilla de reglas guardada con éxito.", type: "success" });
+        notify.success("Plantilla de reglas guardada con éxito.", { duration: 5000 });
       }
     } catch {
-      setToast({ show: true, message: "Error al guardar reglas.", type: "error" });
+      notify.error("Error al guardar reglas.", { duration: 5000 });
     } finally {
       setIsSaving(false);
     }
@@ -64,7 +63,6 @@ export function LigaRulesTab({ data, onUpdate, loading }) {
 
   return (
     <>
-      <Toast show={toast.show} message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} duration={5000} />
       <Card maxWidth="800px">
         <CardHeader Icono={IoMdStopwatch} titulo="Plantilla de Reglas del Torneo" subtitulo="Estos valores se usarán por defecto al crear nuevos torneos en tu liga." />
         

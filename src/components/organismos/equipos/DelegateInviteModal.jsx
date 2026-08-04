@@ -14,20 +14,19 @@ import { BtnNormal } from "../../moleculas/BtnNormal";
 import { Btnsave } from "../../moleculas/Btnsave";
 import { InputText2 } from "../formularios/InputText2";
 import { Modal } from "../Modal";
-import { Toast } from "../../atomos/Toast";
 import {
   createDelegateInvitation,
   getActiveDelegateInvitation,
   revokeDelegateInvitation,
 } from "../../../services/delegates";
 import { v } from "../../../styles/variables";
+import { notify } from "../../../lib/notifications/notify.js";
 
 export function DelegateInviteModal({ isOpen, onClose, team }) {
   const [loading, setLoading] = useState(false);
   const [loadingInvitation, setLoadingInvitation] = useState(false);
   const [activeInvitation, setActiveInvitation] = useState(null);
   const [clientOrigin, setClientOrigin] = useState("");
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const [form, setForm] = useState({
     invitedName: "",
     invitedEmail: "",
@@ -60,11 +59,9 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
         });
       } catch (error) {
         if (!ignore) {
-          setToast({
-            show: true,
-            message: error.message || "No se pudo cargar la invitación activa.",
-            type: "error",
-          });
+          notify.error(
+            error.message || "No se pudo cargar la invitación activa.",
+          );
         }
       } finally {
         if (!ignore) {
@@ -105,17 +102,11 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
         expires_at: response.expires_at,
       });
 
-      setToast({
-        show: true,
-        message: "Invitación creada. El enlace anterior, si existía, quedó revocado.",
-        type: "success",
-      });
+      notify.success(
+        "Invitación creada. El enlace anterior, si existía, quedó revocado.",
+      );
     } catch (error) {
-      setToast({
-        show: true,
-        message: error.message || "No se pudo crear la invitación.",
-        type: "error",
-      });
+      notify.error(error.message || "No se pudo crear la invitación.");
     } finally {
       setLoading(false);
     }
@@ -128,17 +119,9 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
     try {
       await revokeDelegateInvitation(activeInvitation.id);
       setActiveInvitation(null);
-      setToast({
-        show: true,
-        message: "Invitación revocada.",
-        type: "success",
-      });
+      notify.success("Invitación revocada.");
     } catch (error) {
-      setToast({
-        show: true,
-        message: error.message || "No se pudo revocar la invitación.",
-        type: "error",
-      });
+      notify.error(error.message || "No se pudo revocar la invitación.");
     } finally {
       setLoading(false);
     }
@@ -149,21 +132,14 @@ export function DelegateInviteModal({ isOpen, onClose, team }) {
 
     try {
       await navigator.clipboard.writeText(invitationUrl);
-      setToast({ show: true, message: "Enlace copiado.", type: "success" });
+      notify.success("Enlace copiado.", { duration: 2500 });
     } catch {
-      setToast({ show: true, message: "No se pudo copiar el enlace.", type: "error" });
+      notify.error("No se pudo copiar el enlace.");
     }
   };
 
   return (
     <>
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast((current) => ({ ...current, show: false }))}
-      />
-
       <Modal
         isOpen={isOpen}
         onClose={onClose}

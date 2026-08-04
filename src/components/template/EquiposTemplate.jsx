@@ -21,7 +21,6 @@ import { PageHeader } from "../moleculas/PageHeader";
 import { BtnNormal } from "../moleculas/BtnNormal";
 import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation";
 import { Skeleton } from "../atomos/Skeleton";
-import { Toast } from "../atomos/Toast";
 import {
   TeamCard,
   TeamCardSkeleton,
@@ -54,6 +53,7 @@ import {
 import { ROLES } from "../../utils/constants";
 import { v } from "../../styles/variables";
 import { useDivisionNavigationCompletion } from "../../hooks/useDivisionNavigationCompletion";
+import { notify } from "../../lib/notifications/notify.js";
 
 const teamNameCollator = new Intl.Collator("es", {
   sensitivity: "base",
@@ -228,7 +228,6 @@ export const EquiposTemplate = ({
   const [invitationsError, setInvitationsError] = useState("");
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [teamToTransfer, setTeamToTransfer] = useState(null);
-  const [toast, setToast] = useState({ show: false, msg: "", type: "success" });
   const hasOpenedCreateRouteRef = useRef(false);
   const detailScrollPositionRef = useRef(0);
   const pendingDetailScrollPreserveOnOpenRef = useRef(false);
@@ -250,7 +249,7 @@ export const EquiposTemplate = ({
   }, [visibleDivisionId]);
 
   const showToast = (msg, type = "success") =>
-    setToast({ show: true, msg, type });
+    notify.show(msg, { type });
 
   const getEquiposPath = useCallback(
     (nextTeamId = "", nextView = "") =>
@@ -1476,12 +1475,6 @@ export const EquiposTemplate = ({
           message="Deseas eliminar este equipo?"
         />
 
-        <Toast
-          show={toast.show}
-          message={toast.msg}
-          type={toast.type}
-          onClose={() => setToast((current) => ({ ...current, show: false }))}
-        />
       </StyledContentContainer>
     </>
   );

@@ -20,7 +20,7 @@ import { IoMdStopwatch } from "react-icons/io";
 import { Btnsave } from "../../../moleculas/Btnsave";
 import { Modal } from "../../Modal";
 import { TabsNavigation } from "../../../moleculas/TabsNavigation";
-import { Toast } from "../../../atomos/Toast";
+import { notify } from "../../../../lib/notifications/notify.js";
 import { ConfirmModal } from "../../ConfirmModal";
 import { Tooltip } from "../../../atomos/Tooltip";
 import { DynamicTeamLogo } from "../../equipos/DynamicTeamLogo";
@@ -195,7 +195,6 @@ export function TorneoDefinicionTab({
   const [isAdvancingPhase, setIsAdvancingPhase] = useState(false);
 
   const [configTab, setConfigTab] = useState("general"); 
-  const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
 
   // ESTADO DEL SWITCH
   const [useLeagueRules, setUseLeagueRules] = useState(true);
@@ -242,7 +241,7 @@ export function TorneoDefinicionTab({
       }
   }, [showEndTournamentModal, divisiones, fetchDivisiones]);
 
-  const showToast = (message, type = 'error') => setToastConfig({ show: true, message, type });
+  const showToast = (message, type = 'error') => notify.show(message, { type });
 
   const showTransitionOverlay = ({ variant = "default", title, subtitle }) => {
       if (overlayHideTimerRef.current) {
@@ -1678,8 +1677,6 @@ export function TorneoDefinicionTab({
 
   return (
     <StyledCardWrapper>
-        <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
-
         <TorneoDefinitionMode
           activeTournament={activeTournament}
           isResolving={isLoading && !activeTournament && !isStartingTournament && !isEndingTournament}
