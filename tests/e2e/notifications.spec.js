@@ -33,6 +33,7 @@ test("login muestra una sola notificación global, legible y sobre los modales",
   await expect(viewport).toHaveAttribute("aria-live", "polite");
   await expect(viewport).toHaveAttribute("data-theme", "dark");
   await expect(toast).toHaveCount(1);
+  await toast.hover({ force: true });
   await expect(page.getByText("No se pudo completar", { exact: true })).toBeVisible();
   await expect(page.getByText("Ingresa correo y contraseña.", { exact: true })).toBeVisible();
 
@@ -48,7 +49,35 @@ test("login muestra una sola notificación global, legible y sobre los modales",
 
   expect(layout.left).toBeGreaterThanOrEqual(0);
   expect(layout.right).toBeLessThanOrEqual(layout.viewportWidth);
-  expect(layout.zIndex).toBe(210000);
+  expect(layout.zIndex).toBeGreaterThanOrEqual(2147480000);
+
+  const stacking = await toast.evaluate((element) => {
+    const competingModal = document.createElement("div");
+    competingModal.dataset.testModalLayer = "true";
+    Object.assign(competingModal.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "2147000000",
+    });
+    document.body.appendChild(competingModal);
+
+    const rect = element.getBoundingClientRect();
+    const topElement = document.elementFromPoint(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+    );
+
+    return {
+      modalZIndex: Number(window.getComputedStyle(competingModal).zIndex),
+      toastZIndex: Number(
+        window.getComputedStyle(element.closest("[data-sileo-viewport]")).zIndex,
+      ),
+      toastIsTopLayer: Boolean(topElement?.closest("[data-sileo-toast]")),
+    };
+  });
+
+  expect(stacking.toastZIndex).toBeGreaterThan(stacking.modalZIndex);
+  expect(stacking.toastIsTopLayer).toBe(true);
 
   const palette = await toast.evaluate((element) => ({
     surface: window.getComputedStyle(
