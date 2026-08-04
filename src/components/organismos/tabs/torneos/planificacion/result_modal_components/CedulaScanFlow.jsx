@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useStat
 import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
+  RiArrowRightLine,
   RiCameraLine,
+  RiCloseCircleLine,
   RiErrorWarningLine,
   RiFileImageLine,
   RiRefreshLine,
@@ -10,8 +12,10 @@ import {
 } from "react-icons/ri";
 import { v } from "../../../../../../styles/variables";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
+import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 import {
   findBestScanMatch,
+  getScannedTeamNameMismatches,
   getScannedDateReview,
   normalizeScanName,
   resolveScannedPlayerMatches,
@@ -212,6 +216,7 @@ export function CedulaScanFlow({
   const [applyScannedDate, setApplyScannedDate] = useState(false);
   const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [scoreResolutions, setScoreResolutions] = useState({});
+  const [hasAcceptedTeamMismatch, setHasAcceptedTeamMismatch] = useState(false);
   const [coarseDevice, setCoarseDevice] = useState(false);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -328,6 +333,7 @@ export function CedulaScanFlow({
     setApplyScannedDate(false);
     setApplyScannedTime(false);
     setScoreResolutions({});
+    setHasAcceptedTeamMismatch(false);
   }, [showToast]);
 
   const selectPastedFile = useEffectEvent((image) => {
@@ -471,6 +477,7 @@ export function CedulaScanFlow({
     setApplyScannedDate(false);
     setApplyScannedTime(false);
     setScoreResolutions({});
+    setHasAcceptedTeamMismatch(false);
     setScanning(true);
     setScanProgress(6);
     progressTimerRef.current = window.setInterval(() => {
@@ -737,6 +744,12 @@ export function CedulaScanFlow({
     interpretation.players,
     scoreResolutions,
   );
+  const teamNameMismatches = getScannedTeamNameMismatches(
+    rawScan.localTeam?.name,
+    rawScan.visitorTeam?.name,
+    interpretation.teams,
+    interpretation.teamAssignment,
+  );
   const interpretedPlayerGroups = [
     {
       side: "local",
@@ -782,6 +795,158 @@ export function CedulaScanFlow({
       ? `${normalizedScannedTime} · se aplicará`
       : `${normalizedCurrentTime || "Sin hora actual"} · se conserva`
     : normalizedCurrentTime || "Sin detectar";
+  const applyScan = () => onApply({
+    ...interpretation,
+    scores: resolvedScores,
+    scoreResolutions,
+    date: dateReview.normalizedScannedDate,
+    time: normalizedScannedTime,
+    applyDate: canApplyScannedDate && applyScannedDate,
+    applyTime: canApplyScannedTime && applyScannedTime,
+  });
+  const scanAnotherImage = () => {
+    preparedImageRef.current = null;
+    setFile(null);
+    setPreviewUrl("");
+    setPreviewAvailable(null);
+    setRawScan(null);
+    setScanProgress(0);
+    setApplyScannedDate(false);
+    setApplyScannedTime(false);
+    setScoreResolutions({});
+    setHasAcceptedTeamMismatch(false);
+  };
+
+  if (teamNameMismatches.length > 0 && !hasAcceptedTeamMismatch) {
+    const mismatchCount = teamNameMismatches.length;
+    const mismatchedPositions = new Set(teamNameMismatches.map(item => item.position));
+    const scannedTeams = [
+      {
+        position: "first",
+        label: "Equipo detectado 1",
+        name: rawScan.localTeam?.name || "Sin detectar",
+        score: Number(rawScan.localTeam?.score) || 0,
+      },
+      {
+        position: "second",
+        label: "Equipo detectado 2",
+        name: rawScan.visitorTeam?.name || "Sin detectar",
+        score: Number(rawScan.visitorTeam?.score) || 0,
+      },
+    ];
+    const scheduledTeams = [
+      { label: "Local", team: match?.local },
+      { label: "Visitante", team: match?.visitante },
+    ];
+
+    return (
+      <ScanShell $warning>
+        <PanelHeading>
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Salir del escaneo"
+          >
+            <RiArrowLeftLine />
+          </button>
+          <div>
+            <h4>Validación de cédula</h4>
+            <p>Compara los equipos detectados antes de revisar el resultado.</p>
+          </div>
+        </PanelHeading>
+        <TeamMismatchScreen role="alert" aria-labelledby="team-mismatch-title">
+          <TeamMismatchHero>
+            <MismatchIcon aria-hidden="true"><RiErrorWarningLine /></MismatchIcon>
+            <div className="hero-copy">
+              <h5 id="team-mismatch-title">Esta cédula parece corresponder a otro partido</h5>
+              <p>
+                {mismatchCount === 1
+                  ? "Uno de los nombres detectados es claramente diferente al equipo programado."
+                  : "Los dos nombres detectados son claramente diferentes a los equipos programados."}
+                {" "}Detuvimos la asociación de jugadores para evitar registrar datos en el encuentro equivocado.
+              </p>
+            </div>
+            <MismatchStatus>{mismatchCount} {mismatchCount === 1 ? "diferencia" : "diferencias"}</MismatchStatus>
+          </TeamMismatchHero>
+
+          <TeamMismatchComparison aria-label="Comparación entre la cédula y el partido programado">
+            <MismatchTeamPanel $tone="detected">
+              <MismatchPanelHeading>
+                <div>
+                  <strong>Cédula escaneada</strong>
+                  <span>Nombres y marcador detectados</span>
+                </div>
+              </MismatchPanelHeading>
+              <MismatchTeamRows>
+                {scannedTeams.map(team => {
+                  const doesNotMatch = mismatchedPositions.has(team.position);
+                  return (
+                    <DetectedTeamRow key={team.position} $mismatch={doesNotMatch}>
+                      <div className="team-copy">
+                        <span>{team.label}</span>
+                        <strong>{team.name}</strong>
+                      </div>
+                      {doesNotMatch && <span className="mismatch-label">No coincide</span>}
+                      <span className="detected-score" aria-label={`${team.score} goles`}>{team.score}</span>
+                    </DetectedTeamRow>
+                  );
+                })}
+              </MismatchTeamRows>
+            </MismatchTeamPanel>
+
+            <MismatchConnector aria-hidden="true">
+              <RiCloseCircleLine />
+              <span>No corresponde a</span>
+            </MismatchConnector>
+
+            <MismatchTeamPanel>
+              <MismatchPanelHeading>
+                <div>
+                  <strong>Partido programado</strong>
+                  <span>Equipos que deben jugar este encuentro</span>
+                </div>
+              </MismatchPanelHeading>
+              <MismatchTeamRows>
+                {scheduledTeams.map(({ label, team }) => (
+                  <ScheduledTeamRow key={label}>
+                    <div className="registered-logo">
+                      {team?.logo_url
+                        ? <img src={team.logo_url} alt="" />
+                        : <DynamicTeamLogo name={team?.name || label} color={team?.color} size="44px" />}
+                    </div>
+                    <div className="team-copy">
+                      <span>{label}</span>
+                      <strong>{team?.name || label}</strong>
+                    </div>
+                  </ScheduledTeamRow>
+                ))}
+              </MismatchTeamRows>
+            </MismatchTeamPanel>
+          </TeamMismatchComparison>
+
+          <MismatchSafetyNote>
+            <RiErrorWarningLine aria-hidden="true" />
+            <span>Ningún jugador, marcador o dato de esta cédula se aplicará sin tu confirmación.</span>
+          </MismatchSafetyNote>
+        </TeamMismatchScreen>
+        <MismatchActionBar>
+          <div className="action-copy">
+            <strong>¿Qué deseas hacer?</strong>
+            <span>Recomendamos escanear la cédula correcta.</span>
+          </div>
+          <div className="actions">
+            <PrimaryAction type="button" onClick={scanAnotherImage}>
+              <RiRefreshLine /> Escanear otra cédula
+            </PrimaryAction>
+            <ContinueAnywayAction type="button" onClick={() => setHasAcceptedTeamMismatch(true)}>
+              Revisar de todas maneras <RiArrowRightLine />
+            </ContinueAnywayAction>
+          </div>
+        </MismatchActionBar>
+      </ScanShell>
+    );
+  }
+
   return (
     <ScanShell $review>
       <PanelHeading>
@@ -1017,15 +1182,7 @@ export function CedulaScanFlow({
           type="button"
           disabled={hasUnresolvedScores}
           title={hasUnresolvedScores ? "Resuelve las diferencias de goles antes de continuar" : undefined}
-          onClick={() => onApply({
-            ...interpretation,
-            scores: resolvedScores,
-            scoreResolutions,
-            date: dateReview.normalizedScannedDate,
-            time: normalizedScannedTime,
-            applyDate: canApplyScannedDate && applyScannedDate,
-            applyTime: canApplyScannedTime && applyScannedTime,
-          })}
+          onClick={applyScan}
         >
           {hasUnresolvedScores ? "Elige cómo guardar los goles" : "Aplicar escaneo"}
         </PrimaryAction>
@@ -1045,7 +1202,7 @@ const ScanShell = styled.section`
   gap:18px;
   min-height:0;
   overflow-x:hidden;
-  overflow-y:${({$review})=>$review ? "hidden" : "auto"};
+  overflow-y:${({$review,$warning})=>$review || $warning ? "hidden" : "auto"};
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
   touch-action:pan-y;
@@ -1130,6 +1287,12 @@ const Action = styled.button`
 `;
 const PrimaryAction = styled(Action)`border:1px solid ${v.colorPrincipal};background:${v.colorPrincipal};color:#fff;`;
 const SecondaryAction = styled(Action)`border:1px solid ${({theme})=>theme.bg4};background:transparent;color:${({theme})=>theme.text};&:hover:not(:disabled){background:${({theme})=>theme.bg3};}`;
+const ContinueAnywayAction = styled(Action)`
+  border:1px solid ${v.rojo}66;
+  background:transparent;
+  color:${v.rojo};
+  &:hover:not(:disabled){background:${v.rojo}12;border-color:${v.rojo};}
+`;
 const ScanProgressButton = styled(Action)`
   position:relative;overflow:hidden;isolation:isolate;border:1px solid ${({$scanning})=>$scanning ? "#17212b" : v.colorPrincipal};background:${({$scanning})=>$scanning ? "#17212b" : v.colorPrincipal};color:#fff;min-width:156px;
   &::before{content:"";position:absolute;inset:0;z-index:0;background:${v.colorPrincipal};transform:scaleX(${({$progress=100})=>Math.max(0,Math.min(100,$progress))/100});transform-origin:left center;transition:transform 220ms cubic-bezier(.22,1,.36,1);}
@@ -1242,6 +1405,190 @@ const ReviewNotice = styled.p`
     ? `${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}18`
     : `${v.rojo}14`};
   color:${({theme})=>theme.text};font-size:.84rem;line-height:1.4;
+`;
+const TeamMismatchScreen = styled.section`
+  display:grid;
+  grid-template-rows:auto minmax(220px,1fr) auto;
+  gap:16px;
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  padding:2px 4px 2px 2px;
+  color:${({theme})=>theme.text};
+  scrollbar-width:thin;
+  scrollbar-color:${({theme})=>theme.colorScroll} transparent;
+
+  @media(max-width:760px){grid-template-rows:auto auto auto;gap:12px;}
+`;
+const TeamMismatchHero = styled.div`
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  padding:16px 18px;
+  border:1px solid ${v.rojo}55;
+  border-radius:14px;
+  background:${v.rojo}10;
+
+  .hero-copy{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  h5,p{margin:0;}
+  h5{font-size:clamp(1rem,1.5vw,1.2rem);line-height:1.3;letter-spacing:-.015em;}
+  p{max-width:72ch;font-size:.84rem;line-height:1.5;opacity:.78;}
+
+  @media(max-width:620px){
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:start;
+    padding:14px;
+  }
+`;
+const MismatchIcon = styled.span`
+  display:grid;
+  width:44px;
+  height:44px;
+  place-items:center;
+  border-radius:12px;
+  background:${v.rojo};
+  color:#fff;
+  font-size:1.35rem;
+`;
+const MismatchStatus = styled.span`
+  justify-self:end;
+  padding:5px 9px;
+  border-radius:999px;
+  background:${v.rojo}18;
+  color:${v.rojo};
+  font-size:.72rem;
+  font-weight:800;
+  white-space:nowrap;
+
+  @media(max-width:620px){grid-column:2;justify-self:start;}
+`;
+const TeamMismatchComparison = styled.div`
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 92px minmax(0,1fr);
+  align-items:stretch;
+  min-height:0;
+
+  @media(max-width:760px){grid-template-columns:1fr;}
+`;
+const MismatchTeamPanel = styled.section`
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  overflow:hidden;
+  border:1px solid ${({theme,$tone})=>$tone === "detected" ? `${v.rojo}55` : theme.bg4};
+  border-radius:14px;
+  background:${({theme})=>theme.bgcards};
+`;
+const MismatchPanelHeading = styled.header`
+  display:flex;
+  min-height:64px;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 16px;
+  border-bottom:1px solid ${({theme})=>theme.bg4};
+
+  >div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  strong{font-size:.9rem;line-height:1.3;}
+  span{font-size:.74rem;line-height:1.35;opacity:.64;}
+`;
+const MismatchTeamRows = styled.div`
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+`;
+const DetectedTeamRow = styled.div`
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:12px;
+  flex:1 1 0;
+  min-height:82px;
+  padding:14px 16px;
+  background:${({$mismatch})=>$mismatch ? `${v.rojo}09` : "transparent"};
+
+  &+&{border-top:1px solid ${({theme})=>theme.bg4};}
+  .team-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .team-copy span{font-size:.72rem;opacity:.62;}
+  .team-copy strong{font-size:clamp(.92rem,1.4vw,1.08rem);line-height:1.3;overflow-wrap:anywhere;}
+  .mismatch-label{padding:4px 7px;border-radius:999px;background:${v.rojo}18;color:${v.rojo};font-size:.68rem;font-weight:800;white-space:nowrap;}
+  .detected-score{display:grid;width:38px;height:38px;place-items:center;border-radius:10px;background:${({theme})=>theme.bg3};font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;}
+
+  @media(max-width:460px){
+    grid-template-columns:minmax(0,1fr) auto;
+    .mismatch-label{grid-column:1;justify-self:start;}
+    .detected-score{grid-column:2;grid-row:1 / span 2;}
+  }
+`;
+const ScheduledTeamRow = styled.div`
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:1 1 0;
+  min-height:82px;
+  padding:14px 16px;
+
+  &+&{border-top:1px solid ${({theme})=>theme.bg4};}
+  .registered-logo{display:grid;width:46px;height:46px;flex:0 0 auto;place-items:center;overflow:hidden;border-radius:12px;background:${({theme})=>theme.bg3};}
+  .registered-logo img{width:38px;height:38px;object-fit:contain;}
+  .team-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .team-copy span{font-size:.72rem;opacity:.62;}
+  .team-copy strong{font-size:clamp(.92rem,1.4vw,1.08rem);line-height:1.3;overflow-wrap:anywhere;}
+`;
+const MismatchConnector = styled.div`
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  color:${v.rojo};
+
+  svg{font-size:1.35rem;}
+  span{max-width:68px;text-align:center;font-size:.68rem;font-weight:800;line-height:1.3;}
+
+  @media(max-width:760px){
+    min-height:58px;
+    flex-direction:row;
+    span{max-width:none;}
+  }
+`;
+const MismatchSafetyNote = styled.div`
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:38px;
+  padding:8px 12px;
+  color:${({theme})=>theme.text};
+  font-size:.78rem;
+  line-height:1.4;
+  text-align:center;
+  opacity:.72;
+
+  svg{flex:0 0 auto;color:${v.rojo};font-size:1rem;}
+`;
+const MismatchActionBar = styled.div`
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding-top:14px;
+  border-top:1px solid ${({theme})=>theme.bg4};
+
+  .action-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .action-copy strong{font-size:.84rem;}
+  .action-copy span{font-size:.74rem;line-height:1.35;opacity:.64;}
+  .actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+
+  @media(max-width:700px){
+    align-items:stretch;
+    flex-direction:column;
+    gap:10px;
+    .actions{display:grid;grid-template-columns:1fr;}
+    .actions button{width:100%;min-height:44px;}
+  }
 `;
 const ScoreDiscrepancyPanel = styled.section`
   overflow:hidden;border:1px solid ${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};border-radius:12px;background:${({theme})=>theme.bgcards};

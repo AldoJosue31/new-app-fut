@@ -624,3 +624,40 @@ export const resolveScannedTeamSides = (firstName, secondName, actualTeams) => {
       || (firstReadable && secondReadable && Math.abs(directScore - swappedScore) < 0.04),
   };
 };
+
+const CLEAR_TEAM_MISMATCH_THRESHOLD = 0.68;
+
+/**
+ * Returns only readable team names that are clearly different from the side
+ * assigned to them. Borderline OCR readings stay in the regular review flow;
+ * this is intentionally reserved for a high-signal warning before applying.
+ */
+export const getScannedTeamNameMismatches = (
+  firstName,
+  secondName,
+  actualTeams = [],
+  assignment = resolveScannedTeamSides(firstName, secondName, actualTeams),
+) => {
+  if (!Array.isArray(actualTeams) || actualTeams.length < 2) return [];
+
+  return [
+    { position: "first", scannedName: firstName, side: assignment.firstSide },
+    { position: "second", scannedName: secondName, side: assignment.secondSide },
+  ].flatMap(entry => {
+    const readableName = String(entry.scannedName || "").trim();
+    if (!normalizeScanName(readableName, { team: true })) return [];
+
+    const registeredTeam = actualTeams.find(team => team.side === entry.side);
+    if (!registeredTeam) return [];
+
+    const similarity = scanNameSimilarity(readableName, registeredTeam.name, { team: true });
+    if (similarity >= CLEAR_TEAM_MISMATCH_THRESHOLD) return [];
+
+    return [{
+      ...entry,
+      scannedName: readableName,
+      registeredName: registeredTeam.name,
+      similarity,
+    }];
+  });
+};
