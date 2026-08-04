@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useEffectEvent, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import styled, { keyframes } from "styled-components";
-import { Toast } from "../../../atomos/Toast";
 import { JornadaPlanificacion } from "./JornadaPlanificacion"; 
 import { JornadaResultados } from "./JornadaResultados";
 import {
@@ -35,6 +34,7 @@ import {
 } from "../../../../utils/jornadaUtils";
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
+import { notify } from "../../../../lib/notifications/notify.js";
 
 const FixturePreviewModal = dynamic(
   () =>
@@ -355,7 +355,6 @@ export function TorneoJornadasTab({
   const [allTournamentMatches, setAllTournamentMatches] = useState([]);
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
-  const [toastConfig, setToastConfig] = useState({ show: false, message: '', type: 'error' });
   
   const [dataVersion, setDataVersion] = useState(0);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -750,7 +749,7 @@ export function TorneoJornadasTab({
           setIsEditorOpen(true);
 
       } catch (error) {
-          setToastConfig({ show: true, message: "Error cargando fixture: " + error.message, type: "error" });
+          notify.error("Error cargando fixture: " + error.message);
       } finally {
           setLoading(false);
       }
@@ -983,35 +982,31 @@ export function TorneoJornadasTab({
               await bulkInsertMatchesService(inserts);
             }
 
-            setToastConfig({
-              show: true,
-              message: generatedRoundIndexes.length > 0
+            notify.success(
+              generatedRoundIndexes.length > 0
                 ? "Nueva jornada generada y guardada correctamente."
                 : hasAcceptedScannedSchedules
                   ? "Fixture y horarios escaneados guardados correctamente."
                   : "Fixture reorganizado correctamente.",
-              type: "success"
-            });
+            );
 
             await loadTournamentData({ preserveData: true });
 
             setDataVersion(prev => prev + 1);
             
         } else {
-            setToastConfig({
-              show: true,
-              message: generatedRoundIndexes.length > 0
+            notify.warning(
+              generatedRoundIndexes.length > 0
                 ? "La jornada se creo, pero no hubo partidos validos para guardar."
                 : "No se detectaron cambios de jornada.",
-              type: "warning"
-            });
+            );
         }
 
         await new Promise((resolve) => setTimeout(resolve, 180));
         setIsEditorOpen(false);
 
       } catch (error) {
-          setToastConfig({ show: true, message: "Error guardando cambios: " + error.message, type: "error" });
+          notify.error("Error guardando cambios: " + error.message);
       } finally {
           setLoading(false);
       }
@@ -1063,12 +1058,12 @@ export function TorneoJornadasTab({
             currentJornada.status === 'Confirmada'
               ? `Cambio confirmado. La fecha de fin se ajusto a ${jornadaDurationDays} dias.`
               : `Fechas actualizadas. Se recorrieron ${updates.length - 1} jornadas futuras.`;
-          setToastConfig({ show: true, message: successMessage, type: "success" });
+          notify.success(successMessage);
           await fetchJornadas(); 
           
       } catch (error) {
           console.error(error);
-          setToastConfig({ show: true, message: "Error actualizando fechas: " + error.message, type: "error" });
+          notify.error("Error actualizando fechas: " + error.message);
       } finally {
           setLoading(false);
       }
@@ -1132,11 +1127,9 @@ export function TorneoJornadasTab({
 
       await bulkUpdateJornadaFechas(updates);
       setIsDateNormalizerOpen(false);
-      setToastConfig({
-        show: true,
-        message: `Calendario ajustado. Todas las jornadas duran ${jornadaDurationDays} dias.`,
-        type: "success",
-      });
+      notify.success(
+        `Calendario ajustado. Todas las jornadas duran ${jornadaDurationDays} dias.`,
+      );
 
       const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
       const selectedJornada = updatedJornadasResult?.selectedJornada || null;
@@ -1151,11 +1144,7 @@ export function TorneoJornadasTab({
       }
     } catch (error) {
       console.error(error);
-      setToastConfig({
-        show: true,
-        message: "Error ajustando calendario: " + error.message,
-        type: "error",
-      });
+      notify.error("Error ajustando calendario: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -1223,11 +1212,9 @@ export function TorneoJornadasTab({
 
       await bulkUpsertMatchesService(updates);
       setIsDateNormalizerOpen(false);
-      setToastConfig({
-        show: true,
-        message: `Partidos ajustados a la semana de su jornada: ${updates.length}.`,
-        type: "success",
-      });
+      notify.success(
+        `Partidos ajustados a la semana de su jornada: ${updates.length}.`,
+      );
 
       const tournamentMatches = await fetchAllTournamentMatches();
       if (jornadas[currentJornadaIndex]?.id) {
@@ -1242,11 +1229,7 @@ export function TorneoJornadasTab({
       setDataVersion((prev) => prev + 1);
     } catch (error) {
       console.error(error);
-      setToastConfig({
-        show: true,
-        message: "Error ajustando partidos: " + error.message,
-        type: "error",
-      });
+      notify.error("Error ajustando partidos: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -1257,7 +1240,6 @@ export function TorneoJornadasTab({
     try {
         const preservedJornadaId = jornadas[currentJornadaIndex]?.id || null;
         await guardarJornadaService(activeTournament.id, dataToSave);
-        setToastConfig({ show: true, message: "Jornada confirmada exitosamente.", type: "success" });
 
         const updatedMappings = await fetchTournamentConfig();
         const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
@@ -1282,8 +1264,6 @@ export function TorneoJornadasTab({
         setDataVersion(prev => prev + 1);
         if (refreshStandings) await refreshStandings();
         
-    } catch (error) { 
-        setToastConfig({ show: true, message: error.message, type: "error" }); 
     } finally { 
         setLoading(false); 
     }
@@ -1292,46 +1272,33 @@ export function TorneoJornadasTab({
   const handleUndoJornadaConfirmation = async ({ jornadaId }) => {
     const preservedJornadaId = jornadaId || jornadas[currentJornadaIndex]?.id || null;
 
-    try {
-        await desconfirmarJornadaService(activeTournament.id, preservedJornadaId);
-        setToastConfig({
-          show: true,
-          message: "Confirmacion deshecha. La jornada vuelve a modo editable.",
-          type: "success"
-        });
+    await desconfirmarJornadaService(activeTournament.id, preservedJornadaId);
 
-        const updatedMappings = await fetchTournamentConfig();
-        const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
-        const updatedJornadas = updatedJornadasResult?.jornadas || [];
-        const tournamentMatches = await fetchAllTournamentMatches();
+    const updatedMappings = await fetchTournamentConfig();
+    const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
+    const updatedJornadas = updatedJornadasResult?.jornadas || [];
+    const tournamentMatches = await fetchAllTournamentMatches();
 
-        const jornadaToRefresh =
-          updatedJornadasResult?.selectedJornada ||
-          updatedJornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId)) ||
-          updatedJornadas[currentJornadaIndex];
+    const jornadaToRefresh =
+      updatedJornadasResult?.selectedJornada ||
+      updatedJornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId)) ||
+      updatedJornadas[currentJornadaIndex];
 
-        if (jornadaToRefresh?.id) {
-          await fetchCurrentJornadaMatches(
-            jornadaToRefresh.id,
-            updatedJornadas,
-            updatedMappings?.jornadaMappings || [],
-            updatedMappings?.matchMappings || [],
-            { matchesSource: tournamentMatches }
-          );
-        }
-    } catch (error) {
-        setToastConfig({
-          show: true,
-          message: error.message || "Error deshaciendo la confirmacion.",
-          type: "error"
-        });
-        throw error;
+    if (jornadaToRefresh?.id) {
+      await fetchCurrentJornadaMatches(
+        jornadaToRefresh.id,
+        updatedJornadas,
+        updatedMappings?.jornadaMappings || [],
+        updatedMappings?.matchMappings || [],
+        { matchesSource: tournamentMatches }
+      );
     }
   };
 
   const handleSaveConfig = async (newConfig) => {
     setLoading(true);
     try {
+        let successMessage = "Cambios guardados exitosamente.";
         const baseJornadas = participatingTeams.length % 2 === 0 
             ? participatingTeams.length - 1 
             : participatingTeams.length;
@@ -1372,12 +1339,7 @@ export function TorneoJornadasTab({
                     const reason = startDateChanged
                       ? "cambio de inicio"
                       : "cambio de duracion";
-                    setToastConfig(prev => ({
-                      ...prev,
-                      show: true,
-                      message: `Fechas de jornadas recalculadas por ${reason}.`,
-                      type: "success"
-                    }));
+                    successMessage = `Fechas de jornadas recalculadas por ${reason}.`;
                 }
             }
         }
@@ -1390,13 +1352,10 @@ export function TorneoJornadasTab({
             start_date: newConfig.startDate || prev.start_date 
         }));
         
-        if (!toastConfig.show) { 
-            setToastConfig({ show: true, message: "Cambios guardados exitosamente.", type: "success" });
-        }
-        
         await fetchJornadas(); 
+        notify.success(successMessage);
     } catch (error) {
-        setToastConfig({ show: true, message: error.message, type: "error" });
+        notify.error(error);
     } finally { setLoading(false); }
   };
 
@@ -1456,11 +1415,9 @@ export function TorneoJornadasTab({
         "Resultado guardado, pero falló la sincronización posterior:",
         failures.map((failure) => failure.reason)
       );
-      setToastConfig({
-        show: true,
-        message: "Resultado guardado. Algunos datos no pudieron actualizarse; recarga la página si no ves los cambios.",
-        type: "warning",
-      });
+      notify.warning(
+        "Resultado guardado. Algunos datos no pudieron actualizarse; recarga la página si no ves los cambios.",
+      );
     });
   };
 
@@ -1520,8 +1477,6 @@ export function TorneoJornadasTab({
 
   return (
     <TabContainer>
-      <Toast show={toastConfig.show} message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig({ ...toastConfig, show: false })} />
-      
       {isEditorOpen && (
         <FixturePreviewModal
           isOpen

@@ -2,7 +2,6 @@ import React from "react";
 import styled from "styled-components";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader"; 
-import { Toast } from "../atomos/Toast";
 import { Skeleton } from "../atomos/Skeleton";
 import { Btnsave } from "../moleculas/Btnsave";
 
@@ -41,8 +40,6 @@ export function AdminManagersTemplate({
   handleConfirmDelete,
   openDeleteModal,
   handleCreate,
-  toast,
-  closeToast,
   state, 
   setState 
 }) {
@@ -53,8 +50,6 @@ export function AdminManagersTemplate({
 
   return (
     <>
-      <Toast show={toast.show} message={toast.message} type={toast.type} onClose={closeToast} />
-
       <PageHeader 
         title="Managers" 
         marginBottom="0"

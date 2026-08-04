@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styled, { css } from "styled-components";
 import { v } from "../../styles/variables";
@@ -11,11 +11,11 @@ import { Modal } from "../organismos/Modal";
 import { InputText2 } from "../organismos/formularios/InputText2";
 import { Btnsave } from "../moleculas/Btnsave";
 
-import { IoIosArrowDown } from "react-icons/io";
+import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { RiDeleteBinLine } from "react-icons/ri";
-import { BiTransfer } from "react-icons/bi";
 import { buildTournamentDivisionSwitchPath } from "../../lib/navigation/tournamentRoutes.js";
 import { useNavigationProgress } from "../app/NavigationProgress";
+import { prefetchDivisionWorkspace } from "../../services/divisionWorkspace.js";
 
 export function DivisionSelector({ isOpen, currentPath = "/" }) {
   const router = useRouter();
@@ -27,15 +27,19 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
   const fetchDivisiones = useDivisionStore(
     (store) => store.fetchDivisiones,
   );
-  const { completeNavigation, startNavigation } =
+  const { completeNavigation, startNavigation, transition } =
     useNavigationProgress();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [newDivisionName, setNewDivisionName] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
-  const [pendingDivision, setPendingDivision] = useState(null);
-  const pendingTimerRef = useRef(null);
-  const isSwitchingDivision = Boolean(pendingDivision);
+  const pendingDivisionId =
+    transition.kind === "division" &&
+    transition.isVisible &&
+    !transition.isDone
+      ? transition.targetDivisionId
+      : "";
+  const isSwitchingDivision = Boolean(pendingDivisionId);
   const selectedDivisionId = selectedDivision?.id || "";
 
   useEffect(() => {
@@ -45,44 +49,36 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
   }, [divisiones.length, fetchDivisiones]);
 
   useEffect(() => {
-    return () => {
-      if (pendingTimerRef.current) {
-        window.clearTimeout(pendingTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!pendingDivision || selectedDivision?.id !== pendingDivision.id) return;
-
-    if (pendingTimerRef.current) {
-      window.clearTimeout(pendingTimerRef.current);
-      pendingTimerRef.current = null;
+    if (
+      !isSwitchingDivision ||
+      transition.targetPath ||
+      String(selectedDivision?.id || "") !== String(pendingDivisionId)
+    ) {
+      return undefined;
     }
-    completeNavigation({
-      label: `${pendingDivision.name} activa`,
+
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        completeNavigation();
+      });
     });
-    setPendingDivision(null);
-  }, [completeNavigation, pendingDivision, selectedDivision?.id]);
 
-  const showDivisionProgress = (division) => {
-    if (pendingTimerRef.current) {
-      window.clearTimeout(pendingTimerRef.current);
-    }
-    setPendingDivision(division);
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [
+    completeNavigation,
+    isSwitchingDivision,
+    pendingDivisionId,
+    selectedDivision?.id,
+    transition.targetPath,
+  ]);
 
-    pendingTimerRef.current = window.setTimeout(() => {
-      setPendingDivision((current) =>
-        current?.id === division?.id ? null : current
-      );
-      pendingTimerRef.current = null;
-    }, 8000);
-  };
-
-  const changeDivision = (division) => {
-    if (!division || division.id === selectedDivision?.id || pendingDivision) return;
-
-    showDivisionProgress(division);
+  const getDivisionDestination = (division) => {
+    if (!division) return "";
 
     const activePath =
       typeof window === "undefined" ? currentPath : window.location.pathname;
@@ -90,26 +86,41 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
       divisionId: division.id,
       pathname: activePath,
     });
-    if (tournamentDestination) {
-      startNavigation({
-        doneLabel: `${division.name} activa`,
-        kind: "division",
-        label: `Cambiando a ${division.name}`,
-        targetPath: tournamentDestination,
-      });
-      router.replace(tournamentDestination, { scroll: false });
-      return;
+    if (tournamentDestination) return tournamentDestination;
+
+    if (/^\/(?:division\/\d+\/)?equipos(?:\/|$)/.test(activePath)) {
+      return `/division/${division.id}/equipos`;
     }
 
-    const equiposMatch = activePath.match(/(?:\/division\/\d+)?\/equipos\/?([^/]*)?/);
-    if (equiposMatch) {
-      const destination = `/division/${division.id}/equipos`;
+    return "";
+  };
+
+  const prewarmDivision = (division) => {
+    const destination = getDivisionDestination(division);
+    if (!destination) return;
+
+    router.prefetch(destination);
+    if (!destination.includes("/torneos")) return;
+
+    void prefetchDivisionWorkspace(division.id).catch(() => {
+      // La navegación normal conserva su propio manejo de errores.
+    });
+  };
+
+  const changeDivision = (division) => {
+    if (!division || division.id === selectedDivision?.id || isSwitchingDivision) return;
+
+    const destination = getDivisionDestination(division);
+    if (destination) {
+      prewarmDivision(division);
       startNavigation({
         doneLabel: `${division.name} activa`,
         kind: "division",
         label: `Cambiando a ${division.name}`,
+        targetDivisionId: division.id,
         targetPath: destination,
       });
+      setDivision(division);
       router.replace(destination, { scroll: false });
       return;
     }
@@ -118,6 +129,7 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
       doneLabel: `${division.name} activa`,
       kind: "division",
       label: `Cambiando a ${division.name}`,
+      targetDivisionId: division.id,
     });
     setDivision(division);
   };
@@ -129,13 +141,26 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
     changeDivision(divisionEncontrada);
   };
 
-  const handleCycle = (e) => {
+  const getAdjacentDivision = (step) => {
+    if (divisiones.length < 2) return null;
+
+    const currentIndex = divisiones.findIndex(
+      (division) => division.id === selectedDivision?.id,
+    );
+    const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex =
+      (safeCurrentIndex + step + divisiones.length) % divisiones.length;
+    return divisiones[nextIndex];
+  };
+
+  const handleCycle = (e, step) => {
     e.stopPropagation();
     if (isSwitchingDivision || divisiones.length < 2) return;
-    const currentIndex = divisiones.findIndex((div) => div.id === selectedDivision?.id);
-    const newIndex = currentIndex < divisiones.length - 1 ? currentIndex + 1 : 0;
-    changeDivision(divisiones[newIndex]);
+    changeDivision(getAdjacentDivision(step));
   };
+
+  const previousDivision = getAdjacentDivision(-1);
+  const nextDivision = getAdjacentDivision(1);
 
   const getInitials = (name) => {
     if (!name) return "??";
@@ -177,7 +202,10 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
 
   return (
     <>
-      <MainContainer>
+      <MainContainer
+        $hasCycle={divisiones.length > 1}
+        $isOpen={isOpen}
+      >
         <ViewStack>
           <FullView $isActive={isOpen}>
             <div className="header-row">
@@ -221,27 +249,69 @@ export function DivisionSelector({ isOpen, currentPath = "/" }) {
           </FullView>
 
           <CompactView $isActive={!isOpen}>
-            <InitialsContainer
-              type="button"
-              aria-label={divisiones.length > 1 ? "Cambiar a la siguiente división" : divisiones.length === 0 ? "Crear división" : selectedDivision?.name}
-              onClick={divisiones.length > 0 ? handleCycle : () => setModalOpen(true)}
-              title={isSwitchingDivision ? "Cambiando division" : divisiones.length > 1 ? "Click para cambiar de división" : selectedDivision?.name}
-              $isEmpty={divisiones.length === 0}
-              $clickable={divisiones.length > 1 && !isSwitchingDivision}
-              $isSwitching={isSwitchingDivision}
+            <CompactControlGroup
+              aria-label="Cambiar división"
+              aria-busy={isSwitchingDivision}
+              role="group"
             >
-              <span className="initials">
-                {divisiones.length > 0 ? getInitials(selectedDivision?.name) : "+"}
-              </span>
-
-              {isSwitchingDivision ? (
-                <div className="compact-spinner" aria-hidden="true" />
-              ) : divisiones.length > 1 && (
-                <div className="swap-icon">
-                  <BiTransfer />
-                </div>
+              {divisiones.length > 1 && (
+                <CycleButton
+                  type="button"
+                  aria-label={`Cambiar a ${previousDivision?.name}`}
+                  title={previousDivision?.name}
+                  disabled={isSwitchingDivision}
+                  onClick={(event) => handleCycle(event, -1)}
+                  onFocus={() => prewarmDivision(previousDivision)}
+                  onPointerEnter={() => prewarmDivision(previousDivision)}
+                >
+                  <IoIosArrowUp aria-hidden="true" />
+                </CycleButton>
               )}
-            </InitialsContainer>
+
+              <InitialsContainer
+                type="button"
+                aria-label={
+                  divisiones.length === 0
+                    ? "Crear división"
+                    : selectedDivision?.name
+                }
+                onClick={() => {
+                  if (divisiones.length === 0) setModalOpen(true);
+                }}
+                title={
+                  isSwitchingDivision
+                    ? "Cambiando división"
+                    : selectedDivision?.name
+                }
+                disabled={divisiones.length > 0}
+                $isEmpty={divisiones.length === 0}
+                $isSwitching={isSwitchingDivision}
+              >
+                <span className="initials">
+                  {divisiones.length > 0
+                    ? getInitials(selectedDivision?.name)
+                    : "+"}
+                </span>
+
+                {isSwitchingDivision && (
+                  <div className="compact-spinner" aria-hidden="true" />
+                )}
+              </InitialsContainer>
+
+              {divisiones.length > 1 && (
+                <CycleButton
+                  type="button"
+                  aria-label={`Cambiar a ${nextDivision?.name}`}
+                  title={nextDivision?.name}
+                  disabled={isSwitchingDivision}
+                  onClick={(event) => handleCycle(event, 1)}
+                  onFocus={() => prewarmDivision(nextDivision)}
+                  onPointerEnter={() => prewarmDivision(nextDivision)}
+                >
+                  <IoIosArrowDown aria-hidden="true" />
+                </CycleButton>
+              )}
+            </CompactControlGroup>
           </CompactView>
         </ViewStack>
       </MainContainer>
@@ -290,11 +360,13 @@ const MainContainer = styled.div`
   margin: 9px 0;
   margin-left: 8px;
   margin-right: 10px;
-  min-height: 60px;
+  min-height: ${({ $hasCycle, $isOpen }) =>
+    $isOpen || !$hasCycle ? "60px" : "112px"};
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: min-height 280ms ease;
 `;
 
 const ViewStack = styled.div`
@@ -311,6 +383,7 @@ const ViewStack = styled.div`
 `;
 
 const activeState = css`
+  max-height: 140px;
   opacity: 1;
   transform: translateX(0) scale(1);
   pointer-events: all;
@@ -318,7 +391,9 @@ const activeState = css`
 `;
 
 const inactiveState = (translateX) => css`
+  max-height: 0;
   opacity: 0;
+  overflow: hidden;
   transform: translateX(${translateX}) scale(0.9);
   pointer-events: none;
   visibility: hidden;
@@ -385,12 +460,23 @@ const InitialsContainer = styled.button`
   justify-content: center;
   font-weight: 800;
   font-size: 0.95rem;
-  cursor: ${({ $clickable, $isSwitching }) => ($isSwitching ? "wait" : $clickable ? "pointer" : "default")};
+  cursor: ${({ $isEmpty, $isSwitching }) =>
+    $isSwitching ? "wait" : $isEmpty ? "pointer" : "default"};
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  transition: box-shadow 180ms ease, transform 180ms ease;
   user-select: none;
   border: 2px solid ${({ theme }) => theme.bgtotal};
   overflow: hidden;
+
+  &:disabled {
+    color: white;
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 3px solid ${({ theme }) => theme.primary || v.colorPrincipal};
+    outline-offset: 3px;
+  }
 
   .initials {
     transition: all 0.3s ease;
@@ -409,43 +495,62 @@ const InitialsContainer = styled.button`
     z-index: 3;
   }
 
-  .swap-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-    font-size: 1.4rem;
-    transition: all 0.3s ease;
-    z-index: 2;
-    color: ${({ theme }) => theme.text};
-  }
-
-  ${({ $clickable, $isSwitching, theme }) =>
-    $clickable &&
+  ${({ $isEmpty, $isSwitching }) =>
+    $isEmpty &&
     !$isSwitching &&
     css`
       &:hover {
         box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
-        background: ${theme.bg4};
-        border-color: ${theme.primary};
-
-        .initials {
-          filter: blur(3px);
-          opacity: 0.4;
-          color: ${theme.text};
-        }
-
-        .swap-icon {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(1);
-        }
       }
 
       &:active {
         transform: scale(0.95);
       }
     `}
+`;
+
+const CompactControlGroup = styled.div`
+  display: flex;
+  width: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+`;
+
+const CycleButton = styled.button`
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${({ theme }) => theme.text};
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.15rem;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    color: ${({ theme }) => theme.primary || v.colorPrincipal};
+    background: ${({ theme }) => theme.bgAlpha};
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+
+  &:focus-visible {
+    outline: 3px solid ${({ theme }) => theme.primary || v.colorPrincipal};
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.35;
+  }
 `;
 
 const SelectWrapper = styled.div`

@@ -3,7 +3,6 @@
 import {
   cloneElement,
   isValidElement,
-  useState,
 } from "react";
 import { usePathname } from "next/navigation";
 import styled from "styled-components";
@@ -17,13 +16,15 @@ import {
 import { Device } from "../../styles/breakpoints.jsx";
 import PrivatePageProviders from "./PrivatePageProviders.jsx";
 import { NavigationProgressBar } from "./NavigationProgress.jsx";
+import { useLayoutStore } from "../../store/LayoutStore.jsx";
 
 export default function PrivatePageShell({
   children,
   initialAuth,
 }) {
   const currentPath = usePathname() || "/";
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarOpen = useLayoutStore((state) => state.sidebarOpen);
+  const setSidebarOpen = useLayoutStore((state) => state.setSidebarOpen);
   const content = isValidElement(children)
     ? cloneElement(children, {
         setState: setSidebarOpen,

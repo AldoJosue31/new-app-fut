@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase/browserClient.js";
 
 const inFlightWorkspaceRequests = new Map();
+const prefetchedWorkspaceResults = new Map();
+const PREFETCH_TTL_MS = 15000;
 
 const parseApiError = async (response) => {
   try {
@@ -39,21 +41,75 @@ const requestDivisionWorkspace = async (divisionId) => {
   return response.json();
 };
 
+const getRequestKey = (divisionId) => String(divisionId);
+
+const readPrefetchedWorkspace = (requestKey) => {
+  const prefetched = prefetchedWorkspaceResults.get(requestKey);
+  if (!prefetched) return null;
+
+  prefetchedWorkspaceResults.delete(requestKey);
+  if (prefetched.expiresAt <= Date.now()) return null;
+  return prefetched.data;
+};
+
+const startWorkspaceRequest = (divisionId, { cacheIfUnused = false } = {}) => {
+  const requestKey = getRequestKey(divisionId);
+  const entry = {
+    cacheIfUnused,
+    consumed: !cacheIfUnused,
+    promise: null,
+  };
+
+  entry.promise = requestDivisionWorkspace(divisionId)
+    .then((data) => {
+      if (entry.cacheIfUnused && !entry.consumed) {
+        prefetchedWorkspaceResults.set(requestKey, {
+          data,
+          expiresAt: Date.now() + PREFETCH_TTL_MS,
+        });
+      }
+      return data;
+    })
+    .finally(() => {
+      if (inFlightWorkspaceRequests.get(requestKey) === entry) {
+        inFlightWorkspaceRequests.delete(requestKey);
+      }
+    });
+
+  inFlightWorkspaceRequests.set(requestKey, entry);
+  return entry;
+};
+
 export const getDivisionWorkspace = (divisionId) => {
   if (!divisionId) {
     return Promise.reject(new Error("divisionId es obligatorio."));
   }
 
-  const requestKey = String(divisionId);
-  const existingRequest = inFlightWorkspaceRequests.get(requestKey);
-  if (existingRequest) return existingRequest;
+  const requestKey = getRequestKey(divisionId);
+  const prefetchedWorkspace = readPrefetchedWorkspace(requestKey);
+  if (prefetchedWorkspace) return Promise.resolve(prefetchedWorkspace);
 
-  const request = requestDivisionWorkspace(divisionId).finally(() => {
-    if (inFlightWorkspaceRequests.get(requestKey) === request) {
-      inFlightWorkspaceRequests.delete(requestKey);
-    }
-  });
+  const existingEntry = inFlightWorkspaceRequests.get(requestKey);
+  if (existingEntry) {
+    existingEntry.consumed = true;
+    return existingEntry.promise;
+  }
 
-  inFlightWorkspaceRequests.set(requestKey, request);
-  return request;
+  return startWorkspaceRequest(divisionId).promise;
+};
+
+export const prefetchDivisionWorkspace = (divisionId) => {
+  if (!divisionId) return Promise.resolve(null);
+
+  const requestKey = getRequestKey(divisionId);
+  const prefetched = prefetchedWorkspaceResults.get(requestKey);
+  if (prefetched?.expiresAt > Date.now()) {
+    return Promise.resolve(prefetched.data);
+  }
+  if (prefetched) prefetchedWorkspaceResults.delete(requestKey);
+
+  const existingEntry = inFlightWorkspaceRequests.get(requestKey);
+  if (existingEntry) return existingEntry.promise;
+
+  return startWorkspaceRequest(divisionId, { cacheIfUnused: true }).promise;
 };
