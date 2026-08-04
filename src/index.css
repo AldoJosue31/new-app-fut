@@ -13,11 +13,11 @@ body [data-sileo-viewport] {
 }
 
 body [data-sileo-viewport][data-theme="light"] {
-  --app-toast-surface: #ffffff;
+  --app-toast-surface: #dce8ee;
   --app-toast-title: #22313d;
   --app-toast-text: #5c6875;
-  --app-toast-border: #d9e6f2;
-  --app-toast-shadow: rgba(18, 45, 66, 0.2);
+  --app-toast-border: #b9ccd6;
+  --app-toast-shadow: rgba(18, 45, 66, 0.24);
   --app-toast-flash-success: rgba(40, 122, 62, 0.28);
   --app-toast-flash-error: rgba(184, 50, 42, 0.32);
   --app-toast-flash-warning: rgba(138, 92, 0, 0.3);
@@ -29,11 +29,11 @@ body [data-sileo-viewport][data-theme="light"] {
 }
 
 body [data-sileo-viewport][data-theme="dark"] {
-  --app-toast-surface: #18282f;
+  --app-toast-surface: #29414b;
   --app-toast-title: #f7fafc;
   --app-toast-text: #cad4d9;
-  --app-toast-border: #34505b;
-  --app-toast-shadow: rgba(0, 0, 0, 0.44);
+  --app-toast-border: #486570;
+  --app-toast-shadow: rgba(0, 0, 0, 0.42);
   --app-toast-flash-success: rgba(116, 209, 124, 0.42);
   --app-toast-flash-error: rgba(255, 130, 120, 0.46);
   --app-toast-flash-warning: rgba(245, 196, 81, 0.44);

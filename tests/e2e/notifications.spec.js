@@ -72,8 +72,8 @@ test("login muestra una sola notificación global, legible y sobre los modales",
   }));
 
   expect(palette).toEqual({
-    surface: "rgb(24, 40, 47)",
-    border: "rgb(52, 80, 91)",
+    surface: "rgb(41, 65, 75)",
+    border: "rgb(72, 101, 112)",
     borderWidth: "0.75px",
     title: "rgb(247, 250, 252)",
     text: "rgb(202, 212, 217)",
@@ -140,8 +140,8 @@ test.describe("tema claro", () => {
     }));
 
     expect(palette).toEqual({
-      surface: "rgb(255, 255, 255)",
-      border: "rgb(217, 230, 242)",
+      surface: "rgb(220, 232, 238)",
+      border: "rgb(185, 204, 214)",
       borderWidth: "0.75px",
       title: "rgb(34, 49, 61)",
       text: "rgb(92, 104, 117)",
