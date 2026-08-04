@@ -117,15 +117,51 @@ test("rechaza nombres casi identicos cuando el margen global es insuficiente", (
   assert.equal(result.reason, "ambiguous-name");
 });
 
-test("usa un dorsal unico como ancla aun si el nombre es poco legible", () => {
+test("no usa un dorsal unico cuando el nombre legible no lo respalda", () => {
   const [result] = resolveScannedPlayerMatches(
     [{ name: "texto ilegible", dorsal: 10 }],
     [registered(1, "Jose Perez", 10), registered(2, "Mario Lopez", 11)],
   );
 
+  assert.equal(result.matched, null);
+  assert.equal(result.reason, "dorsal-name-conflict");
+  assert.equal(result.dorsal, "10");
+});
+
+test("acepta un dorsal cuando acompana una variante ortografica del mismo nombre", () => {
+  const [result] = resolveScannedPlayerMatches(
+    [{ name: "Jose Peres", dorsal: 10 }],
+    [registered(1, "Jose Perez", 10), registered(2, "Mario Lopez", 11)],
+  );
+
   assert.equal(result.matched.id, 1);
   assert.equal(result.method, "dorsal");
-  assert.equal(result.dorsal, "10");
+});
+
+test("expande abreviaciones comunes de apellidos antes de comparar", () => {
+  assert.equal(normalizeScanName("Juan Mtz"), "juan martinez");
+  assert.equal(normalizeScanName("Carlos Glez"), "carlos gonzalez");
+  assert.equal(normalizeScanName("Ana Hdez"), "ana hernandez");
+});
+
+test("resuelve abreviaciones aun cuando apellido y nombre vienen invertidos", () => {
+  const [result] = resolveScannedPlayerMatches(
+    [{ name: "Mtz Juan" }],
+    [registered(1, "Juan Martinez", 10), registered(2, "Juan Gonzalez", 11)],
+  );
+
+  assert.equal(result.matched.id, 1);
+  assert.equal(result.method, "exact-name");
+});
+
+test("rechaza un dorsal coincidente cuando el nombre pertenece a otra persona", () => {
+  const [result] = resolveScannedPlayerMatches(
+    [{ name: "Eslaba Pablo", dorsal: 10 }],
+    [registered(1, "Emiliano Ramirez Betancourt", 10)],
+  );
+
+  assert.equal(result.matched, null);
+  assert.equal(result.reason, "dorsal-name-conflict");
 });
 
 test("extrae el dorsal del nombre y resuelve homonimos", () => {

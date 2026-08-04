@@ -381,7 +381,7 @@ export function CedulaScanFlow({
     }));
     const resolvedPlayers = Array(scannedRows.length);
     const claimedPlayerIds = new Set();
-    const resolveRows = (rows, pool) => {
+    const resolveRows = (rows, pool, skippedReason = null) => {
       const matches = resolveScannedPlayerMatches(
         rows.map(row => row.scannedPlayer),
         pool,
@@ -405,24 +405,29 @@ export function CedulaScanFlow({
         if (candidateId && !conflictsWithResolvedGroup) claimedPlayerIds.add(candidateId);
         resolvedPlayers[row.index] = {
           ...row.scannedPlayer,
-          side: candidate && (teamAssignment.ambiguous || !row.side)
-            ? candidate.scanSide
-            : row.side,
+          side: row.side,
           matched: candidate && !conflictsWithResolvedGroup ? candidate.player : null,
           confidence: candidate && !conflictsWithResolvedGroup ? matchResult.score : 0,
           matchMethod: candidate && !conflictsWithResolvedGroup ? matchResult.method : null,
-          matchReason: conflictsWithResolvedGroup ? "candidate-conflict" : matchResult?.reason || null,
+          matchReason: skippedReason
+            || (conflictsWithResolvedGroup ? "candidate-conflict" : matchResult?.reason || null),
         };
       });
     };
 
-    if (teamAssignment.ambiguous) {
-      resolveRows(scannedRows, [...localPool, ...visitPool]);
-    } else {
-      resolveRows(scannedRows.filter(row => row.side === "local"), localPool);
-      resolveRows(scannedRows.filter(row => row.side === "visit"), visitPool);
-      resolveRows(scannedRows.filter(row => !row.side), [...localPool, ...visitPool]);
-    }
+    // El bloque visual del equipo es una frontera estricta: nunca usamos el
+    // plantel rival para completar un nombre dudoso o un dorsal coincidente.
+    resolveRows(
+      scannedRows.filter(row => row.side === "local"),
+      localPool,
+      localPool.length === 0 ? "no-registered-players" : null,
+    );
+    resolveRows(
+      scannedRows.filter(row => row.side === "visit"),
+      visitPool,
+      visitPool.length === 0 ? "no-registered-players" : null,
+    );
+    resolveRows(scannedRows.filter(row => !row.side), [], "unassigned-team");
     const players = resolvedPlayers.filter(Boolean);
     const scores = { local: 0, visit: 0 };
     scores[localSide] = Number(rawScan.localTeam?.score) || 0;
@@ -726,8 +731,19 @@ export function CedulaScanFlow({
   const automaticallyUnassignedSides = new Set(
     teamsWithoutMatchedPlayers.map(team => team.side),
   );
+  const registeredPlayerCounts = {
+    local: localPlayers.length,
+    visit: visitPlayers.length,
+  };
+  const sidesWithoutRegisteredPlayers = new Set(
+    Object.entries(registeredPlayerCounts)
+      .filter(([, count]) => count === 0)
+      .map(([side]) => side),
+  );
   const unlinkedPlayers = interpretation.players.filter(
-    player => !player.matched && !automaticallyUnassignedSides.has(player.side),
+    player => !player.matched
+      && !automaticallyUnassignedSides.has(player.side)
+      && !sidesWithoutRegisteredPlayers.has(player.side),
   ).length;
   const uncertainGoalRows = interpretation.players.filter(player => (
     player.goalsLegible === false || player.goalsConfidence === "low"
@@ -750,16 +766,44 @@ export function CedulaScanFlow({
     interpretation.teams,
     interpretation.teamAssignment,
   );
+  const rawPlayersWithIndex = (rawScan.players || []).map((player, index) => ({ player, index }));
+  const scannedPlayerGroups = [
+    {
+      side: "local",
+      name: rawScan.localTeam?.name || "Equipo detectado 1",
+      assignedSide: interpretation.localSide,
+      players: rawPlayersWithIndex.filter(row => row.player.team === "local"),
+    },
+    {
+      side: "visitor",
+      name: rawScan.visitorTeam?.name || "Equipo detectado 2",
+      assignedSide: interpretation.visitorSide,
+      players: rawPlayersWithIndex.filter(row => row.player.team === "visitor"),
+    },
+  ];
+  const rawPlayersWithoutTeam = rawPlayersWithIndex.filter(
+    row => row.player.team !== "local" && row.player.team !== "visitor",
+  );
+  if (rawPlayersWithoutTeam.length) {
+    scannedPlayerGroups.push({
+      side: "unassigned",
+      name: "Equipo sin identificar",
+      assignedSide: null,
+      players: rawPlayersWithoutTeam,
+    });
+  }
   const interpretedPlayerGroups = [
     {
       side: "local",
       name: match?.local?.name || "Local",
       players: interpretation.players.filter(player => player.side === "local"),
+      registeredPlayerCount: registeredPlayerCounts.local,
     },
     {
       side: "visit",
       name: match?.visitante?.name || "Visitante",
       players: interpretation.players.filter(player => player.side === "visit"),
+      registeredPlayerCount: registeredPlayerCounts.visit,
     },
   ];
   const playersWithoutTeam = interpretation.players.filter(
@@ -770,6 +814,7 @@ export function CedulaScanFlow({
       side: "unassigned",
       name: "Equipo por revisar",
       players: playersWithoutTeam,
+      registeredPlayerCount: null,
     });
   }
   const dateReview = getScannedDateReview(currentDate, interpretation.date, applyScannedDate);
@@ -969,28 +1014,61 @@ export function CedulaScanFlow({
             label="Resolucion"
             value={rawScan.walkover?.detected ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}` : "Resultado regular"}
           />
-          <PlayerList>
-            {(rawScan.players || []).map((player, index) => {
-              const hasMatch = Boolean(interpretation.players[index]?.matched);
-              const scannedName = player.name || "Nombre ilegible";
-              const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
+          <DetectedPlayerGroups aria-label="Jugadores detectados por equipo">
+            {scannedPlayerGroups.map(group => {
+              const hasRegisteredRoster = group.assignedSide
+                ? registeredPlayerCounts[group.assignedSide] > 0
+                : false;
               return (
-                <li
-                  key={`${player.name}-${index}`}
-                  className={`${!hasMatch ? "no-match" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
-                >
-                  <div className="player-copy">
-                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
-                    {!hasMatch && <small>Leído como: {scannedName}</small>}
-                    {needsGoalReview && <small>Goles dudosos: {player.goalEvidence || "celda poco legible"}</small>}
-                  </div>
-                  <small className="player-stats" title={player.goalEvidence || undefined}>
-                    {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
-                  </small>
-                </li>
+                <TeamPlayerGroup key={group.side}>
+                  <PlayerGroupHeading>
+                    <strong>{group.name}</strong>
+                    <span>{group.players.length} {group.players.length === 1 ? "jugador" : "jugadores"}</span>
+                  </PlayerGroupHeading>
+                  {group.players.length ? (
+                    <DetectedPlayerList>
+                      {group.players.map(({ player, index }) => {
+                        const interpretedPlayer = interpretation.players[index];
+                        const registeredName = interpretedPlayer?.matched
+                          ? playerName(interpretedPlayer.matched)
+                          : "";
+                        const scannedName = player.name || "Nombre ilegible";
+                        const skippedInterpretation = !hasRegisteredRoster
+                          || interpretedPlayer?.matchReason === "no-registered-players"
+                          || interpretedPlayer?.matchReason === "unassigned-team";
+                        const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
+                        return (
+                          <li
+                            key={`${group.side}-${player.name}-${index}`}
+                            className={`${skippedInterpretation ? "uninterpreted" : !registeredName ? "no-match" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
+                          >
+                            <div className="player-copy">
+                              <span>{scannedName}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
+                              {registeredName && <small className="matched-status">Coincide con: {registeredName}</small>}
+                              {skippedInterpretation && (
+                                <small className="skip-status">
+                                  {group.assignedSide
+                                    ? "Sin jugadores registrados; nombre no interpretado."
+                                    : "Equipo sin identificar; nombre no interpretado."}
+                                </small>
+                              )}
+                              {!registeredName && !skippedInterpretation && <small className="match-status">Sin coincidencia segura</small>}
+                              {needsGoalReview && <small className="goal-status">Goles dudosos: {player.goalEvidence || "celda poco legible"}</small>}
+                            </div>
+                            <small className="player-stats" title={player.goalEvidence || undefined}>
+                              {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
+                            </small>
+                          </li>
+                        );
+                      })}
+                    </DetectedPlayerList>
+                  ) : (
+                    <PlayerGroupEmpty>Sin jugadores detectados para este equipo.</PlayerGroupEmpty>
+                  )}
+                </TeamPlayerGroup>
               );
             })}
-          </PlayerList>
+          </DetectedPlayerGroups>
         </DataColumn>
         <DataColumn>
           <h5>Datos interpretados</h5>
@@ -1049,9 +1127,18 @@ export function CedulaScanFlow({
               <TeamPlayerGroup key={group.side}>
                 <PlayerGroupHeading>
                   <strong>{group.name}</strong>
-                  <span>{group.players.length} {group.players.length === 1 ? "jugador" : "jugadores"}</span>
+                  <span>{group.registeredPlayerCount === 0
+                    ? "Sin plantel"
+                    : `${group.players.length} ${group.players.length === 1 ? "jugador" : "jugadores"}`}</span>
                 </PlayerGroupHeading>
-                {group.players.length ? (
+                {group.registeredPlayerCount === 0 ? (
+                  <PlayerGroupEmpty>
+                    Este equipo no tiene jugadores registrados. Se omitió la interpretación de nombres
+                    {Number(interpretation.scores[group.side]) > 0
+                      ? ` y sus ${interpretation.scores[group.side]} ${Number(interpretation.scores[group.side]) === 1 ? "gol quedará" : "goles quedarán"} sin asignar.`
+                      : " y no se asignarán estadísticas individuales."}
+                  </PlayerGroupEmpty>
+                ) : group.players.length ? (
                   <GroupedPlayerList>
                     {group.players.map((player, index) => {
                       const registeredName = player.matched ? playerName(player.matched) : "";
@@ -1153,9 +1240,12 @@ export function CedulaScanFlow({
       )}
       {teamsWithoutMatchedPlayers.map(team => {
         const teamScore = Number(interpretation.scores[team.side]) || 0;
+        const hasRegisteredRoster = registeredPlayerCounts[team.side] > 0;
         return (
           <ReviewNotice $tone="warning" key={`unassigned-${team.side}`}>
-            Ningún nombre escaneado de {team.name} coincide con su plantel. Se conservará el marcador de {teamScore} {teamScore === 1 ? "gol" : "goles"}; los goles sin una coincidencia quedarán como no asignados.
+            {hasRegisteredRoster
+              ? `Ningún nombre escaneado de ${team.name} coincide de forma segura con su plantel. Se conservará el marcador de ${teamScore} ${teamScore === 1 ? "gol" : "goles"}; los goles quedarán sin asignar.`
+              : `${team.name} no tiene jugadores registrados. Se omitió la interpretación de nombres y el marcador de ${teamScore} ${teamScore === 1 ? "gol quedará" : "goles quedarán"} sin asignar.`}
           </ReviewNotice>
         );
       })}
@@ -1395,6 +1485,15 @@ const GroupedPlayerList = styled(PlayerList)`
   li.unlinked{color:${v.rojo};}
   li.unlinked .match-status{color:inherit;font-weight:600;opacity:.82;}
   li.unlinked .player-stats{color:inherit;opacity:.9;}
+`;
+const DetectedPlayerGroups = styled(PlayerGroups)`
+  margin-top:12px;
+`;
+const DetectedPlayerList = styled(GroupedPlayerList)`
+  li.uninterpreted{color:inherit;}
+  .player-copy .matched-status{color:${v.colorPrincipal};font-weight:700;opacity:1;}
+  .player-copy .match-status{color:${v.rojo};font-weight:650;opacity:1;}
+  .player-copy .skip-status{font-weight:600;opacity:.66;}
 `;
 const PlayerGroupEmpty = styled.p`
   margin:0;padding:6px 8px;color:${({theme})=>theme.text};font-size:.78rem;line-height:1.4;opacity:.64;
