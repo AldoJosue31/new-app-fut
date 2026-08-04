@@ -5,6 +5,7 @@ const MAX_EVIDENCE_LENGTH = 160;
 const MAX_ROW_NUMBER = 120;
 
 export type ScannedGoalsConfidence = "high" | "medium" | "low";
+type ScannedGoalLocation = "before-name" | "after-name" | "goal-cell" | "none" | "unknown";
 
 export type NormalizedScannedPlayer = {
   name: string;
@@ -21,6 +22,7 @@ export type NormalizedScannedPlayer = {
 };
 
 type CandidatePlayer = NormalizedScannedPlayer & {
+  goalLocation: ScannedGoalLocation;
   sourceIndex: number;
   nameKeys: string[];
   jerseyKey: string;
@@ -171,6 +173,37 @@ const normalizeLegibility = (value: unknown) => {
   return true;
 };
 
+const normalizeGoalLocation = (value: unknown, hasGoalClaim: boolean): ScannedGoalLocation => {
+  const normalized = comparableText(value).replace(/\s+/g, "-");
+  if (["before-name", "before", "name-start", "start-name", "inicio-nombre"].includes(normalized)) {
+    return "before-name";
+  }
+  if (["after-name", "after", "name-end", "end-name", "final-nombre"].includes(normalized)) {
+    return "after-name";
+  }
+  if (["goal-cell", "goals-cell", "gol-cell", "cell", "columna-gol"].includes(normalized)) {
+    return "goal-cell";
+  }
+  if (["none", "empty", "vacia", "vacio", "sin-marca"].includes(normalized)) return "none";
+  if (normalized) return "unknown";
+  // Compatibilidad con OCR cliente y resultados anteriores a goalLocation.
+  return hasGoalClaim ? "goal-cell" : "none";
+};
+
+const hasUsableGoalEvidence = (value: string) => {
+  const cleaned = cleanText(value, MAX_EVIDENCE_LENGTH);
+  if (!cleaned) return false;
+  const normalized = comparableText(cleaned);
+  if (["vacia", "vacio", "none", "sin marca", "gol", "goles", "jugador", "tit", "ta", "tr"].includes(normalized)) {
+    return false;
+  }
+
+  const parsed = parseScannedCount(cleaned);
+  if (parsed !== null) return parsed > 0;
+  return [...cleaned].some(character => ["x", "X", "|", "/", "\\"].includes(character))
+    || /\b(?:marca|marcas|raya|rayas|palomita|palomitas|cruz|cruces|circulo|circulos|trazo|trazos)\b/i.test(normalized);
+};
+
 const hasExplicitOwnGoalEvidence = (value: string) => {
   const evidence = value
     .normalize("NFD")
@@ -204,11 +237,22 @@ const normalizeCandidate = (value: unknown, sourceIndex: number): CandidatePlaye
     raw.goalEvidence ?? raw.goalsEvidence ?? raw.goalMarkEvidence ?? raw.evidence,
     MAX_EVIDENCE_LENGTH,
   );
+  const hasDeclaredGoalEvidence = [
+    "goalEvidence",
+    "goalsEvidence",
+    "goalMarkEvidence",
+    "evidence",
+  ].some(key => Object.hasOwn(raw, key));
+  const hasDeclaredGoalLocation = [
+    "goalLocation",
+    "goalsLocation",
+    "goalPosition",
+    "goalsPosition",
+  ].some(key => Object.hasOwn(raw, key));
   const goalEvidence = directGoalEvidence || ownGoalEvidence;
   const goalsConfidence = normalizeConfidence(
     raw.goalsConfidence ?? raw.goalConfidence ?? raw.confidence,
   );
-  const goalsLegible = normalizeLegibility(raw.goalsLegible);
   const declaredGoals = parseScannedCount(raw.goals);
   const evidencedGoals = parseScannedCount(goalEvidence);
   const resolvedGoals = evidencedGoals !== null
@@ -216,6 +260,21 @@ const normalizeCandidate = (value: unknown, sourceIndex: number): CandidatePlaye
       && (declaredGoals === null || declaredGoals === 0)
     ? evidencedGoals
     : declaredGoals ?? evidencedGoals ?? 0;
+  const goalLocation = normalizeGoalLocation(
+    raw.goalLocation ?? raw.goalsLocation ?? raw.goalPosition ?? raw.goalsPosition,
+    Boolean(goalEvidence) || resolvedGoals > 0,
+  );
+  const hasSupportedPositiveGoal = resolvedGoals <= 0 || (
+    ["before-name", "after-name", "goal-cell"].includes(goalLocation)
+    && (
+      hasUsableGoalEvidence(goalEvidence)
+      // El OCR cliente y cachés anteriores sólo enviaban el total numérico.
+      // La respuesta nueva de Gemini siempre declara ubicación y evidencia,
+      // así que no puede entrar por esta ruta de compatibilidad.
+      || (!hasDeclaredGoalEvidence && !hasDeclaredGoalLocation)
+    )
+  );
+  const goalsLegible = normalizeLegibility(raw.goalsLegible) && hasSupportedPositiveGoal;
   const goals = goalsLegible
     ? Math.min(20, Math.max(0, resolvedGoals))
     : 0;
@@ -244,6 +303,7 @@ const normalizeCandidate = (value: unknown, sourceIndex: number): CandidatePlaye
     ownGoals,
     yellowCards,
     redCards,
+    goalLocation,
     sourceIndex,
     nameKeys,
     jerseyKey,

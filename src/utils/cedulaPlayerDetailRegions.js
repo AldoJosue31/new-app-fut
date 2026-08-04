@@ -1,4 +1,4 @@
-export const CEDULA_PLAYER_DETAIL_VERSION = "cedula-player-details-v1";
+export const CEDULA_PLAYER_DETAIL_VERSION = "cedula-player-details-v2-goal-geometry";
 
 const boundedDimension = (value) => {
   const parsed = Math.round(Number(value));

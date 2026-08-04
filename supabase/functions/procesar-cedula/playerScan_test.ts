@@ -163,6 +163,68 @@ Deno.test("normaliza confianza enum o numerica y anula una celda GOL ilegible", 
   }], "Una confianza alta no autoriza conservar goles cuando goalsLegible es falso.");
 });
 
+Deno.test("conserva goles ubicados al inicio o final del espacio del nombre", () => {
+  const players = normalizeScannedPlayers([{
+    name: "Ana Perez",
+    rowNumber: 3,
+    goals: 2,
+    goalsLegible: true,
+    goalsConfidence: "high",
+    goalEvidence: "2",
+    goalLocation: "before-name",
+  }, {
+    name: "Luis Soto",
+    rowNumber: 4,
+    goals: 1,
+    goalsLegible: true,
+    goalsConfidence: "high",
+    goalEvidence: "X manuscrita sobre texto impreso",
+    goalLocation: "after-name",
+  }]);
+
+  assertEquals(players.map(player => ({ name: player.name, goals: player.goals })), [{
+    name: "Ana Perez",
+    goals: 2,
+  }, {
+    name: "Luis Soto",
+    goals: 1,
+  }], "Las dos posiciones validas deben conservar los goles en su propia fila.");
+});
+
+Deno.test("rechaza goles cuya posicion no se puede asociar a una fila", () => {
+  const [player] = normalizeScannedPlayers([{
+    name: "Ana Perez",
+    rowNumber: 3,
+    goals: 2,
+    goalsLegible: true,
+    goalsConfidence: "high",
+    goalEvidence: "2 entre dos filas",
+    goalLocation: "unknown",
+  }]);
+
+  assertEquals({ goals: player.goals, legible: player.goalsLegible }, {
+    goals: 0,
+    legible: false,
+  }, "Una posicion ambigua no debe atribuir goles a ningun jugador.");
+});
+
+Deno.test("no toma una palabra preimpresa como evidencia de gol", () => {
+  const [player] = normalizeScannedPlayers([{
+    name: "Ana Perez",
+    rowNumber: 3,
+    goals: 1,
+    goalsLegible: true,
+    goalsConfidence: "high",
+    goalEvidence: "GOL",
+    goalLocation: "goal-cell",
+  }]);
+
+  assertEquals({ goals: player.goals, legible: player.goalsLegible }, {
+    goals: 0,
+    legible: false,
+  }, "Una etiqueta impresa sin marca manuscrita no es evidencia de gol.");
+});
+
 Deno.test("prefiere una lectura legible sobre un duplicado ilegible", () => {
   const [player] = normalizeScannedPlayers([{
     name: "Misma fila",
