@@ -667,6 +667,7 @@ export function FixturePreviewModal({
                     ? roundTextByIndex[rIndex]
                     : formatRoundText(matchesByRound[rIndex] || []);
                 const detected = countPlayablePairs(parseRoundText(text, teamLookup));
+                const attempted = (text.match(/\s+(?:v\.?s\.?|vs\.?|versus)\s+/gi) || []).length;
                 const expected =
                     expectedRoundCounts[rIndex] ||
                     countPlayableMatches(matchesByRound[rIndex] || []) ||
@@ -678,7 +679,8 @@ export function FixturePreviewModal({
                 acc[rIndex] = {
                     detected,
                     expected,
-                    isComplete: isLocked || expected === 0 || detected === expected,
+                    attempted,
+                    isComplete: isLocked || expected === 0 || (detected >= expected && detected === attempted),
                     isLocked,
                 };
                 return acc;
@@ -793,14 +795,16 @@ export function FixturePreviewModal({
         }
 
         const pairs = parseRoundText(currentText, teamLookup);
-        const stats = textRoundStats[rIndex];
         const detectedPlayable = countPlayablePairs(pairs);
-        const expectedPlayable =
-            stats?.expected ||
-            countPlayableMatches(matchesByRound[rIndex] || []) ||
-            defaultRoundMatchCount;
+        const attemptedPlayable = (currentText.match(/\s+(?:v\.?s\.?|vs\.?|versus)\s+/gi) || []).length;
 
-        if (detectedPlayable !== expectedPlayable) {
+        if (detectedPlayable !== attemptedPlayable && attemptedPlayable > 0) {
+            setFocusedRoundIndex(null);
+            setActiveSuggestion(null);
+            return;
+        }
+
+        if (detectedPlayable === 0) {
             setFocusedRoundIndex(null);
             setActiveSuggestion(null);
             return;

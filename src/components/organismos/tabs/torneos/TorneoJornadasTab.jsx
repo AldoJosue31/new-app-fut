@@ -110,6 +110,26 @@ const resolveGlobalPendingMatches = (matches = []) =>
       (match.status === "Programado" && !match.date)
   );
 
+const clearPlanningDraftsForRounds = (tournamentId, jornadas = [], roundIndexes = []) => {
+  if (typeof window === "undefined" || !tournamentId) return;
+
+  const prefixes = new Set();
+  roundIndexes.forEach((roundIndex) => {
+    const jornada = jornadas[Number(roundIndex)];
+    if (jornada?.id) {
+      prefixes.add(`planning_draft_${tournamentId}_id_${jornada.id}`);
+    }
+    prefixes.add(`planning_draft_${tournamentId}_J${Number(roundIndex)}`);
+  });
+
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (key && [...prefixes].some((prefix) => key.startsWith(`${prefix}_v`) || key === prefix)) {
+      window.localStorage.removeItem(key);
+    }
+  }
+};
+
 const sortJornadasForDateNormalization = (jornadas = [], configuredMappings = []) => {
   const resolvedMappings = resolveRepositionMappings({
     jornadas,
@@ -770,6 +790,17 @@ export function TorneoJornadasTab({
         const hasAcceptedScannedSchedules = updatedMatches.some(
           (match) => match.scanScheduleAccepted && buildScannedMatchTimestamp(match)
         );
+        const scannedRoundIndexes = [
+          ...new Set(
+            updatedMatches
+              .filter(
+                (match) =>
+                  match.scanScheduleAccepted && buildScannedMatchTimestamp(match)
+              )
+              .map((match) => Number(match.jornadaIndex))
+              .filter(Number.isFinite)
+          ),
+        ];
         const originalMap = new Map(editorData.matches.map(m => [m.id, m]));
         const generatedRoundIndexes = [...new Set(
           updatedMatches
@@ -874,9 +905,11 @@ export function TorneoJornadasTab({
             };
 
             if (!m.dbId) {
-              if (m.isGeneratedRound) {
-                inserts.push(payload);
-              }
+              // Un partido agregado desde el editor de texto no tiene dbId.
+              // Tambien puede pertenecer a una jornada existente (por ejemplo,
+              // cuando se recupera un partido que fue borrado accidentalmente),
+              // asi que no debemos limitar los inserts a jornadas generadas.
+              inserts.push(payload);
               return;
             }
 
@@ -973,7 +1006,7 @@ export function TorneoJornadasTab({
           });
         }
 
-        if(updates.length > 0 || inserts.length > 0) {
+        if (updates.length > 0 || inserts.length > 0 || hasAcceptedScannedSchedules) {
             if (updates.length > 0) {
               await bulkUpsertMatchesService(updates);
             }
@@ -991,6 +1024,14 @@ export function TorneoJornadasTab({
             );
 
             await loadTournamentData({ preserveData: true });
+
+            if (hasAcceptedScannedSchedules) {
+              clearPlanningDraftsForRounds(
+                activeTournament.id,
+                jornadas,
+                scannedRoundIndexes,
+              );
+            }
 
             setDataVersion(prev => prev + 1);
             
