@@ -746,10 +746,10 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   const isPlayersTab = activeTab === 'local' || activeTab === 'visit';
 
   return (
-    <Modal
+      <Modal
       isOpen={isOpen}
       onClose={isSaving ? undefined : onClose}
-      width={showCedulaScanner ? "min(1280px, 95vw)" : "min(1120px, 95vw)"}
+      width={showCedulaScanner ? "min(1520px, 97vw)" : "min(1160px, 94vw)"}
       maxHeight="95dvh"
       minHeight="95dvh"
       smallScreenMaxHeight="96dvh"
@@ -925,24 +925,28 @@ const Footer = styled.div`
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   margin-top: 0;
-  padding-top: 8px;
+  padding-top: 4px;
   border-top: 1px solid ${({theme})=>theme.bg4};
   flex-wrap: wrap;
 
   > button {
     box-sizing: border-box;
-    min-height: 38px;
-    padding: 6px 16px;
-    border-bottom-width: 3px;
+    min-height: 30px;
+    padding: 4px 12px;
+    border-bottom-width: 2px;
     border-radius: 12px;
-    font-size: 13px;
+    font-size: 12px;
 
     .content {
-      gap: 8px;
+      gap: 5px;
       line-height: 1;
     }
+  }
+
+  @media (min-width: 561px) {
+    gap: 6px;
   }
 
   @media (max-width: 560px) {

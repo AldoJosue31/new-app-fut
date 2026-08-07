@@ -1,27 +1,52 @@
 # Product
 
-## Register
+<!-- impeccable:product-schema 1 -->
 
-product
+## Platform
+
+web
 
 ## Users
-Organizadores, presidentes y managers de ligas amateur de futbol que necesitan operar torneos, equipos, jornadas y estadisticas desde el celular o la computadora, normalmente mientras coordinan una temporada real con poco tiempo y muchas tareas manuales.
+
+Managers que organizan y administran ligas de fútbol amateur. Usan la plataforma para coordinar una temporada real con poco tiempo, desde escritorio, tablet o móvil.
 
 ## Product Purpose
-Bracket App centraliza la administracion de ligas amateur en una sola plataforma. Reemplaza hojas de calculo, mensajes dispersos y procesos manuales con una experiencia que permite configurar ligas, registrar equipos, programar partidos, capturar resultados y compartir tablas publicas con claridad.
 
-## Brand Personality
-Profesional, confiable y cercana al futbol amateur. La experiencia debe sentirse ordenada, clara y segura, sin perder energia deportiva ni calidez humana.
+Bracket App centraliza la administración de ligas amateur en una sola plataforma. Permite configurar ligas y torneos, registrar equipos, programar jornadas, capturar resultados y compartir estadísticas y tablas con claridad. El éxito es que el manager pueda operar su liga con menos trabajo manual y menos información dispersa.
 
-## Anti-references
-No debe verse como un dashboard generico de SaaS frio, un sitio deportivo recargado con ruido visual, ni una interfaz experimental que sacrifique claridad por adornos. Tampoco debe depender de contrastes debiles o de patrones visuales que compitan con la informacion principal.
+## Positioning
 
-## Design Principles
-1. Reducir friccion operativa para que administrar una liga se sienta mas simple que hacerlo en hojas de calculo y chats.
-2. Priorizar claridad y estado visible sobre decoracion, especialmente en datos, acciones y seguimiento de competencia.
-3. Mantener coherencia entre superficies publicas y privadas para que la marca se sienta unificada en marketing y producto.
-4. Hacer que cada accion importante transmita confianza mediante contraste, jerarquia y feedback evidentes.
-5. Respetar el contexto movil y de escritorio con layouts que conserven legibilidad y control en ambos casos.
+Una herramienta de operación para managers de ligas amateur que reúne la planeación, el registro de resultados y las estadísticas de un torneo en el mismo flujo de trabajo, sustituyendo hojas de cálculo y mensajes dispersos.
+
+## Operating Context
+
+Los managers configuran torneos, equipos y jornadas antes y durante una temporada. En días de partido registran programación, árbitros, plantillas, goles y resultados —incluso a partir de cédulas escaneadas— y después consultan o comparten tablas y estadísticas.
+
+## Capabilities and Constraints
+
+- Gestión de ligas, torneos, equipos, jugadores, jornadas, partidos, resultados y estadísticas.
+- Registro de eventos de partido, penales, walkovers y arbitraje.
+- Lectura e interpretación de cédulas para asistir el registro de resultados.
+- Debe funcionar de forma responsiva y utilizable en escritorio, tablet y móvil.
+
+## Brand Commitments
+
+Bracket App debe sentirse profesional, confiable y cercana al fútbol amateur. La interfaz debe mantener un estándar alto de calidad de UI/UX: ordenada, clara, segura y práctica durante la operación, sin perder energía deportiva ni calidez humana.
+
+## Evidence on Hand
+
+- La aplicación implementa sus flujos de operación en `app/` y `src/`.
+- El escaneo de cédulas y la revisión de su interpretación están implementados en `src/components/organismos/tabs/torneos/planificacion/result_modal_components/CedulaScanFlow.jsx`.
+- No hay testimonios, benchmarks comerciales ni promesas cuantitativas confirmadas en el repositorio; no deben inventarse.
+
+## Product Principles
+
+1. Reducir la fricción operativa para que administrar una liga sea más simple que hacerlo con hojas de cálculo y chats.
+2. Priorizar claridad, datos verificables y estados visibles en cada decisión del manager.
+3. Mantener los flujos de planificación, captura de resultados y consulta de estadísticas conectados.
+4. Conservar legibilidad, control y consistencia en pantallas de cualquier tamaño.
+5. Diseñar cada acción importante para inspirar confianza y evitar errores al operar torneos reales.
 
 ## Accessibility & Inclusion
-Apuntar a WCAG AA en contraste y estados de foco, conservar soporte para navegacion por teclado en controles interactivos y respetar `prefers-reduced-motion` reduciendo movimientos no esenciales sin perder claridad de estado.
+
+Apuntar a WCAG AA en contraste y estados de foco, conservar navegación por teclado en controles interactivos y respetar `prefers-reduced-motion` para reducir movimiento no esencial sin perder claridad de estado.
