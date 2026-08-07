@@ -1,4 +1,5 @@
 import type { DocumentOcrResult } from "../_shared/documentOcr.ts";
+import { sanitizeMatchObservations } from "./scanObservations.ts";
 
 type ScanContextTeam = {
   side: "local" | "visitor";
@@ -192,7 +193,7 @@ export const validateClientCedulaScan = (
       referee: cleanText(raw.referee, 120),
       date: validDate(raw.date),
       time: validTime(raw.time),
-      observations: cleanText(raw.observations, 500),
+      observations: sanitizeMatchObservations(raw.observations),
       walkover: {
         detected,
         absentTeamBlock: absentTeamBlock as ValidatedClientCedulaScan["rawScan"]["walkover"]["absentTeamBlock"],

@@ -2,18 +2,23 @@ import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useStat
 import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
+  RiArrowRightLine,
   RiCameraLine,
+  RiCloseCircleLine,
   RiErrorWarningLine,
   RiFileImageLine,
+  RiFootballLine,
   RiRefreshLine,
   RiScan2Line,
+  RiRectangleFill,
 } from "react-icons/ri";
 import { v } from "../../../../../../styles/variables";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
+import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 import {
   findBestScanMatch,
+  getScannedTeamNameMismatches,
   getScannedDateReview,
-  normalizeScanName,
   resolveScannedPlayerMatches,
   resolveScannedTeamSides,
 } from "../../../../../../utils/cedulaScanMatching";
@@ -77,6 +82,8 @@ const playerDorsal = (player) => {
   const value = player?.dorsal ?? player?.jersey_number ?? player?.number ?? "";
   return value == null ? "" : String(value).trim().slice(0, 8);
 };
+
+const toStatNumber = (value) => parseInt(value, 10) || 0;
 
 const createPlayerDetailImages = async (decoded) => {
   const regions = getCedulaPlayerDetailRegions(decoded.width, decoded.height);
@@ -212,6 +219,7 @@ export function CedulaScanFlow({
   const [applyScannedDate, setApplyScannedDate] = useState(false);
   const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [scoreResolutions, setScoreResolutions] = useState({});
+  const [hasAcceptedTeamMismatch, setHasAcceptedTeamMismatch] = useState(false);
   const [coarseDevice, setCoarseDevice] = useState(false);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -328,12 +336,31 @@ export function CedulaScanFlow({
     setApplyScannedDate(false);
     setApplyScannedTime(false);
     setScoreResolutions({});
+    setHasAcceptedTeamMismatch(false);
   }, [showToast]);
 
   const selectPastedFile = useEffectEvent((image) => {
     selectFile(image);
     showToast("Imagen pegada desde el portapapeles.", "success");
   });
+
+  const handleReviewPreviewPointerMove = useCallback((event) => {
+    const element = event.currentTarget;
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const nextX = ((event.clientX - rect.left) / rect.width) * 100;
+    const nextY = ((event.clientY - rect.top) / rect.height) * 100;
+
+    element.style.setProperty("--preview-zoom-x", `${Math.max(0, Math.min(100, nextX))}%`);
+    element.style.setProperty("--preview-zoom-y", `${Math.max(0, Math.min(100, nextY))}%`);
+  }, []);
+
+  const handleReviewPreviewPointerLeave = useCallback((event) => {
+    const element = event.currentTarget;
+    element.style.setProperty("--preview-zoom-x", "50%");
+    element.style.setProperty("--preview-zoom-y", "50%");
+  }, []);
 
   useEffect(() => {
     const handlePaste = (event) => {
@@ -375,7 +402,7 @@ export function CedulaScanFlow({
     }));
     const resolvedPlayers = Array(scannedRows.length);
     const claimedPlayerIds = new Set();
-    const resolveRows = (rows, pool) => {
+    const resolveRows = (rows, pool, skippedReason = null) => {
       const matches = resolveScannedPlayerMatches(
         rows.map(row => row.scannedPlayer),
         pool,
@@ -399,24 +426,29 @@ export function CedulaScanFlow({
         if (candidateId && !conflictsWithResolvedGroup) claimedPlayerIds.add(candidateId);
         resolvedPlayers[row.index] = {
           ...row.scannedPlayer,
-          side: candidate && (teamAssignment.ambiguous || !row.side)
-            ? candidate.scanSide
-            : row.side,
+          side: row.side,
           matched: candidate && !conflictsWithResolvedGroup ? candidate.player : null,
           confidence: candidate && !conflictsWithResolvedGroup ? matchResult.score : 0,
           matchMethod: candidate && !conflictsWithResolvedGroup ? matchResult.method : null,
-          matchReason: conflictsWithResolvedGroup ? "candidate-conflict" : matchResult?.reason || null,
+          matchReason: skippedReason
+            || (conflictsWithResolvedGroup ? "candidate-conflict" : matchResult?.reason || null),
         };
       });
     };
 
-    if (teamAssignment.ambiguous) {
-      resolveRows(scannedRows, [...localPool, ...visitPool]);
-    } else {
-      resolveRows(scannedRows.filter(row => row.side === "local"), localPool);
-      resolveRows(scannedRows.filter(row => row.side === "visit"), visitPool);
-      resolveRows(scannedRows.filter(row => !row.side), [...localPool, ...visitPool]);
-    }
+    // El bloque visual del equipo es una frontera estricta: nunca usamos el
+    // plantel rival para completar un nombre dudoso o un dorsal coincidente.
+    resolveRows(
+      scannedRows.filter(row => row.side === "local"),
+      localPool,
+      localPool.length === 0 ? "no-registered-players" : null,
+    );
+    resolveRows(
+      scannedRows.filter(row => row.side === "visit"),
+      visitPool,
+      visitPool.length === 0 ? "no-registered-players" : null,
+    );
+    resolveRows(scannedRows.filter(row => !row.side), [], "unassigned-team");
     const players = resolvedPlayers.filter(Boolean);
     const scores = { local: 0, visit: 0 };
     scores[localSide] = Number(rawScan.localTeam?.score) || 0;
@@ -471,6 +503,7 @@ export function CedulaScanFlow({
     setApplyScannedDate(false);
     setApplyScannedTime(false);
     setScoreResolutions({});
+    setHasAcceptedTeamMismatch(false);
     setScanning(true);
     setScanProgress(6);
     progressTimerRef.current = window.setInterval(() => {
@@ -719,8 +752,19 @@ export function CedulaScanFlow({
   const automaticallyUnassignedSides = new Set(
     teamsWithoutMatchedPlayers.map(team => team.side),
   );
+  const registeredPlayerCounts = {
+    local: localPlayers.length,
+    visit: visitPlayers.length,
+  };
+  const sidesWithoutRegisteredPlayers = new Set(
+    Object.entries(registeredPlayerCounts)
+      .filter(([, count]) => count === 0)
+      .map(([side]) => side),
+  );
   const unlinkedPlayers = interpretation.players.filter(
-    player => !player.matched && !automaticallyUnassignedSides.has(player.side),
+    player => !player.matched
+      && !automaticallyUnassignedSides.has(player.side)
+      && !sidesWithoutRegisteredPlayers.has(player.side),
   ).length;
   const uncertainGoalRows = interpretation.players.filter(player => (
     player.goalsLegible === false || player.goalsConfidence === "low"
@@ -737,26 +781,36 @@ export function CedulaScanFlow({
     interpretation.players,
     scoreResolutions,
   );
+  const teamNameMismatches = getScannedTeamNameMismatches(
+    rawScan.localTeam?.name,
+    rawScan.visitorTeam?.name,
+    interpretation.teams,
+    interpretation.teamAssignment,
+  );
   const interpretedPlayerGroups = [
     {
       side: "local",
       name: match?.local?.name || "Local",
       players: interpretation.players.filter(player => player.side === "local"),
+      registeredPlayerCount: registeredPlayerCounts.local,
     },
     {
       side: "visit",
       name: match?.visitante?.name || "Visitante",
       players: interpretation.players.filter(player => player.side === "visit"),
+      registeredPlayerCount: registeredPlayerCounts.visit,
     },
   ];
   const playersWithoutTeam = interpretation.players.filter(
     player => player.side !== "local" && player.side !== "visit",
   );
+  const reviewPlayerGroups = interpretedPlayerGroups.filter(group => group.side !== "unassigned");
   if (playersWithoutTeam.length) {
     interpretedPlayerGroups.push({
       side: "unassigned",
       name: "Equipo por revisar",
       players: playersWithoutTeam,
+      registeredPlayerCount: null,
     });
   }
   const dateReview = getScannedDateReview(currentDate, interpretation.date, applyScannedDate);
@@ -782,234 +836,473 @@ export function CedulaScanFlow({
       ? `${normalizedScannedTime} · se aplicará`
       : `${normalizedCurrentTime || "Sin hora actual"} · se conserva`
     : normalizedCurrentTime || "Sin detectar";
+  const scannedTeamsBySide = {
+    [interpretation.localSide]: rawScan.localTeam || {},
+    [interpretation.visitorSide]: rawScan.visitorTeam || {},
+  };
+  const scannedLocalTeam = scannedTeamsBySide.local || {};
+  const scannedVisitTeam = scannedTeamsBySide.visit || {};
+  const formatTeamScore = (team, fallbackName) => {
+    const score = Number(team?.score) || 0;
+    return `${team?.name || fallbackName} · ${score} ${score === 1 ? "gol" : "goles"}`;
+  };
+  const interpretedResolution = interpretation.walkover.detected
+    ? interpretation.walkover.winnerSide === "both"
+      ? "Doble W.O. · ambos pierden"
+      : interpretation.walkover.winnerSide
+        ? `Victoria por default · ${interpretation.walkover.winnerSide === "local" ? match?.local?.name : match?.visitante?.name}`
+        : "W.O. detectado · falta elegir ganador"
+    : "Resultado regular";
+  const scannedResolution = rawScan.walkover?.detected
+    ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}`
+    : "Resultado regular";
+  const applyScan = () => onApply({
+    ...interpretation,
+    scores: resolvedScores,
+    scoreResolutions,
+    date: dateReview.normalizedScannedDate,
+    time: normalizedScannedTime,
+    applyDate: canApplyScannedDate && applyScannedDate,
+    applyTime: canApplyScannedTime && applyScannedTime,
+  });
+  const scanAnotherImage = () => {
+    preparedImageRef.current = null;
+    setFile(null);
+    setPreviewUrl("");
+    setPreviewAvailable(null);
+    setRawScan(null);
+    setScanProgress(0);
+    setApplyScannedDate(false);
+    setApplyScannedTime(false);
+    setScoreResolutions({});
+    setHasAcceptedTeamMismatch(false);
+  };
+
+  if (teamNameMismatches.length > 0 && !hasAcceptedTeamMismatch) {
+    const mismatchCount = teamNameMismatches.length;
+    const mismatchedPositions = new Set(teamNameMismatches.map(item => item.position));
+    const scannedTeams = [
+      {
+        position: "first",
+        label: "Equipo detectado 1",
+        name: rawScan.localTeam?.name || "Sin detectar",
+        score: Number(rawScan.localTeam?.score) || 0,
+      },
+      {
+        position: "second",
+        label: "Equipo detectado 2",
+        name: rawScan.visitorTeam?.name || "Sin detectar",
+        score: Number(rawScan.visitorTeam?.score) || 0,
+      },
+    ];
+    const scheduledTeams = [
+      { label: "Local", team: match?.local },
+      { label: "Visitante", team: match?.visitante },
+    ];
+
+    return (
+      <ScanShell $warning>
+        <PanelHeading>
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Salir del escaneo"
+          >
+            <RiArrowLeftLine />
+          </button>
+          <div>
+            <h4>Validación de cédula</h4>
+            <p>Compara los equipos detectados antes de revisar el resultado.</p>
+          </div>
+        </PanelHeading>
+        <TeamMismatchScreen role="alert" aria-labelledby="team-mismatch-title">
+          <TeamMismatchHero>
+            <MismatchIcon aria-hidden="true"><RiErrorWarningLine /></MismatchIcon>
+            <div className="hero-copy">
+              <h5 id="team-mismatch-title">Esta cédula parece corresponder a otro partido</h5>
+              <p>
+                {mismatchCount === 1
+                  ? "Uno de los nombres detectados es claramente diferente al equipo programado."
+                  : "Los dos nombres detectados son claramente diferentes a los equipos programados."}
+                {" "}Detuvimos la asociación de jugadores para evitar registrar datos en el encuentro equivocado.
+              </p>
+            </div>
+            <MismatchStatus>{mismatchCount} {mismatchCount === 1 ? "diferencia" : "diferencias"}</MismatchStatus>
+          </TeamMismatchHero>
+
+          <TeamMismatchComparison aria-label="Comparación entre la cédula y el partido programado">
+            <MismatchTeamPanel $tone="detected">
+              <MismatchPanelHeading>
+                <div>
+                  <strong>Cédula escaneada</strong>
+                  <span>Nombres y marcador detectados</span>
+                </div>
+              </MismatchPanelHeading>
+              <MismatchTeamRows>
+                {scannedTeams.map(team => {
+                  const doesNotMatch = mismatchedPositions.has(team.position);
+                  return (
+                    <DetectedTeamRow key={team.position} $mismatch={doesNotMatch}>
+                      <div className="team-copy">
+                        <span>{team.label}</span>
+                        <strong>{team.name}</strong>
+                      </div>
+                      {doesNotMatch && <span className="mismatch-label">No coincide</span>}
+                      <span className="detected-score" aria-label={`${team.score} goles`}>{team.score}</span>
+                    </DetectedTeamRow>
+                  );
+                })}
+              </MismatchTeamRows>
+            </MismatchTeamPanel>
+
+            <MismatchConnector aria-hidden="true">
+              <RiCloseCircleLine />
+              <span>No corresponde a</span>
+            </MismatchConnector>
+
+            <MismatchTeamPanel>
+              <MismatchPanelHeading>
+                <div>
+                  <strong>Partido programado</strong>
+                  <span>Equipos que deben jugar este encuentro</span>
+                </div>
+              </MismatchPanelHeading>
+              <MismatchTeamRows>
+                {scheduledTeams.map(({ label, team }) => (
+                  <ScheduledTeamRow key={label}>
+                    <div className="registered-logo">
+                      {team?.logo_url
+                        ? <img src={team.logo_url} alt="" />
+                        : <DynamicTeamLogo name={team?.name || label} color={team?.color} size="44px" />}
+                    </div>
+                    <div className="team-copy">
+                      <span>{label}</span>
+                      <strong>{team?.name || label}</strong>
+                    </div>
+                  </ScheduledTeamRow>
+                ))}
+              </MismatchTeamRows>
+            </MismatchTeamPanel>
+          </TeamMismatchComparison>
+
+          <MismatchSafetyNote>
+            <RiErrorWarningLine aria-hidden="true" />
+            <span>Ningún jugador, marcador o dato de esta cédula se aplicará sin tu confirmación.</span>
+          </MismatchSafetyNote>
+        </TeamMismatchScreen>
+        <MismatchActionBar>
+          <div className="action-copy">
+            <strong>¿Qué deseas hacer?</strong>
+            <span>Recomendamos escanear la cédula correcta.</span>
+          </div>
+          <div className="actions">
+            <PrimaryAction type="button" onClick={scanAnotherImage}>
+              <RiRefreshLine /> Escanear otra cédula
+            </PrimaryAction>
+            <ContinueAnywayAction type="button" onClick={() => setHasAcceptedTeamMismatch(true)}>
+              Revisar de todas maneras <RiArrowRightLine />
+            </ContinueAnywayAction>
+          </div>
+        </MismatchActionBar>
+      </ScanShell>
+    );
+  }
+
   return (
     <ScanShell $review>
       <PanelHeading>
         <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
-        <div><h4>Revisar escaneo</h4><p>Compara lo detectado con los datos registrados antes de aplicarlo.</p></div>
+        <div>
+          <h4>Resultado escaneado</h4>
+          <p>La cedula queda a la izquierda; a la derecha revisas el partido interpretado, los jugadores y las diferencias.</p>
+        </div>
       </PanelHeading>
       <ReviewScrollArea
         tabIndex={0}
-        aria-label="Datos detectados, datos interpretados y diferencias de goles"
+        aria-label="Imagen de la cedula y datos interpretados del escaneo"
       >
-        <ComparisonGrid>
-        <DataColumn>
-          <h5>Datos detectados</h5>
-          <DataRow label="Equipo detectado 1" value={`${rawScan.localTeam?.name || "Sin detectar"} · ${rawScan.localTeam?.score ?? 0}`} />
-          <DataRow label="Equipo detectado 2" value={`${rawScan.visitorTeam?.name || "Sin detectar"} · ${rawScan.visitorTeam?.score ?? 0}`} />
-          <DataRow label="Arbitro" value={rawScan.referee || "Sin detectar"} />
-          <DataRow label="Fecha" value={rawScan.date || "Sin detectar"} />
-          <DataRow label="Hora" value={rawScan.time || "Sin detectar"} />
-          <DataRow
-            label="Resolucion"
-            value={rawScan.walkover?.detected ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}` : "Resultado regular"}
-          />
-          <PlayerList>
-            {(rawScan.players || []).map((player, index) => {
-              const hasMatch = Boolean(interpretation.players[index]?.matched);
-              const scannedName = player.name || "Nombre ilegible";
-              const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
-              return (
-                <li
-                  key={`${player.name}-${index}`}
-                  className={`${!hasMatch ? "no-match" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
-                >
-                  <div className="player-copy">
-                    <span>{hasMatch ? scannedName : "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
-                    {!hasMatch && <small>Leído como: {scannedName}</small>}
-                    {needsGoalReview && <small>Goles dudosos: {player.goalEvidence || "celda poco legible"}</small>}
+        <ReviewWorkspace>
+          <ReviewMediaPanel aria-labelledby="review-image-title">
+            <ReviewMediaHeader>
+              <div>
+                <span>Documento escaneado</span>
+                <strong id="review-image-title">Cedula capturada</strong>
+              </div>
+              <small>Pasa el cursor sobre la imagen para ampliar una zona. En móvil mantiene la vista completa.</small>
+            </ReviewMediaHeader>
+            <ReviewPreviewFrame
+              aria-busy={scanning}
+              onPointerMove={handleReviewPreviewPointerMove}
+              onPointerEnter={handleReviewPreviewPointerMove}
+              onPointerLeave={handleReviewPreviewPointerLeave}
+            >
+              {previewAvailable !== false ? (
+                <img
+                  src={previewUrl}
+                  alt="Cedula seleccionada"
+                  onLoad={() => setPreviewAvailable(true)}
+                  onError={() => setPreviewAvailable(false)}
+                />
+              ) : (
+                <PreviewFallback>
+                  <RiFileImageLine />
+                  <strong>Imagen lista para revisar</strong>
+                  <span>{file.name || "Foto tomada desde el dispositivo"}</span>
+                  <small>{(file.size / (1024 * 1024)).toFixed(1)} MB ? La vista previa no es compatible con este formato</small>
+                </PreviewFallback>
+              )}
+            </ReviewPreviewFrame>
+          </ReviewMediaPanel>
+
+          <ReviewSidebar>
+            <ReviewDataPanel aria-labelledby="review-data-title">
+              <h5 id="review-data-title">Datos del partido</h5>
+              <DataRow
+                label="Local"
+                value={formatTeamScore({ name: match?.local?.name || "Local", score: interpretation.scores.local }, "Local")}
+                scannedValue={formatTeamScore(scannedLocalTeam, "Sin detectar")}
+              />
+              <DataRow
+                label="Visitante"
+                value={formatTeamScore({ name: match?.visitante?.name || "Visitante", score: interpretation.scores.visit }, "Visitante")}
+                scannedValue={formatTeamScore(scannedVisitTeam, "Sin detectar")}
+              />
+              <DataRow
+                label="Arbitro"
+                value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"}
+                scannedValue={rawScan.referee || "Sin detectar"}
+                warning={!interpretation.referee && Boolean(rawScan.referee)}
+              />
+              <DataRow label="Fecha" value={dateResultLabel} scannedValue={rawScan.date || "Sin detectar"} />
+              <DataRow label="Hora" value={timeResultLabel} scannedValue={rawScan.time || "Sin detectar"} />
+              {hasDetectedScheduleChange && (
+                <ScheduleOptions aria-label="Programacion detectada en la cedula">
+                  <strong className="schedule-title">Aplicar programacion detectada</strong>
+                  <span className="schedule-help">Opcional. Los datos actuales se conservaran si no seleccionas estas opciones.</span>
+                  {canApplyScannedDate && (
+                    <ScheduleApplyToggle>
+                      <input
+                        id="apply-scanned-date"
+                        type="checkbox"
+                        checked={applyScannedDate}
+                        onChange={event => setApplyScannedDate(event.target.checked)}
+                      />
+                      <label htmlFor="apply-scanned-date">
+                        <strong>Usar fecha detectada</strong>
+                        <span>{dateReview.normalizedScannedDate}</span>
+                      </label>
+                    </ScheduleApplyToggle>
+                  )}
+                  {canApplyScannedTime && (
+                    <ScheduleApplyToggle>
+                      <input
+                        id="apply-scanned-time"
+                        type="checkbox"
+                        checked={applyScannedTime}
+                        onChange={event => setApplyScannedTime(event.target.checked)}
+                      />
+                      <label htmlFor="apply-scanned-time">
+                        <strong>Usar hora detectada</strong>
+                        <span>{normalizedScannedTime}</span>
+                      </label>
+                    </ScheduleApplyToggle>
+                  )}
+                </ScheduleOptions>
+              )}
+              <DataRow
+                label="Resolucion"
+                value={interpretedResolution}
+                scannedValue={scannedResolution}
+                warning={interpretation.walkover.detected && !interpretation.walkover.winnerSide}
+              />
+            </ReviewDataPanel>
+
+            {scoreDiscrepancies.length > 0 && (
+              <ScoreDiscrepancyPanel aria-labelledby="score-discrepancy-title">
+                <ScoreDiscrepancyHeading>
+                  <RiErrorWarningLine aria-hidden="true" />
+                  <div>
+                    <strong id="score-discrepancy-title">El marcador y los goles individuales no coinciden</strong>
+                    <span>Elige como guardar el resultado de cada equipo antes de aplicar el escaneo.</span>
                   </div>
-                  <small className="player-stats" title={player.goalEvidence || undefined}>
-                    {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
-                  </small>
-                </li>
-              );
-            })}
-          </PlayerList>
-        </DataColumn>
-        <DataColumn>
-          <h5>Datos interpretados</h5>
-          <DataRow label="Local" value={`${match?.local?.name || "Local"} · ${interpretation.scores.local}`} />
-          <DataRow label="Visitante" value={`${match?.visitante?.name || "Visitante"} · ${interpretation.scores.visit}`} />
-          <DataRow label="Arbitro" value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"} warning={!interpretation.referee && Boolean(rawScan.referee)} />
-          <DataRow label="Fecha" value={dateResultLabel} />
-          <DataRow label="Hora" value={timeResultLabel} />
-          {hasDetectedScheduleChange && (
-            <ScheduleOptions aria-label="Programación detectada en la cédula">
-              <strong className="schedule-title">Aplicar programación detectada</strong>
-              <span className="schedule-help">Opcional. Los datos actuales se conservarán si no seleccionas estas opciones.</span>
-              {canApplyScannedDate && (
-                <ScheduleApplyToggle>
-                  <input
-                    id="apply-scanned-date"
-                    type="checkbox"
-                    checked={applyScannedDate}
-                    onChange={event => setApplyScannedDate(event.target.checked)}
-                  />
-                  <label htmlFor="apply-scanned-date">
-                    <strong>Usar fecha detectada</strong>
-                    <span>{dateReview.normalizedScannedDate}</span>
-                  </label>
-                </ScheduleApplyToggle>
-              )}
-              {canApplyScannedTime && (
-                <ScheduleApplyToggle>
-                  <input
-                    id="apply-scanned-time"
-                    type="checkbox"
-                    checked={applyScannedTime}
-                    onChange={event => setApplyScannedTime(event.target.checked)}
-                  />
-                  <label htmlFor="apply-scanned-time">
-                    <strong>Usar hora detectada</strong>
-                    <span>{normalizedScannedTime}</span>
-                  </label>
-                </ScheduleApplyToggle>
-              )}
-            </ScheduleOptions>
-          )}
-          <DataRow
-            label="Resolucion"
-            value={interpretation.walkover.detected
-              ? interpretation.walkover.winnerSide === "both"
-                ? "Doble W.O. · ambos pierden"
-                : interpretation.walkover.winnerSide
-                  ? `Victoria por default · ${interpretation.walkover.winnerSide === "local" ? match?.local?.name : match?.visitante?.name}`
-                  : "W.O. detectado · falta elegir ganador"
-              : "Resultado regular"}
-            warning={interpretation.walkover.detected && !interpretation.walkover.winnerSide}
-          />
-          <PlayerGroups aria-label="Jugadores interpretados por equipo">
-            {interpretedPlayerGroups.map(group => (
-              <TeamPlayerGroup key={group.side}>
-                <PlayerGroupHeading>
-                  <strong>{group.name}</strong>
-                  <span>{group.players.length} {group.players.length === 1 ? "jugador" : "jugadores"}</span>
-                </PlayerGroupHeading>
-                {group.players.length ? (
-                  <GroupedPlayerList>
-                    {group.players.map((player, index) => {
-                      const registeredName = player.matched ? playerName(player.matched) : "";
-                      const scannedName = player.name || "Nombre ilegible";
-                      const showScannedName = registeredName
-                        && normalizeScanName(registeredName) !== normalizeScanName(scannedName);
-                      const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
-                      return (
-                        <li
-                          key={`${group.side}-${player.matched?.id || player.name}-${index}`}
-                          className={`${!player.matched ? "unlinked" : ""} ${needsGoalReview ? "goal-review" : ""}`.trim()}
-                        >
-                          <div className="player-copy">
-                            <span>{registeredName || "Ninguna coincidencia"}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ""}</span>
-                            {showScannedName && <small>Leído como: {scannedName}</small>}
-                            {!registeredName && <small className="match-status">Leído como: {scannedName}</small>}
-                            {needsGoalReview && <small className="goal-status">Revisar GOL: {player.goalEvidence || "celda poco legible"}</small>}
-                          </div>
-                          <small
-                            className="player-stats"
-                            title={player.goalEvidence || (!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined)}
-                          >
-                            {player.goals || 0} G{player.ownGoals ? ` · ${player.ownGoals} AG` : ""} · {player.yellowCards || 0} TA · {player.redCards || 0} TR
-                          </small>
-                        </li>
-                      );
-                    })}
-                  </GroupedPlayerList>
-                ) : (
-                  <PlayerGroupEmpty>Sin jugadores detectados para este equipo.</PlayerGroupEmpty>
-                )}
-              </TeamPlayerGroup>
-            ))}
-          </PlayerGroups>
-        </DataColumn>
-      </ComparisonGrid>
-      {scoreDiscrepancies.length > 0 && (
-        <ScoreDiscrepancyPanel aria-labelledby="score-discrepancy-title">
-          <ScoreDiscrepancyHeading>
-            <RiErrorWarningLine aria-hidden="true" />
-            <div>
-              <strong id="score-discrepancy-title">El marcador y los goles individuales no coinciden</strong>
-              <span>Elige cómo guardar el resultado de cada equipo antes de aplicar el escaneo.</span>
-            </div>
-          </ScoreDiscrepancyHeading>
-          <ScoreConflictList>
-            {scoreDiscrepancies.map(discrepancy => {
-              const teamName = discrepancy.side === "local"
-                ? match?.local?.name || "Local"
-                : match?.visitante?.name || "Visitante";
-              const teamScoreIsHigher = discrepancy.teamScore > discrepancy.playerScore;
+                </ScoreDiscrepancyHeading>
+                <ScoreConflictList>
+                  {scoreDiscrepancies.map(discrepancy => {
+                    const teamName = discrepancy.side === "local"
+                      ? match?.local?.name || "Local"
+                      : match?.visitante?.name || "Visitante";
+                    const teamScoreIsHigher = discrepancy.teamScore > discrepancy.playerScore;
+                    return (
+                      <ScoreConflict key={discrepancy.side}>
+                        <ScoreConflictSummary>
+                          <strong>{teamName}</strong>
+                          <span>Marcador: {discrepancy.teamScore} ? Desglose de jugadores: {discrepancy.playerScore}</span>
+                        </ScoreConflictSummary>
+                        <ScoreResolutionOptions role="radiogroup" aria-label={'Resolver goles de ' + teamName}>
+                          <ScoreResolutionOption $selected={scoreResolutions[discrepancy.side] === "team"}>
+                            <input
+                              type="radio"
+                              name={'score-resolution-' + discrepancy.side}
+                              value="team"
+                              checked={scoreResolutions[discrepancy.side] === "team"}
+                              onChange={() => setScoreResolutions(current => ({
+                                ...current,
+                                [discrepancy.side]: "team",
+                              }))}
+                            />
+                            <span>
+                              <strong>Usar marcador del equipo: {discrepancy.teamScore}</strong>
+                              <small>{teamScoreIsHigher
+                                ? discrepancy.difference + " " + (discrepancy.difference === 1 ? "gol quedara" : "goles quedaran") + " sin asignar a un jugador."
+                                : discrepancy.difference + " " + (discrepancy.difference === 1 ? "gol individual excedente no se aplicara" : "goles individuales excedentes no se aplicaran") + "; revisa el reparto en Planteles."}</small>
+                            </span>
+                          </ScoreResolutionOption>
+                          <ScoreResolutionOption $selected={scoreResolutions[discrepancy.side] === "players"}>
+                            <input
+                              type="radio"
+                              name={'score-resolution-' + discrepancy.side}
+                              value="players"
+                              checked={scoreResolutions[discrepancy.side] === "players"}
+                              onChange={() => setScoreResolutions(current => ({
+                                ...current,
+                                [discrepancy.side]: "players",
+                              }))}
+                            />
+                            <span>
+                              <strong>Usar desglose de jugadores: {discrepancy.playerScore}</strong>
+                              <small>El marcador del partido se ajustara a la suma de los goles individuales.</small>
+                            </span>
+                          </ScoreResolutionOption>
+                        </ScoreResolutionOptions>
+                      </ScoreConflict>
+                    );
+                  })}
+                </ScoreConflictList>
+              </ScoreDiscrepancyPanel>
+            )}
+
+            <ReviewPlayersPanel aria-labelledby="review-players-title">
+              <ReviewSectionHeader>
+                <div>
+                  <strong id="review-players-title">Jugadores interpretados</strong>
+                  <span>El nombre interpretado va arriba, la lectura escaneada debajo y las tarjetas quedan junto al nombre.</span>
+                </div>
+              </ReviewSectionHeader>
+              <PlayerGroups aria-label="Jugadores interpretados con lectura escaneada por equipo">
+                {reviewPlayerGroups.map(group => (
+                  <TeamPlayerGroup key={group.side}>
+                    <PlayerGroupHeading>
+                      <div className="group-copy">
+                        <span>{group.side === "local" ? "Equipo local" : "Equipo B"}</span>
+                        <strong>{group.name}</strong>
+                      </div>
+                      <span>{group.registeredPlayerCount === 0
+                        ? "Sin plantel"
+                        : group.players.length + " " + (group.players.length === 1 ? "jugador" : "jugadores")}</span>
+                    </PlayerGroupHeading>
+                    {group.registeredPlayerCount === 0 && (
+                      <PlayerGroupEmpty>
+                        Este equipo no tiene jugadores registrados. Se omite la interpretacion de nombres
+                        {Number(interpretation.scores[group.side]) > 0
+                          ? " y sus " + interpretation.scores[group.side] + " " + (Number(interpretation.scores[group.side]) === 1 ? "gol quedara" : "goles quedaran") + " sin asignar."
+                          : " y no se asignaran estadisticas individuales."}
+                      </PlayerGroupEmpty>
+                    )}
+                    {group.players.length ? (
+                      <GroupedPlayerList>
+                        {group.players.map((player, index) => {
+                          const registeredName = player.matched ? playerName(player.matched) : "";
+                          const scannedName = player.name || "Nombre ilegible";
+                          const goalCount = Math.max(0, toStatNumber(player.goals));
+                          const yellowCards = Math.max(0, toStatNumber(player.yellowCards));
+                          const redCards = Math.max(0, toStatNumber(player.redCards));
+                          const needsGoalReview = player.goalsLegible === false || player.goalsConfidence === "low";
+                          return (
+                            <li
+                              key={group.side + "-" + (player.matched?.id || player.name) + "-" + index}
+                              className={[
+                                !player.matched ? "unlinked" : "",
+                                needsGoalReview ? "goal-review" : "",
+                              ].filter(Boolean).join(" ")}
+                            >
+                              <div className="player-copy">
+                                <div className="player-header">
+                                  <span className="player-name">{registeredName || "Sin coincidencia"}</span>
+                                  {(yellowCards > 0 || redCards > 0) && (
+                                    <div className="player-badges" aria-label="Tarjetas detectadas">
+                                      {yellowCards > 0 && (
+                                        <span
+                                          className="player-badge player-badge--yellow"
+                                          title={`${yellowCards} ${yellowCards === 1 ? "tarjeta amarilla" : "tarjetas amarillas"}`}
+                                        >
+                                          <RiRectangleFill aria-hidden="true" />
+                                          {yellowCards}
+                                        </span>
+                                      )}
+                                      {redCards > 0 && (
+                                        <span
+                                          className="player-badge player-badge--red"
+                                          title={`${redCards} ${redCards === 1 ? "tarjeta roja" : "tarjetas rojas"}`}
+                                        >
+                                          <RiRectangleFill aria-hidden="true" />
+                                          {redCards}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <small className="scanned-value">Escaneado: {scannedName}{player.jerseyNumber ? " ? #" + player.jerseyNumber : ""}</small>
+                                {needsGoalReview && <small className="goal-status">Revisar GOL: {player.goalEvidence || "celda poco legible"}</small>}
+                              </div>
+                              {goalCount > 0 && (
+                                <span
+                                  className="player-stats player-badge player-badge--goal"
+                                  title={player.goalEvidence || (!registeredName ? "Estas estadisticas individuales no se asignaran a un jugador" : undefined)}
+                                >
+                                  <RiFootballLine aria-hidden="true" />
+                                  {goalCount}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </GroupedPlayerList>
+                    ) : (
+                      group.registeredPlayerCount !== 0 && <PlayerGroupEmpty>Sin jugadores detectados para este equipo.</PlayerGroupEmpty>
+                    )}
+                  </TeamPlayerGroup>
+                ))}
+              </PlayerGroups>
+            </ReviewPlayersPanel>
+            {teamsWithoutMatchedPlayers.map(team => {
+              const teamScore = Number(interpretation.scores[team.side]) || 0;
+              const hasRegisteredRoster = registeredPlayerCounts[team.side] > 0;
               return (
-                <ScoreConflict key={discrepancy.side}>
-                  <ScoreConflictSummary>
-                    <strong>{teamName}</strong>
-                    <span>Marcador: {discrepancy.teamScore} · Desglose de jugadores: {discrepancy.playerScore}</span>
-                  </ScoreConflictSummary>
-                  <ScoreResolutionOptions role="radiogroup" aria-label={`Resolver goles de ${teamName}`}>
-                    <ScoreResolutionOption $selected={scoreResolutions[discrepancy.side] === "team"}>
-                      <input
-                        type="radio"
-                        name={`score-resolution-${discrepancy.side}`}
-                        value="team"
-                        checked={scoreResolutions[discrepancy.side] === "team"}
-                        onChange={() => setScoreResolutions(current => ({
-                          ...current,
-                          [discrepancy.side]: "team",
-                        }))}
-                      />
-                      <span>
-                        <strong>Usar marcador del equipo: {discrepancy.teamScore}</strong>
-                        <small>{teamScoreIsHigher
-                          ? `${discrepancy.difference} ${discrepancy.difference === 1 ? "gol quedará" : "goles quedarán"} sin asignar a un jugador.`
-                          : `${discrepancy.difference} ${discrepancy.difference === 1 ? "gol individual excedente no se aplicará" : "goles individuales excedentes no se aplicarán"}; revisa el reparto en Planteles.`}</small>
-                      </span>
-                    </ScoreResolutionOption>
-                    <ScoreResolutionOption $selected={scoreResolutions[discrepancy.side] === "players"}>
-                      <input
-                        type="radio"
-                        name={`score-resolution-${discrepancy.side}`}
-                        value="players"
-                        checked={scoreResolutions[discrepancy.side] === "players"}
-                        onChange={() => setScoreResolutions(current => ({
-                          ...current,
-                          [discrepancy.side]: "players",
-                        }))}
-                      />
-                      <span>
-                        <strong>Usar desglose de jugadores: {discrepancy.playerScore}</strong>
-                        <small>El marcador del partido se ajustará a la suma de los goles individuales.</small>
-                      </span>
-                    </ScoreResolutionOption>
-                  </ScoreResolutionOptions>
-                </ScoreConflict>
+                <ReviewNotice $tone="warning" key={'unassigned-' + team.side}>
+                  {hasRegisteredRoster
+                    ? "Ningun nombre escaneado de " + team.name + " coincide de forma segura con su plantel. Se conservara el marcador de " + teamScore + " " + (teamScore === 1 ? "gol" : "goles") + "; los goles quedaran sin asignar."
+                    : team.name + " no tiene jugadores registrados. Se omite la interpretacion de nombres y el marcador de " + teamScore + " " + (teamScore === 1 ? "gol quedara" : "goles quedaran") + " sin asignar."}
+                </ReviewNotice>
               );
             })}
-          </ScoreConflictList>
-        </ScoreDiscrepancyPanel>
-      )}
-      {teamsWithoutMatchedPlayers.map(team => {
-        const teamScore = Number(interpretation.scores[team.side]) || 0;
-        return (
-          <ReviewNotice $tone="warning" key={`unassigned-${team.side}`}>
-            Ningún nombre escaneado de {team.name} coincide con su plantel. Se conservará el marcador de {teamScore} {teamScore === 1 ? "gol" : "goles"}; los goles sin una coincidencia quedarán como no asignados.
-          </ReviewNotice>
-        );
-      })}
-      {interpretation.teamAssignment.swapped && !interpretation.teamAssignment.ambiguous && (
-        <ReviewNotice>El orden de la cedula esta invertido respecto al partido. Cada marcador se conservo junto al nombre de su equipo.</ReviewNotice>
-      )}
-      {interpretation.teamAssignment.ambiguous && (
-        <ReviewNotice>Los nombres de los equipos no dieron una coincidencia suficientemente clara. Revisa ambos marcadores antes de aplicar.</ReviewNotice>
-      )}
-      {unlinkedPlayers > 0 && (
-        <ReviewNotice $tone="warning">
-          {unlinkedPlayers} {unlinkedPlayers === 1 ? "nombre detectado no tiene" : "nombres detectados no tienen"} un jugador equivalente en el plantel registrado. El marcador se conservara; sus estadisticas individuales quedaran sin asignar.
-        </ReviewNotice>
-      )}
-      {uncertainGoalRows.length > 0 && (
-        <ReviewNotice $tone="warning">
-          {uncertainGoalRows.length} {uncertainGoalRows.length === 1 ? "fila tiene" : "filas tienen"} la celda GOL poco legible. No se inventaron goles para esas filas; revisa la imagen antes de aplicar.
-        </ReviewNotice>
-      )}
+            {interpretation.teamAssignment.swapped && !interpretation.teamAssignment.ambiguous && (
+              <ReviewNotice>El orden de la cedula esta invertido respecto al partido. Cada marcador se conservo junto al nombre de su equipo.</ReviewNotice>
+            )}
+            {interpretation.teamAssignment.ambiguous && (
+              <ReviewNotice>Los nombres de los equipos no dieron una coincidencia suficientemente clara. Revisa ambos marcadores antes de aplicar.</ReviewNotice>
+            )}
+            {unlinkedPlayers > 0 && (
+              <ReviewNotice $tone="warning">
+                {unlinkedPlayers} {unlinkedPlayers === 1 ? "nombre detectado no tiene" : "nombres detectados no tienen"} un jugador equivalente en el plantel registrado. El marcador se conservara; sus estadisticas individuales quedaran sin asignar.
+              </ReviewNotice>
+            )}
+            {uncertainGoalRows.length > 0 && (
+              <ReviewNotice $tone="warning">
+                {uncertainGoalRows.length} {uncertainGoalRows.length === 1 ? "fila tiene" : "filas tienen"} la celda GOL poco legible. No se inventaron goles para esas filas; revisa la imagen antes de aplicar.
+              </ReviewNotice>
+            )}
+          </ReviewSidebar>
+        </ReviewWorkspace>
       </ReviewScrollArea>
       <ChoiceRow>
         <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>
@@ -1017,25 +1310,26 @@ export function CedulaScanFlow({
           type="button"
           disabled={hasUnresolvedScores}
           title={hasUnresolvedScores ? "Resuelve las diferencias de goles antes de continuar" : undefined}
-          onClick={() => onApply({
-            ...interpretation,
-            scores: resolvedScores,
-            scoreResolutions,
-            date: dateReview.normalizedScannedDate,
-            time: normalizedScannedTime,
-            applyDate: canApplyScannedDate && applyScannedDate,
-            applyTime: canApplyScannedTime && applyScannedTime,
-          })}
+          onClick={applyScan}
         >
-          {hasUnresolvedScores ? "Elige cómo guardar los goles" : "Aplicar escaneo"}
+          {hasUnresolvedScores ? "Elige como guardar los goles" : "Aplicar escaneo"}
         </PrimaryAction>
       </ChoiceRow>
     </ScanShell>
   );
+
 }
 
-function DataRow({ label, value, warning = false }) {
-  return <ScanDataRow $warning={warning}><span>{label}</span><strong>{value}</strong></ScanDataRow>;
+function DataRow({ label, value, scannedValue, warning = false }) {
+  return (
+    <ScanDataRow $warning={warning}>
+      <span className="field-label">{label}</span>
+      <div className="field-values">
+        <strong>{value}</strong>
+        {scannedValue && <small>Escaneado: {scannedValue}</small>}
+      </div>
+    </ScanDataRow>
+  );
 }
 
 const ScanShell = styled.section`
@@ -1045,7 +1339,7 @@ const ScanShell = styled.section`
   gap:18px;
   min-height:0;
   overflow-x:hidden;
-  overflow-y:${({$review})=>$review ? "hidden" : "auto"};
+  overflow-y:${({$review,$warning})=>$review || $warning ? "hidden" : "auto"};
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
   touch-action:pan-y;
@@ -1130,6 +1424,12 @@ const Action = styled.button`
 `;
 const PrimaryAction = styled(Action)`border:1px solid ${v.colorPrincipal};background:${v.colorPrincipal};color:#fff;`;
 const SecondaryAction = styled(Action)`border:1px solid ${({theme})=>theme.bg4};background:transparent;color:${({theme})=>theme.text};&:hover:not(:disabled){background:${({theme})=>theme.bg3};}`;
+const ContinueAnywayAction = styled(Action)`
+  border:1px solid ${v.rojo}66;
+  background:transparent;
+  color:${v.rojo};
+  &:hover:not(:disabled){background:${v.rojo}12;border-color:${v.rojo};}
+`;
 const ScanProgressButton = styled(Action)`
   position:relative;overflow:hidden;isolation:isolate;border:1px solid ${({$scanning})=>$scanning ? "#17212b" : v.colorPrincipal};background:${({$scanning})=>$scanning ? "#17212b" : v.colorPrincipal};color:#fff;min-width:156px;
   &::before{content:"";position:absolute;inset:0;z-index:0;background:${v.colorPrincipal};transform:scaleX(${({$progress=100})=>Math.max(0,Math.min(100,$progress))/100});transform-origin:left center;transition:transform 220ms cubic-bezier(.22,1,.36,1);}
@@ -1139,27 +1439,140 @@ const ScanProgressButton = styled(Action)`
 `;
 const scanSweep = keyframes`0%{transform:translateY(-56px);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateY(calc(100% + 8px));opacity:0;}`;
 const statusPulse = keyframes`0%,100%{opacity:.82;}50%{opacity:1;}`;
+const reviewReveal = keyframes`
+  0%{opacity:0;transform:translateY(14px);filter:blur(8px);}
+  100%{opacity:1;transform:translateY(0);filter:blur(0);}
+`;
+const reviewRevealLeft = keyframes`
+  0%{opacity:0;transform:translateX(-18px);filter:blur(8px);}
+  100%{opacity:1;transform:translateX(0);filter:blur(0);}
+`;
+const reviewRevealRight = keyframes`
+  0%{opacity:0;transform:translateX(18px);filter:blur(8px);}
+  100%{opacity:1;transform:translateX(0);filter:blur(0);}
+`;
 const PreviewFrame = styled.div`
   position:relative;height:clamp(420px,64vh,680px);min-width:0;min-height:0;flex:1;border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
   img{position:absolute;inset:10px;display:block;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;object-position:center;}
   @media(max-width:700px){height:min(58vh,560px);min-height:320px;}
 `;
-const ReviewScrollArea = styled.div`
-  display:block;
-  flex:1 1 0;
+const ReviewWorkspace = styled.div`
+  display:grid;
+  grid-template-columns:minmax(460px,540px) minmax(0,1fr);
+  gap:18px;
+  align-items:stretch;
+  height:min(66dvh,700px);
+  animation:${reviewReveal} 320ms cubic-bezier(.16,1,.3,1) both;
+
+  @media(max-width:960px){
+    grid-template-columns:1fr;
+    gap:14px;
+    height:auto;
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    animation:none;
+  }
+`;
+const ReviewMediaPanel = styled.aside`
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-width:0;
+  padding:12px;
+  border:1px solid ${({theme})=>theme.bg4};
+  border-radius:16px;
+  background:${({theme})=>theme.bgcards};
+  height:100%;
   min-height:0;
-  overflow-x:hidden;
+  overflow:hidden;
+  align-self:stretch;
+  animation:${reviewRevealLeft} 380ms cubic-bezier(.16,1,.3,1) both;
+
+  @media(max-width:960px){
+    height:min(52dvh,520px);
+    overflow:visible;
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    animation:none;
+  }
+`;
+const ReviewMediaHeader = styled.header`
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  min-width:0;
+
+  >div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  span{font-size:.72rem;line-height:1.35;letter-spacing:.08em;text-transform:uppercase;opacity:.62;}
+  strong{font-size:.94rem;line-height:1.35;}
+  small{max-width:28ch;font-size:.74rem;line-height:1.4;text-align:right;opacity:.7;}
+
+  @media(max-width:700px){
+    flex-direction:column;
+    small{max-width:none;text-align:left;}
+  }
+`;
+const ReviewPreviewFrame = styled(PreviewFrame)`
+  flex:1 1 auto;
+  height:100%;
+  min-height:0;
+  cursor:zoom-in;
+
+  img{
+    transition:transform 240ms cubic-bezier(.22,1,.36,1), filter 240ms ease;
+    transform-origin:var(--preview-zoom-x,50%) var(--preview-zoom-y,50%);
+    will-change:transform;
+  }
+
+  @media (hover:hover) and (pointer:fine){
+    &:hover img{
+      transform:scale(1.8);
+      filter:saturate(1.03) contrast(1.02);
+    }
+  }
+
+  @media(max-width:960px){
+    cursor:default;
+    height:min(58vh,580px);
+    flex:none;
+    &:hover img{
+      transform:none;
+      filter:none;
+    }
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    img{transition:none;}
+    &:hover img{
+      transform:none;
+      filter:none;
+    }
+  }
+`;
+const ReviewSidebar = styled.div`
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  min-width:0;
+  height:100%;
+  min-height:0;
   overflow-y:auto;
+  overflow-x:hidden;
   overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-  touch-action:pan-y;
-  scroll-padding-block:8px;
+  scroll-padding-block:2px 16px;
+  padding-right:6px;
   scrollbar-gutter:stable;
-  padding:2px 6px 2px 2px;
   scrollbar-width:thin;
   scrollbar-color:${({theme})=>theme.colorScroll} transparent;
+  animation:${reviewRevealRight} 380ms cubic-bezier(.16,1,.3,1) 70ms both;
 
-  > * + *{margin-top:18px;}
+  > *{
+    flex:0 0 auto;
+  }
+
   &::-webkit-scrollbar{width:7px;}
   &::-webkit-scrollbar-track{background:transparent;border-radius:999px;margin-block:4px;}
   &::-webkit-scrollbar-thumb{
@@ -1169,6 +1582,46 @@ const ReviewScrollArea = styled.div`
     background:${({theme})=>theme.colorScroll};
     background-clip:padding-box;
   }
+
+  @media(prefers-reduced-motion:reduce){
+    animation:none;
+  }
+
+  @media(max-width:960px){
+    height:auto;
+    max-height:min(58dvh,580px);
+    padding-right:4px;
+  }
+`;
+const ReviewPlayersPanel = styled.section`
+  min-width:0;
+  padding:16px;
+  border:1px solid ${({theme})=>theme.bg4};
+  border-radius:14px;
+  background:${({theme})=>theme.bgcards};
+
+  @media(max-width:560px){padding:12px;}
+`;
+const ReviewSectionHeader = styled.header`
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+
+  >div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  strong{font-size:.94rem;line-height:1.35;}
+  span{font-size:.76rem;line-height:1.4;opacity:.64;}
+`;
+const ReviewScrollArea = styled.div`
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  flex:1 1 0;
+  min-height:0;
+  overflow-x:hidden;
+  overflow:hidden;
+  padding:2px 6px 2px 2px;
   &:focus-visible{
     outline:3px solid ${v.colorPrincipal}44;
     outline-offset:-1px;
@@ -1185,11 +1638,36 @@ const ScanningOverlay = styled.div`
   .scan-status svg{color:${v.colorPrincipal};font-size:1rem;}.scan-status strong{font-variant-numeric:tabular-nums;min-width:34px;text-align:right;}
   @media(prefers-reduced-motion:reduce){.scan-line{top:50%;height:56px;animation:none;opacity:1;}.scan-status{animation:none;}}
 `;
-const ComparisonGrid = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:1px;background:${({theme})=>theme.bg4};border-radius:14px;overflow:hidden;@media(max-width:760px){grid-template-columns:1fr;}`;
-const DataColumn = styled.div`background:${({theme})=>theme.bgcards};padding:16px;min-width:0;h5{margin:0 0 12px;font-size:.94rem;} `;
+const ReviewDataPanel = styled.section`
+  min-width:0;
+  padding:16px;
+  border:1px solid ${({theme})=>theme.bg4};
+  border-radius:16px;
+  background:${({theme})=>theme.bgcards};
+
+  h5{margin:0 0 10px;font-size:.94rem;line-height:1.35;}
+
+  @media(max-width:560px){padding:12px;}
+`;
 const ScanDataRow = styled.div`
-  display:grid;grid-template-columns:88px minmax(0,1fr);gap:10px;padding:8px 0;border-bottom:1px solid ${({theme})=>theme.bg4};font-size:.86rem;
-  span{opacity:.68;} strong{font-weight:700;overflow-wrap:anywhere;color:${({$warning})=>$warning ? v.rojo : "inherit"};}
+  display:grid;
+  grid-template-columns:96px minmax(0,1fr);
+  gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid ${({theme})=>theme.bg4};
+  font-size:.86rem;
+
+  .field-label{padding-top:1px;color:${({theme})=>theme.text};font-weight:650;opacity:.68;}
+  .field-values{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  strong{font-weight:750;line-height:1.35;overflow-wrap:anywhere;color:${({theme,$warning})=>$warning ? v.rojo : theme.text};}
+  small{color:${({theme})=>theme.text};font-size:.75rem;line-height:1.35;overflow-wrap:anywhere;opacity:.62;}
+
+  @media(max-width:560px){
+    grid-template-columns:1fr;
+    gap:3px;
+    padding:9px 0;
+    .field-label{padding-top:0;}
+  }
 `;
 const ScheduleOptions = styled.fieldset`
   display:flex;flex-direction:column;gap:8px;min-width:0;margin:12px 0 0;padding:11px;border:1px solid ${({theme})=>theme.bg4};border-radius:10px;background:${({theme})=>theme.bg3};color:inherit;
@@ -1205,32 +1683,61 @@ const ScheduleApplyToggle = styled.div`
 `;
 const PlayerList = styled.ul`
   list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;
-  li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;background:${({theme})=>theme.bg3};font-size:.82rem;}
+  li{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;background:${({theme})=>theme.bg3};font-size:.82rem;}
   li.no-match{color:${v.rojo};}
   li.goal-review{background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}12`};}
-  .player-copy{display:flex;flex-direction:column;min-width:0;line-height:1.3;}
-  .player-copy span{font-weight:650;}
+  .player-copy{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 auto;line-height:1.3;}
+  .player-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}
+  .player-name{font-weight:650;min-width:0;overflow-wrap:anywhere;}
+  .player-badges{display:flex;align-items:center;justify-content:flex-end;gap:4px;flex-wrap:wrap;flex:0 0 auto;}
+  .player-badge{display:inline-flex;align-items:center;gap:4px;min-height:22px;padding:2px 7px;border-radius:999px;border:1px solid transparent;font-size:.7rem;font-weight:800;line-height:1;white-space:nowrap;box-sizing:border-box;}
+  .player-badge svg{font-size:.82rem;flex:0 0 auto;}
+  .player-badge--goal{border-color:${({theme})=>theme.bg4};background:${({theme})=>theme.bgcards};color:${({theme})=>theme.text};}
+  .player-badge--goal svg{color:${v.colorPrincipal};}
+  .player-badge--yellow{border-color:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}3d`};background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}18`};color:${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};}
+  .player-badge--yellow svg{color:${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};}
+  .player-badge--red{border-color:${v.rojo}38;background:${v.rojo}14;color:${v.rojo};}
+  .player-badge--red svg{color:${v.rojo};}
   .player-copy small{white-space:normal;font-size:.7rem;opacity:.82;}
   .player-copy .goal-status{color:${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};font-weight:650;opacity:1;}
   span{min-width:0;overflow-wrap:anywhere;} small{white-space:nowrap;opacity:.7;}
-  .player-stats{flex:0 0 auto;}
+  .player-stats{flex:0 0 auto;align-self:flex-start;margin-top:1px;}
 `;
 const PlayerGroups = styled.div`
-  display:flex;flex-direction:column;margin-top:12px;border-top:1px solid ${({theme})=>theme.bg4};
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin-top:12px;
+
+  @media(max-width:700px){
+    grid-template-columns:1fr;
+  }
 `;
 const TeamPlayerGroup = styled.section`
-  padding:11px 0;border-bottom:1px solid ${({theme})=>theme.bg4};
+  min-width:0;
+  padding:12px;
+  border:1px solid ${({theme})=>theme.bg4};
+  border-radius:12px;
+  background:${({theme})=>theme.bg3};
 `;
 const PlayerGroupHeading = styled.div`
-  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px;font-size:.82rem;
-  strong{font-weight:800;overflow-wrap:anywhere;}
-  span{flex:0 0 auto;padding:3px 7px;border-radius:999px;background:${({theme})=>theme.bg3};font-size:.72rem;opacity:.76;}
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+  font-size:.82rem;
+
+  .group-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .group-copy span{font-size:.72rem;line-height:1.35;opacity:.62;}
+  .group-copy strong{font-weight:800;line-height:1.3;overflow-wrap:anywhere;}
+  >span{flex:0 0 auto;padding:3px 7px;border-radius:999px;background:${({theme})=>theme.bgcards};font-size:.72rem;opacity:.76;}
 `;
 const GroupedPlayerList = styled(PlayerList)`
   margin:0;max-height:none;overflow:visible;
   .player-copy small{white-space:normal;font-size:.7rem;opacity:.66;}
+  .player-copy .scanned-value{color:${({theme})=>theme.text};opacity:.62;}
   li.unlinked{color:${v.rojo};}
-  li.unlinked .match-status{color:inherit;font-weight:600;opacity:.82;}
   li.unlinked .player-stats{color:inherit;opacity:.9;}
 `;
 const PlayerGroupEmpty = styled.p`
@@ -1243,8 +1750,196 @@ const ReviewNotice = styled.p`
     : `${v.rojo}14`};
   color:${({theme})=>theme.text};font-size:.84rem;line-height:1.4;
 `;
+const TeamMismatchScreen = styled.section`
+  display:grid;
+  grid-template-rows:auto minmax(220px,1fr) auto;
+  gap:16px;
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  padding:2px 4px 2px 2px;
+  color:${({theme})=>theme.text};
+  scrollbar-width:thin;
+  scrollbar-color:${({theme})=>theme.colorScroll} transparent;
+
+  @media(max-width:760px){grid-template-rows:auto auto auto;gap:12px;}
+`;
+const TeamMismatchHero = styled.div`
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  padding:16px 18px;
+  border:1px solid ${v.rojo}55;
+  border-radius:14px;
+  background:${v.rojo}10;
+
+  .hero-copy{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  h5,p{margin:0;}
+  h5{font-size:clamp(1rem,1.5vw,1.2rem);line-height:1.3;letter-spacing:-.015em;}
+  p{max-width:72ch;font-size:.84rem;line-height:1.5;opacity:.78;}
+
+  @media(max-width:620px){
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:start;
+    padding:14px;
+  }
+`;
+const MismatchIcon = styled.span`
+  display:grid;
+  width:44px;
+  height:44px;
+  place-items:center;
+  border-radius:12px;
+  background:${v.rojo};
+  color:#fff;
+  font-size:1.35rem;
+`;
+const MismatchStatus = styled.span`
+  justify-self:end;
+  padding:5px 9px;
+  border-radius:999px;
+  background:${v.rojo}18;
+  color:${v.rojo};
+  font-size:.72rem;
+  font-weight:800;
+  white-space:nowrap;
+
+  @media(max-width:620px){grid-column:2;justify-self:start;}
+`;
+const TeamMismatchComparison = styled.div`
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 92px minmax(0,1fr);
+  align-items:stretch;
+  min-height:0;
+
+  @media(max-width:760px){grid-template-columns:1fr;}
+`;
+const MismatchTeamPanel = styled.section`
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  overflow:hidden;
+  border:1px solid ${({theme,$tone})=>$tone === "detected" ? `${v.rojo}55` : theme.bg4};
+  border-radius:14px;
+  background:${({theme})=>theme.bgcards};
+`;
+const MismatchPanelHeading = styled.header`
+  display:flex;
+  min-height:64px;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 16px;
+  border-bottom:1px solid ${({theme})=>theme.bg4};
+
+  >div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  strong{font-size:.9rem;line-height:1.3;}
+  span{font-size:.74rem;line-height:1.35;opacity:.64;}
+`;
+const MismatchTeamRows = styled.div`
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+`;
+const DetectedTeamRow = styled.div`
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:12px;
+  flex:1 1 0;
+  min-height:82px;
+  padding:14px 16px;
+  background:${({$mismatch})=>$mismatch ? `${v.rojo}09` : "transparent"};
+
+  &+&{border-top:1px solid ${({theme})=>theme.bg4};}
+  .team-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .team-copy span{font-size:.72rem;opacity:.62;}
+  .team-copy strong{font-size:clamp(.92rem,1.4vw,1.08rem);line-height:1.3;overflow-wrap:anywhere;}
+  .mismatch-label{padding:4px 7px;border-radius:999px;background:${v.rojo}18;color:${v.rojo};font-size:.68rem;font-weight:800;white-space:nowrap;}
+  .detected-score{display:grid;width:38px;height:38px;place-items:center;border-radius:10px;background:${({theme})=>theme.bg3};font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums;}
+
+  @media(max-width:460px){
+    grid-template-columns:minmax(0,1fr) auto;
+    .mismatch-label{grid-column:1;justify-self:start;}
+    .detected-score{grid-column:2;grid-row:1 / span 2;}
+  }
+`;
+const ScheduledTeamRow = styled.div`
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:1 1 0;
+  min-height:82px;
+  padding:14px 16px;
+
+  &+&{border-top:1px solid ${({theme})=>theme.bg4};}
+  .registered-logo{display:grid;width:46px;height:46px;flex:0 0 auto;place-items:center;overflow:hidden;border-radius:12px;background:${({theme})=>theme.bg3};}
+  .registered-logo img{width:38px;height:38px;object-fit:contain;}
+  .team-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .team-copy span{font-size:.72rem;opacity:.62;}
+  .team-copy strong{font-size:clamp(.92rem,1.4vw,1.08rem);line-height:1.3;overflow-wrap:anywhere;}
+`;
+const MismatchConnector = styled.div`
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  color:${v.rojo};
+
+  svg{font-size:1.35rem;}
+  span{max-width:68px;text-align:center;font-size:.68rem;font-weight:800;line-height:1.3;}
+
+  @media(max-width:760px){
+    min-height:58px;
+    flex-direction:row;
+    span{max-width:none;}
+  }
+`;
+const MismatchSafetyNote = styled.div`
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:38px;
+  padding:8px 12px;
+  color:${({theme})=>theme.text};
+  font-size:.78rem;
+  line-height:1.4;
+  text-align:center;
+  opacity:.72;
+
+  svg{flex:0 0 auto;color:${v.rojo};font-size:1rem;}
+`;
+const MismatchActionBar = styled.div`
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding-top:14px;
+  border-top:1px solid ${({theme})=>theme.bg4};
+
+  .action-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .action-copy strong{font-size:.84rem;}
+  .action-copy span{font-size:.74rem;line-height:1.35;opacity:.64;}
+  .actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+
+  @media(max-width:700px){
+    align-items:stretch;
+    flex-direction:column;
+    gap:10px;
+    .actions{display:grid;grid-template-columns:1fr;}
+    .actions button{width:100%;min-height:44px;}
+  }
+`;
 const ScoreDiscrepancyPanel = styled.section`
-  overflow:hidden;border:1px solid ${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};border-radius:12px;background:${({theme})=>theme.bgcards};
+  overflow:hidden;
+  border:1px solid ${({theme})=>theme.tournamentDashboard?.metrics?.warning || "#f59e0b"};
+  border-radius:12px;
+  background:${({theme})=>theme.bgcards};
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
 `;
 const ScoreDiscrepancyHeading = styled.div`
   display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:${({theme})=>`${theme.tournamentDashboard?.metrics?.warning || "#f59e0b"}18`};

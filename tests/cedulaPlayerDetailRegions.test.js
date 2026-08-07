@@ -8,7 +8,7 @@ import {
 test("genera dos recortes superpuestos y acotados para una cedula vertical", () => {
   const regions = getCedulaPlayerDetailRegions(2000, 3000);
 
-  assert.equal(CEDULA_PLAYER_DETAIL_VERSION, "cedula-player-details-v1");
+  assert.equal(CEDULA_PLAYER_DETAIL_VERSION, "cedula-player-details-v2-goal-geometry");
   assert.equal(regions.length, 2);
   assert.equal(regions[0].x, 0);
   assert.ok(regions[0].width > 1000);

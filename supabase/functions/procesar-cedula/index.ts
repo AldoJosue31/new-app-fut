@@ -16,6 +16,7 @@ import {
 } from "../_shared/documentOcr.ts";
 import { validateClientCedulaScan } from "./clientScan.ts";
 import { normalizeScannedPlayers } from "./playerScan.ts";
+import { sanitizeMatchObservations } from "./scanObservations.ts";
 import {
   authorizeRateLimitedRequest,
   corsJsonResponse,
@@ -49,9 +50,13 @@ const playerSchema = {
     name: textField("Nombre observado en esta fila, sin reemplazarlo por un candidato registrado. Conserva abreviaturas y errores visibles.", 100),
     jerseyNumber: textField("Dorsal observado en la columna # de esta misma fila; vacio si no es legible.", 8),
     rowNumber: countField("Numero de fila visual dentro de este bloque, comenzando en 1.", 60),
-    goals: countField("Cantidad legible en la celda GOL de esta misma fila, convertida a numero. Interpreta tanto cifras como palabras en español: 'uno'=1, 'dos'=2, 'tres'=3. Cero solo si la celda esta claramente vacia.", 20),
+    goals: countField("Cantidad legible de goles manuscritos de esta misma fila, ubicada al inicio/final del espacio del nombre o en una celda GOL separada. Interpreta cifras, marcas y palabras en español.", 20),
     goalsLegible: { type: "boolean" },
-    goalEvidence: textField("Contenido crudo observado dentro de la celda GOL, por ejemplo '2', '||', 'X' o 'vacia'. Nunca copies el marcador del equipo.", 40),
+    goalEvidence: textField("Contenido crudo de la marca manuscrita usada como gol, por ejemplo '2', '||', 'X' o 'vacia'. No copies texto preimpreso ni el marcador del equipo.", 80),
+    goalLocation: {
+      type: "string",
+      enum: ["before-name", "after-name", "goal-cell", "none", "unknown"],
+    },
     goalsConfidence: { type: "string", enum: ["high", "medium", "low"] },
     ownGoals: countField("Autogoles indicados explicitamente como AG/AUTOGOL en esta fila; cero si no existe esa anotacion.", 20),
     yellowCards: countField("Cantidad de marcas dentro de la celda TA de esta misma fila.", 2),
@@ -64,6 +69,7 @@ const playerSchema = {
     "goals",
     "goalsLegible",
     "goalEvidence",
+    "goalLocation",
     "goalsConfidence",
     "ownGoals",
     "yellowCards",
@@ -95,7 +101,7 @@ const matchSheetSchema = {
     referee: textField("Nombre completo del arbitro; vacio si no es legible."),
     date: textField("Fecha en formato YYYY-MM-DD; vacio si no se puede determinar."),
     time: textField("Hora en formato HH:MM de 24 horas; vacio si no se puede determinar."),
-    observations: textField("Observaciones escritas en la cedula; vacio si no existen."),
+    observations: textField("Solo hechos ocurridos durante el partido: lesiones, expulsiones, protestas, incidentes, suspension, condiciones de juego u otros sucesos. Excluye jornada, division, categoria, fecha, hora y cualquier dato administrativo previo."),
     walkover: {
       type: "object",
       properties: {
@@ -128,17 +134,29 @@ Ejemplo conceptual: si el primer bloque dice "Tigres" junto a 3 y el segundo dic
 - Si dos candidatos son igualmente posibles o no hay semejanza visible, conserva la transcripcion mas cercana de la imagen; la aplicacion pedira revision.
 
 # Lectura fila por fila de jugadores y goles
-- La tabla esperada tiene columnas # | JUGADOR | TIT | GOL | TA | TR. Primero ubica esos encabezados y los limites verticales de cada columna.
+- La tabla puede tener columnas # | JUGADOR | TIT | GOL | TA | TR, pero el formato real puede anotar los goles dentro del espacio JUGADOR. Primero ubica filas, encabezados, limites de columna y zonas manuscritas.
 - Procesa cada bloque por separado, de arriba hacia abajo. Sigue una sola banda horizontal por fila y nunca tomes el dorsal, TIT, TA, TR ni una marca de la fila superior/inferior como gol.
+- En este formato la anotacion manuscrita de goles puede estar DENTRO del espacio JUGADOR: inmediatamente antes del primer caracter del nombre o inmediatamente despues del ultimo caracter. Busca esas dos posiciones ademas de una posible celda GOL separada.
+- Asocia la anotacion al jugador de su misma banda horizontal usando proximidad vertical y horizontal. Una marca situada entre dos filas, sin alineacion clara, no pertenece automaticamente a ninguna: usa goals=0, goalsLegible=false y goalLocation='unknown'.
+- Devuelve goalLocation='before-name' si la evidencia esta pegada al inicio del nombre, 'after-name' si esta al final, 'goal-cell' si esta dentro de una columna GOL independiente, 'none' si no existe marca y 'unknown' si su posicion es dudosa.
+- El formulario contiene palabras, lineas y etiquetas PREIMPRESAS. Una cifra, raya, cruz o palomita manuscrita puede estar dibujada encima de una palabra impresa: cuenta solamente el trazo manuscrito superpuesto, nunca las letras o numeros que forman parte de la impresion de fondo.
+- Antes de asignar goals>0 confirma simultaneamente: misma fila del jugador, ubicacion permitida y evidencia manuscrita visible. Si falta cualquiera de las tres, no atribuyas el gol a ese jugador.
 - Usa la imagen completa para decidir a que bloque/equipo pertenece la tabla. Las imagenes adicionales, si existen, son ampliaciones de esas mismas tablas y solo sirven para verificar cada fila; no crean jugadores nuevos ni filas duplicadas.
-- En GOL acepta cifras y cantidades escritas con letras. Convierte "cero", "uno", "dos", "tres", etc. al entero correspondiente en goals, pero conserva exactamente la escritura visible en goalEvidence. Ejemplos: "uno" => goals=1, goalEvidence="uno"; "DOS" => goals=2, goalEvidence="DOS"; "3" => goals=3, goalEvidence="3".
-- Un numero N significa N goles; varias marcas inequivocas significan la cantidad de marcas; una unica palomita, cruz o raya aislada significa 1. Una celda claramente vacia significa goals=0, goalsLegible=true y goalEvidence='vacia'.
-- Interpreta la cantidad solamente dentro de la celda GOL de esa fila. No confundas palabras o numeros del nombre del jugador, dorsal, TIT, TA o TR con goles.
-- Si la celda esta borrosa, cortada, tapada, parece invadida por otra columna o no puedes contar sus marcas con seguridad, usa goals=0, goalsLegible=false y goalsConfidence='low'. No adivines ni repartas el marcador general entre jugadores.
-- goalEvidence debe describir solo lo que ves dentro de GOL. Nunca copies ahi el marcador final del equipo.
+- En las ubicaciones permitidas acepta cifras y cantidades escritas con letras. Convierte "cero", "uno", "dos", "tres", etc. al entero correspondiente en goals, pero conserva exactamente la escritura visible en goalEvidence. Ejemplos: "uno" => goals=1, goalEvidence="uno"; "DOS" => goals=2, goalEvidence="DOS"; "3" => goals=3, goalEvidence="3".
+- Un numero N significa N goles; varias marcas inequivocas significan la cantidad de marcas; una unica palomita, cruz o raya aislada significa 1. Si no existe ninguna marca en las tres ubicaciones permitidas usa goals=0, goalsLegible=true, goalEvidence='vacia' y goalLocation='none'.
+- No confundas palabras o numeros del nombre del jugador, dorsal, TIT, TA, TR ni texto preimpreso con goles.
+- Si la marca esta borrosa, cortada, tapada, mezclada con la impresion de fondo o no puedes asociarla a una sola fila con seguridad, usa goals=0, goalsLegible=false, goalsConfidence='low' y goalLocation='unknown'. No adivines ni repartas el marcador general entre jugadores.
+- goalEvidence debe describir solo la marca manuscrita que sustenta goals y goalLocation. Nunca copies ahi el marcador final del equipo ni una etiqueta impresa.
 - Extrae las filas visibles relevantes aun cuando tengan cero goles, para conservar dorsal, tarjetas y posicion de fila. No agregues a todo el plantel registrado.
 - La suma de goles por jugador puede diferir del marcador final. Conserva ambas lecturas independientes; la aplicacion pedira al usuario resolver la discrepancia.
 - La cedula estandar no tiene columna de autogol: ownGoals=0 salvo que en esa misma fila exista texto explicito AG, A.G. o AUTOGOL.
+
+# Observaciones adicionales
+- Extrae unicamente hechos que hayan ocurrido durante el partido: lesiones, expulsiones, protestas, agresiones, invasiones, suspension, problemas de iluminacion o cancha, conducta del publico y otros incidentes de juego.
+- NO copies datos previos o administrativos: jornada, division, categoria, torneo, liga, grupo, fecha, hora, horario, sede, numero de partido, nombres de los equipos, arbitro ni el marcador.
+- No copies encabezados impresos ni la etiqueta 'Observaciones'. Si el espacio contiene solamente metadatos o esta vacio, devuelve observations="".
+- Una referencia a fecha u hora puede conservarse solo cuando forma parte de la narracion de un incidente, por ejemplo 'partido suspendido a las 20:15 por falta de luz'.
+
 Busca cuidadosamente indicaciones de inasistencia en toda la imagen, especialmente dentro del espacio donde deberia ir la lista de jugadores de cada equipo. Ejemplos: "No se presento", "No se presento equipo X", "no llegaron", "inasistencia", "W.O." o "victoria por default".
 Si la frase esta escrita dentro del bloque de jugadores de un equipo, usa first o second segun ese bloque, aunque la frase no incluya el nombre.
 Marca walkover.detected=true solamente cuando exista evidencia textual visible. Si ambos equipos aparecen como ausentes usa absentTeamBlock=both. Si la frase existe pero no se puede determinar el bloque usa unknown.
@@ -364,7 +382,7 @@ const normalizeGeminiScan = (raw: GeminiScan) => {
     referee: sanitizeCandidateText(raw.referee),
     date: sanitizeCandidateText(raw.date),
     time: sanitizeCandidateText(raw.time),
-    observations: String(raw.observations || "").replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 1_000),
+    observations: sanitizeMatchObservations(raw.observations),
     walkover: {
       detected: Boolean(walkover.detected),
       absentTeam: blockToLegacySide[walkover.absentTeamBlock || "unknown"],
@@ -459,8 +477,8 @@ const readImageRequest = async (req: Request) => {
         mimeType: detailMimeType,
         inputBytes: bytes.byteLength,
         label: index === 0
-          ? "Detalle ampliado del primer bloque visual de jugadores. Verifica fila, dorsal y columnas TIT/GOL/TA/TR; no dupliques filas."
-          : "Detalle ampliado del segundo bloque visual de jugadores. Verifica fila, dorsal y columnas TIT/GOL/TA/TR; no dupliques filas.",
+          ? "Detalle ampliado del primer bloque visual de jugadores. Verifica cada banda horizontal y busca goles manuscritos al inicio o final del nombre, incluso sobre texto preimpreso; no dupliques filas."
+          : "Detalle ampliado del segundo bloque visual de jugadores. Verifica cada banda horizontal y busca goles manuscritos al inicio o final del nombre, incluso sobre texto preimpreso; no dupliques filas.",
       });
     }
     return {

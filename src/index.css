@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --app-z-toast: 210000;
+  --app-z-toast: 2147483647;
 }
 
 body [data-sileo-viewport] {
   --sileo-width: min(350px, calc(100vw - 24px));
-  z-index: var(--app-z-toast);
+  z-index: var(--app-z-toast) !important;
   font-family: "Poppins", sans-serif;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;

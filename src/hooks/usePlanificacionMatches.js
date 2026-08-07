@@ -441,18 +441,22 @@ export const usePlanificacionMatches = (
                     ? (draftMatch.date ? 'Programado' : 'Pendiente')
                     : draftMatch.status || dbMatch.status;
 
+                const useDraft = draftMatch.isModified;
+
                 return {
                     ...dbMatch, 
                     date: keepDbResult
                         ? dbMatch.date
-                        : draftMatch.date !== undefined ? draftMatch.date : dbMatch.date,
+                        : (useDraft ? draftMatch.date : dbMatch.date),
                     time: keepDbResult
                         ? dbMatch.time
-                        : draftMatch.time !== undefined ? draftMatch.time : dbMatch.time,
-                    status: keepDbResult ? dbMatch.status : draftStatus,
+                        : (useDraft ? draftMatch.time : dbMatch.time),
+                    status: keepDbResult 
+                        ? dbMatch.status 
+                        : (useDraft ? draftStatus : dbMatch.status),
                     isModified: keepDbResult ? false : draftMatch.isModified,
                     originJornada: draftMatch.originJornada || dbMatch.originJornada,
-                    resolution: keepDbResult ? dbMatch.resolution : draftMatch.resolution
+                    resolution: keepDbResult ? dbMatch.resolution : (useDraft ? draftMatch.resolution : dbMatch.resolution)
                 };
             }
         }

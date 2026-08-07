@@ -1,5 +1,6 @@
 # Dependencies and package-manager caches
 /node_modules/
+/supabase/functions/*/node_modules/
 /.npm-cache/
 /.pnpm-store/
 /.yarn/cache/

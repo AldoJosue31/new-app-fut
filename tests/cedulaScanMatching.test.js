@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   findBestScanMatch,
+  getScannedTeamNameMismatches,
   getScannedDateReview,
   resolveScannedTeamSides,
   scanNameSimilarity,
@@ -83,6 +84,54 @@ test("resuelve bloques invertidos aun con ruido en el nombre del equipo", () => 
   assert.equal(assignment.firstSide, "visit");
   assert.equal(assignment.secondSide, "local");
   assert.equal(assignment.ambiguous, false);
+});
+
+test("no advierte por variaciones razonables ni por equipos escaneados en orden inverso", () => {
+  const teams = [
+    { side: "local", name: "Tigres F.C." },
+    { side: "visit", name: "Atletico Nacional" },
+  ];
+  const assignment = resolveScannedTeamSides("AtIetico NacionaI", "Tigres", teams);
+
+  assert.deepEqual(
+    getScannedTeamNameMismatches("AtIetico NacionaI", "Tigres", teams, assignment),
+    [],
+  );
+});
+
+test("advierte y conserva el nombre escaneado cuando un equipo es claramente diferente", () => {
+  const teams = [
+    { side: "local", name: "Tigres" },
+    { side: "visit", name: "Atletico Nacional" },
+  ];
+  const mismatches = getScannedTeamNameMismatches("Tigres FC", "Real Madrid", teams);
+
+  assert.equal(mismatches.length, 1);
+  assert.equal(mismatches[0].scannedName, "Real Madrid");
+  assert.equal(mismatches[0].registeredName, "Atletico Nacional");
+});
+
+test("advierte por los dos nombres cuando la cedula corresponde a otro partido", () => {
+  const teams = [
+    { side: "local", name: "Tigres" },
+    { side: "visit", name: "Atletico Nacional" },
+  ];
+  const mismatches = getScannedTeamNameMismatches("Chelsea", "Real Madrid", teams);
+
+  assert.equal(mismatches.length, 2);
+  assert.deepEqual(mismatches.map(item => item.scannedName), ["Chelsea", "Real Madrid"]);
+});
+
+test("advierte con los nombres reales de una cedula ajena aunque la asignacion no sea ambigua", () => {
+  const teams = [
+    { side: "local", name: "Napoli" },
+    { side: "visit", name: "Tiernos FC" },
+  ];
+  const assignment = resolveScannedTeamSides("SIFON", "R IMPERIO", teams);
+  const mismatches = getScannedTeamNameMismatches("SIFON", "R IMPERIO", teams, assignment);
+
+  assert.equal(assignment.ambiguous, false);
+  assert.deepEqual(mismatches.map(item => item.scannedName), ["SIFON", "R IMPERIO"]);
 });
 
 test("no ofrece reemplazar la fecha cuando la cedula trae la misma fecha", () => {

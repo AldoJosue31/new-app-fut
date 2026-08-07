@@ -8,6 +8,26 @@ const TEAM_NOISE_WORDS = new Set([
   "sc",
 ]);
 
+const PLAYER_NAME_ABBREVIATIONS = new Map([
+  ["mtz", "martinez"],
+  ["mtnez", "martinez"],
+  ["glez", "gonzalez"],
+  ["gzlez", "gonzalez"],
+  ["hdz", "hernandez"],
+  ["hdez", "hernandez"],
+  ["rdz", "rodriguez"],
+  ["rdguez", "rodriguez"],
+  ["rguez", "rodriguez"],
+  ["fdz", "fernandez"],
+  ["fdez", "fernandez"],
+  ["gcia", "garcia"],
+  ["rmz", "ramirez"],
+  ["lpz", "lopez"],
+  ["vquez", "vazquez"],
+  ["vqz", "vazquez"],
+  ["jnez", "jimenez"],
+]);
+
 const normalizeOcrCharacters = (value) => value
   .replace(/0/g, "o")
   .replace(/[1|]/g, "i")
@@ -59,9 +79,15 @@ export const normalizeScanName = (value = "", { team = false } = {}) => {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-  if (!team || !normalized) return normalized;
-  const meaningfulTokens = normalized
-    .split(" ")
+  if (!normalized) return normalized;
+  const normalizedTokens = normalized.split(" ").filter(Boolean);
+  if (!team) {
+    return normalizedTokens
+      .map(token => PLAYER_NAME_ABBREVIATIONS.get(token) || token)
+      .join(" ");
+  }
+
+  const meaningfulTokens = normalizedTokens
     .filter(token => token && !TEAM_NOISE_WORDS.has(token));
   return meaningfulTokens.join(" ") || normalized;
 };
@@ -306,13 +332,13 @@ export const resolveScannedPlayerMatches = (
     getCandidateName = defaultRegisteredPlayerName,
     getCandidateDorsal = defaultRegisteredPlayerDorsal,
     getCandidateKey = defaultRegisteredPlayerKey,
-    threshold = 0.72,
-    shortNameThreshold = 0.82,
-    minMargin = 0.08,
-    strongThreshold = 0.92,
-    strongMinMargin = 0.04,
-    dorsalNameFloor = 0.45,
-    dorsalConflictThreshold = 0.78,
+    threshold = 0.76,
+    shortNameThreshold = 0.84,
+    minMargin = 0.1,
+    strongThreshold = 0.93,
+    strongMinMargin = 0.05,
+    dorsalNameFloor = 0.72,
+    dorsalConflictThreshold = 0.82,
     team = false,
   } = {},
 ) => {
@@ -395,8 +421,9 @@ export const resolveScannedPlayerMatches = (
         && (dorsalRank?.score || 0) < dorsalNameFloor
         && top.score - (dorsalRank?.score || 0) >= minMargin,
       );
+      const unsupportedDorsal = !normalizedName || (dorsalRank?.score || 0) < dorsalNameFloor;
 
-      if (exactNameConflict || strongNameConflict) {
+      if (exactNameConflict || strongNameConflict || unsupportedDorsal) {
         initialResult.reason = "dorsal-name-conflict";
         initialResult.score = dorsalRank?.score || 0;
         initialResult.runnerUpScore = top?.score || 0;
@@ -623,4 +650,41 @@ export const resolveScannedTeamSides = (firstName, secondName, actualTeams) => {
     ambiguous: selectedScore < 0.62
       || (firstReadable && secondReadable && Math.abs(directScore - swappedScore) < 0.04),
   };
+};
+
+const CLEAR_TEAM_MISMATCH_THRESHOLD = 0.68;
+
+/**
+ * Returns only readable team names that are clearly different from the side
+ * assigned to them. Borderline OCR readings stay in the regular review flow;
+ * this is intentionally reserved for a high-signal warning before applying.
+ */
+export const getScannedTeamNameMismatches = (
+  firstName,
+  secondName,
+  actualTeams = [],
+  assignment = resolveScannedTeamSides(firstName, secondName, actualTeams),
+) => {
+  if (!Array.isArray(actualTeams) || actualTeams.length < 2) return [];
+
+  return [
+    { position: "first", scannedName: firstName, side: assignment.firstSide },
+    { position: "second", scannedName: secondName, side: assignment.secondSide },
+  ].flatMap(entry => {
+    const readableName = String(entry.scannedName || "").trim();
+    if (!normalizeScanName(readableName, { team: true })) return [];
+
+    const registeredTeam = actualTeams.find(team => team.side === entry.side);
+    if (!registeredTeam) return [];
+
+    const similarity = scanNameSimilarity(readableName, registeredTeam.name, { team: true });
+    if (similarity >= CLEAR_TEAM_MISMATCH_THRESHOLD) return [];
+
+    return [{
+      ...entry,
+      scannedName: readableName,
+      registeredName: registeredTeam.name,
+      similarity,
+    }];
+  });
 };
