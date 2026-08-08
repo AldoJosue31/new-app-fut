@@ -4,7 +4,11 @@ import {
     resolveRepositionMappings,
     sortJornadas
 } from "./jornadaUtils";
-export { validarFixture } from "./fixtureValidation.js";
+export {
+    DEFAULT_FIXTURE_CRITERIA,
+    resolveFixtureCriteria,
+    validarFixture,
+} from "./fixtureValidation.js";
 export { autoCorregirFixture } from "./fixtureAutoCorrection.js";
 
 /**

@@ -176,3 +176,37 @@ test("no modifica jornadas extra ni partidos bloqueados", () => {
     assert.deepEqual(corrected.find(({ id }) => id === extra.id), extra);
     assert.deepEqual(corrected.find(({ id }) => id === locked.id), locked);
 });
+
+test("reconstruye conflictos complejos de ida y vuelta sin tocar una jornada escaneada", () => {
+    const scannedRound = [
+        match("scan-1", "A", "B", 0, { locked: true, scanLocked: true }),
+        match("scan-2", "C", "D", 0, { locked: true, scanLocked: true }),
+    ];
+    const initial = [
+        ...scannedRound,
+        match("r2-1", "A", "D", 1),
+        match("r2-2", "B", "C", 1),
+        match("r3-1", "A", "C", 2),
+        match("r3-2", "D", "B", 2),
+        match("r4-1", "B", "A", 3),
+        match("r4-2", "D", "C", 3),
+        match("r5-1", "C", "A", 4),
+        match("r5-2", "B", "D", 4),
+        // Esta jornada repite la vuelta de la primera y deja dos cruces sin vuelta.
+        match("r6-1", "B", "A", 5),
+        match("r6-2", "D", "C", 5),
+    ];
+
+    assert.ok(validarFixture(initial, { vueltas: "2" }).totalConflicts > 0);
+
+    const corrected = autoCorregirFixture(initial, 15000, { vueltas: "2" });
+    const directedCounts = corrected.reduce((counts, fixtureMatch) => {
+        const key = `${fixtureMatch.local.id}::${fixtureMatch.visitante.id}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+        return counts;
+    }, new Map());
+
+    assert.equal(validarFixture(corrected, { vueltas: "2" }).totalConflicts, 0);
+    assert.deepEqual(corrected.filter(({ scanLocked }) => scanLocked), scannedRound);
+    assert.ok([...directedCounts.values()].every((count) => count === 1));
+});

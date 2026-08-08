@@ -32,7 +32,13 @@ const normalizeByeMatch = (match) => {
     };
 };
 
-export const useFixturePreview = (teams, config, isOpen, existingData = null) => {
+export const useFixturePreview = (
+    teams,
+    config,
+    isOpen,
+    existingData = null,
+    fixtureCriteria = null,
+) => {
     const [matches, setMatches] = useState([]);
     const [isAnimating, setIsAnimating] = useState(false);
     const [draggedItem, setDraggedItem] = useState(null);
@@ -76,13 +82,13 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
 
     useEffect(() => {
         if (matches.length > 0) {
-            const { conflicts: newConflicts } = validarFixture(matches, config);
+            const { conflicts: newConflicts } = validarFixture(matches, config, fixtureCriteria);
             setConflicts(newConflicts);
             return;
         }
 
         setConflicts({});
-    }, [matches, config]);
+    }, [matches, config, fixtureCriteria]);
 
     const handleTeamClick = (teamId) => {
         setSelectedTeamId((prev) => (prev === teamId ? null : teamId));
@@ -154,9 +160,9 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
     const handleAutoFix = () => {
         setIsAnimating(true);
         setTimeout(() => {
-            const previousValidation = validarFixture(matches, config);
-            const fixedMatches = autoCorregirFixture(matches, 15000, config);
-            const nextValidation = validarFixture(fixedMatches, config);
+            const previousValidation = validarFixture(matches, config, fixtureCriteria);
+            const fixedMatches = autoCorregirFixture(matches, 15000, config, fixtureCriteria);
+            const nextValidation = validarFixture(fixedMatches, config, fixtureCriteria);
             const correctedConflicts = Math.max(
                 0,
                 previousValidation.totalConflicts - nextValidation.totalConflicts,

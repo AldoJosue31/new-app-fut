@@ -62,6 +62,18 @@ test("permite ida y vuelta cuando el torneo tiene dos vueltas", () => {
     assert.deepEqual(result.conflicts, {});
 });
 
+test("bloquea una ida y vuelta repetida con la misma localia", () => {
+    const result = validarFixture(
+        [match("ida", 1, 2, 0), match("vuelta-invalida", 1, 2, 4)],
+        { vueltas: "2" },
+    );
+
+    assert.deepEqual(result.conflicts[0], ["1", "2"]);
+    assert.deepEqual(result.conflicts[4], ["1", "2"]);
+    assert.equal(result.repeatedMatchups.length, 1);
+    assert.equal(result.repeatedMatchups[0].repeatsSameHomeAway, true);
+});
+
 test("conserva la validacion de equipos repetidos dentro de una jornada", () => {
     const result = validarFixture(
         [match("m1", 1, 2, 0), match("m2", 1, 3, 0)],

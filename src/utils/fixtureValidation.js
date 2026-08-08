@@ -1,5 +1,25 @@
 const BYE_TEAM_ID = "BYE";
 
+export const DEFAULT_FIXTURE_CRITERIA = Object.freeze({
+    preventDuplicateTeams: true,
+    enforceRoundRobin: true,
+    enforceReturnLegHomeAway: true,
+    requireCompleteRounds: true,
+});
+
+export const resolveFixtureCriteria = (criteria = null) => {
+    const resolved = {
+        ...DEFAULT_FIXTURE_CRITERIA,
+        ...(criteria || {}),
+    };
+
+    if (!resolved.enforceRoundRobin) {
+        resolved.enforceReturnLegHomeAway = false;
+    }
+
+    return resolved;
+};
+
 const addRoundConflict = (conflictsByRound, roundIndex, teamIds) => {
     const roundKey = String(roundIndex);
     const roundConflicts = conflictsByRound.get(roundKey) || new Set();
@@ -25,16 +45,24 @@ const isNonPlayableMatch = (match) => {
 const allowsRepeatedMatchup = (match) =>
     match?.roundType === "extra" || match?.roundType === "reposition";
 
+const getLegCount = (config) =>
+    String(config?.vueltas ?? "1") === "2" ? 2 : 1;
+
+const directedMatchupKey = (match) =>
+    `${String(match.local.id)}::${String(match.visitante.id)}`;
+
 /**
- * Valida equipos repetidos dentro de una jornada y, en torneos de solo ida,
- * cruces repetidos entre jornadas naturales.
+ * Valida equipos repetidos dentro de una jornada y los limites propios de un
+ * round robin en las jornadas naturales. En ida, cada rival puede aparecer una
+ * vez; en ida y vuelta puede aparecer dos veces, pero una con cada localia.
  *
  * Las jornadas confirmadas no se pueden corregir, pero sirven como historial:
  * si una jornada editable repite uno de sus cruces, la editable queda marcada.
  * Las jornadas extra admiten cruces ya jugados y las reposiciones representan
  * un traslado del partido original, no un encuentro adicional.
  */
-export const validarFixture = (matches = [], config = null) => {
+export const validarFixture = (matches = [], config = null, criteria = null) => {
+    const activeCriteria = resolveFixtureCriteria(criteria);
     const conflictsByRound = new Map();
     const byRound = new Map();
     const repeatedMatchups = [];
@@ -47,34 +75,35 @@ export const validarFixture = (matches = [], config = null) => {
         byRound.set(roundKey, roundMatches);
     });
 
-    byRound.forEach((roundMatches, roundKey) => {
-        const isRoundLocked = roundMatches.some((match) => match?.roundLocked);
-        if (isRoundLocked) return;
+    if (activeCriteria.preventDuplicateTeams) {
+        byRound.forEach((roundMatches, roundKey) => {
+            const isRoundLocked = roundMatches.some((match) => match?.roundLocked);
+            if (isRoundLocked) return;
 
-        const teamsInRound = new Set();
-        const duplicates = new Set();
+            const teamsInRound = new Set();
+            const duplicates = new Set();
 
-        roundMatches.forEach((match) => {
-            [match?.local?.id, match?.visitante?.id].forEach((rawTeamId) => {
-                if (rawTeamId === undefined || rawTeamId === null) return;
+            roundMatches.forEach((match) => {
+                [match?.local?.id, match?.visitante?.id].forEach((rawTeamId) => {
+                    if (rawTeamId === undefined || rawTeamId === null) return;
 
-                const teamId = String(rawTeamId);
-                if (teamId === BYE_TEAM_ID) return;
+                    const teamId = String(rawTeamId);
+                    if (teamId === BYE_TEAM_ID) return;
 
-                if (teamsInRound.has(teamId)) duplicates.add(teamId);
-                teamsInRound.add(teamId);
+                    if (teamsInRound.has(teamId)) duplicates.add(teamId);
+                    teamsInRound.add(teamId);
+                });
             });
+
+            if (duplicates.size > 0) {
+                addRoundConflict(conflictsByRound, roundKey, duplicates);
+                totalConflicts += duplicates.size;
+            }
         });
+    }
 
-        if (duplicates.size > 0) {
-            addRoundConflict(conflictsByRound, roundKey, duplicates);
-            totalConflicts += duplicates.size;
-        }
-    });
-
-    const isSingleLeg = config !== null && String(config?.vueltas ?? "1") === "1";
-
-    if (isSingleLeg) {
+    if (config !== null && activeCriteria.enforceRoundRobin) {
+        const legCount = getLegCount(config);
         const matchesByPair = new Map();
 
         matches.forEach((match) => {
@@ -90,11 +119,18 @@ export const validarFixture = (matches = [], config = null) => {
         });
 
         matchesByPair.forEach((pairMatches, pairKey) => {
-            const distinctRounds = new Set(
-                pairMatches.map(({ match }) => String(match.jornadaIndex))
-            );
+            const directedCounts = pairMatches.reduce((counts, { match }) => {
+                const directionKey = directedMatchupKey(match);
+                counts.set(directionKey, (counts.get(directionKey) || 0) + 1);
+                return counts;
+            }, new Map());
+            const exceedsPairLimit = pairMatches.length > legCount;
+            const repeatsSameHomeAway =
+                activeCriteria.enforceReturnLegHomeAway &&
+                legCount === 2 &&
+                [...directedCounts.values()].some((count) => count > 1);
 
-            if (distinctRounds.size < 2) return;
+            if (!exceedsPairLimit && !repeatsSameHomeAway) return;
 
             const editableOccurrences = pairMatches.filter(
                 ({ match }) => !match.roundLocked
@@ -109,7 +145,11 @@ export const validarFixture = (matches = [], config = null) => {
             repeatedMatchups.push({
                 pairKey,
                 teamIds: pairMatches[0].teamIds,
-                roundIndexes: [...distinctRounds],
+                roundIndexes: [
+                    ...new Set(pairMatches.map(({ match }) => String(match.jornadaIndex))),
+                ],
+                exceedsPairLimit,
+                repeatsSameHomeAway,
             });
             totalConflicts += 1;
         });
