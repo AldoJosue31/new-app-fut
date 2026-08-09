@@ -5,6 +5,7 @@ import { Skeleton } from "../atomos/Skeleton";
 import { useSort } from "../../hooks/useSort";
 import { supabase } from "../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../services/estadisticas";
+import { ACTIVE_TOURNAMENT_STATUSES } from "../../utils/constants";
 import {
   getTeamDelegateChangeRequests,
   reviewDelegateChangeRequest,
@@ -135,7 +136,9 @@ export function TeamDetailModal({
         .from("tournaments")
         .select("id, config")
         .eq("division_id", divisionId)
-        .eq("status", "Activo")
+        .in("status", ACTIVE_TOURNAMENT_STATUSES)
+        .order("id", { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (signal) query = query.abortSignal(signal);
 

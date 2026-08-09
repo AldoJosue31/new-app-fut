@@ -1,4 +1,24 @@
 import { supabase } from './shared';
+import { serializeFixtureCriteria } from '../../utils/fixtureValidation.js';
+
+const parseTournamentConfig = (config) => {
+  if (config && typeof config === 'object' && !Array.isArray(config)) {
+    return config;
+  }
+
+  if (typeof config === 'string') {
+    try {
+      const parsed = JSON.parse(config);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed
+        : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+};
 
 export const actualizarConfigTorneoService = async (
   tournamentId,
@@ -99,4 +119,32 @@ export const updateTournamentFieldsService = async (tournamentId, updates) => {
 
   if (error) throw error;
   return { success: true };
+};
+
+export const updateTournamentFixtureCriteriaService = async (
+  tournamentId,
+  fixtureCriteria,
+) => {
+  const { data: currentTournament, error: fetchError } = await supabase
+    .from('tournaments')
+    .select('config')
+    .eq('id', tournamentId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const nextConfig = {
+    ...parseTournamentConfig(currentTournament?.config),
+    fixtureCriteria: serializeFixtureCriteria(fixtureCriteria),
+  };
+
+  const { data: updatedTournament, error: updateError } = await supabase
+    .from('tournaments')
+    .update({ config: nextConfig })
+    .eq('id', tournamentId)
+    .select('config')
+    .single();
+
+  if (updateError) throw updateError;
+  return parseTournamentConfig(updatedTournament?.config);
 };

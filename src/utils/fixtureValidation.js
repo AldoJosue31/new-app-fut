@@ -10,8 +10,13 @@ export const DEFAULT_FIXTURE_CRITERIA = Object.freeze({
 export const resolveFixtureCriteria = (criteria = null) => {
     const resolved = {
         ...DEFAULT_FIXTURE_CRITERIA,
-        ...(criteria || {}),
     };
+
+    Object.keys(DEFAULT_FIXTURE_CRITERIA).forEach((criterion) => {
+        if (typeof criteria?.[criterion] === "boolean") {
+            resolved[criterion] = criteria[criterion];
+        }
+    });
 
     if (!resolved.enforceRoundRobin) {
         resolved.enforceReturnLegHomeAway = false;
@@ -19,6 +24,11 @@ export const resolveFixtureCriteria = (criteria = null) => {
 
     return resolved;
 };
+
+export const serializeFixtureCriteria = (criteria = null) => ({
+    version: 1,
+    ...resolveFixtureCriteria(criteria),
+});
 
 const addRoundConflict = (conflictsByRound, roundIndex, teamIds) => {
     const roundKey = String(roundIndex);

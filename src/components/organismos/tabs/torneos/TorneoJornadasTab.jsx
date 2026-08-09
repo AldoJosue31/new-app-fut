@@ -17,6 +17,7 @@ import {
   getTournamentConfigService,
   guardarJornadaService,
   resetMatchResultService,
+  updateTournamentFixtureCriteriaService,
   updateTournamentFieldsService,
   updateMatchResultService,
 } from "../../../../services/torneos";
@@ -775,6 +776,27 @@ export function TorneoJornadasTab({
       }
   };
 
+  const handleSaveFixtureCriteria = useCallback(async (fixtureCriteria) => {
+    if (!activeTournament?.id) return null;
+
+    try {
+      const nextConfig = await updateTournamentFixtureCriteriaService(
+        activeTournament.id,
+        fixtureCriteria,
+      );
+
+      setActiveTournament((previous) => ({
+        ...previous,
+        config: nextConfig,
+      }));
+      notify.success('Criterios del fixture guardados para el torneo.');
+      return nextConfig.fixtureCriteria;
+    } catch (error) {
+      notify.error(`No se pudieron guardar los criterios: ${error.message}`);
+      throw error;
+    }
+  }, [activeTournament?.id]);
+
   const handleConfirmFixtureUpdate = async (updatedMatches) => {
       setLoading(true);
       try {
@@ -1527,6 +1549,7 @@ export function TorneoJornadasTab({
           divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName}
           tournamentName={activeTournament?.season || activeTournament?.name || ""}
           onConfirm={handleConfirmFixtureUpdate}
+          onSaveFixtureCriteria={handleSaveFixtureCriteria}
           isLoading={loading}
           existingData={editorData}
         />

@@ -210,3 +210,19 @@ test("reconstruye conflictos complejos de ida y vuelta sin tocar una jornada esc
     assert.deepEqual(corrected.filter(({ scanLocked }) => scanLocked), scannedRound);
     assert.ok([...directedCounts.values()].every((count) => count === 1));
 });
+
+test("no fuerza reglas de round robin desactivadas en una jornada personalizada", () => {
+    const initial = [
+        match("m1", "A", "B", 0),
+        match("m2", "A", "B", 0),
+    ];
+    const criteria = {
+        preventDuplicateTeams: false,
+        enforceRoundRobin: false,
+    };
+
+    const corrected = autoCorregirFixture(initial, 5000, { vueltas: "1" }, criteria);
+
+    assert.deepEqual(corrected, initial);
+    assert.equal(validarFixture(corrected, { vueltas: "1" }, criteria).totalConflicts, 0);
+});

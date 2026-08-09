@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { supabase } from "../../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../../services/estadisticas";
+import { ACTIVE_TOURNAMENT_STATUSES } from "../../../utils/constants";
 import {
   getTeamDelegateChangeRequests,
   reviewDelegateChangeRequest,
@@ -66,8 +67,10 @@ export function DelegateTeamDetailPanel({
         .from("tournaments")
         .select("id")
         .eq("division_id", division.id)
-        .eq("status", "Activo")
-        .single();
+        .in("status", ACTIVE_TOURNAMENT_STATUSES)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (tournamentError || !torneoSel) {
         setHasActiveTournament(false);
@@ -78,7 +81,9 @@ export function DelegateTeamDetailPanel({
       const tournamentId = torneoSel.id;
       setHasActiveTournament(true);
 
-      const data = await getTeamTournamentStats(team.id, division.id);
+      const data = await getTeamTournamentStats(team.id, division.id, {
+        tournament: torneoSel,
+      });
       const safeData =
         data && data.hasTournament
           ? data

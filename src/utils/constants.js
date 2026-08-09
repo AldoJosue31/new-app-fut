@@ -14,6 +14,11 @@ export const TOURNAMENT_STATUS = {
   PENDING: 'Pendiente'
 };
 
+export const ACTIVE_TOURNAMENT_STATUSES = Object.freeze([
+  TOURNAMENT_STATUS.ACTIVE,
+  TOURNAMENT_STATUS.ONGOING,
+]);
+
 export const TOURNAMENT_FORMAT = {
   LEAGUE: 'Liga',
   CUP: 'Copa',

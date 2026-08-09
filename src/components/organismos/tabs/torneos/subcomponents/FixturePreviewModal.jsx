@@ -24,6 +24,7 @@ import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 import { ConfirmModal } from "../../../ConfirmModal";
 import {
     DEFAULT_FIXTURE_CRITERIA,
+    resolveFixtureCriteria,
     validarFixture,
 } from "../../../../../utils/fixtureAlgorithms";
 import {
@@ -432,6 +433,7 @@ export function FixturePreviewModal({
     existingData = null,
     divisionName = "",
     tournamentName = "",
+    onSaveFixtureCriteria = null,
 }) {
     const mounted = useSyncExternalStore(
         () => () => {},
@@ -448,6 +450,7 @@ export function FixturePreviewModal({
         ...DEFAULT_FIXTURE_CRITERIA,
     }));
     const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+    const [isSavingFixtureCriteria, setIsSavingFixtureCriteria] = useState(false);
     const {
         matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
         handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
@@ -469,6 +472,10 @@ export function FixturePreviewModal({
 
     const teamOptions = useMemo(() => buildTeamOptions(teams), [teams]);
     const teamLookup = useMemo(() => buildTeamLookup(teamOptions), [teamOptions]);
+    const savedFixtureCriteria = useMemo(
+        () => resolveFixtureCriteria(config?.fixtureCriteria),
+        [config?.fixtureCriteria],
+    );
 
     useEffect(() => {
         if (isOpen) {
@@ -476,12 +483,13 @@ export function FixturePreviewModal({
             setViewMode("cards");
             setScanRoundIndex(null);
             setPendingUnlockMatch(null);
-            setFixtureCriteria({ ...DEFAULT_FIXTURE_CRITERIA });
-            setDraftFixtureCriteria({ ...DEFAULT_FIXTURE_CRITERIA });
+            setFixtureCriteria(savedFixtureCriteria);
+            setDraftFixtureCriteria(savedFixtureCriteria);
             setIsCriteriaModalOpen(false);
+            setIsSavingFixtureCriteria(false);
             manualTextRoundsRef.current = new Set();
         }
-    }, [isOpen, isEditMode]);
+    }, [isOpen, isEditMode, savedFixtureCriteria]);
 
     useEffect(() => {
         if (!isCriteriaModalOpen) return undefined;
@@ -502,6 +510,21 @@ export function FixturePreviewModal({
     const applyFixtureCriteria = () => {
         setFixtureCriteria({ ...draftFixtureCriteria });
         setIsCriteriaModalOpen(false);
+    };
+
+    const saveFixtureCriteriaForTournament = async () => {
+        if (!onSaveFixtureCriteria || isSavingFixtureCriteria) return;
+
+        setIsSavingFixtureCriteria(true);
+        try {
+            const savedCriteria = await onSaveFixtureCriteria(draftFixtureCriteria);
+            const nextCriteria = resolveFixtureCriteria(savedCriteria || draftFixtureCriteria);
+            setFixtureCriteria(nextCriteria);
+            setDraftFixtureCriteria(nextCriteria);
+            setIsCriteriaModalOpen(false);
+        } finally {
+            setIsSavingFixtureCriteria(false);
+        }
     };
 
     const updateDraftFixtureCriteria = (criterion, enabled) => {
@@ -1348,8 +1371,11 @@ export function FixturePreviewModal({
             isOpen={isCriteriaModalOpen}
             criteria={draftFixtureCriteria}
             isTwoLegTournament={String(config?.vueltas ?? "1") === "2"}
+            canSaveForTournament={Boolean(onSaveFixtureCriteria)}
+            isSavingForTournament={isSavingFixtureCriteria}
             onClose={() => setIsCriteriaModalOpen(false)}
             onApply={applyFixtureCriteria}
+            onSaveForTournament={saveFixtureCriteriaForTournament}
             onReset={() => setDraftFixtureCriteria({ ...DEFAULT_FIXTURE_CRITERIA })}
             onSelectPreset={(preset) =>
                 setDraftFixtureCriteria({ ...FIXTURE_CRITERIA_PRESETS[preset] })
@@ -1365,8 +1391,11 @@ const FixtureCriteriaModal = ({
     isOpen,
     criteria,
     isTwoLegTournament,
+    canSaveForTournament,
+    isSavingForTournament,
     onClose,
     onApply,
+    onSaveForTournament,
     onReset,
     onSelectPreset,
     onToggle,
@@ -1496,6 +1525,11 @@ const FixtureCriteriaModal = ({
                             ? "Modo libre: el editor no bloqueará jornadas por estos criterios."
                             : `${activeRuleCount} ${activeRuleCount === 1 ? "criterio activo" : "criterios activos"}. El autocorrector solo intentará resolver los conflictos seleccionados.`}
                     </CriteriaImpact>
+                    {canSaveForTournament && (
+                        <CriteriaSavedHint>
+                            Guardar los aplica como regla predeterminada para todos los administradores de este torneo.
+                        </CriteriaSavedHint>
+                    )}
                 </CriteriaDialogBody>
 
                 <CriteriaDialogFooter>
@@ -1503,6 +1537,16 @@ const FixtureCriteriaModal = ({
                     <div>
                         <button type="button" className="cancel" onClick={onClose}>Cancelar</button>
                         <button type="button" className="apply" onClick={onApply}>Aplicar criterios</button>
+                        {canSaveForTournament && (
+                            <button
+                                type="button"
+                                className="save-tournament"
+                                onClick={onSaveForTournament}
+                                disabled={isSavingForTournament}
+                            >
+                                {isSavingForTournament ? "Guardando..." : "Guardar para el torneo"}
+                            </button>
+                        )}
                     </div>
                 </CriteriaDialogFooter>
             </CriteriaDialog>
@@ -1917,6 +1961,13 @@ const CriteriaImpact = styled.p`
     line-height: 1.45;
 `;
 
+const CriteriaSavedHint = styled.p`
+    margin: 10px 2px 0;
+    color: ${({ theme }) => theme.textFade};
+    font-size: 0.73rem;
+    line-height: 1.45;
+`;
+
 const CriteriaDialogFooter = styled.footer`
     display: flex;
     align-items: center;
@@ -1962,6 +2013,20 @@ const CriteriaDialogFooter = styled.footer`
         filter: brightness(0.94);
     }
 
+    .save-tournament {
+        border-color: ${v.colorPrincipal};
+        color: ${v.colorPrincipal};
+    }
+
+    .save-tournament:hover {
+        background: ${v.colorPrincipal}12;
+    }
+
+    button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+    }
+
     button:focus-visible {
         outline: 3px solid ${v.colorPrincipal}3d;
         outline-offset: 2px;
@@ -1973,7 +2038,7 @@ const CriteriaDialogFooter = styled.footer`
 
         > div {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
         }
 
         button {

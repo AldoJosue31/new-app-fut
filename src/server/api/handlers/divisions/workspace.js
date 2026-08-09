@@ -1,8 +1,7 @@
 import {
   sendError,
 } from "../../httpContract.js";
-
-const ACTIVE_TOURNAMENT_STATUSES = ["Activo", "En Curso"];
+import { ACTIVE_TOURNAMENT_STATUSES } from "../../../../utils/constants.js";
 
 const normalizeNumberParam = (value) => {
   const rawValue = Array.isArray(value) ? value[0] : value;
