@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase/browserClient.js";
-import { resolveRepositionMappings } from '../utils/jornadaUtils';
-import { isAbortError } from '../utils/errorUtils';
+import { resolveRepositionMappings } from '../utils/jornadaUtils.js';
+import { isAbortError } from '../utils/errorUtils.js';
+import { ACTIVE_TOURNAMENT_STATUSES } from '../utils/constants.js';
 
 const withAbortSignal = (query, signal) =>
   signal ? query.abortSignal(signal) : query;
@@ -349,7 +350,9 @@ export const getTeamTournamentStats = async (
           .from('tournaments')
           .select('id, config')
           .eq('division_id', divisionId)
-          .eq('status', 'Activo')
+          .in('status', ACTIVE_TOURNAMENT_STATUSES)
+          .order('id', { ascending: false })
+          .limit(1)
           .maybeSingle(),
         signal,
       );
@@ -373,13 +376,12 @@ export const getTeamTournamentStats = async (
       ? tournamentConfig.repositionMatchMappings
       : [];
 
-    const [
-      { data: allMatches, error: matchesError },
-      { data: jornadas, error: jornadasError },
-      { data: teamPlayers, error: playersError },
-      { data: goleadoresView, error: goleadoresError },
-      { data: events, error: eventsError },
-    ] = await Promise.all([
+      const [
+        { data: allMatches, error: matchesError },
+        { data: jornadas, error: jornadasError },
+        { data: teamPlayers, error: playersError },
+        { data: goleadoresView, error: goleadoresError },
+      ] = await Promise.all([
       withAbortSignal(
         supabase
           .from('matches')
@@ -409,41 +411,49 @@ export const getTeamTournamentStats = async (
           .order('dorsal', { ascending: true, nullsFirst: false }),
         signal,
       ),
-      withAbortSignal(
-        supabase
-          .from('view_goleadores')
+        withAbortSignal(
+          supabase
+            .from('view_goleadores')
           .select('player_id, first_name, last_name, dorsal, photo_url, goals')
           .eq('tournament_id', Number(tournamentId))
           .eq('team_id', Number(teamId)),
-        signal,
-      ),
-      withAbortSignal(
-        supabase
-          .from('match_events')
-          .select(`
-            match_id,
-            event_type,
-            player_id,
-            players!inner (
-              id, first_name, last_name, dorsal, team_id, photo_url
-            ),
-            matches!inner (
-              jornadas!inner ( tournament_id )
-            )
-          `)
-          .eq('matches.jornadas.tournament_id', tournamentId)
-          .eq('players.team_id', teamId),
-        signal,
-      ),
-    ]);
+          signal,
+        ),
+      ]);
 
-    if (matchesError) throw matchesError;
-    if (jornadasError) throw jornadasError;
-    if (playersError) throw playersError;
-    if (eventsError) throw eventsError;
-    if (goleadoresError) {
-      console.warn('getTeamTournamentStats goleadores fallback error:', goleadoresError);
-    }
+      if (matchesError) throw matchesError;
+      if (jornadasError) throw jornadasError;
+      if (playersError) throw playersError;
+      if (goleadoresError) {
+        console.warn('getTeamTournamentStats goleadores fallback error:', goleadoresError);
+      }
+
+      const matchIds = uniqueIds((allMatches || []).map((match) => match.id));
+      const teamPlayerIds = new Set(
+        (teamPlayers || []).map((player) => String(player.id)),
+      );
+      let events = [];
+
+      try {
+        // Starting from the team's matches keeps the RLS lookup indexed by
+        // match_events.match_id and avoids the expensive events -> matches ->
+        // jornadas -> tournaments join that can time out in production.
+        const allMatchEvents = await getRowsInBatches({
+          table: 'match_events',
+          select: 'id, match_id, event_type, player_id',
+          column: 'match_id',
+          ids: matchIds,
+          signal,
+        });
+        events = allMatchEvents.filter((event) =>
+          teamPlayerIds.has(String(event.player_id)),
+        );
+      } catch (error) {
+        if (signal?.aborted || isAbortError(error)) throw error;
+        // El historial y los próximos partidos no dependen de los eventos.
+        // Conservamos esas estadísticas aunque falle su complemento opcional.
+        console.warn('getTeamTournamentStats match events fallback error:', error);
+      }
 
     const repositionMappings = resolveRepositionMappings({
       jornadas: jornadas || [],

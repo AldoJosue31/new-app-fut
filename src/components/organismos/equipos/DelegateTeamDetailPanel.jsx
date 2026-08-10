@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { supabase } from "../../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../../services/estadisticas";
+import { ACTIVE_TOURNAMENT_STATUSES } from "../../../utils/constants";
+import { resolveTeamDivisionId } from "../../../utils/teamDivision";
 import {
   getTeamDelegateChangeRequests,
   reviewDelegateChangeRequest,
@@ -43,6 +45,7 @@ export function DelegateTeamDetailPanel({
   const initializedForTeamRef = useRef(null);
   const resultsRailRef = useRef(null);
   const upcomingRailRef = useRef(null);
+  const divisionId = resolveTeamDivisionId(team, division);
 
   const { items: sortedPlayers, requestSort, sortConfig } = useSort(players, {
     key: "dorsal",
@@ -59,15 +62,17 @@ export function DelegateTeamDetailPanel({
   });
 
   const checkTournamentStatus = useCallback(async () => {
-    if (!team || !division) return;
+    if (!team?.id || !divisionId) return;
     setLoadingStats(true);
     try {
       const { data: torneoSel, error: tournamentError } = await supabase
         .from("tournaments")
         .select("id")
-        .eq("division_id", division.id)
-        .eq("status", "Activo")
-        .single();
+        .eq("division_id", divisionId)
+        .in("status", ACTIVE_TOURNAMENT_STATUSES)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (tournamentError || !torneoSel) {
         setHasActiveTournament(false);
@@ -78,7 +83,9 @@ export function DelegateTeamDetailPanel({
       const tournamentId = torneoSel.id;
       setHasActiveTournament(true);
 
-      const data = await getTeamTournamentStats(team.id, division.id);
+      const data = await getTeamTournamentStats(team.id, divisionId, {
+        tournament: torneoSel,
+      });
       const safeData =
         data && data.hasTournament
           ? data
@@ -91,7 +98,7 @@ export function DelegateTeamDetailPanel({
     } finally {
       setLoadingStats(false);
     }
-  }, [division, team]);
+  }, [divisionId, team?.id]);
 
   // Reset when team changes
   useEffect(() => {
@@ -107,10 +114,19 @@ export function DelegateTeamDetailPanel({
     setDelegateRequests([]);
     setLoadingDelegateRequests(false);
 
-    if (division) {
-      checkTournamentStatus();
+  }, [team]);
+
+  useEffect(() => {
+    if (
+      !team?.id ||
+      !divisionId ||
+      initializedForTeamRef.current !== team.id
+    ) {
+      return;
     }
-  }, [checkTournamentStatus, division, team]);
+
+    void checkTournamentStatus();
+  }, [checkTournamentStatus, divisionId, team?.id]);
 
   const handleShowPlayers = async () => {
     if (!team) return;
