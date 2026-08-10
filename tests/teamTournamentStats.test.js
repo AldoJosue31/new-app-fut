@@ -10,6 +10,9 @@ const {
   ACTIVE_TOURNAMENT_STATUSES,
   TOURNAMENT_STATUS,
 } = await import("../src/utils/constants.js");
+const { resolveTeamDivisionId } = await import(
+  "../src/utils/teamDivision.js"
+);
 
 const createQuery = (response, calls, table) => ({
   abortSignal() {
@@ -56,6 +59,14 @@ test("un torneo En Curso se considera activo", () => {
     TOURNAMENT_STATUS.ACTIVE,
     TOURNAMENT_STATUS.ONGOING,
   ]);
+});
+
+test("usa la división del equipo mientras se resuelve el contexto de ruta", () => {
+  assert.equal(resolveTeamDivisionId({ division_id: 11 }, null), 11);
+  assert.equal(
+    resolveTeamDivisionId({ division_id: 11, division: { id: 12 } }, { id: 13 }),
+    13,
+  );
 });
 
 test("las estadísticas consultan eventos sólo de los partidos del equipo", async () => {

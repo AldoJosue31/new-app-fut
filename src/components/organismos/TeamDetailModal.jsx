@@ -6,6 +6,7 @@ import { useSort } from "../../hooks/useSort";
 import { supabase } from "../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../services/estadisticas";
 import { ACTIVE_TOURNAMENT_STATUSES } from "../../utils/constants";
+import { resolveTeamDivisionId } from "../../utils/teamDivision";
 import {
   getTeamDelegateChangeRequests,
   reviewDelegateChangeRequest,
@@ -108,6 +109,7 @@ export function TeamDetailModal({
   const requestAbortControllerRef = useRef(null);
   const resultsRailRef = useRef(null);
   const upcomingRailRef = useRef(null);
+  const divisionId = resolveTeamDivisionId(team, division);
 
   const { items: sortedPlayers, requestSort, sortConfig } = useSort(players, {
     key: "dorsal",
@@ -125,7 +127,6 @@ export function TeamDetailModal({
 
   const loadTournamentStatus = useCallback(async () => {
     const teamId = team?.id;
-    const divisionId = division?.id;
     if (!teamId || !divisionId) return null;
     if (activeTournamentRef.current) return activeTournamentRef.current;
 
@@ -181,7 +182,7 @@ export function TeamDetailModal({
         setLoadingTournamentStatus(false);
       }
     }
-  }, [division?.id, team?.id]);
+  }, [divisionId, team?.id]);
 
   const loadPlayers = useCallback(async (force = false) => {
     const teamId = team?.id;
@@ -226,7 +227,6 @@ export function TeamDetailModal({
 
   const loadStats = useCallback(async (knownTournament = null, force = false) => {
     const teamId = team?.id;
-    const divisionId = division?.id;
     if (!teamId || !divisionId) return null;
     if (!force && statsLoadedForTeamRef.current === teamId) {
       return statsDataRef.current;
@@ -278,7 +278,7 @@ export function TeamDetailModal({
         setLoadingStats(false);
       }
     }
-  }, [division?.id, loadTournamentStatus, team?.id]);
+  }, [divisionId, loadTournamentStatus, team?.id]);
 
   const loadDelegateRequests = useCallback(async (force = false) => {
     const teamId = team?.id;
@@ -378,19 +378,38 @@ export function TeamDetailModal({
     
     setActiveStatsTab("results");
 
-    if (initialView === "stats") {
-      void loadStats();
-    } else if (division) {
-      void loadTournamentStatus();
-    }
   }, [
-    division,
     initialView,
     isOpen,
     loadDelegateRequests,
     loadStats,
     loadTournamentStatus,
     team,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !team?.id ||
+      !divisionId ||
+      initializedForTeamRef.current !== team.id
+    ) {
+      return;
+    }
+
+    if (initialView === "stats") {
+      void loadStats();
+      return;
+    }
+
+    void loadTournamentStatus();
+  }, [
+    divisionId,
+    initialView,
+    isOpen,
+    loadStats,
+    loadTournamentStatus,
+    team?.id,
   ]);
 
   useEffect(
