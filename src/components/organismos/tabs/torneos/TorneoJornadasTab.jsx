@@ -104,12 +104,41 @@ const hasValidJornadaCadence = (jornadas = [], jornadaDurationDays = 7) => {
   });
 };
 
+const isPendingMatch = (match) =>
+  match?.status === "Pendiente" ||
+  (match?.status === "Programado" && !match?.date);
+
 const resolveGlobalPendingMatches = (matches = []) =>
-  (matches || []).filter(
-    (match) =>
-      match.status === "Pendiente" ||
-      (match.status === "Programado" && !match.date)
-  );
+  (matches || []).filter(isPendingMatch);
+
+const hasScoreValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+const hasMatchResult = (match) =>
+  match?.status === "Finalizado" ||
+  (hasScoreValue(match?.goals1) && hasScoreValue(match?.goals2));
+
+const isPlayableMatch = (match) =>
+  !match?.isByeMatch &&
+  match?.team1_id != null &&
+  match?.team2_id != null &&
+  String(match.team1_id) !== "BYE" &&
+  String(match.team2_id) !== "BYE";
+
+const hasAllResultsForJornada = (jornadaId, matches) => {
+  // Si los partidos no se pudieron cargar, mantenemos la última jornada
+  // confirmada como opción segura en vez de avanzar sin validar resultados.
+  if (!Array.isArray(matches)) return false;
+
+  return matches
+    .filter(
+      (match) =>
+        String(match?.jornada_id || match?.jornadas?.id || "") === String(jornadaId) &&
+        isPlayableMatch(match) &&
+        !isPendingMatch(match)
+    )
+    .every(hasMatchResult);
+};
 
 const clearPlanningDraftsForRounds = (tournamentId, jornadas = [], roundIndexes = []) => {
   if (typeof window === "undefined" || !tournamentId) return;
@@ -421,7 +450,11 @@ export function TorneoJornadasTab({
     [buildJornadaPath, navigate, pathname]
   );
 
-  const resolveSelectedJornada = useCallback((sortedJornadas = [], preferredJornadaId = null) => {
+  const resolveSelectedJornada = useCallback((
+    sortedJornadas = [],
+    preferredJornadaId = null,
+    tournamentMatches = null
+  ) => {
     if (!Array.isArray(sortedJornadas) || sortedJornadas.length === 0) {
       return { selectedIndex: 0, selectedJornada: null };
     }
@@ -460,6 +493,28 @@ export function TorneoJornadasTab({
       return {
         selectedIndex: currentJornadaIndex,
         selectedJornada: currentCandidate,
+      };
+    }
+
+    const lastConfirmedIndex = sortedJornadas.reduce(
+      (lastIndex, jornada, index) =>
+        ['Confirmada', 'Finalizada'].includes(jornada?.status) ? index : lastIndex,
+      -1
+    );
+
+    if (lastConfirmedIndex !== -1) {
+      const lastConfirmedJornada = sortedJornadas[lastConfirmedIndex];
+      const nextJornadaIndex = lastConfirmedIndex + 1;
+      const canOpenNextJornada =
+        nextJornadaIndex < sortedJornadas.length &&
+        hasAllResultsForJornada(lastConfirmedJornada.id, tournamentMatches);
+      const selectedIndex = canOpenNextJornada
+        ? nextJornadaIndex
+        : lastConfirmedIndex;
+
+      return {
+        selectedIndex,
+        selectedJornada: sortedJornadas[selectedIndex],
       };
     }
 
@@ -508,12 +563,16 @@ export function TorneoJornadasTab({
       }
 
       try {
-          const updatedMappings = await fetchTournamentConfig();
-          const jornadasResult = await fetchJornadas(routeJornadaId);
+        const [updatedMappings, tournamentMatches] = await Promise.all([
+          fetchTournamentConfig(),
+          fetchAllTournamentMatches(),
+        ]);
+        const jornadasResult = await fetchJornadas(
+          routeJornadaId,
+          tournamentMatches
+        );
         const sortedJornadas = jornadasResult?.jornadas || [];
         const selectedJornada = jornadasResult?.selectedJornada || null;
-
-        const tournamentMatches = await fetchAllTournamentMatches();
 
         if (selectedJornada?.id) {
           await fetchCurrentJornadaMatches(
@@ -587,13 +646,20 @@ export function TorneoJornadasTab({
     }
   };
 
-  const fetchJornadas = async (preferredJornadaId = null) => {
+  const fetchJornadas = async (
+    preferredJornadaId = null,
+    tournamentMatches = null
+  ) => {
     try {
       const data = await getJornadas(activeTournament.id);
       const sorted = sortJornadas(data);
       setJornadas(sorted);
 
-      const { selectedIndex, selectedJornada } = resolveSelectedJornada(sorted, preferredJornadaId);
+      const { selectedIndex, selectedJornada } = resolveSelectedJornada(
+        sorted,
+        preferredJornadaId,
+        tournamentMatches
+      );
       setCurrentJornadaIndex(selectedIndex);
 
       return {
