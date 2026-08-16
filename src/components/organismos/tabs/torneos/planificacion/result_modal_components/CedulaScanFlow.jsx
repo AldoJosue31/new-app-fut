@@ -1393,7 +1393,17 @@ const UploadZone = styled.button`
   svg{font-size:2rem;color:${v.colorPrincipal};} strong{font-size:1rem;} span{font-size:.82rem;opacity:.7;}
   &:hover{border-color:${v.colorPrincipal};} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
 `;
-const ChoiceRow = styled.div`display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;`;
+const ChoiceRow = styled.div`
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+
+  @media(min-width:561px){
+    > button{margin-block:2px;}
+  }
+`;
 const ScanShortcut = styled.span`
   align-self:center;
   margin-right:auto;
@@ -1418,7 +1428,7 @@ const ScanShortcut = styled.span`
   }
 `;
 const Action = styled.button`
-  min-height:40px;padding:9px 16px;border-radius:10px;font:inherit;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
+  box-sizing:border-box;min-height:var(--result-modal-action-height, 40px);padding:var(--result-modal-action-padding, 9px 16px);border-radius:10px;font:inherit;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
   &:disabled{cursor:wait;opacity:.62;} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
   @media(max-width:600px){flex:1;}
 `;

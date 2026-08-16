@@ -755,7 +755,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       smallScreenMaxHeight="96dvh"
       smallScreenMinHeight="96dvh"
       overlayPadding="min(8px, 2dvh)"
-      bodyPadding="clamp(12px, 2.5vw, 25px)"
+      bodyPadding="clamp(12px, 2.5vw, 25px) clamp(12px, 2.5vw, 25px) clamp(6px, 1vw, 10px)"
       bodyOverflowY="hidden"
       title="Definir Resultado"
       closeOnOverlayClick={false}
@@ -868,12 +868,20 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 }
 
 const Container = styled.div`
+  --result-modal-action-height: 38px;
+  --result-modal-action-padding: 6px 14px;
+
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   gap: 6px;
   width: 100%;
   min-height: 0;
+
+  @media (max-width: 560px) {
+    --result-modal-action-height: 44px;
+    --result-modal-action-padding: 6px 10px;
+  }
 `;
 const ContentBody = styled.div`
   width: 100%;
@@ -924,20 +932,28 @@ const ContentBody = styled.div`
 const Footer = styled.div`
   flex: 0 0 auto;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 0;
-  padding-top: 4px;
+  min-height: var(--result-modal-action-height);
   border-top: 1px solid ${({theme})=>theme.bg4};
   flex-wrap: wrap;
 
   > button {
     box-sizing: border-box;
-    min-height: 30px;
-    padding: 4px 12px;
+    align-self: center;
+    min-height: var(--result-modal-action-height);
+    padding: var(--result-modal-action-padding);
     border-bottom-width: 2px;
-    border-radius: 12px;
-    font-size: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    transform: none !important;
+
+    &:hover,
+    &:active {
+      transform: none !important;
+    }
 
     .content {
       gap: 5px;
@@ -947,16 +963,18 @@ const Footer = styled.div`
 
   @media (min-width: 561px) {
     gap: 6px;
+
+    > button {
+      margin-block: 2px;
+    }
   }
 
   @media (max-width: 560px) {
     gap: 6px;
-    padding-top: 6px;
+    padding-block: 2px;
 
     > button {
       flex: 1 1 120px;
-      min-height: 44px;
-      padding: 6px 10px;
     }
   }
 `;
