@@ -134,6 +134,29 @@ const getTeamLookupAliases = (value = "") => {
 
 const getTeamKey = (team) => String(team?.id ?? "");
 
+const buildFixtureSignature = (fixtureMatches = []) =>
+    fixtureMatches
+        .map((match) => {
+            const schedule = resolveScannedSchedule(match);
+            const acceptedSchedule = Boolean(
+                match.scanScheduleAccepted && schedule.complete,
+            );
+
+            return JSON.stringify([
+                Number(match.jornadaIndex),
+                getTeamKey(match.local),
+                getTeamKey(match.visitante),
+                Boolean(match.isGeneratedRound),
+                match.roundType || "",
+                match.roundName || "",
+                acceptedSchedule ? schedule.date : "",
+                acceptedSchedule ? schedule.time : "",
+                match.scanScheduleAction || "",
+            ]);
+        })
+        .sort()
+        .join("|");
+
 const buildTeamOptions = (teams = []) => {
     const options = [...teams.filter((team) => team?.id !== undefined && team?.id !== null), BYE_TEAM];
     const seen = new Set();
@@ -452,7 +475,7 @@ export function FixturePreviewModal({
     const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
     const [isSavingFixtureCriteria, setIsSavingFixtureCriteria] = useState(false);
     const {
-        matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
+        matches, matchesByRound, deletedMatchIds, initialMatches, conflicts, selectedTeamId, isAnimating, isEditMode,
         handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
         handleDragStart, handleTeamDragStart, handleDropOnMatch,
         handleDropOnJornada, handleDropOnTeamSlot,
@@ -538,20 +561,14 @@ export function FixturePreviewModal({
     };
 
     const handleConfirmar = () => {
+        if (isEditMode && !hasFixtureChanges) return;
+
         if (fixtureCriteria.requireCompleteRounds && invalidTextRoundIndexes.length > 0) {
             alert("Hay jornadas incompletas en el editor de texto. Completa los partidos esperados antes de guardar.");
             return;
         }
 
-        const finalMatches =
-            viewMode === "text"
-                ? buildMatchesFromTextState({
-                    matches,
-                    roundIndexes,
-                    roundTextByIndex,
-                    teamLookup,
-                })
-                : matches;
+        const finalMatches = finalMatchesForSave;
 
         const { conflicts: latestConflicts } = validarFixture(
             finalMatches,
@@ -585,7 +602,7 @@ export function FixturePreviewModal({
         }
 
         if (isEditMode) {
-            onConfirm(finalMatches);
+            onConfirm(finalMatches, { deletedMatchIds });
         } else {
             // Lógica legacy para creación nueva
             const maxJornada = Math.max(...finalMatches.map(m => m.jornadaIndex), 0);
@@ -678,6 +695,18 @@ export function FixturePreviewModal({
     const roundIndexes = useMemo(
         () => roundDefinitions.map((round) => round.roundIndex),
         [roundDefinitions]
+    );
+    const finalMatchesForSave = useMemo(
+        () =>
+            viewMode === "text"
+                ? buildMatchesFromTextState({
+                    matches,
+                    roundIndexes,
+                    roundTextByIndex,
+                    teamLookup,
+                })
+                : matches,
+        [matches, roundIndexes, roundTextByIndex, teamLookup, viewMode]
     );
     const isRoundLocked = (rIndex) =>
         roundDefinitionMap[rIndex]?.isLocked ??
@@ -819,6 +848,12 @@ export function FixturePreviewModal({
         invalidTextRoundIndexes,
         roundIndexes,
     ]);
+    const hasFixtureChanges = useMemo(() => {
+        if (!isEditMode) return true;
+        if (deletedMatchIds.length > 0) return true;
+
+        return buildFixtureSignature(finalMatchesForSave) !== buildFixtureSignature(initialMatches);
+    }, [deletedMatchIds, finalMatchesForSave, initialMatches, isEditMode]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -1148,7 +1183,14 @@ export function FixturePreviewModal({
                                     <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
                                 </ActionButton>
                             )}
-                            <ActionButton onClick={handleShuffle} disabled={isAnimating}>
+                            <ActionButton
+                                onClick={handleShuffle}
+                                disabled={isAnimating}
+                                title={isEditMode
+                                    ? "Regenerar las jornadas no confirmadas con Round Robin"
+                                    : "Generar un nuevo fixture"
+                                }
+                            >
                                 <RiRefreshLine className={isAnimating ? "icon-spin" : ""} />
                                 <span>{isEditMode ? "Restaurar" : "Reiniciar"}</span>
                             </ActionButton>
@@ -1346,7 +1388,8 @@ export function FixturePreviewModal({
                             bgcolor={conflictCount > 0 ? v.colorWarning : v.colorPrincipal}
                             icono={<RiCheckDoubleLine />}
                             funcion={handleConfirmar}
-                            disabled={isLoading || conflictCount > 0} 
+                            disabled={isLoading || conflictCount > 0 || (isEditMode && !hasFixtureChanges)}
+                            loading={isLoading}
                         />
                     </ActionWrapper>
                 </Footer>}

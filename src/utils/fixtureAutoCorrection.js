@@ -1,4 +1,9 @@
-import { resolveFixtureCriteria, validarFixture } from "./fixtureValidation.js";
+import {
+    DEFAULT_FIXTURE_CRITERIA,
+    resolveFixtureCriteria,
+    validarFixture,
+} from "./fixtureValidation.js";
+import { isOfficialJornadaName, sortJornadas } from "./jornadaUtils.js";
 
 const TEAM_SIDES = ["local", "visitante"];
 const MAX_CANDIDATES_PER_STEP = 900;
@@ -1179,4 +1184,275 @@ export const autoCorregirFixture = (
     }
 
     return bestMatches;
+};
+
+/**
+ * Restaura las jornadas editables a un calendario Round Robin completo.
+ * Las jornadas confirmadas siguen siendo inmutables; los bloqueos manuales o
+ * provenientes de un escaneo en las demas jornadas se descartan para que no
+ * impidan reconstruir el calendario.
+ */
+export const restaurarFixtureRoundRobin = (
+    initialMatches,
+    maxEvaluations = 15000,
+    config = null,
+) => {
+    const cleanMatches = structuredClone(initialMatches || []).map((match) => {
+        if (!isNaturalRoundMatch(match) || match?.roundLocked) return match;
+
+        return {
+            ...match,
+            locked: false,
+            scanLocked: false,
+            scanScheduleAccepted: false,
+            scanScheduleAction: null,
+            scanScheduleSource: null,
+        };
+    });
+
+    return autoCorregirFixture(
+        cleanMatches,
+        maxEvaluations,
+        config,
+        DEFAULT_FIXTURE_CRITERIA,
+    );
+};
+
+const buildCompleteRoundRobinFixture = (teams = [], config = null) => {
+    const validTeams = teams.filter(
+        (team) => team?.id !== undefined && team?.id !== null
+    );
+    if (validTeams.length < 2) return [];
+
+    const scheduleTeams = validTeams.length % 2 === 0
+        ? validTeams
+        : [...validTeams, { id: "BYE", name: "DESCANSA", isBye: true }];
+
+    return buildRoundRobinSchedule(scheduleTeams, config).flatMap((round, roundIndex) =>
+        round.map(([local, visitante], matchIndex) =>
+            normalizeByeMatch({
+                id: `temp_restore_${roundIndex}_${matchIndex + 1}`,
+                dbId: null,
+                local,
+                visitante,
+                jornadaIndex: roundIndex,
+                locked: false,
+                roundLocked: false,
+                isByeMatch: false,
+            })
+        )
+    );
+};
+
+const createRestoreError = (error) => ({
+    matches: [],
+    deletedMatchIds: [],
+    error,
+});
+
+/**
+ * Genera de nuevo todos los lugares de las jornadas oficiales. A diferencia de
+ * una autocorreccion normal, no depende de que cada jornada tenga el mismo
+ * numero de registros: reutiliza los registros editables disponibles, crea los
+ * faltantes y devuelve los sobrantes para eliminarlos al guardar.
+ */
+export const restaurarFixtureRoundRobinCompleto = ({
+    teams = [],
+    config = null,
+    existingData = null,
+}) => {
+    const jornadas = Array.isArray(existingData?.jornadas)
+        ? existingData.jornadas
+        : [];
+    const matchesDB = Array.isArray(existingData?.matches)
+        ? existingData.matches
+        : [];
+    const generatedFixture = buildCompleteRoundRobinFixture(teams, config);
+    const expectedRoundCount = new Set(
+        generatedFixture.map((match) => Number(match.jornadaIndex))
+    ).size;
+    const officialJornadas = sortJornadas(jornadas).filter((jornada) =>
+        isOfficialJornadaName(jornada?.name)
+    );
+    const originalRoundIndexById = new Map(
+        jornadas.map((jornada, index) => [String(jornada?.id), index])
+    );
+    const officialJornadaById = new Map(
+        officialJornadas.map((jornada) => [String(jornada?.id), jornada])
+    );
+    const teamById = new Map(
+        teams
+            .filter((team) => team?.id !== undefined && team?.id !== null)
+            .map((team) => [String(team.id), team])
+    );
+
+    if (generatedFixture.length === 0) {
+        return createRestoreError(
+            "Se requieren al menos dos equipos para reconstruir el fixture."
+        );
+    }
+
+    if (officialJornadas.length !== expectedRoundCount) {
+        return createRestoreError(
+            "No se puede reconstruir el Round Robin porque la cantidad de jornadas oficiales no coincide con la configuracion del torneo."
+        );
+    }
+
+    const generatedByRound = generatedFixture.map((match) => {
+        const jornada = officialJornadas[Number(match.jornadaIndex)];
+        return {
+            ...match,
+            jornadaIndex: originalRoundIndexById.get(String(jornada?.id)),
+            roundName: jornada?.name || `Jornada ${Number(match.jornadaIndex) + 1}`,
+        };
+    });
+    const slotIndexesByRound = generatedByRound.reduce((acc, match, index) => {
+        const roundIndex = Number(match.jornadaIndex);
+        const indexes = acc.get(roundIndex) || [];
+        indexes.push(index);
+        acc.set(roundIndex, indexes);
+        return acc;
+    }, new Map());
+    const confirmedByRound = new Map();
+
+    for (const jornada of officialJornadas) {
+        if (jornada?.status !== "Confirmada" && jornada?.status !== "Finalizada") {
+            continue;
+        }
+
+        const roundIndex = originalRoundIndexById.get(String(jornada.id));
+        const confirmedMatches = [];
+        const participantIds = new Set();
+        let hasInvalidTeam = false;
+
+        matchesDB
+            .filter((match) => String(match?.jornada_id) === String(jornada.id))
+            .forEach((match) => {
+                const local = teamById.get(String(match?.team1_id));
+                const visitante = match?.team2_id === null || match?.team2_id === undefined
+                    ? { id: "BYE", name: "DESCANSA", isBye: true }
+                    : teamById.get(String(match.team2_id));
+
+                if (!local || !visitante) {
+                    hasInvalidTeam = true;
+                    return;
+                }
+
+                participantIds.add(String(local.id));
+                if (String(visitante.id) !== "BYE") {
+                    participantIds.add(String(visitante.id));
+                }
+                confirmedMatches.push(
+                    normalizeByeMatch({
+                        id: match.id,
+                        dbId: match.id,
+                        local,
+                        visitante,
+                        jornadaIndex: roundIndex,
+                        locked: true,
+                        roundLocked: true,
+                        isByeMatch: false,
+                        roundName: jornada.name || "",
+                    })
+                );
+            });
+
+        const expectedSlots = slotIndexesByRound.get(Number(roundIndex)) || [];
+        const hasByeMatch = confirmedMatches.some((match) => match.isByeMatch);
+        if (
+            !hasInvalidTeam &&
+            !hasByeMatch &&
+            teams.length % 2 !== 0 &&
+            confirmedMatches.length === expectedSlots.length - 1
+        ) {
+            const restingTeam = teams.find(
+                (team) => !participantIds.has(String(team?.id))
+            );
+            if (restingTeam) {
+                confirmedMatches.push({
+                    id: `temp_confirmed_bye_${roundIndex}_${restingTeam.id}`,
+                    dbId: null,
+                    local: restingTeam,
+                    visitante: { id: "BYE", name: "DESCANSA", isBye: true },
+                    jornadaIndex: roundIndex,
+                    locked: true,
+                    roundLocked: true,
+                    isByeMatch: true,
+                    roundName: jornada.name || "",
+                });
+            }
+        }
+
+        if (hasInvalidTeam) {
+            return createRestoreError(
+                "No se puede completar el Round Robin porque una jornada confirmada tiene partidos incompatibles. Esta jornada se conserva sin cambios."
+            );
+        }
+
+        confirmedByRound.set(roundIndex, confirmedMatches);
+    }
+
+    const fixtureToRestore = [
+        ...generatedByRound.filter(
+            (match) => !confirmedByRound.has(Number(match.jornadaIndex))
+        ),
+        ...[...confirmedByRound.values()].flat(),
+    ];
+
+    const restoredMatches = restaurarFixtureRoundRobin(
+        fixtureToRestore,
+        15000,
+        config,
+    );
+    if (validarFixture(restoredMatches, config).totalConflicts > 0) {
+        return createRestoreError(
+            "No se puede completar el Round Robin sin modificar jornadas confirmadas que ya contienen cruces incompatibles."
+        );
+    }
+
+    const editableRowsByRound = matchesDB.reduce((acc, match) => {
+        const jornada = officialJornadaById.get(String(match?.jornada_id));
+        if (
+            !jornada ||
+            jornada.status === "Confirmada" ||
+            jornada.status === "Finalizada"
+        ) {
+            return acc;
+        }
+
+        const roundIndex = originalRoundIndexById.get(String(jornada.id));
+        const rows = acc.get(roundIndex) || [];
+        rows.push(match);
+        acc.set(roundIndex, rows);
+        return acc;
+    }, new Map());
+    const slotCounterByRound = new Map();
+    const matches = restoredMatches.map((match) => {
+        if (match.roundLocked) return match;
+
+        const roundIndex = Number(match.jornadaIndex);
+        const rows = editableRowsByRound.get(roundIndex) || [];
+        const rowIndex = slotCounterByRound.get(roundIndex) || 0;
+        const row = rows[rowIndex] || null;
+        slotCounterByRound.set(roundIndex, rowIndex + 1);
+
+        return {
+            ...match,
+            id: row?.id || `temp_restore_${roundIndex}_${rowIndex + 1}`,
+            dbId: row?.id || null,
+            locked: false,
+            scanLocked: false,
+            scanScheduleAccepted: false,
+            scanScheduleAction: null,
+            scanScheduleSource: null,
+        };
+    });
+    const deletedMatchIds = [...editableRowsByRound.entries()].flatMap(
+        ([roundIndex, rows]) => rows
+            .slice(slotCounterByRound.get(roundIndex) || 0)
+            .map((match) => match.id)
+            .filter((id) => id !== undefined && id !== null)
+    );
+
+    return { matches, deletedMatchIds, error: null };
 };

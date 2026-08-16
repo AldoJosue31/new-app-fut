@@ -10,7 +10,11 @@ export {
     serializeFixtureCriteria,
     validarFixture,
 } from "./fixtureValidation.js";
-export { autoCorregirFixture } from "./fixtureAutoCorrection.js";
+export {
+    autoCorregirFixture,
+    restaurarFixtureRoundRobin,
+    restaurarFixtureRoundRobinCompleto,
+} from "./fixtureAutoCorrection.js";
 
 /**
  * Genera la estructura plana inicial de partidos (creacion).
