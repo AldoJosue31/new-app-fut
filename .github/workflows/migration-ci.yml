@@ -57,8 +57,14 @@ jobs:
 
   browser:
     name: Browser smoke (${{ matrix.browser }})
+    # The pull_request event tests GitHub's synthetic merge commit. Repeating this
+    # browser matrix after that commit is merged only duplicates the same coverage.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # This image includes the browser runtimes and native libraries that match
+    # the pinned @playwright/test version in package-lock.json.
+    container: mcr.microsoft.com/playwright:v1.61.1-noble
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -83,9 +89,6 @@ jobs:
       - name: Build production artifact
         run: npm run build
 
-      - name: Install browser runtime
-        run: npx playwright install --with-deps ${{ matrix.browser }}
-
       - name: Run browser smoke
         run: npx playwright test --project=${{ matrix.browser }}
 
@@ -102,8 +105,12 @@ jobs:
 
   mobile:
     name: Browser smoke (mobile Chromium)
+    # See the equivalent condition on the desktop browser matrix above.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Keep this in the same version-matched Playwright runtime as the desktop suite.
+    container: mcr.microsoft.com/playwright:v1.61.1-noble
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
@@ -120,9 +127,6 @@ jobs:
 
       - name: Build production artifact
         run: npm run build
-
-      - name: Install Chromium runtime
-        run: npx playwright install --with-deps chromium
 
       - name: Run mobile smoke
         run: npx playwright test --project=mobile-chromium
