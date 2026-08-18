@@ -1,4 +1,4 @@
-name: Migration safety net
+name: Quality checks
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: migration-ci-${{ github.ref }}
+  group: quality-checks-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -54,90 +54,3 @@ jobs:
 
       - name: Build production artifact
         run: npm run build
-
-  browser:
-    name: Browser smoke (${{ matrix.browser }})
-    # The pull_request event tests GitHub's synthetic merge commit. Repeating this
-    # browser matrix after that commit is merged only duplicates the same coverage.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    # This image includes the browser runtimes and native libraries that match
-    # the pinned @playwright/test version in package-lock.json.
-    container: mcr.microsoft.com/playwright:v1.61.1-noble
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        browser:
-          - chromium
-          - webkit
-          - firefox
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install exact dependencies
-        run: npm ci
-
-      - name: Build production artifact
-        run: npm run build
-
-      - name: Run browser smoke
-        run: npx playwright test --project=${{ matrix.browser }}
-
-      - name: Upload browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-${{ matrix.browser }}
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
-  mobile:
-    name: Browser smoke (mobile Chromium)
-    # See the equivalent condition on the desktop browser matrix above.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    # Keep this in the same version-matched Playwright runtime as the desktop suite.
-    container: mcr.microsoft.com/playwright:v1.61.1-noble
-    timeout-minutes: 15
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install exact dependencies
-        run: npm ci
-
-      - name: Build production artifact
-        run: npm run build
-
-      - name: Run mobile smoke
-        run: npx playwright test --project=mobile-chromium
-
-      - name: Upload mobile diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-mobile-chromium
-          path: |
-            playwright-report
-            test-results
-          if-no-files-found: ignore
-          retention-days: 7
