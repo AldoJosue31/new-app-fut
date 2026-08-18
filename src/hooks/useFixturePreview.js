@@ -173,11 +173,17 @@ export const useFixturePreview = (
         }, 300);
     };
 
-    const handleAutoFix = () => {
+    const handleAutoFix = (sourceMatches = null) => {
+        const matchesToFix = Array.isArray(sourceMatches) ? sourceMatches : matches;
         setIsAnimating(true);
         setTimeout(() => {
-            const previousValidation = validarFixture(matches, config, fixtureCriteria);
-            const fixedMatches = autoCorregirFixture(matches, 15000, config, fixtureCriteria);
+            const previousValidation = validarFixture(matchesToFix, config, fixtureCriteria);
+            const fixedMatches = autoCorregirFixture(
+                matchesToFix,
+                15000,
+                config,
+                fixtureCriteria,
+            );
             const nextValidation = validarFixture(fixedMatches, config, fixtureCriteria);
             const correctedConflicts = Math.max(
                 0,

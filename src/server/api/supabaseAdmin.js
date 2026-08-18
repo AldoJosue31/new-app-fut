@@ -163,7 +163,7 @@ export const requireUser = async (
 };
 
 const requireProfileRole = async (req, allowedRoles) => {
-  const { user } = await requireUser(req);
+  const { client, user } = await requireUser(req);
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
@@ -185,7 +185,7 @@ const requireProfileRole = async (req, allowedRoles) => {
     throw error;
   }
 
-  return { user, profile };
+  return { client, user, profile };
 };
 
 export const requireAdmin = async (req) =>
