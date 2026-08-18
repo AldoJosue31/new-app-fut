@@ -32,6 +32,11 @@ import {
     isRepositionJornadaName,
 } from "../../../../../utils/jornadaUtils";
 import { resolveScannedSchedule } from "../../../../../utils/scannedScheduleUtils";
+import {
+    getTextRoundMatchStats,
+    isTextRoundComplete,
+    shouldBlockTextCompleteness,
+} from "../../../../../utils/fixtureTextValidation";
 
 const RolJuegoScanFlow = dynamic(
     () =>
@@ -223,16 +228,12 @@ const parseRoundText = (text = "", teamLookup = new Map()) =>
             return acc;
         }, []);
 
-const isPlayablePair = (pair) =>
-    pair?.local?.id !== "BYE" && pair?.visitante?.id !== "BYE";
-
 const isPlayableMatch = (match) =>
     match &&
     !match.isByeMatch &&
     match.local?.id !== "BYE" &&
     match.visitante?.id !== "BYE";
 
-const countPlayablePairs = (pairs = []) => pairs.filter(isPlayablePair).length;
 const countPlayableMatches = (roundMatches = []) => roundMatches.filter(isPlayableMatch).length;
 
 const getActiveTeamQuery = (text = "", caretPosition = 0, teamOptions = []) => {
@@ -563,7 +564,7 @@ export function FixturePreviewModal({
     const handleConfirmar = () => {
         if (isEditMode && !hasFixtureChanges) return;
 
-        if (fixtureCriteria.requireCompleteRounds && invalidTextRoundIndexes.length > 0) {
+        if (textCompletenessBlocks) {
             alert("Hay jornadas incompletas en el editor de texto. Completa los partidos esperados antes de guardar.");
             return;
         }
@@ -795,8 +796,8 @@ export function FixturePreviewModal({
                 const text = Object.prototype.hasOwnProperty.call(roundTextByIndex, rIndex)
                     ? roundTextByIndex[rIndex]
                     : formatRoundText(matchesByRound[rIndex] || []);
-                const detected = countPlayablePairs(parseRoundText(text, teamLookup));
-                const attempted = (text.match(/\s+(?:v\.?s\.?|vs\.?|versus)\s+/gi) || []).length;
+                const pairs = parseRoundText(text, teamLookup);
+                const { detected, attempted } = getTextRoundMatchStats(text, pairs);
                 const expected =
                     expectedRoundCounts[rIndex] ||
                     countPlayableMatches(matchesByRound[rIndex] || []) ||
@@ -809,7 +810,12 @@ export function FixturePreviewModal({
                     detected,
                     expected,
                     attempted,
-                    isComplete: isLocked || expected === 0 || (detected >= expected && detected === attempted),
+                    isComplete: isTextRoundComplete({
+                        detected,
+                        expected,
+                        attempted,
+                        isLocked,
+                    }),
                     isLocked,
                 };
                 return acc;
@@ -833,20 +839,31 @@ export function FixturePreviewModal({
             }),
         [roundIndexes, textRoundStats]
     );
+    const textCompletenessBlocks = shouldBlockTextCompleteness({
+        viewMode,
+        requireCompleteRounds: fixtureCriteria.requireCompleteRounds,
+        invalidRoundIndexes: invalidTextRoundIndexes,
+    });
+    const blockingConflictCount = useMemo(
+        () =>
+            roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
+                .length,
+        [blockingConflicts, roundIndexes]
+    );
     const conflictCount = useMemo(() => {
         const conflictRoundSet = new Set(
             roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
         );
 
-        if (fixtureCriteria.requireCompleteRounds) {
+        if (textCompletenessBlocks) {
             invalidTextRoundIndexes.forEach((rIndex) => conflictRoundSet.add(rIndex));
         }
         return conflictRoundSet.size;
     }, [
         blockingConflicts,
-        fixtureCriteria.requireCompleteRounds,
         invalidTextRoundIndexes,
         roundIndexes,
+        textCompletenessBlocks,
     ]);
     const hasFixtureChanges = useMemo(() => {
         if (!isEditMode) return true;
@@ -927,6 +944,7 @@ export function FixturePreviewModal({
     const handleRoundTextBlur = (rIndex) => {
         const currentText = roundTextByIndex[rIndex] || "";
         if (currentText.trim().length === 0) {
+            manualTextRoundsRef.current.delete(String(rIndex));
             setRoundTextByIndex((prev) => ({
                 ...prev,
                 [rIndex]: "",
@@ -937,8 +955,8 @@ export function FixturePreviewModal({
         }
 
         const pairs = parseRoundText(currentText, teamLookup);
-        const detectedPlayable = countPlayablePairs(pairs);
-        const attemptedPlayable = (currentText.match(/\s+(?:v\.?s\.?|vs\.?|versus)\s+/gi) || []).length;
+        const { detected: detectedPlayable, attempted: attemptedPlayable } =
+            getTextRoundMatchStats(currentText, pairs);
 
         if (detectedPlayable !== attemptedPlayable && attemptedPlayable > 0) {
             setFocusedRoundIndex(null);
@@ -962,6 +980,7 @@ export function FixturePreviewModal({
         }));
         setFocusedRoundIndex(null);
         setActiveSuggestion(null);
+        manualTextRoundsRef.current.delete(String(rIndex));
 
         if (pairs.length > 0) {
             handleReplaceRoundMatches(Number(rIndex), pairs);
@@ -1145,7 +1164,12 @@ export function FixturePreviewModal({
                         <div className="info-teams">
                             <RiTeamLine /> {teams.length} Equipos 
                             {conflictCount > 0 ? (
-                                <BadgeError><RiErrorWarningLine /> {conflictCount} Conflictos (Bloquea guardado)</BadgeError>
+                                <BadgeError>
+                                    <RiErrorWarningLine />
+                                    {blockingConflictCount > 0
+                                        ? `${conflictCount} Conflictos (Bloquea guardado)`
+                                        : `${conflictCount} Jornadas incompletas`}
+                                </BadgeError>
                             ) : (
                                 <BadgeSuccess><RiCheckDoubleLine /> Fixture Válido</BadgeSuccess>
                             )}
@@ -1177,7 +1201,7 @@ export function FixturePreviewModal({
                                 <RiSettings3Line />
                                 <span>Criterios</span>
                             </ActionButton>
-                            {conflictCount > 0 && (
+                            {blockingConflictCount > 0 && (
                                 <ActionButton onClick={handleAutoFix} disabled={isAnimating} $color={v.colorWarning}>
                                     <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
                                     <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
@@ -1242,7 +1266,9 @@ export function FixturePreviewModal({
                                     expected: countPlayableMatches(roundMatches) || defaultRoundMatchCount,
                                     isComplete: false,
                                 };
-                                const hasTextCountError = invalidTextRoundIndexes.includes(rIndex);
+                                const hasTextCountError =
+                                    textCompletenessBlocks &&
+                                    invalidTextRoundIndexes.includes(rIndex);
                                 const hasConflict = !!blockingConflicts[rIndex] || hasTextCountError;
                                 const animationState = roundAnimationState[rIndex] || "idle";
                                 const roundOnlySwapsTeams = roundMatches.some(

@@ -1652,7 +1652,7 @@ export function TorneoJornadasTab({
           isOpen
           onClose={() => setIsEditorOpen(false)}
           teams={participatingTeams}
-          config={activeTournament.config}
+          config={tournamentConfig}
           divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName}
           tournamentName={activeTournament?.season || activeTournament?.name || ""}
           onConfirm={handleConfirmFixtureUpdate}
