@@ -103,7 +103,7 @@ export function AdminManagersTemplate({
         </MainContainer>
 
         <ManagerDetailModal
-          key={`${selectedManager?.id || "none"}-${detailModalOpen}`}
+          key={`manager-detail-${selectedManager?.id || "none"}-${detailModalOpen}`}
           isOpen={detailModalOpen}
           onClose={() => setDetailModalOpen(false)}
           manager={selectedManager}
@@ -120,7 +120,7 @@ export function AdminManagersTemplate({
 
         {/* NUEVO MODAL DE EDICIÓN */}
         <ManagerEditAuthModal
-          key={`${managerToEditAuth?.id || "none"}-${editAuthModalOpen}`}
+          key={`manager-edit-auth-${managerToEditAuth?.id || "none"}-${editAuthModalOpen}`}
           isOpen={editAuthModalOpen}
           onClose={() => setEditAuthModalOpen(false)}
           manager={managerToEditAuth}

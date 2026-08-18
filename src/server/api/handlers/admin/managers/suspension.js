@@ -3,19 +3,28 @@ import {
   sendError,
 } from "../../../httpContract.js";
 
+const hasActiveAuthBan = (bannedUntil) => {
+  const timestamp = Date.parse(bannedUntil || "");
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+};
+
 export const createHandler = (dependencies = {}) => {
   const readBody = dependencies.readJsonBody || readJsonBody;
   const authorizeAdmin = dependencies.requireAdmin;
   const respondWithError = dependencies.sendError || sendError;
-  const adminClient = dependencies.supabaseAdmin;
+  const serviceClient = dependencies.supabaseAdmin;
 
   return async function handler(req, res) {
     if (req.method !== "PATCH") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
+    let stage = "authorize-admin";
+
     try {
-      const { user: adminUser } = await authorizeAdmin(req);
+      const { client: authenticatedAdminClient, user: adminUser } =
+        await authorizeAdmin(req);
+      const profileClient = authenticatedAdminClient || serviceClient;
       const body = await readBody(req);
       const userId = String(body.userId || "").trim();
       const suspended = Boolean(body.suspended);
@@ -25,7 +34,8 @@ export const createHandler = (dependencies = {}) => {
         return res.status(400).json({ error: "userId es obligatorio." });
       }
 
-      const { data: targetProfile, error: profileError } = await adminClient
+      stage = "read-target-profile";
+      const { data: targetProfile, error: profileError } = await serviceClient
         .from("profiles")
         .select(
           "id, role, is_suspended, suspended_at, suspended_by, suspension_reason",
@@ -41,6 +51,18 @@ export const createHandler = (dependencies = {}) => {
         });
       }
 
+      let shouldSyncAuthBan = suspended;
+      if (!suspended) {
+        stage = "read-auth-ban";
+        const { data: authUserData, error: authUserError } =
+          await serviceClient.auth.admin.getUserById(userId);
+
+        if (authUserError) throw authUserError;
+        shouldSyncAuthBan = hasActiveAuthBan(
+          authUserData?.user?.banned_until,
+        );
+      }
+
       const updates = {
         is_suspended: suspended,
         suspended_at: suspended ? new Date().toISOString() : null,
@@ -48,7 +70,8 @@ export const createHandler = (dependencies = {}) => {
         suspension_reason: suspended ? suspensionReason : null,
       };
 
-      const { data: profile, error: updateError } = await adminClient
+      stage = "update-profile";
+      const { data: profile, error: updateError } = await profileClient
         .from("profiles")
         .update(updates)
         .eq("id", userId)
@@ -59,36 +82,45 @@ export const createHandler = (dependencies = {}) => {
 
       if (updateError) throw updateError;
 
-      const { error: authError } =
-        await adminClient.auth.admin.updateUserById(userId, {
-          ban_duration: suspended ? "876000h" : "none",
-        });
-
-      if (authError) {
-        const { error: rollbackError } = await adminClient
-          .from("profiles")
-          .update({
-            is_suspended: Boolean(targetProfile.is_suspended),
-            suspended_at: targetProfile.suspended_at || null,
-            suspended_by: targetProfile.suspended_by || null,
-            suspension_reason: targetProfile.suspension_reason || null,
-          })
-          .eq("id", userId)
-          .eq("role", "manager");
-
-        if (rollbackError) {
-          console.error("Manager suspension rollback failed.", {
-            code: rollbackError.code || null,
-            name: rollbackError.name || "Error",
-            requestId: res.requestId || null,
+      if (shouldSyncAuthBan) {
+        stage = "update-auth-ban";
+        const { error: authError } =
+          await serviceClient.auth.admin.updateUserById(userId, {
+            ban_duration: suspended ? "876000h" : "none",
           });
-        }
 
-        throw authError;
+        if (authError) {
+          const failedStage = stage;
+          stage = "rollback-profile";
+          const { error: rollbackError } = await profileClient
+            .from("profiles")
+            .update({
+              is_suspended: Boolean(targetProfile.is_suspended),
+              suspended_at: targetProfile.suspended_at || null,
+              suspended_by: targetProfile.suspended_by || null,
+              suspension_reason: targetProfile.suspension_reason || null,
+            })
+            .eq("id", userId)
+            .eq("role", "manager");
+
+          if (rollbackError) {
+            console.error("Manager suspension rollback failed.", {
+              code: rollbackError.code || null,
+              name: rollbackError.name || "Error",
+              requestId: res.requestId || null,
+            });
+          }
+
+          stage = failedStage;
+          throw authError;
+        }
       }
 
       return res.status(200).json({ success: true, profile });
     } catch (error) {
+      console.error(
+        `Manager suspension failed. stage=${stage} code=${error?.code || "none"} name=${error?.name || "Error"} requestId=${res.requestId || "none"}`,
+      );
       return respondWithError(res, error);
     }
   };

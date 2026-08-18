@@ -476,7 +476,7 @@ export function FixturePreviewModal({
     const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
     const [isSavingFixtureCriteria, setIsSavingFixtureCriteria] = useState(false);
     const {
-        matches, matchesByRound, deletedMatchIds, initialMatches, conflicts, selectedTeamId, isAnimating, isEditMode,
+        matches, matchesByRound, deletedMatchIds, initialMatches, selectedTeamId, isAnimating, isEditMode,
         handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
         handleDragStart, handleTeamDragStart, handleDropOnMatch,
         handleDropOnJornada, handleDropOnTeamSlot,
@@ -709,6 +709,20 @@ export function FixturePreviewModal({
                 : matches,
         [matches, roundIndexes, roundTextByIndex, teamLookup, viewMode]
     );
+    const validationMatchesByRound = useMemo(
+        () =>
+            finalMatchesForSave.reduce((acc, match) => {
+                const roundKey = String(match.jornadaIndex);
+                if (!acc[roundKey]) acc[roundKey] = [];
+                acc[roundKey].push(match);
+                return acc;
+            }, {}),
+        [finalMatchesForSave]
+    );
+    const previewValidation = useMemo(
+        () => validarFixture(finalMatchesForSave, config, fixtureCriteria),
+        [config, finalMatchesForSave, fixtureCriteria]
+    );
     const isRoundLocked = (rIndex) =>
         roundDefinitionMap[rIndex]?.isLocked ??
         (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
@@ -718,8 +732,8 @@ export function FixturePreviewModal({
     const hasGeneratedRound = roundDefinitions.some((round) => round.isGenerated);
     const blockingConflicts = useMemo(
         () =>
-            Object.entries(conflicts).reduce((acc, [rIndex, roundConflicts]) => {
-                const roundMatches = matchesByRound[rIndex] || [];
+            Object.entries(previewValidation.conflicts).reduce((acc, [rIndex, roundConflicts]) => {
+                const roundMatches = validationMatchesByRound[rIndex] || [];
                 const roundTitle =
                     roundDefinitionMap[rIndex]?.title ||
                     roundMatches[0]?.roundName ||
@@ -732,7 +746,7 @@ export function FixturePreviewModal({
                 acc[rIndex] = roundConflicts;
                 return acc;
             }, {}),
-        [conflicts, matchesByRound, roundDefinitionMap]
+        [previewValidation.conflicts, roundDefinitionMap, validationMatchesByRound]
     );
     const pendingMatchesAvailable = useMemo(
         () =>
@@ -871,6 +885,27 @@ export function FixturePreviewModal({
 
         return buildFixtureSignature(finalMatchesForSave) !== buildFixtureSignature(initialMatches);
     }, [deletedMatchIds, finalMatchesForSave, initialMatches, isEditMode]);
+    const autoFixDescription = useMemo(() => {
+        if (!fixtureCriteria.enforceRoundRobin) {
+            return "Reacomoda equipos repetidos por jornada sin imponer cruces de Round Robin.";
+        }
+
+        if (String(config?.vueltas ?? "1") === "2") {
+            return fixtureCriteria.enforceReturnLegHomeAway
+                ? "Reconstruye la ida y la vuelta, invierte localías y conserva partidos bloqueados."
+                : "Respeta hasta dos cruces por rival y conserva partidos bloqueados.";
+        }
+
+        return "Reconstruye el Round Robin de una vuelta y conserva partidos bloqueados.";
+    }, [config?.vueltas, fixtureCriteria]);
+
+    const handleSmartAutoFix = () => {
+        manualTextRoundsRef.current = new Set();
+        setRoundTextByIndex({});
+        setFocusedRoundIndex(null);
+        setActiveSuggestion(null);
+        handleAutoFix(finalMatchesForSave);
+    };
 
     useEffect(() => {
         if (!isOpen) {
@@ -1202,7 +1237,13 @@ export function FixturePreviewModal({
                                 <span>Criterios</span>
                             </ActionButton>
                             {blockingConflictCount > 0 && (
-                                <ActionButton onClick={handleAutoFix} disabled={isAnimating} $color={v.colorWarning}>
+                                <ActionButton
+                                    type="button"
+                                    onClick={handleSmartAutoFix}
+                                    disabled={isAnimating}
+                                    $color={v.colorWarning}
+                                    title={autoFixDescription}
+                                >
                                     <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
                                     <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
                                 </ActionButton>

@@ -529,6 +529,166 @@ test("suspender manager actualiza profile y bloqueo de Auth", async () => {
   ]);
 });
 
+test("suspension actualiza el profile con el cliente autenticado del admin", async () => {
+  const profileUpdates = [];
+  const profile = {
+    id: "manager-1",
+    is_suspended: true,
+    suspended_at: "2026-08-18T00:00:00.000Z",
+    suspended_by: "admin-1",
+    suspension_reason: null,
+  };
+  const authenticatedAdminClient = {
+    from: (table) => {
+      assert.equal(table, "profiles");
+      return {
+        update(updates) {
+          profileUpdates.push(updates);
+          return this;
+        },
+        eq() {
+          return this;
+        },
+        select() {
+          return this;
+        },
+        async single() {
+          return { data: profile, error: null };
+        },
+      };
+    },
+  };
+  const serviceClient = {
+    auth: {
+      admin: {
+        updateUserById: async () => ({ error: null }),
+      },
+    },
+    from: (table) => {
+      assert.equal(table, "profiles");
+      return {
+        select() {
+          return this;
+        },
+        eq() {
+          return this;
+        },
+        async single() {
+          return {
+            data: {
+              id: "manager-1",
+              role: "manager",
+              is_suspended: false,
+              suspended_at: null,
+              suspended_by: null,
+              suspension_reason: null,
+            },
+            error: null,
+          };
+        },
+      };
+    },
+  };
+  const handler = updateManagerSuspensionHandler({
+    readJsonBody: async () => ({ userId: "manager-1", suspended: true }),
+    requireAdmin: async () => ({
+      client: authenticatedAdminClient,
+      user: { id: "admin-1" },
+    }),
+    supabaseAdmin: serviceClient,
+  });
+  const res = createResponse();
+
+  await handler({ method: "PATCH", headers: {} }, res);
+
+  expectResponse(res, 200, { success: true, profile });
+  assert.equal(profileUpdates.length, 1);
+  assert.equal(profileUpdates[0].is_suspended, true);
+  assert.equal(profileUpdates[0].suspended_by, "admin-1");
+});
+
+test("reactivar manager omite el desbloqueo de Auth si ya no tiene veto activo", async () => {
+  const calls = [];
+  let profileQueryIndex = 0;
+  const profile = {
+    id: "manager-1",
+    is_suspended: false,
+    suspended_at: null,
+    suspended_by: null,
+    suspension_reason: null,
+  };
+  const handler = updateManagerSuspensionHandler({
+    readJsonBody: async () => ({
+      userId: "manager-1",
+      suspended: false,
+    }),
+    requireAdmin: async () => ({ user: { id: "admin-1" } }),
+    supabaseAdmin: {
+      auth: {
+        admin: {
+          getUserById: async (userId) => {
+            calls.push(["auth.getUserById", userId]);
+            return { data: { user: { banned_until: null } }, error: null };
+          },
+          updateUserById: async () => {
+            assert.fail("No debe intentar desbloquear un usuario ya activo en Auth.");
+          },
+        },
+      },
+      from: (table) => {
+        assert.equal(table, "profiles");
+        const currentIndex = profileQueryIndex;
+        profileQueryIndex += 1;
+
+        return {
+          select() {
+            return this;
+          },
+          update(updates) {
+            calls.push(["profile.update", updates]);
+            return this;
+          },
+          eq() {
+            return this;
+          },
+          async single() {
+            return currentIndex === 0
+              ? {
+                  data: {
+                    id: "manager-1",
+                    role: "manager",
+                    is_suspended: true,
+                    suspended_at: "2026-08-18T00:00:00.000Z",
+                    suspended_by: "admin-1",
+                    suspension_reason: null,
+                  },
+                  error: null,
+                }
+              : { data: profile, error: null };
+          },
+        };
+      },
+    },
+  });
+  const res = createResponse();
+
+  await handler({ method: "PATCH", headers: {} }, res);
+
+  expectResponse(res, 200, { success: true, profile });
+  assert.deepEqual(calls, [
+    ["auth.getUserById", "manager-1"],
+    [
+      "profile.update",
+      {
+        is_suspended: false,
+        suspended_at: null,
+        suspended_by: null,
+        suspension_reason: null,
+      },
+    ],
+  ]);
+});
+
 test("suspension restaura el profile si falla el bloqueo de Auth", async () => {
   const updates = [];
   const originalProfile = {

@@ -11,6 +11,7 @@ const MAX_PLATEAU_CANDIDATES = 18;
 const MAX_SECOND_STEP_CANDIDATES = 120;
 const MAX_PAIRING_SEARCH_NODES = 25000;
 const MAX_GLOBAL_SCHEDULE_VARIANTS = 4096;
+const MAX_SOFT_ANCHOR_VARIANTS = 32;
 const MAX_MULTI_STEP_RESTARTS = 8;
 const MAX_STAGNANT_MULTI_STEP_MOVES = 240;
 
@@ -718,7 +719,10 @@ const applyGeneratedSchedule = (
 };
 
 const rebuildCompleteRoundRobinSchedule = (matches, config, criteria) => {
-    if (!criteria.enforceRoundRobin) return null;
+    // Una reconstruccion global tambien fuerza que cada equipo aparezca una
+    // sola vez por jornada. Si esa regla esta desactivada, el autocorrector
+    // debe limitarse a correcciones locales y no imponer un criterio ajeno.
+    if (!criteria.enforceRoundRobin || !criteria.preventDuplicateTeams) return null;
     const naturalIndexes = matches.reduce((indexes, match, index) => {
         if (isNaturalRoundMatch(match)) indexes.push(index);
         return indexes;
@@ -786,16 +790,38 @@ const rebuildCompleteRoundRobinSchedule = (matches, config, criteria) => {
 
     if (roundInfos.some(({ indexes }) => indexes.length !== expectedMatchesPerRound)) return null;
 
-    const anchorCandidates = roundInfos
+    const hardAnchorCandidates = roundInfos
         .filter(({ lockedIndexes, hasUniqueParticipants }) =>
             lockedIndexes.length === expectedMatchesPerRound && hasUniqueParticipants,
         )
         .sort((first, second) => Number(second.isScanned) - Number(first.isScanned));
 
     const hasLockedMatches = roundInfos.some(({ lockedIndexes }) => lockedIndexes.length > 0);
-    const orderingSources = anchorCandidates.length > 0 ? anchorCandidates : [null];
+    const hardAnchorKeys = new Set(hardAnchorCandidates.map(({ roundKey }) => roundKey));
+    const softAnchorCandidates = roundInfos
+        .filter(({ roundKey, hasUniqueParticipants }) =>
+            hasUniqueParticipants && !hardAnchorKeys.has(roundKey),
+        )
+        .sort((first, second) =>
+            second.lockedIndexes.length - first.lockedIndexes.length ||
+            Number(second.isScanned) - Number(first.isScanned),
+        );
+    const orderingSources = [
+        ...hardAnchorCandidates.map((roundInfo) => ({
+            roundInfo,
+            variantLimit: MAX_GLOBAL_SCHEDULE_VARIANTS,
+        })),
+        ...softAnchorCandidates.map((roundInfo) => ({
+            roundInfo,
+            variantLimit: MAX_SOFT_ANCHOR_VARIANTS,
+        })),
+        { roundInfo: null, variantLimit: MAX_GLOBAL_SCHEDULE_VARIANTS },
+    ];
+    let remainingVariants = hasLockedMatches ? MAX_GLOBAL_SCHEDULE_VARIANTS : 1;
 
-    for (const anchor of orderingSources) {
+    for (const { roundInfo: anchor, variantLimit } of orderingSources) {
+        if (remainingVariants <= 0) break;
+
         const anchorPairs = anchor
             ? anchor.indexes.map((index) => [
                 matches[index].local,
@@ -803,11 +829,13 @@ const rebuildCompleteRoundRobinSchedule = (matches, config, criteria) => {
             ])
             : null;
         const triedOrderings = new Set();
-        const maxVariants = hasLockedMatches
-            ? MAX_GLOBAL_SCHEDULE_VARIANTS
-            : 1;
+        const maxVariants = Math.min(
+            remainingVariants,
+            variantLimit,
+        );
 
         for (let attempt = 0; attempt < maxVariants; attempt += 1) {
+            remainingVariants -= 1;
             const orderedTeams = anchor
                 ? buildAnchorOrdering(anchorPairs, attempt)
                 : buildFixtureOrdering(scheduleTeams, attempt);

@@ -22,6 +22,44 @@ const match = (id, localId, visitanteId, jornadaIndex, overrides = {}) => ({
 const pairKey = (fixtureMatch) =>
     [String(fixtureMatch.local.id), String(fixtureMatch.visitante.id)].sort().join("::");
 
+const buildRoundRobinFixture = (teamIds, legs = 1) => {
+    const rotatingTeams = teamIds.map(team);
+    const firstLeg = [];
+
+    for (let roundIndex = 0; roundIndex < rotatingTeams.length - 1; roundIndex += 1) {
+        const round = [];
+        for (let pairIndex = 0; pairIndex < rotatingTeams.length / 2; pairIndex += 1) {
+            round.push([
+                rotatingTeams[pairIndex],
+                rotatingTeams[rotatingTeams.length - 1 - pairIndex],
+            ]);
+        }
+        firstLeg.push(round);
+        rotatingTeams.splice(1, 0, rotatingTeams.pop());
+    }
+
+    const rounds = legs === 2
+        ? [
+            ...firstLeg,
+            ...firstLeg.map((round) =>
+                round.map(([local, visitante]) => [visitante, local]),
+            ),
+        ]
+        : firstLeg;
+
+    return rounds.flatMap((round, roundIndex) =>
+        round.map(([local, visitante], matchIndex) => ({
+            id: `rr-${roundIndex}-${matchIndex}`,
+            local,
+            visitante,
+            jornadaIndex: roundIndex,
+            locked: false,
+            roundLocked: false,
+            isByeMatch: false,
+        })),
+    );
+};
+
 test("reacomoda rivales editables para conservar una jornada escaneada", () => {
     const scannedRound = [
         match("scan-1", "A", "B", 2, { locked: true, scanLocked: true }),
@@ -212,6 +250,51 @@ test("reconstruye conflictos complejos de ida y vuelta sin tocar una jornada esc
 
     assert.equal(validarFixture(corrected, { vueltas: "2" }).totalConflicts, 0);
     assert.deepEqual(corrected.filter(({ scanLocked }) => scanLocked), scannedRound);
+    assert.ok([...directedCounts.values()].every((count) => count === 1));
+});
+
+test("usa jornadas editables coherentes para reconstruir una ida y vuelta con bloqueos parciales", () => {
+    const initial = buildRoundRobinFixture(
+        ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+        2,
+    );
+    const lockedIndexes = new Set([4, 8, 21, 22, 51, 55, 57, 66, 67, 83]);
+    const swaps = [
+        [81, "local", 85, "local"],
+        [32, "visitante", 1, "visitante"],
+        [39, "visitante", 43, "local"],
+        [0, "visitante", 32, "local"],
+        [27, "local", 19, "visitante"],
+        [44, "visitante", 54, "visitante"],
+        [42, "visitante", 27, "visitante"],
+        [56, "visitante", 40, "local"],
+    ];
+
+    initial.forEach((fixtureMatch, index) => {
+        if (!lockedIndexes.has(index)) return;
+        fixtureMatch.locked = true;
+        fixtureMatch.scanLocked = true;
+    });
+    swaps.forEach(([firstIndex, firstSide, secondIndex, secondSide]) => {
+        [initial[firstIndex][firstSide], initial[secondIndex][secondSide]] = [
+            initial[secondIndex][secondSide],
+            initial[firstIndex][firstSide],
+        ];
+    });
+
+    const immutableBefore = initial.filter(({ locked }) => locked);
+    assert.ok(validarFixture(initial, { vueltas: "2" }).totalConflicts > 0);
+
+    const corrected = autoCorregirFixture(initial, 15000, { vueltas: "2" });
+    const directedCounts = corrected.reduce((counts, fixtureMatch) => {
+        const key = `${fixtureMatch.local.id}::${fixtureMatch.visitante.id}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+        return counts;
+    }, new Map());
+
+    assert.equal(validarFixture(corrected, { vueltas: "2" }).totalConflicts, 0);
+    assert.deepEqual(corrected.filter(({ locked }) => locked), immutableBefore);
+    assert.equal(directedCounts.size, corrected.length);
     assert.ok([...directedCounts.values()].every((count) => count === 1));
 });
 
