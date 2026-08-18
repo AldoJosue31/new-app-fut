@@ -1,4 +1,4 @@
-import { supabase, TOURNAMENT_STATUS } from './shared';
+import { supabase, ACTIVE_TOURNAMENT_STATUSES } from './shared';
 
 const withAbortSignal = (query, signal) =>
   signal ? query.abortSignal(signal) : query;
@@ -30,7 +30,7 @@ export const getTorneoActivo = async (divisionId) => {
       .from('tournaments')
       .select('*, jornadas(name, status), divisions(name, id, league_id)')
       .eq('division_id', divisionId)
-      .in('status', [TOURNAMENT_STATUS.ACTIVE, TOURNAMENT_STATUS.ONGOING])
+      .in('status', ACTIVE_TOURNAMENT_STATUSES)
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();

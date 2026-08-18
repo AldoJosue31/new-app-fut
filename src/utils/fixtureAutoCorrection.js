@@ -1,4 +1,9 @@
-import { validarFixture } from "./fixtureValidation.js";
+import {
+    DEFAULT_FIXTURE_CRITERIA,
+    resolveFixtureCriteria,
+    validarFixture,
+} from "./fixtureValidation.js";
+import { isOfficialJornadaName, sortJornadas } from "./jornadaUtils.js";
 
 const TEAM_SIDES = ["local", "visitante"];
 const MAX_CANDIDATES_PER_STEP = 900;
@@ -39,6 +44,17 @@ const cloneMatches = (matches) => matches.map((match) => ({ ...match }));
 
 const matchupKey = (firstTeam, secondTeam) =>
     [String(firstTeam.id), String(secondTeam.id)].sort().join("::");
+
+const getLegCount = (config) =>
+    String(config?.vueltas ?? "1") === "2" ? 2 : 1;
+
+const directedMatchupKey = (firstTeam, secondTeam) =>
+    `${String(firstTeam.id)}::${String(secondTeam.id)}`;
+
+const scheduledMatchupKey = (firstTeam, secondTeam, config, criteria) =>
+    getLegCount(config) === 2 && criteria?.enforceReturnLegHomeAway !== false
+        ? directedMatchupKey(firstTeam, secondTeam)
+        : matchupKey(firstTeam, secondTeam);
 
 const fixtureSignature = (matches) =>
     matches
@@ -93,6 +109,19 @@ const swapMatchRounds = (matches, firstIndex, secondIndex) => {
     return next;
 };
 
+const reverseMatchHomeAway = (matches, matchIndex) => {
+    const match = matches[matchIndex];
+    if (!match || match.isByeMatch || !match.local || !match.visitante) return null;
+
+    const next = cloneMatches(matches);
+    next[matchIndex] = normalizeByeMatch({
+        ...match,
+        local: match.visitante,
+        visitante: match.local,
+    });
+    return next;
+};
+
 const hashFixtureSignature = (signature) => {
     let hash = 2166136261;
 
@@ -132,6 +161,50 @@ const playableMatchupKey = (firstTeam, secondTeam) => {
     }
 
     return [firstId, secondId].sort().join("::");
+};
+
+const buildMatchupUsage = (matches, excludedIndexes) => {
+    const excluded = excludedIndexes || new Set();
+    const usage = new Map();
+
+    matches.forEach((match, index) => {
+        if (excluded.has(index) || !isNaturalRoundMatch(match)) return;
+
+        const pairKey = playableMatchupKey(match.local, match.visitante);
+        if (!pairKey) return;
+
+        const current = usage.get(pairKey) || {
+            count: 0,
+            directions: new Set(),
+        };
+        current.count += 1;
+        current.directions.add(directedMatchupKey(match.local, match.visitante));
+        usage.set(pairKey, current);
+    });
+
+    return usage;
+};
+
+const selectAllowedPairing = (firstTeam, secondTeam, usage, config, criteria) => {
+    if (String(firstTeam.id) === "BYE" || String(secondTeam.id) === "BYE") {
+        return [firstTeam, secondTeam];
+    }
+
+    if (!criteria.enforceRoundRobin) return [firstTeam, secondTeam];
+
+    const pairKey = playableMatchupKey(firstTeam, secondTeam);
+    const current = usage.get(pairKey) || { count: 0, directions: new Set() };
+    if (current.count >= getLegCount(config)) return null;
+
+    if (getLegCount(config) === 1) return [firstTeam, secondTeam];
+
+    if (!criteria.enforceReturnLegHomeAway) return [firstTeam, secondTeam];
+
+    const directKey = directedMatchupKey(firstTeam, secondTeam);
+    if (!current.directions.has(directKey)) return [firstTeam, secondTeam];
+
+    const reverseKey = directedMatchupKey(secondTeam, firstTeam);
+    return current.directions.has(reverseKey) ? null : [secondTeam, firstTeam];
 };
 
 const duplicateContribution = (count) => Math.max(0, count - 1);
@@ -185,8 +258,8 @@ const matchupCountDelta = (counts, removedKeys, addedKeys) => {
     return delta;
 };
 
-const buildMultiStepRepairContext = (matches, config) => {
-    if (String(config?.vueltas ?? "1") !== "1") return null;
+const buildMultiStepRepairContext = (matches, config, criteria) => {
+    if (String(config?.vueltas ?? "1") !== "1" || !criteria.enforceRoundRobin) return null;
 
     const roundMap = new Map();
     const allParticipantIds = new Set();
@@ -335,8 +408,9 @@ const repairCompleteScheduleByMultiStepSearch = (
     initialMatches,
     maxEvaluations,
     config,
+    criteria,
 ) => {
-    const context = buildMultiStepRepairContext(initialMatches, config);
+    const context = buildMultiStepRepairContext(initialMatches, config, criteria);
     if (!context) return null;
 
     const random = createDeterministicRandom(
@@ -459,6 +533,39 @@ const buildRoundRobinRounds = (orderedTeams) => {
     return rounds;
 };
 
+const buildRoundRobinSchedule = (orderedTeams, config) => {
+    const firstLeg = buildRoundRobinRounds(orderedTeams);
+    if (getLegCount(config) === 1) return firstLeg;
+
+    return [
+        ...firstLeg,
+        ...firstLeg.map((round) =>
+            round.map(([local, visitante]) => [visitante, local]),
+        ),
+    ];
+};
+
+const buildFixtureOrdering = (teams, attempt) => {
+    const orderedTeams = [...teams];
+    if (attempt === 0) return orderedTeams;
+
+    const random = createDeterministicRandom(
+        hashFixtureSignature(
+            `${attempt}:${orderedTeams.map((team) => String(team.id)).join("::")}`,
+        ),
+    );
+
+    for (let index = orderedTeams.length - 1; index > 0; index -= 1) {
+        const target = Math.floor(random() * (index + 1));
+        [orderedTeams[index], orderedTeams[target]] = [
+            orderedTeams[target],
+            orderedTeams[index],
+        ];
+    }
+
+    return orderedTeams;
+};
+
 const buildAnchorOrdering = (anchorPairs, attempt) => {
     const pairs = anchorPairs.map(([firstTeam, secondTeam]) => [firstTeam, secondTeam]);
 
@@ -487,14 +594,21 @@ const buildAnchorOrdering = (anchorPairs, attempt) => {
     return orderedTeams;
 };
 
-const assignGeneratedRounds = (roundInfos, generatedRounds) => {
+const assignGeneratedRounds = (roundInfos, generatedRounds, config, criteria) => {
     const generatedPairSets = generatedRounds.map(
-        (pairs) => new Set(pairs.map(([firstTeam, secondTeam]) => matchupKey(firstTeam, secondTeam))),
+        (pairs) => new Set(
+            pairs.map(([firstTeam, secondTeam]) =>
+                scheduledMatchupKey(firstTeam, secondTeam, config, criteria),
+            ),
+        ),
     );
     const candidates = roundInfos.map((roundInfo) => ({
         roundKey: roundInfo.roundKey,
         generatedIndexes: generatedPairSets.reduce((indexes, pairSet, generatedIndex) => {
-            if (roundInfo.lockedPairKeys.every((pairKey) => pairSet.has(pairKey))) {
+            if (
+                new Set(roundInfo.lockedMatchKeys).size === roundInfo.lockedMatchKeys.length &&
+                roundInfo.lockedMatchKeys.every((matchKey) => pairSet.has(matchKey))
+            ) {
                 indexes.push(generatedIndex);
             }
             return indexes;
@@ -532,7 +646,14 @@ const assignGeneratedRounds = (roundInfos, generatedRounds) => {
     return assignNext(0) ? assignment : null;
 };
 
-const applyGeneratedSchedule = (matches, roundInfos, generatedRounds, assignment) => {
+const applyGeneratedSchedule = (
+    matches,
+    roundInfos,
+    generatedRounds,
+    assignment,
+    config,
+    criteria,
+) => {
     const next = cloneMatches(matches);
 
     for (const roundInfo of roundInfos) {
@@ -541,9 +662,15 @@ const applyGeneratedSchedule = (matches, roundInfos, generatedRounds, assignment
 
         for (const matchIndex of roundInfo.lockedIndexes) {
             const lockedMatch = matches[matchIndex];
-            const lockedPairKey = matchupKey(lockedMatch.local, lockedMatch.visitante);
+            const lockedMatchKey = scheduledMatchupKey(
+                lockedMatch.local,
+                lockedMatch.visitante,
+                config,
+                criteria,
+            );
             const pairIndex = remainingPairs.findIndex(
-                ([firstTeam, secondTeam]) => matchupKey(firstTeam, secondTeam) === lockedPairKey,
+                ([firstTeam, secondTeam]) =>
+                    scheduledMatchupKey(firstTeam, secondTeam, config, criteria) === lockedMatchKey,
             );
 
             if (pairIndex === -1) return null;
@@ -573,8 +700,11 @@ const applyGeneratedSchedule = (matches, roundInfos, generatedRounds, assignment
             const [firstTeam, secondTeam] = remainingPairs.splice(bestPairIndex, 1)[0];
             const currentLocalId = String(current.local?.id ?? "");
             const secondId = String(secondTeam.id);
-            const local = currentLocalId === secondId ? secondTeam : firstTeam;
-            const visitante = currentLocalId === secondId ? firstTeam : secondTeam;
+            const [local, visitante] = getLegCount(config) === 2
+                ? [firstTeam, secondTeam]
+                : currentLocalId === secondId
+                    ? [secondTeam, firstTeam]
+                    : [firstTeam, secondTeam];
 
             next[matchIndex] = normalizeByeMatch({
                 ...current,
@@ -587,9 +717,8 @@ const applyGeneratedSchedule = (matches, roundInfos, generatedRounds, assignment
     return next;
 };
 
-const rebuildCompleteSingleLegSchedule = (matches, config) => {
-    if (String(config?.vueltas ?? "1") !== "1") return null;
-
+const rebuildCompleteRoundRobinSchedule = (matches, config, criteria) => {
+    if (!criteria.enforceRoundRobin) return null;
     const naturalIndexes = matches.reduce((indexes, match, index) => {
         if (isNaturalRoundMatch(match)) indexes.push(index);
         return indexes;
@@ -615,7 +744,7 @@ const rebuildCompleteSingleLegSchedule = (matches, config) => {
     const scheduleTeams = needsBye
         ? [...realTeams, existingByeTeam || { id: "BYE", name: "DESCANSA", isBye: true }]
         : realTeams;
-    const expectedRoundCount = scheduleTeams.length - 1;
+    const expectedRoundCount = (scheduleTeams.length - 1) * getLegCount(config);
     const expectedMatchesPerRound = scheduleTeams.length / 2;
     const roundMap = new Map();
 
@@ -631,8 +760,13 @@ const rebuildCompleteSingleLegSchedule = (matches, config) => {
     const roundInfos = [...roundMap.entries()].map(([roundKey, indexes]) => {
         const lockedIndexes = indexes.filter((index) => isHardLockedMatch(matches[index]));
         const editableIndexes = indexes.filter((index) => !isHardLockedMatch(matches[index]));
-        const lockedPairKeys = lockedIndexes.map((index) =>
-            matchupKey(matches[index].local, matches[index].visitante),
+        const lockedMatchKeys = lockedIndexes.map((index) =>
+            scheduledMatchupKey(
+                matches[index].local,
+                matches[index].visitante,
+                config,
+                criteria,
+            ),
         );
         const participantIds = indexes.flatMap((index) => [
             String(matches[index].local?.id ?? ""),
@@ -644,7 +778,7 @@ const rebuildCompleteSingleLegSchedule = (matches, config) => {
             indexes,
             lockedIndexes,
             editableIndexes,
-            lockedPairKeys,
+            lockedMatchKeys,
             hasUniqueParticipants: new Set(participantIds).size === participantIds.length,
             isScanned: lockedIndexes.some((index) => matches[index].scanLocked),
         };
@@ -658,23 +792,36 @@ const rebuildCompleteSingleLegSchedule = (matches, config) => {
         )
         .sort((first, second) => Number(second.isScanned) - Number(first.isScanned));
 
-    if (anchorCandidates.length === 0) return null;
+    const hasLockedMatches = roundInfos.some(({ lockedIndexes }) => lockedIndexes.length > 0);
+    const orderingSources = anchorCandidates.length > 0 ? anchorCandidates : [null];
 
-    for (const anchor of anchorCandidates) {
-        const anchorPairs = anchor.indexes.map((index) => [
-            matches[index].local,
-            matches[index].visitante,
-        ]);
+    for (const anchor of orderingSources) {
+        const anchorPairs = anchor
+            ? anchor.indexes.map((index) => [
+                matches[index].local,
+                matches[index].visitante,
+            ])
+            : null;
         const triedOrderings = new Set();
+        const maxVariants = hasLockedMatches
+            ? MAX_GLOBAL_SCHEDULE_VARIANTS
+            : 1;
 
-        for (let attempt = 0; attempt < MAX_GLOBAL_SCHEDULE_VARIANTS; attempt += 1) {
-            const orderedTeams = buildAnchorOrdering(anchorPairs, attempt);
+        for (let attempt = 0; attempt < maxVariants; attempt += 1) {
+            const orderedTeams = anchor
+                ? buildAnchorOrdering(anchorPairs, attempt)
+                : buildFixtureOrdering(scheduleTeams, attempt);
             const orderingKey = orderedTeams.map((team) => String(team.id)).join("::");
             if (triedOrderings.has(orderingKey)) continue;
             triedOrderings.add(orderingKey);
 
-            const generatedRounds = buildRoundRobinRounds(orderedTeams);
-            const assignment = assignGeneratedRounds(roundInfos, generatedRounds);
+            const generatedRounds = buildRoundRobinSchedule(orderedTeams, config);
+            const assignment = assignGeneratedRounds(
+                roundInfos,
+                generatedRounds,
+                config,
+                criteria,
+            );
             if (!assignment) continue;
 
             const rebuilt = applyGeneratedSchedule(
@@ -682,8 +829,10 @@ const rebuildCompleteSingleLegSchedule = (matches, config) => {
                 roundInfos,
                 generatedRounds,
                 assignment,
+                config,
+                criteria,
             );
-            if (rebuilt && validarFixture(rebuilt, config).totalConflicts === 0) {
+            if (rebuilt && validarFixture(rebuilt, config, criteria).totalConflicts === 0) {
                 return rebuilt;
             }
         }
@@ -692,7 +841,7 @@ const rebuildCompleteSingleLegSchedule = (matches, config) => {
     return null;
 };
 
-const rebuildRoundPairings = (matches, roundKey) => {
+const rebuildRoundPairings = (matches, roundKey, config, criteria) => {
     const roundIndexes = matches.reduce((indexes, match, index) => {
         if (String(match.jornadaIndex) === roundKey && isNaturalRoundMatch(match)) {
             indexes.push(index);
@@ -713,18 +862,7 @@ const rebuildRoundPairings = (matches, roundKey) => {
     }
 
     const editableIndexSet = new Set(editableRoundIndexes);
-    const usedMatchups = new Set();
-
-    matches.forEach((match, index) => {
-        if (!isNaturalRoundMatch(match)) return;
-        if (String(match.jornadaIndex) === roundKey && editableIndexSet.has(index)) return;
-
-        const localId = String(match.local?.id ?? "");
-        const visitanteId = String(match.visitante?.id ?? "");
-        if (!localId || !visitanteId || localId === "BYE" || visitanteId === "BYE") return;
-
-        usedMatchups.add(matchupKey(match.local, match.visitante));
-    });
+    const matchupUsage = buildMatchupUsage(matches, editableIndexSet);
 
     const availableTeams = editableRoundIndexes.flatMap((index) => [
         matches[index].local,
@@ -733,9 +871,7 @@ const rebuildRoundPairings = (matches, roundKey) => {
     let searchNodes = 0;
 
     const canPair = (firstTeam, secondTeam) =>
-        String(firstTeam.id) === "BYE" ||
-        String(secondTeam.id) === "BYE" ||
-        !usedMatchups.has(matchupKey(firstTeam, secondTeam));
+        Boolean(selectAllowedPairing(firstTeam, secondTeam, matchupUsage, config, criteria));
 
     const findPairings = (remainingTeams, pairings = []) => {
         searchNodes += 1;
@@ -787,13 +923,13 @@ const rebuildRoundPairings = (matches, roundKey) => {
     editableRoundIndexes.forEach((matchIndex, pairingIndex) => {
         const current = matches[matchIndex];
         const [firstTeam, secondTeam] = pairings[pairingIndex];
-        const currentLocalId = String(current.local?.id ?? "");
-        const firstId = String(firstTeam.id);
-        const secondId = String(secondTeam.id);
-        const local = currentLocalId === secondId ? secondTeam : firstTeam;
-        const visitante = currentLocalId === firstId ? secondTeam : (
-            currentLocalId === secondId ? firstTeam : secondTeam
-        );
+        const [local, visitante] = selectAllowedPairing(
+            firstTeam,
+            secondTeam,
+            matchupUsage,
+            config,
+            criteria,
+        ) || [firstTeam, secondTeam];
 
         next[matchIndex] = normalizeByeMatch({
             ...current,
@@ -805,13 +941,31 @@ const rebuildRoundPairings = (matches, roundKey) => {
     return next;
 };
 
-function* generateCandidateFixtures(matches, validation) {
+function* generateCandidateFixtures(matches, validation, config, criteria) {
     const conflictRounds = new Set(Object.keys(validation.conflicts || {}).map(String));
 
     if ((validation.repeatedMatchups || []).length > 0) {
         for (const roundKey of conflictRounds) {
-            const rebuiltRound = rebuildRoundPairings(matches, roundKey);
+            const rebuiltRound = rebuildRoundPairings(matches, roundKey, config, criteria);
             if (rebuiltRound) yield rebuiltRound;
+        }
+    }
+
+    // En ida y vuelta, un rival no puede repetirse con la misma localia.
+    // Invertir el partido es la correccion minima cuando el cruce ya es valido.
+    if (getLegCount(config) === 2 && criteria.enforceReturnLegHomeAway) {
+        for (const roundKey of conflictRounds) {
+            for (let index = 0; index < matches.length; index += 1) {
+                const match = matches[index];
+                if (
+                    String(match.jornadaIndex) === roundKey &&
+                    isEditableMatch(match) &&
+                    !match.isByeMatch
+                ) {
+                    const candidate = reverseMatchHomeAway(matches, index);
+                    if (candidate) yield candidate;
+                }
+            }
         }
     }
 
@@ -889,9 +1043,11 @@ export const autoCorregirFixture = (
     initialMatches,
     maxEvaluations = 5000,
     config = null,
+    criteria = null,
 ) => {
+    const activeCriteria = resolveFixtureCriteria(criteria);
     let currentMatches = structuredClone(initialMatches || []);
-    let currentValidation = validarFixture(currentMatches, config);
+    let currentValidation = validarFixture(currentMatches, config, activeCriteria);
     let currentScore = currentValidation.totalConflicts;
     let bestMatches = structuredClone(currentMatches);
     let bestScore = currentScore;
@@ -902,9 +1058,10 @@ export const autoCorregirFixture = (
         currentMatches,
         maxEvaluations,
         config,
+        activeCriteria,
     );
     if (multiStepMatches) {
-        const multiStepValidation = validarFixture(multiStepMatches, config);
+        const multiStepValidation = validarFixture(multiStepMatches, config, activeCriteria);
         if (multiStepValidation.totalConflicts === 0) return multiStepMatches;
 
         if (multiStepValidation.totalConflicts < currentScore) {
@@ -917,7 +1074,11 @@ export const autoCorregirFixture = (
         }
     }
 
-    const globallyRebuiltMatches = rebuildCompleteSingleLegSchedule(currentMatches, config);
+    const globallyRebuiltMatches = rebuildCompleteRoundRobinSchedule(
+        currentMatches,
+        config,
+        activeCriteria,
+    );
     if (globallyRebuiltMatches) return globallyRebuiltMatches;
 
     while (currentScore > 0 && evaluations < maxEvaluations) {
@@ -925,7 +1086,12 @@ export const autoCorregirFixture = (
         const plateauCandidates = [];
         let candidatesThisStep = 0;
 
-        for (const candidateMatches of generateCandidateFixtures(currentMatches, currentValidation)) {
+        for (const candidateMatches of generateCandidateFixtures(
+            currentMatches,
+            currentValidation,
+            config,
+            activeCriteria,
+        )) {
             if (
                 evaluations >= maxEvaluations ||
                 candidatesThisStep >= MAX_CANDIDATES_PER_STEP
@@ -940,7 +1106,7 @@ export const autoCorregirFixture = (
             evaluations += 1;
             candidatesThisStep += 1;
 
-            const validation = validarFixture(candidateMatches, config);
+            const validation = validarFixture(candidateMatches, config, activeCriteria);
             const candidate = {
                 matches: candidateMatches,
                 validation,
@@ -970,6 +1136,8 @@ export const autoCorregirFixture = (
                 for (const candidateMatches of generateCandidateFixtures(
                     plateau.matches,
                     plateau.validation,
+                    config,
+                    activeCriteria,
                 )) {
                     if (
                         evaluations >= maxEvaluations ||
@@ -985,7 +1153,7 @@ export const autoCorregirFixture = (
                     evaluations += 1;
                     secondStepCount += 1;
 
-                    const validation = validarFixture(candidateMatches, config);
+                    const validation = validarFixture(candidateMatches, config, activeCriteria);
                     if (
                         validation.totalConflicts < currentScore &&
                         (
@@ -1016,4 +1184,275 @@ export const autoCorregirFixture = (
     }
 
     return bestMatches;
+};
+
+/**
+ * Restaura las jornadas editables a un calendario Round Robin completo.
+ * Las jornadas confirmadas siguen siendo inmutables; los bloqueos manuales o
+ * provenientes de un escaneo en las demas jornadas se descartan para que no
+ * impidan reconstruir el calendario.
+ */
+export const restaurarFixtureRoundRobin = (
+    initialMatches,
+    maxEvaluations = 15000,
+    config = null,
+) => {
+    const cleanMatches = structuredClone(initialMatches || []).map((match) => {
+        if (!isNaturalRoundMatch(match) || match?.roundLocked) return match;
+
+        return {
+            ...match,
+            locked: false,
+            scanLocked: false,
+            scanScheduleAccepted: false,
+            scanScheduleAction: null,
+            scanScheduleSource: null,
+        };
+    });
+
+    return autoCorregirFixture(
+        cleanMatches,
+        maxEvaluations,
+        config,
+        DEFAULT_FIXTURE_CRITERIA,
+    );
+};
+
+const buildCompleteRoundRobinFixture = (teams = [], config = null) => {
+    const validTeams = teams.filter(
+        (team) => team?.id !== undefined && team?.id !== null
+    );
+    if (validTeams.length < 2) return [];
+
+    const scheduleTeams = validTeams.length % 2 === 0
+        ? validTeams
+        : [...validTeams, { id: "BYE", name: "DESCANSA", isBye: true }];
+
+    return buildRoundRobinSchedule(scheduleTeams, config).flatMap((round, roundIndex) =>
+        round.map(([local, visitante], matchIndex) =>
+            normalizeByeMatch({
+                id: `temp_restore_${roundIndex}_${matchIndex + 1}`,
+                dbId: null,
+                local,
+                visitante,
+                jornadaIndex: roundIndex,
+                locked: false,
+                roundLocked: false,
+                isByeMatch: false,
+            })
+        )
+    );
+};
+
+const createRestoreError = (error) => ({
+    matches: [],
+    deletedMatchIds: [],
+    error,
+});
+
+/**
+ * Genera de nuevo todos los lugares de las jornadas oficiales. A diferencia de
+ * una autocorreccion normal, no depende de que cada jornada tenga el mismo
+ * numero de registros: reutiliza los registros editables disponibles, crea los
+ * faltantes y devuelve los sobrantes para eliminarlos al guardar.
+ */
+export const restaurarFixtureRoundRobinCompleto = ({
+    teams = [],
+    config = null,
+    existingData = null,
+}) => {
+    const jornadas = Array.isArray(existingData?.jornadas)
+        ? existingData.jornadas
+        : [];
+    const matchesDB = Array.isArray(existingData?.matches)
+        ? existingData.matches
+        : [];
+    const generatedFixture = buildCompleteRoundRobinFixture(teams, config);
+    const expectedRoundCount = new Set(
+        generatedFixture.map((match) => Number(match.jornadaIndex))
+    ).size;
+    const officialJornadas = sortJornadas(jornadas).filter((jornada) =>
+        isOfficialJornadaName(jornada?.name)
+    );
+    const originalRoundIndexById = new Map(
+        jornadas.map((jornada, index) => [String(jornada?.id), index])
+    );
+    const officialJornadaById = new Map(
+        officialJornadas.map((jornada) => [String(jornada?.id), jornada])
+    );
+    const teamById = new Map(
+        teams
+            .filter((team) => team?.id !== undefined && team?.id !== null)
+            .map((team) => [String(team.id), team])
+    );
+
+    if (generatedFixture.length === 0) {
+        return createRestoreError(
+            "Se requieren al menos dos equipos para reconstruir el fixture."
+        );
+    }
+
+    if (officialJornadas.length !== expectedRoundCount) {
+        return createRestoreError(
+            "No se puede reconstruir el Round Robin porque la cantidad de jornadas oficiales no coincide con la configuracion del torneo."
+        );
+    }
+
+    const generatedByRound = generatedFixture.map((match) => {
+        const jornada = officialJornadas[Number(match.jornadaIndex)];
+        return {
+            ...match,
+            jornadaIndex: originalRoundIndexById.get(String(jornada?.id)),
+            roundName: jornada?.name || `Jornada ${Number(match.jornadaIndex) + 1}`,
+        };
+    });
+    const slotIndexesByRound = generatedByRound.reduce((acc, match, index) => {
+        const roundIndex = Number(match.jornadaIndex);
+        const indexes = acc.get(roundIndex) || [];
+        indexes.push(index);
+        acc.set(roundIndex, indexes);
+        return acc;
+    }, new Map());
+    const confirmedByRound = new Map();
+
+    for (const jornada of officialJornadas) {
+        if (jornada?.status !== "Confirmada" && jornada?.status !== "Finalizada") {
+            continue;
+        }
+
+        const roundIndex = originalRoundIndexById.get(String(jornada.id));
+        const confirmedMatches = [];
+        const participantIds = new Set();
+        let hasInvalidTeam = false;
+
+        matchesDB
+            .filter((match) => String(match?.jornada_id) === String(jornada.id))
+            .forEach((match) => {
+                const local = teamById.get(String(match?.team1_id));
+                const visitante = match?.team2_id === null || match?.team2_id === undefined
+                    ? { id: "BYE", name: "DESCANSA", isBye: true }
+                    : teamById.get(String(match.team2_id));
+
+                if (!local || !visitante) {
+                    hasInvalidTeam = true;
+                    return;
+                }
+
+                participantIds.add(String(local.id));
+                if (String(visitante.id) !== "BYE") {
+                    participantIds.add(String(visitante.id));
+                }
+                confirmedMatches.push(
+                    normalizeByeMatch({
+                        id: match.id,
+                        dbId: match.id,
+                        local,
+                        visitante,
+                        jornadaIndex: roundIndex,
+                        locked: true,
+                        roundLocked: true,
+                        isByeMatch: false,
+                        roundName: jornada.name || "",
+                    })
+                );
+            });
+
+        const expectedSlots = slotIndexesByRound.get(Number(roundIndex)) || [];
+        const hasByeMatch = confirmedMatches.some((match) => match.isByeMatch);
+        if (
+            !hasInvalidTeam &&
+            !hasByeMatch &&
+            teams.length % 2 !== 0 &&
+            confirmedMatches.length === expectedSlots.length - 1
+        ) {
+            const restingTeam = teams.find(
+                (team) => !participantIds.has(String(team?.id))
+            );
+            if (restingTeam) {
+                confirmedMatches.push({
+                    id: `temp_confirmed_bye_${roundIndex}_${restingTeam.id}`,
+                    dbId: null,
+                    local: restingTeam,
+                    visitante: { id: "BYE", name: "DESCANSA", isBye: true },
+                    jornadaIndex: roundIndex,
+                    locked: true,
+                    roundLocked: true,
+                    isByeMatch: true,
+                    roundName: jornada.name || "",
+                });
+            }
+        }
+
+        if (hasInvalidTeam) {
+            return createRestoreError(
+                "No se puede completar el Round Robin porque una jornada confirmada tiene partidos incompatibles. Esta jornada se conserva sin cambios."
+            );
+        }
+
+        confirmedByRound.set(roundIndex, confirmedMatches);
+    }
+
+    const fixtureToRestore = [
+        ...generatedByRound.filter(
+            (match) => !confirmedByRound.has(Number(match.jornadaIndex))
+        ),
+        ...[...confirmedByRound.values()].flat(),
+    ];
+
+    const restoredMatches = restaurarFixtureRoundRobin(
+        fixtureToRestore,
+        15000,
+        config,
+    );
+    if (validarFixture(restoredMatches, config).totalConflicts > 0) {
+        return createRestoreError(
+            "No se puede completar el Round Robin sin modificar jornadas confirmadas que ya contienen cruces incompatibles."
+        );
+    }
+
+    const editableRowsByRound = matchesDB.reduce((acc, match) => {
+        const jornada = officialJornadaById.get(String(match?.jornada_id));
+        if (
+            !jornada ||
+            jornada.status === "Confirmada" ||
+            jornada.status === "Finalizada"
+        ) {
+            return acc;
+        }
+
+        const roundIndex = originalRoundIndexById.get(String(jornada.id));
+        const rows = acc.get(roundIndex) || [];
+        rows.push(match);
+        acc.set(roundIndex, rows);
+        return acc;
+    }, new Map());
+    const slotCounterByRound = new Map();
+    const matches = restoredMatches.map((match) => {
+        if (match.roundLocked) return match;
+
+        const roundIndex = Number(match.jornadaIndex);
+        const rows = editableRowsByRound.get(roundIndex) || [];
+        const rowIndex = slotCounterByRound.get(roundIndex) || 0;
+        const row = rows[rowIndex] || null;
+        slotCounterByRound.set(roundIndex, rowIndex + 1);
+
+        return {
+            ...match,
+            id: row?.id || `temp_restore_${roundIndex}_${rowIndex + 1}`,
+            dbId: row?.id || null,
+            locked: false,
+            scanLocked: false,
+            scanScheduleAccepted: false,
+            scanScheduleAction: null,
+            scanScheduleSource: null,
+        };
+    });
+    const deletedMatchIds = [...editableRowsByRound.entries()].flatMap(
+        ([roundIndex, rows]) => rows
+            .slice(slotCounterByRound.get(roundIndex) || 0)
+            .map((match) => match.id)
+            .filter((id) => id !== undefined && id !== null)
+    );
+
+    return { matches, deletedMatchIds, error: null };
 };

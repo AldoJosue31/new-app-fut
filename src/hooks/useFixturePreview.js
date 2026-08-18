@@ -4,6 +4,7 @@ import {
     generarJornadaExtra,
     validarFixture,
     autoCorregirFixture,
+    restaurarFixtureRoundRobinCompleto,
     transformarPartidosExistentes,
 } from "../utils/fixtureAlgorithms";
 import {
@@ -32,12 +33,20 @@ const normalizeByeMatch = (match) => {
     };
 };
 
-export const useFixturePreview = (teams, config, isOpen, existingData = null) => {
+export const useFixturePreview = (
+    teams,
+    config,
+    isOpen,
+    existingData = null,
+    fixtureCriteria = null,
+) => {
     const [matches, setMatches] = useState([]);
     const [isAnimating, setIsAnimating] = useState(false);
     const [draggedItem, setDraggedItem] = useState(null);
     const [conflicts, setConflicts] = useState({});
     const [selectedTeamId, setSelectedTeamId] = useState(null);
+    const [deletedMatchIds, setDeletedMatchIds] = useState([]);
+    const [initialMatches, setInitialMatches] = useState([]);
 
     const isEditMode = !!existingData;
 
@@ -54,15 +63,19 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
                         existingData.repositionMappings
                     );
                     setMatches(initial);
+                    setInitialMatches(initial);
                 } else if (matches.length === 0) {
                     const initial = generarEstructuraInicial(teams, config);
                     setMatches(initial);
+                    setInitialMatches(initial);
                 }
                 setIsAnimating(false);
             }, 50);
 
             setSelectedTeamId(null);
             setDraggedItem(null);
+            setDeletedMatchIds([]);
+            setInitialMatches([]);
             return () => clearTimeout(timer);
         }
 
@@ -70,19 +83,21 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
             setMatches([]);
             setConflicts({});
             setDraggedItem(null);
+            setDeletedMatchIds([]);
+            setInitialMatches([]);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, isEditMode]);
 
     useEffect(() => {
         if (matches.length > 0) {
-            const { conflicts: newConflicts } = validarFixture(matches, config);
+            const { conflicts: newConflicts } = validarFixture(matches, config, fixtureCriteria);
             setConflicts(newConflicts);
             return;
         }
 
         setConflicts({});
-    }, [matches, config]);
+    }, [matches, config, fixtureCriteria]);
 
     const handleTeamClick = (teamId) => {
         setSelectedTeamId((prev) => (prev === teamId ? null : teamId));
@@ -124,7 +139,7 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
     const handleShuffle = () => {
         const hasManualLocks = matches.some((match) => match.locked && !match.roundLocked);
         if (hasManualLocks) {
-            if (!window.confirm("Se perderan los bloqueos manuales. Las jornadas confirmadas se mantendran. ¿Continuar?")) {
+            if (!window.confirm("Se regeneraran todas las jornadas no confirmadas con Round Robin. Las jornadas confirmadas se mantendran. ¿Continuar?")) {
                 return;
             }
         }
@@ -133,15 +148,22 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
         setTimeout(() => {
             let newMatches;
             if (isEditMode) {
-                newMatches = transformarPartidosExistentes(
-                    existingData.matches,
-                    existingData.jornadas,
+                const restoredFixture = restaurarFixtureRoundRobinCompleto({
                     teams,
-                    existingData.repositionMatchMappings,
-                    existingData.repositionMappings
-                );
+                    config,
+                    existingData,
+                });
+                if (restoredFixture.error) {
+                    newMatches = matches;
+                    setDeletedMatchIds([]);
+                    alert(restoredFixture.error);
+                } else {
+                    newMatches = restoredFixture.matches;
+                    setDeletedMatchIds(restoredFixture.deletedMatchIds);
+                }
             } else {
                 newMatches = generarEstructuraInicial(teams, config);
+                setDeletedMatchIds([]);
             }
 
             setMatches(newMatches);
@@ -154,9 +176,9 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
     const handleAutoFix = () => {
         setIsAnimating(true);
         setTimeout(() => {
-            const previousValidation = validarFixture(matches, config);
-            const fixedMatches = autoCorregirFixture(matches, 15000, config);
-            const nextValidation = validarFixture(fixedMatches, config);
+            const previousValidation = validarFixture(matches, config, fixtureCriteria);
+            const fixedMatches = autoCorregirFixture(matches, 15000, config, fixtureCriteria);
+            const nextValidation = validarFixture(fixedMatches, config, fixtureCriteria);
             const correctedConflicts = Math.max(
                 0,
                 previousValidation.totalConflicts - nextValidation.totalConflicts,
@@ -553,6 +575,8 @@ export const useFixturePreview = (teams, config, isOpen, existingData = null) =>
     return {
         matches,
         matchesByRound,
+        deletedMatchIds,
+        initialMatches,
         conflicts,
         selectedTeamId,
         isAnimating,

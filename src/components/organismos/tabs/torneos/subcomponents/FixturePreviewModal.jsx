@@ -16,18 +16,27 @@ import {
     RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine,
     RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line, RiAddLine,
     RiHistoryLine, RiEyeLine, RiEyeOffLine, RiEdit2Line, RiLayoutGridLine,
-    RiScan2Line, RiLockUnlockLine
+    RiScan2Line, RiLockUnlockLine, RiSettings3Line
 } from "react-icons/ri";
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
 import { ConfirmModal } from "../../../ConfirmModal";
-import { validarFixture } from "../../../../../utils/fixtureAlgorithms";
+import {
+    DEFAULT_FIXTURE_CRITERIA,
+    resolveFixtureCriteria,
+    validarFixture,
+} from "../../../../../utils/fixtureAlgorithms";
 import {
     isOfficialJornadaName,
     isRepositionJornadaName,
 } from "../../../../../utils/jornadaUtils";
 import { resolveScannedSchedule } from "../../../../../utils/scannedScheduleUtils";
+import {
+    getTextRoundMatchStats,
+    isTextRoundComplete,
+    shouldBlockTextCompleteness,
+} from "../../../../../utils/fixtureTextValidation";
 
 const RolJuegoScanFlow = dynamic(
     () =>
@@ -69,6 +78,35 @@ const clearAllRoundTimers = (timersRef) => {
 
 const BYE_TEAM = { id: "BYE", name: "DESCANSA", img: null, isBye: true };
 
+const FIXTURE_CRITERIA_PRESETS = {
+    official: {
+        ...DEFAULT_FIXTURE_CRITERIA,
+    },
+    custom: {
+        ...DEFAULT_FIXTURE_CRITERIA,
+        enforceRoundRobin: false,
+        enforceReturnLegHomeAway: false,
+        requireCompleteRounds: false,
+    },
+    free: {
+        preventDuplicateTeams: false,
+        enforceRoundRobin: false,
+        enforceReturnLegHomeAway: false,
+        requireCompleteRounds: false,
+    },
+};
+
+const getCriteriaPreset = (criteria) => {
+    const matches = (preset) =>
+        Object.entries(FIXTURE_CRITERIA_PRESETS[preset]).every(
+            ([key, value]) => criteria[key] === value,
+        );
+
+    if (matches("official")) return "official";
+    if (matches("free")) return "free";
+    return "custom";
+};
+
 const normalizeLookupValue = (value = "") =>
     String(value)
         .normalize("NFD")
@@ -100,6 +138,29 @@ const getTeamLookupAliases = (value = "") => {
 };
 
 const getTeamKey = (team) => String(team?.id ?? "");
+
+const buildFixtureSignature = (fixtureMatches = []) =>
+    fixtureMatches
+        .map((match) => {
+            const schedule = resolveScannedSchedule(match);
+            const acceptedSchedule = Boolean(
+                match.scanScheduleAccepted && schedule.complete,
+            );
+
+            return JSON.stringify([
+                Number(match.jornadaIndex),
+                getTeamKey(match.local),
+                getTeamKey(match.visitante),
+                Boolean(match.isGeneratedRound),
+                match.roundType || "",
+                match.roundName || "",
+                acceptedSchedule ? schedule.date : "",
+                acceptedSchedule ? schedule.time : "",
+                match.scanScheduleAction || "",
+            ]);
+        })
+        .sort()
+        .join("|");
 
 const buildTeamOptions = (teams = []) => {
     const options = [...teams.filter((team) => team?.id !== undefined && team?.id !== null), BYE_TEAM];
@@ -167,16 +228,12 @@ const parseRoundText = (text = "", teamLookup = new Map()) =>
             return acc;
         }, []);
 
-const isPlayablePair = (pair) =>
-    pair?.local?.id !== "BYE" && pair?.visitante?.id !== "BYE";
-
 const isPlayableMatch = (match) =>
     match &&
     !match.isByeMatch &&
     match.local?.id !== "BYE" &&
     match.visitante?.id !== "BYE";
 
-const countPlayablePairs = (pairs = []) => pairs.filter(isPlayablePair).length;
 const countPlayableMatches = (roundMatches = []) => roundMatches.filter(isPlayableMatch).length;
 
 const getActiveTeamQuery = (text = "", caretPosition = 0, teamOptions = []) => {
@@ -400,6 +457,7 @@ export function FixturePreviewModal({
     existingData = null,
     divisionName = "",
     tournamentName = "",
+    onSaveFixtureCriteria = null,
 }) {
     const mounted = useSyncExternalStore(
         () => () => {},
@@ -409,14 +467,22 @@ export function FixturePreviewModal({
     const roundAnimationTimersRef = useRef({});
     const prevVisibleRoundsRef = useRef([]);
     const manualTextRoundsRef = useRef(new Set());
+    const [fixtureCriteria, setFixtureCriteria] = useState(() => ({
+        ...DEFAULT_FIXTURE_CRITERIA,
+    }));
+    const [draftFixtureCriteria, setDraftFixtureCriteria] = useState(() => ({
+        ...DEFAULT_FIXTURE_CRITERIA,
+    }));
+    const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
+    const [isSavingFixtureCriteria, setIsSavingFixtureCriteria] = useState(false);
     const {
-        matches, matchesByRound, conflicts, selectedTeamId, isAnimating, isEditMode,
+        matches, matchesByRound, deletedMatchIds, initialMatches, conflicts, selectedTeamId, isAnimating, isEditMode,
         handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
         handleDragStart, handleTeamDragStart, handleDropOnMatch,
         handleDropOnJornada, handleDropOnTeamSlot,
         handleGenerateExtraRound, handleGenerateRepositionRound,
         handleReplaceRoundMatches
-    } = useFixturePreview(teams, config, isOpen, existingData);
+    } = useFixturePreview(teams, config, isOpen, existingData, fixtureCriteria);
     const [showConfirmedRounds, setShowConfirmedRounds] = useState(false);
     const [renderedRoundIndexes, setRenderedRoundIndexes] = useState([]);
     const [roundAnimationState, setRoundAnimationState] = useState({});
@@ -430,6 +496,10 @@ export function FixturePreviewModal({
 
     const teamOptions = useMemo(() => buildTeamOptions(teams), [teams]);
     const teamLookup = useMemo(() => buildTeamLookup(teamOptions), [teamOptions]);
+    const savedFixtureCriteria = useMemo(
+        () => resolveFixtureCriteria(config?.fixtureCriteria),
+        [config?.fixtureCriteria],
+    );
 
     useEffect(() => {
         if (isOpen) {
@@ -437,27 +507,75 @@ export function FixturePreviewModal({
             setViewMode("cards");
             setScanRoundIndex(null);
             setPendingUnlockMatch(null);
+            setFixtureCriteria(savedFixtureCriteria);
+            setDraftFixtureCriteria(savedFixtureCriteria);
+            setIsCriteriaModalOpen(false);
+            setIsSavingFixtureCriteria(false);
             manualTextRoundsRef.current = new Set();
         }
-    }, [isOpen, isEditMode]);
+    }, [isOpen, isEditMode, savedFixtureCriteria]);
+
+    useEffect(() => {
+        if (!isCriteriaModalOpen) return undefined;
+
+        const handleEscape = (event) => {
+            if (event.key === "Escape") setIsCriteriaModalOpen(false);
+        };
+
+        window.addEventListener("keydown", handleEscape);
+        return () => window.removeEventListener("keydown", handleEscape);
+    }, [isCriteriaModalOpen]);
+
+    const openCriteriaModal = () => {
+        setDraftFixtureCriteria({ ...fixtureCriteria });
+        setIsCriteriaModalOpen(true);
+    };
+
+    const applyFixtureCriteria = () => {
+        setFixtureCriteria({ ...draftFixtureCriteria });
+        setIsCriteriaModalOpen(false);
+    };
+
+    const saveFixtureCriteriaForTournament = async () => {
+        if (!onSaveFixtureCriteria || isSavingFixtureCriteria) return;
+
+        setIsSavingFixtureCriteria(true);
+        try {
+            const savedCriteria = await onSaveFixtureCriteria(draftFixtureCriteria);
+            const nextCriteria = resolveFixtureCriteria(savedCriteria || draftFixtureCriteria);
+            setFixtureCriteria(nextCriteria);
+            setDraftFixtureCriteria(nextCriteria);
+            setIsCriteriaModalOpen(false);
+        } finally {
+            setIsSavingFixtureCriteria(false);
+        }
+    };
+
+    const updateDraftFixtureCriteria = (criterion, enabled) => {
+        setDraftFixtureCriteria((previous) => ({
+            ...previous,
+            [criterion]: enabled,
+            ...(criterion === "enforceRoundRobin" && !enabled
+                ? { enforceReturnLegHomeAway: false }
+                : {}),
+        }));
+    };
 
     const handleConfirmar = () => {
-        if (invalidTextRoundIndexes.length > 0) {
+        if (isEditMode && !hasFixtureChanges) return;
+
+        if (textCompletenessBlocks) {
             alert("Hay jornadas incompletas en el editor de texto. Completa los partidos esperados antes de guardar.");
             return;
         }
 
-        const finalMatches =
-            viewMode === "text"
-                ? buildMatchesFromTextState({
-                    matches,
-                    roundIndexes,
-                    roundTextByIndex,
-                    teamLookup,
-                })
-                : matches;
+        const finalMatches = finalMatchesForSave;
 
-        const { conflicts: latestConflicts } = validarFixture(finalMatches, config);
+        const { conflicts: latestConflicts } = validarFixture(
+            finalMatches,
+            config,
+            fixtureCriteria,
+        );
         const latestBlockingConflicts = Object.entries(latestConflicts).reduce(
             (acc, [rIndex, roundConflicts]) => {
                 const roundMatches = finalMatches.filter(
@@ -479,13 +597,13 @@ export function FixturePreviewModal({
 
         if (Object.keys(latestBlockingConflicts).length > 0) {
             alert(
-                "El fixture tiene equipos repetidos dentro de una jornada o cruces duplicados entre jornadas. En modalidad de solo ida, un cruce solo puede repetirse en una jornada extra."
+                "El fixture incumple los criterios activos. Ajusta los cruces o cambia los criterios antes de guardar."
             );
             return;
         }
 
         if (isEditMode) {
-            onConfirm(finalMatches);
+            onConfirm(finalMatches, { deletedMatchIds });
         } else {
             // Lógica legacy para creación nueva
             const maxJornada = Math.max(...finalMatches.map(m => m.jornadaIndex), 0);
@@ -579,6 +697,18 @@ export function FixturePreviewModal({
         () => roundDefinitions.map((round) => round.roundIndex),
         [roundDefinitions]
     );
+    const finalMatchesForSave = useMemo(
+        () =>
+            viewMode === "text"
+                ? buildMatchesFromTextState({
+                    matches,
+                    roundIndexes,
+                    roundTextByIndex,
+                    teamLookup,
+                })
+                : matches,
+        [matches, roundIndexes, roundTextByIndex, teamLookup, viewMode]
+    );
     const isRoundLocked = (rIndex) =>
         roundDefinitionMap[rIndex]?.isLocked ??
         (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
@@ -666,8 +796,8 @@ export function FixturePreviewModal({
                 const text = Object.prototype.hasOwnProperty.call(roundTextByIndex, rIndex)
                     ? roundTextByIndex[rIndex]
                     : formatRoundText(matchesByRound[rIndex] || []);
-                const detected = countPlayablePairs(parseRoundText(text, teamLookup));
-                const attempted = (text.match(/\s+(?:v\.?s\.?|vs\.?|versus)\s+/gi) || []).length;
+                const pairs = parseRoundText(text, teamLookup);
+                const { detected, attempted } = getTextRoundMatchStats(text, pairs);
                 const expected =
                     expectedRoundCounts[rIndex] ||
                     countPlayableMatches(matchesByRound[rIndex] || []) ||
@@ -680,7 +810,12 @@ export function FixturePreviewModal({
                     detected,
                     expected,
                     attempted,
-                    isComplete: isLocked || expected === 0 || (detected >= expected && detected === attempted),
+                    isComplete: isTextRoundComplete({
+                        detected,
+                        expected,
+                        attempted,
+                        isLocked,
+                    }),
                     isLocked,
                 };
                 return acc;
@@ -704,14 +839,38 @@ export function FixturePreviewModal({
             }),
         [roundIndexes, textRoundStats]
     );
+    const textCompletenessBlocks = shouldBlockTextCompleteness({
+        viewMode,
+        requireCompleteRounds: fixtureCriteria.requireCompleteRounds,
+        invalidRoundIndexes: invalidTextRoundIndexes,
+    });
+    const blockingConflictCount = useMemo(
+        () =>
+            roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
+                .length,
+        [blockingConflicts, roundIndexes]
+    );
     const conflictCount = useMemo(() => {
         const conflictRoundSet = new Set(
             roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
         );
 
-        invalidTextRoundIndexes.forEach((rIndex) => conflictRoundSet.add(rIndex));
+        if (textCompletenessBlocks) {
+            invalidTextRoundIndexes.forEach((rIndex) => conflictRoundSet.add(rIndex));
+        }
         return conflictRoundSet.size;
-    }, [blockingConflicts, invalidTextRoundIndexes, roundIndexes]);
+    }, [
+        blockingConflicts,
+        invalidTextRoundIndexes,
+        roundIndexes,
+        textCompletenessBlocks,
+    ]);
+    const hasFixtureChanges = useMemo(() => {
+        if (!isEditMode) return true;
+        if (deletedMatchIds.length > 0) return true;
+
+        return buildFixtureSignature(finalMatchesForSave) !== buildFixtureSignature(initialMatches);
+    }, [deletedMatchIds, finalMatchesForSave, initialMatches, isEditMode]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -785,6 +944,7 @@ export function FixturePreviewModal({
     const handleRoundTextBlur = (rIndex) => {
         const currentText = roundTextByIndex[rIndex] || "";
         if (currentText.trim().length === 0) {
+            manualTextRoundsRef.current.delete(String(rIndex));
             setRoundTextByIndex((prev) => ({
                 ...prev,
                 [rIndex]: "",
@@ -795,8 +955,8 @@ export function FixturePreviewModal({
         }
 
         const pairs = parseRoundText(currentText, teamLookup);
-        const detectedPlayable = countPlayablePairs(pairs);
-        const attemptedPlayable = (currentText.match(/\s+(?:v\.?s\.?|vs\.?|versus)\s+/gi) || []).length;
+        const { detected: detectedPlayable, attempted: attemptedPlayable } =
+            getTextRoundMatchStats(currentText, pairs);
 
         if (detectedPlayable !== attemptedPlayable && attemptedPlayable > 0) {
             setFocusedRoundIndex(null);
@@ -820,6 +980,7 @@ export function FixturePreviewModal({
         }));
         setFocusedRoundIndex(null);
         setActiveSuggestion(null);
+        manualTextRoundsRef.current.delete(String(rIndex));
 
         if (pairs.length > 0) {
             handleReplaceRoundMatches(Number(rIndex), pairs);
@@ -1003,7 +1164,12 @@ export function FixturePreviewModal({
                         <div className="info-teams">
                             <RiTeamLine /> {teams.length} Equipos 
                             {conflictCount > 0 ? (
-                                <BadgeError><RiErrorWarningLine /> {conflictCount} Conflictos (Bloquea guardado)</BadgeError>
+                                <BadgeError>
+                                    <RiErrorWarningLine />
+                                    {blockingConflictCount > 0
+                                        ? `${conflictCount} Conflictos (Bloquea guardado)`
+                                        : `${conflictCount} Jornadas incompletas`}
+                                </BadgeError>
                             ) : (
                                 <BadgeSuccess><RiCheckDoubleLine /> Fixture Válido</BadgeSuccess>
                             )}
@@ -1031,13 +1197,24 @@ export function FixturePreviewModal({
                                     </span>
                                 </ToggleFilterButton>
                             )}
-                            {conflictCount > 0 && (
+                            <ActionButton type="button" onClick={openCriteriaModal}>
+                                <RiSettings3Line />
+                                <span>Criterios</span>
+                            </ActionButton>
+                            {blockingConflictCount > 0 && (
                                 <ActionButton onClick={handleAutoFix} disabled={isAnimating} $color={v.colorWarning}>
                                     <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
                                     <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
                                 </ActionButton>
                             )}
-                            <ActionButton onClick={handleShuffle} disabled={isAnimating}>
+                            <ActionButton
+                                onClick={handleShuffle}
+                                disabled={isAnimating}
+                                title={isEditMode
+                                    ? "Regenerar las jornadas no confirmadas con Round Robin"
+                                    : "Generar un nuevo fixture"
+                                }
+                            >
                                 <RiRefreshLine className={isAnimating ? "icon-spin" : ""} />
                                 <span>{isEditMode ? "Restaurar" : "Reiniciar"}</span>
                             </ActionButton>
@@ -1089,7 +1266,9 @@ export function FixturePreviewModal({
                                     expected: countPlayableMatches(roundMatches) || defaultRoundMatchCount,
                                     isComplete: false,
                                 };
-                                const hasTextCountError = invalidTextRoundIndexes.includes(rIndex);
+                                const hasTextCountError =
+                                    textCompletenessBlocks &&
+                                    invalidTextRoundIndexes.includes(rIndex);
                                 const hasConflict = !!blockingConflicts[rIndex] || hasTextCountError;
                                 const animationState = roundAnimationState[rIndex] || "idle";
                                 const roundOnlySwapsTeams = roundMatches.some(
@@ -1235,7 +1414,8 @@ export function FixturePreviewModal({
                             bgcolor={conflictCount > 0 ? v.colorWarning : v.colorPrincipal}
                             icono={<RiCheckDoubleLine />}
                             funcion={handleConfirmar}
-                            disabled={isLoading || conflictCount > 0} 
+                            disabled={isLoading || conflictCount > 0 || (isEditMode && !hasFixtureChanges)}
+                            loading={isLoading}
                         />
                     </ActionWrapper>
                 </Footer>}
@@ -1256,10 +1436,192 @@ export function FixturePreviewModal({
             width="440px"
             thinButtons
         />
+        <FixtureCriteriaModal
+            isOpen={isCriteriaModalOpen}
+            criteria={draftFixtureCriteria}
+            isTwoLegTournament={String(config?.vueltas ?? "1") === "2"}
+            canSaveForTournament={Boolean(onSaveFixtureCriteria)}
+            isSavingForTournament={isSavingFixtureCriteria}
+            onClose={() => setIsCriteriaModalOpen(false)}
+            onApply={applyFixtureCriteria}
+            onSaveForTournament={saveFixtureCriteriaForTournament}
+            onReset={() => setDraftFixtureCriteria({ ...DEFAULT_FIXTURE_CRITERIA })}
+            onSelectPreset={(preset) =>
+                setDraftFixtureCriteria({ ...FIXTURE_CRITERIA_PRESETS[preset] })
+            }
+            onToggle={updateDraftFixtureCriteria}
+        />
         </>,
         document.body
     );
 }
+
+const FixtureCriteriaModal = ({
+    isOpen,
+    criteria,
+    isTwoLegTournament,
+    canSaveForTournament,
+    isSavingForTournament,
+    onClose,
+    onApply,
+    onSaveForTournament,
+    onReset,
+    onSelectPreset,
+    onToggle,
+}) => {
+    if (!isOpen) return null;
+
+    const activePreset = getCriteriaPreset(criteria);
+    const activeRuleCount = [
+        criteria.preventDuplicateTeams,
+        criteria.enforceRoundRobin,
+        isTwoLegTournament && criteria.enforceRoundRobin && criteria.enforceReturnLegHomeAway,
+        criteria.requireCompleteRounds,
+    ].filter(Boolean).length;
+
+    return (
+        <CriteriaOverlay
+            role="presentation"
+            onMouseDown={(event) => {
+                if (event.target === event.currentTarget) onClose();
+            }}
+        >
+            <CriteriaDialog
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="fixture-criteria-title"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <CriteriaDialogHeader>
+                    <div>
+                        <span className="criteria-icon"><RiSettings3Line /></span>
+                        <div>
+                            <h4 id="fixture-criteria-title">Criterios del fixture</h4>
+                            <p>Define qué se marca como conflicto en esta edición.</p>
+                        </div>
+                    </div>
+                    <CloseBtn type="button" onClick={onClose} aria-label="Cerrar criterios">
+                        <RiCloseLine />
+                    </CloseBtn>
+                </CriteriaDialogHeader>
+
+                <CriteriaDialogBody>
+                    <CriteriaPresetList aria-label="Perfiles de criterios">
+                        <CriteriaPresetButton
+                            type="button"
+                            aria-pressed={activePreset === "official"}
+                            $active={activePreset === "official"}
+                            onClick={() => onSelectPreset("official")}
+                        >
+                            Torneo oficial
+                        </CriteriaPresetButton>
+                        <CriteriaPresetButton
+                            type="button"
+                            aria-pressed={activePreset === "custom"}
+                            $active={activePreset === "custom"}
+                            onClick={() => onSelectPreset("custom")}
+                        >
+                            Personalizado
+                        </CriteriaPresetButton>
+                        <CriteriaPresetButton
+                            type="button"
+                            aria-pressed={activePreset === "free"}
+                            $active={activePreset === "free"}
+                            onClick={() => onSelectPreset("free")}
+                        >
+                            Libre
+                        </CriteriaPresetButton>
+                    </CriteriaPresetList>
+
+                    <CriteriaRuleList>
+                        <CriteriaRule>
+                            <input
+                                id="prevent-duplicate-teams"
+                                type="checkbox"
+                                checked={criteria.preventDuplicateTeams}
+                                onChange={(event) => onToggle("preventDuplicateTeams", event.target.checked)}
+                            />
+                            <label htmlFor="prevent-duplicate-teams">
+                                <strong>Un equipo juega una vez por jornada</strong>
+                                <span>Marca como conflicto cualquier equipo repetido en la misma jornada.</span>
+                            </label>
+                        </CriteriaRule>
+                        <CriteriaRule>
+                            <input
+                                id="enforce-round-robin"
+                                type="checkbox"
+                                checked={criteria.enforceRoundRobin}
+                                onChange={(event) => onToggle("enforceRoundRobin", event.target.checked)}
+                            />
+                            <label htmlFor="enforce-round-robin">
+                                <strong>Respetar los cruces del round robin</strong>
+                                <span>En ida permite un cruce; en ida y vuelta permite dos.</span>
+                            </label>
+                        </CriteriaRule>
+                        {isTwoLegTournament && (
+                            <CriteriaRule $disabled={!criteria.enforceRoundRobin}>
+                                <input
+                                    id="enforce-return-home-away"
+                                    type="checkbox"
+                                    checked={criteria.enforceReturnLegHomeAway}
+                                    disabled={!criteria.enforceRoundRobin}
+                                    onChange={(event) =>
+                                        onToggle("enforceReturnLegHomeAway", event.target.checked)
+                                    }
+                                />
+                                <label htmlFor="enforce-return-home-away">
+                                    <strong>Invertir la localía en la vuelta</strong>
+                                    <span>Exige que cada rival tenga un partido como local y otro como visitante.</span>
+                                </label>
+                            </CriteriaRule>
+                        )}
+                        <CriteriaRule>
+                            <input
+                                id="require-complete-rounds"
+                                type="checkbox"
+                                checked={criteria.requireCompleteRounds}
+                                onChange={(event) => onToggle("requireCompleteRounds", event.target.checked)}
+                            />
+                            <label htmlFor="require-complete-rounds">
+                                <strong>Exigir jornadas completas al editar texto</strong>
+                                <span>Bloquea el guardado si faltan partidos frente al formato estándar.</span>
+                            </label>
+                        </CriteriaRule>
+                    </CriteriaRuleList>
+
+                    <CriteriaImpact $free={activeRuleCount === 0}>
+                        {activeRuleCount === 0
+                            ? "Modo libre: el editor no bloqueará jornadas por estos criterios."
+                            : `${activeRuleCount} ${activeRuleCount === 1 ? "criterio activo" : "criterios activos"}. El autocorrector solo intentará resolver los conflictos seleccionados.`}
+                    </CriteriaImpact>
+                    {canSaveForTournament && (
+                        <CriteriaSavedHint>
+                            Guardar los aplica como regla predeterminada para todos los administradores de este torneo.
+                        </CriteriaSavedHint>
+                    )}
+                </CriteriaDialogBody>
+
+                <CriteriaDialogFooter>
+                    <button type="button" className="reset" onClick={onReset}>Restablecer</button>
+                    <div>
+                        <button type="button" className="cancel" onClick={onClose}>Cancelar</button>
+                        <button type="button" className="apply" onClick={onApply}>Aplicar criterios</button>
+                        {canSaveForTournament && (
+                            <button
+                                type="button"
+                                className="save-tournament"
+                                onClick={onSaveForTournament}
+                                disabled={isSavingForTournament}
+                            >
+                                {isSavingForTournament ? "Guardando..." : "Guardar para el torneo"}
+                            </button>
+                        )}
+                    </div>
+                </CriteriaDialogFooter>
+            </CriteriaDialog>
+        </CriteriaOverlay>
+    );
+};
 
 const TextRoundEditor = ({
     rIndex,
@@ -1491,6 +1853,267 @@ const Overlay = styled.div`
     background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); 
     z-index: 2000; display: flex; justify-content: center; align-items: center; padding: 20px; 
     @media (max-width: 768px) { padding: 0; align-items: flex-end; }
+`;
+
+const CriteriaOverlay = styled.div`
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(11, 17, 28, 0.62);
+    backdrop-filter: blur(3px);
+
+    @media (max-width: 600px) {
+        align-items: flex-end;
+        padding: 0;
+    }
+`;
+
+const CriteriaDialog = styled.section`
+    width: min(100%, 620px);
+    max-height: min(720px, calc(100vh - 40px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: ${({ theme }) => theme.bg};
+    border: 1px solid ${({ theme }) => theme.bg4};
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+    animation: ${fadeIn} 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+
+    @media (max-width: 600px) {
+        max-height: 88vh;
+        border-radius: 18px 18px 0 0;
+        border-bottom: none;
+    }
+`;
+
+const CriteriaDialogHeader = styled.header`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid ${({ theme }) => theme.bg4};
+
+    > div {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .criteria-icon {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        color: ${v.colorPrincipal};
+        background: ${v.colorPrincipal}18;
+        font-size: 1.25rem;
+    }
+
+    h4,
+    p {
+        margin: 0;
+    }
+
+    h4 {
+        color: ${({ theme }) => theme.text};
+        font-size: 1rem;
+        font-weight: 800;
+    }
+
+    p {
+        margin-top: 3px;
+        color: ${({ theme }) => theme.textFade};
+        font-size: 0.8rem;
+        line-height: 1.35;
+    }
+`;
+
+const CriteriaDialogBody = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 22px 22px;
+`;
+
+const CriteriaPresetList = styled.div`
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid ${({ theme }) => theme.bg4};
+`;
+
+const CriteriaPresetButton = styled.button`
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid ${({ $active, theme }) => ($active ? v.colorPrincipal : theme.bg4)};
+    border-radius: 9px;
+    color: ${({ $active, theme }) => ($active ? v.colorPrincipal : theme.textFade)};
+    background: ${({ $active, theme }) => ($active ? `${v.colorPrincipal}13` : theme.bg2)};
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 750;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+
+    &:hover {
+        border-color: ${v.colorPrincipal};
+        color: ${v.colorPrincipal};
+    }
+
+    &:focus-visible {
+        outline: 3px solid ${v.colorPrincipal}3d;
+        outline-offset: 2px;
+    }
+`;
+
+const CriteriaRuleList = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin-top: 4px;
+`;
+
+const CriteriaRule = styled.div`
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 15px 2px;
+    border-bottom: 1px solid ${({ theme }) => theme.bg4};
+    opacity: ${({ $disabled }) => ($disabled ? 0.5 : 1)};
+
+    input {
+        width: 16px;
+        height: 16px;
+        margin: 2px 0 0;
+        accent-color: ${v.colorPrincipal};
+        cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
+    }
+
+    label {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
+    }
+
+    strong {
+        color: ${({ theme }) => theme.text};
+        font-size: 0.87rem;
+        line-height: 1.35;
+    }
+
+    span {
+        color: ${({ theme }) => theme.textFade};
+        font-size: 0.77rem;
+        line-height: 1.45;
+    }
+`;
+
+const CriteriaImpact = styled.p`
+    margin: 16px 0 0;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: ${({ $free }) => ($free ? v.colorWarning : v.colorPrincipal)};
+    background: ${({ $free }) => ($free ? `${v.colorWarning}12` : `${v.colorPrincipal}12`)};
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.45;
+`;
+
+const CriteriaSavedHint = styled.p`
+    margin: 10px 2px 0;
+    color: ${({ theme }) => theme.textFade};
+    font-size: 0.73rem;
+    line-height: 1.45;
+`;
+
+const CriteriaDialogFooter = styled.footer`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 22px;
+    border-top: 1px solid ${({ theme }) => theme.bg4};
+    background: ${({ theme }) => theme.bgcards};
+
+    > div {
+        display: flex;
+        gap: 8px;
+    }
+
+    button {
+        min-height: 36px;
+        padding: 8px 12px;
+        border: 1px solid ${({ theme }) => theme.bg4};
+        border-radius: 8px;
+        background: ${({ theme }) => theme.bg};
+        color: ${({ theme }) => theme.text};
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    button:hover {
+        border-color: ${v.colorPrincipal};
+        color: ${v.colorPrincipal};
+    }
+
+    .apply {
+        border-color: ${v.colorPrincipal};
+        background: ${v.colorPrincipal};
+        color: #fff;
+    }
+
+    .apply:hover {
+        border-color: ${v.colorPrincipal};
+        background: ${v.colorPrincipal};
+        color: #fff;
+        filter: brightness(0.94);
+    }
+
+    .save-tournament {
+        border-color: ${v.colorPrincipal};
+        color: ${v.colorPrincipal};
+    }
+
+    .save-tournament:hover {
+        background: ${v.colorPrincipal}12;
+    }
+
+    button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+    }
+
+    button:focus-visible {
+        outline: 3px solid ${v.colorPrincipal}3d;
+        outline-offset: 2px;
+    }
+
+    @media (max-width: 480px) {
+        align-items: stretch;
+        flex-direction: column-reverse;
+
+        > div {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        button {
+            width: 100%;
+        }
+    }
 `;
 
 const ModalContainer = styled.div`

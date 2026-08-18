@@ -1,4 +1,4 @@
-import { addDaysToDate } from "./dateUtils";
+import { addDaysToDate } from "./dateUtils.js";
 
 export const normalizeJornadaName = (name) => {
   return String(name || "")

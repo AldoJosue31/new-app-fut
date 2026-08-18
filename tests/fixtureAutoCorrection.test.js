@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { autoCorregirFixture } from "../src/utils/fixtureAutoCorrection.js";
+import {
+    autoCorregirFixture,
+    restaurarFixtureRoundRobin,
+    restaurarFixtureRoundRobinCompleto,
+} from "../src/utils/fixtureAutoCorrection.js";
 import { validarFixture } from "../src/utils/fixtureValidation.js";
 
 const team = (id) => ({ id, name: `Equipo ${id}` });
@@ -175,4 +179,156 @@ test("no modifica jornadas extra ni partidos bloqueados", () => {
 
     assert.deepEqual(corrected.find(({ id }) => id === extra.id), extra);
     assert.deepEqual(corrected.find(({ id }) => id === locked.id), locked);
+});
+
+test("reconstruye conflictos complejos de ida y vuelta sin tocar una jornada escaneada", () => {
+    const scannedRound = [
+        match("scan-1", "A", "B", 0, { locked: true, scanLocked: true }),
+        match("scan-2", "C", "D", 0, { locked: true, scanLocked: true }),
+    ];
+    const initial = [
+        ...scannedRound,
+        match("r2-1", "A", "D", 1),
+        match("r2-2", "B", "C", 1),
+        match("r3-1", "A", "C", 2),
+        match("r3-2", "D", "B", 2),
+        match("r4-1", "B", "A", 3),
+        match("r4-2", "D", "C", 3),
+        match("r5-1", "C", "A", 4),
+        match("r5-2", "B", "D", 4),
+        // Esta jornada repite la vuelta de la primera y deja dos cruces sin vuelta.
+        match("r6-1", "B", "A", 5),
+        match("r6-2", "D", "C", 5),
+    ];
+
+    assert.ok(validarFixture(initial, { vueltas: "2" }).totalConflicts > 0);
+
+    const corrected = autoCorregirFixture(initial, 15000, { vueltas: "2" });
+    const directedCounts = corrected.reduce((counts, fixtureMatch) => {
+        const key = `${fixtureMatch.local.id}::${fixtureMatch.visitante.id}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+        return counts;
+    }, new Map());
+
+    assert.equal(validarFixture(corrected, { vueltas: "2" }).totalConflicts, 0);
+    assert.deepEqual(corrected.filter(({ scanLocked }) => scanLocked), scannedRound);
+    assert.ok([...directedCounts.values()].every((count) => count === 1));
+});
+
+test("no fuerza reglas de round robin desactivadas en una jornada personalizada", () => {
+    const initial = [
+        match("m1", "A", "B", 0),
+        match("m2", "A", "B", 0),
+    ];
+    const criteria = {
+        preventDuplicateTeams: false,
+        enforceRoundRobin: false,
+    };
+
+    const corrected = autoCorregirFixture(initial, 5000, { vueltas: "1" }, criteria);
+
+    assert.deepEqual(corrected, initial);
+    assert.equal(validarFixture(corrected, { vueltas: "1" }, criteria).totalConflicts, 0);
+});
+
+test("restaurar regenera las jornadas no confirmadas y elimina bloqueos temporales", () => {
+    const confirmedRound = [
+        match("confirmed-1", "A", "B", 0, { locked: true, roundLocked: true }),
+        match("confirmed-2", "C", "D", 0, { locked: true, roundLocked: true }),
+    ];
+    const initial = [
+        ...confirmedRound,
+        match("future-1", "A", "C", 1, {
+            locked: true,
+            scanLocked: true,
+            scanScheduleAccepted: true,
+            scanScheduleAction: "apply",
+        }),
+        match("future-2", "B", "D", 1, { locked: true, scanLocked: true }),
+        match("future-3", "A", "C", 2, { locked: true, scanLocked: true }),
+        match("future-4", "B", "D", 2, { locked: true, scanLocked: true }),
+    ];
+
+    const restored = restaurarFixtureRoundRobin(initial, 15000, { vueltas: "1" });
+    const futureMatches = restored.filter(({ roundLocked }) => !roundLocked);
+
+    assert.equal(validarFixture(restored, { vueltas: "1" }).totalConflicts, 0);
+    assert.deepEqual(
+        restored.filter(({ roundLocked }) => roundLocked),
+        confirmedRound,
+    );
+    assert.ok(futureMatches.every(({ locked, scanLocked }) => !locked && !scanLocked));
+    assert.ok(futureMatches.every(({ scanScheduleAccepted, scanScheduleAction }) =>
+        !scanScheduleAccepted && scanScheduleAction === null,
+    ));
+});
+
+test("restaurar reconstruye jornadas con partidos faltantes y sobrantes", () => {
+    const teams = ["A", "B", "C", "D"].map(team);
+    const jornadas = [
+        { id: "j1", name: "Jornada 1", status: "Confirmada" },
+        { id: "j2", name: "Jornada 2", status: "Pendiente" },
+        { id: "j3", name: "Jornada 3", status: "Pendiente" },
+    ];
+    const matches = [
+        { id: "confirmed-1", jornada_id: "j1", team1_id: "A", team2_id: "B" },
+        { id: "confirmed-2", jornada_id: "j1", team1_id: "C", team2_id: "D" },
+        { id: "future-1", jornada_id: "j2", team1_id: "A", team2_id: "C" },
+        { id: "future-2", jornada_id: "j2", team1_id: "B", team2_id: "D" },
+        { id: "future-extra", jornada_id: "j2", team1_id: "A", team2_id: "D" },
+        { id: "future-3", jornada_id: "j3", team1_id: "A", team2_id: "D" },
+    ];
+
+    const restored = restaurarFixtureRoundRobinCompleto({
+        teams,
+        config: { vueltas: "1" },
+        existingData: { jornadas, matches },
+    });
+    const matchesByRound = restored.matches.reduce((acc, fixtureMatch) => {
+        const roundMatches = acc.get(fixtureMatch.jornadaIndex) || [];
+        roundMatches.push(fixtureMatch);
+        acc.set(fixtureMatch.jornadaIndex, roundMatches);
+        return acc;
+    }, new Map());
+
+    assert.equal(restored.error, null);
+    assert.equal(validarFixture(restored.matches, { vueltas: "1" }).totalConflicts, 0);
+    assert.deepEqual(restored.deletedMatchIds, ["future-extra"]);
+    assert.equal(matchesByRound.get(0).length, 2);
+    assert.equal(matchesByRound.get(1).length, 2);
+    assert.equal(matchesByRound.get(2).length, 2);
+    assert.ok(matchesByRound.get(2).some((fixtureMatch) => fixtureMatch.dbId === null));
+    assert.ok(
+        restored.matches
+            .filter(({ roundLocked }) => !roundLocked)
+            .every(({ locked, scanLocked }) => !locked && !scanLocked),
+    );
+});
+
+test("restaurar no bloquea la correccion futura por una jornada confirmada incompleta", () => {
+    const teams = ["A", "B", "C", "D"].map(team);
+    const jornadas = [
+        { id: "j1", name: "Jornada 1", status: "Confirmada" },
+        { id: "j2", name: "Jornada 2", status: "Pendiente" },
+        { id: "j3", name: "Jornada 3", status: "Pendiente" },
+    ];
+    const matches = [
+        { id: "confirmed-1", jornada_id: "j1", team1_id: "A", team2_id: "B" },
+        { id: "future-1", jornada_id: "j2", team1_id: "A", team2_id: "C" },
+        { id: "future-2", jornada_id: "j2", team1_id: "B", team2_id: "D" },
+        { id: "future-3", jornada_id: "j3", team1_id: "A", team2_id: "D" },
+        { id: "future-4", jornada_id: "j3", team1_id: "B", team2_id: "C" },
+    ];
+
+    const restored = restaurarFixtureRoundRobinCompleto({
+        teams,
+        config: { vueltas: "1" },
+        existingData: { jornadas, matches },
+    });
+
+    assert.equal(restored.error, null);
+    assert.equal(validarFixture(restored.matches, { vueltas: "1" }).totalConflicts, 0);
+    assert.equal(restored.matches.filter(({ roundLocked }) => roundLocked).length, 1);
+    assert.equal(restored.matches.filter(({ jornadaIndex }) => jornadaIndex === 1).length, 2);
+    assert.equal(restored.matches.filter(({ jornadaIndex }) => jornadaIndex === 2).length, 2);
 });

@@ -4,8 +4,17 @@ import {
     resolveRepositionMappings,
     sortJornadas
 } from "./jornadaUtils";
-export { validarFixture } from "./fixtureValidation.js";
-export { autoCorregirFixture } from "./fixtureAutoCorrection.js";
+export {
+    DEFAULT_FIXTURE_CRITERIA,
+    resolveFixtureCriteria,
+    serializeFixtureCriteria,
+    validarFixture,
+} from "./fixtureValidation.js";
+export {
+    autoCorregirFixture,
+    restaurarFixtureRoundRobin,
+    restaurarFixtureRoundRobinCompleto,
+} from "./fixtureAutoCorrection.js";
 
 /**
  * Genera la estructura plana inicial de partidos (creacion).
