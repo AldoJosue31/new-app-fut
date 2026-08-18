@@ -767,6 +767,75 @@ export const bulkInsertMatchesService = async (matches) => {
   return data || [];
 };
 
+/**
+ * Elimina partidos excedentes de una restauracion de fixture. La lectura y el
+ * borrado se acotan a las jornadas editables entregadas por el editor para
+ * impedir que una jornada confirmada pueda ser afectada por error.
+ */
+export const deleteMatchesForFixtureRestoreService = async (
+  matchIds,
+  editableJornadaIds,
+) => {
+  const uniqueMatchIds = [...new Map(
+    (matchIds || [])
+      .filter((id) => id !== null && id !== undefined)
+      .map((id) => [String(id), id]),
+  ).values()];
+  const uniqueJornadaIds = [...new Map(
+    (editableJornadaIds || [])
+      .filter((id) => id !== null && id !== undefined)
+      .map((id) => [String(id), id]),
+  ).values()];
+
+  if (uniqueMatchIds.length === 0) return [];
+  if (uniqueJornadaIds.length === 0) {
+    throw new Error('No hay jornadas editables autorizadas para eliminar partidos.');
+  }
+
+  const { data: currentJornadas, error: jornadasError } = await supabase
+    .from('jornadas')
+    .select('id, status')
+    .in('id', uniqueJornadaIds);
+
+  if (jornadasError) throw jornadasError;
+  if (
+    (currentJornadas || []).length !== uniqueJornadaIds.length ||
+    (currentJornadas || []).some((jornada) =>
+      ['Confirmada', 'Finalizada'].includes(jornada.status)
+    )
+  ) {
+    throw new Error('No se pueden eliminar partidos de jornadas confirmadas.');
+  }
+
+  const { data: eligibleMatches, error: eligibleMatchesError } = await supabase
+    .from('matches')
+    .select('id, jornada_id')
+    .in('id', uniqueMatchIds)
+    .in('jornada_id', uniqueJornadaIds);
+
+  if (eligibleMatchesError) throw eligibleMatchesError;
+  if ((eligibleMatches || []).length !== uniqueMatchIds.length) {
+    throw new Error('Uno o más partidos excedentes ya no pertenecen a jornadas editables.');
+  }
+
+  const idsToDelete = eligibleMatches.map((match) => match.id);
+  const { error: eventsError } = await supabase
+    .from('match_events')
+    .delete()
+    .in('match_id', idsToDelete);
+
+  if (eventsError) throw eventsError;
+
+  const { error: deleteMatchesError } = await supabase
+    .from('matches')
+    .delete()
+    .in('id', idsToDelete)
+    .in('jornada_id', uniqueJornadaIds);
+
+  if (deleteMatchesError) throw deleteMatchesError;
+  return eligibleMatches || [];
+};
+
 export const createJornadasService = async (jornadas) => {
   if (!Array.isArray(jornadas) || jornadas.length === 0) {
     return [];

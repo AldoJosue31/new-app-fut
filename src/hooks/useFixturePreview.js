@@ -4,6 +4,7 @@ import {
     generarJornadaExtra,
     validarFixture,
     autoCorregirFixture,
+    restaurarFixtureRoundRobinCompleto,
     transformarPartidosExistentes,
 } from "../utils/fixtureAlgorithms";
 import {
@@ -44,6 +45,8 @@ export const useFixturePreview = (
     const [draggedItem, setDraggedItem] = useState(null);
     const [conflicts, setConflicts] = useState({});
     const [selectedTeamId, setSelectedTeamId] = useState(null);
+    const [deletedMatchIds, setDeletedMatchIds] = useState([]);
+    const [initialMatches, setInitialMatches] = useState([]);
 
     const isEditMode = !!existingData;
 
@@ -60,15 +63,19 @@ export const useFixturePreview = (
                         existingData.repositionMappings
                     );
                     setMatches(initial);
+                    setInitialMatches(initial);
                 } else if (matches.length === 0) {
                     const initial = generarEstructuraInicial(teams, config);
                     setMatches(initial);
+                    setInitialMatches(initial);
                 }
                 setIsAnimating(false);
             }, 50);
 
             setSelectedTeamId(null);
             setDraggedItem(null);
+            setDeletedMatchIds([]);
+            setInitialMatches([]);
             return () => clearTimeout(timer);
         }
 
@@ -76,6 +83,8 @@ export const useFixturePreview = (
             setMatches([]);
             setConflicts({});
             setDraggedItem(null);
+            setDeletedMatchIds([]);
+            setInitialMatches([]);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, isEditMode]);
@@ -130,7 +139,7 @@ export const useFixturePreview = (
     const handleShuffle = () => {
         const hasManualLocks = matches.some((match) => match.locked && !match.roundLocked);
         if (hasManualLocks) {
-            if (!window.confirm("Se perderan los bloqueos manuales. Las jornadas confirmadas se mantendran. ¿Continuar?")) {
+            if (!window.confirm("Se regeneraran todas las jornadas no confirmadas con Round Robin. Las jornadas confirmadas se mantendran. ¿Continuar?")) {
                 return;
             }
         }
@@ -139,15 +148,22 @@ export const useFixturePreview = (
         setTimeout(() => {
             let newMatches;
             if (isEditMode) {
-                newMatches = transformarPartidosExistentes(
-                    existingData.matches,
-                    existingData.jornadas,
+                const restoredFixture = restaurarFixtureRoundRobinCompleto({
                     teams,
-                    existingData.repositionMatchMappings,
-                    existingData.repositionMappings
-                );
+                    config,
+                    existingData,
+                });
+                if (restoredFixture.error) {
+                    newMatches = matches;
+                    setDeletedMatchIds([]);
+                    alert(restoredFixture.error);
+                } else {
+                    newMatches = restoredFixture.matches;
+                    setDeletedMatchIds(restoredFixture.deletedMatchIds);
+                }
             } else {
                 newMatches = generarEstructuraInicial(teams, config);
+                setDeletedMatchIds([]);
             }
 
             setMatches(newMatches);
@@ -559,6 +575,8 @@ export const useFixturePreview = (
     return {
         matches,
         matchesByRound,
+        deletedMatchIds,
+        initialMatches,
         conflicts,
         selectedTeamId,
         isAnimating,
