@@ -4,7 +4,7 @@ import { v } from "../../../../../../styles/variables";
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
-const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop' }, ref) => {
+const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop', showGeneratedDate = true }, ref) => {
     const isDark = themeMode === 'dark';
     const isMobile = layoutMode === 'mobile'; // "mobile" = Historia (1080x1920), "desktop" = Post 4:5 (1080x1350)
     
@@ -249,9 +249,11 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                     {config.descensos > 0 && <span style={{ fontSize: fBadge, fontWeight: '800', color: '#ef4444' }}>🟥 Descenso</span>}
                 </div>
                 
-                <div style={{ fontSize: fBadge, color: colors.subtext, fontWeight: '700' }}>
-                    Generado el {new Date().toLocaleDateString()}
-                </div>
+                {showGeneratedDate && (
+                    <div style={{ fontSize: fBadge, color: colors.subtext, fontWeight: '700' }}>
+                        Generado el {new Date().toLocaleDateString()}
+                    </div>
+                )}
             </div>
         </div>
     );
