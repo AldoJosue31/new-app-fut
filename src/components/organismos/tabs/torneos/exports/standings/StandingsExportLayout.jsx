@@ -1,7 +1,15 @@
 // src/components/organismos/tabs/torneos/exports/standings/StandingsExportLayout.jsx
 import React, { forwardRef } from 'react';
 import { v } from "../../../../../../styles/variables";
-import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine } from "react-icons/ri";
+import {
+    RiArrowUpSFill,
+    RiArrowDownSFill,
+    RiSubtractLine,
+    RiArrowUpCircleFill,
+    RiTrophyLine,
+    RiRepeat2Line,
+    RiArrowDownCircleFill
+} from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
 const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop', showGeneratedDate = true }, ref) => {
@@ -70,6 +78,23 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const arrowMargin = `-${5 * rowScale}px`;
     const gapSize = `${10 * rowScale}px`;
     const rankWidth = `${42 * rowScale}px`;
+    const fLegend = isMobile ? '18px' : '16px';
+
+    const renderLegendItem = (label, color, Icon) => (
+        <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '7px',
+            color,
+            fontSize: fLegend,
+            fontWeight: '800',
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap'
+        }}>
+            {React.createElement(Icon, { style: { fontSize: isMobile ? '23px' : '21px', flexShrink: 0 } })}
+            {label}
+        </span>
+    );
 
     const renderStandingTable = (data, startRank, keyPrefix) => (
         <div key={keyPrefix} style={{ 
@@ -243,10 +268,10 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
 
             <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', padding: '10px 0' }}>
                 <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                    {config.ascensos > 0 && <span style={{ fontSize: fBadge, fontWeight: '800', color: '#22c55e' }}>🟩 Ascenso</span>}
-                    {config.zonaLiguilla && <span style={{ fontSize: fBadge, fontWeight: '800', color: '#3b82f6' }}>🟦 Liguilla</span>}
-                    {config.repechaje > 0 && <span style={{ fontSize: fBadge, fontWeight: '800', color: '#f59e0b' }}>🟧 Repechaje</span>}
-                    {config.descensos > 0 && <span style={{ fontSize: fBadge, fontWeight: '800', color: '#ef4444' }}>🟥 Descenso</span>}
+                    {config.ascensos > 0 && renderLegendItem('Ascenso', '#22c55e', RiArrowUpCircleFill)}
+                    {config.zonaLiguilla && renderLegendItem('Liguilla', '#3b82f6', RiTrophyLine)}
+                    {config.repechaje > 0 && renderLegendItem('Repechaje', '#f59e0b', RiRepeat2Line)}
+                    {config.descensos > 0 && renderLegendItem('Descenso', '#ef4444', RiArrowDownCircleFill)}
                 </div>
                 
                 {showGeneratedDate && (
