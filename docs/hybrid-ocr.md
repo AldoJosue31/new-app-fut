@@ -100,10 +100,10 @@ Variables de las funciones:
 | `GOOGLE_CLOUD_VISION_PARENT` | `projects/ID/locations/us` o `eu` | Fija residencia regional opcional |
 | `ROL_JUEGO_CLIENT_OCR_MIN_CONFIDENCE` | numero de `0.76` a `0.99` | Umbral del rol local; predeterminado `0.76`, solo puede endurecerse |
 | `GEMINI_API_KEY` | secreto | Respaldo semantico existente |
-| `GEMINI_CEDULA_MODEL` | ID de modelo | Principal para cedulas; predeterminado `gemini-3.6-flash` |
-| `GEMINI_CEDULA_FALLBACK_MODEL` | ID de modelo | Respaldo para cedulas; predeterminado `gemini-3.5-flash` |
-| `GEMINI_MODEL` | ID de modelo | Principal para roles; predeterminado `gemini-3.6-flash` |
-| `GEMINI_FALLBACK_MODEL` | ID de modelo | Respaldo para roles; predeterminado `gemini-3.5-flash` |
+| `GEMINI_CEDULA_MODEL` | ID de modelo | Principal para cedulas; predeterminado `gemini-3.8-flash` |
+| `GEMINI_CEDULA_FALLBACK_MODEL` | ID de modelo | Respaldo para cedulas; predeterminado `gemini-3.6-flash` |
+| `GEMINI_MODEL` | ID de modelo | Principal para roles; predeterminado `gemini-3.8-flash` |
+| `GEMINI_FALLBACK_MODEL` | ID de modelo | Respaldo para roles; predeterminado `gemini-3.6-flash` |
 
 Ambas funciones cambian al modelo de respaldo cuando el principal no esta disponible, presenta un error temporal o alcanza una cuota temporal o diaria. Los errores de autenticacion o facturacion no activan otra llamada porque cambiar de modelo no corrige esas condiciones.
 

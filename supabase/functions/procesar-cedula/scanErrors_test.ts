@@ -12,14 +12,14 @@ const assertEquals = (actual: unknown, expected: unknown, message: string) => {
   if (actual !== expected) throw new Error(`${message}: esperado ${expected}, recibido ${actual}`);
 };
 
-Deno.test("usa Gemini 3.6 Flash y reemplaza modelos retirados", () => {
+Deno.test("usa Gemini 3.8 Flash y reemplaza modelos retirados", () => {
   assertEquals(selectGeminiModel("models/gemini-2.0-flash"), DEFAULT_GEMINI_MODEL, "modelo primario");
   assertEquals(
     selectGeminiModel("gemini-3.1-flash-lite-preview"),
     DEFAULT_GEMINI_MODEL,
     "preview retirado",
   );
-  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.6-flash", "modelo principal por defecto");
+  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.8-flash", "modelo principal por defecto");
   assertEquals(selectGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash", "modelo vigente");
 });
 
@@ -29,7 +29,7 @@ Deno.test("elige un modelo alterno vigente", () => {
     DEFAULT_GEMINI_FALLBACK_MODEL,
     "modelo de respaldo",
   );
-  assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.5-flash", "respaldo por defecto");
+  assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.6-flash", "respaldo por defecto");
 });
 
 Deno.test("usa el modelo alterno ante incompatibilidad de configuracion", () => {
