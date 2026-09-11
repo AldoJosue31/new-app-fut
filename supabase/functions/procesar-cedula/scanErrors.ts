@@ -1,5 +1,5 @@
-export const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
-export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.6-flash";
 
 const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 const PACIFIC_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {

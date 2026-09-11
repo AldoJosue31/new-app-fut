@@ -31,7 +31,7 @@ Deno.test("reemplaza modelos retirados y conserva modelos vigentes", () => {
     "gemini-3.5-flash",
     "modelo vigente",
   );
-  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.6-flash", "modelo principal");
+  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.8-flash", "modelo principal");
 });
 
 Deno.test("elige un modelo alterno vigente y distinto del principal", () => {
@@ -50,7 +50,7 @@ Deno.test("elige un modelo alterno vigente y distinto del principal", () => {
     DEFAULT_GEMINI_MODEL,
     "fallback inverso",
   );
-  assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.5-flash", "modelo de respaldo");
+  assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.6-flash", "modelo de respaldo");
 });
 
 Deno.test("no reintenta modelo retirado, configuracion, auth, cuota ni timeout", () => {
