@@ -689,7 +689,7 @@ Deno.serve(async (req) => {
         detailInputBytes: detailImages.reduce((total, detail) => total + detail.inputBytes, 0),
         mimeType,
         thinkingLevel: GEMINI_THINKING_LEVEL,
-        visualResolution: "high",
+        visualResolution: detailImages.length ? "medium+high-details" : "high",
         inputTokens: interaction.usage?.total_input_tokens,
         thoughtTokens: interaction.usage?.total_thought_tokens,
         outputTokens: interaction.usage?.total_output_tokens,
