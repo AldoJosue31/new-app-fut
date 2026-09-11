@@ -25,6 +25,7 @@ import {
 
 const MAX_BASE64_LENGTH = 17_500_000;
 const GEMINI_TIMEOUT_MS = 45_000;
+const GEMINI_THINKING_LEVEL = "low";
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -244,7 +245,7 @@ const createInteraction = (
 ) =>
   client.interactions.create({
     model,
-    generation_config: { thinking_level: "medium" },
+    generation_config: { thinking_level: GEMINI_THINKING_LEVEL },
     input: [
       { type: "text", text: instructions },
       {
@@ -455,6 +456,7 @@ Deno.serve(async (req) => {
         inputTokens: interaction.usage?.total_input_tokens,
         thoughtTokens: interaction.usage?.total_thought_tokens,
         outputTokens: interaction.usage?.total_output_tokens,
+        thinkingLevel: GEMINI_THINKING_LEVEL,
       }),
     );
 

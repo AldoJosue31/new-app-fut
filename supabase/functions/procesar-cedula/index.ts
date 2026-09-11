@@ -189,8 +189,10 @@ const createScanInteraction = (
   input: [
     { type: "text", text: scanInstructions },
     { type: "text", text: "Imagen completa de la cedula: autoridad para equipos, bloques, marcador y geometria general." },
-    // Se mantiene alta resolucion visual para no perder nombres, dorsales ni marcas pequenas.
-    { type: "image", data: imageBase64, mime_type: mimeType, resolution: "high" },
+    // Los recortes de jugadores conservan alta resolucion; cuando existen,
+    // la imagen completa usa resolucion media para reducir latencia sin perder
+    // el detalle fino que se concentra en los recortes.
+    { type: "image", data: imageBase64, mime_type: mimeType, resolution: detailImages.length ? "medium" : "high" },
     ...detailImages.flatMap(detail => [
       { type: "text" as const, text: detail.label },
       { type: "image" as const, data: detail.imageBase64, mime_type: detail.mimeType, resolution: "high" as const },
@@ -687,7 +689,7 @@ Deno.serve(async (req) => {
         detailInputBytes: detailImages.reduce((total, detail) => total + detail.inputBytes, 0),
         mimeType,
         thinkingLevel: GEMINI_THINKING_LEVEL,
-        visualResolution: "high",
+        visualResolution: detailImages.length ? "medium+high-details" : "high",
         inputTokens: interaction.usage?.total_input_tokens,
         thoughtTokens: interaction.usage?.total_thought_tokens,
         outputTokens: interaction.usage?.total_output_tokens,
