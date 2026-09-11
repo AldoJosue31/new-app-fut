@@ -10,7 +10,7 @@ const MAX_OCR_LINES = 220;
 const MAX_LINE_LENGTH = 180;
 const MIN_LINE_CONFIDENCE = 0.2;
 const MIN_RELIABLE_PAIR_CONFIDENCE = 0.76;
-const LOCAL_OCR_TIMEOUT_MS = 45_000;
+const LOCAL_OCR_TIMEOUT_MS = 8_000;
 const MATCH_SEPARATOR_PATTERN = /\b(?:v\s*[.-]?\s*[s5]|contra)\b/i;
 const BYE_PATTERN = /\b(?:descansa|descanso|libre|bye|sin\s+juego)\b/i;
 const CLOCK_PATTERN = /\b([01]?\d|2[0-3])(?:\s*[:.]\s*([0-5]\d))\s*([ap]\s*\.?\s*m\.?)?\b/i;
@@ -27,6 +27,12 @@ const WEEKDAYS = [
 
 let ocrInstancePromise = null;
 let localOcrDisabledForSession = false;
+
+const localOcrThreadCount = () => {
+    const hardwareConcurrency = Number(globalThis.navigator?.hardwareConcurrency);
+    if (!Number.isFinite(hardwareConcurrency)) return 1;
+    return Math.max(1, Math.min(2, Math.floor(hardwareConcurrency)));
+};
 
 const cleanText = (value, maxLength = MAX_LINE_LENGTH) => Array.from(String(value || ""))
     .map((character) => (
@@ -625,7 +631,7 @@ const getOcrInstance = async () => {
                 worker: true,
                 ortOptions: {
                     backend: "wasm",
-                    numThreads: 1,
+                    numThreads: localOcrThreadCount(),
                     simd: true,
                 },
             }))

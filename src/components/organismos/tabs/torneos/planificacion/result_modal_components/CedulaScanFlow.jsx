@@ -87,9 +87,7 @@ const toStatNumber = (value) => parseInt(value, 10) || 0;
 
 const createPlayerDetailImages = async (decoded) => {
   const regions = getCedulaPlayerDetailRegions(decoded.width, decoded.height);
-  const details = [];
-
-  for (const region of regions) {
+  const details = await Promise.all(regions.map(async (region) => {
     const scale = Math.min(
       2,
       MAX_PLAYER_DETAIL_SIDE / Math.max(region.width, region.height),
@@ -98,7 +96,7 @@ const createPlayerDetailImages = async (decoded) => {
     canvas.width = Math.max(1, Math.round(region.width * scale));
     canvas.height = Math.max(1, Math.round(region.height * scale));
     const context = canvas.getContext("2d");
-    if (!context) continue;
+    if (!context) return null;
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
     context.fillStyle = "#fff";
@@ -119,16 +117,16 @@ const createPlayerDetailImages = async (decoded) => {
     if (blob?.size > MAX_PLAYER_DETAIL_BYTES) {
       blob = await canvasToBlob(canvas, "image/jpeg", 0.78);
     }
-    if (!blob || blob.size > MAX_PLAYER_DETAIL_BYTES) continue;
-    details.push({
+    if (!blob || blob.size > MAX_PLAYER_DETAIL_BYTES) return null;
+    return {
       blob,
       mimeType: "image/jpeg",
       fileName: `${region.id}.jpg`,
       label: region.label,
-    });
-  }
+    };
+  }));
 
-  return details;
+  return details.filter(Boolean);
 };
 
 const fileToScanPayload = (file) => prepareImageForScan(file, {
@@ -543,7 +541,7 @@ export function CedulaScanFlow({
       if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
       setScanProgress(100);
-      await new Promise(resolve => window.setTimeout(resolve, 320));
+      await new Promise(resolve => window.setTimeout(resolve, 120));
       setRawScan({ ...emptyScan, ...data.scan });
     } catch (error) {
       if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds, error.code);
