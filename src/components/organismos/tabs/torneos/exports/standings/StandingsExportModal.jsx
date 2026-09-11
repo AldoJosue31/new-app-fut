@@ -20,6 +20,7 @@ export default function StandingsExportModal({
 
     const [isDarkExport, setIsDarkExport] = useState(false);
     const [isMobileLayout, setIsMobileLayout] = useState(false);
+    const [showGeneratedDate, setShowGeneratedDate] = useState(true);
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [previewScale, setPreviewScale] = useState(0.8);
     const [loading, setLoading] = useState(true);
@@ -147,19 +148,36 @@ export default function StandingsExportModal({
     };
 
     const renderConfigControls = () => (
-        <ExportPreviewHeader
-            isDark={isDarkExport}
-            setIsDark={setIsDarkExport}
-            isMobile={isMobileLayout}
-            setIsMobile={setIsMobileLayout}
-            onExport={handleExportPNG}
-            isExporting={isExporting}
-            showExportAction={false}
-            showInfo={false}
-            inactiveFormatLabel="Post (4:5)"
-            activeFormatLabel="Historia (9:16)"
-            formatTitle="Cambiar formato de tamano"
-        />
+        <div className="export-config-controls">
+            <ExportPreviewHeader
+                isDark={isDarkExport}
+                setIsDark={setIsDarkExport}
+                isMobile={isMobileLayout}
+                setIsMobile={setIsMobileLayout}
+                onExport={handleExportPNG}
+                isExporting={isExporting}
+                showExportAction={false}
+                showInfo={false}
+                inactiveFormatLabel="Post (4:5)"
+                activeFormatLabel="Historia (9:16)"
+                formatTitle="Cambiar formato de tamano"
+            />
+            <GeneratedDateToggle
+                type="button"
+                role="switch"
+                aria-checked={showGeneratedDate}
+                aria-label={`${showGeneratedDate ? "Ocultar" : "Mostrar"} fecha de generacion`}
+                title={`${showGeneratedDate ? "Ocultar" : "Mostrar"} fecha de generacion`}
+                onClick={() => setShowGeneratedDate((current) => !current)}
+                disabled={isExporting}
+                $active={showGeneratedDate}
+            >
+                <span>Fecha de generacion</span>
+                <span className="switch" aria-hidden="true">
+                    <span />
+                </span>
+            </GeneratedDateToggle>
+        </div>
     );
 
     if (!isOpen) return null;
@@ -235,6 +253,7 @@ export default function StandingsExportModal({
                                     metaInfo={metaInfo}
                                     themeMode={isDarkExport ? "dark" : "light"}
                                     layoutMode={isMobileLayout ? "mobile" : "desktop"}
+                                    showGeneratedDate={showGeneratedDate}
                                 />
                             </div>
                         </div>
@@ -365,9 +384,9 @@ const FloatingConfigPanel = styled.div`
         position: absolute;
         top: 0;
         right: 48px;
-        width: ${({ $open }) => ($open ? "292px" : "0")};
-        max-width: 292px;
-        height: 42px;
+        width: ${({ $open }) => ($open ? "320px" : "0")};
+        max-width: 320px;
+        height: ${({ $open }) => ($open ? "102px" : "0")};
         overflow: hidden;
         opacity: ${({ $open }) => ($open ? 1 : 0)};
         pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
@@ -375,20 +394,72 @@ const FloatingConfigPanel = styled.div`
         border-radius: 14px;
         background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
         box-shadow: ${({ $open }) => ($open ? "0 14px 34px rgba(0, 0, 0, 0.14)" : "none")};
-        transition: opacity 0.18s ease, box-shadow 0.22s ease;
+        transition: width 0.18s ease, height 0.18s ease, opacity 0.18s ease, box-shadow 0.22s ease;
 
-        > div {
-            border-bottom: 0;
-            background: transparent;
-            min-width: 292px;
-            height: 100%;
-            padding-top: 3px;
-            padding-bottom: 3px;
+        .export-config-controls {
+            min-width: 320px;
         }
     }
 
     @media (max-width: 520px) {
         display: none;
+    }
+`;
+
+const GeneratedDateToggle = styled.button`
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 0;
+    background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
+    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-align: left;
+
+    .switch {
+        width: 36px;
+        height: 22px;
+        padding: 3px;
+        flex: 0 0 auto;
+        border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+        border-radius: 999px;
+        background: ${({ $active, theme }) => $active
+            ? (theme.tournamentDashboard?.primary || theme.primary)
+            : (theme.tournamentDashboard?.itemSurface || theme.bg2)};
+        box-sizing: border-box;
+        transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .switch > span {
+        display: block;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+        transform: translateX(${({ $active }) => ($active ? "14px" : "0")});
+        transition: transform 0.2s ease;
+    }
+
+    &:hover:not(:disabled) {
+        color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.tournamentDashboard?.primary || theme.primary};
+        background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
+    }
+
+    &:focus-visible {
+        outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+        outline-offset: -2px;
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
     }
 `;
 
