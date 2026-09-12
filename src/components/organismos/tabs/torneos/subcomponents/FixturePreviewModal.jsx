@@ -21,6 +21,10 @@ import {
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { FixtureMatchCard } from "./FixtureMatchCard";
 import { useFixturePreview } from "../../../../../hooks/useFixturePreview";
+import {
+    buildFixtureRoundMatchesFromPairs,
+    isFixtureMatchLocked,
+} from "../../../../../utils/fixtureRoundEditing.js";
 import { ConfirmModal } from "../../../ConfirmModal";
 import {
     DEFAULT_FIXTURE_CRITERIA,
@@ -297,55 +301,6 @@ const getTeamSuggestions = (query, teamOptions = []) => {
         .slice(0, 6);
 };
 
-const normalizeTextMatch = (match) => {
-    const localId = getTeamKey(match.local);
-    const visitanteId = getTeamKey(match.visitante);
-
-    if (localId === "BYE" && visitanteId && visitanteId !== "BYE") {
-        return {
-            ...match,
-            local: match.visitante,
-            visitante: match.local,
-            isByeMatch: true,
-        };
-    }
-
-    return {
-        ...match,
-        isByeMatch: localId === "BYE" || visitanteId === "BYE",
-    };
-};
-
-const buildRoundMatchesFromTextPairs = (roundIndex, roundMatches = [], pairs = []) =>
-    pairs.map((pair, index) => {
-        const current = roundMatches[index];
-        const normalizedRoundIndex = Number(roundIndex);
-
-        return normalizeTextMatch({
-            ...(current || {}),
-            id:
-                current?.id ||
-                `temp_text_${normalizedRoundIndex}_${index + 1}_${getTeamKey(pair.local)}_${getTeamKey(pair.visitante)}`,
-            dbId: current?.dbId || null,
-            local: pair.local,
-            visitante: pair.visitante,
-            jornadaIndex: normalizedRoundIndex,
-            locked: current?.locked || false,
-            roundLocked: false,
-            isGeneratedRound:
-                current?.isGeneratedRound ||
-                roundMatches[0]?.isGeneratedRound ||
-                false,
-            roundType: current?.roundType || roundMatches[0]?.roundType,
-            roundName:
-                current?.roundName ||
-                roundMatches[0]?.roundName ||
-                `Jornada ${normalizedRoundIndex + 1}`,
-            originalJornadaId: current?.originalJornadaId,
-            originalJornadaName: current?.originalJornadaName,
-        });
-    });
-
 const buildMatchesFromTextState = ({
     matches = [],
     roundIndexes = [],
@@ -365,15 +320,16 @@ const buildMatchesFromTextState = ({
         if (roundMatches.some((match) => match.roundLocked)) return;
 
         const pairs = parseRoundText(roundTextByIndex[rIndex], teamLookup);
-        const nextRoundMatches = buildRoundMatchesFromTextPairs(
+        const replacement = buildFixtureRoundMatchesFromPairs(
             normalizedRoundIndex,
             roundMatches,
             pairs
         );
+        if (replacement.error) return;
 
         nextMatches = [
             ...nextMatches.filter((match) => Number(match.jornadaIndex) !== normalizedRoundIndex),
-            ...nextRoundMatches,
+            ...replacement.matches,
         ];
     });
 
@@ -477,6 +433,7 @@ export function FixturePreviewModal({
     const [isSavingFixtureCriteria, setIsSavingFixtureCriteria] = useState(false);
     const {
         matches, matchesByRound, deletedMatchIds, initialMatches, selectedTeamId, isAnimating, isEditMode,
+        isOptimizing, autoFixResult,
         handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
         handleDragStart, handleTeamDragStart, handleDropOnMatch,
         handleDropOnJornada, handleDropOnTeamSlot,
@@ -562,7 +519,11 @@ export function FixturePreviewModal({
     };
 
     const handleConfirmar = () => {
-        if (isEditMode && !hasFixtureChanges) return;
+        if (isAnimating || isOptimizing || (isEditMode && !hasFixtureChanges)) return;
+        if (textParsingBlocks || protectedTextRoundIndexes.length > 0) {
+            alert("Hay texto sin reconocer o cambios en partidos bloqueados. Revisa las jornadas indicadas antes de guardar.");
+            return;
+        }
 
         if (textCompletenessBlocks) {
             alert("Hay jornadas incompletas en el editor de texto. Completa los partidos esperados antes de guardar.");
@@ -575,6 +536,7 @@ export function FixturePreviewModal({
             finalMatches,
             config,
             fixtureCriteria,
+            { teams, roundDefinitions },
         );
         const latestBlockingConflicts = Object.entries(latestConflicts).reduce(
             (acc, [rIndex, roundConflicts]) => {
@@ -603,7 +565,7 @@ export function FixturePreviewModal({
         }
 
         if (isEditMode) {
-            onConfirm(finalMatches, { deletedMatchIds });
+            onConfirm(finalMatches, { deletedMatchIds: finalDeletedMatchIds });
         } else {
             // Lógica legacy para creación nueva
             const maxJornada = Math.max(...finalMatches.map(m => m.jornadaIndex), 0);
@@ -644,6 +606,7 @@ export function FixturePreviewModal({
                     jornada?.status === "Finalizada" ||
                     (matchesByRound[index] || []).some((match) => match.roundLocked),
                 isGenerated: false,
+                roundType: "official",
             }))
             .filter((round) =>
                 isOfficialJornadaName(existingData.jornadas?.[Number(round.roundIndex)]?.name)
@@ -668,6 +631,7 @@ export function FixturePreviewModal({
                             `Jornada ${Number(rIndex) + 1}`,
                         isLocked: (matchesByRound[rIndex] || []).some((match) => match.roundLocked),
                         isGenerated: true,
+                        roundType: firstMatch?.roundType || (isRepositionJornadaName(firstMatch?.roundName) ? "reposition" : "official"),
                     };
                 });
 
@@ -681,6 +645,7 @@ export function FixturePreviewModal({
                 title: matchesByRound[rIndex]?.[0]?.roundName || `Jornada ${Number(rIndex) + 1}`,
                 isLocked: (matchesByRound[rIndex] || []).some((match) => match.roundLocked),
                 isGenerated: !!matchesByRound[rIndex]?.some((match) => match.isGeneratedRound),
+                roundType: matchesByRound[rIndex]?.[0]?.roundType || "official",
             }));
     }, [matchesByRound, persistedOfficialRounds]);
 
@@ -720,8 +685,8 @@ export function FixturePreviewModal({
         [finalMatchesForSave]
     );
     const previewValidation = useMemo(
-        () => validarFixture(finalMatchesForSave, config, fixtureCriteria),
-        [config, finalMatchesForSave, fixtureCriteria]
+        () => validarFixture(finalMatchesForSave, config, fixtureCriteria, { teams, roundDefinitions }),
+        [config, finalMatchesForSave, fixtureCriteria, teams, roundDefinitions]
     );
     const isRoundLocked = (rIndex) =>
         roundDefinitionMap[rIndex]?.isLocked ??
@@ -793,7 +758,7 @@ export function FixturePreviewModal({
                 const fallbackCount = isRepositionRound(roundMatches, roundTitle)
                     ? currentCount
                     : defaultRoundMatchCount;
-                const expectedCount = Math.max(currentCount, fallbackCount);
+                const expectedCount = fallbackCount;
 
                 if (expectedCount > 0) {
                     acc[rIndex] = expectedCount;
@@ -824,6 +789,8 @@ export function FixturePreviewModal({
                     detected,
                     expected,
                     attempted,
+                    hasUnrecognizedText: String(text).split(MATCH_SEPARATOR_PATTERN).filter((chunk) => chunk.trim()).length !== pairs.length,
+                    protectedError: !isLocked && buildFixtureRoundMatchesFromPairs(rIndex, matchesByRound[rIndex] || [], pairs).error,
                     isComplete: isTextRoundComplete({
                         detected,
                         expected,
@@ -858,33 +825,45 @@ export function FixturePreviewModal({
         requireCompleteRounds: fixtureCriteria.requireCompleteRounds,
         invalidRoundIndexes: invalidTextRoundIndexes,
     });
+    const unrecognizedTextRoundIndexes = viewMode === "text"
+        ? roundIndexes.filter((rIndex) => !textRoundStats[rIndex]?.isLocked && textRoundStats[rIndex]?.hasUnrecognizedText)
+        : [];
+    const protectedTextRoundIndexes = viewMode === "text"
+        ? roundIndexes.filter((rIndex) => textRoundStats[rIndex]?.protectedError)
+        : [];
+    const textParsingBlocks = unrecognizedTextRoundIndexes.length > 0;
     const blockingConflictCount = useMemo(
         () =>
-            roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
-                .length,
-        [blockingConflicts, roundIndexes]
+            Object.values(blockingConflicts).filter((roundConflicts) => roundConflicts?.length).length,
+        [blockingConflicts]
     );
-    const conflictCount = useMemo(() => {
+    const conflictCount = (() => {
         const conflictRoundSet = new Set(
-            roundIndexes.filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
+            Object.keys(blockingConflicts).filter((rIndex) => Boolean(blockingConflicts[rIndex]?.length))
         );
 
         if (textCompletenessBlocks) {
             invalidTextRoundIndexes.forEach((rIndex) => conflictRoundSet.add(rIndex));
         }
+        unrecognizedTextRoundIndexes.forEach((rIndex) => conflictRoundSet.add(rIndex));
+        protectedTextRoundIndexes.forEach((rIndex) => conflictRoundSet.add(rIndex));
         return conflictRoundSet.size;
-    }, [
-        blockingConflicts,
-        invalidTextRoundIndexes,
-        roundIndexes,
-        textCompletenessBlocks,
-    ]);
+    })();
+    const finalDeletedMatchIds = useMemo(() => {
+        const retained = new Set(finalMatchesForSave.filter((match) => match.dbId).map((match) => String(match.dbId)));
+        const removed = [...initialMatches, ...matches]
+            .filter((match) => match.dbId && !retained.has(String(match.dbId)))
+            .map((match) => match.dbId);
+        return [...new Map([...deletedMatchIds, ...removed]
+            .filter((id) => !retained.has(String(id)))
+            .map((id) => [String(id), id])).values()];
+    }, [deletedMatchIds, finalMatchesForSave, initialMatches, matches]);
     const hasFixtureChanges = useMemo(() => {
         if (!isEditMode) return true;
-        if (deletedMatchIds.length > 0) return true;
+        if (finalDeletedMatchIds.length > 0) return true;
 
         return buildFixtureSignature(finalMatchesForSave) !== buildFixtureSignature(initialMatches);
-    }, [deletedMatchIds, finalMatchesForSave, initialMatches, isEditMode]);
+    }, [finalDeletedMatchIds, finalMatchesForSave, initialMatches, isEditMode]);
     const autoFixDescription = useMemo(() => {
         if (!fixtureCriteria.enforceRoundRobin) {
             return "Reacomoda equipos repetidos por jornada sin imponer cruces de Round Robin.";
@@ -900,12 +879,24 @@ export function FixturePreviewModal({
     }, [config?.vueltas, fixtureCriteria]);
 
     const handleSmartAutoFix = () => {
+        if (textParsingBlocks) {
+            alert(`No se reconocen todos los cruces de ${unrecognizedTextRoundIndexes.map(getRoundTitle).join(", ")}. Revisa los nombres y el formato «Local vs Visitante» antes de autocorregir.`);
+            return;
+        }
+        if (protectedTextRoundIndexes.length > 0) {
+            alert(textRoundStats[protectedTextRoundIndexes[0]].protectedError);
+            return;
+        }
         manualTextRoundsRef.current = new Set();
         setRoundTextByIndex({});
         setFocusedRoundIndex(null);
         setActiveSuggestion(null);
-        handleAutoFix(finalMatchesForSave);
+        handleAutoFix(finalMatchesForSave, { roundDefinitions });
     };
+    const visibleAutoFixResult = autoFixResult &&
+        buildFixtureSignature(autoFixResult.matches) === buildFixtureSignature(finalMatchesForSave)
+        ? autoFixResult
+        : null;
 
     useEffect(() => {
         if (!isOpen) {
@@ -964,6 +955,7 @@ export function FixturePreviewModal({
     };
 
     const handleRoundTextChange = (rIndex, value, caretPosition) => {
+        if (isAnimating || isRoundLocked(rIndex)) return;
         manualTextRoundsRef.current.add(String(rIndex));
         setRoundTextByIndex((prev) => ({
             ...prev,
@@ -977,8 +969,10 @@ export function FixturePreviewModal({
     };
 
     const handleRoundTextBlur = (rIndex) => {
+        if (isAnimating || isRoundLocked(rIndex)) return;
         const currentText = roundTextByIndex[rIndex] || "";
         if (currentText.trim().length === 0) {
+            if (!handleReplaceRoundMatches(Number(rIndex), [])) return;
             manualTextRoundsRef.current.delete(String(rIndex));
             setRoundTextByIndex((prev) => ({
                 ...prev,
@@ -993,13 +987,19 @@ export function FixturePreviewModal({
         const { detected: detectedPlayable, attempted: attemptedPlayable } =
             getTextRoundMatchStats(currentText, pairs);
 
-        if (detectedPlayable !== attemptedPlayable && attemptedPlayable > 0) {
+        if (String(currentText).split(MATCH_SEPARATOR_PATTERN).filter((chunk) => chunk.trim()).length !== pairs.length ||
+            (detectedPlayable !== attemptedPlayable && attemptedPlayable > 0)) {
             setFocusedRoundIndex(null);
             setActiveSuggestion(null);
             return;
         }
 
         if (detectedPlayable === 0) {
+            setFocusedRoundIndex(null);
+            setActiveSuggestion(null);
+            return;
+        }
+        if (!handleReplaceRoundMatches(Number(rIndex), pairs)) {
             setFocusedRoundIndex(null);
             setActiveSuggestion(null);
             return;
@@ -1017,9 +1017,6 @@ export function FixturePreviewModal({
         setActiveSuggestion(null);
         manualTextRoundsRef.current.delete(String(rIndex));
 
-        if (pairs.length > 0) {
-            handleReplaceRoundMatches(Number(rIndex), pairs);
-        }
     };
 
     const handleSuggestionSelect = (team) => {
@@ -1047,10 +1044,11 @@ export function FixturePreviewModal({
     const handleApplyRolJuego = (pairs, { preserveDetectedSchedule = false } = {}) => {
         if (scanRoundIndex === null) return;
         const normalizedRoundIndex = Number(scanRoundIndex);
-        handleReplaceRoundMatches(normalizedRoundIndex, pairs, {
+        const applied = handleReplaceRoundMatches(normalizedRoundIndex, pairs, {
             lockMatches: true,
             preserveDetectedSchedule,
         });
+        if (!applied) return;
         manualTextRoundsRef.current.delete(String(scanRoundIndex));
         setRoundTextByIndex((prev) => ({
             ...prev,
@@ -1063,7 +1061,7 @@ export function FixturePreviewModal({
     const handleLockRequest = (match) => {
         if (!match || match.roundLocked) return;
 
-        if (match.locked && match.scanLocked) {
+        if (match.scanLocked) {
             if (match.scanScheduleAccepted && match.scannedDate && match.scannedTime) {
                 setPendingUnlockMatch(match);
                 return;
@@ -1214,6 +1212,7 @@ export function FixturePreviewModal({
                                 type="button"
                                 onClick={() => setViewMode((prev) => (prev === "text" ? "cards" : "text"))}
                                 $active={viewMode === "text"}
+                                disabled={isAnimating}
                             >
                                 {viewMode === "text" ? <RiLayoutGridLine /> : <RiEdit2Line />}
                                 <span>{viewMode === "text" ? "Vista tarjetas" : "Editar texto"}</span>
@@ -1232,11 +1231,11 @@ export function FixturePreviewModal({
                                     </span>
                                 </ToggleFilterButton>
                             )}
-                            <ActionButton type="button" onClick={openCriteriaModal}>
+                            <ActionButton type="button" onClick={openCriteriaModal} disabled={isAnimating}>
                                 <RiSettings3Line />
                                 <span>Criterios</span>
                             </ActionButton>
-                            {blockingConflictCount > 0 && (
+                            {conflictCount > 0 && (
                                 <ActionButton
                                     type="button"
                                     onClick={handleSmartAutoFix}
@@ -1244,8 +1243,8 @@ export function FixturePreviewModal({
                                     $color={v.colorWarning}
                                     title={autoFixDescription}
                                 >
-                                    <RiMagicLine className={isAnimating ? "icon-spin" : ""} />
-                                    <span>{isAnimating ? "Resolviendo..." : "Auto-Corregir"}</span>
+                                    <RiMagicLine className={isOptimizing ? "icon-spin" : ""} />
+                                    <span>{isOptimizing ? "Resolviendo..." : "Auto-Corregir"}</span>
                                 </ActionButton>
                             )}
                             <ActionButton
@@ -1263,10 +1262,37 @@ export function FixturePreviewModal({
                     </Toolbar>
 
                     <ScrollArea>
+                        {visibleAutoFixResult && visibleAutoFixResult.status !== "resolved" && (
+                            <CorrectionNotice role="status" aria-live="polite">
+                                <strong>
+                                    <RiErrorWarningLine />
+                                    {visibleAutoFixResult.status === "blocked"
+                                        ? "Los partidos bloqueados impiden completar la corrección"
+                                        : "Quedan conflictos por resolver"}
+                                </strong>
+                                <p>{visibleAutoFixResult.message}</p>
+                                {visibleAutoFixResult.blockingMatches?.length > 0 && (
+                                    <ul>
+                                        {visibleAutoFixResult.blockingMatches.map((match, index) => (
+                                            <li key={`${match.id}-${index}`}>
+                                                {getRoundTitle(String(match.jornadaIndex))}: {match.local?.name || String(match.local?.id || match.local || "Local")} vs {match.visitante?.name || String(match.visitante?.id || match.visitante || "Visitante")}
+                                                {" — "}{match.roundLocked ? "jornada confirmada" : match.scanLocked ? "escaneado y bloqueado" : "bloqueado"}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </CorrectionNotice>
+                        )}
+                        {(textParsingBlocks || protectedTextRoundIndexes.length > 0) && (
+                            <CorrectionNotice role="status">
+                                {textParsingBlocks && <p>Hay cruces sin reconocer en {unrecognizedTextRoundIndexes.map(getRoundTitle).join(", ")}. Revisa los nombres y el formato «Local vs Visitante».</p>}
+                                {protectedTextRoundIndexes.map((rIndex) => <p key={rIndex}>{getRoundTitle(rIndex)}: {textRoundStats[rIndex].protectedError}</p>)}
+                            </CorrectionNotice>
+                        )}
                         {canShowRoundGenerators && (
                             <RoundCreationPanel>
                                 {canGenerateExtraRound && (
-                                    <button type="button" onClick={handleGenerateExtraRound}>
+                                    <button type="button" onClick={handleGenerateExtraRound} disabled={isAnimating}>
                                         <RiAddLine />
                                         <div>
                                             <strong>Jornada extra</strong>
@@ -1278,6 +1304,7 @@ export function FixturePreviewModal({
                                     <button
                                         type="button"
                                         onClick={handleGenerateRepositionRound}
+                                        disabled={isAnimating}
                                         className="reposition"
                                     >
                                         <RiHistoryLine />
@@ -1308,8 +1335,9 @@ export function FixturePreviewModal({
                                     isComplete: false,
                                 };
                                 const hasTextCountError =
-                                    textCompletenessBlocks &&
-                                    invalidTextRoundIndexes.includes(rIndex);
+                                    (textCompletenessBlocks && invalidTextRoundIndexes.includes(rIndex)) ||
+                                    unrecognizedTextRoundIndexes.includes(rIndex) ||
+                                    protectedTextRoundIndexes.includes(rIndex);
                                 const hasConflict = !!blockingConflicts[rIndex] || hasTextCountError;
                                 const animationState = roundAnimationState[rIndex] || "idle";
                                 const roundOnlySwapsTeams = roundMatches.some(
@@ -1341,6 +1369,7 @@ export function FixturePreviewModal({
                                                 {!roundIsLocked && (
                                                     <RoundScanButton
                                                         type="button"
+                                                        disabled={isAnimating}
                                                         onClick={() => setScanRoundIndex(String(rIndex))}
                                                         title={`Escanear rol de juego de ${getRoundTitle(rIndex)}`}
                                                         aria-label={`Escanear rol de juego de ${getRoundTitle(rIndex)}`}
@@ -1366,7 +1395,7 @@ export function FixturePreviewModal({
                                             <TextRoundEditor
                                                 rIndex={rIndex}
                                                 value={roundTextByIndex[rIndex] || ""}
-                                                disabled={roundIsLocked || roundIsScanned}
+                                                disabled={isAnimating || roundIsLocked || roundIsScanned}
                                                 hasConflict={hasConflict}
                                                 inputRef={(node) => {
                                                     if (node) textInputRefs.current[rIndex] = node;
@@ -1395,11 +1424,11 @@ export function FixturePreviewModal({
                                                     <FixtureMatchCard 
                                                         key={match.id}
                                                         match={match}
-                                                        canDragMatch={!match.locked && !match.roundLocked && match.roundType !== "extra"}
+                                                        canDragMatch={!isAnimating && !isFixtureMatchLocked(match) && match.roundType !== "extra"}
                                                         onDragStart={handleDragStart}
                                                         onTeamDragStart={handleTeamDragStart}
                                                         onDragOver={(e) => { 
-                                                            if(!match.locked && !match.roundLocked && match.roundType !== "extra") {
+                                                            if(!isAnimating && !isFixtureMatchLocked(match) && match.roundType !== "extra") {
                                                                 e.preventDefault(); 
                                                                 e.dataTransfer.dropEffect = "move"; 
                                                             }
@@ -1455,7 +1484,7 @@ export function FixturePreviewModal({
                             bgcolor={conflictCount > 0 ? v.colorWarning : v.colorPrincipal}
                             icono={<RiCheckDoubleLine />}
                             funcion={handleConfirmar}
-                            disabled={isLoading || conflictCount > 0 || (isEditMode && !hasFixtureChanges)}
+                            disabled={isLoading || isAnimating || conflictCount > 0 || (isEditMode && !hasFixtureChanges)}
                             loading={isLoading}
                         />
                     </ActionWrapper>
@@ -2245,9 +2274,24 @@ const ScrollArea = styled.div`
     @media (max-width: 768px) { padding: 12px; }
 `;
 
+const CorrectionNotice = styled.div`
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid ${v.colorWarning}55;
+    border-radius: 8px;
+    background: ${v.colorWarning}12;
+    color: ${({ theme }) => theme.text};
+    font-size: 0.83rem;
+    line-height: 1.5;
+    strong { display: flex; align-items: center; gap: 8px; }
+    p { margin: 6px 0 0; }
+    ul { max-height: 180px; overflow-y: auto; margin: 8px 0 0; padding-left: 20px; }
+`;
+
 const Grid = styled.div`
     display: flex; flex-wrap: wrap; gap: 16px; 
-    opacity: ${props => props.$isAnimating ? 0.5 : 1}; 
+    opacity: ${props => props.$isAnimating ? 0.5 : 1};
+    pointer-events: ${props => props.$isAnimating ? "none" : "auto"};
     transition: opacity 0.3s ease; align-items: flex-start;
 `;
 

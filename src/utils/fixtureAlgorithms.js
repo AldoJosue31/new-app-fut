@@ -12,6 +12,7 @@ export {
 } from "./fixtureValidation.js";
 export {
     autoCorregirFixture,
+    corregirFixtureConDiagnostico,
     restaurarFixtureRoundRobin,
     restaurarFixtureRoundRobinCompleto,
 } from "./fixtureAutoCorrection.js";

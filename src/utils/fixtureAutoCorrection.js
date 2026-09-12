@@ -4,6 +4,7 @@ import {
     validarFixture,
 } from "./fixtureValidation.js";
 import { isOfficialJornadaName, sortJornadas } from "./jornadaUtils.js";
+import { solveFixtureConstraints } from "./fixtureConstraintSolver.js";
 
 const TEAM_SIDES = ["local", "visitante"];
 const MAX_CANDIDATES_PER_STEP = 900;
@@ -19,10 +20,10 @@ const isNaturalRoundMatch = (match) =>
     match?.roundType !== "extra" && match?.roundType !== "reposition";
 
 const isEditableMatch = (match) =>
-    isNaturalRoundMatch(match) && !match?.locked && !match?.roundLocked;
+    isNaturalRoundMatch(match) && !match?.locked && !match?.scanLocked && !match?.roundLocked;
 
 const isHardLockedMatch = (match) =>
-    isNaturalRoundMatch(match) && Boolean(match?.locked || match?.roundLocked);
+    isNaturalRoundMatch(match) && Boolean(match?.locked || match?.scanLocked || match?.roundLocked);
 
 const normalizeByeMatch = (match) => {
     const localId = String(match?.local?.id ?? "");
@@ -104,9 +105,10 @@ const swapMatchRounds = (matches, firstIndex, secondIndex) => {
     }
 
     const next = cloneMatches(matches);
-    const firstRound = first.jornadaIndex;
-    next[firstIndex] = { ...first, jornadaIndex: second.jornadaIndex };
-    next[secondIndex] = { ...second, jornadaIndex: firstRound };
+    // El registro y su horario pertenecen a la jornada; intercambiar los
+    // cruces conserva también dbId, roundName y los metadatos de persistencia.
+    next[firstIndex] = normalizeByeMatch({ ...first, local: second.local, visitante: second.visitante });
+    next[secondIndex] = normalizeByeMatch({ ...second, local: first.local, visitante: first.visitante });
     return next;
 };
 
@@ -1067,7 +1069,7 @@ const rememberPlateauCandidate = (candidates, candidate) => {
  * si queda en un mínimo local, permite un paso intermedio controlado antes de
  * volver a exigir una reducción real del total de conflictos.
  */
-export const autoCorregirFixture = (
+const repairFixtureHeuristically = (
     initialMatches,
     maxEvaluations = 5000,
     config = null,
@@ -1077,6 +1079,7 @@ export const autoCorregirFixture = (
     let currentMatches = structuredClone(initialMatches || []);
     let currentValidation = validarFixture(currentMatches, config, activeCriteria);
     let currentScore = currentValidation.totalConflicts;
+    if (currentScore === 0 || !currentMatches.some(isEditableMatch)) return currentMatches;
     let bestMatches = structuredClone(currentMatches);
     let bestScore = currentScore;
     let evaluations = 0;
@@ -1213,6 +1216,222 @@ export const autoCorregirFixture = (
 
     return bestMatches;
 };
+
+const getRoundKey = (round) => String(round.roundIndex ?? round.index);
+
+const getFixtureTeams = (matches, teams) => {
+    const candidates = teams?.length
+        ? teams
+        : matches.filter(isNaturalRoundMatch).flatMap((match) => [match.local, match.visitante]);
+    const byId = new Map();
+    candidates.forEach((team) => {
+        const id = String(team?.id ?? "");
+        if (id.trim() && id !== "BYE" && !byId.has(id)) byId.set(id, team);
+    });
+    return [...byId.values()];
+};
+
+// Completa los lugares de jornadas ya existentes. Nunca inventa jornadas ni
+// elimina bloqueos; los registros sobrantes se devuelven para borrar al guardar.
+const prepareCorrectionSlots = (matches, criteria, options) => {
+    if (!criteria.enforceRoundRobin ||
+        !criteria.requireCompleteRounds || !options.teams?.length) return matches;
+
+    const teams = getFixtureTeams(matches, options.teams);
+    if (teams.length < 2) return matches;
+    const expectedSlots = Math.ceil(teams.length / 2);
+    const rounds = new Map();
+    const definitions = new Map((options.roundDefinitions || []).map((round) => [getRoundKey(round), round]));
+    definitions.forEach((definition, key) => {
+        if (!definition.isLocked && isNaturalRoundMatch({ roundType: definition.roundType ?? definition.type })) {
+            rounds.set(key, []);
+        }
+    });
+    matches.forEach((match) => {
+        if (!isNaturalRoundMatch(match)) return;
+        const key = String(match.jornadaIndex);
+        const entries = rounds.get(key) || [];
+        entries.push(match);
+        rounds.set(key, entries);
+    });
+    const removedIds = new Set();
+    const additions = [];
+    const ids = new Set(matches.map((match) => String(match.id)));
+    rounds.forEach((entries, key) => {
+        const definition = definitions.get(key);
+        if (definition?.isLocked || entries.some((match) => match.roundLocked)) return;
+        const immutable = entries.filter(isHardLockedMatch);
+        if (immutable.length > expectedSlots) return;
+        const editable = entries.filter(isEditableMatch);
+        editable.slice(Math.max(0, expectedSlots - immutable.length)).forEach((match) => removedIds.add(match.id));
+        for (let slot = entries.length; slot < expectedSlots; slot += 1) {
+            const baseId = `temp_autofix_${key}_${slot + 1}`;
+            let id = baseId;
+            for (let suffix = 1; ids.has(id); suffix += 1) id = `${baseId}_${suffix}`;
+            ids.add(id);
+            const template = entries[0];
+            additions.push(normalizeByeMatch({
+                id,
+                dbId: null,
+                jornadaIndex: Number(key),
+                local: teams[(slot * 2) % teams.length],
+                visitante: slot * 2 + 1 < teams.length
+                    ? teams[slot * 2 + 1]
+                    : { id: "BYE", name: "DESCANSA", isBye: true },
+                locked: false,
+                roundLocked: false,
+                roundName: template?.roundName || definition?.title || definition?.name || `Jornada ${Number(key) + 1}`,
+                roundType: template?.roundType || definition?.roundType || definition?.type,
+                isGeneratedRound: template?.isGeneratedRound ?? definition?.isGenerated ?? false,
+            }));
+        }
+    });
+    return [...matches.filter((match) => !removedIds.has(match.id)), ...additions];
+};
+
+const describeBlockingMatches = (matches) => {
+    const descriptions = matches.slice(0, 6).map((match) =>
+        `${match.roundName || `Jornada ${Number(match.jornadaIndex) + 1}`}: ${match.local?.name || match.local?.id || "Equipo sin identificar"} vs ${match.visitante?.name || match.visitante?.id || "Equipo sin identificar"}`,
+    );
+    if (matches.length > 6) descriptions.push(`y ${matches.length - 6} partidos más`);
+    return descriptions.join("; ");
+};
+
+/**
+ * Resultado verificable de la corrección. "blocked" sólo se devuelve cuando
+ * hay una contradicción entre partidos inmutables o se encuentra una solución
+ * al liberar esos bloqueos. Agotar la búsqueda nunca demuestra imposibilidad.
+ */
+export const corregirFixtureConDiagnostico = (
+    initialMatches = [],
+    maxEvaluations = 5000,
+    config = null,
+    criteria = null,
+    options = {},
+) => {
+    const original = structuredClone(initialMatches || []);
+    const activeCriteria = resolveFixtureCriteria(criteria);
+    const validationOptions = { teams: options.teams || [], roundDefinitions: options.roundDefinitions || [] };
+    const validate = (matches) => validarFixture(matches, config, activeCriteria, validationOptions);
+    const initialValidation = validate(original);
+    const lockedRounds = new Set(validationOptions.roundDefinitions.filter((round) => round.isLocked).map(getRoundKey));
+    const nonNaturalRounds = new Map(validationOptions.roundDefinitions
+        .filter((round) => !isNaturalRoundMatch({ roundType: round.roundType ?? round.type }))
+        .map((round) => [getRoundKey(round), round.roundType ?? round.type]));
+    original.forEach((match) => {
+        if (match.roundLocked) lockedRounds.add(String(match.jornadaIndex));
+    });
+    const protectedById = new Map(original.filter((match) =>
+        !isEditableMatch(match) || lockedRounds.has(String(match.jornadaIndex)) || nonNaturalRounds.has(String(match.jornadaIndex)),
+    ).map((match) => [match.id, match]));
+    const protect = (matches) => matches.map((match) => ({
+        ...match,
+        ...(lockedRounds.has(String(match.jornadaIndex)) ? { roundLocked: true } : {}),
+        ...(nonNaturalRounds.has(String(match.jornadaIndex)) ? { roundType: nonNaturalRounds.get(String(match.jornadaIndex)) } : {}),
+    }));
+    const restore = (matches) => matches.map((match) => protectedById.get(match.id) || match);
+    let bestMatches = original;
+    let bestValidation = initialValidation;
+    const accept = (candidate) => {
+        if (!candidate) return;
+        const restored = restore(candidate);
+        const validation = validate(restored);
+        if (validation.totalConflicts < bestValidation.totalConflicts) {
+            bestMatches = restored;
+            bestValidation = validation;
+        }
+    };
+    let searchResult = null;
+    let workingMatches = original;
+    if (initialValidation.totalConflicts > 0) {
+        workingMatches = prepareCorrectionSlots(protect(original), activeCriteria, validationOptions);
+        accept(workingMatches);
+        if (bestValidation.totalConflicts > 0) {
+            const hasInvalidParticipants = validate(restore(workingMatches)).invalidMatches.length > 0;
+            const heuristic = hasInvalidParticipants
+                ? workingMatches
+                : repairFixtureHeuristically(workingMatches, maxEvaluations, config, activeCriteria);
+            accept(heuristic);
+            // Un calendario circular es sólo una familia de soluciones. La
+            // búsqueda general permite también fijaciones parciales arbitrarias.
+            if (bestValidation.totalConflicts > 0) {
+                searchResult = solveFixtureConstraints(heuristic, config, {
+                    ...activeCriteria,
+                    requireCompleteRounds: activeCriteria.requireCompleteRounds && validationOptions.teams.length > 0,
+                }, {
+                    teams: getFixtureTeams(original, validationOptions.teams),
+                    maxNodes: options.maxNodes ?? Math.min(250000, Math.max(1000, maxEvaluations * 10)),
+                });
+                accept(searchResult.matches);
+            }
+        }
+    }
+
+    let blockingMatches = [];
+    let status = bestValidation.totalConflicts === 0 ? "resolved" : "incomplete";
+    if (status !== "resolved") {
+        const immutable = protect(original).filter(isHardLockedMatch);
+        const lockedValidation = validarFixture(immutable, config, {
+            ...activeCriteria, requireCompleteRounds: false,
+        }, { teams: validationOptions.teams, inferImplicitByes: false });
+        const expectedSlots = Math.ceil(getFixtureTeams(original, validationOptions.teams).length / 2);
+        const oversizedLockedRounds = new Set();
+        if (activeCriteria.requireCompleteRounds && validationOptions.teams.length > 0) {
+            const counts = new Map();
+            immutable.filter((match) => !match.roundLocked).forEach((match) => {
+                const key = String(match.jornadaIndex);
+                counts.set(key, (counts.get(key) || 0) + 1);
+                if (counts.get(key) > expectedSlots) oversizedLockedRounds.add(key);
+            });
+        }
+        if (lockedValidation.totalConflicts > 0 || oversizedLockedRounds.size > 0) {
+            blockingMatches = immutable.filter((match) => {
+                const ids = lockedValidation.conflicts[String(match.jornadaIndex)] || [];
+                return ids.includes(String(match.local?.id ?? "")) || ids.includes(String(match.visitante?.id ?? "")) ||
+                    oversizedLockedRounds.has(String(match.jornadaIndex)) ||
+                    lockedValidation.invalidMatches?.some((invalid) => invalid.matchId === match.id) ||
+                    lockedValidation.repeatedByes?.some((bye) => bye.roundIndexes.includes(String(match.jornadaIndex)) &&
+                        [String(match.local?.id), String(match.visitante?.id)].includes(bye.teamId)) ||
+                    lockedValidation.repeatedMatchups.some((pair) => pair.roundIndexes.includes(String(match.jornadaIndex)) &&
+                        pair.teamIds.includes(String(match.local?.id)) && pair.teamIds.includes(String(match.visitante?.id)));
+            }).map((match) => protectedById.get(match.id) || match);
+            status = "blocked";
+        } else if (searchResult?.impossible && immutable.length > 0) {
+            const relaxed = solveFixtureConstraints(workingMatches.map((match) => isNaturalRoundMatch(match)
+                ? { ...match, locked: false, scanLocked: false, roundLocked: false }
+                : match), config, {
+                ...activeCriteria,
+                requireCompleteRounds: activeCriteria.requireCompleteRounds && validationOptions.teams.length > 0,
+            }, { teams: getFixtureTeams(original, validationOptions.teams), maxNodes: 25000 });
+            if (relaxed.matches) {
+                status = "blocked";
+                blockingMatches = immutable.map((match) => protectedById.get(match.id) || match);
+            }
+        }
+    }
+    const remainingIds = new Set(bestMatches.map((match) => match.id));
+    const deletedMatchIds = original.filter((match) => match.dbId != null && !remainingIds.has(match.id)).map((match) => match.dbId);
+    const remainingConflicts = bestValidation.totalConflicts;
+    const message = status === "resolved"
+        ? "Fixture ordenado. Se resolvieron los conflictos de los criterios activos y se conservaron los partidos bloqueados."
+        : status === "blocked"
+            ? `Quedan ${remainingConflicts} conflictos que no se pueden resolver sin modificar partidos bloqueados, escaneados o jornadas confirmadas. Revisa estos bloqueos: ${describeBlockingMatches(blockingMatches)}.`
+            : searchResult?.exhausted
+                ? `Quedan ${remainingConflicts} conflictos. Se alcanzó el límite de búsqueda sin encontrar una solución completa. Se conservaron los partidos bloqueados; revisa las jornadas señaladas y los criterios activos.`
+                : `Quedan ${remainingConflicts} conflictos. No se encontró un calendario compatible con los equipos, la cantidad de partidos y los criterios activos. Revisa las jornadas señaladas.`;
+    return {
+        matches: bestMatches === original ? original : bestMatches.slice().sort((first, second) => Number(first.jornadaIndex) - Number(second.jornadaIndex)),
+        status,
+        initialConflicts: initialValidation.totalConflicts,
+        remainingConflicts,
+        blockingMatches,
+        deletedMatchIds: [...new Set(deletedMatchIds)],
+        message,
+    };
+};
+
+// Conserva la API de quienes sólo necesitan el arreglo corregido.
+export const autoCorregirFixture = (...args) => corregirFixtureConDiagnostico(...args).matches;
 
 /**
  * Restaura las jornadas editables a un calendario Round Robin completo.

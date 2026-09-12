@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     generarEstructuraInicial,
     generarJornadaExtra,
     validarFixture,
-    autoCorregirFixture,
+    corregirFixtureConDiagnostico,
     restaurarFixtureRoundRobinCompleto,
     transformarPartidosExistentes,
 } from "../utils/fixtureAlgorithms";
@@ -11,27 +11,11 @@ import {
     buildRepositionJornadaName,
     isOfficialJornadaName,
 } from "../utils/jornadaUtils";
-import { resolveScannedSchedule } from "../utils/scannedScheduleUtils";
-
-const normalizeByeMatch = (match) => {
-    const localId = match.local?.id;
-    const visitanteId = match.visitante?.id;
-    const isByeMatch = localId === "BYE" || visitanteId === "BYE";
-
-    if (localId === "BYE" && visitanteId && visitanteId !== "BYE") {
-        return {
-            ...match,
-            local: match.visitante,
-            visitante: match.local,
-            isByeMatch: true,
-        };
-    }
-
-    return {
-        ...match,
-        isByeMatch,
-    };
-};
+import {
+    normalizeFixtureByeMatch as normalizeByeMatch,
+    isFixtureMatchLocked,
+    buildFixtureRoundMatchesFromPairs,
+} from "../utils/fixtureRoundEditing.js";
 
 export const useFixturePreview = (
     teams,
@@ -47,8 +31,15 @@ export const useFixturePreview = (
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [deletedMatchIds, setDeletedMatchIds] = useState([]);
     const [initialMatches, setInitialMatches] = useState([]);
+    const [isOptimizing, setIsOptimizing] = useState(false);
+    const [autoFixResult, setAutoFixResult] = useState(null);
+    const autoFixTimerRef = useRef(null);
 
     const isEditMode = !!existingData;
+
+    useEffect(() => () => {
+        clearTimeout(autoFixTimerRef.current);
+    }, [isOpen]);
 
     useEffect(() => {
         if (isOpen && teams.length > 0) {
@@ -76,6 +67,8 @@ export const useFixturePreview = (
             setDraggedItem(null);
             setDeletedMatchIds([]);
             setInitialMatches([]);
+            setAutoFixResult(null);
+            setIsOptimizing(false);
             return () => clearTimeout(timer);
         }
 
@@ -91,13 +84,13 @@ export const useFixturePreview = (
 
     useEffect(() => {
         if (matches.length > 0) {
-            const { conflicts: newConflicts } = validarFixture(matches, config, fixtureCriteria);
+            const { conflicts: newConflicts } = validarFixture(matches, config, fixtureCriteria, { teams });
             setConflicts(newConflicts);
             return;
         }
 
         setConflicts({});
-    }, [matches, config, fixtureCriteria]);
+    }, [matches, config, fixtureCriteria, teams]);
 
     const handleTeamClick = (teamId) => {
         setSelectedTeamId((prev) => (prev === teamId ? null : teamId));
@@ -173,42 +166,47 @@ export const useFixturePreview = (
         }, 300);
     };
 
-    const handleAutoFix = (sourceMatches = null) => {
+    const handleAutoFix = (sourceMatches = null, context = {}) => {
+        if (isAnimating || isOptimizing) return;
         const matchesToFix = Array.isArray(sourceMatches) ? sourceMatches : matches;
         setIsAnimating(true);
-        setTimeout(() => {
-            const previousValidation = validarFixture(matchesToFix, config, fixtureCriteria);
-            const fixedMatches = autoCorregirFixture(
-                matchesToFix,
-                15000,
-                config,
-                fixtureCriteria,
-            );
-            const nextValidation = validarFixture(fixedMatches, config, fixtureCriteria);
-            const correctedConflicts = Math.max(
-                0,
-                previousValidation.totalConflicts - nextValidation.totalConflicts,
-            );
-
-            setMatches(fixedMatches);
-            setIsAnimating(false);
-
-            if (nextValidation.totalConflicts > 0) {
-                if (correctedConflicts > 0) {
-                    alert(
-                        `Se corrigieron ${correctedConflicts} conflictos, pero no se encontro una combinacion completa sin modificar partidos escaneados, bloqueados o jornadas confirmadas.`,
-                    );
-                } else {
-                    alert(
-                        "No se encontro una combinacion valida que conserve intactos los partidos escaneados, bloqueados y las jornadas confirmadas.",
-                    );
-                }
+        setIsOptimizing(true);
+        setAutoFixResult(null);
+        autoFixTimerRef.current = setTimeout(() => {
+            try {
+                const result = corregirFixtureConDiagnostico(
+                    matchesToFix,
+                    15000,
+                    config,
+                    fixtureCriteria,
+                    { teams, ...context },
+                );
+                const retainedDbIds = new Set(result.matches.filter((match) => match.dbId).map((match) => String(match.dbId)));
+                const removedDbIds = matches.filter((match) => match.dbId && !retainedDbIds.has(String(match.dbId))).map((match) => match.dbId);
+                setMatches(result.matches);
+                setDeletedMatchIds((previous) => [...new Set([...previous, ...removedDbIds, ...(result.deletedMatchIds || [])])]
+                    .filter((id) => !retainedDbIds.has(String(id))));
+                setAutoFixResult({ ...result, criteriaKey: JSON.stringify(fixtureCriteria) });
+                setSelectedTeamId(null);
+                setDraggedItem(null);
+            } catch (error) {
+                setAutoFixResult({
+                    matches,
+                    status: "incomplete",
+                    blockingMatches: [],
+                    message: error?.message || "No se pudo completar la corrección. Vuelve a intentarlo.",
+                    criteriaKey: JSON.stringify(fixtureCriteria),
+                });
+            } finally {
+                setIsAnimating(false);
+                setIsOptimizing(false);
+                autoFixTimerRef.current = null;
             }
         }, 100);
     };
 
     const handleDragStart = useCallback((e, match) => {
-        if (match.locked || match.roundLocked || match.roundType === "extra") {
+        if (isFixtureMatchLocked(match) || match.roundType === "extra") {
             e.preventDefault();
             return;
         }
@@ -219,7 +217,7 @@ export const useFixturePreview = (
     }, []);
 
     const handleTeamDragStart = useCallback((e, match, teamSide) => {
-        if (match.locked || match.roundLocked) {
+        if (isFixtureMatchLocked(match)) {
             e.preventDefault();
             return;
         }
@@ -235,10 +233,11 @@ export const useFixturePreview = (
         e.stopPropagation();
 
         if (!draggedItem || draggedItem.type !== "match") return;
-        if (targetMatch.locked || targetMatch.roundLocked) return;
+        if (isFixtureMatchLocked(targetMatch)) return;
 
         const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
         if (!sourceMatch || sourceMatch.id === targetMatch.id) return;
+        if (isFixtureMatchLocked(sourceMatch)) return;
         if (sourceMatch.roundType === "extra" || targetMatch.roundType === "extra") return;
 
         if (sourceMatch.isByeMatch !== targetMatch.isByeMatch) {
@@ -253,17 +252,16 @@ export const useFixturePreview = (
 
             if (sourceIdx === -1 || targetIdx === -1) return prev;
 
-            const sourceJornada = newMatches[sourceIdx].jornadaIndex;
-            const targetJornada = newMatches[targetIdx].jornadaIndex;
-
             newMatches[sourceIdx] = {
                 ...newMatches[sourceIdx],
-                jornadaIndex: targetJornada,
-                locked: true,
+                local: targetMatch.local,
+                visitante: targetMatch.visitante,
             };
             newMatches[targetIdx] = {
                 ...newMatches[targetIdx],
-                jornadaIndex: sourceJornada,
+                local: sourceMatch.local,
+                visitante: sourceMatch.visitante,
+                locked: true,
             };
 
             return newMatches;
@@ -280,6 +278,7 @@ export const useFixturePreview = (
 
         const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
         if (!sourceMatch) return;
+        if (isFixtureMatchLocked(sourceMatch)) return;
         if (sourceMatch.jornadaIndex === targetJornadaIndex) return;
         if (sourceMatch.roundType === "extra") return;
 
@@ -293,20 +292,11 @@ export const useFixturePreview = (
 
         const targetMatches = matches.filter((match) => match.jornadaIndex === targetJornadaIndex);
 
-        let candidate = targetMatches.find(
+        const candidate = targetMatches.find(
             (match) =>
                 match.isByeMatch === sourceMatch.isByeMatch &&
-                !match.locked &&
-                !match.roundLocked
+                !isFixtureMatchLocked(match)
         );
-
-        if (!candidate) {
-            candidate = targetMatches.find(
-                (match) =>
-                    match.isByeMatch === sourceMatch.isByeMatch &&
-                    !match.roundLocked
-            );
-        }
 
         setMatches((prev) => {
             const newMatches = [...prev];
@@ -321,6 +311,7 @@ export const useFixturePreview = (
                 newMatches[sourceIdx] = {
                     ...newMatches[sourceIdx],
                     jornadaIndex: targetJornadaIndex,
+                    roundName: targetMatches[0]?.roundName || `Jornada ${targetJornadaIndex + 1}`,
                     locked: true,
                 };
                 return newMatches;
@@ -334,16 +325,16 @@ export const useFixturePreview = (
             const targetIdx = newMatches.findIndex((match) => match.id === candidate.id);
             if (targetIdx === -1) return prev;
 
-            const sourceJornada = newMatches[sourceIdx].jornadaIndex;
-
             newMatches[sourceIdx] = {
                 ...newMatches[sourceIdx],
-                jornadaIndex: targetJornadaIndex,
-                locked: true,
+                local: candidate.local,
+                visitante: candidate.visitante,
             };
             newMatches[targetIdx] = {
                 ...newMatches[targetIdx],
-                jornadaIndex: sourceJornada,
+                local: sourceMatch.local,
+                visitante: sourceMatch.visitante,
+                locked: true,
             };
 
             return newMatches;
@@ -357,10 +348,11 @@ export const useFixturePreview = (
         e.stopPropagation();
 
         if (!draggedItem || draggedItem.type !== "team") return;
-        if (targetMatch.locked || targetMatch.roundLocked) return;
+        if (isFixtureMatchLocked(targetMatch)) return;
 
         const sourceMatch = matches.find((match) => match.id === draggedItem.matchId);
         if (!sourceMatch) return;
+        if (isFixtureMatchLocked(sourceMatch)) return;
 
         const isSameSlot =
             sourceMatch.id === targetMatch.id && draggedItem.teamSide === targetTeamSide;
@@ -484,85 +476,21 @@ export const useFixturePreview = (
     }, [existingData?.jornadas, existingData?.pendingMatches, isEditMode, teams]);
 
     const handleReplaceRoundMatches = useCallback((roundIndex, nextPairs = [], options = {}) => {
+        if (isAnimating || isOptimizing) return false;
         const normalizedRoundIndex = Number(roundIndex);
-        const lockMatches = Boolean(options.lockMatches);
-        const preserveDetectedSchedule = Boolean(options.preserveDetectedSchedule);
-
-        setMatches((prev) => {
-            const roundMatches = prev.filter(
-                (match) => Number(match.jornadaIndex) === normalizedRoundIndex
-            );
-
-            if (roundMatches.some((match) => match.roundLocked)) {
-                return prev;
-            }
-
-            const nextRoundMatches = nextPairs.map((pair, index) => {
-                const current = roundMatches[index];
-                const isByeMatch =
-                    pair.local?.id === "BYE" || pair.visitante?.id === "BYE";
-                const resolvedSchedule = resolveScannedSchedule(pair);
-                const scanScheduleAccepted = Boolean(
-                    lockMatches &&
-                    preserveDetectedSchedule &&
-                    !isByeMatch &&
-                    resolvedSchedule.complete
-                );
-
-                return normalizeByeMatch({
-                    ...(current || {}),
-                    id:
-                        current?.id ||
-                        `temp_text_${normalizedRoundIndex}_${Date.now()}_${index + 1}`,
-                    dbId: current?.dbId || null,
-                    local: pair.local,
-                    visitante: pair.visitante,
-                    jornadaIndex: normalizedRoundIndex,
-                    locked: lockMatches || current?.locked || false,
-                    scanLocked: lockMatches ? true : current?.scanLocked || false,
-                    date: lockMatches
-                        ? (scanScheduleAccepted ? resolvedSchedule.date : null)
-                        : current?.date ?? null,
-                    time: lockMatches
-                        ? (scanScheduleAccepted ? resolvedSchedule.time : null)
-                        : current?.time ?? null,
-                    scannedDate: lockMatches
-                        ? (scanScheduleAccepted ? resolvedSchedule.date : "")
-                        : current?.scannedDate || "",
-                    scannedTime: lockMatches
-                        ? (scanScheduleAccepted ? resolvedSchedule.time : "")
-                        : current?.scannedTime || "",
-                    scanScheduleAccepted: lockMatches
-                        ? scanScheduleAccepted
-                        : Boolean(current?.scanScheduleAccepted),
-                    scanScheduleAction: lockMatches
-                        ? (scanScheduleAccepted ? "apply" : null)
-                        : current?.scanScheduleAction || null,
-                    scanScheduleSource: lockMatches
-                        ? (scanScheduleAccepted ? "rol-juego" : null)
-                        : current?.scanScheduleSource || null,
-                    roundLocked: false,
-                    isByeMatch,
-                    isGeneratedRound:
-                        current?.isGeneratedRound ||
-                        roundMatches[0]?.isGeneratedRound ||
-                        false,
-                    roundType: current?.roundType || roundMatches[0]?.roundType,
-                    roundName:
-                        current?.roundName ||
-                        roundMatches[0]?.roundName ||
-                        `Jornada ${normalizedRoundIndex + 1}`,
-                    originalJornadaId: current?.originalJornadaId,
-                    originalJornadaName: current?.originalJornadaName,
-                });
-            });
-
-            return [
-                ...prev.filter((match) => Number(match.jornadaIndex) !== normalizedRoundIndex),
-                ...nextRoundMatches,
-            ];
-        });
-    }, []);
+        const roundMatches = matches.filter((match) => Number(match.jornadaIndex) === normalizedRoundIndex);
+        const result = buildFixtureRoundMatchesFromPairs(normalizedRoundIndex, roundMatches, nextPairs, options);
+        if (result.error) {
+            alert(result.error);
+            return false;
+        }
+        setMatches([
+            ...matches.filter((match) => Number(match.jornadaIndex) !== normalizedRoundIndex),
+            ...result.matches,
+        ]);
+        setDeletedMatchIds((previous) => [...new Set([...previous, ...result.deletedMatchIds])]);
+        return true;
+    }, [isAnimating, isOptimizing, matches]);
 
     const matchesByRound = {};
     matches.forEach((match) => {
@@ -586,6 +514,10 @@ export const useFixturePreview = (
         conflicts,
         selectedTeamId,
         isAnimating,
+        isOptimizing,
+        autoFixResult: autoFixResult?.matches === matches && autoFixResult?.criteriaKey === JSON.stringify(fixtureCriteria)
+            ? autoFixResult
+            : null,
         isEditMode,
         handleTeamClick,
         toggleLock,
