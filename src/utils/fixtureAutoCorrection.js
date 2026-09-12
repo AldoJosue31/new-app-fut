@@ -1451,6 +1451,7 @@ export const restaurarFixtureRoundRobin = (
             ...match,
             locked: false,
             scanLocked: false,
+            scanSource: null,
             scanScheduleAccepted: false,
             scanScheduleAction: null,
             scanScheduleSource: null,

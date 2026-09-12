@@ -36,6 +36,7 @@ import {
     isRepositionJornadaName,
 } from "../../../../../utils/jornadaUtils";
 import { resolveScannedSchedule } from "../../../../../utils/scannedScheduleUtils";
+import { getChangedFixtureRoundIndexes, isScannedFixtureMatch } from "../../../../../utils/fixturePlanning.js";
 import {
     getTextRoundMatchStats,
     isTextRoundComplete,
@@ -161,6 +162,7 @@ const buildFixtureSignature = (fixtureMatches = []) =>
                 acceptedSchedule ? schedule.date : "",
                 acceptedSchedule ? schedule.time : "",
                 match.scanScheduleAction || "",
+                isScannedFixtureMatch(match),
             ]);
         })
         .sort()
@@ -565,7 +567,10 @@ export function FixturePreviewModal({
         }
 
         if (isEditMode) {
-            onConfirm(finalMatches, { deletedMatchIds: finalDeletedMatchIds });
+            onConfirm(finalMatches, {
+                deletedMatchIds: finalDeletedMatchIds,
+                replacedRoundIndexes: getChangedFixtureRoundIndexes(initialMatches, finalMatches),
+            });
         } else {
             // Lógica legacy para creación nueva
             const maxJornada = Math.max(...finalMatches.map(m => m.jornadaIndex), 0);
@@ -586,6 +591,7 @@ export function FixturePreviewModal({
                             scannedDate: scanScheduleAccepted ? schedule.date : "",
                             scannedTime: scanScheduleAccepted ? schedule.time : "",
                             scanScheduleAccepted,
+                            scanSource: isScannedFixtureMatch(m) ? "rol-juego" : null,
                         };
                     });
                 if (matchesInRound.length > 0) finalFixture.push({ name: `Jornada ${i + 1}`, matches: matchesInRound });

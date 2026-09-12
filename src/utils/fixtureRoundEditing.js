@@ -83,6 +83,7 @@ export const buildFixtureRoundMatchesFromPairs = (
             jornadaIndex: Number(roundIndex),
             locked: lockMatches,
             scanLocked: lockMatches,
+            scanSource: lockMatches ? "rol-juego" : current?.scanSource,
             roundLocked: false,
             isByeMatch: pair.isByeMatch,
             isGeneratedRound: current?.isGeneratedRound || roundMatches[0]?.isGeneratedRound || false,
