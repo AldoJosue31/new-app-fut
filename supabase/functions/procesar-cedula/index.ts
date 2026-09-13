@@ -539,6 +539,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const fallbackApiKey = Deno.env.get("GEMINI_FALLBACK_API_KEY");
     let imageRequest;
     try {
       imageRequest = await readImageRequest(req);
@@ -629,6 +630,9 @@ Deno.serve(async (req) => {
         });
       }
       const client = new GoogleGenAI({ apiKey });
+      const fallbackClient = fallbackApiKey
+        ? new GoogleGenAI({ apiKey: fallbackApiKey })
+        : client;
       // Las cedulas usan su propio perfil para no competir con el escaner de roles.
       const model = selectGeminiModel(Deno.env.get("GEMINI_CEDULA_MODEL"));
       const fallbackModel = selectGeminiFallbackModel(
@@ -667,7 +671,7 @@ Deno.serve(async (req) => {
         activeModel = fallbackModel;
         attemptedModels.push(fallbackModel);
         interaction = await createScanInteraction(
-          client,
+          fallbackClient,
           fallbackModel,
           imageBase64,
           mimeType,

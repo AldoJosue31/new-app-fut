@@ -311,6 +311,7 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const fallbackApiKey = Deno.env.get("GEMINI_FALLBACK_API_KEY");
     let imageRequest;
     try {
       imageRequest = await readImageRequest(req);
@@ -403,16 +404,19 @@ Deno.serve(async (req) => {
       }, 500, { "X-Request-Id": requestId });
     }
     const client = new GoogleGenAI({ apiKey });
+    const fallbackClient = fallbackApiKey
+      ? new GoogleGenAI({ apiKey: fallbackApiKey })
+      : client;
     const instructions = buildInstructions(scanContext, ocrResult);
     const startedAt = performance.now();
     const attemptedModels: string[] = [];
     let activeModel = model;
     let interaction;
 
-    const runModel = async (selectedModel: string) => {
+    const runModel = async (selectedModel: string, selectedClient: GoogleGenAI) => {
       attemptedModels.push(selectedModel);
       return await createInteraction(
-        client,
+        selectedClient,
         selectedModel,
         imageBase64,
         mimeType,
@@ -421,7 +425,7 @@ Deno.serve(async (req) => {
     };
 
     try {
-      interaction = await runModel(model);
+      interaction = await runModel(model, client);
     } catch (error) {
       if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
       const primaryFailure = classifyProviderError(error);
@@ -436,7 +440,7 @@ Deno.serve(async (req) => {
         }),
       );
       await delay(600 + Math.floor(Math.random() * 400));
-      interaction = await runModel(fallbackModel);
+      interaction = await runModel(fallbackModel, fallbackClient);
     }
 
     if (!interaction.output_text) {

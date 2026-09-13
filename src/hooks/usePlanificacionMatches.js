@@ -9,6 +9,11 @@ import {
   parseJornadaNumber,
 } from "../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../utils/playoffUtils";
+import {
+  canReusePlanningDraftMatch,
+  getPlanningDraftStorageKey,
+  getPlanningDraftRevision,
+} from "../utils/fixturePlanning.js";
 
 const getPlayoffJornadaBaseName = (name = "") =>
   normalizeJornadaName(name).replace(/\s*\((ida|vuelta)\)\s*$/i, "").trim();
@@ -66,6 +71,7 @@ export const usePlanificacionMatches = (
   const isRepositionJornada = isRepositionJornadaName(currentJornadaName);
   const isPlayoffJornada = isPlayoffJornadaName(currentJornadaName);
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
+  const planningDraftRevision = getPlanningDraftRevision(activeTournament?.config, jornadaData?.id);
   
   const targetJornadaIndex = useMemo(() => {
       if (!jornadasList || jornadasList.length === 0) return 0;
@@ -86,8 +92,8 @@ export const usePlanificacionMatches = (
 
   const storageKey = useMemo(() => {
     if (!storageKeyBase) return null;
-    return `${storageKeyBase}_v${dataVersion}`;
-  }, [dataVersion, storageKeyBase]);
+    return getPlanningDraftStorageKey(storageKeyBase, dataVersion, planningDraftRevision);
+  }, [dataVersion, storageKeyBase, planningDraftRevision]);
 
   const dataContextKey = useMemo(() => {
     const compactMatches = (items = []) =>
@@ -95,6 +101,8 @@ export const usePlanificacionMatches = (
         .map((match) => [
           match?.id,
           match?.jornada_id,
+          match?.team1_id ?? match?.local?.id,
+          match?.team2_id ?? match?.visitante?.id,
           match?.date,
           match?.status,
           match?.originJornada,
@@ -285,10 +293,10 @@ export const usePlanificacionMatches = (
       localStorage.setItem(storageKey, serializedDraft);
 
       if (options.includeInitialVersion && storageKeyBase) {
-        localStorage.setItem(`${storageKeyBase}_v0`, serializedDraft);
+        localStorage.setItem(getPlanningDraftStorageKey(storageKeyBase, 0, planningDraftRevision), serializedDraft);
       }
     },
-    [allPendingMatches, scheduledMatches, storageKey, storageKeyBase]
+    [allPendingMatches, scheduledMatches, storageKey, storageKeyBase, planningDraftRevision]
   );
 
   const autoAdjustTimes = useCallback((matches, dateToFix) => {
@@ -317,7 +325,7 @@ export const usePlanificacionMatches = (
 
   const formatMatch = useCallback((m) => {
       const localId = m.team1_id ?? m.local?.id;
-      const visitId = m.team2_id ?? m.visitante?.id;
+      const visitId = m.team2_id !== undefined ? m.team2_id : m.visitante?.id;
       
       const localTeam = teams.find(t => t.id == localId);
       let visitTeam = teams.find(t => t.id == visitId);
@@ -434,7 +442,7 @@ export const usePlanificacionMatches = (
     const mergedMatches = dbFormatted.map(dbMatch => {
         if (hasDraft) {
             const draftMatch = draftMap.get(String(dbMatch.id));
-            if (draftMatch) {
+            if (canReusePlanningDraftMatch(dbMatch, draftMatch)) {
                 const keepDbResult = dbMatch.status === 'Finalizado';
                 const draftStatus =
                   draftMatch.status === 'Finalizado' && !hasDraftResult(draftMatch)
@@ -484,7 +492,7 @@ export const usePlanificacionMatches = (
     });
 
     let currentSuggestions = [];
-    if (!isRepositionJornada && !isPlayoffJornada && teams.length % 2 !== 0) {
+    if (!planningDraftRevision && !isRepositionJornada && !isPlayoffJornada && teams.length % 2 !== 0) {
         const teamsPlaying = new Set();
         currentScheduled.forEach(m => {
              if (m.local?.id) teamsPlaying.add(m.local.id);
@@ -516,7 +524,7 @@ export const usePlanificacionMatches = (
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
       targetJornadaIndex, currentJornadaNumber, isRepositionJornada, isPlayoffJornada,
-      dataContextKey
+      dataContextKey, planningDraftRevision,
   ]); 
 
   useEffect(() => {

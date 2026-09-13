@@ -25,8 +25,15 @@ import {
 import { addDaysToDate } from "../../../../utils/dateUtils";
 import {
   buildScannedMatchTimestamp,
-  persistedDateTimeKey,
 } from "../../../../utils/scannedScheduleUtils";
+import {
+  clearPlanningDraftsForRounds,
+  getCarriedFixtureMatchIds,
+  getScannedFixtureRoundIndexes,
+  getFixtureMatchIdsToDelete,
+  resolveFixturePlanningSchedule,
+  withPlanningDraftRevisions,
+} from "../../../../utils/fixturePlanning.js";
 import {
   isOfficialJornadaName,
   isRepositionJornadaName,
@@ -139,26 +146,6 @@ const hasAllResultsForJornada = (jornadaId, matches) => {
         !isPendingMatch(match)
     )
     .every(hasMatchResult);
-};
-
-const clearPlanningDraftsForRounds = (tournamentId, jornadas = [], roundIndexes = []) => {
-  if (typeof window === "undefined" || !tournamentId) return;
-
-  const prefixes = new Set();
-  roundIndexes.forEach((roundIndex) => {
-    const jornada = jornadas[Number(roundIndex)];
-    if (jornada?.id) {
-      prefixes.add(`planning_draft_${tournamentId}_id_${jornada.id}`);
-    }
-    prefixes.add(`planning_draft_${tournamentId}_J${Number(roundIndex)}`);
-  });
-
-  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
-    const key = window.localStorage.key(index);
-    if (key && [...prefixes].some((prefix) => key.startsWith(`${prefix}_v`) || key === prefix)) {
-      window.localStorage.removeItem(key);
-    }
-  }
 };
 
 const sortJornadasForDateNormalization = (jornadas = [], configuredMappings = []) => {
@@ -866,7 +853,7 @@ export function TorneoJornadasTab({
 
   const handleConfirmFixtureUpdate = async (
     updatedMatches,
-    { deletedMatchIds = [] } = {},
+    { deletedMatchIds = [], replacedRoundIndexes = [] } = {},
   ) => {
       setLoading(true);
       let completionToast = null;
@@ -883,27 +870,34 @@ export function TorneoJornadasTab({
         const hasAcceptedScannedSchedules = updatedMatches.some(
           (match) => match.scanScheduleAccepted && buildScannedMatchTimestamp(match)
         );
-        const scannedRoundIndexes = [
-          ...new Set(
-            updatedMatches
-              .filter(
-                (match) =>
-                  match.scanScheduleAccepted && buildScannedMatchTimestamp(match)
-              )
-              .map((match) => Number(match.jornadaIndex))
-              .filter(Number.isFinite)
-          ),
-        ];
-        const originalMap = new Map(editorData.matches.map(m => [m.id, m]));
+        const planningRoundIndexes = [...new Set([
+          ...replacedRoundIndexes.map(Number), ...getScannedFixtureRoundIndexes(updatedMatches),
+        ])]
+          .filter((index) => !['Confirmada', 'Finalizada'].includes(jornadas[index]?.status));
+        const planningRoundSet = new Set(planningRoundIndexes);
+        const hasPlanningChanges = planningRoundIndexes.length > 0;
+        const carriedMatchIds = getCarriedFixtureMatchIds({
+          originalMatches: editorData.matches, jornadas,
+          repositionMatchMappings, repositionMappings,
+        });
+        const carriedMatchIdSet = new Set(carriedMatchIds.map(String));
+        const originalMap = new Map(editorData.matches.map(m => [String(m.id), m]));
         const editableOfficialJornadaIds = jornadas
           .filter((jornada) =>
-            isOfficialJornadaName(jornada?.name) &&
+            (isOfficialJornadaName(jornada?.name) || planningRoundSet.has(jornadas.indexOf(jornada))) &&
             !['Confirmada', 'Finalizada'].includes(jornada?.status)
           )
           .map((jornada) => jornada.id);
         const restoredDeletedMatchIds = [
           ...new Map(
-            (deletedMatchIds || [])
+            getFixtureMatchIdsToDelete({
+              deletedMatchIds,
+              originalMatches: editorData.matches,
+              updatedMatches,
+              jornadas,
+              replacedRoundIndexes: planningRoundIndexes,
+              carriedMatchIds,
+            })
               .filter((id) => id !== null && id !== undefined)
               .map((id) => [String(id), id])
           ).values(),
@@ -987,27 +981,17 @@ export function TorneoJornadasTab({
               return;
             }
 
-            const scannedTimestamp = m.scanScheduleAccepted
-              ? buildScannedMatchTimestamp(m)
-              : null;
-            const shouldApplyScannedSchedule = Boolean(scannedTimestamp);
-            const shouldClearScannedSchedule = m.scanScheduleAction === "clear";
-            const original = m.dbId ? originalMap.get(m.dbId) : null;
+            const original = m.dbId ? originalMap.get(String(m.dbId)) : null;
+            const planningSchedule = resolveFixturePlanningSchedule(m, original, {
+              replacePlanning: planningRoundSet.has(Number(m.jornadaIndex)) && !carriedMatchIdSet.has(String(m.dbId)),
+            });
 
             const payload = {
               jornada_id: targetJornadaId,
               team1_id: team1Id,
               team2_id: team2Id,
-              date: shouldApplyScannedSchedule
-                ? scannedTimestamp
-                : shouldClearScannedSchedule
-                  ? null
-                  : original?.date || null,
-              status: shouldApplyScannedSchedule
-                ? 'Programado'
-                : shouldClearScannedSchedule
-                  ? 'Pendiente'
-                  : original?.status || 'Pendiente',
+              date: planningSchedule.date,
+              status: planningSchedule.status,
             };
 
             if (!m.dbId) {
@@ -1024,11 +1008,7 @@ export function TorneoJornadasTab({
             const jornadaChanged = String(original.jornada_id) !== String(targetJornadaId);
             const team1Changed = String(original.team1_id ?? '') !== String(team1Id ?? '');
             const team2Changed = String(original.team2_id ?? '') !== String(team2Id ?? '');
-            const scheduleChanged = shouldApplyScannedSchedule
-              ? persistedDateTimeKey(original.date) !== scannedTimestamp || original.status !== 'Programado'
-              : shouldClearScannedSchedule
-                ? Boolean(original.date) || original.status !== 'Pendiente'
-                : false;
+            const scheduleChanged = planningSchedule.changed;
 
             if (
               jornadaChanged ||
@@ -1116,7 +1096,7 @@ export function TorneoJornadasTab({
           updates.length > 0 ||
           inserts.length > 0 ||
           restoredDeletedMatchIds.length > 0 ||
-          hasAcceptedScannedSchedules
+          hasPlanningChanges
         ) {
             if (updates.length > 0) {
               await bulkUpsertMatchesService(updates);
@@ -1133,26 +1113,34 @@ export function TorneoJornadasTab({
               );
             }
 
+            if (hasPlanningChanges) {
+              const planningJornadaIds = planningRoundIndexes
+                .map((index) => generatedRoundIdMap.get(index) || jornadas[index]?.id)
+                .filter((id) => id != null);
+              const currentConfig = await getTournamentConfigService(activeTournament.id);
+              const nextConfig = withPlanningDraftRevisions(currentConfig, planningJornadaIds, new Date().toISOString());
+              await updateTournamentFieldsService(activeTournament.id, { config: nextConfig });
+              setActiveTournament((previous) => ({ ...previous, config: nextConfig }));
+
+              // Invalidar antes de recargar evita que el efecto del planificador
+              // vuelva a mezclar el borrador anterior con el nuevo fixture.
+              const savedJornadas = jornadas.slice();
+              generatedRoundIdMap.forEach((id, index) => { savedJornadas[index] = { id }; });
+              clearPlanningDraftsForRounds(activeTournament.id, savedJornadas, planningRoundIndexes);
+            }
+
             completionToast = {
               type: 'success',
               message: generatedRoundIndexes.length > 0
                 ? "Nueva jornada generada y guardada correctamente."
                 : restoredDeletedMatchIds.length > 0
-                  ? "Fixture restaurado y partidos excedentes eliminados correctamente."
+                  ? "Fixture y planificación actualizados; los partidos atrasados se conservaron."
                   : hasAcceptedScannedSchedules
                     ? "Fixture y horarios escaneados guardados correctamente."
                     : "Fixture reorganizado correctamente.",
             };
 
             await loadTournamentData({ preserveData: true });
-
-            if (hasAcceptedScannedSchedules) {
-              clearPlanningDraftsForRounds(
-                activeTournament.id,
-                jornadas,
-                scannedRoundIndexes,
-              );
-            }
 
             setDataVersion(prev => prev + 1);
             
