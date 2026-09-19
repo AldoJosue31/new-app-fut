@@ -1,6 +1,15 @@
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.6-flash";
 
+// Supabase corta solicitudes que no responden tras 150 s. Este presupuesto
+// deja 30 s para leer la carga, OCR, serializar la respuesta y variaciones de
+// red; los dos modelos nunca pueden consumir el limite completo.
+export const EDGE_RESPONSE_BUDGET_MS = 120_000;
+export const EDGE_RESPONSE_RESERVE_MS = 5_000;
+export const GEMINI_PRIMARY_MAX_TIMEOUT_MS = 45_000;
+export const GEMINI_FALLBACK_MAX_TIMEOUT_MS = 35_000;
+export const GEMINI_MIN_ATTEMPT_TIMEOUT_MS = 10_000;
+
 type ProviderError = {
   status?: unknown;
   code?: unknown;
@@ -29,6 +38,25 @@ export type ScanErrorClassification = {
 
 const cleanModelName = (value: unknown) =>
   String(value || "").trim().replace(/^models\//i, "");
+
+/**
+ * Limita una llamada al proveedor al tiempo que aun queda del presupuesto de
+ * la solicitud. Cero significa que ya no es seguro iniciar otro intento.
+ */
+export const selectGeminiAttemptTimeoutMs = (
+  elapsedMs: unknown,
+  maxAttemptTimeoutMs: unknown,
+) => {
+  const elapsed = Math.max(0, Math.trunc(Number(elapsedMs) || 0));
+  const maximum = Math.max(0, Math.trunc(Number(maxAttemptTimeoutMs) || 0));
+  const remaining = Math.max(
+    0,
+    EDGE_RESPONSE_BUDGET_MS - elapsed - EDGE_RESPONSE_RESERVE_MS,
+  );
+  return remaining >= GEMINI_MIN_ATTEMPT_TIMEOUT_MS
+    ? Math.min(maximum, remaining)
+    : 0;
+};
 
 const isRetiredModel = (model: string) =>
   /^gemini-2\.0(?:-|$)/i.test(model) ||
@@ -272,6 +300,7 @@ export const shouldRetryProviderError = (error: unknown) =>
 export const shouldFallbackProviderError = (error: unknown) =>
   [
     "SCAN_MODEL_UNAVAILABLE",
+    "SCAN_TIMEOUT",
     "SCAN_RATE_LIMITED",
     "SCAN_DAILY_QUOTA_EXCEEDED",
     "SCAN_TEMPORARY_ERROR",

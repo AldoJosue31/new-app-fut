@@ -283,7 +283,7 @@ export function TorneosTemplate({
 
         <StyledContentContainer $activeTab={activeTab} $headerHeight={headerHeight}>
           <ContentGrid $isWide={isWideView}>
-            <FullWidthTab $isConstrained={activeTab === "jornadas"}>
+            <FullWidthTab $isConstrained={activeTab === "jornadas" || activeTab === "goleadores"}>
               <TorneoDefinitionModeLoading />
             </FullWidthTab>
           </ContentGrid>
@@ -308,11 +308,12 @@ export function TorneosTemplate({
       <StyledContentContainer
         $activeTab={activeTab}
         $headerHeight={headerHeight}
+        $isGoleadores={activeTab === "goleadores"}
       >
         <ContentGrid $isWide={isWideView}>
           <Suspense
             fallback={
-              <FullWidthTab $isConstrained={activeTab === "jornadas"}>
+              <FullWidthTab $isConstrained={activeTab === "jornadas" || activeTab === "goleadores"}>
                 <TorneoDefinitionModeLoading />
               </FullWidthTab>
             }
@@ -385,7 +386,7 @@ export function TorneosTemplate({
           )}
 
           {activeTab === "goleadores" && (
-            <FullWidthTab>
+            <FullWidthTab $isConstrained>
               {isLoadingData && !activeTournament ? (
                 <TorneoDefinitionModeLoading />
               ) : activeTournament ? (
@@ -428,6 +429,14 @@ const StyledContentContainer = styled(ContentContainer)`
     align-items: stretch;
     box-sizing: border-box;
     min-height: ${({ $headerHeight }) => `calc(100dvh - ${$headerHeight || 118}px)`} !important;
+
+    ${({ $isGoleadores, $headerHeight }) =>
+      $isGoleadores &&
+      `
+        height: calc(100dvh - ${$headerHeight || 118}px);
+        min-height: calc(100dvh - ${$headerHeight || 118}px) !important;
+        overflow: hidden;
+      `}
 
     ${({ $activeTab, $headerHeight }) =>
       $activeTab === "jornadas" &&

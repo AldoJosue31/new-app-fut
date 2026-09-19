@@ -204,6 +204,7 @@ export const prepareImageForScan = async (file, {
     if (
       DIRECT_SCAN_MIME_TYPES.has(sourceMimeType)
       && file.size <= PASSTHROUGH_IMAGE_BYTES
+      && Math.max(decoded.width, decoded.height) <= maxImageSide
     ) {
       return originalFilePayload(file, sourceMimeType, fallbackName, detailImages);
     }

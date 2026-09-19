@@ -2,7 +2,11 @@ import {
   classifyProviderError,
   DEFAULT_GEMINI_FALLBACK_MODEL,
   DEFAULT_GEMINI_MODEL,
+  EDGE_RESPONSE_BUDGET_MS,
+  GEMINI_FALLBACK_MAX_TIMEOUT_MS,
+  GEMINI_PRIMARY_MAX_TIMEOUT_MS,
   selectGeminiFallbackModel,
+  selectGeminiAttemptTimeoutMs,
   selectGeminiModel,
   shouldFallbackProviderError,
   shouldRetryProviderError,
@@ -66,6 +70,40 @@ Deno.test("no reintenta modelo retirado, configuracion, auth, cuota ni timeout",
     assertEquals(classifyProviderError(error).responseCode, code, `codigo ${code}`);
     assertEquals(shouldRetryProviderError(error), false, `retry ${code}`);
   }
+});
+
+Deno.test("un timeout permite un unico modelo alterno dentro del presupuesto seguro", () => {
+  assertEquals(EDGE_RESPONSE_BUDGET_MS < 150_000, true, "presupuesto menor al limite de plataforma");
+  assertEquals(
+    shouldFallbackProviderError({ status: 504 }),
+    true,
+    "timeout habilita modelo alterno",
+  );
+  assertEquals(
+    shouldRetryProviderError({ status: 504 }),
+    false,
+    "timeout no habilita reintentos del mismo modelo",
+  );
+  assertEquals(
+    selectGeminiAttemptTimeoutMs(0, GEMINI_PRIMARY_MAX_TIMEOUT_MS),
+    45_000,
+    "intento principal limitado",
+  );
+  assertEquals(
+    selectGeminiAttemptTimeoutMs(45_000, GEMINI_FALLBACK_MAX_TIMEOUT_MS),
+    35_000,
+    "alterno limitado despues del timeout principal",
+  );
+  assertEquals(
+    selectGeminiAttemptTimeoutMs(105_000, GEMINI_FALLBACK_MAX_TIMEOUT_MS),
+    10_000,
+    "ultimo intento solo recibe el tiempo restante",
+  );
+  assertEquals(
+    selectGeminiAttemptTimeoutMs(105_001, GEMINI_FALLBACK_MAX_TIMEOUT_MS),
+    0,
+    "no inicia una llamada que no pueda terminar de forma segura",
+  );
 });
 
 Deno.test("distingue cuota diaria y conserva RetryInfo temporal", () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { v } from '../../../../styles/variables';
 import { ContainerScroll } from '../../../atomos/ContainerScroll';
@@ -10,6 +10,8 @@ import { StandingsJornadaSelector } from './StandingsJornadaSelector';
 import { useTorneoGoleadoresLogic } from '../../../../hooks/useTorneoGoleadoresLogic';
 import { Skeleton } from '../../../atomos/Skeleton';
 import { updateTournamentFieldsService } from '../../../../services/torneos';
+
+const DEFAULT_SKELETON_ROW_COUNT = 6;
 
 const PlayerAvatar = ({ src, alt }) => {
   const [hasError, setHasError] = useState(false);
@@ -48,6 +50,8 @@ export const GoleadoresTab = ({
   const [updating, setUpdating] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedJornadaView, setSelectedJornadaView] = useState('recent');
+  const [skeletonRowCount, setSkeletonRowCount] = useState(DEFAULT_SKELETON_ROW_COUNT);
+  const tableScrollRef = useRef(null);
 
   useEffect(() => {
     setIsPublicEnabled(torneo?.is_goleadores_public || false);
@@ -89,6 +93,56 @@ export const GoleadoresTab = ({
 
     return () => clearTimeout(timer);
   }, [isLoading, selectedJornadaView]);
+
+  useLayoutEffect(() => {
+    if (!showSkeleton) return undefined;
+
+    const scrollElement = tableScrollRef.current;
+    if (!scrollElement) return undefined;
+
+    let frameId = null;
+
+    const updateSkeletonRowCount = () => {
+      if (frameId) cancelAnimationFrame(frameId);
+
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+
+        const table = scrollElement.querySelector('table');
+        const header = table?.querySelector('thead');
+        const sampleRow = table?.querySelector('tbody tr');
+        const rowHeight = sampleRow?.getBoundingClientRect().height || 56;
+        const headerHeight = header?.getBoundingClientRect().height || 48;
+        const rowsViewportHeight = Math.max(
+          0,
+          scrollElement.clientHeight - headerHeight
+        );
+        const nextRowCount = Math.max(
+          1,
+          Math.ceil(rowsViewportHeight / rowHeight)
+        );
+
+        setSkeletonRowCount((currentCount) =>
+          currentCount === nextRowCount ? currentCount : nextRowCount
+        );
+      });
+    };
+
+    updateSkeletonRowCount();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateSkeletonRowCount)
+        : null;
+    resizeObserver?.observe(scrollElement);
+    window.addEventListener('resize', updateSkeletonRowCount);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateSkeletonRowCount);
+    };
+  }, [showSkeleton]);
 
   const handleTogglePublic = async () => {
     if (updating) return;
@@ -157,7 +211,7 @@ export const GoleadoresTab = ({
       )}
 
       <TableCard>
-        <TableScrollWrapper $height="auto">
+        <TableScrollWrapper ref={tableScrollRef}>
           <StyledTable>
             <colgroup>
               <col className="rank-col" />
@@ -175,7 +229,7 @@ export const GoleadoresTab = ({
             </thead>
             <tbody>
               {showSkeleton ? (
-                Array.from({ length: 6 }).map((_, index) => (
+                Array.from({ length: skeletonRowCount }).map((_, index) => (
                   <Tr key={`skeleton-${index}`}>
                     <RankTd>
                       <Skeleton width="30px" height="30px" radius="50%" />
@@ -290,6 +344,9 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
 `;
 
@@ -480,6 +537,10 @@ const StatusIcon = styled.div`
 
 const TableCard = styled.div`
   background-color: var(--goleadores-surface);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 12px;
   margin: 0 auto;
   width: 98%;
@@ -495,7 +556,10 @@ const TableCard = styled.div`
 `;
 
 const TableScrollWrapper = styled(ContainerScroll)`
-  max-height: 600px;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 0;
