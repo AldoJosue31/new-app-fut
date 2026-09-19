@@ -44,6 +44,7 @@ import {
 
 const MAX_PLAYER_DETAIL_SIDE = 2400;
 const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
+const REVIEW_PREVIEW_MAX_ZOOM_CLICKS = 2;
 const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v2";
 const DAILY_QUOTA_CODE = "SCAN_DAILY_QUOTA_EXCEEDED";
 
@@ -219,6 +220,7 @@ export function CedulaScanFlow({
   const [scoreResolutions, setScoreResolutions] = useState({});
   const [hasAcceptedTeamMismatch, setHasAcceptedTeamMismatch] = useState(false);
   const [coarseDevice, setCoarseDevice] = useState(false);
+  const [reviewPreviewZoomClicks, setReviewPreviewZoomClicks] = useState(0);
   const uploadInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const progressTimerRef = useRef(null);
@@ -342,7 +344,8 @@ export function CedulaScanFlow({
     showToast("Imagen pegada desde el portapapeles.", "success");
   });
 
-  const handleReviewPreviewPointerMove = useCallback((event) => {
+  const updateReviewPreviewZoomOrigin = useCallback((event) => {
+    if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
     const element = event.currentTarget;
     const rect = element.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
@@ -354,11 +357,40 @@ export function CedulaScanFlow({
     element.style.setProperty("--preview-zoom-y", `${Math.max(0, Math.min(100, nextY))}%`);
   }, []);
 
+  const handleReviewPreviewPointerMove = useCallback((event) => {
+    updateReviewPreviewZoomOrigin(event);
+  }, [updateReviewPreviewZoomOrigin]);
+
+  const adjustReviewPreviewZoom = useCallback((event, amount) => {
+    updateReviewPreviewZoomOrigin(event);
+    setReviewPreviewZoomClicks(current => Math.max(
+      0,
+      Math.min(current + amount, REVIEW_PREVIEW_MAX_ZOOM_CLICKS),
+    ));
+  }, [updateReviewPreviewZoomOrigin]);
+
+  const increaseReviewPreviewZoom = useCallback((event) => {
+    adjustReviewPreviewZoom(event, 1);
+  }, [adjustReviewPreviewZoom]);
+
+  const handleReviewPreviewWheel = useCallback((event) => {
+    if (coarseDevice || !event.deltaY) return;
+    event.preventDefault();
+    adjustReviewPreviewZoom(event, event.deltaY < 0 ? 1 : -1);
+  }, [adjustReviewPreviewZoom, coarseDevice]);
+
   const handleReviewPreviewPointerLeave = useCallback((event) => {
     const element = event.currentTarget;
+    setReviewPreviewZoomClicks(0);
     element.style.setProperty("--preview-zoom-x", "50%");
     element.style.setProperty("--preview-zoom-y", "50%");
   }, []);
+
+  const handleReviewPreviewKeyDown = useCallback((event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    increaseReviewPreviewZoom(event);
+  }, [increaseReviewPreviewZoom]);
 
   useEffect(() => {
     const handlePaste = (event) => {
@@ -1026,13 +1058,21 @@ export function CedulaScanFlow({
                 <span>Documento escaneado</span>
                 <strong id="review-image-title">Cedula capturada</strong>
               </div>
-              <small>Pasa el cursor sobre la imagen para ampliar una zona. En móvil mantiene la vista completa.</small>
+              <small>Pasa el cursor para ampliar. Clic o rueda ajustan el zoom. En móvil mantiene la vista completa.</small>
             </ReviewMediaHeader>
             <ReviewPreviewFrame
+              $zoomClicks={reviewPreviewZoomClicks}
               aria-busy={scanning}
+              aria-label="Vista ampliable de la cédula. Haz clic o usa la rueda para ajustar el zoom."
+              role="button"
+              tabIndex={0}
               onPointerMove={handleReviewPreviewPointerMove}
               onPointerEnter={handleReviewPreviewPointerMove}
               onPointerLeave={handleReviewPreviewPointerLeave}
+              onBlur={handleReviewPreviewPointerLeave}
+              onClick={increaseReviewPreviewZoom}
+              onKeyDown={handleReviewPreviewKeyDown}
+              onWheel={handleReviewPreviewWheel}
             >
               {previewAvailable !== false ? (
                 <img
@@ -1577,7 +1617,7 @@ const ReviewPreviewFrame = styled(PreviewFrame)`
 
   @media (hover:hover) and (pointer:fine){
     &:hover img{
-      transform:scale(1.8);
+      transform:scale(${({$zoomClicks})=>1.8 + ($zoomClicks * .6)});
       filter:saturate(1.03) contrast(1.02);
     }
   }
