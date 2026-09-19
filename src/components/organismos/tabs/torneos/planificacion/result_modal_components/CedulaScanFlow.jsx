@@ -1055,24 +1055,38 @@ export function CedulaScanFlow({
           <ReviewSidebar>
             <ReviewDataPanel aria-labelledby="review-data-title">
               <h5 id="review-data-title">Datos del partido</h5>
-              <DataRow
-                label="Local"
-                value={formatTeamScore({ name: match?.local?.name || "Local", score: interpretation.scores.local }, "Local")}
-                scannedValue={formatTeamScore(scannedLocalTeam, "Sin detectar")}
-              />
-              <DataRow
-                label="Visitante"
-                value={formatTeamScore({ name: match?.visitante?.name || "Visitante", score: interpretation.scores.visit }, "Visitante")}
-                scannedValue={formatTeamScore(scannedVisitTeam, "Sin detectar")}
-              />
-              <DataRow
-                label="Arbitro"
-                value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"}
-                scannedValue={rawScan.referee || "Sin detectar"}
-                warning={!interpretation.referee && Boolean(rawScan.referee)}
-              />
-              <DataRow label="Fecha" value={dateResultLabel} scannedValue={rawScan.date || "Sin detectar"} />
-              <DataRow label="Hora" value={timeResultLabel} scannedValue={rawScan.time || "Sin detectar"} />
+              <MatchDataColumns role="group" aria-label="Marcador interpretado del partido">
+                <TeamScoreColumn
+                  sideLabel="Local"
+                  teamName={match?.local?.name || "Local"}
+                  score={interpretation.scores.local}
+                  scannedValue={formatTeamScore(scannedLocalTeam, "Sin detectar")}
+                />
+                <TeamScoreColumn
+                  sideLabel="Visitante"
+                  teamName={match?.visitante?.name || "Visitante"}
+                  score={interpretation.scores.visit}
+                  scannedValue={formatTeamScore(scannedVisitTeam, "Sin detectar")}
+                />
+              </MatchDataColumns>
+              <ScheduleDataColumns role="group" aria-label="Programacion y arbitro interpretados del partido">
+                <MatchDataColumn
+                  label="Fecha"
+                  value={dateResultLabel}
+                  scannedValue={rawScan.date || "Sin detectar"}
+                />
+                <MatchDataColumn
+                  label="Hora"
+                  value={timeResultLabel}
+                  scannedValue={rawScan.time || "Sin detectar"}
+                />
+                <MatchDataColumn
+                  label="Arbitro"
+                  value={interpretation.referee ? refereeName(interpretation.referee) : "Sin coincidencia"}
+                  scannedValue={rawScan.referee || "Sin detectar"}
+                  warning={!interpretation.referee && Boolean(rawScan.referee)}
+                />
+              </ScheduleDataColumns>
               {hasDetectedScheduleChange && (
                 <ScheduleOptions aria-label="Programacion detectada en la cedula">
                   <strong className="schedule-title">Aplicar programacion detectada</strong>
@@ -1327,6 +1341,32 @@ function DataRow({ label, value, scannedValue, warning = false }) {
         {scannedValue && <small>Escaneado: {scannedValue}</small>}
       </div>
     </ScanDataRow>
+  );
+}
+
+function MatchDataColumn({ label, value, scannedValue, warning = false }) {
+  return (
+    <DataColumn $warning={warning}>
+      <span className="field-label">{label}</span>
+      <strong className="field-value">{value}</strong>
+      {scannedValue && <small>Escaneado: {scannedValue}</small>}
+    </DataColumn>
+  );
+}
+
+function TeamScoreColumn({ sideLabel, teamName, score, scannedValue }) {
+  const scoreValue = Math.max(0, toStatNumber(score));
+
+  return (
+    <DataColumn>
+      <span className="field-label">{sideLabel}</span>
+      <strong className="team-name">{teamName}</strong>
+      <span className="score-value">
+        <strong>{scoreValue}</strong>
+        <span>{scoreValue === 1 ? "gol" : "goles"}</span>
+      </span>
+      {scannedValue && <small>Escaneado: {scannedValue}</small>}
+    </DataColumn>
   );
 }
 
@@ -1656,6 +1696,53 @@ const ReviewDataPanel = styled.section`
   h5{margin:0 0 10px;font-size:.94rem;line-height:1.35;}
 
   @media(max-width:560px){padding:12px;}
+`;
+const MatchDataColumns = styled.div`
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  min-width:0;
+  padding:0 0 12px;
+  border-bottom:1px solid ${({theme})=>theme.bg4};
+
+  & + &{padding:12px 0;}
+
+  > *:first-child{padding-right:12px;}
+  > * + *{padding-left:12px;border-left:1px solid ${({theme})=>theme.bg4};}
+
+  @media(max-width:380px){
+    grid-template-columns:1fr;
+    gap:10px;
+
+    > *:first-child{padding-right:0;}
+    > * + *{padding:10px 0 0;border-left:0;border-top:1px solid ${({theme})=>theme.bg4};}
+  }
+`;
+const ScheduleDataColumns = styled(MatchDataColumns)`
+  grid-template-columns:repeat(3,minmax(0,1fr));
+
+  @media(max-width:560px){
+    grid-template-columns:1fr;
+    gap:10px;
+
+    > *:first-child{padding-right:0;}
+    > * + *{padding:10px 0 0;border-left:0;border-top:1px solid ${({theme})=>theme.bg4};}
+  }
+`;
+const DataColumn = styled.div`
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:3px;
+  min-width:0;
+  font-size:.86rem;
+
+  .field-label{color:${({theme})=>theme.text};font-size:.72rem;font-weight:700;line-height:1.35;opacity:.64;overflow-wrap:anywhere;}
+  .field-value{font-weight:750;line-height:1.35;overflow-wrap:anywhere;color:${({theme,$warning})=>$warning ? v.rojo : theme.text};}
+  .team-name{font-size:.86rem;font-weight:750;line-height:1.35;overflow-wrap:anywhere;color:${({theme})=>theme.text};}
+  .score-value{display:flex;align-items:baseline;gap:5px;min-width:0;color:${v.colorPrincipal};}
+  .score-value strong{font-size:clamp(1.55rem,3vw,2rem);font-variant-numeric:tabular-nums;font-weight:800;line-height:1;}
+  .score-value span{font-size:.76rem;font-weight:700;line-height:1.2;opacity:.82;}
+  small{color:${({theme})=>theme.text};font-size:.73rem;line-height:1.35;overflow-wrap:anywhere;opacity:.62;}
 `;
 const ScanDataRow = styled.div`
   display:grid;
