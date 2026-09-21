@@ -5,6 +5,11 @@ import {
   TOURNAMENT_STATUS,
 } from './shared';
 import { buildScannedMatchTimestamp } from '../../utils/scannedScheduleUtils';
+import {
+  createMatchResultConflictError,
+  MATCH_RESULT_CONFLICT_CODE,
+  normalizeMatchResultRevision,
+} from '../../utils/matchResultConcurrency';
 
 export const generarFixture = (equipos) => {
   const list = [...equipos];
@@ -40,6 +45,16 @@ const hasStoredScoreValue = (value) =>
 const hasStoredMatchResult = (match) =>
   match?.status === 'Finalizado' ||
   (hasStoredScoreValue(match?.goals1) && hasStoredScoreValue(match?.goals2));
+
+const hasStoredMatchResultDetails = (match) =>
+  !['Pendiente', 'Programado'].includes(match?.status || 'Programado') ||
+  hasStoredScoreValue(match?.goals1) ||
+  hasStoredScoreValue(match?.goals2) ||
+  Number(match?.puntos1 ?? 0) !== 0 ||
+  Number(match?.puntos2 ?? 0) !== 0 ||
+  (match?.mvp_player_id !== null &&
+    match?.mvp_player_id !== undefined) ||
+  (match?.match_events || []).length > 0;
 
 export const iniciarTorneoService = async (
   { divisionId, divisionName, season, startDate, config, jornadas },
@@ -273,11 +288,12 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
     }
 
     const matchesToInsert = [];
-    const matchesToUpdate = [];
+    const matchSchedulesToSave = new Map();
     // Este mapping tambien conserva los partidos pendientes jugados en otra
     // jornada oficial, no solo los de una jornada de reposicion.
     const repositionMatchMappings = [];
     const insertMatchMetas = [];
+    const insertedMatchInitialResults = [];
     const processedMatchIds = new Set();
 
     const getTargetJornadaName = (jornadaId) => {
@@ -366,19 +382,20 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         finalStatus = match.date && match.date.trim() !== '' ? 'Programado' : 'Pendiente';
       }
 
+      const resultUpdates =
+        finalStatus === 'Finalizado' && hasCompleteScore
+          ? {
+              goals1: finalGoals1,
+              goals2: finalGoals2,
+              observations: finalObservations,
+            }
+          : {};
+
       const payload = {
         jornada_id: targetJornadaId,
         team1_id: team1Id,
         team2_id: team2Id,
-        status: finalStatus,
-        date: finalDate,
       };
-
-      if (finalGoals1 !== undefined) payload.goals1 = finalGoals1;
-      if (finalGoals2 !== undefined) payload.goals2 = finalGoals2;
-      if (finalObservations !== undefined) {
-        payload.observations = finalObservations;
-      }
 
       const numericId = Number(match.id);
       if (
@@ -387,9 +404,17 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
         numericId > 0 &&
         !String(match.id).startsWith('temp')
       ) {
-        payload.id = numericId;
         processedMatchIds.add(String(numericId));
-        matchesToUpdate.push(payload);
+        matchSchedulesToSave.set(String(numericId), {
+          matchId: numericId,
+          expectedRevision: normalizeMatchResultRevision(match.result_revision),
+          updates: {
+            ...payload,
+            status: finalStatus,
+            date: finalDate,
+            ...resultUpdates,
+          },
+        });
 
         registerMovedMatchMapping({
           matchId: numericId,
@@ -401,7 +426,24 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
             `Jornada ${jornadaData.jornada_numero}`,
         });
       } else {
-        matchesToInsert.push(payload);
+        const initialResult =
+          finalStatus === 'Finalizado' && hasCompleteScore
+          ? {
+              ...resultUpdates,
+              status: finalStatus,
+            }
+          : null;
+        const insertPayload = {
+          ...payload,
+          // La insercion directa se restringe a fixtures sin resultado. La
+          // victoria por default o cualquier resultado inicial se completa
+          // inmediatamente mediante el RPC atomico una vez que la fila ya
+          // tiene un identificador.
+          status: initialResult ? 'Pendiente' : finalStatus,
+          date: finalDate,
+        };
+        matchesToInsert.push(insertPayload);
+        insertedMatchInitialResults.push(initialResult);
 
         const resolvedOriginJornadaId = originJornadaId || originalCurrentJornadaId;
         insertMatchMetas.push(
@@ -433,15 +475,23 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
       }
     });
 
+    let insertedMatches = [];
+
     if (matchesToInsert.length > 0) {
-      const { data: insertedMatches, error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from('matches')
         .insert(matchesToInsert)
         .select('id');
       if (insertError) throw insertError;
 
+      insertedMatches = data || [];
+
+      if (insertedMatches.length !== matchesToInsert.length) {
+        throw new Error('No se pudieron confirmar todos los partidos creados.');
+      }
+
       if (insertMatchMetas.length > 0) {
-        (insertedMatches || []).forEach((insertedMatch, index) => {
+        insertedMatches.forEach((insertedMatch, index) => {
           const meta = insertMatchMetas[index];
           if (!meta) return;
 
@@ -455,11 +505,35 @@ export const guardarJornadaService = async (torneoId, jornadaData) => {
       }
     }
 
-    if (matchesToUpdate.length > 0) {
-      const { error: updateError } = await supabase
-        .from('matches')
-        .upsert(matchesToUpdate);
-      if (updateError) throw updateError;
+    const resultSaves = [
+      ...Array.from(matchSchedulesToSave.values()).map(
+        ({ matchId, expectedRevision, updates }) =>
+          saveMatchResultAtomicService({
+            matchId,
+            expectedRevision,
+            updates,
+            events: null,
+          }),
+      ),
+      ...insertedMatches.flatMap((insertedMatch, index) => {
+        const initialResult = insertedMatchInitialResults[index];
+        if (!initialResult) return [];
+
+        return [
+          saveMatchResultAtomicService({
+            matchId: insertedMatch.id,
+            expectedRevision: 0,
+            updates: initialResult,
+            events: [],
+          }),
+        ];
+      }),
+    ];
+
+    if (resultSaves.length > 0) {
+      await Promise.all(
+        resultSaves,
+      );
     }
 
     if (!repositionConfig?.enabled) {
@@ -605,46 +679,6 @@ export const eliminarTorneoService = async (tournamentId) => {
   try {
     if (!tournamentId) throw new Error('ID de torneo invalido');
 
-    const { data: jornadas, error: jornadasError } = await supabase
-      .from('jornadas')
-      .select('id')
-      .eq('tournament_id', tournamentId);
-
-    if (jornadasError) throw jornadasError;
-
-    const jornadaIds = (jornadas || []).map((jornada) => jornada.id);
-
-    if (jornadaIds.length > 0) {
-      const { data: matches, error: matchesError } = await supabase
-        .from('matches')
-        .select('id')
-        .in('jornada_id', jornadaIds);
-
-      if (matchesError) throw matchesError;
-
-      const matchIds = (matches || []).map((match) => match.id);
-
-      if (matchIds.length > 0) {
-        const { error: eventsError } = await supabase
-          .from('match_events')
-          .delete()
-          .in('match_id', matchIds);
-        if (eventsError) throw eventsError;
-
-        const { error: deleteMatchesError } = await supabase
-          .from('matches')
-          .delete()
-          .in('jornada_id', jornadaIds);
-        if (deleteMatchesError) throw deleteMatchesError;
-      }
-
-      const { error: deleteJornadasError } = await supabase
-        .from('jornadas')
-        .delete()
-        .eq('tournament_id', tournamentId);
-      if (deleteJornadasError) throw deleteJornadasError;
-    }
-
     const { error: tournamentError } = await supabase
       .from('tournaments')
       .delete()
@@ -662,95 +696,17 @@ export const eliminarTorneoService = async (tournamentId) => {
 export const limpiarResultadosTorneoService = async (tournamentId) => {
   if (!tournamentId) throw new Error('ID de torneo invalido');
 
-  const { data: jornadas, error: jornadasError } = await supabase
-    .from('jornadas')
-    .select('id')
-    .eq('tournament_id', tournamentId);
+  const { data, error } = await supabase.rpc('clear_tournament_results_atomic', {
+    p_tournament_id: Number(tournamentId),
+  });
 
-  if (jornadasError) throw jornadasError;
-
-  const jornadaIds = (jornadas || []).map((jornada) => jornada.id);
-  if (jornadaIds.length === 0) {
-    return { success: true, matchCount: 0, jornadaCount: 0 };
-  }
-
-  const { data: matches, error: matchesError } = await supabase
-    .from('matches')
-    .select('id, date')
-    .in('jornada_id', jornadaIds);
-
-  if (matchesError) throw matchesError;
-
-  const matchIds = (matches || []).map((match) => match.id);
-
-  if (matchIds.length > 0) {
-    const { error: eventsError } = await supabase
-      .from('match_events')
-      .delete()
-      .in('match_id', matchIds);
-
-    if (eventsError) throw eventsError;
-
-    const resetFields = {
-      goals1: null,
-      goals2: null,
-      puntos1: null,
-      puntos2: null,
-      referee_id: null,
-      observations: null,
-    };
-    const scheduledMatchIds = (matches || [])
-      .filter((match) => Boolean(match.date))
-      .map((match) => match.id);
-    const unscheduledMatchIds = (matches || [])
-      .filter((match) => !match.date)
-      .map((match) => match.id);
-
-    if (scheduledMatchIds.length > 0) {
-      const { error: scheduledUpdateError } = await supabase
-        .from('matches')
-        .update({ ...resetFields, status: 'Programado' })
-        .in('id', scheduledMatchIds);
-
-      if (scheduledUpdateError) throw scheduledUpdateError;
-    }
-
-    if (unscheduledMatchIds.length > 0) {
-      const { error: unscheduledUpdateError } = await supabase
-        .from('matches')
-        .update({ ...resetFields, status: 'Pendiente' })
-        .in('id', unscheduledMatchIds);
-
-      if (unscheduledUpdateError) throw unscheduledUpdateError;
-    }
-  }
-
-  const { error: jornadasUpdateError } = await supabase
-    .from('jornadas')
-    .update({ status: 'Pendiente' })
-    .in('id', jornadaIds);
-
-  if (jornadasUpdateError) throw jornadasUpdateError;
+  if (error) throw error;
 
   return {
     success: true,
-    matchCount: matchIds.length,
-    jornadaCount: jornadaIds.length,
+    matchCount: Number(data?.match_count || 0),
+    jornadaCount: Number(data?.jornada_count || 0),
   };
-};
-
-export const bulkUpsertMatchesService = async (matches) => {
-  if (!Array.isArray(matches) || matches.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('matches')
-    .upsert(matches, { onConflict: 'id' })
-    .select();
-
-  if (error) throw error;
-  return data || [];
 };
 
 export const bulkInsertMatchesService = async (matches) => {
@@ -809,7 +765,9 @@ export const deleteMatchesForFixtureRestoreService = async (
 
   const { data: eligibleMatches, error: eligibleMatchesError } = await supabase
     .from('matches')
-    .select('id, jornada_id')
+    .select(
+      'id, jornada_id, status, goals1, goals2, puntos1, puntos2, mvp_player_id, match_events(id)',
+    )
     .in('id', uniqueMatchIds)
     .in('jornada_id', uniqueJornadaIds);
 
@@ -818,22 +776,29 @@ export const deleteMatchesForFixtureRestoreService = async (
     throw new Error('Uno o más partidos excedentes ya no pertenecen a jornadas editables.');
   }
 
+  if ((eligibleMatches || []).some(hasStoredMatchResultDetails)) {
+    throw new Error('No se pueden eliminar partidos con resultado, estadísticas o eventos.');
+  }
+
   const idsToDelete = eligibleMatches.map((match) => match.id);
-  const { error: eventsError } = await supabase
-    .from('match_events')
-    .delete()
-    .in('match_id', idsToDelete);
-
-  if (eventsError) throw eventsError;
-
-  const { error: deleteMatchesError } = await supabase
+  const { data: deletedMatches, error: deleteMatchesError } = await supabase
     .from('matches')
     .delete()
     .in('id', idsToDelete)
-    .in('jornada_id', uniqueJornadaIds);
+    .in('jornada_id', uniqueJornadaIds)
+    .select('id');
 
   if (deleteMatchesError) throw deleteMatchesError;
-  return eligibleMatches || [];
+
+  const deletedIds = new Set((deletedMatches || []).map((match) => String(match.id)));
+  if (
+    deletedIds.size !== idsToDelete.length ||
+    idsToDelete.some((id) => !deletedIds.has(String(id)))
+  ) {
+    throw new Error('Los partidos cambiaron mientras se restauraba el fixture. Recarga e inténtalo de nuevo.');
+  }
+
+  return deletedMatches || [];
 };
 
 export const createJornadasService = async (jornadas) => {
@@ -850,43 +815,96 @@ export const createJornadasService = async (jornadas) => {
   return data || [];
 };
 
-export const updateMatchResultService = async (matchId, payload) => {
-  const { error } = await supabase
-    .from('matches')
-    .update(payload)
-    .eq('id', matchId);
+/**
+ * Persiste cambios protegidos de un partido con control optimista de versión.
+ * Cuando se entregan eventos, el RPC los reemplaza junto con el partido dentro
+ * de una sola transacción; `events: null` conserva los eventos existentes.
+ */
+export const saveMatchResultAtomicService = async ({
+  matchId,
+  expectedRevision,
+  updates,
+  events = null,
+}) => {
+  const numericMatchId = Number(matchId);
+  if (!Number.isSafeInteger(numericMatchId) || numericMatchId <= 0) {
+    throw new Error('ID de partido no proporcionado');
+  }
 
-  if (error) throw error;
-  return { success: true };
+  const revision = normalizeMatchResultRevision(expectedRevision);
+  if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+    throw new Error('Datos de resultado no proporcionados');
+  }
+  if (events !== null && !Array.isArray(events)) {
+    throw new Error('Los eventos del partido no son válidos');
+  }
+
+  const safeUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => value !== undefined),
+  );
+  const safeEvents = events === null
+    ? null
+    : events.map((event) => ({
+      event_type: event?.event_type,
+      player_id: event?.player_id,
+    }));
+
+  const { data, error } = await supabase.rpc('save_match_result_atomic', {
+    p_match_id: numericMatchId,
+    p_expected_revision: revision,
+    p_updates: safeUpdates,
+    p_events: safeEvents,
+  });
+
+  if (error) {
+    if (error.message === MATCH_RESULT_CONFLICT_CODE) {
+      throw createMatchResultConflictError(error);
+    }
+    throw error;
+  }
+
+  if (!data?.match?.id) {
+    throw new Error('El guardado del resultado no devolvió el partido actualizado.');
+  }
+
+  return {
+    success: true,
+    match: data.match,
+  };
 };
 
-export const resetMatchResultService = async (torneoId, matchId) => {
+export const resetMatchResultService = async (
+  torneoId,
+  matchId,
+  expectedRevision,
+) => {
   if (!torneoId) throw new Error('ID de torneo no proporcionado');
   if (!matchId) throw new Error('ID de partido no proporcionado');
 
+  // La revisión pertenece a la versión que el usuario confirmó que quería
+  // deshacer; nunca se debe sustituir por una lectura posterior.
+  const revision = normalizeMatchResultRevision(expectedRevision);
+
   const { data: match, error: matchError } = await supabase
     .from('matches')
-    .select('id, status, date, goals1, goals2, jornadas!inner(tournament_id)')
+    .select('id, status, date, goals1, goals2, result_revision, jornadas!inner(tournament_id)')
     .eq('id', matchId)
     .eq('jornadas.tournament_id', torneoId)
     .single();
 
   if (matchError) throw matchError;
   if (!match) throw new Error('Partido no encontrado en la BD');
+  if (normalizeMatchResultRevision(match.result_revision) !== revision) {
+    throw createMatchResultConflictError(new Error(MATCH_RESULT_CONFLICT_CODE));
+  }
   if (!hasStoredMatchResult(match)) {
     throw new Error('Solo se puede deshacer un partido con resultado');
   }
 
-  const { error: eventsError } = await supabase
-    .from('match_events')
-    .delete()
-    .eq('match_id', matchId);
-
-  if (eventsError) throw eventsError;
-
-  const { data: updatedMatch, error: updateError } = await supabase
-    .from('matches')
-    .update({
+  const { match: updatedMatch } = await saveMatchResultAtomicService({
+    matchId,
+    expectedRevision: revision,
+    updates: {
       goals1: null,
       goals2: null,
       puntos1: null,
@@ -894,12 +912,9 @@ export const resetMatchResultService = async (torneoId, matchId) => {
       referee_id: null,
       observations: null,
       status: match.date ? 'Programado' : 'Pendiente',
-    })
-    .eq('id', matchId)
-    .select('id, status, date, goals1, goals2, puntos1, puntos2, referee_id, observations')
-    .single();
-
-  if (updateError) throw updateError;
+    },
+    events: [],
+  });
 
   return { success: true, match: updatedMatch };
 };

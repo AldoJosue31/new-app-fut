@@ -372,6 +372,7 @@ export const usePlanificacionMatches = (
         status: (!m.date && m.status === 'Programado') ? 'Pendiente' : m.status,
         goals1: m.goals1,
         goals2: m.goals2,
+        result_revision: m.result_revision,
         referee_id: m.referee_id,
         observations: m.observations,
         jornada_id: m.jornada_id,

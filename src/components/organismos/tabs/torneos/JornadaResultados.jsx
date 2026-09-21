@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { v } from "../../../../styles/variables";
-import { updateMatchResultService } from "../../../../services/torneos";
+import { saveMatchResultAtomicService } from "../../../../services/torneos";
+import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
 
 export function JornadaResultados({ matches, teams, refreshMatches, activeTournament }) {
   const [editingId, setEditingId] = useState(null);
@@ -14,7 +15,8 @@ export function JornadaResultados({ matches, teams, refreshMatches, activeTourna
     setTempScore({ g1: match.goals1 || 0, g2: match.goals2 || 0 });
   };
 
-  const handleSave = async (matchId) => {
+  const handleSave = async (match) => {
+    const matchId = match.id;
     // Reglas de puntuación
     const winPoints = parseInt(activeTournament?.config?.winPoints ?? 3);
     const drawPoints = parseInt(activeTournament?.config?.drawPoints ?? 1);
@@ -26,18 +28,46 @@ export function JornadaResultados({ matches, teams, refreshMatches, activeTourna
     else { p1 = drawPoints; p2 = drawPoints; }
 
     try {
-        await updateMatchResultService(matchId, {
-            goals1: tempScore.g1,
-            goals2: tempScore.g2,
-            puntos1: p1, 
-            puntos2: p2,
-            status: 'Finalizado'
+        await saveMatchResultAtomicService({
+            matchId,
+            expectedRevision: match.result_revision ?? 0,
+            updates: {
+                goals1: tempScore.g1,
+                goals2: tempScore.g2,
+                puntos1: p1,
+                puntos2: p2,
+                status: 'Finalizado'
+            },
+            // Este editor sólo cambia el marcador; conserva los eventos ya
+            // registrados por la cédula.
+            events: null,
         });
-
-        setEditingId(null);
-        refreshMatches();
-    } catch {
+    } catch (error) {
+        if (isMatchResultConflictError(error)) {
+            // No se puede conservar un borrador calculado sobre una revisión
+            // vieja: el siguiente clic podría sobrescribir la versión vigente.
+            setEditingId(null);
+            setTempScore({ g1: 0, g2: 0 });
+            try {
+                await refreshMatches?.();
+                alert("Otro dispositivo actualizó el partido. Se recargó la versión vigente.");
+            } catch (refreshError) {
+                console.error("No se pudo recargar el resultado vigente:", refreshError);
+                alert("Otro dispositivo actualizó el partido. No se pudo recargar la versión vigente; actualiza la página antes de editarlo de nuevo.");
+            }
+            return;
+        }
         alert("Error guardando resultado");
+        return;
+    }
+
+    setEditingId(null);
+    setTempScore({ g1: 0, g2: 0 });
+    try {
+        await refreshMatches?.();
+    } catch (refreshError) {
+        console.error("El resultado se guardó, pero no se pudo recargar:", refreshError);
+        alert("El resultado se guardó, pero no se pudo recargar la jornada. Actualiza la página para ver la versión vigente.");
     }
   };
 
@@ -89,7 +119,7 @@ export function JornadaResultados({ matches, teams, refreshMatches, activeTourna
 
                         <div className="actions">
                             {isEditing ? (
-                                <button type="button" className="btn-save" onClick={() => handleSave(m.id)}>OK</button>
+                                <button type="button" className="btn-save" onClick={() => handleSave(m)}>OK</button>
                             ) : (
                                 <button type="button" className="btn-edit" onClick={() => handleEdit(m)} disabled={isPending}>Result</button>
                             )}
