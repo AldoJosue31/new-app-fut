@@ -25,6 +25,7 @@ import {
 import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
 import { buildRepositionPreview } from "../../../../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
+import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
 
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
@@ -440,10 +441,10 @@ export function JornadaPlanificacion({
   }, [savingResultMatchId]);
 
   const handleSaveResult = useCallback(
-    async (id, updates) => {
+    async (id, request) => {
       setSavingResultMatchId(id);
       try {
-        await onMatchUpdate?.(id, updates);
+        await onMatchUpdate?.(id, request);
       } finally {
         setSavingResultMatchId(null);
       }
@@ -457,7 +458,11 @@ export function JornadaPlanificacion({
     const matchBeingReset = matchToResetResult;
     setResettingResultMatchId(matchToResetResult.id);
     try {
-      await onResetMatchResult?.(matchToResetResult.id);
+      const resetResult = await onResetMatchResult?.(
+        matchToResetResult.id,
+        matchBeingReset.result_revision,
+      );
+      const resetRevision = resetResult?.match?.result_revision;
 
       const resetStatus = matchBeingReset.date ? "Programado" : "Pendiente";
       const resetMatch = (match) =>
@@ -471,6 +476,7 @@ export function JornadaPlanificacion({
               puntos2: null,
               referee_id: null,
               observations: null,
+              result_revision: resetRevision ?? match.result_revision,
               resolution: null,
               isModified: false,
             }
@@ -483,7 +489,13 @@ export function JornadaPlanificacion({
       setMatchToResetResult(null);
       notify.success("Resultado deshecho. El partido vuelve a quedar pendiente.");
     } catch (error) {
-      notify.error(error?.message || "No se pudo deshacer el resultado");
+      notify.error(
+        isMatchResultConflictError(error)
+          ? error?.resultRefreshFailed
+            ? "No se deshizo el resultado porque otro dispositivo ya actualizó el partido. No se pudo recargar la jornada; actualiza la página antes de volver a editarlo."
+            : "No se deshizo el resultado porque otro dispositivo ya actualizó el partido. Revisa la versión vigente."
+          : error?.message || "No se pudo deshacer el resultado",
+      );
     } finally {
       setResettingResultMatchId(null);
     }
@@ -703,6 +715,14 @@ export function JornadaPlanificacion({
         notify.success("Jornada confirmada correctamente");
       } catch (serverErr) {
         console.error("Error guardando:", serverErr);
+        if (isMatchResultConflictError(serverErr)) {
+          notify.warning(
+            serverErr?.resultRefreshFailed
+              ? "Otro dispositivo actualizó uno de los partidos. No se pudo recargar la jornada; actualiza la página antes de confirmarla de nuevo."
+              : "Otro dispositivo actualizó uno de los partidos. La jornada se recargó con la versión vigente.",
+          );
+          return;
+        }
         const serverMessage =
           serverErr?.message || serverErr?.error || String(serverErr);
         const dt = parseDateTimeFromServerMessage(serverMessage);
@@ -1284,8 +1304,13 @@ export function JornadaPlanificacion({
         onConfirm={async () => {
           if (matchToPostpone) {
             await onMatchUpdate?.(matchToPostpone.id, {
-              status: "Pendiente",
-              date: null,
+              type: "atomic-result-save",
+              expectedRevision: matchToPostpone.result_revision,
+              events: null,
+              updates: {
+                status: "Pendiente",
+                date: null,
+              },
             });
             setMatchToPostpone(null);
           }

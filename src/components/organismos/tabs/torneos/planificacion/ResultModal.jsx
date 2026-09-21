@@ -12,6 +12,7 @@ import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
 import { reconcileRostersToScores } from "../../../../../utils/cedulaScoreResolution";
+import { isMatchResultConflictError } from "../../../../../utils/matchResultConcurrency";
 import { notify } from "../../../../../lib/notifications/notify.js";
 
 // Componentes Modularizados
@@ -659,24 +660,21 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
     try {
       const matchId = Number(match.id);
-      const { error: delError } = await supabase.from('match_events').delete().eq('match_id', matchId);
-      if(delError) throw delError;
-
       const events = [];
       const processRoster = (r) => {
         r.forEach(p => {
           if (!p.playerId) return;
           const pid = p.playerId;
           
-          events.push({ match_id: matchId, player_id: pid, event_type: 'participation' });
+          events.push({ player_id: pid, event_type: 'participation' });
           
           if (!isWalkover) {
               const goals = toStatNumber(p.goals);
               const ownGoals = toStatNumber(p.ownGoals);
-              if (goals > 0) for(let i=0; i < goals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'goal' });
-              if (ownGoals > 0) for(let i=0; i < ownGoals; i++) events.push({ match_id: matchId, player_id: pid, event_type: 'own_goal' });
-              if (p.yellow) events.push({ match_id: matchId, player_id: pid, event_type: 'yellow_card' });
-              if (p.red) events.push({ match_id: matchId, player_id: pid, event_type: 'red_card' });
+              if (goals > 0) for(let i=0; i < goals; i++) events.push({ player_id: pid, event_type: 'goal' });
+              if (ownGoals > 0) for(let i=0; i < ownGoals; i++) events.push({ player_id: pid, event_type: 'own_goal' });
+              if (p.yellow) events.push({ player_id: pid, event_type: 'yellow_card' });
+              if (p.red) events.push({ player_id: pid, event_type: 'red_card' });
           }
         });
       };
@@ -685,11 +683,6 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         if (woWinnerId === match?.local?.id) processRoster(rosterLocal);
         else if (woWinnerId === match?.visitante?.id) processRoster(rosterVisit);
       } else { processRoster(rosterLocal); processRoster(rosterVisit); }
-
-      if (events.length > 0) {
-        const { error: eventError } = await supabase.from('match_events').insert(events);
-        if (eventError) throw eventError;
-      }
 
       let p1 = 0, p2 = 0; const finalObsParts = [];
       if (isWalkover) {
@@ -721,12 +714,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
 
       await onSave(matchId, {
-        goals1: totalGoalsLocal, goals2: totalGoalsVisit, puntos1: p1, puntos2: p2,
-        // Al enviar el ref, ya no validamos si es Walkover o no, siempre lo manda
-        referee_id: selectedReferee || null, 
-        status: (isOnlyDateUpdate && !isWalkover) ? (match.status || 'Pendiente') : 'Finalizado',
-        observations: finalObsParts.join(" | "), 
-        date: fullDate
+        type: "atomic-result-save",
+        expectedRevision: match.result_revision ?? 0,
+        events,
+        updates: {
+          goals1: totalGoalsLocal, goals2: totalGoalsVisit, puntos1: p1, puntos2: p2,
+          // Al enviar el ref, ya no validamos si es Walkover o no, siempre lo manda
+          referee_id: selectedReferee || null,
+          status: (isOnlyDateUpdate && !isWalkover) ? (match.status || 'Pendiente') : 'Finalizado',
+          observations: finalObsParts.join(" | "),
+          date: fullDate,
+        },
       });
 
       notify.success(
@@ -738,6 +736,17 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       resetModalState();
       onClose();
     } catch (e) {
+      if (isMatchResultConflictError(e)) {
+        latestLoadRequestRef.current += 1;
+        resetModalState();
+        onClose();
+        notify.warning(
+          e?.resultRefreshFailed
+            ? "El resultado fue actualizado desde otra pestaña o dispositivo. No se pudo recargar la jornada; actualiza la página antes de volver a editarlo."
+            : "El resultado fue actualizado desde otra pestaña o dispositivo. La jornada se recargó con la versión vigente.",
+        );
+        return;
+      }
       notify.error("Error al guardar: " + (e?.message || e));
     } finally { setLoading(false); setIsSaving(false); isSavingRef.current = false; }
   }

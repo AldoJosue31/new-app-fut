@@ -3,7 +3,10 @@ import { GoogleGenAI } from "@google/genai";
 import { type RawScheduleScan, selectScheduleForDivision } from "./matching.ts";
 import {
   classifyProviderError,
+  GEMINI_FALLBACK_MAX_TIMEOUT_MS,
+  GEMINI_PRIMARY_MAX_TIMEOUT_MS,
   selectGeminiFallbackModel,
+  selectGeminiAttemptTimeoutMs,
   selectGeminiModel,
   shouldFallbackProviderError,
 } from "./scanErrors.ts";
@@ -24,7 +27,6 @@ import {
 } from "../_shared/edgeSecurity.ts";
 
 const MAX_BASE64_LENGTH = 17_500_000;
-const GEMINI_TIMEOUT_MS = 45_000;
 const GEMINI_THINKING_LEVEL = "low";
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
@@ -242,6 +244,7 @@ const createInteraction = (
   imageBase64: string,
   mimeType: string,
   instructions: string,
+  timeoutMs: number,
 ) =>
   client.interactions.create({
     model,
@@ -261,11 +264,17 @@ const createInteraction = (
       schema: gameScheduleSchema,
     },
   }, {
-    timeout: GEMINI_TIMEOUT_MS,
+    timeout: timeoutMs,
     maxRetries: 0,
   });
 
+const scanBudgetTimeoutError = () => Object.assign(
+  new Error("El presupuesto de tiempo para analizar la imagen se agoto."),
+  { status: 504, code: "SCAN_BUDGET_EXHAUSTED" },
+);
+
 Deno.serve(async (req) => {
+  const requestStartedAt = performance.now();
   const cors = resolveCors(req, {
     exposeHeaders: "Retry-After, X-Request-Id, X-Scan-Provider",
   });
@@ -410,25 +419,54 @@ Deno.serve(async (req) => {
     const instructions = buildInstructions(scanContext, ocrResult);
     const startedAt = performance.now();
     const attemptedModels: string[] = [];
+    const attemptedModelTimeouts: number[] = [];
     let activeModel = model;
     let interaction;
 
-    const runModel = async (selectedModel: string, selectedClient: GoogleGenAI) => {
+    const runModel = async (
+      selectedModel: string,
+      selectedClient: GoogleGenAI,
+      timeoutMs: number,
+    ) => {
       attemptedModels.push(selectedModel);
+      attemptedModelTimeouts.push(timeoutMs);
       return await createInteraction(
         selectedClient,
         selectedModel,
         imageBase64,
         mimeType,
         instructions,
+        timeoutMs,
       );
     };
 
     try {
-      interaction = await runModel(model, client);
+      const primaryTimeoutMs = selectGeminiAttemptTimeoutMs(
+        performance.now() - requestStartedAt,
+        GEMINI_PRIMARY_MAX_TIMEOUT_MS,
+      );
+      if (!primaryTimeoutMs) throw scanBudgetTimeoutError();
+      interaction = await runModel(model, client, primaryTimeoutMs);
     } catch (error) {
       if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
       const primaryFailure = classifyProviderError(error);
+      // Solo esperamos antes de un error transitorio. Un timeout debe pasar de
+      // inmediato al modelo alterno y cada intento conserva un limite duro.
+      const fallbackDelayMs = primaryFailure.responseCode === "SCAN_TEMPORARY_ERROR"
+        ? 600 + Math.floor(Math.random() * 400)
+        : 0;
+      if (fallbackDelayMs) {
+        const timeoutAfterDelayMs = selectGeminiAttemptTimeoutMs(
+          performance.now() - requestStartedAt + fallbackDelayMs,
+          GEMINI_FALLBACK_MAX_TIMEOUT_MS,
+        );
+        if (timeoutAfterDelayMs) await delay(fallbackDelayMs);
+      }
+      const fallbackTimeoutMs = selectGeminiAttemptTimeoutMs(
+        performance.now() - requestStartedAt,
+        GEMINI_FALLBACK_MAX_TIMEOUT_MS,
+      );
+      if (!fallbackTimeoutMs) throw error;
       activeModel = fallbackModel;
       console.warn(
         "procesar-rol-juego: usando modelo alterno",
@@ -437,10 +475,10 @@ Deno.serve(async (req) => {
           primaryModel: model,
           fallbackModel,
           cause: primaryFailure.responseCode,
+          fallbackTimeoutMs,
         }),
       );
-      await delay(600 + Math.floor(Math.random() * 400));
-      interaction = await runModel(fallbackModel, fallbackClient);
+      interaction = await runModel(fallbackModel, fallbackClient, fallbackTimeoutMs);
     }
 
     if (!interaction.output_text) {
@@ -454,6 +492,7 @@ Deno.serve(async (req) => {
         durationMs: Math.round(performance.now() - startedAt),
         attempts: attemptedModels.length,
         attemptedModels,
+        attemptedModelTimeouts,
         fallbackUsed: activeModel !== model,
         inputBytes,
         mimeType,

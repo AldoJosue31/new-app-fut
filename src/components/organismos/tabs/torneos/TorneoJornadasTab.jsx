@@ -7,7 +7,6 @@ import {
   actualizarConfigTorneoService,
   bulkInsertMatchesService,
   bulkUpdateJornadaFechas,
-  bulkUpsertMatchesService,
   createJornadasService,
   deleteMatchesForFixtureRestoreService,
   desconfirmarJornadaService,
@@ -18,9 +17,9 @@ import {
   getTournamentConfigService,
   guardarJornadaService,
   resetMatchResultService,
+  saveMatchResultAtomicService,
   updateTournamentFixtureCriteriaService,
   updateTournamentFieldsService,
-  updateMatchResultService,
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
 import {
@@ -34,6 +33,7 @@ import {
   resolveFixturePlanningSchedule,
   withPlanningDraftRevisions,
 } from "../../../../utils/fixturePlanning.js";
+import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
 import {
   isOfficialJornadaName,
   isRepositionJornadaName,
@@ -1017,8 +1017,9 @@ export function TorneoJornadasTab({
               scheduleChanged
             ) {
               updates.push({
-                id: m.dbId,
-                ...payload,
+                matchId: Number(m.dbId),
+                expectedRevision: original.result_revision,
+                updates: payload,
               });
             }
         });
@@ -1099,11 +1100,18 @@ export function TorneoJornadasTab({
           hasPlanningChanges
         ) {
             if (updates.length > 0) {
-              await bulkUpsertMatchesService(updates);
-            }
-
-            if (inserts.length > 0) {
-              await bulkInsertMatchesService(inserts);
+              const saveResults = await Promise.allSettled(
+                updates.map(({ matchId, expectedRevision, updates: matchUpdates }) =>
+                  saveMatchResultAtomicService({
+                    matchId,
+                    expectedRevision,
+                    updates: matchUpdates,
+                    events: null,
+                  })
+                ),
+              );
+              const failedSave = saveResults.find((result) => result.status === "rejected");
+              if (failedSave) throw failedSave.reason;
             }
 
             if (restoredDeletedMatchIds.length > 0) {
@@ -1111,6 +1119,10 @@ export function TorneoJornadasTab({
                 restoredDeletedMatchIds,
                 editableOfficialJornadaIds,
               );
+            }
+
+            if (inserts.length > 0) {
+              await bulkInsertMatchesService(inserts);
             }
 
             if (hasPlanningChanges) {
@@ -1164,7 +1176,18 @@ export function TorneoJornadasTab({
         }
 
       } catch (error) {
-          notify.error("Error guardando cambios: " + error.message);
+          if (isMatchResultConflictError(error)) {
+            const didRefresh = await refreshAfterResultConflict();
+            setIsEditorOpen(false);
+            setEditorData(null);
+            notify.warning(
+              didRefresh
+                ? "Uno o más partidos cambiaron en otro dispositivo. El fixture se recargó con la versión vigente."
+                : "Uno o más partidos cambiaron en otro dispositivo. No se pudo recargar el fixture; actualiza la página antes de intentarlo de nuevo.",
+            );
+          } else {
+            notify.error("Error guardando cambios: " + error.message);
+          }
       } finally {
           setLoading(false);
       }
@@ -1352,23 +1375,29 @@ export function TorneoJornadasTab({
     setLoading(true);
     try {
       const updates = matchWeekPreview.rows.map((match) => {
-        const payload = {
-          id: Number(match.id),
-          jornada_id: match.jornada_id,
-          team1_id: match.team1_id,
-          team2_id: match.team2_id || null,
-          status: match.status || "Programado",
-          date: match.nextDateTime,
+        return {
+          matchId: Number(match.id),
+          expectedRevision: match.result_revision,
+          updates: {
+            status: match.status || "Programado",
+            date: match.nextDateTime,
+          },
         };
-
-        if (match.goals1 !== undefined) payload.goals1 = match.goals1;
-        if (match.goals2 !== undefined) payload.goals2 = match.goals2;
-        if (match.observations !== undefined) payload.observations = match.observations;
-
-        return payload;
       });
 
-      await bulkUpsertMatchesService(updates);
+      const saveResults = await Promise.allSettled(
+        updates.map(({ matchId, expectedRevision, updates: matchUpdates }) =>
+          saveMatchResultAtomicService({
+            matchId,
+            expectedRevision,
+            updates: matchUpdates,
+            events: null,
+          })
+        ),
+      );
+      const failedSave = saveResults.find((result) => result.status === "rejected");
+      if (failedSave) throw failedSave.reason;
+
       setIsDateNormalizerOpen(false);
       notify.success(
         `Partidos ajustados a la semana de su jornada: ${updates.length}.`,
@@ -1387,7 +1416,15 @@ export function TorneoJornadasTab({
       setDataVersion((prev) => prev + 1);
     } catch (error) {
       console.error(error);
-      notify.error("Error ajustando partidos: " + error.message);
+      if (isMatchResultConflictError(error)) {
+        await refreshAfterResultConflict();
+        setIsDateNormalizerOpen(false);
+        notify.warning(
+          "Uno o más partidos cambiaron en otro dispositivo. Se recargó la versión vigente sin aplicar cambios sobre resultados ajenos.",
+        );
+      } else {
+        notify.error("Error ajustando partidos: " + error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -1421,7 +1458,12 @@ export function TorneoJornadasTab({
         
         setDataVersion(prev => prev + 1);
         if (refreshStandings) await refreshStandings();
-        
+    } catch (error) {
+        if (isMatchResultConflictError(error)) {
+          const didRefresh = await refreshAfterResultConflict();
+          if (!didRefresh) error.resultRefreshFailed = true;
+        }
+        throw error;
     } finally { 
         setLoading(false); 
     }
@@ -1517,13 +1559,83 @@ export function TorneoJornadasTab({
     } finally { setLoading(false); }
   };
 
+  const refreshAfterResultConflict = async () => {
+    const refreshTournamentMatches = async () => {
+      const tournamentMatches = await fetchAllTournamentMatches({
+        preserveOnError: true,
+        throwOnError: true,
+      });
+      const currentJornadaId = jornadas[currentJornadaIndex]?.id;
+
+      if (currentJornadaId) {
+        await fetchCurrentJornadaMatches(
+          currentJornadaId,
+          jornadas,
+          repositionMappings,
+          repositionMatchMappings,
+          {
+            preserveOnError: true,
+            throwOnError: true,
+            matchesSource: tournamentMatches,
+          }
+        );
+      }
+    };
+    const results = await Promise.allSettled([
+      refreshTournamentMatches(),
+      refreshStandings
+        ? Promise.resolve().then(() => refreshStandings())
+        : Promise.resolve(),
+    ]);
+    const failures = results.filter((result) => result.status === 'rejected');
+
+    if (failures.length > 0) {
+      console.error(
+        "No se pudo recargar completamente el partido después de detectar un conflicto de resultado:",
+        failures.map((failure) => failure.reason),
+      );
+    }
+
+    return failures.length === 0;
+  };
+
   const handleMatchUpdate = async (matchId, updates) => {
-    await updateMatchResultService(matchId, updates);
+    const isAtomicResultSave = updates?.type === 'atomic-result-save';
+    let persistedMatch = null;
+    let persistedUpdates = updates;
+
+    try {
+      if (isAtomicResultSave) {
+        const result = await saveMatchResultAtomicService({
+          matchId,
+          expectedRevision: updates.expectedRevision,
+          updates: updates.updates,
+          events: updates.events,
+        });
+
+        persistedMatch = result?.match || null;
+        persistedUpdates = {
+          ...updates.updates,
+          ...(persistedMatch || {}),
+        };
+      } else {
+        throw new Error(
+          "Las actualizaciones de un partido deben usar la operación versionada.",
+        );
+      }
+    } catch (error) {
+      if (isMatchResultConflictError(error)) {
+        const didRefresh = await refreshAfterResultConflict();
+        if (!didRefresh) error.resultRefreshFailed = true;
+      }
+
+      throw error;
+    }
 
     const mergeUpdatedMatch = (matches) =>
       (matches || []).map((match) =>
         String(match?.id) === String(matchId)
-          ? { ...match, ...updates }
+          ? { ...match, ...persistedUpdates }
           : match
       );
 
@@ -1532,7 +1644,7 @@ export function TorneoJornadasTab({
     setCurrentMatches(mergeUpdatedMatch);
     setAllTournamentMatches(mergeUpdatedMatch);
     setGlobalPendingMatches((matches) =>
-      updates.status === 'Finalizado'
+      persistedUpdates.status === 'Finalizado'
         ? (matches || []).filter((match) => String(match?.id) !== String(matchId))
         : mergeUpdatedMatch(matches)
     );
@@ -1577,10 +1689,25 @@ export function TorneoJornadasTab({
         "Resultado guardado. Algunos datos no pudieron actualizarse; recarga la página si no ves los cambios.",
       );
     });
+
+    return { success: true, match: persistedMatch };
   };
 
-  const handleResetMatchResult = async (matchId) => {
-    const resetResult = await resetMatchResultService(activeTournament.id, matchId);
+  const handleResetMatchResult = async (matchId, expectedRevision) => {
+    let resetResult;
+    try {
+      resetResult = await resetMatchResultService(
+        activeTournament.id,
+        matchId,
+        expectedRevision,
+      );
+    } catch (error) {
+      if (isMatchResultConflictError(error)) {
+        const didRefresh = await refreshAfterResultConflict();
+        if (!didRefresh) error.resultRefreshFailed = true;
+      }
+      throw error;
+    }
     const resetMatch = resetResult?.match;
 
     if (resetMatch?.id) {
@@ -1702,9 +1829,18 @@ export function TorneoJornadasTab({
             teams={participatingTeams} 
             jornadaId={currentJornada.id} 
             activeTournament={activeTournament}
-            refreshMatches={() => {
-                fetchCurrentJornadaMatches(currentJornada.id);
-                if(refreshStandings) refreshStandings(); 
+            refreshMatches={async () => {
+                const refreshTasks = [
+                  fetchCurrentJornadaMatches(
+                    currentJornada.id,
+                    jornadas,
+                    repositionMappings,
+                    repositionMatchMappings,
+                    { preserveOnError: true, throwOnError: true },
+                  ),
+                ];
+                if (refreshStandings) refreshTasks.push(refreshStandings());
+                await Promise.all(refreshTasks);
             }} 
         />
        )}
