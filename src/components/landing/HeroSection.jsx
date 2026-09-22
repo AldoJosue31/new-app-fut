@@ -6,6 +6,88 @@ import { Icon } from "@iconify/react";
 import { landingCopy } from "../../views/landing/copy";
 import RealStandingsTable from "../organismos/tabs/torneos/subcomponents/StandingsTable";
 import { InlineStatus } from "../atomos/InlineStatus";
+import { supabase } from "../../lib/supabase/browserClient.js";
+
+const EMPTY_METRICS = {
+  leagues: 0,
+  teams: 0,
+  players: 0,
+  matches: 0,
+};
+
+const normalizeMetrics = (row = {}) => ({
+  leagues: Number.isFinite(Number(row.leagues_count)) ? Number(row.leagues_count) : 0,
+  teams: Number.isFinite(Number(row.teams_count)) ? Number(row.teams_count) : 0,
+  players: Number.isFinite(Number(row.players_count)) ? Number(row.players_count) : 0,
+  matches: Number.isFinite(Number(row.matches_count)) ? Number(row.matches_count) : 0,
+});
+
+function useLandingMetrics() {
+  const [metrics, setMetrics] = useState(EMPTY_METRICS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyMetrics = (row) => {
+      if (cancelled || !row) return;
+      setMetrics(normalizeMetrics(row));
+      setIsLoading(false);
+    };
+
+    const loadMetrics = async () => {
+      const { data, error } = await supabase
+        .from("landing_public_metrics")
+        .select("leagues_count, teams_count, players_count, matches_count")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("No se pudieron cargar las métricas públicas:", error);
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
+      applyMetrics(data);
+    };
+
+    void loadMetrics();
+
+    const channel = supabase
+      .channel("landing-public-metrics")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "landing_public_metrics",
+          filter: "id=eq.1",
+        },
+        (payload) => applyMetrics(payload.new),
+      )
+      .subscribe((status, error) => {
+        if (cancelled) return;
+
+        if (status === "SUBSCRIBED") {
+          setIsRealtimeConnected(true);
+          return;
+        }
+
+        if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
+          setIsRealtimeConnected(false);
+          if (error) console.error("Realtime de métricas no disponible:", error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return { metrics, isLoading, isRealtimeConnected };
+}
 
 // --- CONTADOR ANIMADO ---
 function useCountUp(target, duration = 1800, shouldStart = false) {
@@ -13,21 +95,23 @@ function useCountUp(target, duration = 1800, shouldStart = false) {
   useEffect(() => {
     if (!shouldStart) return;
     let start = null;
+    let animationFrame;
     const numericTarget = parseInt(String(target).replace(/\D/g, ""), 10);
     const step = (timestamp) => {
       if (!start) start = timestamp;
       const progress = Math.min((timestamp - start) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setCount(Math.floor(eased * numericTarget));
-      if (progress < 1) requestAnimationFrame(step);
+      if (progress < 1) animationFrame = requestAnimationFrame(step);
       else setCount(numericTarget);
     };
-    requestAnimationFrame(step);
+    animationFrame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animationFrame);
   }, [shouldStart, target, duration]);
   return count;
 }
 
-function AnimatedStat({ value, label, delay = 0 }) {
+function AnimatedStat({ value, label, delay = 0, isLoading = false }) {
   const [started, setStarted] = useState(false);
   const ref = useRef(null);
 
@@ -40,33 +124,40 @@ function AnimatedStat({ value, label, delay = 0 }) {
     return () => observer.disconnect();
   }, []);
 
-  const numericTarget = parseInt(String(value).replace(/\D/g, ""), 10);
-  const prefix = String(value).match(/^[^0-9]*/)?.[0] ?? "";
-  const suffix = String(value).match(/[^0-9]*$/)?.[0] ?? "";
+  const numericTarget = Number(value) || 0;
   const count = useCountUp(numericTarget, 1800, started);
 
   return (
     <StatItem ref={ref} style={{ transitionDelay: `${delay}ms` }}>
-      <span className="stat-value">{prefix}{started ? count.toLocaleString() : 0}{suffix}</span>
+      <span className="stat-value">
+        {isLoading ? "—" : started ? count.toLocaleString() : 0}
+      </span>
       <span className="stat-label">{label}</span>
     </StatItem>
   );
 }
 
-// --- DATOS DEMO ---
+// --- PREVIEW DE TABLA Y GOLEADORES ---
 const STANDINGS = [
-  { id: "1", nombre: "Deportivo Sur", pj: 12, pts: 34, gf: 28, gc: 10, g: 11, e: 1, p: 0, dg: 18, tendencia: 'same', posDiff: 0, color: "#1CB0F6", partidosPendientes: 0 },
-  { id: "2", nombre: "Real Centro",   pj: 12, pts: 31, gf: 22, gc: 11, g: 10, e: 1, p: 1, dg: 11, tendencia: 'up', posDiff: 1, color: "#FF6B6B", partidosPendientes: 0 },
-  { id: "3", nombre: "Atletico FC",   pj: 12, pts: 28, gf: 19, gc: 12, g: 9,  e: 1, p: 2, dg: 7,  tendencia: 'down', posDiff: 1, color: "#FFD700", partidosPendientes: 0 },
-  { id: "4", nombre: "Club Union",    pj: 12, pts: 20, gf: 14, gc: 16, g: 6,  e: 2, p: 4, dg: -2, tendencia: 'same', posDiff: 0, color: "#94a3b8", partidosPendientes: 0 },
+  { id: "1", nombre: "Deportivo Sur", pj: 12, pts: 34, gf: 28, gc: 10, g: 11, e: 1, p: 0, dg: 18, tendencia: "same", posDiff: 0, color: "#1CB0F6", partidosPendientes: 0 },
+  { id: "2", nombre: "Real Centro", pj: 12, pts: 31, gf: 22, gc: 11, g: 10, e: 1, p: 1, dg: 11, tendencia: "up", posDiff: 1, color: "#FF6B6B", partidosPendientes: 0 },
+  { id: "3", nombre: "Atletico FC", pj: 12, pts: 28, gf: 19, gc: 12, g: 9, e: 1, p: 2, dg: 7, tendencia: "down", posDiff: 1, color: "#FFD700", partidosPendientes: 0 },
+  { id: "4", nombre: "Club Union", pj: 12, pts: 20, gf: 14, gc: 16, g: 6, e: 2, p: 4, dg: -2, tendencia: "same", posDiff: 0, color: "#94a3b8", partidosPendientes: 0 },
 ];
 
-const tableConfig = { ascensos: 1, descensos: 0, zonaLiguilla: true, clasificados: 3, repechaje: 0, tieBreakType: 'normal' };
+const tableConfig = {
+  ascensos: 1,
+  descensos: 0,
+  zonaLiguilla: true,
+  clasificados: 3,
+  repechaje: 0,
+  tieBreakType: "normal",
+};
 
 const SCORERS = [
-  { initials: "MG", name: "M. Gomez",   team: "Deportivo Sur", goals: 14, color: "#1CB0F6" },
-  { initials: "CR", name: "C. Ramirez", team: "Real Centro",   goals: 11, color: "#FF6B6B" },
-  { initials: "AS", name: "A. Silva",   team: "Atletico FC",   goals:  9, color: "#FFD700" },
+  { initials: "MG", name: "M. Gomez", team: "Deportivo Sur", goals: 14, color: "#1CB0F6" },
+  { initials: "CR", name: "C. Ramirez", team: "Real Centro", goals: 11, color: "#FF6B6B" },
+  { initials: "AS", name: "A. Silva", team: "Atletico FC", goals: 9, color: "#FFD700" },
 ];
 
 const TABS = ["Tabla", "Goleadores"];
@@ -74,6 +165,7 @@ const TABS = ["Tabla", "Goleadores"];
 // --- COMPONENTE PRINCIPAL ---
 export default function HeroSection() {
   const { hero } = landingCopy;
+  const { metrics, isLoading, isRealtimeConnected } = useLandingMetrics();
   const [activeTab, setActiveTab] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const heroRef = useRef(null);
@@ -121,7 +213,13 @@ export default function HeroSection() {
 
             <StatsGroup>
               {hero.stats.map((s, i) => (
-                <AnimatedStat key={s.label} value={s.value} label={s.label} delay={i * 120} />
+                <AnimatedStat
+                  key={s.key}
+                  value={metrics[s.key]}
+                  label={s.label}
+                  delay={i * 120}
+                  isLoading={isLoading}
+                />
               ))}
             </StatsGroup>
           </LeftColumn>
@@ -164,16 +262,16 @@ export default function HeroSection() {
                       </div>
                     ) : (
                       <ScorersList>
-                        {SCORERS.map((s, i) => (
-                          <ScorerRow key={s.name} isfirst={i === 0 ? "true" : undefined}>
+                        {SCORERS.map((scorer, i) => (
+                          <ScorerRow key={scorer.name} isfirst={i === 0 ? "true" : undefined}>
                             <RankBadge rank={i + 1}>{i + 1}</RankBadge>
-                            <Avatar avatarcolor={s.color}>{s.initials}</Avatar>
+                            <Avatar avatarcolor={scorer.color}>{scorer.initials}</Avatar>
                             <ScorerInfo>
-                              <span className="name">{s.name}</span>
-                              <span className="team">{s.team}</span>
+                              <span className="name">{scorer.name}</span>
+                              <span className="team">{scorer.team}</span>
                             </ScorerInfo>
                             <GoalCount>
-                              <span className="num">{s.goals}</span>
+                              <span className="num">{scorer.goals}</span>
                               <span className="icon"><Icon icon="mdi:soccer" /></span>
                             </GoalCount>
                           </ScorerRow>
@@ -185,8 +283,12 @@ export default function HeroSection() {
 
                 <div className="hero-status-wrapper">
                   <InlineStatus
-                    message="Jornada 12 cerrada con éxito"
-                    type="success"
+                    message={isLoading
+                      ? "Cargando métricas reales"
+                      : isRealtimeConnected
+                        ? "Sincronizado en tiempo real"
+                        : "Datos reales cargados"}
+                    type={isRealtimeConnected ? "success" : "info"}
                   />
                 </div>
               </FloatingGroup>
@@ -311,11 +413,12 @@ const HeroWrapper = styled.section`
     border-radius: 0 !important;
     max-width: none !important;
   }
-  
+
   .hero-table-wrapper th,
   .hero-table-wrapper td {
     border-bottom: 1px solid rgba(255,255,255,0.05) !important;
   }
+
   padding: clamp(120px, 15vh, 150px) 0 clamp(60px, 10vh, 100px);
   overflow: hidden;
   background: var(--lp-bg);
@@ -440,20 +543,33 @@ const ButtonGroup = styled.div`
 `;
 
 const StatsGroup = styled.div`
-  display: flex;
-  gap: 36px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
   padding-top: 32px;
   border-top: 1px solid var(--lp-border);
-  flex-wrap: wrap;
+  justify-items: center;
 
   @media (max-width: 1024px) { justify-content: center; }
-  @media (max-width: 480px)  { gap: 24px; padding-top: 24px; }
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 16px;
+    padding-top: 24px;
+  }
 `;
 
 const StatItem = styled.div`
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 3px;
+  text-align: center;
+
+  .stat-value,
+  .stat-label {
+    white-space: nowrap;
+    text-align: center;
+  }
 
   .stat-value {
     font-size: clamp(24px, 3vw, 32px);
@@ -569,7 +685,6 @@ const TabContent = styled.div`
   background: var(--lp-surface);
   min-height: 200px;
 `;
-
 
 const ScorersList = styled.div`
   display: flex;

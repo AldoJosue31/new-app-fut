@@ -24,12 +24,13 @@ export const landingCopy = {
     titleAccent: "sin complicaciones",
     subtitle:
       "Automatiza torneos, controla equipos y publica estadísticas en tiempo real. La herramienta definitiva para dirigentes de fútbol.",
-    ctaPrimary: "Crear mi liga gratis",
+    ctaPrimary: "Prueba una demo",
     ctaSecondary: "Inicia sesión",
     stats: [
-      { value: "+120", label: "Ligas" },
-      { value: "+1,800", label: "Equipos" },
-      { value: "+42k", label: "Partidos" },
+      { key: "leagues", label: "Ligas" },
+      { key: "teams", label: "Equipos activos" },
+      { key: "matches", label: "Partidos" },
+      { key: "players", label: "Jugadores activos" },
     ],
   },
   features: {
