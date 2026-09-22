@@ -91,9 +91,10 @@ export const landingCopy = {
   },
   testimonial: {
     quote:
-      "Antes gestionaba la liga con Excel y WhatsApp. Con Bracket App todo está en un solo lugar y mis equipos saben qué pasa en tiempo real. Cambió mi forma de dirigir.",
-    author: "Aldo García",
+      "Con Bracket App dejamos atrás las hojas de cálculo y ahora Green Sport tiene calendario, resultados y tabla en un solo lugar. Los equipos siempre saben qué sigue.",
+    author: "Felipe Gonzalez",
     role: "Administrador de Liga",
+    league: "Green Sport",
   },
   pricing: {
     eyebrow: "",
