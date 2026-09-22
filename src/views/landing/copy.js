@@ -24,12 +24,13 @@ export const landingCopy = {
     titleAccent: "sin complicaciones",
     subtitle:
       "Automatiza torneos, controla equipos y publica estadísticas en tiempo real. La herramienta definitiva para dirigentes de fútbol.",
-    ctaPrimary: "Crear mi liga gratis",
+    ctaPrimary: "Prueba una demo",
     ctaSecondary: "Inicia sesión",
     stats: [
-      { value: "+120", label: "Ligas" },
-      { value: "+1,800", label: "Equipos" },
-      { value: "+42k", label: "Partidos" },
+      { key: "leagues", label: "Ligas" },
+      { key: "teams", label: "Equipos activos" },
+      { key: "matches", label: "Partidos" },
+      { key: "players", label: "Jugadores activos" },
     ],
   },
   features: {
@@ -90,9 +91,10 @@ export const landingCopy = {
   },
   testimonial: {
     quote:
-      "Antes gestionaba la liga con Excel y WhatsApp. Con Bracket App todo está en un solo lugar y mis equipos saben qué pasa en tiempo real. Cambió mi forma de dirigir.",
-    author: "Aldo García",
+      "Con Bracket App dejamos atrás las hojas de cálculo y ahora Green Sport tiene calendario, resultados y tabla en un solo lugar. Los equipos siempre saben qué sigue.",
+    author: "Felipe Gonzalez",
     role: "Administrador de Liga",
+    league: "Green Sport",
   },
   pricing: {
     eyebrow: "",
