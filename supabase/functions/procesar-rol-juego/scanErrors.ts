@@ -1,6 +1,36 @@
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.6-flash";
 
+const PACIFIC_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const pacificDateKey = (timestamp: number) => {
+  const parts = PACIFIC_DATE_FORMATTER.formatToParts(new Date(timestamp));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+export const secondsUntilNextPacificMidnight = (now: Date = new Date()) => {
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs)) return 24 * 60 * 60;
+  const currentDateKey = pacificDateKey(nowMs);
+  let lowerBound = nowMs;
+  let upperBound = nowMs + 30 * 60 * 60 * 1000;
+  while (pacificDateKey(upperBound) === currentDateKey) {
+    upperBound += 6 * 60 * 60 * 1000;
+  }
+  while (upperBound - lowerBound > 1) {
+    const midpoint = Math.floor((upperBound + lowerBound) / 2);
+    if (pacificDateKey(midpoint) === currentDateKey) lowerBound = midpoint;
+    else upperBound = midpoint;
+  }
+  return Math.max(1, Math.ceil((upperBound - nowMs) / 1000));
+};
+
 // Supabase corta solicitudes que no responden tras 150 s. Este presupuesto
 // deja 30 s para leer la carga, OCR, serializar la respuesta y variaciones de
 // red; los dos modelos nunca pueden consumir el limite completo.
@@ -34,6 +64,41 @@ export type ScanErrorClassification = {
   retryable: boolean;
   retryAfterSeconds?: number;
   quotaKind?: "daily" | "spend" | "temporary";
+};
+
+type FailedModelAttempt = {
+  model: string;
+  classification: ScanErrorClassification;
+};
+
+export const summarizeProviderFailures = (
+  primary: FailedModelAttempt | null,
+  last: FailedModelAttempt,
+) => {
+  const attempts = primary ? [primary, last] : [last];
+  // Si un modelo puede recuperarse antes que el otro, ese intento determina
+  // cuando tiene sentido volver a escanear la imagen.
+  const retryable = attempts.filter((attempt) => attempt.classification.retryable);
+  const next = retryable.length
+    ? retryable.reduce((best, attempt) =>
+      (attempt.classification.retryAfterSeconds || 0) <
+          (best.classification.retryAfterSeconds || 0) ? attempt : best)
+    : last;
+  const responseMessage = primary
+    ? `No se pudo completar la lectura. Modelo principal (${primary.model}): ${primary.classification.responseMessage} Modelo de respaldo (${last.model}): ${last.classification.responseMessage}`
+    : last.classification.responseMessage;
+  return {
+    responseStatus: next.classification.responseStatus,
+    responseCode: next.classification.responseCode,
+    responseMessage,
+    retryable: next.classification.retryable,
+    retryAfterSeconds: next.classification.retryAfterSeconds || 0,
+    attempts: attempts.map(({ model, classification }) => ({
+      model,
+      code: classification.responseCode,
+      status: classification.upstreamStatus,
+    })),
+  };
 };
 
 const cleanModelName = (value: unknown) =>
@@ -148,7 +213,7 @@ const quotaMetadata = (details: unknown, message: string) => {
 
   const quotaDetailsText = quotaParts.join(" ");
   const quotaText = `${quotaDetailsText} ${message}`;
-  const quotaKind = /requests?perday|per[_-]?day|daily|\brpd\b/i.test(quotaText)
+  const quotaKind = /requests?\s*per[\s_-]*day|per[\s_-]*day|daily|\brpd\b/i.test(quotaText)
     ? "daily"
     : /spend|billing|factur|paid.?tier.?spend/i.test(quotaDetailsText)
     ? "spend"
@@ -197,6 +262,7 @@ const looksLikeNetworkFailure = (message: string) =>
 
 export const classifyProviderError = (
   error: unknown,
+  now: Date = new Date(),
 ): ScanErrorClassification => {
   const details = providerDetails(error);
   const { upstreamStatus: status, upstreamCode: code, message } = details;
@@ -229,7 +295,7 @@ export const classifyProviderError = (
       responseMessage:
         "Se alcanzo la cuota diaria de lecturas de Google para este proyecto. Se restablece a medianoche, hora del Pacifico, o puede ampliarse en Google AI Studio.",
       retryable: false,
-      retryAfterSeconds: 300,
+      retryAfterSeconds: secondsUntilNextPacificMidnight(now),
     };
   }
   if ((status === 429 || code === "RESOURCE_EXHAUSTED") && details.quotaKind === "spend") {
