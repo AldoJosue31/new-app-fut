@@ -131,7 +131,7 @@ const quotaMetadata = (details: unknown, message: string) => {
   }
   const quotaDetailsText = quotaParts.join(" ");
   const quotaText = `${quotaDetailsText} ${message}`;
-  const quotaKind = /requests?perday|per[_-]?day|daily|\brpd\b/i.test(quotaText)
+  const quotaKind = /requests?\s*per[\s_-]*day|per[\s_-]*day|daily|\brpd\b/i.test(quotaText)
     ? "daily"
     : /spend|billing|factur|paid.?tier.?spend/i.test(quotaDetailsText)
     ? "spend"

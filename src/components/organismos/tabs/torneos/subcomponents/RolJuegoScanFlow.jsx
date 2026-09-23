@@ -43,6 +43,12 @@ const storeScanCooldownUntil = (value) => {
 };
 
 const secondsUntil = (timestamp) => Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
+const formatCooldown = (seconds) => {
+    const minutes = Math.ceil(seconds / 60);
+    if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    if (seconds >= 60) return `${minutes}m`;
+    return `${seconds}s`;
+};
 
 const fileToScanPayload = (file) => prepareImageForScan(file, {
     fallbackName: "rol-de-juego",
@@ -230,7 +236,7 @@ export function RolJuegoScanFlow({
     }, [cooldownHydrated, cooldownUntil]);
 
     const startScanCooldown = useCallback((seconds) => {
-        const duration = Math.min(300, Math.max(1, Math.ceil(Number(seconds) || 0)));
+        const duration = Math.min(30 * 60 * 60, Math.max(1, Math.ceil(Number(seconds) || 0)));
         const nextCooldownUntil = Math.max(cooldownUntilRef.current, Date.now() + duration * 1000);
         cooldownUntilRef.current = nextCooldownUntil;
         storeScanCooldownUntil(nextCooldownUntil);
@@ -473,7 +479,7 @@ export function RolJuegoScanFlow({
                     <PrimaryAction type="button" disabled={scanning || cooldownSeconds > 0} onClick={scanImage}>
                         <RiScan2Line /> {scanning
                             ? `Escaneando ${scanProgress}%`
-                            : cooldownSeconds > 0 ? `Reintentar en ${cooldownSeconds}s` : "Escanear rol"}
+                            : cooldownSeconds > 0 ? `Reintentar en ${formatCooldown(cooldownSeconds)}` : "Escanear rol"}
                     </PrimaryAction>
                 </ChoiceRow>
             </ScanShell>

@@ -8,8 +8,10 @@ import {
   selectGeminiFallbackModel,
   selectGeminiAttemptTimeoutMs,
   selectGeminiModel,
+  secondsUntilNextPacificMidnight,
   shouldFallbackProviderError,
   shouldRetryProviderError,
+  summarizeProviderFailures,
 } from "./scanErrors.ts";
 
 const assertEquals = (actual: unknown, expected: unknown, message: string) => {
@@ -147,6 +149,63 @@ Deno.test("distingue cuota diaria y conserva RetryInfo temporal", () => {
     message: "You exceeded your current quota, please check your plan and billing details.",
   });
   assertEquals(genericBillingHint.responseCode, "SCAN_RATE_LIMITED", "mensaje generico");
+});
+
+Deno.test("reconoce los limites reales de Gemini y conserva ambos intentos", () => {
+  const now = new Date("2026-09-23T21:44:00.000Z");
+  const primary = classifyProviderError({
+    status: 429,
+    message: "429 Rate limit exceeded for model gemini-3.8-flash (limit: 5 requests per minute on Free Tier). Please retry in 41s.",
+  }, now);
+  const fallback = classifyProviderError({
+    status: 429,
+    message: "429 Rate limit exceeded for model gemini-3.6-flash (limit: 20 requests per day on Free Tier). Please retry in 41s.",
+  }, now);
+  assertEquals(primary.responseCode, "SCAN_RATE_LIMITED", "cuota por minuto");
+  assertEquals(fallback.responseCode, "SCAN_DAILY_QUOTA_EXCEEDED", "cuota diaria con espacios");
+  assertEquals(fallback.retryAfterSeconds, secondsUntilNextPacificMidnight(now), "reinicio diario");
+
+  const summary = summarizeProviderFailures(
+    { model: DEFAULT_GEMINI_MODEL, classification: primary },
+    { model: DEFAULT_GEMINI_FALLBACK_MODEL, classification: fallback },
+  );
+  assertEquals(summary.responseCode, "SCAN_RATE_LIMITED", "puede reintentarse por el primario");
+  assertEquals(summary.retryAfterSeconds, 41, "espera por el primario disponible antes");
+  assertEquals(summary.attempts.length, 2, "registra los dos modelos");
+  assertEquals(summary.responseMessage.includes("gemini-3.8-flash"), true, "explica el primario");
+  assertEquals(summary.responseMessage.includes("gemini-3.6-flash"), true, "explica el respaldo");
+  assertEquals(summary.responseMessage.includes("cuota diaria"), true, "explica el limite del respaldo");
+});
+
+Deno.test("espera al reinicio si ambos modelos agotaron la cuota diaria", () => {
+  const now = new Date("2026-09-23T21:44:00.000Z");
+  const daily = classifyProviderError({
+    status: 429,
+    message: "Rate limit exceeded: requests per day on Free Tier",
+  }, now);
+  const summary = summarizeProviderFailures(
+    { model: DEFAULT_GEMINI_MODEL, classification: daily },
+    { model: DEFAULT_GEMINI_FALLBACK_MODEL, classification: daily },
+  );
+  assertEquals(summary.responseCode, "SCAN_DAILY_QUOTA_EXCEEDED", "ambos agotados");
+  assertEquals(summary.retryable, false, "no invita a reintento inmediato");
+  assertEquals(summary.retryAfterSeconds, secondsUntilNextPacificMidnight(now), "espera real");
+});
+
+Deno.test("informa el limite del principal y la alta demanda del respaldo", () => {
+  const primary = classifyProviderError({ status: 429, message: "Please retry in 41s." });
+  const fallback = classifyProviderError({
+    status: 503,
+    message: "503 gemini-3.6-flash is currently experiencing high demand",
+  });
+  const summary = summarizeProviderFailures(
+    { model: DEFAULT_GEMINI_MODEL, classification: primary },
+    { model: DEFAULT_GEMINI_FALLBACK_MODEL, classification: fallback },
+  );
+  assertEquals(summary.responseStatus, 503, "respuesta del respaldo temporalmente ocupado");
+  assertEquals(summary.retryAfterSeconds, 5, "respaldo recuperable antes");
+  assertEquals(summary.attempts[0].code, "SCAN_RATE_LIMITED", "primario registrado");
+  assertEquals(summary.attempts[1].code, "SCAN_TEMPORARY_ERROR", "respaldo registrado");
 });
 
 Deno.test("solo reintenta una indisponibilidad transitoria del proveedor", () => {

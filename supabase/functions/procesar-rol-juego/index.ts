@@ -9,6 +9,8 @@ import {
   selectGeminiAttemptTimeoutMs,
   selectGeminiModel,
   shouldFallbackProviderError,
+  summarizeProviderFailures,
+  type ScanErrorClassification,
 } from "./scanErrors.ts";
 import {
   classifyDocumentOcrError,
@@ -318,6 +320,7 @@ Deno.serve(async (req) => {
     );
   }
 
+  let primaryFailure: ScanErrorClassification | null = null;
   try {
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     const fallbackApiKey = Deno.env.get("GEMINI_FALLBACK_API_KEY");
@@ -449,10 +452,10 @@ Deno.serve(async (req) => {
       interaction = await runModel(model, client, primaryTimeoutMs);
     } catch (error) {
       if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
-      const primaryFailure = classifyProviderError(error);
+      const primaryFailureCause = classifyProviderError(error);
       // Solo esperamos antes de un error transitorio. Un timeout debe pasar de
       // inmediato al modelo alterno y cada intento conserva un limite duro.
-      const fallbackDelayMs = primaryFailure.responseCode === "SCAN_TEMPORARY_ERROR"
+      const fallbackDelayMs = primaryFailureCause.responseCode === "SCAN_TEMPORARY_ERROR"
         ? 600 + Math.floor(Math.random() * 400)
         : 0;
       if (fallbackDelayMs) {
@@ -467,6 +470,7 @@ Deno.serve(async (req) => {
         GEMINI_FALLBACK_MAX_TIMEOUT_MS,
       );
       if (!fallbackTimeoutMs) throw error;
+      primaryFailure = primaryFailureCause;
       activeModel = fallbackModel;
       console.warn(
         "procesar-rol-juego: usando modelo alterno",
@@ -474,11 +478,12 @@ Deno.serve(async (req) => {
           requestId,
           primaryModel: model,
           fallbackModel,
-          cause: primaryFailure.responseCode,
+          cause: primaryFailureCause.responseCode,
           fallbackTimeoutMs,
         }),
       );
       interaction = await runModel(fallbackModel, fallbackClient, fallbackTimeoutMs);
+      primaryFailure = null;
     }
 
     if (!interaction.output_text) {
@@ -533,6 +538,10 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const classification = classifyProviderError(error);
+    const failure = summarizeProviderFailures(
+      primaryFailure ? { model, classification: primaryFailure } : null,
+      { model: primaryFailure ? fallbackModel : model, classification },
+    );
     console.error(
       "procesar-rol-juego: proveedor",
       JSON.stringify({
@@ -544,22 +553,24 @@ Deno.serve(async (req) => {
         name: classification.name,
         message: classification.message,
         responseCode: classification.responseCode,
+        attempts: failure.attempts,
       }),
     );
     const responseHeaders: Record<string, string> = {
       "X-Request-Id": requestId,
     };
-    if (classification.retryAfterSeconds) {
+    if (failure.retryAfterSeconds) {
       responseHeaders["Retry-After"] = String(
-        classification.retryAfterSeconds,
+        failure.retryAfterSeconds,
       );
     }
     return jsonResponse({
-      error: classification.responseMessage,
-      code: classification.responseCode,
-      retryable: classification.retryable,
-      retryAfterSeconds: classification.retryAfterSeconds || 0,
+      error: failure.responseMessage,
+      code: failure.responseCode,
+      retryable: failure.retryable,
+      retryAfterSeconds: failure.retryAfterSeconds,
       requestId,
+      attempts: failure.attempts,
       diagnostic: isServiceRoleRequest(req)
         ? {
           upstreamStatus: classification.upstreamStatus,
@@ -568,6 +579,6 @@ Deno.serve(async (req) => {
           message: classification.message,
         }
         : undefined,
-    }, classification.responseStatus, responseHeaders);
+    }, failure.responseStatus, responseHeaders);
   }
 });
