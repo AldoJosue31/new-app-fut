@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled from "styled-components";
-import { RiErrorWarningLine, RiSettings4Line } from "react-icons/ri";
-import { v } from "../../../../styles/variables";
+import { RiErrorWarningLine, RiSettings4Line, RiSave3Line } from "react-icons/ri";
 import { Card } from "../../../moleculas/Card";
 import { CardHeader } from "../../../moleculas/CardHeader";
 import { InputText2 } from "../../formularios/InputText2";
-import { Btnsave } from "../../../moleculas/Btnsave";
 import { PhotoUploader } from "../../../moleculas/PhotoUploader";
 import { Skeleton } from "../../../atomos/Skeleton";
 import { uploadImageToSupabase } from "../../../../utils/uploadHandler";
 import { supabase } from "../../../../lib/supabase/browserClient.js";
 import { notify } from "../../../../lib/notifications/notify.js";
+import { DEFAULT_LEAGUE_COLOR, normalizeHexColor, extractLogoColor, contrastingTextColor } from "../../../../utils/leagueColors.js";
+import { LeagueColorSettings } from "./LeagueColorSettings";
 
 export function LigaConfigTab({ data, onUpdate, loading }) {
   const [tempName, setTempName] = useState(data?.name || "");
@@ -23,9 +23,20 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
   const [previewUrl, setPreviewUrl] = useState(data?.logo_url || null);
   const [originalUrl, setOriginalUrl] = useState(data?.original_logo_url || null);
   const [imageChanged, setImageChanged] = useState(false);
+  const [primaryColor, setPrimaryColor] = useState(normalizeHexColor(data?.primary_color) || DEFAULT_LEAGUE_COLOR);
+  const [secondaryColor, setSecondaryColor] = useState(normalizeHexColor(data?.secondary_color) || "#FFFFFF");
+  const [hasSecondaryColor, setHasSecondaryColor] = useState(Boolean(normalizeHexColor(data?.secondary_color)));
+  const [isDetectingColor, setIsDetectingColor] = useState(false);
+  const [colorDetectionMessage, setColorDetectionMessage] = useState("");
+  const [colorValidationError, setColorValidationError] = useState("");
+  const primaryColorEditedRef = useRef(false);
+  const colorEditVersionRef = useRef(0);
+  const detectionControllerRef = useRef(null);
 
   const hasUnsavedChanges =
     imageChanged ||
+    primaryColor !== (normalizeHexColor(data?.primary_color) || DEFAULT_LEAGUE_COLOR) ||
+    (hasSecondaryColor ? secondaryColor : null) !== normalizeHexColor(data?.secondary_color) ||
     (data && tempName !== data.name) ||
     (data &&
       requiresDelegateApproval !== (data.delegate_changes_require_approval ?? true));
@@ -49,12 +60,63 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
     setTempName(data.name || "");
     setRequiresDelegateApproval(data.delegate_changes_require_approval ?? true);
+    setPrimaryColor(normalizeHexColor(data.primary_color) || DEFAULT_LEAGUE_COLOR);
+    setSecondaryColor(normalizeHexColor(data.secondary_color) || "#FFFFFF");
+    setHasSecondaryColor(Boolean(normalizeHexColor(data.secondary_color)));
+    primaryColorEditedRef.current = false;
+    colorEditVersionRef.current += 1;
+    setColorValidationError("");
+  }, [data]);
 
+  useEffect(() => {
     if (!imageChanged) {
-      setPreviewUrl(data.logo_url || null);
-      setOriginalUrl(data.original_logo_url || null);
+      setPreviewUrl(data?.logo_url || null);
+      setOriginalUrl(data?.original_logo_url || null);
     }
   }, [data, imageChanged]);
+
+  const detectLogoColor = useCallback(async (source) => {
+    if (!source) return;
+    detectionControllerRef.current?.abort();
+    const controller = new AbortController();
+    detectionControllerRef.current = controller;
+    const editVersion = colorEditVersionRef.current;
+    setIsDetectingColor(true);
+    setColorDetectionMessage("");
+    try {
+      const color = await extractLogoColor(source, { signal: controller.signal });
+      if (controller.signal.aborted || editVersion !== colorEditVersionRef.current) return;
+      if (!color) throw new Error("El logo no tiene píxeles visibles.");
+      if (!primaryColorEditedRef.current) {
+        setPrimaryColor(color);
+        setColorValidationError("");
+        setColorDetectionMessage("Color principal obtenido del logo. Puedes ajustarlo antes de guardar.");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError" && !controller.signal.aborted) {
+        setColorDetectionMessage("No pudimos obtener el color del logo. Puedes elegirlo manualmente.");
+      }
+    } finally {
+      if (detectionControllerRef.current === controller) setIsDetectingColor(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!previewUrl || normalizeHexColor(data?.primary_color) || primaryColorEditedRef.current) return;
+    detectLogoColor(logoFile || previewUrl);
+    const controller = detectionControllerRef.current;
+    return () => controller?.abort();
+  }, [data?.id, data?.primary_color, logoFile, previewUrl, detectLogoColor]);
+
+  useEffect(() => () => detectionControllerRef.current?.abort(), []);
+
+  const changePrimaryColor = (value) => {
+    primaryColorEditedRef.current = true;
+    colorEditVersionRef.current += 1;
+    setPrimaryColor(value);
+    setColorDetectionMessage("");
+    setColorValidationError("");
+  };
 
   const handleImageSelect = (croppedFile, origFile, newPreviewUrl) => {
     setLogoFile(croppedFile);
@@ -100,8 +162,15 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
   };
 
   const handleSave = async () => {
+    if (isSaving || isDetectingColor) return;
     if (!tempName.trim()) {
       notify.error("El nombre de la liga es obligatorio", { duration: 5000 });
+      return;
+    }
+    const normalizedPrimaryColor = normalizeHexColor(primaryColor);
+    const normalizedSecondaryColor = hasSecondaryColor ? normalizeHexColor(secondaryColor) : null;
+    if (!normalizedPrimaryColor || (hasSecondaryColor && !normalizedSecondaryColor)) {
+      setColorValidationError("Escribe un color hexadecimal válido, por ejemplo #1CB0F6.");
       return;
     }
 
@@ -139,6 +208,8 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
         delegate_changes_require_approval: requiresDelegateApproval,
         logo_url: finalLogoUrl,
         original_logo_url: finalOriginalUrl,
+        primary_color: normalizedPrimaryColor,
+        secondary_color: normalizedSecondaryColor,
       });
 
       if (success) {
@@ -147,6 +218,8 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
         setImageChanged(false);
         setLogoFile(null);
         setOriginalFile(null);
+        setPrimaryColor(normalizedPrimaryColor);
+        setSecondaryColor(normalizedSecondaryColor || "#FFFFFF");
         notify.success("Configuración actualizada con éxito.", { duration: 5000 });
       }
     } catch {
@@ -177,11 +250,10 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
                 <span className="field-label">Aprobación de cambios de delegados</span>
                 <Skeleton width="100%" height="92px" radius="12px" />
               </FormGroup>
-              <div className="actions-right">
-                <Skeleton width="180px" height="45px" radius="12px" />
-              </div>
             </FormSection>
           </ContentWrapper>
+          <Skeleton width="100%" height="110px" radius="10px" />
+          <div className="actions-right"><Skeleton width="180px" height="45px" radius="12px" /></div>
         </FormContainer>
       </Card>
     );
@@ -197,8 +269,8 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
             <UnsavedWarning>
               <RiErrorWarningLine size={24} />
               <span>
-                <strong>Tienes cambios sin guardar.</strong> Revisa el logo, el nombre o la
-                política de aprobación y luego guarda para no perderlos.
+                <strong>Tienes cambios sin guardar.</strong> Revisa el logo, el nombre, los
+                colores o la política de aprobación y guarda para no perderlos.
               </span>
             </UnsavedWarning>
           )}
@@ -267,17 +339,30 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
                 </ApprovalCard>
               </FormGroup>
 
-              <div className="actions-right">
-                <Btnsave
-                  titulo={isSaving ? "Guardando..." : "Guardar Cambios"}
-                  bgcolor={hasUnsavedChanges ? "#e67e22" : v.colorPrincipal}
-                  icono={<v.iconoguardar />}
-                  funcion={handleSave}
-                  disabled={isSaving || !hasUnsavedChanges}
-                />
-              </div>
             </FormSection>
           </ContentWrapper>
+          <LeagueColorSettings
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            hasSecondaryColor={hasSecondaryColor}
+            onPrimaryChange={changePrimaryColor}
+            onSecondaryChange={(value) => { setSecondaryColor(value); setHasSecondaryColor(Boolean(value.trim())); setColorValidationError(""); }}
+            isDetectingColor={isDetectingColor}
+            detectionMessage={colorDetectionMessage}
+            validationError={colorValidationError}
+            disabled={isSaving}
+          />
+          <div className="actions-right">
+            <SaveChangesButton
+              type="button"
+              onClick={handleSave}
+              aria-busy={isSaving}
+              disabled={isSaving || isDetectingColor || !hasUnsavedChanges}
+            >
+              <RiSave3Line aria-hidden="true" />
+              {isSaving ? "Guardando..." : "Guardar Cambios"}
+            </SaveChangesButton>
+          </div>
         </FormContainer>
       </Card>
     </>
@@ -285,31 +370,52 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 }
 
 const FormContainer = styled.div`
-  padding-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+
+  .actions-right { display: flex; justify-content: flex-end; padding-top: 20px; border-top: 1px solid ${({ theme }) => theme.tournamentDashboard.border}; }
+`;
+
+const SaveChangesButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 10px;
+  background: ${({ theme }) => theme.primary};
+  color: ${({ theme }) => contrastingTextColor(theme.primary)};
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  svg { width: 18px; height: 18px; }
+  &:hover:not(:disabled) { background: ${({ theme }) => theme.tournamentDashboard.hero.accentStrong}; color: ${({ theme }) => contrastingTextColor(theme.tournamentDashboard.hero.accentStrong)}; }
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.primary}; outline-offset: 3px; }
+  &:disabled { background: ${({ theme }) => theme.tournamentDashboard.itemSurface}; color: ${({ theme }) => theme.tournamentDashboard.muted}; cursor: not-allowed; }
 `;
 
 const UnsavedWarning = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  background-color: rgba(230, 126, 34, 0.15);
-  border: 1px solid #e67e22;
-  color: #e67e22;
+  background-color: ${({ theme }) => theme.tournamentDashboard.primarySoft};
+  border: 1px solid ${({ theme }) => theme.tournamentDashboard.border};
+  color: ${({ theme }) => theme.text};
   padding: 12px 16px;
   border-radius: 8px;
-  margin-bottom: 20px;
-  animation: pulseWarning 2s infinite;
+
+  > svg { flex-shrink: 0; color: ${({ theme }) => theme.tournamentDashboard.hero.accentStrong}; }
 
   span {
     font-size: 14px;
     line-height: 1.4;
   }
 
-  @keyframes pulseWarning {
-    0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4); }
-    70% { box-shadow: 0 0 0 6px rgba(230, 126, 34, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
-  }
 `;
 
 const ContentWrapper = styled.div`
@@ -354,17 +460,12 @@ const ImageSection = styled.div`
 
 const FormSection = styled.div`
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
   width: 100%;
 
-  .actions-right {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: auto;
-    padding-top: 20px;
-  }
 `;
 
 const FormGroup = styled.div`
@@ -414,7 +515,7 @@ const ToggleButton = styled.button`
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  background: ${({ $active }) => ($active ? v.colorPrincipal : "#9aa4b2")};
+  background: ${({ $active, theme }) => ($active ? theme.primary : theme.tournamentDashboard.border)};
   padding: 4px;
   transition: background 0.2s ease;
 
@@ -423,7 +524,7 @@ const ToggleButton = styled.button`
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: #fff;
+    background: ${({ theme }) => theme.tournamentDashboard.surface};
     transform: ${({ $active }) => ($active ? "translateX(28px)" : "translateX(0)")};
     transition: transform 0.2s ease;
   }

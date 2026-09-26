@@ -11,33 +11,29 @@ import {
     RiArrowDownCircleFill
 } from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
+import { getStandingsExportAppearance } from "./standingsExportStyles";
 
-const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop', showGeneratedDate = true }, ref) => {
+const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, config = {}, metaInfo = {}, themeMode = 'light', layoutMode = 'desktop', showGeneratedDate = true, tableDesign = 'classic', backgroundDesign = 'solid', leagueColors = null }, ref) => {
     const isDark = themeMode === 'dark';
     const isMobile = layoutMode === 'mobile'; // "mobile" = Historia (1080x1920), "desktop" = Post 4:5 (1080x1350)
     
-    // Paleta de colores
-    const colors = {
-        bg: isDark ? '#121212' : '#ffffff',
-        card: isDark ? '#1e1e1e' : '#ffffff',
-        text: isDark ? '#f8fafc' : '#0f172a',
-        subtext: isDark ? '#94a3b8' : '#64748b',
-        border: isDark ? '#334155' : '#e2e8f0',
-        headerBg: isDark ? '#0f172a' : '#f8fafc',
-        primary: '#10b981', 
-        pending: '#f59e0b', 
-        zebra: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)', 
+    const { page: pageColors, table: colors } = getStandingsExportAppearance({ themeMode, tableDesign, backgroundDesign, leagueColors });
+    const zoneColors = {
+        promotion: colors.positive,
+        playoffs: isDark ? '#60a5fa' : '#1d4ed8',
+        repechage: colors.pending,
+        relegation: colors.negative
     };
 
     const getZoneColor = (index, total) => {
         const rank = index + 1;
-        if (rank <= config.ascensos) return '#22c55e'; 
+        if (rank <= config.ascensos) return zoneColors.promotion;
         if (config.zonaLiguilla) {
-            if (rank > config.ascensos && rank <= config.clasificados) return '#3b82f6'; 
+            if (rank > config.ascensos && rank <= config.clasificados) return zoneColors.playoffs;
             const limitLiguilla = Math.max(config.clasificados, config.ascensos);
-            if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return '#f59e0b'; 
+            if (rank > limitLiguilla && rank <= (limitLiguilla + config.repechaje)) return zoneColors.repechage;
         }
-        if (config.descensos > 0 && rank > (total - config.descensos)) return '#ef4444'; 
+        if (config.descensos > 0 && rank > (total - config.descensos)) return zoneColors.relegation;
         return 'transparent';
     };
 
@@ -45,18 +41,21 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const containerWidth = '1080px'; 
     const containerHeight = isMobile ? '1920px' : '1350px'; 
     const totalEquipos = Math.max(tablaGeneral.length, 1);
+    const hasLogo = !!metaInfo?.leagueLogo;
 
-    // --- CÁLCULO DE ESCALADO DINÁMICO RESTRINGIDO ---
-    // Topamos la escala máxima a 1.05 (Post) y 1.25 (Historia) para asegurar que NUNCA 
-    // desborde horizontalmente. Si hay muchos equipos, se reduce para que quepan verticalmente.
-    const maxScale = isMobile ? 1.25 : 1.05; 
-    const teamsThreshold = isMobile ? 32 : 24; 
-    const rowScale = Math.min(maxScale, teamsThreshold / totalEquipos);
+    // Reserve space for the header, legend and date before sizing the rows.
+    // Status badges also take space: counting teams alone can clip the footer.
+    const headerHeight = hasLogo ? (isMobile ? 300 : 235) : (isMobile ? 250 : 180);
+    const tableHeight = (isMobile ? 1920 : 1350)
+        - (isMobile ? 120 : 80) - headerHeight
+        - (isMobile ? 80 : 50) - 60;
+    const rowHeightBudget = tablaGeneral.reduce((height, row) =>
+        height + 48 + (row.clinchedStatuses?.length ? 14 : 0), 0);
+    const rowScale = Math.min(isMobile ? 1.25 : 1.05, (tableHeight - 3) / (50 + Math.max(rowHeightBudget, 48)));
 
     // --- CONFIGURACIÓN DE TAMAÑOS ---
     const logoSize = isMobile ? '260px' : '210px'; 
     const leagueLogoSize = isMobile ? '120%' : '125%';
-    const hasLogo = !!metaInfo?.leagueLogo;
     const hideGFGC = isMobile; // Oculta GF/GC solo en historias para dar más aire
 
     // Fuentes Fijas (Cabeceras y Pie)
@@ -79,6 +78,13 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const gapSize = `${10 * rowScale}px`;
     const rankWidth = `${42 * rowScale}px`;
     const fLegend = isMobile ? '18px' : '16px';
+    const headerCellStyle = {
+        padding: `${14 * rowScale}px 4px`,
+        fontSize: fTh,
+        color: colors.headerText,
+        borderBottom: `${colors.headerBorderWidth}px solid ${colors.border}`
+    };
+    const hasContrastHeader = tableDesign === 'editorial' || tableDesign === 'scoreboard';
 
     const renderLegendItem = (label, color, Icon) => (
         <span style={{
@@ -99,27 +105,29 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const renderStandingTable = (data, startRank, keyPrefix) => (
         <div key={keyPrefix} style={{ 
             backgroundColor: colors.card, 
-            borderRadius: isMobile ? '20px' : '16px', 
-            border: `2px solid ${colors.border}`, 
+            backgroundImage: colors.backgroundImage,
+            borderRadius: `${colors.radius}px`,
+            border: `${colors.borderWidth}px solid ${colors.border}`,
+            boxShadow: colors.shadow,
             overflow: 'hidden',
             flex: 1,      
             minWidth: 0,
             display: 'flex',          
             flexDirection: 'column'   
         }}>
-            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', textAlign: 'center', tableLayout: 'auto' }}>
+            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', textAlign: 'center', tableLayout: 'auto', fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
                     <tr style={{ backgroundColor: colors.headerBg }}>
-                        <th style={{ padding: `${14 * rowScale}px 15px`, textAlign: 'left', fontSize: fTh, color: colors.subtext, textTransform: 'uppercase', borderBottom: `3px solid ${colors.border}` }}>Equipo</th>
-                        <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>PJ</th>
-                        <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>G</th>
-                        <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>E</th>
-                        <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>P</th>
-                        {!hideGFGC && <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>GF</th>}
-                        {!hideGFGC && <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>GC</th>}
-                        <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.subtext, borderBottom: `3px solid ${colors.border}` }}>DIF</th>
-                        <th style={{ padding: `${14 * rowScale}px 4px`, fontSize: fTh, color: colors.pending, borderBottom: `3px solid ${colors.border}` }}>Pnd</th>
-                        <th style={{ padding: `${14 * rowScale}px 15px`, fontSize: fTh, color: colors.primary, borderBottom: `3px solid ${colors.border}` }}>PTS</th>
+                        <th scope="col" style={{ ...headerCellStyle, padding: `${14 * rowScale}px 15px`, textAlign: 'left', textTransform: 'uppercase' }}>Equipo</th>
+                        <th scope="col" style={headerCellStyle}>PJ</th>
+                        <th scope="col" style={headerCellStyle}>G</th>
+                        <th scope="col" style={headerCellStyle}>E</th>
+                        <th scope="col" style={headerCellStyle}>P</th>
+                        {!hideGFGC && <th scope="col" style={headerCellStyle}>GF</th>}
+                        {!hideGFGC && <th scope="col" style={headerCellStyle}>GC</th>}
+                        <th scope="col" style={headerCellStyle}>DIF</th>
+                        <th scope="col" style={{ ...headerCellStyle, color: hasContrastHeader ? colors.headerText : colors.pending }}>Pnd</th>
+                        <th scope="col" style={{ ...headerCellStyle, padding: `${14 * rowScale}px 15px`, color: hasContrastHeader ? colors.headerText : colors.primary }}>PTS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -139,8 +147,8 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                             <span style={{ fontWeight: '800', fontSize: fTd, color: colors.subtext }}>{rank}</span>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                                 {fila.tendencia === 'same' && <RiSubtractLine style={{ color: colors.subtext, opacity: 0.5, fontSize: iconSameSize, marginLeft: '2px' }} />}
-                                                {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => <RiArrowUpSFill key={`up-${i}`} style={{ color: '#22c55e', fontSize: iconArrowSize, marginTop: arrowMargin, marginBottom: arrowMargin }} />)}
-                                                {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => <RiArrowDownSFill key={`down-${i}`} style={{ color: '#ef4444', fontSize: iconArrowSize, marginTop: arrowMargin, marginBottom: arrowMargin }} />)}
+                                                {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => <RiArrowUpSFill key={`up-${i}`} style={{ color: colors.positive, fontSize: iconArrowSize, marginTop: arrowMargin, marginBottom: arrowMargin }} />)}
+                                                {fila.tendencia === 'down' && Array.from({ length: flechasToShow }).map((_, i) => <RiArrowDownSFill key={`down-${i}`} style={{ color: colors.negative, fontSize: iconArrowSize, marginTop: arrowMargin, marginBottom: arrowMargin }} />)}
                                             </div>
                                         </div>
                                         <div style={{ width: teamLogoSize, height: teamLogoSize, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -183,14 +191,16 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                 <td style={{ padding: cellPadding, fontSize: fTd, color: colors.subtext }}>{fila.p}</td>
                                 {!hideGFGC && <td style={{ padding: cellPadding, fontSize: fTd, color: colors.subtext }}>{fila.gf}</td>}
                                 {!hideGFGC && <td style={{ padding: cellPadding, fontSize: fTd, color: colors.subtext }}>{fila.gc}</td>}
-                                <td style={{ padding: cellPadding, fontSize: fTd, fontWeight: '900', color: fila.dg > 0 ? '#22c55e' : fila.dg < 0 ? '#ef4444' : colors.text }}>
+                                <td style={{ padding: cellPadding, fontSize: fTd, fontWeight: '900', color: fila.dg > 0 ? colors.positive : fila.dg < 0 ? colors.negative : colors.text }}>
                                     {fila.dg > 0 ? `+${fila.dg}` : fila.dg}
                                 </td>
                                 <td style={{ padding: cellPadding, fontSize: fTd, fontWeight: '700', color: fila.partidosPendientes > 0 ? colors.pending : colors.subtext, opacity: fila.partidosPendientes > 0 ? 1 : 0.3 }}>
                                     {fila.partidosPendientes}
                                 </td>
                                 <td style={{ padding: cellPadding, fontSize: fPts, fontWeight: '900', color: colors.primary }}>
-                                    {fila.pts}
+                                    <span style={{ display: 'inline-block', minWidth: `${38 * rowScale}px`, padding: tableDesign === 'scoreboard' ? `${5 * rowScale}px ${8 * rowScale}px` : 0, borderRadius: `${colors.pointsRadius}px`, backgroundColor: colors.pointsBg, color: colors.pointsText }}>
+                                        {fila.pts}
+                                    </span>
                                 </td>
                             </tr>
                         );
@@ -204,22 +214,38 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
         <div ref={ref} style={{
             width: containerWidth,
             height: containerHeight, 
-            backgroundColor: colors.bg,
+            backgroundColor: pageColors.bg,
+            backgroundImage: pageColors.backgroundImage,
             fontFamily: 'Arial, sans-serif',
-            color: colors.text,
+            color: pageColors.text,
             padding: isMobile ? '60px 40px' : '40px 50px',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-start', 
+            position: 'relative',
+            isolation: 'isolate',
+            overflow: 'hidden',
         }}>
-            
+            {backgroundDesign === 'pitch' && (
+                <svg aria-hidden="true" viewBox="0 0 1080 1350" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', color: leagueColors?.primary ? pageColors.primary : isDark ? '#b4dec3' : '#417c55', opacity: 0.18, zIndex: -1, pointerEvents: 'none' }}>
+                    <g fill="none" stroke="currentColor" strokeWidth="3">
+                        <rect x="32" y="32" width="1016" height="1286" />
+                        <path d="M32 675H1048" />
+                        <circle cx="540" cy="675" r="160" />
+                        <rect x="290" y="32" width="500" height="180" />
+                        <rect x="390" y="32" width="300" height="76" />
+                        <rect x="290" y="1138" width="500" height="180" />
+                        <rect x="390" y="1242" width="300" height="76" />
+                    </g>
+                </svg>
+            )}
             <div style={{ 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: hasLogo ? 'space-between' : 'center',
                 paddingBottom: isMobile ? '40px' : '25px', 
-                borderBottom: `2px solid ${colors.border}`, 
+                borderBottom: `2px solid ${pageColors.border}`,
                 marginBottom: isMobile ? '40px' : '25px', 
                 minHeight: isMobile ? '250px' : '180px', 
                 width: '100%',
@@ -233,20 +259,20 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
 
                 <div style={{ flex: 1, textAlign: 'center', padding: '0 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
-                        <span style={{ fontSize: fBadge, fontWeight: '800', backgroundColor: colors.primary + '20', color: colors.primary, padding: '6px 16px', borderRadius: '30px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        <span style={{ fontSize: fBadge, fontWeight: '800', backgroundColor: pageColors.primarySoft, color: pageColors.primary, padding: '6px 16px', borderRadius: '30px', textTransform: 'uppercase', letterSpacing: '1px' }}>
                             {metaInfo?.league || 'Liga'}
                         </span>
                     </div>
 
-                    <h1 style={{ fontSize: fTitle, fontWeight: '900', textTransform: 'uppercase', margin: '0 0 10px 0', color: colors.text, lineHeight: '1.1' }}>
+                    <h1 style={{ fontSize: fTitle, fontWeight: '900', textTransform: 'uppercase', margin: '0 0 10px 0', color: pageColors.text, lineHeight: '1.1' }}>
                         {torneo?.name || 'Tabla General'}
                     </h1>
 
-                    <p style={{ fontSize: fSub, color: colors.text, margin: '0 0 8px 0', fontWeight: '800' }}>
+                    <p style={{ fontSize: fSub, color: pageColors.text, margin: '0 0 8px 0', fontWeight: '800' }}>
                         {metaInfo?.division || 'División'}
                     </p>
                     
-                    <p style={{ fontSize: fSub, color: colors.subtext, margin: 0, fontWeight: '700' }}>
+                    <p style={{ fontSize: fSub, color: pageColors.subtext, margin: 0, fontWeight: '700' }}>
                         Clasificación Oficial 
                         {metaInfo?.lastJornada && metaInfo.lastJornada !== 'Sin iniciar' ? ` • Hasta la ${metaInfo.lastJornada}` : ''}
                     </p>
@@ -261,6 +287,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 gap: '20px', 
                 width: '100%',
                 flex: 1, 
+                minHeight: 0,
                 marginBottom: isMobile ? '40px' : '25px' 
             }}>
                 {tablaGeneral.length > 0 ? renderStandingTable(tablaGeneral, 1, 'table-main') : null}
@@ -268,14 +295,14 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
 
             <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', padding: '10px 0' }}>
                 <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                    {config.ascensos > 0 && renderLegendItem('Ascenso', '#22c55e', RiArrowUpCircleFill)}
-                    {config.zonaLiguilla && renderLegendItem('Liguilla', '#3b82f6', RiTrophyLine)}
-                    {config.repechaje > 0 && renderLegendItem('Repechaje', '#f59e0b', RiRepeat2Line)}
-                    {config.descensos > 0 && renderLegendItem('Descenso', '#ef4444', RiArrowDownCircleFill)}
+                    {config.ascensos > 0 && renderLegendItem('Ascenso', zoneColors.promotion, RiArrowUpCircleFill)}
+                    {config.zonaLiguilla && renderLegendItem('Liguilla', zoneColors.playoffs, RiTrophyLine)}
+                    {config.repechaje > 0 && renderLegendItem('Repechaje', zoneColors.repechage, RiRepeat2Line)}
+                    {config.descensos > 0 && renderLegendItem('Descenso', zoneColors.relegation, RiArrowDownCircleFill)}
                 </div>
                 
                 {showGeneratedDate && (
-                    <div style={{ fontSize: fBadge, color: colors.subtext, fontWeight: '700' }}>
+                    <div style={{ fontSize: fBadge, color: pageColors.subtext, fontWeight: '700' }}>
                         Generado el {new Date().toLocaleDateString()}
                     </div>
                 )}
