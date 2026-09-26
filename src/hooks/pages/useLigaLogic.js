@@ -87,14 +87,16 @@ export const useLigaLogic = () => {
 
   const handleUpdateLeague = async (updates) => {
     try {
-      const { error } = await supabase
+      const { data: savedLeague, error } = await supabase
         .from("leagues")
         .update(updates)
-        .eq("id", leagueData.id);
+        .eq("id", leagueData.id)
+        .select("*")
+        .single();
 
       if (error) throw error;
 
-      const updatedInfo = { ...leagueData, ...updates };
+      const updatedInfo = { ...leagueData, ...savedLeague };
       ligaCache.leagueData = updatedInfo;
       setLeagueData(updatedInfo);
       return true;
