@@ -20,10 +20,66 @@ export function mixHexColors(color, target, amount) {
   return toHex(channels(color).map((value, index) => value * (1 - weight) + targetChannels[index] * weight));
 }
 
+const toHsl = color => {
+  const [r, g, b] = channels(color).map(value => value / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  if (!delta) return { hue: 0, saturation: 0, lightness };
+  const sector = max === r ? (g - b) / delta : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  return {
+    hue: ((sector * 60) + 360) % 360,
+    saturation: delta / (1 - Math.abs(2 * lightness - 1)),
+    lightness
+  };
+};
+
+const withLightness = ({ hue, saturation }, lightness) => {
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const x = chroma * (1 - Math.abs((hue / 60) % 2 - 1));
+  const offset = lightness - chroma / 2;
+  const sectors = [[chroma, x, 0], [x, chroma, 0], [0, chroma, x], [0, x, chroma], [x, 0, chroma], [chroma, 0, x]];
+  return toHex(sectors[Math.floor(hue / 60)].map(value => (value + offset) * 255));
+};
+
 const luminance = color => channels(color).map(value => {
   const channel = value / 255;
   return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
 }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+
+export function getLeagueGradientTones(primary, secondary = primary, themeMode = "light") {
+  const primaryHsl = toHsl(primary);
+  const secondaryHsl = toHsl(secondary);
+  const isDark = themeMode === "dark";
+  const baseLightness = isDark
+    ? 0.07 + primaryHsl.lightness * 0.04
+    : 0.95 + primaryHsl.lightness * 0.05;
+  const toneLightness = isDark
+    ? 0.12 + primaryHsl.lightness * 0.18
+    : 0.85 + primaryHsl.lightness * 0.15;
+  const base = withLightness(primaryHsl, baseLightness);
+  const primaryTone = withLightness(primaryHsl, toneLightness);
+  const hueDistance = Math.abs(primaryHsl.hue - secondaryHsl.hue);
+  const separation = Math.min(hueDistance, 360 - hueDistance);
+  const softening = Math.max(0, (separation - 90) / 90)
+    * primaryHsl.saturation * secondaryHsl.saturation * 0.25;
+  // Balance perceived brightness without turning a pastel companion into a vivid color.
+  // Distant hues become subtler, while only lightness changes in the chosen color.
+  const targetLuminance = luminance(primaryTone) * (1 - softening) + luminance(base) * softening;
+  let lower = 0;
+  let upper = 1;
+  for (let step = 0; step < 16; step++) {
+    const lightness = (lower + upper) / 2;
+    if (luminance(withLightness(secondaryHsl, lightness)) < targetLuminance) lower = lightness;
+    else upper = lightness;
+  }
+  const toneRange = isDark ? 0.025 : 0.035;
+  const balancedLightness = Math.max(toneLightness - toneRange,
+    Math.min(toneLightness + toneRange, (lower + upper) / 2));
+  const secondaryLightness = balancedLightness * (1 - softening) + baseLightness * softening;
+  return { base, primaryTone, secondaryTone: withLightness(secondaryHsl, secondaryLightness) };
+}
 
 export function colorContrast(foreground, background) {
   const first = luminance(foreground);

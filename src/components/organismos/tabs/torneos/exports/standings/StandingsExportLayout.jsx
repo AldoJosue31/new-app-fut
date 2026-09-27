@@ -1,5 +1,5 @@
 // src/components/organismos/tabs/torneos/exports/standings/StandingsExportLayout.jsx
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import { v } from "../../../../../../styles/variables";
 import {
     RiArrowUpSFill,
@@ -42,16 +42,67 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const containerHeight = isMobile ? '1920px' : '1350px'; 
     const totalEquipos = Math.max(tablaGeneral.length, 1);
     const hasLogo = !!metaInfo?.leagueLogo;
+    const verticalPadding = isMobile ? 32 : 20;
+    const sectionGap = isMobile ? 20 : 12;
+    const tableAreaRef = useRef(null);
+    const [tableSize, setTableSize] = useState(null);
+
+    useEffect(() => {
+        const observer = new ResizeObserver(([entry]) => {
+            const { width, height } = entry.contentRect;
+            if (width <= 0 || height <= 0) return;
+            setTableSize((current) => current?.width === width && current?.height === height
+                ? current
+                : { width, height });
+        });
+        observer.observe(tableAreaRef.current);
+        return () => observer.disconnect();
+    }, []);
 
     // Reserve space for the header, legend and date before sizing the rows.
     // Status badges also take space: counting teams alone can clip the footer.
     const headerHeight = hasLogo ? (isMobile ? 300 : 235) : (isMobile ? 250 : 180);
     const tableHeight = (isMobile ? 1920 : 1350)
-        - (isMobile ? 120 : 80) - headerHeight
-        - (isMobile ? 80 : 50) - 60;
-    const rowHeightBudget = tablaGeneral.reduce((height, row) =>
-        height + 48 + (row.clinchedStatuses?.length ? 14 : 0), 0);
-    const rowScale = Math.min(isMobile ? 1.25 : 1.05, (tableHeight - 3) / (50 + Math.max(rowHeightBudget, 48)));
+        - verticalPadding * 2 - headerHeight
+        - sectionGap * 2 - 60;
+    const availableHeight = (tableSize?.height ?? tableHeight) - colors.borderWidth * 2;
+    const availableWidth = (tableSize?.width ?? (1080 - (isMobile ? 80 : 100))) - colors.borderWidth * 2;
+    const tableHeaderHeight = Math.min(isMobile ? 64 : 56, availableHeight / (totalEquipos + 1));
+    const rowHeight = (availableHeight - tableHeaderHeight - totalEquipos - colors.headerBorderWidth) / totalEquipos;
+    const rowContentHeight = rowHeight * 0.75;
+    // Each role grows within its own readable range; tall rows do not need oversized numbers.
+    const typeLimits = isMobile
+        ? { stats: 36, team: 34, points: 40, rank: 30, status: 16 }
+        : { stats: 30, team: 28, points: 34, rank: 26, status: 14 };
+    const teamColumnFraction = isMobile ? 0.42 : 0.4;
+    const statsColumnCount = isMobile ? 7 : 9;
+    const statsWidth = availableWidth * (1 - teamColumnFraction);
+    const horizontalCellPadding = 6;
+    const statKeys = isMobile
+        ? ['pj', 'g', 'e', 'p', 'dg', 'partidosPendientes']
+        : ['pj', 'g', 'e', 'p', 'gf', 'gc', 'dg', 'partidosPendientes'];
+    const getNumberWidth = (value, signed = false) => {
+        const text = `${signed && value > 0 ? '+' : ''}${value ?? ''}`;
+        // Include breathing room for bold tabular digits and signed differences.
+        return Math.max(text.length, 2) * 0.68;
+    };
+    const pointsInset = tableDesign === 'scoreboard' ? Math.min(8, rowHeight * 0.08) : 0;
+    const widestPoints = Math.max(1.24, ...tablaGeneral.map((row) => getNumberWidth(row.pts)));
+    const statWidths = statKeys.map((key) => Math.max(1.24, ...tablaGeneral.map((row) =>
+        getNumberWidth(row[key], key === 'dg'))));
+    const columnWeights = [...statWidths, widestPoints * 1.15];
+    const totalColumnWeight = columnWeights.reduce((sum, width) => sum + width, 0);
+    const numericWidth = statsWidth - horizontalCellPadding * 2 * statsColumnCount - pointsInset * 2;
+    const statsFontSize = Math.min(typeLimits.stats, rowHeight * 0.36, numericWidth / totalColumnWeight);
+    const statsColumnWidths = columnWeights.map((weight, index) => horizontalCellPadding * 2
+        + numericWidth * weight / totalColumnWeight + (index === statsColumnCount - 1 ? pointsInset * 2 : 0));
+    const pointsFontSize = Math.min(typeLimits.points, statsFontSize * 1.12,
+        (rowContentHeight - pointsInset * 2) / 1.15);
+    const baseTeamFontSize = Math.min(typeLimits.team, rowHeight * 0.48);
+    const rankFontSize = Math.min(typeLimits.rank, statsFontSize * 0.88);
+    const statLabels = isMobile ? ['PJ', 'G', 'E', 'P', 'DIF', 'Pnd', 'PTS'] : ['PJ', 'G', 'E', 'P', 'GF', 'GC', 'DIF', 'Pnd', 'PTS'];
+    const headerFontSize = Math.min(isMobile ? 22 : 20, statsFontSize * 0.875,
+        ...statsColumnWidths.map((width, index) => (width - 8) / (statLabels[index].length * 0.7)), tableHeaderHeight / 2);
 
     // --- CONFIGURACIÓN DE TAMAÑOS ---
     const logoSize = isMobile ? '260px' : '210px'; 
@@ -64,23 +115,44 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const fBadge = isMobile ? '16px' : '14px';
 
     // Fuentes Escaladas Protegidas (Contenido de la Tabla)
-    const fTh = `${14 * rowScale}px`;
-    const fTd = `${16 * rowScale}px`;
-    const fPts = `${20 * rowScale}px`;
-    const fTeam = `${18 * rowScale}px`;
-    const fClinched = `${11 * rowScale}px`;
-    const cellPadding = `${8 * rowScale}px 6px`; // Padding Y pequeño, se estira con height: 100%
+    const tableFontScale = 0.88;
+    const statsFontScale = tableFontScale * 1.05;
+    const fTh = `${headerFontSize * tableFontScale}px`;
+    const fTd = `${statsFontSize * statsFontScale}px`;
+    const fPts = `${pointsFontSize * statsFontScale}px`;
+    const fRank = `${rankFontSize * tableFontScale}px`;
+    const cellPadding = `${rowHeight * 0.125}px ${horizontalCellPadding}px`;
     
-    const teamLogoSize = `${32 * rowScale}px`;
-    const iconSameSize = `${16 * rowScale}px`;
-    const iconArrowSize = `${20 * rowScale}px`;
-    const arrowMargin = `-${5 * rowScale}px`;
-    const gapSize = `${10 * rowScale}px`;
-    const rankWidth = `${42 * rowScale}px`;
+    const teamLogoPixels = Math.min(isMobile ? 64 : 56, rowHeight * 0.62, availableWidth * teamColumnFraction * 0.14);
+    const teamLogoSize = `${teamLogoPixels}px`;
+    const iconSameSize = `${Math.min(18, statsFontSize * 0.65)}px`;
+    const arrowSize = Math.min(20, statsFontSize * 0.7, rowContentHeight / 1.5);
+    const iconArrowSize = `${arrowSize}px`;
+    const arrowMargin = `-${arrowSize * 0.25}px`;
+    const gapPixels = Math.min(14, rowHeight * 0.14);
+    const gapSize = `${gapPixels}px`;
+    const rankWidthPixels = Math.max(30, String(totalEquipos).length * rankFontSize * 0.68 + arrowSize + 4);
+    const rankWidth = `${rankWidthPixels}px`;
+    const teamTextWidth = availableWidth * teamColumnFraction - 8 - horizontalCellPadding * 2
+        - rankWidthPixels - teamLogoPixels - gapPixels * 2;
+    const getTeamTypography = (row) => {
+        const statusCount = row.clinchedStatuses?.length ?? 0;
+        const nameLines = row.nombre.length * baseTeamFontSize * 0.6 > teamTextWidth ? 2 : 1;
+        const statusFontSize = statusCount ? Math.min(typeLimits.status, baseTeamFontSize * 0.52,
+            rowContentHeight / (nameLines * 1.15 / 0.52 + statusCount * 1.2 + 0.2)) : 0;
+        const gap = statusFontSize * 0.2;
+        const statusHeight = statusCount ? statusCount * (statusFontSize + gap) : 0;
+        return {
+            name: `${Math.min(baseTeamFontSize, (rowContentHeight - statusHeight) / (nameLines * 1.15)) * tableFontScale}px`,
+            status: `${statusFontSize * tableFontScale}px`,
+            gap: `${gap}px`
+        };
+    };
     const fLegend = isMobile ? '18px' : '16px';
     const headerCellStyle = {
-        padding: `${14 * rowScale}px 4px`,
+        padding: '0 4px',
         fontSize: fTh,
+        height: `${tableHeaderHeight}px`,
         color: colors.headerText,
         borderBottom: `${colors.headerBorderWidth}px solid ${colors.border}`
     };
@@ -115,10 +187,14 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
             display: 'flex',          
             flexDirection: 'column'   
         }}>
-            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', textAlign: 'center', tableLayout: 'auto', fontVariantNumeric: 'tabular-nums' }}>
+            <table style={{ width: '100%', height: '100%', color: colors.text, borderCollapse: 'collapse', textAlign: 'center', tableLayout: 'fixed', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}>
+                <colgroup>
+                    <col style={{ width: `${teamColumnFraction * 100}%` }} />
+                    {statsColumnWidths.map((width, index) => <col key={index} style={{ width: `${width / availableWidth * 100}%` }} />)}
+                </colgroup>
                 <thead>
                     <tr style={{ backgroundColor: colors.headerBg }}>
-                        <th scope="col" style={{ ...headerCellStyle, padding: `${14 * rowScale}px 15px`, textAlign: 'left', textTransform: 'uppercase' }}>Equipo</th>
+                        <th scope="col" style={{ ...headerCellStyle, padding: '0 15px', textAlign: 'left', textTransform: 'uppercase' }}>Equipo</th>
                         <th scope="col" style={headerCellStyle}>PJ</th>
                         <th scope="col" style={headerCellStyle}>G</th>
                         <th scope="col" style={headerCellStyle}>E</th>
@@ -127,7 +203,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                         {!hideGFGC && <th scope="col" style={headerCellStyle}>GC</th>}
                         <th scope="col" style={headerCellStyle}>DIF</th>
                         <th scope="col" style={{ ...headerCellStyle, color: hasContrastHeader ? colors.headerText : colors.pending }}>Pnd</th>
-                        <th scope="col" style={{ ...headerCellStyle, padding: `${14 * rowScale}px 15px`, color: hasContrastHeader ? colors.headerText : colors.primary }}>PTS</th>
+                        <th scope="col" style={{ ...headerCellStyle, color: hasContrastHeader ? colors.headerText : colors.primary }}>PTS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -138,13 +214,14 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                         const flechasToShow = Math.min(fila.posDiff || 0, 3);
                         const rowBorderColor = (zoneColor !== 'transparent') ? `${zoneColor}60` : colors.border;
                         const rowBgColor = index % 2 !== 0 ? colors.zebra : 'transparent';
+                        const teamTypography = getTeamTypography(fila);
                         
                         return (
-                            <tr key={fila.id} style={{ backgroundColor: rowBgColor, borderBottom: isLast ? 'none' : `1px solid ${rowBorderColor}` }}>
+                            <tr key={fila.id} style={{ height: `${rowHeight}px`, backgroundColor: rowBgColor, borderBottom: isLast ? 'none' : `1px solid ${rowBorderColor}` }}>
                                 <td style={{ padding: cellPadding, textAlign: 'left', borderLeft: `8px solid ${zoneColor}` }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: gapSize }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: rankWidth, justifyContent: 'flex-end' }}>
-                                            <span style={{ fontWeight: '800', fontSize: fTd, color: colors.subtext }}>{rank}</span>
+                                            <span style={{ fontWeight: '700', fontSize: fRank, color: colors.subtext }}>{rank}</span>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                                                 {fila.tendencia === 'same' && <RiSubtractLine style={{ color: colors.subtext, opacity: 0.5, fontSize: iconSameSize, marginLeft: '2px' }} />}
                                                 {fila.tendencia === 'up' && Array.from({ length: flechasToShow }).map((_, i) => <RiArrowUpSFill key={`up-${i}`} style={{ color: colors.positive, fontSize: iconArrowSize, marginTop: arrowMargin, marginBottom: arrowMargin }} />)}
@@ -158,23 +235,25 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                                 <DynamicTeamLogo name={fila.nombre} color={fila.color || "#000000"} size="100%" />
                                             )}
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-                                            <span style={{ fontWeight: '800', fontSize: fTeam, color: colors.text, whiteSpace: 'nowrap', lineHeight: '1.15' }}>
-                                                {/* Truncamos para prevenir empujes horizontales */}
-                                                {fila.nombre.length > (isMobile ? 24 : 32) ? fila.nombre.substring(0, isMobile ? 22 : 29) + '...' : fila.nombre}
+                                        <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                                            <span style={{ fontWeight: '800', fontSize: teamTypography.name, color: colors.text, lineHeight: '1.15', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, overflow: 'hidden', overflowWrap: 'anywhere', maxWidth: '100%' }}>
+                                                {fila.nombre}
                                             </span>
                                             {Array.isArray(fila.clinchedStatuses) && fila.clinchedStatuses.length > 0 && (
-                                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: `${4 * rowScale}px`, marginTop: `${2 * rowScale}px`, maxWidth: isMobile ? '260px' : '360px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: teamTypography.gap, marginTop: teamTypography.gap, maxWidth: '100%' }}>
                                                     {fila.clinchedStatuses.map((status) => (
                                                         <span
                                                             key={status.key}
                                                             style={{
                                                                 color: status.color,
-                                                                fontSize: fClinched,
-                                                                fontWeight: '900',
+                                                                fontSize: teamTypography.status,
+                                                                fontWeight: '800',
                                                                 lineHeight: '1',
                                                                 textTransform: 'uppercase',
-                                                                whiteSpace: 'nowrap'
+                                                                whiteSpace: 'nowrap',
+                                                                maxWidth: '100%',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis'
                                                             }}
                                                         >
                                                             {status.label}
@@ -198,7 +277,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                     {fila.partidosPendientes}
                                 </td>
                                 <td style={{ padding: cellPadding, fontSize: fPts, fontWeight: '900', color: colors.primary }}>
-                                    <span style={{ display: 'inline-block', minWidth: `${38 * rowScale}px`, padding: tableDesign === 'scoreboard' ? `${5 * rowScale}px ${8 * rowScale}px` : 0, borderRadius: `${colors.pointsRadius}px`, backgroundColor: colors.pointsBg, color: colors.pointsText }}>
+                                    <span style={{ display: 'inline-block', padding: `${pointsInset}px`, borderRadius: `${colors.pointsRadius}px`, backgroundColor: colors.pointsBg, color: colors.pointsText }}>
                                         {fila.pts}
                                     </span>
                                 </td>
@@ -218,7 +297,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
             backgroundImage: pageColors.backgroundImage,
             fontFamily: 'Arial, sans-serif',
             color: pageColors.text,
-            padding: isMobile ? '60px 40px' : '40px 50px',
+            padding: `${verticalPadding}px ${isMobile ? 40 : 50}px`,
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
@@ -246,8 +325,9 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 justifyContent: hasLogo ? 'space-between' : 'center',
                 paddingBottom: isMobile ? '40px' : '25px', 
                 borderBottom: `2px solid ${pageColors.border}`,
-                marginBottom: isMobile ? '40px' : '25px', 
+                marginBottom: `${sectionGap}px`,
                 minHeight: isMobile ? '250px' : '180px', 
+                flexShrink: 0,
                 width: '100%',
                 boxSizing: 'border-box'
             }}>
@@ -281,19 +361,19 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 {hasLogo && <div style={{ width: logoSize, flexShrink: 0 }}></div>}
             </div>
 
-            <div style={{ 
+            <div ref={tableAreaRef} style={{
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 gap: '20px', 
                 width: '100%',
                 flex: 1, 
                 minHeight: 0,
-                marginBottom: isMobile ? '40px' : '25px' 
+                marginBottom: `${sectionGap}px`
             }}>
                 {tablaGeneral.length > 0 ? renderStandingTable(tablaGeneral, 1, 'table-main') : null}
             </div>
 
-            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', padding: '10px 0' }}>
+            <div style={{ marginTop: 'auto', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', padding: '10px 0' }}>
                 <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                     {config.ascensos > 0 && renderLegendItem('Ascenso', zoneColors.promotion, RiArrowUpCircleFill)}
                     {config.zonaLiguilla && renderLegendItem('Liguilla', zoneColors.playoffs, RiTrophyLine)}

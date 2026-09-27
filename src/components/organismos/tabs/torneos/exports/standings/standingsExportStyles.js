@@ -1,4 +1,4 @@
-import { normalizeHexColor, mixHexColors, readableAccent, contrastingTextColor } from "../../../../../../utils/leagueColors.js";
+import { normalizeHexColor, mixHexColors, readableAccent, contrastingTextColor, getLeagueGradientTones } from "../../../../../../utils/leagueColors.js";
 
 export const STANDINGS_TABLE_DESIGNS = [
     { id: "classic", name: "Clásica", description: "Filas alternadas y bordes suaves." },
@@ -141,9 +141,12 @@ export function getStandingsExportAppearance({
     if (primary) {
         const secondary = normalizeHexColor(leagueColors?.secondary) || mixHexColors(primary, isDark ? "#FFFFFF" : "#111827", 0.28);
         const neutral = isDark ? "#111827" : "#FFFFFF";
-        const base = mixHexColors(primary, neutral, isDark ? 0.88 : 0.94);
-        const primaryTone = mixHexColors(primary, neutral, isDark ? 0.7 : 0.85);
-        const secondaryTone = mixHexColors(secondary, neutral, isDark ? 0.7 : 0.85);
+        const gradientTones = ["emerald", "aurora", "sunset"].includes(backgroundDesign)
+            ? getLeagueGradientTones(primary, normalizeHexColor(leagueColors?.secondary) || primary, themeMode)
+            : null;
+        const base = gradientTones?.base ?? mixHexColors(primary, neutral, isDark ? 0.88 : 0.94);
+        const primaryTone = gradientTones?.primaryTone ?? mixHexColors(primary, neutral, isDark ? 0.7 : 0.85);
+        const secondaryTone = gradientTones?.secondaryTone ?? mixHexColors(secondary, neutral, isDark ? 0.7 : 0.85);
         page.bg = base;
         page.primary = readableAccent(primary, primaryTone);
         page.primary = readableAccent(page.primary, secondaryTone);
