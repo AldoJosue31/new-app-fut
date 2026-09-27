@@ -97,6 +97,13 @@ test("un perfil temporalmente no disponible nunca muestra contenido privado", ()
   );
 });
 
+test("una validacion temporalmente fallida de Auth no manda al login ni autoriza contenido privado", () => {
+  assert.deepEqual(evaluateRouteAccess({
+    auth: { status: "auth-unavailable", user: null, profile: null },
+    pathname: "/dashboard",
+  }), { action: "pending" });
+});
+
 test("rutas desconocidas y login autenticado redirigen sin flash", () => {
   assert.deepEqual(
     evaluateRouteAccess({

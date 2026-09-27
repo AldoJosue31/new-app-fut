@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AUTH_ROLES } from "../../lib/auth/routeAccess.js";
+import { isAuthUnavailable, isTransientAuthError } from "../../lib/auth/sessionErrors.js";
 import { createServerSupabaseClient } from "../../lib/supabase/serverClient.js";
 
 const AUTHORIZED_ROLES = [
@@ -21,10 +22,26 @@ export const getServerAuthSnapshot = async ({
   client,
 } = {}) => {
   const supabase = client || (await createServerSupabaseClient());
+  let userResult;
+  try {
+    userResult = await supabase.auth.getUser();
+  } catch (error) {
+    if (!isTransientAuthError(error)) throw error;
+    userResult = { data: { user: null }, error };
+  }
   const {
     data: { user },
     error: userError,
-  } = await supabase.auth.getUser();
+  } = userResult;
+
+  if (isTransientAuthError(userError)) {
+    return {
+      profile: null,
+      reason: "auth-query-failed",
+      status: "auth-unavailable",
+      user: null,
+    };
+  }
 
   if (userError || !user) {
     return {
@@ -86,7 +103,7 @@ export const getServerAuthSnapshot = async ({
 export const requireUser = async (options = {}) => {
   const auth = await getServerAuthSnapshot(options);
 
-  if (auth.status === "profile-unavailable") {
+  if (isAuthUnavailable(auth.status)) {
     throw new AuthAccessError("Authentication temporarily unavailable", 503);
   }
 

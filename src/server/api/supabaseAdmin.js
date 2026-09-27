@@ -5,6 +5,7 @@ import {
   serializeCookieHeader,
 } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { isTransientAuthError } from "../../lib/auth/sessionErrors.js";
 
 let cachedAdminClient;
 const REQUEST_AUTH_RESULT = Symbol("request-auth-result");
@@ -139,12 +140,25 @@ export const requireUser = async (
   const client = accessToken
     ? createBearerClient(accessToken)
     : createCookieClient(req);
+  let userResult;
+  try {
+    userResult = accessToken
+      ? await client.auth.getUser(accessToken)
+      : await client.auth.getUser();
+  } catch (error) {
+    if (!isTransientAuthError(error)) throw error;
+    userResult = { data: { user: null }, error };
+  }
   const {
     data: { user },
     error: userError,
-  } = accessToken
-    ? await client.auth.getUser(accessToken)
-    : await client.auth.getUser();
+  } = userResult;
+
+  if (isTransientAuthError(userError)) {
+    const error = new Error("Authentication temporarily unavailable");
+    error.statusCode = 503;
+    throw error;
+  }
 
   if (userError || !user) {
     const error = new Error("Unauthorized");

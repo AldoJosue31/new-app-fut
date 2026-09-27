@@ -1,4 +1,5 @@
 import { buildLoginPath, ROUTES } from "../navigation/routes.js";
+import { isAuthUnavailable } from "./sessionErrors.js";
 
 export const AUTH_ROLES = Object.freeze({
   ADMIN: "admin",
@@ -105,7 +106,7 @@ export const evaluateRouteAccess = ({
     return { action: "allow" };
   }
 
-  if (auth?.status === "profile-unavailable") {
+  if (isAuthUnavailable(auth?.status)) {
     return { action: "pending" };
   }
 

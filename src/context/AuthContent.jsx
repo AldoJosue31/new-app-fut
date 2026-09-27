@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { BiCheck, BiShieldQuarter } from 'react-icons/bi';
 import { supabase } from "../lib/supabase/browserClient.js";
 import { migrateLegacyLocalStorageSession } from "../lib/supabase/legacySessionMigration.js";
+import { createSessionRecovery } from "../lib/auth/sessionRecovery.js";
 import { ROUTES } from "../lib/navigation/routes.js";
 import { useAuthStore } from '../store/AuthStore';
 import { ROLES } from '../utils/constants';
@@ -43,14 +44,10 @@ export function AuthContextProvider({ children }) {
 
   const clearBrokenSession = useEffectEvent(async () => {
     try {
-      await supabase.auth.signOut({ scope: 'local' });
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) console.warn("No se pudo limpiar la sesion local:", error.message);
     } catch (err) {
       console.warn("No se pudo limpiar la sesion local con signOut local:", err);
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        /* ignore */
-      }
     }
 
     userRef.current = null;
@@ -58,9 +55,12 @@ export function AuthContextProvider({ children }) {
     clearSessionState();
   });
 
-  const isInvalidRefreshTokenError = (error) => {
-    const message = String(error?.message || error || "").toLowerCase();
-    return message.includes('refresh token') || message.includes('invalid refresh token');
+  const markRecoveryUnavailable = (status, reason) => {
+    // Keep an already validated view during a connection failure. A new page
+    // without a validated profile stays behind PrivateAuthGate until recovery.
+    if (useAuthStore.getState().serverAuthStatus !== "authenticated") {
+      useAuthStore.setState({ isLoading: true, serverAuthReason: reason, serverAuthStatus: status });
+    }
   };
 
   const showSuspendedNotice = (reason = 'Tu cuenta fue bloqueada temporalmente por el administrador.') => {
@@ -74,7 +74,7 @@ export function AuthContextProvider({ children }) {
     console.warn("AuthContext: Cuenta suspendida. Cerrando sesion...");
     showSuspendedNotice(reason);
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'global' });
     } catch (err) {
       console.error("No se pudo cerrar sesion suspendida:", err);
     }
@@ -84,8 +84,8 @@ export function AuthContextProvider({ children }) {
   });
 
   // --- VALIDACIÓN EN SEGUNDO PLANO (CON ROLE GUARD) ---
-  const validateProfile = useEffectEvent(async (sessionUser) => {
-    if (!sessionUser) return;
+  const validateProfile = useEffectEvent(async (sessionUser, isCurrent = () => true) => {
+    if (!sessionUser || !isCurrent()) return;
 
     try {
       const { data, error } = await supabase
@@ -94,11 +94,13 @@ export function AuthContextProvider({ children }) {
         .eq('id', sessionUser.id)
         .single();
 
+      if (!isCurrent()) return;
+
       if (error) {
         if (["PGRST116", "PGRST123"].includes(error.code)) {
           console.warn("AuthContext: Perfil no encontrado. Cerrando sesion...");
           localStorage.setItem("auth_error", "profile_unavailable");
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: 'local' });
           userRef.current = null;
           profileRef.current = null;
           clearSessionState();
@@ -108,14 +110,15 @@ export function AuthContextProvider({ children }) {
         // SOLUCIÓN: Si es un error de conexión o fetch, NO cerramos sesión.
         // Solo logueamos el error y permitimos que la sesión continúe.
         // El usuario podrá seguir navegando y se reintentará luego.
-        console.error("Error temporal validando perfil (No se cerrará sesión):", error.message);
-        return; 
+        console.warn("No se pudo validar el perfil temporalmente:", error.message);
+        markRecoveryUnavailable("profile-unavailable", "profile-query-failed");
+        return false;
       }
 
       if (!data) {
         // Solo cerramos sesión si NO hay error técnico pero tampoco hay datos (perfil borrado)
         console.warn("AuthContext: Perfil no encontrado en BD. Cerrando sesión...");
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         userRef.current = null;
         profileRef.current = null;
         clearSessionState();
@@ -126,7 +129,7 @@ export function AuthContextProvider({ children }) {
       if (!authorizedRoles.includes(data.role)) {
         console.warn(`AuthContext: Rol no autorizado (${data.role}). Cerrando sesión...`);
         localStorage.setItem("auth_error", "unauthorized_role");
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         userRef.current = null;
         profileRef.current = null;
         clearSessionState();
@@ -145,68 +148,57 @@ export function AuthContextProvider({ children }) {
         serverAuthReason: null,
         serverAuthStatus: "authenticated",
       });
+      return true;
     } catch (err) {
-      console.error("Error crítico validando perfil:", err);
-      // Opcional: Decidir si cerrar sesión aquí o no. 
-      // Generalmente mejor no cerrar por un error de catch.
+      if (!isCurrent()) return;
+      console.warn("No se pudo validar el perfil:", err);
+      markRecoveryUnavailable("profile-unavailable", "profile-query-failed");
+      return false;
     }
   });
 
   useEffect(() => {
-    let mounted = true;
-    let authValidationTimer = null;
+    let authEventTimer = null;
+    const recovery = createSessionRecovery({
+      auth: supabase.auth,
+      migrateSession: migrateLegacyLocalStorageSession,
+      canRecover: () => navigator.onLine !== false && document.visibilityState !== "hidden",
+      onSession: async (session, isCurrent) => {
+        const currentState = useAuthStore.getState();
+        const currentProfile = currentState.profile?.id === session.user.id
+          ? currentState.profile : null;
+        userRef.current = session.user;
+        profileRef.current = currentProfile;
+        useAuthStore.setState({
+          isLoading: !currentProfile,
+          profile: currentProfile,
+          user: session.user,
+          ...(!currentProfile ? { serverAuthStatus: "pending" } : {}),
+        });
+        return validateProfile(session.user, isCurrent);
+      },
+      onSignedOut: () => {
+        userRef.current = null;
+        profileRef.current = null;
+        clearSession();
+      },
+      onInvalidSession: () => clearBrokenSession(),
+      onError: (error) => {
+        console.warn("La sesion se recuperara al restablecer la conexion:", error.message);
+        markRecoveryUnavailable("auth-unavailable", "auth-query-failed");
+      },
+    });
 
-    const validateAfterAuthEvent = (currentUser, showLoader = false) => {
-      if (authValidationTimer) window.clearTimeout(authValidationTimer);
-
-      authValidationTimer = window.setTimeout(async () => {
-        authValidationTimer = null;
-        if (!mounted) return;
-
-        try {
-          if (currentUser) {
-            await validateProfile(currentUser);
-          }
-        } finally {
-          if (showLoader && mounted) {
-            useAuthStore.setState({ isLoading: false });
-          }
-        }
+    const recoverAfterAuthEvent = () => {
+      if (authEventTimer !== null) window.clearTimeout(authEventTimer);
+      // Leave Supabase's synchronous notification before calling auth methods.
+      authEventTimer = window.setTimeout(() => {
+        authEventTimer = null;
+        void recovery.recover();
       }, 0);
     };
 
-    async function init() {
-      try {
-        await migrateLegacyLocalStorageSession();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (mounted) {
-          if (session?.user) {
-            userRef.current = session.user;
-            useAuthStore.setState({
-              isLoading: !profileRef.current,
-              user: session.user,
-            });
-            await validateProfile(session.user);
-          } else {
-            clearSession();
-          }
-        }
-      } catch (error) {
-        console.error("Init Error:", error);
-        if (isInvalidRefreshTokenError(error)) {
-          await clearBrokenSession();
-        }
-      } finally {
-        if (mounted) useAuthStore.setState({ isLoading: false });
-      }
-    }
-
-    init();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-
       if (event === 'SIGNED_IN') {
         const currentUser = session?.user ?? null;
         const isNewSession =
@@ -216,42 +208,53 @@ export function AuthContextProvider({ children }) {
         // recuperar foco: es la misma sesiÃ³n y el perfil ya estÃ¡ en memoria.
         if (!isNewSession) {
           if (currentUser && !profileRef.current) {
-            validateAfterAuthEvent(currentUser);
+            recoverAfterAuthEvent();
           }
           return;
         }
 
-        useAuthStore.setState({ isLoading: true });
+        recovery.invalidate();
         userRef.current = currentUser;
         profileRef.current = null;
         useAuthStore.setState({
           profile: null,
           user: currentUser,
+          isLoading: true,
+          serverAuthStatus: "pending",
         });
 
-        validateAfterAuthEvent(currentUser, true);
+        recoverAfterAuthEvent();
       }
       else if (event === 'TOKEN_REFRESHED') {
-        const currentUser = session?.user ?? null;
-        userRef.current = currentUser;
-        useAuthStore.setState({ user: currentUser });
-
-        if (currentUser) {
-          validateAfterAuthEvent(currentUser);
-        }
+        if (session?.user) recoverAfterAuthEvent();
       } 
       else if (event === 'SIGNED_OUT') {
-        if (authValidationTimer) window.clearTimeout(authValidationTimer);
+        recovery.invalidate();
+        if (authEventTimer !== null) window.clearTimeout(authEventTimer);
+        authEventTimer = null;
         userRef.current = null;
         profileRef.current = null;
         clearSession();
       }
     });
 
+    const resumeSession = () => { void recovery.recover(); };
+    window.addEventListener("online", resumeSession);
+    window.addEventListener("focus", resumeSession);
+    window.addEventListener("pageshow", resumeSession);
+    window.addEventListener("auth-retry", resumeSession);
+    document.addEventListener("visibilitychange", resumeSession);
+    resumeSession();
+
     return () => {
-      mounted = false;
-      if (authValidationTimer) window.clearTimeout(authValidationTimer);
+      recovery.dispose();
+      if (authEventTimer !== null) window.clearTimeout(authEventTimer);
       subscription.unsubscribe();
+      window.removeEventListener("online", resumeSession);
+      window.removeEventListener("focus", resumeSession);
+      window.removeEventListener("pageshow", resumeSession);
+      window.removeEventListener("auth-retry", resumeSession);
+      document.removeEventListener("visibilitychange", resumeSession);
     };
   }, []);
 
@@ -296,8 +299,8 @@ export function AuthContextProvider({ children }) {
 
   useEffect(() => {
     if (!user?.id || profile?.role !== ROLES.DELEGATE) {
-      setSecurityNotices([]);
-      return undefined;
+      const resetTimer = window.setTimeout(() => setSecurityNotices([]), 0);
+      return () => window.clearTimeout(resetTimer);
     }
 
     let mounted = true;
@@ -501,11 +504,11 @@ export function AuthContextProvider({ children }) {
     profile,
     isLoading,
     authLoadingAction,
+    suspendedNotice,
     signInWithEmail: loginWithEmail,
   };
 
   const handleSuspendedNoticeClose = () => {
-    setSuspendedNotice(null);
     window.location.replace(ROUTES.LOGIN);
   };
 

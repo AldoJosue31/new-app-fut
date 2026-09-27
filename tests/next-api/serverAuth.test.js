@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { AuthRetryableFetchError } from "@supabase/supabase-js";
 
 const {
   AuthAccessError,
   getServerAuthSnapshot,
   requireRole,
+  requireUser,
 } = await import("../../src/server/auth/serverAuth.js");
 
 const createClient = ({ profile, profileError = null, user, userError = null }) => ({
@@ -30,6 +32,28 @@ const createClient = ({ profile, profileError = null, user, userError = null }) 
       },
     };
   },
+});
+
+test("un error temporal de Auth queda pendiente en lugar de invalidar la sesion", async () => {
+  for (const error of [
+    new AuthRetryableFetchError("Offline", 0),
+    new AuthRetryableFetchError("Service unavailable", 503),
+    { name: "AuthApiError", status: 429 },
+  ]) {
+    const client = createClient({ user: null, userError: error });
+    const snapshot = await getServerAuthSnapshot({ client });
+    assert.equal(snapshot.status, "auth-unavailable");
+    assert.equal(snapshot.reason, "auth-query-failed");
+    assert.equal(snapshot.user, null);
+    assert.equal(snapshot.profile, null);
+    await assert.rejects(() => requireUser({ client }),
+      (error) => error instanceof AuthAccessError && error.statusCode === 503);
+  }
+});
+
+test("un fetch abortado o rechazado tambien conserva el estado pendiente", async () => {
+  const client = { auth: { getUser: async () => { throw new TypeError("Failed to fetch"); } } };
+  assert.equal((await getServerAuthSnapshot({ client })).status, "auth-unavailable");
 });
 
 test("snapshot anonimo no confia en una sesion invalida", async () => {
