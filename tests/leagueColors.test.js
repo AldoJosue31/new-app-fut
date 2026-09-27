@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeHexColor, dominantColorFromPixels, colorContrast, contrastingTextColor, readableAccent } from "../src/utils/leagueColors.js";
+import { normalizeHexColor, dominantColorFromPixels, colorContrast, contrastingTextColor, readableAccent, getLeagueGradientTones } from "../src/utils/leagueColors.js";
 import { getStandingsExportAppearance, STANDINGS_DESIGN_PRESETS } from "../src/components/organismos/tabs/torneos/exports/standings/standingsExportStyles.js";
 
 const pixels = (...groups) => new Uint8ClampedArray(groups.flatMap(([count, rgba]) => Array.from({ length: count }, () => rgba).flat()));
@@ -53,4 +53,62 @@ test("optional secondary color derives a tonal palette; invalid or disabled bran
   assert.notDeepEqual(getStandingsExportAppearance({ ...preset, leagueColors: { primary: "#E31B23" } }), original);
   const colors = { primary: "#E31B23", secondary: "#F4CB46" };
   assert.notEqual(getStandingsExportAppearance({ ...preset, leagueColors: colors }).page.backgroundImage, getStandingsExportAppearance({ ...preset, leagueColors: { primary: colors.primary } }).page.backgroundImage);
+});
+
+test("gradient tones keep the chosen hues while balancing strongly different brightness", () => {
+  for (const themeMode of ["light", "dark"]) {
+    for (const [primary, secondary, primaryChannel, secondaryChannel] of [
+      ["#FF0000", "#00FFFF", 0, 0],
+      ["#00FF00", "#FF00FF", 1, 1],
+      ["#0000FF", "#FFFF00", 2, 2]
+    ]) {
+      const tones = getLeagueGradientTones(primary, secondary, themeMode);
+      const rgb = hex => [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+      const main = rgb(tones.primaryTone);
+      const companion = rgb(tones.secondaryTone);
+      const mainOthers = main.filter((_, index) => index !== primaryChannel);
+      const companionOthers = companion.filter((_, index) => index !== secondaryChannel);
+      assert.equal(mainOthers[0], mainOthers[1]);
+      assert.ok(main[primaryChannel] > mainOthers[0], "primary hue must stay unchanged");
+      assert.equal(companionOthers[0], companionOthers[1]);
+      assert.ok(companion[secondaryChannel] < companionOthers[0], "secondary hue must stay unchanged");
+      assert.ok(colorContrast(tones.primaryTone, tones.secondaryTone) < colorContrast(primary, secondary), "gradient brightness must be gentler than the raw colors");
+      for (const tone of [main, companion]) {
+        const lightness = (Math.max(...tone) + Math.min(...tone)) / (2 * 255);
+        assert.ok(themeMode === "dark" ? lightness < 0.25 : lightness > 0.88, "both colors must share a subdued tonal range");
+      }
+      for (const tone of Object.values(tones)) {
+        assert.equal(normalizeHexColor(tone), tone);
+        assert.ok(colorContrast(themeMode === "dark" ? "#F8FAFC" : "#0F172A", tone) >= 4.5);
+      }
+    }
+  }
+});
+
+test("gradient harmony handles monochrome colors and defaults to the league hue", () => {
+  for (const themeMode of ["light", "dark"]) {
+    for (const color of ["#000000", "#FFFFFF", "#808080"]) {
+      const tones = getLeagueGradientTones(color, color, themeMode);
+      for (const tone of Object.values(tones)) {
+        assert.equal(tone.slice(1, 3), tone.slice(3, 5));
+        assert.equal(tone.slice(3, 5), tone.slice(5, 7));
+      }
+    }
+    assert.deepEqual(getLeagueGradientTones("#E31B23", undefined, themeMode), getLeagueGradientTones("#E31B23", "#E31B23", themeMode));
+  }
+});
+
+test("all branded gradients use harmonized stops without changing stored or table colors", () => {
+  const leagueColors = Object.freeze({ primary: "#0000FF", secondary: "#FFFF00" });
+  for (const themeMode of ["light", "dark"]) {
+    const tones = getLeagueGradientTones(leagueColors.primary, leagueColors.secondary, themeMode);
+    for (const backgroundDesign of ["emerald", "aurora", "sunset"]) {
+      const appearance = getStandingsExportAppearance({ themeMode, tableDesign: "scoreboard", backgroundDesign, leagueColors });
+      assert.equal(appearance.page.bg, tones.base);
+      assert.ok(appearance.page.backgroundImage.includes(tones.primaryTone));
+      assert.ok(appearance.page.backgroundImage.includes(tones.secondaryTone));
+      assert.equal(appearance.table.headerBg, leagueColors.primary);
+      assert.equal(appearance.table.pointsBg, leagueColors.secondary);
+    }
+  }
 });

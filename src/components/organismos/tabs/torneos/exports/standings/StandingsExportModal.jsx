@@ -1,12 +1,12 @@
 // src/components/organismos/tabs/torneos/exports/standings/StandingsExportModal.jsx
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiCloseLine, RiSettings3Line, RiTableLine, RiImageLine, RiPaletteLine, RiEqualizerLine } from "react-icons/ri";
 import { Modal } from "../../../../Modal";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
-import StandingsExportLayout from "./StandingsExportLayout";
+import StandingsDesignCarousel from "./StandingsDesignCarousel";
 import { STANDINGS_TABLE_DESIGNS, STANDINGS_BACKGROUND_DESIGNS, STANDINGS_DESIGN_PRESETS, getStandingsExportAppearance } from "./standingsExportStyles";
 import { DEFAULT_LEAGUE_COLOR, normalizeHexColor, extractLogoColor } from "../../../../../../utils/leagueColors.js";
 
@@ -25,6 +25,7 @@ export default function StandingsExportModal({
     const [showGeneratedDate, setShowGeneratedDate] = useState(true);
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [previewScale, setPreviewScale] = useState(0.3);
+    const [isInstantStyleChange, setIsInstantStyleChange] = useState(true);
     const [tableDesignIndex, setTableDesignIndex] = useState(0);
     const [backgroundDesignIndex, setBackgroundDesignIndex] = useState(0);
     const [activeStyleControl, setActiveStyleControl] = useState("table");
@@ -60,6 +61,12 @@ export default function StandingsExportModal({
         : STANDINGS_DESIGN_PRESETS.length;
     const previousStyleLabel = isCustomizing ? `Diseño de ${isChoosingTable ? "tabla" : "fondo"} anterior` : "Combinación anterior";
     const nextStyleLabel = isCustomizing ? `Diseño de ${isChoosingTable ? "tabla" : "fondo"} siguiente` : "Combinación siguiente";
+    const carouselDesigns = useMemo(() => {
+        if (!isCustomizing) return STANDINGS_DESIGN_PRESETS;
+        return isChoosingTable
+            ? STANDINGS_TABLE_DESIGNS.map((design) => ({ ...design, tableDesign: design.id, backgroundDesign: backgroundDesign.id }))
+            : STANDINGS_BACKGROUND_DESIGNS.map((design) => ({ ...design, tableDesign: tableDesign.id, backgroundDesign: design.id }));
+    }, [isCustomizing, isChoosingTable, tableDesign.id, backgroundDesign.id]);
 
     const changeStyleMode = (customize) => {
         if (isExporting || customize === isCustomizing) return;
@@ -76,13 +83,14 @@ export default function StandingsExportModal({
         setIsCustomizing(customize);
     };
 
-    const cycleStyle = (direction) => {
+    const cycleStyle = useCallback((direction, instant = false) => {
         if (isExporting) return;
+        setIsInstantStyleChange(instant);
         const setIndex = isCustomizing
             ? (isChoosingTable ? setTableDesignIndex : setBackgroundDesignIndex)
             : setPresetIndex;
-        setIndex((current) => (current + direction + styleCount) % styleCount);
-    };
+        setIndex((current) => ((current + direction) % styleCount + styleCount) % styleCount);
+    }, [isExporting, isCustomizing, isChoosingTable, styleCount]);
 
     const fetchMetaInfo = useCallback(async (signal) => {
         setLoading(true);
@@ -170,11 +178,13 @@ export default function StandingsExportModal({
 
         const calculateScale = () => {
             if (!stage.clientWidth || !stage.clientHeight) return;
-            setPreviewScale(Math.min(
-                stage.clientWidth / 1080,
+            const carouselWidthFactor = stage.clientWidth <= 520 ? 1.24 : 1.9;
+            const scale = Math.min(
+                stage.clientWidth / (1080 * carouselWidthFactor),
                 stage.clientHeight / (isMobileLayout ? 1920 : 1350),
                 isMobileLayout ? 1 : 0.85
-            ));
+            );
+            setPreviewScale((current) => Math.abs(current - scale) < 0.0001 ? current : scale);
         };
 
         calculateScale();
@@ -252,7 +262,7 @@ export default function StandingsExportModal({
             isOpen={isOpen}
             onClose={onClose}
             title="Exportar Tabla General"
-            width="960px"
+            width="1180px"
             compactHeader
             overlayPadding="6px 18px"
             maxHeight="calc(100dvh - 24px)"
@@ -354,7 +364,7 @@ export default function StandingsExportModal({
                     onKeyDown={(event) => {
                         if (!loading && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
                             event.preventDefault();
-                            cycleStyle(event.key === "ArrowLeft" ? -1 : 1);
+                            cycleStyle(event.key === "ArrowLeft" ? -1 : 1, true);
                         }
                     }}
                 >
@@ -367,7 +377,7 @@ export default function StandingsExportModal({
                         <>
                             <CarouselArrow
                                 type="button"
-                                onClick={() => cycleStyle(-1)}
+                                onClick={(event) => cycleStyle(-1, event.detail === 0)}
                                 aria-label={previousStyleLabel}
                                 title={previousStyleLabel}
                                 disabled={isExporting}
@@ -375,41 +385,32 @@ export default function StandingsExportModal({
                                 <RiArrowLeftSLine aria-hidden="true" />
                             </CarouselArrow>
                             <div className="preview-stage" ref={previewStageRef}>
-                                <div
-                                    className="scale-box"
-                                    style={{
-                                        width: 1080 * previewScale,
-                                        height: exportHeight * previewScale,
-                                        overflow: "hidden",
+                                <StandingsDesignCarousel
+                                    key={isCustomizing ? activeStyleControl : "presets"}
+                                    designs={carouselDesigns}
+                                    selectedIndex={selectedStyleIndex}
+                                    scale={previewScale}
+                                    exportHeight={exportHeight}
+                                    instantNavigation={isInstantStyleChange}
+                                    exportRef={exportComponentRef}
+                                    stageRef={previewStageRef}
+                                    onNavigate={cycleStyle}
+                                    disabled={isExporting}
+                                    layoutProps={{
+                                        tablaGeneral,
+                                        torneo,
+                                        config,
+                                        metaInfo,
+                                        themeMode: isDarkExport ? "dark" : "light",
+                                        layoutMode: isMobileLayout ? "mobile" : "desktop",
+                                        showGeneratedDate,
+                                        leagueColors: selectedLeagueColors
                                     }}
-                                >
-                                    <div
-                                        style={{
-                                            transform: `scale(${previewScale})`,
-                                            transformOrigin: "top left",
-                                            width: "1080px",
-                                            height: `${exportHeight}px`
-                                        }}
-                                    >
-                                        <StandingsExportLayout
-                                            ref={exportComponentRef}
-                                            tablaGeneral={tablaGeneral}
-                                            torneo={torneo}
-                                            config={config}
-                                            metaInfo={metaInfo}
-                                            themeMode={isDarkExport ? "dark" : "light"}
-                                            layoutMode={isMobileLayout ? "mobile" : "desktop"}
-                                            showGeneratedDate={showGeneratedDate}
-                                            tableDesign={tableDesign.id}
-                                            backgroundDesign={backgroundDesign.id}
-                                            leagueColors={selectedLeagueColors}
-                                        />
-                                    </div>
-                                </div>
+                                />
                             </div>
                             <CarouselArrow
                                 type="button"
-                                onClick={() => cycleStyle(1)}
+                                onClick={(event) => cycleStyle(1, event.detail === 0)}
                                 aria-label={nextStyleLabel}
                                 title={nextStyleLabel}
                                 disabled={isExporting}
@@ -477,6 +478,7 @@ const PreviewWrapper = styled.div`
     }
 
     .preview-stage {
+        position: relative;
         height: 100%;
         min-height: 0;
         min-width: 0;
@@ -484,14 +486,6 @@ const PreviewWrapper = styled.div`
         justify-content: center;
         align-items: center;
         overflow: hidden;
-    }
-
-    .scale-box {
-        flex-shrink: 0;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
-        border-radius: 8px;
-        background: transparent;
-        transition: box-shadow 220ms ease;
     }
 
     @media (max-width: 520px) {

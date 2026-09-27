@@ -116,9 +116,10 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
 
     // Fuentes Escaladas Protegidas (Contenido de la Tabla)
     const tableFontScale = 0.88;
+    const statsFontScale = tableFontScale * 1.05;
     const fTh = `${headerFontSize * tableFontScale}px`;
-    const fTd = `${statsFontSize * tableFontScale}px`;
-    const fPts = `${pointsFontSize * tableFontScale}px`;
+    const fTd = `${statsFontSize * statsFontScale}px`;
+    const fPts = `${pointsFontSize * statsFontScale}px`;
     const fRank = `${rankFontSize * tableFontScale}px`;
     const cellPadding = `${rowHeight * 0.125}px ${horizontalCellPadding}px`;
     
