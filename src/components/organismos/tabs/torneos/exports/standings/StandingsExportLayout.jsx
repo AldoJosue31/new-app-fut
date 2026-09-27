@@ -42,13 +42,15 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const containerHeight = isMobile ? '1920px' : '1350px'; 
     const totalEquipos = Math.max(tablaGeneral.length, 1);
     const hasLogo = !!metaInfo?.leagueLogo;
+    const verticalPadding = isMobile ? 32 : 20;
+    const sectionGap = isMobile ? 20 : 12;
 
     // Reserve space for the header, legend and date before sizing the rows.
     // Status badges also take space: counting teams alone can clip the footer.
     const headerHeight = hasLogo ? (isMobile ? 300 : 235) : (isMobile ? 250 : 180);
     const tableHeight = (isMobile ? 1920 : 1350)
-        - (isMobile ? 120 : 80) - headerHeight
-        - (isMobile ? 80 : 50) - 60;
+        - verticalPadding * 2 - headerHeight
+        - sectionGap * 2 - 60;
     const rowHeightBudget = tablaGeneral.reduce((height, row) =>
         height + 48 + (row.clinchedStatuses?.length ? 14 : 0), 0);
     const rowScale = Math.min(isMobile ? 1.25 : 1.05, (tableHeight - 3) / (50 + Math.max(rowHeightBudget, 48)));
@@ -218,7 +220,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
             backgroundImage: pageColors.backgroundImage,
             fontFamily: 'Arial, sans-serif',
             color: pageColors.text,
-            padding: isMobile ? '60px 40px' : '40px 50px',
+            padding: `${verticalPadding}px ${isMobile ? 40 : 50}px`,
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
@@ -246,7 +248,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 justifyContent: hasLogo ? 'space-between' : 'center',
                 paddingBottom: isMobile ? '40px' : '25px', 
                 borderBottom: `2px solid ${pageColors.border}`,
-                marginBottom: isMobile ? '40px' : '25px', 
+                marginBottom: `${sectionGap}px`,
                 minHeight: isMobile ? '250px' : '180px', 
                 width: '100%',
                 boxSizing: 'border-box'
@@ -288,7 +290,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                 width: '100%',
                 flex: 1, 
                 minHeight: 0,
-                marginBottom: isMobile ? '40px' : '25px' 
+                marginBottom: `${sectionGap}px`
             }}>
                 {tablaGeneral.length > 0 ? renderStandingTable(tablaGeneral, 1, 'table-main') : null}
             </div>
