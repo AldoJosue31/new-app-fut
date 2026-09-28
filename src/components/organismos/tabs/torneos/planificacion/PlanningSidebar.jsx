@@ -28,16 +28,19 @@ export function PlanningSidebar({
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
   const { delayed, current } = useMemo(() => {
-    const visibleMatches = isPlayoffMode
-      ? matches.filter((match) => !match.isByeMatch)
-      : matches;
+    const currentNum = currentJornadaNumber;
+    const visibleMatches = matches.filter((match) => {
+      if (!match.isByeMatch) return true;
+      if (isPlayoffMode) return false;
+
+      // Los descansos de jornadas anteriores no son partidos pendientes.
+      return parseJornadaNumber(match.originJornada, 999) >= currentNum;
+    });
 
     if (isPlayoffMode) {
       return { delayed: [], current: visibleMatches };
     }
 
-    const currentNum = currentJornadaNumber;
-    
     const result = visibleMatches.reduce((acc, m) => {
         if (!m.originJornada) {
              acc.current.push(m);
@@ -63,7 +66,7 @@ export function PlanningSidebar({
     return result;
   }, [isPlayoffMode, matches, currentJornadaNumber]);
 
-  const visibleMatchesCount = delayed.length + current.length;
+  const visibleMatchesCount = delayed.length + current.filter((match) => !match.isByeMatch).length;
 
   return (
     <SidebarContainer $isCollapsed={isCollapsed}>
