@@ -5,6 +5,7 @@ import {
   TOURNAMENT_STATUS,
 } from './shared';
 import { buildScannedMatchTimestamp } from '../../utils/scannedScheduleUtils';
+import { deleteTournamentWithCedulas } from '../cedulaPhotos.js';
 import {
   createMatchResultConflictError,
   MATCH_RESULT_CONFLICT_CODE,
@@ -679,14 +680,7 @@ export const eliminarTorneoService = async (tournamentId) => {
   try {
     if (!tournamentId) throw new Error('ID de torneo invalido');
 
-    const { error: tournamentError } = await supabase
-      .from('tournaments')
-      .delete()
-      .eq('id', tournamentId);
-
-    if (tournamentError) throw tournamentError;
-
-    return { success: true };
+    return await deleteTournamentWithCedulas(supabase, tournamentId);
   } catch (error) {
     console.error('Error critico eliminando torneo:', error);
     throw error;

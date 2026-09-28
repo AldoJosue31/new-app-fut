@@ -8,7 +8,7 @@ import { Btnsave } from "../../../../moleculas/Btnsave";
 import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
 import { supabase } from "../../../../../lib/supabase/browserClient.js";
-import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line } from "react-icons/ri";
+import { RiFileList3Line, RiNumbersLine, RiCheckDoubleLine, RiScan2Line, RiImageAddLine } from "react-icons/ri";
 import { IoMdFootball } from "react-icons/io";
 import { isPlayoffJornadaName } from "../../../../../utils/playoffUtils";
 import { reconcileRostersToScores } from "../../../../../utils/cedulaScoreResolution";
@@ -22,6 +22,9 @@ import { RosterTab } from "./result_modal_components/RosterTab";
 import { PenaltiesTab } from "./result_modal_components/PenaltiesTab";
 import { ConfirmResultOverlay } from "./result_modal_components/ConfirmResultOverlay";
 import { CedulaScanFlow } from "./result_modal_components/CedulaScanFlow";
+import { CedulaPhotoFlow } from "./result_modal_components/CedulaPhotoFlow";
+import { CedulaReferencePanel } from "./result_modal_components/CedulaReferencePanel";
+import { useMatchCedulaPhoto } from "../../../../../hooks/useMatchCedulaPhoto.js";
 
 const DOUBLE_WALKOVER_ID = "__double_walkover__";
 const DOUBLE_WALKOVER_OBSERVATION = "Doble W.O. - ambos pierden por default";
@@ -62,13 +65,18 @@ const addUnassignedGoalsToRoster = (roster = [], goals = 0, prefix = "team") => 
   return nextRoster;
 };
 
-export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }) {
+export function ResultModal({ isOpen, onClose, match, onSave, activeTournament, cedulaStorageClient = supabase }) {
+  const cedulaPhoto = useMatchCedulaPhoto({ isOpen, matchId: match?.id, tournament: activeTournament, client: cedulaStorageClient });
+  const { selectFile: selectCedulaPhoto } = cedulaPhoto;
   
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showCedulaScanner, setShowCedulaScanner] = useState(false);
+  const [showCedulaPhotoFlow, setShowCedulaPhotoFlow] = useState(false);
+  const [showCedulaReference, setShowCedulaReference] = useState(false);
+  const [cedulaReferenceWidth, setCedulaReferenceWidth] = useState(null);
 
   const isSavingRef = useRef(false);
   const latestLoadRequestRef = useRef(0);
@@ -180,6 +188,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setActiveTab('general');
     setShowConfirm(false);
     setShowCedulaScanner(false);
+    setShowCedulaPhotoFlow(false);
+    setShowCedulaReference(false);
     setReferees([]);
     setLocalPlayers([]);
     setVisitPlayers([]);
@@ -521,6 +531,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
   };
 
   const handleSaveAttempt = () => {
+    if (cedulaPhoto.busy) return notify.warning("Espera a que termine de procesarse la foto de la cédula.");
     const countLocal = rosterLocal.filter(p => p.playerId).length;
     const countVisit = rosterVisit.filter(p => p.playerId).length;
     const hasGoalsWithoutPlayer = hasUnassignedGoals(rosterLocal) || hasUnassignedGoals(rosterVisit);
@@ -546,7 +557,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
     setShowConfirm(true);
   };
 
-  const handleApplyCedulaScan = useCallback((scan) => {
+  const handleApplyCedulaScan = useCallback(async (scan) => {
+    if (scan.photoFile) await selectCedulaPhoto(scan.photoFile);
     const makeScannedRoster = (side, prefix) => {
       const matchedPlayers = (scan.players || [])
         .filter(player => player.side === side && player.matched)
@@ -650,7 +662,7 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
         + scheduleMessage,
       { type: scannedWalkover && !scannedWinnerId ? "warning" : "success" },
     );
-  }, [match, matchDate, matchTime, minPlayers]);
+  }, [match, matchDate, matchTime, minPlayers, selectCedulaPhoto]);
 
   const handleFinalSave = async () => {
     if (isSavingRef.current) return;
@@ -713,6 +725,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
       const isOnlyDateUpdate = !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
 
+      // La foto tiene guardado independiente; un fallo impide cerrar el modal.
+      await cedulaPhoto.save();
       await onSave(matchId, {
         type: "atomic-result-save",
         expectedRevision: match.result_revision ?? 0,
@@ -753,11 +767,13 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
 
   if (!isOpen || !match) return null;
   const isPlayersTab = activeTab === 'local' || activeTab === 'visit';
+  const isCedulaFlow = showCedulaScanner || showCedulaPhotoFlow;
 
   return (
       <Modal
       isOpen={isOpen}
-      onClose={isSaving ? undefined : onClose}
+      onClose={onClose}
+      closeDisabled={isSaving || cedulaPhoto.busy}
       width={showCedulaScanner ? "min(1520px, 97vw)" : "min(1160px, 94vw)"}
       maxHeight="95dvh"
       minHeight="95dvh"
@@ -768,16 +784,40 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
       bodyOverflowY="hidden"
       title="Definir Resultado"
       closeOnOverlayClick={false}
-      headerActions={!showCedulaScanner ? (
-        <ScanHeaderButton type="button" onClick={() => setShowCedulaScanner(true)} disabled={loading || isSaving}>
-          <RiScan2Line /> Escanear cedula
-        </ScanHeaderButton>
+      headerActionsWrapOnMobile
+      sidePanel={{
+        id: `result-cedula-reference-${match.id}`,
+        label: "Cédula del partido",
+        preferredWidth: cedulaReferenceWidth,
+        mainMinWidth: "560px",
+        fitContent: true,
+        available: !isCedulaFlow && Boolean(cedulaPhoto.photo),
+        open: !isCedulaFlow && Boolean(cedulaPhoto.photo) && showCedulaReference,
+        onToggle: () => setShowCedulaReference(current => !current),
+        content: cedulaPhoto.photo ? <CedulaReferencePanel
+          photo={cedulaPhoto.photo}
+          visible={!isCedulaFlow && showCedulaReference}
+          onPreferredWidth={setCedulaReferenceWidth}
+        /> : null,
+      }}
+      headerActions={!isCedulaFlow ? (
+        <CedulaHeaderActions>
+          <ScanHeaderButton type="button" onClick={() => setShowCedulaPhotoFlow(true)} disabled={loading || isSaving || cedulaPhoto.busy}>
+            <RiImageAddLine /> Cargar cédula
+          </ScanHeaderButton>
+          <ScanHeaderButton type="button" onClick={() => setShowCedulaScanner(true)} disabled={loading || isSaving || cedulaPhoto.busy}>
+            <RiScan2Line /> Escanear cédula
+          </ScanHeaderButton>
+        </CedulaHeaderActions>
       ) : null}
     >
       <Container>
-        {showCedulaScanner ? (
+        {showCedulaPhotoFlow ? (
+          <CedulaPhotoFlow attachment={cedulaPhoto} match={match} onBack={() => setShowCedulaPhotoFlow(false)} />
+        ) : showCedulaScanner ? (
           <CedulaScanFlow
             match={match}
+            savedPhoto={cedulaPhoto.photo}
             referees={referees}
             localPlayers={localPlayers}
             visitPlayers={visitPlayers}
@@ -861,8 +901,8 @@ export function ResultModal({ isOpen, onClose, match, onSave, activeTournament }
             )}
 
             <Footer>
-              <BtnNormal titulo="Cancelar" funcion={onClose} disabled={isSaving} />
-              <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading} />
+              <BtnNormal titulo="Cancelar" funcion={onClose} disabled={isSaving || cedulaPhoto.busy} />
+              <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading || cedulaPhoto.busy} />
             </Footer>
           </>
         )}
@@ -988,6 +1028,13 @@ const Footer = styled.div`
   }
 `;
 const LoadingState = styled.div` display: flex; flex: 1 1 auto; justify-content: center; align-items: center; min-height: 180px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
+const CedulaHeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  @media (max-width: 560px) { flex: 1; > button { flex: 1; justify-content: center; } }
+`;
 const ScanHeaderButton = styled.button`
   min-height: 34px;
   padding: 7px 12px;
@@ -1008,7 +1055,10 @@ const ScanHeaderButton = styled.button`
   &:disabled { cursor: not-allowed; opacity: 0.55; }
 
   @media (max-width: 560px) {
+    min-width: 0;
+    min-height: 44px;
     padding: 7px 9px;
     font-size: 0.76rem;
+    svg { flex-shrink: 0; }
   }
 `;

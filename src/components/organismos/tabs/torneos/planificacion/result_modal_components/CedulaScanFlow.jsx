@@ -3,7 +3,6 @@ import styled, { keyframes } from "styled-components";
 import {
   RiArrowLeftLine,
   RiArrowRightLine,
-  RiCameraLine,
   RiCloseCircleLine,
   RiErrorWarningLine,
   RiFileImageLine,
@@ -36,15 +35,16 @@ import {
   getCedulaPlayerDetailRegions,
 } from "../../../../../../utils/cedulaPlayerDetailRegions";
 import {
-  MAX_SCAN_IMAGE_BYTES,
   canvasToBlob,
-  isPotentialImageFile,
   prepareImageForScan,
 } from "../../../../../../utils/scanImageUtils";
+import { useCedulaImageInput } from "../../../../../../hooks/useCedulaImageInput.js";
+import { useCedulaPreviewZoom } from "../../../../../../hooks/useCedulaPreviewZoom.js";
+import { CedulaImagePicker } from "./CedulaImagePicker";
+import { ScanShell, PanelHeading, ChoiceRow, Action, PrimaryAction, SecondaryAction, PreviewFrame, cedulaPreviewZoomStyles } from "./CedulaFlowPrimitives";
 
 const MAX_PLAYER_DETAIL_SIDE = 2400;
 const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
-const REVIEW_PREVIEW_MAX_ZOOM_CLICKS = 2;
 const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v2";
 const DAILY_QUOTA_CODE = "SCAN_DAILY_QUOTA_EXCEEDED";
 
@@ -175,14 +175,6 @@ const invokeScanFunction = async (image, matchContext) => {
   throw invocationError;
 };
 
-const getClipboardImage = (clipboardData) => {
-  const file = [...(clipboardData?.files || [])].find(item => item.type?.startsWith("image/"));
-  if (file) return file;
-  const item = [...(clipboardData?.items || [])]
-    .find(entry => entry.kind === "file" && entry.type?.startsWith("image/"));
-  return item?.getAsFile() || null;
-};
-
 const emptyScan = {
   localTeam: { name: "", score: 0 },
   visitorTeam: { name: "", score: 0 },
@@ -197,6 +189,7 @@ const emptyScan = {
 
 export function CedulaScanFlow({
   match,
+  savedPhoto,
   referees,
   localPlayers,
   visitPlayers,
@@ -206,8 +199,13 @@ export function CedulaScanFlow({
   onApply,
   showToast,
 }) {
-  const [file, setFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState("");
+  const [file, setFile] = useState(() => savedPhoto?.blob
+    ? new File([savedPhoto.blob], "cedula-guardada.jpg", { type: savedPhoto.blob.type || "image/jpeg" })
+    : null);
+  const [usingSavedPhoto, setUsingSavedPhoto] = useState(Boolean(savedPhoto?.blob));
+  const [applying, setApplying] = useState(false);
+  const [savePhoto, setSavePhoto] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState(() => savedPhoto?.url || "");
   const [previewAvailable, setPreviewAvailable] = useState(null);
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -219,22 +217,10 @@ export function CedulaScanFlow({
   const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [scoreResolutions, setScoreResolutions] = useState({});
   const [hasAcceptedTeamMismatch, setHasAcceptedTeamMismatch] = useState(false);
-  const [coarseDevice, setCoarseDevice] = useState(false);
-  const [reviewPreviewZoomClicks, setReviewPreviewZoomClicks] = useState(0);
-  const uploadInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
   const progressTimerRef = useRef(null);
   const preparedImageRef = useRef(null);
   const scanInFlightRef = useRef(false);
   const cooldownUntilRef = useRef(0);
-
-  useEffect(() => {
-    const query = window.matchMedia("(pointer: coarse), (max-width: 1024px)");
-    const update = () => setCoarseDevice(query.matches);
-    update();
-    query.addEventListener?.("change", update);
-    return () => query.removeEventListener?.("change", update);
-  }, []);
 
   useEffect(() => {
     const storedCooldownUntil = readScanCooldownUntil();
@@ -266,8 +252,8 @@ export function CedulaScanFlow({
   }), [localPlayers, match, visitPlayers]);
 
   useEffect(() => () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
+    if (previewUrl && previewUrl !== savedPhoto?.url) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl, savedPhoto?.url]);
 
   useEffect(() => () => {
     if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
@@ -317,14 +303,7 @@ export function CedulaScanFlow({
 
   const selectFile = useCallback((nextFile) => {
     if (!nextFile) return;
-    if (!isPotentialImageFile(nextFile)) {
-      showToast("Selecciona un archivo de imagen.", "error");
-      return;
-    }
-    if (nextFile.size > MAX_SCAN_IMAGE_BYTES) {
-      showToast("La imagen debe pesar menos de 12 MB.", "error");
-      return;
-    }
+    setUsingSavedPhoto(false);
     setPreviewUrl(URL.createObjectURL(nextFile));
     setFile(nextFile);
     preparedImageRef.current = fileToScanPayload(nextFile)
@@ -337,71 +316,12 @@ export function CedulaScanFlow({
     setApplyScannedTime(false);
     setScoreResolutions({});
     setHasAcceptedTeamMismatch(false);
-  }, [showToast]);
-
-  const selectPastedFile = useEffectEvent((image) => {
-    selectFile(image);
-    showToast("Imagen pegada desde el portapapeles.", "success");
-  });
-
-  const updateReviewPreviewZoomOrigin = useCallback((event) => {
-    if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
-    const element = event.currentTarget;
-    const rect = element.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    const nextX = ((event.clientX - rect.left) / rect.width) * 100;
-    const nextY = ((event.clientY - rect.top) / rect.height) * 100;
-
-    element.style.setProperty("--preview-zoom-x", `${Math.max(0, Math.min(100, nextX))}%`);
-    element.style.setProperty("--preview-zoom-y", `${Math.max(0, Math.min(100, nextY))}%`);
   }, []);
 
-  const handleReviewPreviewPointerMove = useCallback((event) => {
-    updateReviewPreviewZoomOrigin(event);
-  }, [updateReviewPreviewZoomOrigin]);
+  const imageInput = useCedulaImageInput({ onSelect: selectFile, showToast, disabled: scanning || applying });
+  const { coarseDevice } = imageInput;
 
-  const adjustReviewPreviewZoom = useCallback((event, amount) => {
-    updateReviewPreviewZoomOrigin(event);
-    setReviewPreviewZoomClicks(current => Math.max(
-      0,
-      Math.min(current + amount, REVIEW_PREVIEW_MAX_ZOOM_CLICKS),
-    ));
-  }, [updateReviewPreviewZoomOrigin]);
-
-  const increaseReviewPreviewZoom = useCallback((event) => {
-    adjustReviewPreviewZoom(event, 1);
-  }, [adjustReviewPreviewZoom]);
-
-  const handleReviewPreviewWheel = useCallback((event) => {
-    if (coarseDevice || !event.deltaY) return;
-    event.preventDefault();
-    adjustReviewPreviewZoom(event, event.deltaY < 0 ? 1 : -1);
-  }, [adjustReviewPreviewZoom, coarseDevice]);
-
-  const handleReviewPreviewPointerLeave = useCallback((event) => {
-    const element = event.currentTarget;
-    setReviewPreviewZoomClicks(0);
-    element.style.setProperty("--preview-zoom-x", "50%");
-    element.style.setProperty("--preview-zoom-y", "50%");
-  }, []);
-
-  const handleReviewPreviewKeyDown = useCallback((event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    increaseReviewPreviewZoom(event);
-  }, [increaseReviewPreviewZoom]);
-
-  useEffect(() => {
-    const handlePaste = (event) => {
-      const image = getClipboardImage(event.clipboardData);
-      if (!image) return;
-      event.preventDefault();
-      selectPastedFile(image);
-    };
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  }, []);
+  const { zoomClicks: reviewPreviewZoomClicks, handlers: reviewPreviewZoomHandlers } = useCedulaPreviewZoom({ coarseDevice });
 
   const interpretation = useMemo(() => {
     if (!rawScan) return null;
@@ -661,49 +581,10 @@ export function CedulaScanFlow({
       <ScanShell>
         <PanelHeading>
           <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
-          <div><h4>Escanear cedula</h4><p>Sube una foto clara y completa. La imagen solo se usa durante este escaneo.</p></div>
+          <div><h4>Escanear cedula</h4><p>Sube una foto clara y completa. Podrás guardar una copia de la foto con el resultado.</p></div>
         </PanelHeading>
         {scanMatchContext}
-        <UploadZone tabIndex={0} onClick={() => uploadInputRef.current?.click()}>
-          <RiFileImageLine />
-          <strong>Cargar imagen</strong>
-          {!coarseDevice && <span>Tambien puedes pegarla con Ctrl/Cmd + V</span>}
-        </UploadZone>
-        <ChoiceRow>
-          <SecondaryAction type="button" onClick={() => uploadInputRef.current?.click()}>
-            <RiFileImageLine /> Cargar imagen
-          </SecondaryAction>
-          {coarseDevice && (
-            <PrimaryAction type="button" onClick={() => cameraInputRef.current?.click()}>
-              <RiCameraLine /> Tomar foto
-            </PrimaryAction>
-          )}
-        </ChoiceRow>
-        <input
-          ref={uploadInputRef}
-          hidden
-          type="file"
-          accept="image/*"
-          onChange={(event) => {
-            const nextFile = event.target.files?.[0];
-            event.target.value = "";
-            selectFile(nextFile);
-          }}
-          aria-label="Subir foto de cédula"
-        />
-        <input
-          ref={cameraInputRef}
-          hidden
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={(event) => {
-            const nextFile = event.target.files?.[0];
-            event.target.value = "";
-            selectFile(nextFile);
-          }}
-          aria-label="Tomar foto de cédula"
-        />
+        <CedulaImagePicker input={imageInput} />
       </ScanShell>
     );
   }
@@ -717,6 +598,7 @@ export function CedulaScanFlow({
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
         {scanMatchContext}
+        {usingSavedPhoto && <SavedPhotoHint role="status">{savedPhoto?.pending ? 'Foto seleccionada cargada automáticamente.' : 'Foto guardada cargada automáticamente.'} Puedes escanearla o cambiarla.</SavedPhotoHint>}
         <PreviewFrame aria-busy={scanning}>
           {previewAvailable !== false ? (
             <img
@@ -750,7 +632,7 @@ export function CedulaScanFlow({
               Presiona <kbd>Enter</kbd> para escanear
             </ScanShortcut>
           )}
-          <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setRawScan(null); }}>
+          <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setPreviewUrl(""); setRawScan(null); setUsingSavedPhoto(false); }}>
             <RiRefreshLine /> Cambiar foto
           </SecondaryAction>
           <ScanProgressButton
@@ -886,18 +768,31 @@ export function CedulaScanFlow({
   const scannedResolution = rawScan.walkover?.detected
     ? `W.O. · ${rawScan.walkover.evidence || "Inasistencia detectada"}`
     : "Resultado regular";
-  const applyScan = () => onApply({
-    ...interpretation,
-    scores: resolvedScores,
-    scoreResolutions,
-    date: dateReview.normalizedScannedDate,
-    time: normalizedScannedTime,
-    applyDate: canApplyScannedDate && applyScannedDate,
-    applyTime: canApplyScannedTime && applyScannedTime,
-  });
+  const applyScan = async () => {
+    if (applying) return;
+    setApplying(true);
+    try {
+      await onApply({
+        ...interpretation,
+        scores: resolvedScores,
+        scoreResolutions,
+        date: dateReview.normalizedScannedDate,
+        time: normalizedScannedTime,
+        applyDate: canApplyScannedDate && applyScannedDate,
+        applyTime: canApplyScannedTime && applyScannedTime,
+        photoFile: savePhoto && !usingSavedPhoto ? file : null,
+      });
+    } catch (error) {
+      showToast('No se pudo preparar la foto: ' + error.message, 'error');
+    } finally {
+      setApplying(false);
+    }
+  };
   const scanAnotherImage = () => {
+    if (applying) return;
     preparedImageRef.current = null;
     setFile(null);
+    setUsingSavedPhoto(false);
     setPreviewUrl("");
     setPreviewAvailable(null);
     setRawScan(null);
@@ -1041,7 +936,7 @@ export function CedulaScanFlow({
   return (
     <ScanShell $review>
       <PanelHeading>
-        <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
+        <button type="button" onClick={onBack} disabled={applying} aria-label="Volver"><RiArrowLeftLine /></button>
         <div>
           <h4>Resultado escaneado</h4>
           <p>La cedula queda a la izquierda; a la derecha revisas el partido interpretado, los jugadores y las diferencias.</p>
@@ -1066,13 +961,7 @@ export function CedulaScanFlow({
               aria-label="Vista ampliable de la cédula. Haz clic o usa la rueda para ajustar el zoom."
               role="button"
               tabIndex={0}
-              onPointerMove={handleReviewPreviewPointerMove}
-              onPointerEnter={handleReviewPreviewPointerMove}
-              onPointerLeave={handleReviewPreviewPointerLeave}
-              onBlur={handleReviewPreviewPointerLeave}
-              onClick={increaseReviewPreviewZoom}
-              onKeyDown={handleReviewPreviewKeyDown}
-              onWheel={handleReviewPreviewWheel}
+              {...reviewPreviewZoomHandlers}
             >
               {previewAvailable !== false ? (
                 <img
@@ -1356,21 +1245,34 @@ export function CedulaScanFlow({
           </ReviewSidebar>
         </ReviewWorkspace>
       </ReviewScrollArea>
+      {usingSavedPhoto ? <SavedPhotoHint role="status">{savedPhoto?.pending ? 'La foto se guardará con el resultado.' : 'La foto ya está guardada con este partido.'}</SavedPhotoHint> : (
+        <PhotoRetentionChoice>
+          <input type="checkbox" checked={savePhoto} disabled={applying} onChange={event => setSavePhoto(event.target.checked)} />
+          <span>Guardar foto de la cédula con el marcador <small>La copia se comprime y se elimina al finalizar el torneo.</small></span>
+        </PhotoRetentionChoice>
+      )}
       <ChoiceRow>
-        <SecondaryAction type="button" onClick={onBack}>Cancelar</SecondaryAction>
+        <SecondaryAction type="button" onClick={onBack} disabled={applying}>Cancelar</SecondaryAction>
         <PrimaryAction
           type="button"
-          disabled={hasUnresolvedScores}
+          disabled={hasUnresolvedScores || applying}
           title={hasUnresolvedScores ? "Resuelve las diferencias de goles antes de continuar" : undefined}
           onClick={applyScan}
         >
-          {hasUnresolvedScores ? "Elige como guardar los goles" : "Aplicar escaneo"}
+          {applying ? "Preparando foto…" : hasUnresolvedScores ? "Elige como guardar los goles" : "Aplicar escaneo"}
         </PrimaryAction>
       </ChoiceRow>
     </ScanShell>
   );
 
 }
+
+const PhotoRetentionChoice = styled.label`
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  color: ${({ theme }) => theme.text}; cursor: pointer; font-size: .85rem;
+  input { width: 18px; height: 18px; flex-shrink: 0; }
+  small { display: block; font-size: .75rem; margin-top: 4px; }
+`;
 
 function DataRow({ label, value, scannedValue, warning = false }) {
   return (
@@ -1410,33 +1312,9 @@ function TeamScoreColumn({ sideLabel, teamName, score, scannedValue }) {
   );
 }
 
-const ScanShell = styled.section`
-  display:flex;
-  flex:1;
-  flex-direction:column;
-  gap:18px;
-  min-height:0;
-  overflow-x:hidden;
-  overflow-y:${({$review,$warning})=>$review || $warning ? "hidden" : "auto"};
-  overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-  touch-action:pan-y;
-  scrollbar-gutter:stable;
-
-  &:focus-visible{
-    outline:3px solid ${v.colorPrincipal}44;
-    outline-offset:2px;
-  }
-`;
-const PanelHeading = styled.div`
-  display:flex;align-items:flex-start;gap:12px;
-  button{width:36px;height:36px;display:grid;place-items:center;border:1px solid ${({theme})=>theme.bg4};border-radius:10px;background:transparent;color:${({theme})=>theme.text};cursor:pointer;font-size:1.1rem;}
-  button:hover{background:${({theme})=>theme.bg3};}
-  button:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
-  h4,p{margin:0;} h4{font-size:1.05rem;} p{margin-top:4px;opacity:.72;line-height:1.45;}
-`;
 const ScanMatchContext = styled.section`
   display:grid;
+  flex-shrink:0;
   grid-template-columns:auto minmax(0,1fr) auto;
   align-items:center;
   gap:12px;
@@ -1466,21 +1344,12 @@ const ScanMatchContext = styled.section`
     .context-schedule{grid-row:3;max-width:none;}
   }
 `;
-const UploadZone = styled.button`
-  width:100%;min-height:clamp(320px,52vh,560px);flex:1;border:2px dashed ${({theme})=>theme.bg4};border-radius:14px;background:${({theme})=>theme.bg3};color:${({theme})=>theme.text};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;
-  svg{font-size:2rem;color:${v.colorPrincipal};} strong{font-size:1rem;} span{font-size:.82rem;opacity:.7;}
-  &:hover{border-color:${v.colorPrincipal};} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
-`;
-const ChoiceRow = styled.div`
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:10px;
-  flex-wrap:wrap;
-
-  @media(min-width:561px){
-    > button{margin-block:2px;}
-  }
+const SavedPhotoHint = styled.p`
+  margin:0;
+  flex-shrink:0;
+  color:${({theme})=>theme.text};
+  font-size:.82rem;
+  line-height:1.4;
 `;
 const ScanShortcut = styled.span`
   align-self:center;
@@ -1505,13 +1374,6 @@ const ScanShortcut = styled.span`
     opacity:1;
   }
 `;
-const Action = styled.button`
-  box-sizing:border-box;min-height:var(--result-modal-action-height, 40px);padding:var(--result-modal-action-padding, 9px 16px);border-radius:10px;font:inherit;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
-  &:disabled{cursor:wait;opacity:.62;} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
-  @media(max-width:600px){flex:1;}
-`;
-const PrimaryAction = styled(Action)`border:1px solid ${v.colorPrincipal};background:${v.colorPrincipal};color:#fff;`;
-const SecondaryAction = styled(Action)`border:1px solid ${({theme})=>theme.bg4};background:transparent;color:${({theme})=>theme.text};&:hover:not(:disabled){background:${({theme})=>theme.bg3};}`;
 const ContinueAnywayAction = styled(Action)`
   border:1px solid ${v.rojo}66;
   background:transparent;
@@ -1538,11 +1400,6 @@ const reviewRevealLeft = keyframes`
 const reviewRevealRight = keyframes`
   0%{opacity:0;transform:translateX(18px);filter:blur(8px);}
   100%{opacity:1;transform:translateX(0);filter:blur(0);}
-`;
-const PreviewFrame = styled.div`
-  position:relative;height:clamp(420px,64vh,680px);min-width:0;min-height:0;flex:1;border-radius:14px;overflow:hidden;background:#101010;display:flex;align-items:center;justify-content:center;
-  img{position:absolute;inset:10px;display:block;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;object-position:center;}
-  @media(max-width:700px){height:min(58vh,560px);min-height:320px;}
 `;
 const ReviewWorkspace = styled.div`
   display:grid;
@@ -1607,37 +1464,11 @@ const ReviewPreviewFrame = styled(PreviewFrame)`
   flex:1 1 auto;
   height:100%;
   min-height:0;
-  cursor:zoom-in;
-
-  img{
-    transition:transform 240ms cubic-bezier(.22,1,.36,1), filter 240ms ease;
-    transform-origin:var(--preview-zoom-x,50%) var(--preview-zoom-y,50%);
-    will-change:transform;
-  }
-
-  @media (hover:hover) and (pointer:fine){
-    &:hover img{
-      transform:scale(${({$zoomClicks})=>1.8 + ($zoomClicks * .6)});
-      filter:saturate(1.03) contrast(1.02);
-    }
-  }
+  ${cedulaPreviewZoomStyles}
 
   @media(max-width:960px){
-    cursor:default;
     height:min(58vh,580px);
     flex:none;
-    &:hover img{
-      transform:none;
-      filter:none;
-    }
-  }
-
-  @media(prefers-reduced-motion:reduce){
-    img{transition:none;}
-    &:hover img{
-      transform:none;
-      filter:none;
-    }
   }
 `;
 const ReviewSidebar = styled.div`
