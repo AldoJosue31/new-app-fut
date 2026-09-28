@@ -1,5 +1,6 @@
-import React, { useLayoutEffect, useSyncExternalStore } from "react";
+import React, { forwardRef, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import styled, { keyframes } from "styled-components";
+import { AnimatePresence, LayoutGroup, motion, useIsPresent, usePresenceData, useReducedMotion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { AiOutlineClose } from "react-icons/ai";
 import { RiArrowLeftSLine, RiArrowRightSLine } from "react-icons/ri";
@@ -77,6 +78,8 @@ export const Modal = ({
     () => true,
     () => false,
   );
+  const reducedMotion = useReducedMotion();
+  const [skipDockMotion, setSkipDockMotion] = useState(false);
 
   useLayoutEffect(() => {
     if (!isOpen) return undefined;
@@ -87,8 +90,13 @@ export const Modal = ({
 
   if (!mounted || !isOpen) return null;
 
+  const dockDuration = reducedMotion || skipDockMotion ? 0 : sidePanel?.open ? 0.22 : 0.16;
+  const dockTransition = { duration: dockDuration, ease: [0.23, 1, 0.32, 1] };
+  const positionMotionProps = sidePanel ? { as: motion.div, layout: "position", transition: dockTransition } : {};
+
   const modalContent = (
     <ModalContainer
+        {...(sidePanel ? { as: motion.div, layout: true, transition: dockTransition } : {})}
         $width={width}
         $maxHeight={maxHeight}
         $minHeight={minHeight}
@@ -99,7 +107,7 @@ export const Modal = ({
         $sideOpen={Boolean(sidePanel?.open)}
         onClick={(e) => e.stopPropagation()}
       >
-        <Header $compact={compactHeader} $wrapActions={headerActionsWrapOnMobile && !!headerActions}>
+        <Header {...positionMotionProps} $compact={compactHeader} $wrapActions={headerActionsWrapOnMobile && !!headerActions}>
           <h3>{title || ""}</h3>
 
           <div className="header-actions">
@@ -111,13 +119,14 @@ export const Modal = ({
             )}
           </div>
         </Header>
-        <Body $padding={bodyPadding} $overflowY={bodyOverflowY}>{children}</Body>
+        <Body {...positionMotionProps} $padding={bodyPadding} $overflowY={bodyOverflowY}>{children}</Body>
     </ModalContainer>
   );
 
   return createPortal(
     <Overlay $padding={overlayPadding} onClick={closeOnOverlayClick && !closeDisabled ? onClose : undefined}>
-      {sidePanel ? <DockLayout
+      {sidePanel ? <LayoutGroup id={sidePanel.id}><DockLayout
+        {...positionMotionProps}
         $width={width}
         $open={sidePanel.open}
         $mainMinWidth={sidePanel.mainMinWidth}
@@ -125,24 +134,61 @@ export const Modal = ({
         onClick={(e) => e.stopPropagation()}
       >
         {sidePanel.available && <DockToggle
+            as={motion.button}
+            layout="position"
+            transition={dockTransition}
             type="button"
             $open={sidePanel.open}
             aria-label={sidePanel.open ? "Ocultar cédula" : "Mostrar cédula"}
             aria-expanded={sidePanel.open}
             aria-controls={sidePanel.id}
-            onClick={sidePanel.onToggle}
+            onClick={(event) => {
+              setSkipDockMotion(event.detail === 0);
+              sidePanel.onToggle(event);
+            }}
           >
             {sidePanel.open ? <RiArrowLeftSLine /> : <RiArrowRightSLine />}
           </DockToggle>}
-        <DockPanel id={sidePanel.id} $open={sidePanel.open} $fitContent={sidePanel.fitContent} aria-label={sidePanel.label}>
-          {sidePanel.content}
-        </DockPanel>
+        <AnimatePresence initial={false} mode="popLayout" custom={Boolean(reducedMotion || skipDockMotion)}>
+          {sidePanel.open && <DockPanelTransition
+            key={sidePanel.id}
+            id={sidePanel.id}
+            label={sidePanel.label}
+            fitContent={sidePanel.fitContent}
+            instant={Boolean(reducedMotion || skipDockMotion)}
+          >
+            {sidePanel.content}
+          </DockPanelTransition>}
+        </AnimatePresence>
         {modalContent}
-      </DockLayout> : modalContent}
+      </DockLayout></LayoutGroup> : modalContent}
     </Overlay>,
     getModalRoot(),
   );
 };
+
+const DockPanelTransition = forwardRef(function DockPanelTransition({ id, label, fitContent, instant, children }, ref) {
+  const isPresent = useIsPresent();
+  const presenceInstant = usePresenceData();
+  const skipMotion = isPresent ? instant : presenceInstant;
+  const stacked = typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches;
+  const offset = skipMotion ? "translate3d(0px, 0px, 0px)" : stacked ? "translate3d(0px, 16px, 0px)" : "translate3d(16px, 0px, 0px)";
+
+  return <DockPanel
+    as={motion.aside}
+    ref={ref}
+    id={id}
+    $fitContent={fitContent}
+    aria-label={label}
+    aria-hidden={!isPresent}
+    inert={!isPresent}
+    style={{ pointerEvents: isPresent ? "auto" : "none" }}
+    initial={{ opacity: 0, transform: offset }}
+    animate={{ opacity: 1, transform: "translate3d(0px, 0px, 0px)" }}
+    exit={{ opacity: 0, transform: offset }}
+    transition={{ duration: skipMotion ? 0 : isPresent ? 0.22 : 0.16, ease: [0.23, 1, 0.32, 1] }}
+  >{children}</DockPanel>;
+});
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideIn = keyframes`from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; }`;
@@ -186,6 +232,7 @@ const ModalContainer = styled.div`
   overflow: ${({ $allowOverflow }) => ($allowOverflow ? "visible" : "hidden")};
   color: ${({ theme }) => theme.text};
   touch-action: auto;
+  ${({ $docked }) => $docked && 'position: relative; z-index: 1;'}
 
   @media (max-width: 1023px) {
     max-height: ${({ $smallScreenMaxHeight, $maxHeight }) => $smallScreenMaxHeight || $maxHeight};
@@ -295,7 +342,7 @@ const DockLayout = styled.div`
 `;
 
 const DockPanel = styled.aside`
-  display: ${({ $open }) => $open ? 'flex' : 'none'};
+  display: flex;
   flex: 0 0 var(--dock-panel-width);
   width: var(--dock-panel-width);
   min-width: 0;
@@ -323,7 +370,7 @@ const DockToggle = styled.button`
   z-index: 2;
   top: 50%;
   left: ${({ $open }) => $open ? 'var(--dock-panel-width)' : '0'};
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   display: grid;
   place-items: center;
   width: 36px;
@@ -344,7 +391,7 @@ const DockToggle = styled.button`
     left: 0;
     width: 44px;
     min-height: 44px;
-    transform: translate(-15%, -50%);
+    translate: -15% -50%;
   }
 `;
 
