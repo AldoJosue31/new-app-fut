@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useRef, useState } from "react";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { v } from "../../../../../styles/variables";
 import {
   RiArrowDownSLine,
@@ -401,34 +401,45 @@ const MobileControlsCollapse = styled.div`
   }
 `;
 
+const themedControlStyles = css`
+  background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
+  border: 1px solid
+    ${({ theme }) => theme.tournamentDashboard?.border || theme.bg5};
+  color: ${({ theme }) =>
+    theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.bg6};
+    border-color: ${({ theme }) =>
+      theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+  }
+
+  &:focus-visible {
+    outline: 2px solid
+      ${({ theme }) =>
+        theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+    outline-offset: 3px;
+  }
+`;
+
 const CompactToggleButton = styled.button`
+  ${themedControlStyles}
   width: 100%;
   height: 22px;
   border-radius: 999px;
   border: 1px solid
-    ${({ $hasChanges, theme }) => ($hasChanges ? v.colorPrincipal : `${theme.bg4}`)};
-  background: linear-gradient(
-    90deg,
-    ${({ theme }) => `${theme.bg4}30`} 0%,
-    ${({ theme }) => `${theme.bgcards}`} 50%,
-    ${({ theme }) => `${theme.bg4}30`} 100%
-  );
-  color: ${({ theme }) => theme.text};
+    ${({ $hasChanges, $isOpen, theme }) =>
+      $hasChanges || $isOpen
+        ? theme.tournamentDashboard?.hero?.accentStrong || theme.color1
+        : theme.tournamentDashboard?.border || theme.bg5};
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   cursor: pointer;
-  transition: 0.2s ease;
   padding: 0 10px;
-
-  svg:first-child {
-    color: ${v.colorPrincipal};
-  }
-
-  svg:last-child {
-    opacity: 0.8;
-  }
 `;
 
 const ActionsGroup = styled.div`
@@ -624,8 +635,7 @@ const StatusCounter = styled.small`
 `;
 
 const NavBtn = styled.button`
-  background: ${({ theme }) => theme.bg4};
-  border: none;
+  ${themedControlStyles}
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -633,18 +643,17 @@ const NavBtn = styled.button`
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: ${({ theme }) => theme.text};
-  transition: all 0.2s;
   flex-shrink: 0;
 
   &:disabled {
+    background: ${({ theme }) => theme.bg4};
+    border-color: transparent;
+    color: ${({ theme }) => theme.text};
     opacity: 0.3;
     cursor: not-allowed;
   }
 
   &:hover:not(:disabled) {
-    background: ${v.colorPrincipal};
-    color: white;
     transform: scale(1.1);
   }
 `;
@@ -756,8 +765,7 @@ const AutoFillBtn = styled.button`
 `;
 
 const BtnAction = styled.button`
-  background: ${({ theme }) => theme.bg4};
-  border: none;
+  ${themedControlStyles}
   border-radius: 8px;
   width: 42px;
   height: 42px;
@@ -765,14 +773,10 @@ const BtnAction = styled.button`
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: ${({ theme }) => theme.text};
-  transition: all 0.2s;
   position: relative;
   flex-shrink: 0;
 
   &:hover {
-    background: ${v.colorPrincipal}20;
-    color: ${v.colorPrincipal};
     transform: translateY(-2px);
   }
 `;

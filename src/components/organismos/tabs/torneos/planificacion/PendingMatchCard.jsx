@@ -8,7 +8,6 @@ import {
   RiCloseLine,
   RiLockLine,
 } from "react-icons/ri";
-import { v } from "../../../../../styles/variables";
 import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
 
 export const PendingMatchCard = ({
@@ -72,7 +71,7 @@ export const PendingMatchCard = ({
 
         {isDelayed && !hasResolution && (
           <div className="meta">
-            <Badge color="#e74c3c">Pendiente {match.originJornada}</Badge>
+            <DelayedBadge>Pendiente {match.originJornada}</DelayedBadge>
           </div>
         )}
 
@@ -125,23 +124,16 @@ export const PendingMatchCard = ({
 };
 
 const Card = styled.div`
-  background: ${({ theme, $isDelayed, $hasResolution, $isSelected }) =>
-    $isSelected
-      ? `${v.colorPrincipal}14`
-      : $hasResolution
-        ? theme.bg4
-        : $isDelayed
-          ? `${theme.bg4}40`
-          : theme.bg2};
+  background: ${({ theme, $isSelected }) =>
+    $isSelected ? theme.bgcards : theme.bg3};
   border: 1px solid
     ${({ theme, $isDelayed, $hasResolution, $isSelected }) =>
-      $isSelected
-        ? v.colorPrincipal
-        : $hasResolution
-          ? v.colorPrincipal
-          : $isDelayed
-            ? "#e74c3c"
-            : theme.bg4};
+      $isSelected || $hasResolution
+        ? theme.tournamentDashboard?.hero?.accentStrong || theme.color1
+        : $isDelayed
+          ? theme.tournamentDashboard?.metrics?.danger || "#e74c3c"
+          : theme.tournamentDashboard?.border || theme.bg5};
+  color: ${({ theme }) => theme.text};
   padding: 6px 10px;
   border-radius: 6px;
   display: flex;
@@ -154,7 +146,7 @@ const Card = styled.div`
         ? "pointer"
         : "grab"};
   transition: all 0.2s;
-  opacity: ${({ $isConfirmed }) => ($isConfirmed ? 0.6 : 1)};
+  opacity: ${({ $isConfirmed }) => ($isConfirmed ? 0.85 : 1)};
 
   &:hover {
     transform: ${({ $isConfirmed, $hasResolution }) =>
@@ -162,25 +154,32 @@ const Card = styled.div`
     box-shadow: ${({ $isConfirmed, $hasResolution }) =>
       $isConfirmed || $hasResolution ? "none" : "0 4px 8px rgba(0,0,0,0.1)"};
     border-color: ${({ theme, $isDelayed, $hasResolution, $isSelected }) =>
-      $isSelected
-        ? v.colorPrincipal
-        : $hasResolution
-          ? v.colorPrincipal
-          : $isDelayed
-            ? "#c0392b"
-            : theme.primary};
+      $isDelayed && !$hasResolution && !$isSelected
+        ? theme.tournamentDashboard?.metrics?.danger || "#e74c3c"
+        : theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+  }
+
+  &:focus-visible {
+    outline: 2px solid
+      ${({ theme }) =>
+        theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+    outline-offset: 2px;
   }
 
   ${({ $isSelected }) =>
     $isSelected &&
     css`
-      box-shadow: 0 0 0 1px ${v.colorPrincipal}, 0 10px 20px rgba(0, 0, 0, 0.12);
+      outline: 2px solid
+        ${({ theme }) =>
+          theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+      outline-offset: 2px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
       transform: translateY(-1px);
     `}
 
   .drag-handle {
-    color: ${({ theme, $hasResolution, $isSelected }) =>
-      $hasResolution ? theme.textFade : $isSelected ? v.colorPrincipal : theme.text2};
+    color: ${({ theme }) =>
+      theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
     cursor: ${({ $hasResolution, $isTapSelectionEnabled }) =>
       $hasResolution ? "default" : $isTapSelectionEnabled ? "pointer" : "grab"};
     display: flex;
@@ -203,7 +202,7 @@ const Card = styled.div`
     font-weight: 600;
 
     .vs {
-      color: ${({ theme }) => theme.text2};
+      color: ${({ theme }) => theme.colorSubtitle};
       font-size: 0.7rem;
     }
 
@@ -228,7 +227,7 @@ const Card = styled.div`
     .icon-btn {
       background: none;
       border: none;
-      color: ${({ theme }) => theme.text2};
+      color: ${({ theme }) => theme.colorSubtitle};
       font-size: 1.1rem;
       cursor: pointer;
       display: flex;
@@ -239,34 +238,51 @@ const Card = styled.div`
       transition: all 0.2s;
 
       &:hover {
-        background: ${({ theme }) => theme.bg4};
+        background: ${({ theme }) => theme.bg6};
         color: ${({ theme }) => theme.text};
       }
 
       &.revert {
-        color: #e74c3c;
+        color: ${({ theme }) =>
+          theme.tournamentDashboard?.metrics?.danger || "#e74c3c"};
 
         &:hover {
-          background: #e74c3c20;
+          background: ${({ theme }) =>
+            `${theme.tournamentDashboard?.metrics?.danger || "#e74c3c"}20`};
         }
       }
 
       &.resolve {
-        color: ${v.colorPrincipal};
+        color: ${({ theme }) =>
+          theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
 
         &:hover {
-          background: ${v.colorPrincipal}20;
+          background: ${({ theme }) => theme.bg6};
         }
       }
     }
   }
 `;
 
+const DelayedBadge = styled(Badge)`
+  background: ${({ theme }) =>
+    `${theme.tournamentDashboard?.metrics?.danger || "#e74c3c"}18`};
+  color: ${({ theme }) => theme.text};
+  border-color: ${({ theme }) =>
+    `${theme.tournamentDashboard?.metrics?.danger || "#e74c3c"}40`};
+`;
+
 const ResolutionBadge = styled.div`
   font-size: 0.65rem;
   font-weight: 700;
-  color: ${({ $type }) => ($type === "default" ? "#2ecc71" : "#f39c12")};
-  background: ${({ $type }) => ($type === "default" ? "#2ecc7120" : "#f39c1220")};
+  color: ${({ theme, $type }) =>
+    $type === "default"
+      ? theme.tournamentDashboard?.metrics?.accentStrong || theme.text
+      : theme.text};
+  background: ${({ theme, $type }) =>
+    $type === "default"
+      ? theme.tournamentDashboard?.metrics?.accentSoft || theme.bg6
+      : `${theme.tournamentDashboard?.metrics?.warning || "#f39c12"}20`};
   padding: 2px 5px;
   border-radius: 4px;
   display: inline-block;
@@ -281,6 +297,6 @@ const TapHint = styled.span`
   margin-top: 3px;
   font-size: 0.65rem;
   font-weight: 800;
-  color: ${({ $isSelected }) => ($isSelected ? v.colorPrincipal : "inherit")};
-  opacity: ${({ $isSelected }) => ($isSelected ? 1 : 0.6)};
+  color: ${({ theme, $isSelected }) =>
+    $isSelected ? theme.text : theme.colorSubtitle};
 `;
