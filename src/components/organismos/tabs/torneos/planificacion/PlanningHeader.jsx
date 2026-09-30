@@ -12,6 +12,7 @@ import {
   RiCheckLine,
   RiPrinterLine,
   RiCalendarCheckLine,
+  RiTimeLine,
 } from "react-icons/ri";
 import { ViewToggle } from "../../../toggle/ViewToggle";
 import { addDaysToDate } from "../../../../../utils/dateUtils";
@@ -44,6 +45,8 @@ export const PlanningHeader = memo(
     isRepositionMode = false,
     onDateChange,
     jornadaDurationDays = 7,
+    pendingMatchesCount = 0,
+    onManagePendingMatches,
   }) => {
     const isConfirmed = status === "Confirmada";
     const hasDates = jornadaData?.start_date && jornadaData?.end_date;
@@ -215,8 +218,18 @@ export const PlanningHeader = memo(
       </DateRow>
     );
 
+    const pendingControl = typeof onManagePendingMatches === "function" && (
+      <PendingButton type="button" onClick={onManagePendingMatches}
+        title="Administrar partidos aplazados de jornadas anteriores"
+        aria-label={`Administrar partidos pendientes (${pendingMatchesCount})`}>
+        <RiTimeLine size={19} aria-hidden="true" />
+        Pendientes <span className="pending-count">{pendingMatchesCount}</span>
+      </PendingButton>
+    );
+
     const actionControls = (
       <ActionsGroup>
+        {!isMobileViewport && pendingControl}
         {showPrintButton && (
           <BtnAction
             onClick={onPrintBatch}
@@ -313,7 +326,9 @@ export const PlanningHeader = memo(
 
           {isMobileViewport ? (
             <CompactControlsWrap>
-              <CompactToggleButton
+              <MobileControlsBar>
+                {pendingControl}
+                <CompactToggleButton
                 type="button"
                 onClick={() => setIsMobileControlsOpen((prev) => !prev)}
                 aria-expanded={isMobileControlsOpen}
@@ -328,7 +343,8 @@ export const PlanningHeader = memo(
                 ) : (
                   <RiArrowDownSLine size={18} />
                 )}
-              </CompactToggleButton>
+                </CompactToggleButton>
+              </MobileControlsBar>
 
               <MobileControlsCollapse $isOpen={isMobileControlsOpen}>
                 <div className="controls-inner">
@@ -359,6 +375,7 @@ const Container = styled.div`
 
   @media (min-width: 768px) {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 15px;
@@ -422,6 +439,11 @@ const themedControlStyles = css`
         theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
     outline-offset: 3px;
   }
+`;
+
+const MobileControlsBar = styled.div`
+  display: flex; align-items: center; gap: 10px;
+  > button:last-child { flex: 1; min-width: 44px; height: 44px; }
 `;
 
 const CompactToggleButton = styled.button`
@@ -779,6 +801,14 @@ const BtnAction = styled.button`
   &:hover {
     transform: translateY(-2px);
   }
+`;
+
+const PendingButton = styled.button`
+  ${themedControlStyles}
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font: inherit; font-size: 0.85rem; font-weight: 700; white-space: nowrap;
+  .pending-count { font-variant-numeric: tabular-nums; }
 `;
 
 const NotificationBadge = styled.span`

@@ -444,7 +444,7 @@ export const usePlanificacionMatches = (
         if (hasDraft) {
             const draftMatch = draftMap.get(String(dbMatch.id));
             if (canReusePlanningDraftMatch(dbMatch, draftMatch)) {
-                const keepDbResult = dbMatch.status === 'Finalizado';
+                const keepDbResult = ['Finalizado', 'Cancelado'].includes(dbMatch.status);
                 const draftStatus =
                   draftMatch.status === 'Finalizado' && !hasDraftResult(draftMatch)
                     ? (draftMatch.date ? 'Programado' : 'Pendiente')
@@ -473,6 +473,7 @@ export const usePlanificacionMatches = (
     });
 
     const currentScheduled = mergedMatches.filter(m => {
+        if (m.status === 'Cancelado') return true;
         if (m.date) return true;
         if (m.status === 'Finalizado') return true;
         if (m.resolution && m.resolution.type === 'default') return true;
@@ -480,6 +481,7 @@ export const usePlanificacionMatches = (
     });
 
     const currentPending = mergedMatches.filter(m => {
+        if (m.status === 'Cancelado') return false;
         if (m.date || m.status === 'Finalizado' || (m.resolution && m.resolution.type === 'default')) return false;
         if (isPlayoffJornada) {
             if (!m.originJornada) return true;
@@ -506,14 +508,16 @@ export const usePlanificacionMatches = (
             }
         });
         const resting = teams.filter(t => !teamsPlaying.has(t.id));
-        resting.forEach(team => {
+        // Mientras falten cruces por definir, no se sabe qué equipo descansa.
+        if (resting.length === 1) {
+            const [team] = resting;
             currentSuggestions.push({
                 id: `bye-${jornadaIndex}-${team.id}`,
                 local: team, visitante: byeTeam, status: 'Pendiente',
                 originJornada: currentJornadaName, isModified: false, isByeMatch: true,
                 date: null, time: null
             });
-        });
+        }
     }
 
     setScheduledMatches(currentScheduled);

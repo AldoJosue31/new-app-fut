@@ -26,11 +26,17 @@ import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils"
 import { buildRepositionPreview } from "../../../../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
 import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
+import {
+  buildPendingMatchCancellationRequest,
+  buildPendingMatchResultRequest,
+  getPendingMatchesForManagement,
+} from "../../../../utils/pendingMatchManagement.js";
 
 import { PlanningHeader } from "./planificacion/PlanningHeader";
 import { PlanningSidebar } from "./planificacion/PlanningSidebar";
 import { ScheduledMatchRow } from "./planificacion/ScheduledMatchRow";
 import { ResultModal } from "./planificacion/ResultModal";
+import { PendingMatchesModal } from "./planificacion/PendingMatchesModal";
 import { WeeklyGridView } from "./planificacion/WeeklyGridView";
 import { TournamentConfigModal } from "./subcomponents/TournamentConfigModal";
 import { ConflictModal } from "./subcomponents/ConflictModal";
@@ -155,6 +161,10 @@ export function JornadaPlanificacion({
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [savingResultMatchId, setSavingResultMatchId] = useState(null);
+  const [pendingMatchesModalOpen, setPendingMatchesModalOpen] = useState(false);
+  const [isPendingResult, setIsPendingResult] = useState(false);
+  const [pendingMatchToCancel, setPendingMatchToCancel] = useState(null);
+  const [cancelingPendingMatchId, setCancelingPendingMatchId] = useState(null);
   const [matchToResetResult, setMatchToResetResult] = useState(null);
   const [resettingResultMatchId, setResettingResultMatchId] = useState(null);
 
@@ -202,7 +212,7 @@ export function JornadaPlanificacion({
   const matchProgressByJornada = useMemo(() => {
     return (allTournamentMatches || []).reduce((acc, match) => {
       const jornadaId = match?.jornada_id || match?.jornadas?.id || match?.jornada?.id;
-      if (!jornadaId || !match?.team1_id || !match?.team2_id) return acc;
+      if (!jornadaId || !match?.team1_id || !match?.team2_id || match.status === "Cancelado") return acc;
 
       const key = String(jornadaId);
       const current = acc.get(key) || { completed: 0, total: 0 };
@@ -252,18 +262,18 @@ export function JornadaPlanificacion({
   const matchesWithoutResult = scheduledMatches.filter((match) => {
     if (match.isReferenceOnly) return false;
     const isSaved = match.id && !String(match.id).startsWith("temp");
-    const isPendingResult = match.status !== "Finalizado";
+    const isPendingResult = !["Finalizado", "Cancelado"].includes(match.status);
     return isSaved && isPendingResult;
   });
 
   const editableScheduledMatches = useMemo(
-    () => scheduledMatches.filter((match) => !match.isReferenceOnly),
+    () => scheduledMatches.filter((match) => !match.isReferenceOnly && match.status !== "Cancelado"),
     [scheduledMatches]
   );
 
   const confirmedResultsProgress = useMemo(() => {
     const trackableMatches = scheduledMatches.filter(
-      (match) => !match.isReferenceOnly && !match.isByeMatch
+      (match) => !match.isReferenceOnly && !match.isByeMatch && match.status !== "Cancelado"
     );
 
     return {
@@ -299,6 +309,13 @@ export function JornadaPlanificacion({
 
     return activeTournament.config;
   }, [activeTournament?.config]);
+  const managedPendingMatches = useMemo(() => getPendingMatchesForManagement({
+    matches: allTournamentMatches,
+    jornadas,
+    teams,
+    config: tournamentConfig,
+  }), [allTournamentMatches, jornadas, teams, tournamentConfig]);
+
   const jornadaDurationDays = getConfiguredJornadaDurationDays(
     tournamentConfig,
     jornadaDurationDaysProp || 7
@@ -432,24 +449,75 @@ export function JornadaPlanificacion({
   const handleCloseResultModal = useCallback(() => {
     setResultModalOpen(false);
     setSelectedMatchResult(null);
+    setIsPendingResult(false);
   }, []);
 
   const handleOpenResultModal = useCallback((selected) => {
     if (savingResultMatchId) return;
+    setIsPendingResult(false);
     setSelectedMatchResult(selected);
     setResultModalOpen(true);
   }, [savingResultMatchId]);
+
+  const removeResolvedPendingMatch = useCallback((id, originJornadaId) => {
+    const retainOtherMatches = (matches) => matches.filter((match) => String(match.id) !== String(id));
+    setAllPendingMatches(retainOtherMatches);
+    if (String(jornadaData?.id) !== String(originJornadaId)) {
+      setScheduledMatches(retainOtherMatches);
+    }
+    setSelectedPendingMatch((match) => String(match?.id) === String(id) ? null : match);
+    setDraggedMatch((match) => String(match?.id) === String(id) ? null : match);
+  }, [jornadaData?.id, setAllPendingMatches, setScheduledMatches]);
+
+  const handleClosePendingMatches = useCallback(() => setPendingMatchesModalOpen(false), []);
+
+  const handleOpenPendingResult = (match) => {
+    if (savingResultMatchId || cancelingPendingMatchId) return;
+    setSelectedMatchResult(match);
+    setIsPendingResult(true);
+    setResultModalOpen(true);
+  };
+
+  const handleCancelPendingMatch = async () => {
+    if (!pendingMatchToCancel || cancelingPendingMatchId) return;
+    const match = pendingMatchToCancel;
+    setCancelingPendingMatchId(match.id);
+    try {
+      if (typeof onMatchUpdate !== "function") throw new Error("No se puede cancelar el pendiente.");
+      await onMatchUpdate(match.id, buildPendingMatchCancellationRequest(match));
+      removeResolvedPendingMatch(match.id, match.originJornadaId);
+      setPendingMatchToCancel(null);
+      notify.success(`Partido marcado como sin jugar en ${match.originJornada}.`);
+    } catch (error) {
+      if (isMatchResultConflictError(error)) setPendingMatchToCancel(null);
+      notify.error(isMatchResultConflictError(error)
+        ? "El partido fue actualizado desde otro dispositivo. Revisa su estado antes de cancelar el pendiente."
+        : error?.message || "No se pudo cancelar el pendiente. Intenta de nuevo.");
+    } finally {
+      setCancelingPendingMatchId(null);
+    }
+  };
 
   const handleSaveResult = useCallback(
     async (id, request) => {
       setSavingResultMatchId(id);
       try {
-        await onMatchUpdate?.(id, request);
+        if (typeof onMatchUpdate !== "function") throw new Error("No se puede guardar el resultado.");
+        const pendingMatch = isPendingResult ? selectedMatchResult : null;
+        const result = await onMatchUpdate(id, pendingMatch
+          ? buildPendingMatchResultRequest(pendingMatch, request) : request);
+        if (pendingMatch) {
+          removeResolvedPendingMatch(id, pendingMatch.originJornadaId);
+          setPendingMatchesModalOpen(false);
+          const sourceIndex = jornadas.findIndex((round) => String(round.id) === String(pendingMatch.originJornadaId));
+          if (sourceIndex >= 0) onChangeJornada?.(sourceIndex);
+        }
+        return result;
       } finally {
         setSavingResultMatchId(null);
       }
     },
-    [onMatchUpdate]
+    [onMatchUpdate, isPendingResult, selectedMatchResult, removeResolvedPendingMatch, jornadas, onChangeJornada]
   );
 
   const handleResetMatchResult = useCallback(async () => {
@@ -889,6 +957,8 @@ export function JornadaPlanificacion({
         matchesWithoutResultCount={matchesWithoutResult.length}
         confirmedResultsProgress={confirmedResultsProgress}
         jornadaDurationDays={jornadaDurationDays}
+        pendingMatchesCount={managedPendingMatches.length}
+        onManagePendingMatches={() => setPendingMatchesModalOpen(true)}
       />
 
       {viewMode === "grid" && (
@@ -1125,12 +1195,39 @@ export function JornadaPlanificacion({
         isStartDateLocked={isFirstJornadaConfirmed}
       />
 
+      <PendingMatchesModal
+        isOpen={pendingMatchesModalOpen && !resultModalOpen && !pendingMatchToCancel}
+        onClose={handleClosePendingMatches}
+        matches={managedPendingMatches}
+        onOpenResult={handleOpenPendingResult}
+        onCancelMatch={setPendingMatchToCancel}
+        busy={!!savingResultMatchId || !!cancelingPendingMatchId}
+      />
+
+      <ConfirmModal
+        isOpen={!!pendingMatchToCancel}
+        onClose={() => { if (!cancelingPendingMatchId) setPendingMatchToCancel(null); }}
+        onConfirm={handleCancelPendingMatch}
+        title="Cancelar pendiente"
+        message="¿Marcar este partido como sin jugar?"
+        subMessage={pendingMatchToCancel
+          ? `${getMatchTeamsLabel(pendingMatchToCancel)} quedará en ${pendingMatchToCancel.originJornada}, sin marcador ni puntos. Dejará de aparecer como pendiente.`
+          : ""}
+        confirmText="Marcar sin jugar"
+        loading={!!cancelingPendingMatchId}
+        loadingMessage="Cancelando pendiente..."
+        thinButtons
+      />
+
       <ResultModal
         isOpen={resultModalOpen}
         onClose={handleCloseResultModal}
+        onBack={isPendingResult ? handleCloseResultModal : undefined}
         match={selectedMatchResult}
         activeTournament={activeTournament}
         onSave={handleSaveResult}
+        requireResult={isPendingResult}
+        defaultMatchDate={isPendingResult ? selectedMatchResult?.jornadas?.start_date : undefined}
       />
 
       <ConflictModal

@@ -29,12 +29,17 @@ export function PlanningSidebar({
 
   const { delayed, current } = useMemo(() => {
     const currentNum = currentJornadaNumber;
+    const restingTeams = new Set();
     const visibleMatches = matches.filter((match) => {
       if (!match.isByeMatch) return true;
-      if (isPlayoffMode) return false;
+      if (isPlayoffMode || isRepositionMode) return false;
 
-      // Los descansos de jornadas anteriores no son partidos pendientes.
-      return parseJornadaNumber(match.originJornada, 999) >= currentNum;
+      // Un descanso solo corresponde a su jornada y se muestra una vez por equipo.
+      if (parseJornadaNumber(match.originJornada, -1) !== currentNum) return false;
+      const teamId = match.local?.id;
+      if (!teamId || restingTeams.has(String(teamId))) return false;
+      restingTeams.add(String(teamId));
+      return true;
     });
 
     if (isPlayoffMode) {
@@ -64,7 +69,7 @@ export function PlanningSidebar({
     });
 
     return result;
-  }, [isPlayoffMode, matches, currentJornadaNumber]);
+  }, [isPlayoffMode, isRepositionMode, matches, currentJornadaNumber]);
 
   const visibleMatchesCount = delayed.length + current.filter((match) => !match.isByeMatch).length;
 

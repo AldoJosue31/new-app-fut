@@ -182,7 +182,7 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
   };
 
   const displayLabel = (!match.date || String(groupLabel).includes('Invalid') || String(groupLabel).includes('NaN')) 
-      ? 'Partidos definidos sin fecha (Default)' 
+      ? (match.status === 'Cancelado' ? 'Partidos sin jugar' : 'Partidos definidos sin fecha (Default)')
       : groupLabel;
   const draggedBadgeLabel = isDraggedDelayedMatch
       ? `Desde ${match.originJornada || "Jornada anterior"}`
@@ -374,7 +374,9 @@ export const ScheduledMatchRow = memo(function ScheduledMatchRow({
                 </div>
 
                 <div className="settings">
-                    {isConfirmed ? (
+                    {match.status === 'Cancelado' ? (
+                        <span className="no-date-badge">Sin jugar · Sin resultado</span>
+                    ) : isConfirmed ? (
                         <div className="confirmed-actions">
                             <div className="datetime-display">
                                 {match.date ? (
