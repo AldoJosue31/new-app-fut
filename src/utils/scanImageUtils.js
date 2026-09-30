@@ -129,7 +129,7 @@ export const canvasToBlob = (canvas, mimeType, quality) => new Promise((resolve)
   canvas.toBlob(resolve, mimeType, quality);
 });
 
-const loadImageSource = async (file) => {
+export const loadImageSource = async (file) => {
   if (typeof window.createImageBitmap === "function") {
     try {
       const bitmap = await window.createImageBitmap(file, { imageOrientation: "from-image" });

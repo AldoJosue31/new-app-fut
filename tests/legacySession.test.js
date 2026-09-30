@@ -109,3 +109,15 @@ test("no toca localStorage cuando ya existe cookie SSR", async () => {
   assert.equal(migrated, false);
   assert.equal(storageReads, 0);
 });
+
+test("no restaura tokens legacy cuando la cookie no pudo renovarse temporalmente", async () => {
+  const temporaryError = new Error("Offline");
+  await assert.rejects(() => migrateLegacySession({
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: temporaryError }),
+      setSession: () => assert.fail("No debe reemplazar la cookie existente"),
+    },
+    storage: { getItem: () => assert.fail("No debe leer tokens antiguos") },
+    supabaseUrl: "https://project-ref.supabase.co",
+  }), (error) => error === temporaryError);
+});

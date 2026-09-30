@@ -32,7 +32,7 @@ export function RegisterManagerTemplate({
   const [countdown, setCountdown] = useState(3);
 
   const handleRedirectLogin = useCallback(async () => {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
       window.location.assign("/login");
   }, []);
 

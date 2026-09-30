@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from "../lib/supabase/browserClient.js";
+import { isAuthUnavailable } from "../lib/auth/sessionErrors.js";
 import {
   buildAuthCallbackPath,
   ROUTES,
@@ -108,7 +109,9 @@ export const useAuthStore = create((set, get) => {
           .single();
 
         if (profileError || !profile) {
-          await discardUnauthorizedSession();
+          if (!profileError || ["PGRST116", "PGRST123"].includes(profileError.code)) {
+            await discardUnauthorizedSession();
+          }
           const profileUnavailableError = new Error('No fue posible validar tu acceso.');
           profileUnavailableError.code = 'PROFILE_UNAVAILABLE';
           throw profileUnavailableError;
@@ -217,6 +220,7 @@ export const useAuthStore = create((set, get) => {
     hydrateServerAuth: (snapshot) => {
       if (snapshot?.status === "authenticated") {
         set({
+          hydratedServerAuth: snapshot,
           isLoading: false,
           profile: snapshot.profile,
           serverAuthReason: null,
@@ -226,8 +230,9 @@ export const useAuthStore = create((set, get) => {
         return;
       }
 
-      if (snapshot?.status === "profile-unavailable") {
+      if (isAuthUnavailable(snapshot?.status)) {
         set({
+          hydratedServerAuth: snapshot,
           isLoading: true,
           profile: null,
           serverAuthReason: snapshot.reason || null,
@@ -238,6 +243,7 @@ export const useAuthStore = create((set, get) => {
       }
 
       set({
+        hydratedServerAuth: snapshot,
         isLoading: false,
         profile: null,
         serverAuthReason: snapshot?.reason || null,
@@ -253,6 +259,7 @@ export const useAuthStore = create((set, get) => {
     profile: null,
     isLoading: true,
     authLoadingAction: false,
+    hydratedServerAuth: null,
     serverAuthReason: null,
     serverAuthStatus: "pending",
   };

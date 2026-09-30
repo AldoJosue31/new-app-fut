@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { RiArrowLeftLine } from 'react-icons/ri';
 import styled, { keyframes, css } from 'styled-components';
 import { Btnsave } from "../moleculas/Btnsave";
 import { InputText2 } from "../organismos/formularios/InputText2";
@@ -141,7 +143,11 @@ export function LoginTemplate() {
             <BackgroundLayer />
             
             <Card>
-                {/* ... (Todo el contenido visual sigue igual) ... */}
+                <HomeLink href={ROUTES.LANDING}>
+                    <RiArrowLeftLine aria-hidden="true" />
+                    <span>Volver al inicio</span>
+                </HomeLink>
+
                 <ContentLogo>
                     <img src="/logo_app.png" alt="Logo" />
                     <div className="logoText">
@@ -287,6 +293,45 @@ const Card = styled.div`
   @media ${Device.tablet} {
     padding: 36px;
   }
+`;
+
+const HomeLink = styled(Link)`
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 60%, transparent);
+  border-radius: 10px;
+  background: ${({ theme }) => theme.bgcards};
+  color: ${({ theme }) => theme.text};
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color .18s ease, border-color .18s ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: ${({ theme }) => theme.bg2};
+    border-color: currentColor;
+  }
+
+  &:active {
+    background: ${({ theme }) => theme.bg4};
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+  }
+
+  ${reducedMotion}
 `;
 
 const ContentLogo = styled.section`

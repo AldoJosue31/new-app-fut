@@ -28,16 +28,24 @@ export function PlanningSidebar({
   const [isDelayedExpanded, setIsDelayedExpanded] = useState(false);
 
   const { delayed, current } = useMemo(() => {
-    const visibleMatches = isPlayoffMode
-      ? matches.filter((match) => !match.isByeMatch)
-      : matches;
+    const currentNum = currentJornadaNumber;
+    const restingTeams = new Set();
+    const visibleMatches = matches.filter((match) => {
+      if (!match.isByeMatch) return true;
+      if (isPlayoffMode || isRepositionMode) return false;
+
+      // Un descanso solo corresponde a su jornada y se muestra una vez por equipo.
+      if (parseJornadaNumber(match.originJornada, -1) !== currentNum) return false;
+      const teamId = match.local?.id;
+      if (!teamId || restingTeams.has(String(teamId))) return false;
+      restingTeams.add(String(teamId));
+      return true;
+    });
 
     if (isPlayoffMode) {
       return { delayed: [], current: visibleMatches };
     }
 
-    const currentNum = currentJornadaNumber;
-    
     const result = visibleMatches.reduce((acc, m) => {
         if (!m.originJornada) {
              acc.current.push(m);
@@ -61,9 +69,9 @@ export function PlanningSidebar({
     });
 
     return result;
-  }, [isPlayoffMode, matches, currentJornadaNumber]);
+  }, [isPlayoffMode, isRepositionMode, matches, currentJornadaNumber]);
 
-  const visibleMatchesCount = delayed.length + current.length;
+  const visibleMatchesCount = delayed.length + current.filter((match) => !match.isByeMatch).length;
 
   return (
     <SidebarContainer $isCollapsed={isCollapsed}>
@@ -195,23 +203,29 @@ export function PlanningSidebar({
 const SidebarContainer = styled.div`
   width: 280px; 
   background: ${({ theme }) => theme.bgcards}; 
-  border: 1px solid ${({ theme }) => theme.bg4}; 
+  border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg5};
+  color: ${({ theme }) => theme.text};
   border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; height: 100%;
   transition: max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s ease, box-shadow 0.28s ease;
   
-  .sb-header { padding: 10px; border-bottom: 1px solid ${({ theme }) => theme.bg4}; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; gap: 8px; }
+  .sb-header { padding: 10px; background: ${({ theme }) => theme.bg3}; border-bottom: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg5}; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; gap: 8px; }
   .collapse-btn {
     display: none;
     width: 28px;
     height: 28px;
     border: none;
     border-radius: 999px;
-    background: ${({ theme }) => theme.bg4};
-    color: ${({ theme }) => theme.text};
+    background: ${({ theme }) => theme.bg6};
+    color: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
     align-items: center;
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
+
+    &:focus-visible {
+      outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+      outline-offset: 2px;
+    }
   }
   .scroll-wrapper { flex: 1; height: 100%; overflow: hidden; transition: opacity 0.26s ease, transform 0.3s ease; }
   .list-content { padding: 10px; display: flex; flex-direction: column; gap: 15px; }
@@ -219,7 +233,7 @@ const SidebarContainer = styled.div`
   .section-group { display: flex; flex-direction: column; gap: 8px; }
   .delayed-group { margin-bottom: 5px; }
   
-  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: ${({theme}) => theme.text2}; margin-bottom: 2px; }
+  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: ${({theme}) => theme.colorSubtitle}; margin-bottom: 2px; }
   
   .empty { text-align: center; opacity: 0.5; margin-top: 20px; font-size: 0.8rem; }
   @media (max-width: 768px) {
@@ -257,8 +271,8 @@ const StackedHeader = styled.div`
     left: 6%;
     width: 88%;
     height: 100%;
-    background: ${({ theme }) => theme.bg4};
-    border: 1px solid #e74c3c60;
+    background: ${({ theme }) => theme.bg3};
+    border: 1px solid ${({ theme }) => `${theme.tournamentDashboard?.metrics?.danger || "#e74c3c"}60`};
     border-radius: 6px;
     z-index: 1;
     opacity: ${({ $isOpen }) => ($isOpen ? '0' : '0.5')};
@@ -273,8 +287,8 @@ const StackedHeader = styled.div`
     left: 3%;
     width: 94%;
     height: 100%;
-    background: ${({ theme }) => theme.bg4};
-    border: 1px solid #e74c3c90;
+    background: ${({ theme }) => theme.bg3};
+    border: 1px solid ${({ theme }) => `${theme.tournamentDashboard?.metrics?.danger || "#e74c3c"}90`};
     border-radius: 6px;
     z-index: 2;
     opacity: ${({ $isOpen }) => ($isOpen ? '0' : '0.8')};
@@ -286,9 +300,9 @@ const StackedHeader = styled.div`
   .stacked-card {
     position: relative;
     z-index: 3;
-    background: ${({ theme, $isOpen }) => ($isOpen ? theme.bg4 + '30' : theme.bg2)};
-    border: 1px solid ${({ $isOpen }) => ($isOpen ? '#e74c3c50' : '#e74c3c')};
-    border-left: 4px solid #e74c3c;
+    background: ${({ theme }) => theme.bg3};
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || "#e74c3c"};
+    border-left: 4px solid ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || "#e74c3c"};
     padding: 12px 15px;
     border-radius: 6px;
     display: flex;
@@ -298,16 +312,20 @@ const StackedHeader = styled.div`
     transition: all 0.3s ease-in-out;
 
     .warning-text {
-      color: #e74c3c;
+      color: ${({ theme }) => theme.text};
       font-weight: 700;
       font-size: 0.85rem;
       display: flex;
       align-items: center;
       gap: 8px;
+
+      svg {
+        color: ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || "#e74c3c"};
+      }
     }
 
     .icon-wrapper {
-      color: #e74c3c;
+      color: ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || "#e74c3c"};
       font-size: 1.2rem;
       display: flex;
       align-items: center;
@@ -334,10 +352,10 @@ const ExpandedContent = styled.div`
 `;
 
 const RestingCard = styled.div`
-    background: ${({ theme }) => theme.bg2}; border: 1px solid ${({ theme }) => theme.bg4}; border-radius: 8px;
+    background: ${({ theme }) => theme.bg3}; border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg5}; border-radius: 8px;
     padding: 12px; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; user-select: none;
-    &::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${v.colorPrincipal}; }
-    .resting-indicator { display: flex; align-items: center; span { font-size: 0.7rem; font-weight: 800; color: ${({ theme }) => theme.textFade}; text-transform: uppercase; letter-spacing: 0.5px; } }
+    &::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || v.colorPrincipal}; }
+    .resting-indicator { display: flex; align-items: center; span { font-size: 0.7rem; font-weight: 800; color: ${({ theme }) => theme.colorSubtitle}; text-transform: uppercase; letter-spacing: 0.5px; } }
     .match-content { flex: 1; display: flex; align-items: center; }
     .team-name { font-size: 0.95rem; font-weight: 600; color: ${({ theme }) => theme.text}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;

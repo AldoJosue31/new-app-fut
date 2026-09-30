@@ -12,6 +12,7 @@ import {
   useThemeStore,
 } from "../../store/ThemeStore.jsx";
 import { GlobalStyles } from "../../styles/GlobalStyles.jsx";
+import PrivateAuthGate from "./PrivateAuthGate.jsx";
 
 const subscribeToDivisionHydration = (onStoreChange) => {
   const unsubscribeStart =
@@ -58,7 +59,7 @@ export default function PrivatePageProviders({ children, initialAuth }) {
     <ThemeProvider theme={themeStyle}>
       <GlobalStyles />
       <AuthContextProvider initialAuth={initialAuth}>
-        {children}
+        <PrivateAuthGate initialAuth={initialAuth}>{children}</PrivateAuthGate>
       </AuthContextProvider>
     </ThemeProvider>
   );

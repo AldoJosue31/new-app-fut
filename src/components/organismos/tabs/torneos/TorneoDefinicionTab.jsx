@@ -552,21 +552,13 @@ export function TorneoDefinicionTab({
       showTransitionOverlay({
           variant: "danger",
           title: "Finalizando torneo",
-          subtitle: "Limpiando jornadas, partidos y panel de gestion...",
+          subtitle: "Borrando fotos de cédulas, jornadas y partidos...",
       });
 
       if (endTransitionTimerRef.current) {
           clearTimeout(endTransitionTimerRef.current);
           endTransitionTimerRef.current = null;
       }
-
-      endTransitionTimerRef.current = setTimeout(() => {
-          setIsEndingTournament(false);
-          setIsExiting(false);
-          setIsDeleting(false);
-          hideTransitionOverlayAfter(0);
-          endTransitionTimerRef.current = null;
-      }, 5000);
 
       try {
           await new Promise((resolve) => setTimeout(resolve, 420));
@@ -581,14 +573,18 @@ export function TorneoDefinicionTab({
               "success"
           );
 
-          if(onTournamentReset) await Promise.resolve(onTournamentReset()); 
+          if(onTournamentReset) await Promise.resolve(onTournamentReset());
+          setIsEndingTournament(false);
+          setIsExiting(false);
+          setIsDeleting(false);
+          hideTransitionOverlayAfter(0);
       } catch (error) {
           console.error(error);
           if (endTransitionTimerRef.current) {
               clearTimeout(endTransitionTimerRef.current);
               endTransitionTimerRef.current = null;
           }
-          showToast("Error al finalizar el torneo. Revisa la consola.", "error");
+          showToast("No se pudo finalizar el torneo: " + error.message, "error");
           setIsDeleting(false);
           setIsEndingTournament(false);
           setIsExiting(false);
@@ -2122,7 +2118,7 @@ export function TorneoDefinicionTab({
             onClose={() => setShowEndTournamentModal(false)}
             onConfirm={handleEndTournament}
             title="¿Finalizar Torneo Actual?"
-            message="Puedes limpiar el avance del torneo sin borrar el fixture, o borrar el torneo completo."
+            message="Puedes limpiar el avance sin borrar el fixture, o borrar el torneo completo junto con todas las fotos de sus cédulas."
             subMessage={divisionMovePlan.hasConfiguredMovements ? "Revisa los ascensos y descensos antes de confirmar." : "Este torneo no tiene ascensos ni descensos configurados."}
             confirmText={isDeleting ? "Borrando..." : "Borrar torneo"}
             confirmColor={v.rojo}

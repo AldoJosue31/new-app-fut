@@ -80,3 +80,22 @@ test("requireUser falla cerrado sin Bearer ni cookie", async () => {
     (error) => error.statusCode === 401 && error.message === "Unauthorized",
   );
 });
+
+test("requireUser devuelve 503 ante un fallo temporal con cookies o Bearer", async () => {
+  for (const headers of [{ cookie: "sb-auth=session" }, { authorization: "Bearer token" }]) {
+    const createClient = () => ({ auth: { getUser: async () => ({
+      data: { user: null }, error: { name: "AuthRetryableFetchError", status: 503 },
+    }) } });
+    await assert.rejects(() => requireUser({ headers }, {
+      createCookieClient: createClient, createBearerClient: createClient,
+    }), (error) => error.statusCode === 503);
+  }
+});
+
+test("requireUser sigue rechazando una sesion realmente invalida", async () => {
+  await assert.rejects(() => requireUser({ headers: { cookie: "sb-auth=session" } }, {
+    createCookieClient: () => ({ auth: { getUser: async () => ({
+      data: { user: null }, error: { code: "bad_jwt", status: 401 },
+    }) } }),
+  }), (error) => error.statusCode === 401);
+});

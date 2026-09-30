@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useRef, useState } from "react";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { v } from "../../../../../styles/variables";
 import {
   RiArrowDownSLine,
@@ -12,6 +12,7 @@ import {
   RiCheckLine,
   RiPrinterLine,
   RiCalendarCheckLine,
+  RiTimeLine,
 } from "react-icons/ri";
 import { ViewToggle } from "../../../toggle/ViewToggle";
 import { addDaysToDate } from "../../../../../utils/dateUtils";
@@ -44,6 +45,8 @@ export const PlanningHeader = memo(
     isRepositionMode = false,
     onDateChange,
     jornadaDurationDays = 7,
+    pendingMatchesCount = 0,
+    onManagePendingMatches,
   }) => {
     const isConfirmed = status === "Confirmada";
     const hasDates = jornadaData?.start_date && jornadaData?.end_date;
@@ -215,8 +218,18 @@ export const PlanningHeader = memo(
       </DateRow>
     );
 
+    const pendingControl = typeof onManagePendingMatches === "function" && (
+      <PendingButton type="button" onClick={onManagePendingMatches}
+        title="Administrar partidos aplazados de jornadas anteriores"
+        aria-label={`Administrar partidos pendientes (${pendingMatchesCount})`}>
+        <RiTimeLine size={19} aria-hidden="true" />
+        Pendientes <span className="pending-count">{pendingMatchesCount}</span>
+      </PendingButton>
+    );
+
     const actionControls = (
       <ActionsGroup>
+        {!isMobileViewport && pendingControl}
         {showPrintButton && (
           <BtnAction
             onClick={onPrintBatch}
@@ -313,7 +326,9 @@ export const PlanningHeader = memo(
 
           {isMobileViewport ? (
             <CompactControlsWrap>
-              <CompactToggleButton
+              <MobileControlsBar>
+                {pendingControl}
+                <CompactToggleButton
                 type="button"
                 onClick={() => setIsMobileControlsOpen((prev) => !prev)}
                 aria-expanded={isMobileControlsOpen}
@@ -328,7 +343,8 @@ export const PlanningHeader = memo(
                 ) : (
                   <RiArrowDownSLine size={18} />
                 )}
-              </CompactToggleButton>
+                </CompactToggleButton>
+              </MobileControlsBar>
 
               <MobileControlsCollapse $isOpen={isMobileControlsOpen}>
                 <div className="controls-inner">
@@ -359,6 +375,7 @@ const Container = styled.div`
 
   @media (min-width: 768px) {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 15px;
@@ -401,34 +418,50 @@ const MobileControlsCollapse = styled.div`
   }
 `;
 
+const themedControlStyles = css`
+  background: ${({ theme }) => theme.tournamentDashboard?.primarySoft || theme.bg6};
+  border: 1px solid
+    ${({ theme }) => theme.tournamentDashboard?.border || theme.bg5};
+  color: ${({ theme }) =>
+    theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    transform 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.bg6};
+    border-color: ${({ theme }) =>
+      theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+  }
+
+  &:focus-visible {
+    outline: 2px solid
+      ${({ theme }) =>
+        theme.tournamentDashboard?.hero?.accentStrong || theme.color1};
+    outline-offset: 3px;
+  }
+`;
+
+const MobileControlsBar = styled.div`
+  display: flex; align-items: center; gap: 10px;
+  > button:last-child { flex: 1; min-width: 44px; height: 44px; }
+`;
+
 const CompactToggleButton = styled.button`
+  ${themedControlStyles}
   width: 100%;
   height: 22px;
   border-radius: 999px;
   border: 1px solid
-    ${({ $hasChanges, theme }) => ($hasChanges ? v.colorPrincipal : `${theme.bg4}`)};
-  background: linear-gradient(
-    90deg,
-    ${({ theme }) => `${theme.bg4}30`} 0%,
-    ${({ theme }) => `${theme.bgcards}`} 50%,
-    ${({ theme }) => `${theme.bg4}30`} 100%
-  );
-  color: ${({ theme }) => theme.text};
+    ${({ $hasChanges, $isOpen, theme }) =>
+      $hasChanges || $isOpen
+        ? theme.tournamentDashboard?.hero?.accentStrong || theme.color1
+        : theme.tournamentDashboard?.border || theme.bg5};
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   cursor: pointer;
-  transition: 0.2s ease;
   padding: 0 10px;
-
-  svg:first-child {
-    color: ${v.colorPrincipal};
-  }
-
-  svg:last-child {
-    opacity: 0.8;
-  }
 `;
 
 const ActionsGroup = styled.div`
@@ -624,8 +657,7 @@ const StatusCounter = styled.small`
 `;
 
 const NavBtn = styled.button`
-  background: ${({ theme }) => theme.bg4};
-  border: none;
+  ${themedControlStyles}
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -633,18 +665,17 @@ const NavBtn = styled.button`
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: ${({ theme }) => theme.text};
-  transition: all 0.2s;
   flex-shrink: 0;
 
   &:disabled {
+    background: ${({ theme }) => theme.bg4};
+    border-color: transparent;
+    color: ${({ theme }) => theme.text};
     opacity: 0.3;
     cursor: not-allowed;
   }
 
   &:hover:not(:disabled) {
-    background: ${v.colorPrincipal};
-    color: white;
     transform: scale(1.1);
   }
 `;
@@ -756,8 +787,7 @@ const AutoFillBtn = styled.button`
 `;
 
 const BtnAction = styled.button`
-  background: ${({ theme }) => theme.bg4};
-  border: none;
+  ${themedControlStyles}
   border-radius: 8px;
   width: 42px;
   height: 42px;
@@ -765,16 +795,20 @@ const BtnAction = styled.button`
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: ${({ theme }) => theme.text};
-  transition: all 0.2s;
   position: relative;
   flex-shrink: 0;
 
   &:hover {
-    background: ${v.colorPrincipal}20;
-    color: ${v.colorPrincipal};
     transform: translateY(-2px);
   }
+`;
+
+const PendingButton = styled.button`
+  ${themedControlStyles}
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font: inherit; font-size: 0.85rem; font-weight: 700; white-space: nowrap;
+  .pending-count { font-variant-numeric: tabular-nums; }
 `;
 
 const NotificationBadge = styled.span`

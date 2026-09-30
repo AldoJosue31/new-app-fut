@@ -37,7 +37,10 @@ export const migrateLegacySession = async ({
 }) => {
   const {
     data: { session: cookieSession },
+    error: sessionError,
   } = await auth.getSession();
+
+  if (sessionError) throw sessionError;
 
   if (cookieSession) return false;
 

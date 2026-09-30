@@ -723,6 +723,11 @@ export function TorneoJornadasTab({
           (mapping) => String(mapping?.matchId) === String(match.id)
         );
 
+        // Un pendiente resuelto puede haber regresado físicamente a su origen.
+        if (matchMapping && String(match.jornada_id) === String(matchMapping.originalJornadaId)) {
+          return match;
+        }
+
         if (matchMapping && String(matchMapping.originalJornadaId) === String(jornadaId)) {
           return {
             ...match,
@@ -1641,15 +1646,18 @@ export function TorneoJornadasTab({
 
     // La persistencia ya terminó correctamente. Reflejamos el resultado de
     // inmediato y dejamos las consultas derivadas como sincronización secundaria.
-    setCurrentMatches(mergeUpdatedMatch);
+    const currentJornadaId = jornadas[currentJornadaIndex]?.id;
+    setCurrentMatches((matches) => mergeUpdatedMatch(matches).filter((match) =>
+      String(match?.id) !== String(matchId) || match.isReferenceOnly ||
+      String(match.jornada_id) === String(currentJornadaId)
+    ));
     setAllTournamentMatches(mergeUpdatedMatch);
     setGlobalPendingMatches((matches) =>
-      persistedUpdates.status === 'Finalizado'
+      ['Finalizado', 'Cancelado'].includes(persistedUpdates.status)
         ? (matches || []).filter((match) => String(match?.id) !== String(matchId))
         : mergeUpdatedMatch(matches)
     );
 
-    const currentJornadaId = jornadas[currentJornadaIndex]?.id;
     const refreshTournamentMatches = Promise.resolve().then(async () => {
       const tournamentMatches = await fetchAllTournamentMatches({
         preserveOnError: true,

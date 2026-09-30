@@ -104,7 +104,7 @@ export function RegisterDelegateTemplate({
       }, 1000);
     } else if (showSuccessModal && countdown === 0) {
       (async () => {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         window.location.replace("/login");
       })();
     }

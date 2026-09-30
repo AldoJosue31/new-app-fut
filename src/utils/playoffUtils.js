@@ -233,6 +233,7 @@ export const getPendingPhaseCounts = ({
 
   const pendingMatches = relevantMatches.filter((match) => {
     if (!match.team1_id || !match.team2_id) return false;
+    if (normalizeJornadaName(match.status) === "cancelado") return false;
     return (
       !isFinishedMatchStatus(match.status) ||
       match.goals1 === null ||
