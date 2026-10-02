@@ -9,27 +9,16 @@ import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPrevi
 import { StandingsJornadaSelector } from "../../StandingsJornadaSelector";
 import StandingsDesignCarousel from "./StandingsDesignCarousel";
 import { STANDINGS_TABLE_DESIGNS, STANDINGS_BACKGROUND_DESIGNS, STANDINGS_DESIGN_PRESETS, getStandingsExportAppearance } from "./standingsExportStyles";
+import { readStandingsExportSettings, saveStandingsExportSettings } from "./standingsExportPreferences.js";
 import { DEFAULT_LEAGUE_COLOR, normalizeHexColor, extractLogoColor } from "../../../../../../utils/leagueColors.js";
 import { useTorneoStandingsLogic } from "../../../../../../hooks/useTorneoStandingsLogic";
-
-const getExportSettingsKey = (torneoId) => `standings-export-settings:${torneoId}`;
-
-const readExportSettings = (torneoId) => {
-    if (!torneoId || typeof window === "undefined") return null;
-    try {
-        const stored = window.localStorage.getItem(getExportSettingsKey(torneoId));
-        const settings = stored ? JSON.parse(stored) : null;
-        return settings && typeof settings === "object" && !Array.isArray(settings) ? settings : null;
-    } catch {
-        return null;
-    }
-};
 
 const getDesignIndex = (designs, id) => Math.max(0, designs.findIndex((design) => design.id === id));
 
 export default function StandingsExportModal({
     isOpen,
     onClose,
+    userId,
     torneo,
     equipos,
     partidos,
@@ -38,7 +27,11 @@ export default function StandingsExportModal({
     initialJornadaView = "recent"
 }) {
     const theme = useTheme();
-    const [savedSettings] = useState(() => readExportSettings(torneo?.id));
+    const [savedSettings] = useState(() => readStandingsExportSettings({
+        userId,
+        torneoId: torneo?.id,
+        isAppDark: theme.bodyRgba === "32,32,32"
+    }));
 
     const [selectedJornadaView, setSelectedJornadaView] = useState(initialJornadaView);
     const {
@@ -57,25 +50,21 @@ export default function StandingsExportModal({
         selectedJornadaView
     });
 
-    const [isDarkExport, setIsDarkExport] = useState(() =>
-        typeof savedSettings?.isDarkExport === "boolean"
-            ? savedSettings.isDarkExport
-            : theme.bodyRgba === "32,32,32");
-    const [isMobileLayout, setIsMobileLayout] = useState(() => savedSettings?.isMobileLayout === true);
-    const [showGeneratedDate, setShowGeneratedDate] = useState(() => savedSettings?.showGeneratedDate !== false);
+    const [isDarkExport, setIsDarkExport] = useState(() => savedSettings.themeMode === "dark");
+    const [isMobileLayout, setIsMobileLayout] = useState(() => savedSettings.layoutMode === "mobile");
+    const [showGeneratedDate, setShowGeneratedDate] = useState(() => savedSettings.showGeneratedDate);
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [previewScale, setPreviewScale] = useState(0.3);
     const [isInstantStyleChange, setIsInstantStyleChange] = useState(true);
     const [tableDesignIndex, setTableDesignIndex] = useState(() =>
-        getDesignIndex(STANDINGS_TABLE_DESIGNS, savedSettings?.tableDesignId));
+        getDesignIndex(STANDINGS_TABLE_DESIGNS, savedSettings.tableDesignId));
     const [backgroundDesignIndex, setBackgroundDesignIndex] = useState(() =>
-        getDesignIndex(STANDINGS_BACKGROUND_DESIGNS, savedSettings?.backgroundDesignId));
-    const [activeStyleControl, setActiveStyleControl] = useState(() =>
-        savedSettings?.activeStyleControl === "background" ? "background" : "table");
+        getDesignIndex(STANDINGS_BACKGROUND_DESIGNS, savedSettings.backgroundDesignId));
+    const [activeStyleControl, setActiveStyleControl] = useState("table");
     const [presetIndex, setPresetIndex] = useState(() =>
-        getDesignIndex(STANDINGS_DESIGN_PRESETS, savedSettings?.presetId));
-    const [isCustomizing, setIsCustomizing] = useState(() => savedSettings?.isCustomizing === true);
-    const [useLeagueColors, setUseLeagueColors] = useState(() => savedSettings?.useLeagueColors === true);
+        getDesignIndex(STANDINGS_DESIGN_PRESETS, savedSettings.presetId));
+    const [isCustomizing, setIsCustomizing] = useState(() => savedSettings.designMode === "custom");
+    const [useLeagueColors, setUseLeagueColors] = useState(() => savedSettings.useLeagueColors);
     const [loading, setLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState("");
@@ -113,25 +102,24 @@ export default function StandingsExportModal({
     }, [isCustomizing, isChoosingTable, tableDesign.id, backgroundDesign.id]);
 
     useEffect(() => {
-        if (!isOpen || !torneo?.id || typeof window === "undefined") return;
-        try {
-            window.localStorage.setItem(getExportSettingsKey(torneo.id), JSON.stringify({
-                isDarkExport,
-                isMobileLayout,
+        if (!isOpen) return;
+        saveStandingsExportSettings({
+            userId,
+            torneoId: torneo?.id,
+            settings: {
+                themeMode: isDarkExport ? "dark" : "light",
+                layoutMode: isMobileLayout ? "mobile" : "desktop",
                 showGeneratedDate,
-                isCustomizing,
+                designMode: isCustomizing ? "custom" : "preset",
                 presetId: STANDINGS_DESIGN_PRESETS[presetIndex].id,
                 tableDesignId: STANDINGS_TABLE_DESIGNS[tableDesignIndex].id,
                 backgroundDesignId: STANDINGS_BACKGROUND_DESIGNS[backgroundDesignIndex].id,
-                activeStyleControl,
                 useLeagueColors
-            }));
-        } catch {
-            // Las opciones siguen disponibles durante esta sesión si el navegador bloquea el almacenamiento.
-        }
-    }, [isOpen, torneo?.id, isDarkExport, isMobileLayout, showGeneratedDate,
+            }
+        });
+    }, [isOpen, userId, torneo?.id, isDarkExport, isMobileLayout, showGeneratedDate,
         isCustomizing, presetIndex, tableDesignIndex, backgroundDesignIndex,
-        activeStyleControl, useLeagueColors]);
+        useLeagueColors]);
 
     const changeStyleMode = (customize) => {
         if (isExporting || customize === isCustomizing) return;

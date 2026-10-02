@@ -14,6 +14,7 @@ import { Skeleton } from '../../../atomos/Skeleton';
 import { useTorneoStandingsLogic } from '../../../../hooks/useTorneoStandingsLogic';
 import { getStandingsViewStorageKey } from '../../../../hooks/useTorneoStandingsLogic';
 import { updateTournamentFieldsService } from '../../../../services/torneos';
+import { useAuthStore } from '../../../../store/AuthStore';
 
 export const TorneosStandingsTab = ({
   torneo = {},
@@ -27,6 +28,7 @@ export const TorneosStandingsTab = ({
   forcedView = null,
 }) => {
 
+  const userId = useAuthStore((state) => state.user?.id);
   const [copied, setCopied] = useState(false);
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
@@ -260,9 +262,10 @@ export const TorneosStandingsTab = ({
 
       {showExportModal && (
         <StandingsExportModal
-          key={torneo?.id || 'default'}
+          key={`${userId || 'anonymous'}:${torneo?.id || 'default'}`}
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
+          userId={userId}
           torneo={torneo}
           equipos={equipos}
           partidos={partidos}
