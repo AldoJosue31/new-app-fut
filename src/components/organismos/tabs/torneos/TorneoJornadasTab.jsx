@@ -399,6 +399,7 @@ export function TorneoJornadasTab({
   const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
   const currentJornadaMatchesRequestRef = useRef(0);
+  const selectedJornadaIdRef = useRef(null);
   const routeJornadaMatchesRequestRef = useRef(0);
   const tournamentDataLoadRef = useRef({ tournamentId: null, promise: null });
 
@@ -517,13 +518,41 @@ export function TorneoJornadasTab({
     };
   }, [currentJornadaIndex, jornadas]);
 
-  const handleChangeJornada = async (newIndex) => {
+  useEffect(() => {
+    selectedJornadaIdRef.current = jornadas[currentJornadaIndex]?.id || null;
+  }, [jornadas, currentJornadaIndex]);
+
+  const handleChangeJornada = async (newIndex, options = {}) => {
       const targetJornada = jornadas[newIndex];
       if (!targetJornada?.id) return;
+
+      if (options.smooth) {
+        try {
+          const nextMatches = await fetchCurrentJornadaMatches(
+            targetJornada.id,
+            jornadas,
+            repositionMappings,
+            repositionMatchMappings,
+            { preserveOnError: true, throwOnError: true, applyResult: false }
+          );
+          // La vista anterior sigue visible hasta que la jornada de destino está lista.
+          currentJornadaMatchesRequestRef.current += 1;
+          selectedJornadaIdRef.current = targetJornada.id;
+          setCurrentMatches(nextMatches);
+          setCurrentMatchesJornadaId(targetJornada.id);
+          setCurrentJornadaIndex(newIndex);
+          syncJornadaPath(targetJornada.id);
+        } catch (error) {
+          console.error("Error al abrir la jornada del resultado:", error);
+          notify.warning("El resultado se guardó, pero no se pudo abrir su jornada. Intenta seleccionarla de nuevo.");
+        }
+        return;
+      }
 
       setCurrentMatches([]); 
       setCurrentMatchesJornadaId(null);
       setLoading(true);
+      selectedJornadaIdRef.current = targetJornada.id;
       setCurrentJornadaIndex(newIndex);
       syncJornadaPath(targetJornada.id);
 
@@ -667,6 +696,7 @@ export function TorneoJornadasTab({
       preserveOnError = false,
       throwOnError = false,
       matchesSource = null,
+      applyResult = true,
     } = {}
   ) => {
     const requestId = currentJornadaMatchesRequestRef.current + 1;
@@ -767,7 +797,7 @@ export function TorneoJornadasTab({
         return match;
       });
 
-      if (requestId === currentJornadaMatchesRequestRef.current) {
+      if (applyResult && requestId === currentJornadaMatchesRequestRef.current) {
         setCurrentMatches(enhancedMatches);
         setCurrentMatchesJornadaId(jornadaId);
       }
@@ -775,7 +805,7 @@ export function TorneoJornadasTab({
       return enhancedMatches;
     } catch (e) { 
         console.error(e);
-        if (!preserveOnError && requestId === currentJornadaMatchesRequestRef.current) {
+        if (applyResult && !preserveOnError && requestId === currentJornadaMatchesRequestRef.current) {
           setCurrentMatches([]);
           setCurrentMatchesJornadaId(null);
         }
@@ -1572,9 +1602,10 @@ export function TorneoJornadasTab({
       });
       const currentJornadaId = jornadas[currentJornadaIndex]?.id;
 
-      if (currentJornadaId) {
+      const visibleJornadaId = selectedJornadaIdRef.current || currentJornadaId;
+      if (visibleJornadaId) {
         await fetchCurrentJornadaMatches(
-          currentJornadaId,
+          visibleJornadaId,
           jornadas,
           repositionMappings,
           repositionMatchMappings,
@@ -1604,7 +1635,7 @@ export function TorneoJornadasTab({
     return failures.length === 0;
   };
 
-  const handleMatchUpdate = async (matchId, updates) => {
+  const handleMatchUpdate = async (matchId, updates, options = {}) => {
     const isAtomicResultSave = updates?.type === 'atomic-result-save';
     let persistedMatch = null;
     let persistedUpdates = updates;
@@ -1629,7 +1660,7 @@ export function TorneoJornadasTab({
         );
       }
     } catch (error) {
-      if (isMatchResultConflictError(error)) {
+      if (!options.deferRefresh && isMatchResultConflictError(error)) {
         const didRefresh = await refreshAfterResultConflict();
         if (!didRefresh) error.resultRefreshFailed = true;
       }
@@ -1658,15 +1689,18 @@ export function TorneoJornadasTab({
         : mergeUpdatedMatch(matches)
     );
 
+    if (options.deferRefresh) return { success: true, match: persistedMatch };
+
     const refreshTournamentMatches = Promise.resolve().then(async () => {
       const tournamentMatches = await fetchAllTournamentMatches({
         preserveOnError: true,
         throwOnError: true,
       });
 
-      if (currentJornadaId) {
+      const visibleJornadaId = selectedJornadaIdRef.current || currentJornadaId;
+      if (visibleJornadaId) {
         await fetchCurrentJornadaMatches(
-          currentJornadaId,
+          visibleJornadaId,
           jornadas,
           repositionMappings,
           repositionMatchMappings,
@@ -1699,6 +1733,23 @@ export function TorneoJornadasTab({
     });
 
     return { success: true, match: persistedMatch };
+  };
+
+  const refreshAfterBulkPending = async () => {
+    const tournamentMatches = await fetchAllTournamentMatches({
+      preserveOnError: true,
+      throwOnError: true,
+    });
+    const visibleJornadaId = selectedJornadaIdRef.current || jornadas[currentJornadaIndex]?.id;
+    if (visibleJornadaId) {
+      await fetchCurrentJornadaMatches(
+        visibleJornadaId,
+        jornadas,
+        repositionMappings,
+        repositionMatchMappings,
+        { preserveOnError: true, throwOnError: true, matchesSource: tournamentMatches }
+      );
+    }
   };
 
   const handleResetMatchResult = async (matchId, expectedRevision) => {
@@ -1815,6 +1866,7 @@ export function TorneoJornadasTab({
             onChangeJornada={handleChangeJornada}
             totalJornadas={jornadas.length} 
             onMatchUpdate={handleMatchUpdate}
+            onRefreshAfterBulkPending={refreshAfterBulkPending}
             onResetMatchResult={handleResetMatchResult}
             canConfirm={canConfirm} 
             onSaveConfig={handleSaveConfig}

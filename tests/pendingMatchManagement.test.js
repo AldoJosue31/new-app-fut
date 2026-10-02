@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   buildPendingMatchCancellationRequest,
   buildPendingMatchResultRequest,
+  buildUnresultedMatchPendingRequest,
+  getMatchesForManagement,
   getPendingMatchesForManagement,
 } from "../src/utils/pendingMatchManagement.js";
 
@@ -42,6 +44,59 @@ test("excluye descansos, jornadas futuras, programación vigente y partidos resu
   ];
   assert.deepEqual(getPendingMatchesForManagement({ matches, jornadas, teams }).map((item) => item.id), [1, 13]);
   assert.deepEqual(getPendingMatchesForManagement({ matches, teams, jornadas: jornadas.map((round) => ({ ...round, status: "Pendiente" })) }), []);
+});
+
+test("separa los aplazados de los programados sin resultado y excluye la última jornada confirmada", () => {
+  const matches = [
+    match(1),
+    match(2, { status: "Programado", date: "2026-09-08 15:00:00" }),
+    match(3, { jornada_id: 11, status: "Programado", date: "2026-09-15 15:00:00" }),
+    match(4, { jornada_id: 12, status: "Programado", date: "2026-09-22 15:00:00" }),
+    match(5, { status: "Finalizado", date: "2026-09-08 16:00:00" }),
+    match(6, { status: "Cancelado", date: "2026-09-08 17:00:00" }),
+    match(7, { status: "Programado", date: "2026-09-08 18:00:00", goals1: 0 }),
+    match(8, { status: "Programado", date: "2026-09-08 19:00:00", goals2: 0 }),
+    match(9, { status: "Programado", date: "2026-09-08 20:00:00", team2_id: null }),
+    match(10, { status: "Programado", date: "2026-09-08 21:00:00", isByeMatch: true }),
+  ];
+  const managed = getMatchesForManagement({ matches, jornadas, teams });
+  assert.deepEqual(managed.pending.map((item) => item.id), [1]);
+  assert.deepEqual(managed.unresulted.map((item) => item.id), [2]);
+  assert.equal(managed.unresulted[0].originJornadaId, 10);
+  assert.equal(managed.unresulted[0].jornadas.name, "Jornada 1");
+});
+
+test("un partido sin resultado en reposición usa la jornada de origen", () => {
+  const reposition = { id: 20, name: "Reposicion 1", status: "Pendiente" };
+  const managed = getMatchesForManagement({
+    matches: [match(1, { jornada_id: 20, status: "Programado", date: "2026-09-08 15:00:00" })],
+    jornadas: [...jornadas, reposition], teams,
+    config: { repositionMatchMappings: [{ matchId: 1, originalJornadaId: 10, repositionJornadaId: 20 }] },
+  });
+  assert.deepEqual(managed.unresulted.map((item) => item.originJornadaId), [10]);
+  assert.equal(managed.unresulted[0].jornadas.name, "Jornada 1");
+});
+
+test("marcar sin resultado como pendiente limpia su programación y lo mueve al grupo de aplazados", () => {
+  const scheduled = getMatchesForManagement({
+    matches: [match(1, { status: "Programado", date: "2026-09-08 15:00:00", referee_id: 9 })],
+    jornadas, teams,
+  }).unresulted[0];
+  const request = buildUnresultedMatchPendingRequest(scheduled);
+  assert.equal(request.type, "atomic-result-save");
+  assert.equal(request.expectedRevision, 4);
+  assert.deepEqual(request.events, []);
+  assert.equal(request.updates.jornada_id, 10);
+  assert.equal(request.updates.status, "Pendiente");
+  for (const field of ["date", "goals1", "goals2", "puntos1", "puntos2", "referee_id"]) {
+    assert.equal(request.updates[field], null);
+  }
+  const managed = getMatchesForManagement({
+    matches: [{ ...scheduled, ...request.updates }], jornadas, teams,
+  });
+  assert.deepEqual(managed.pending.map((item) => item.id), [1]);
+  assert.deepEqual(managed.unresulted, []);
+  assert.throws(() => buildUnresultedMatchPendingRequest({ ...scheduled, goals1: 0 }));
 });
 
 test("resuelve el origen de partidos que pasaron a una reposición y evita duplicados", () => {

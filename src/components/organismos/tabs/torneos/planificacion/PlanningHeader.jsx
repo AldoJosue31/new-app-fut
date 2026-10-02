@@ -220,8 +220,8 @@ export const PlanningHeader = memo(
 
     const pendingControl = typeof onManagePendingMatches === "function" && (
       <PendingButton type="button" onClick={onManagePendingMatches}
-        title="Administrar partidos aplazados de jornadas anteriores"
-        aria-label={`Administrar partidos pendientes (${pendingMatchesCount})`}>
+        title="Administrar aplazados y partidos sin resultado de jornadas anteriores"
+        aria-label={`Administrar partidos pendientes y sin resultado (${pendingMatchesCount})`}>
         <RiTimeLine size={19} aria-hidden="true" />
         Pendientes <span className="pending-count">{pendingMatchesCount}</span>
       </PendingButton>
