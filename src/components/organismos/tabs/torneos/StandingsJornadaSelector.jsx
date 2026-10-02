@@ -7,7 +7,9 @@ export const StandingsJornadaSelector = ({
   onChange, 
   effectiveJornada,
   jornadasOptions = [],
-  currentLabel
+  currentLabel,
+  disabled = false,
+  id
 }) => {
   const options = Array.isArray(jornadasOptions) ? jornadasOptions : [];
   const recentLabel = currentLabel || `Vista Actual (J. ${effectiveJornada})`;
@@ -16,8 +18,11 @@ export const StandingsJornadaSelector = ({
     <SelectorContainer>
       <SelectWrapper>
         <StyledSelect
+          id={id}
           value={selected}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          aria-label={id ? undefined : "Seleccionar jornada"}
         >
           <option value="recent">{recentLabel}</option>
 
@@ -74,6 +79,8 @@ const StyledSelect = styled.select`
   text-overflow: ellipsis;
 
   &:focus { border-color: ${v.primary}; }
+
+  &:disabled { cursor: not-allowed; opacity: 0.55; }
 
   @media (max-width: 600px) {
     font-size: 0.75rem;

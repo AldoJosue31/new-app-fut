@@ -6,45 +6,89 @@ import { Modal } from "../../../../Modal";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
+import { StandingsJornadaSelector } from "../../StandingsJornadaSelector";
 import StandingsDesignCarousel from "./StandingsDesignCarousel";
 import { STANDINGS_TABLE_DESIGNS, STANDINGS_BACKGROUND_DESIGNS, STANDINGS_DESIGN_PRESETS, getStandingsExportAppearance } from "./standingsExportStyles";
 import { DEFAULT_LEAGUE_COLOR, normalizeHexColor, extractLogoColor } from "../../../../../../utils/leagueColors.js";
+import { useTorneoStandingsLogic } from "../../../../../../hooks/useTorneoStandingsLogic";
+
+const getExportSettingsKey = (torneoId) => `standings-export-settings:${torneoId}`;
+
+const readExportSettings = (torneoId) => {
+    if (!torneoId || typeof window === "undefined") return null;
+    try {
+        const stored = window.localStorage.getItem(getExportSettingsKey(torneoId));
+        const settings = stored ? JSON.parse(stored) : null;
+        return settings && typeof settings === "object" && !Array.isArray(settings) ? settings : null;
+    } catch {
+        return null;
+    }
+};
+
+const getDesignIndex = (designs, id) => Math.max(0, designs.findIndex((design) => design.id === id));
 
 export default function StandingsExportModal({
     isOpen,
     onClose,
-    tablaGeneral,
     torneo,
-    config,
-    activeJornadaName
+    equipos,
+    partidos,
+    jornadas,
+    reglas,
+    initialJornadaView = "recent"
 }) {
     const theme = useTheme();
+    const [savedSettings] = useState(() => readExportSettings(torneo?.id));
 
-    const [isDarkExport, setIsDarkExport] = useState(false);
-    const [isMobileLayout, setIsMobileLayout] = useState(false);
-    const [showGeneratedDate, setShowGeneratedDate] = useState(true);
+    const [selectedJornadaView, setSelectedJornadaView] = useState(initialJornadaView);
+    const {
+        config,
+        effectiveJornada,
+        jornadasConfirmadasForDropdown,
+        tablaGeneral,
+        activeJornadaName,
+        isCalculating
+    } = useTorneoStandingsLogic({
+        torneo,
+        equipos,
+        partidos,
+        jornadasProp: jornadas,
+        reglas,
+        selectedJornadaView
+    });
+
+    const [isDarkExport, setIsDarkExport] = useState(() =>
+        typeof savedSettings?.isDarkExport === "boolean"
+            ? savedSettings.isDarkExport
+            : theme.bodyRgba === "32,32,32");
+    const [isMobileLayout, setIsMobileLayout] = useState(() => savedSettings?.isMobileLayout === true);
+    const [showGeneratedDate, setShowGeneratedDate] = useState(() => savedSettings?.showGeneratedDate !== false);
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [previewScale, setPreviewScale] = useState(0.3);
     const [isInstantStyleChange, setIsInstantStyleChange] = useState(true);
-    const [tableDesignIndex, setTableDesignIndex] = useState(0);
-    const [backgroundDesignIndex, setBackgroundDesignIndex] = useState(0);
-    const [activeStyleControl, setActiveStyleControl] = useState("table");
-    const [presetIndex, setPresetIndex] = useState(0);
-    const [isCustomizing, setIsCustomizing] = useState(false);
-    const [useLeagueColors, setUseLeagueColors] = useState(false);
+    const [tableDesignIndex, setTableDesignIndex] = useState(() =>
+        getDesignIndex(STANDINGS_TABLE_DESIGNS, savedSettings?.tableDesignId));
+    const [backgroundDesignIndex, setBackgroundDesignIndex] = useState(() =>
+        getDesignIndex(STANDINGS_BACKGROUND_DESIGNS, savedSettings?.backgroundDesignId));
+    const [activeStyleControl, setActiveStyleControl] = useState(() =>
+        savedSettings?.activeStyleControl === "background" ? "background" : "table");
+    const [presetIndex, setPresetIndex] = useState(() =>
+        getDesignIndex(STANDINGS_DESIGN_PRESETS, savedSettings?.presetId));
+    const [isCustomizing, setIsCustomizing] = useState(() => savedSettings?.isCustomizing === true);
+    const [useLeagueColors, setUseLeagueColors] = useState(() => savedSettings?.useLeagueColors === true);
     const [loading, setLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState("");
     const [metaInfo, setMetaInfo] = useState({
         league: "",
         division: "",
-        lastJornada: "",
         leagueLogo: null,
         leagueColors: null
     });
 
     const exportComponentRef = useRef(null);
     const previewStageRef = useRef(null);
+    const isPreviewLoading = loading || isCalculating;
     const selectedLeagueColors = useLeagueColors ? metaInfo.leagueColors : null;
     const preset = STANDINGS_DESIGN_PRESETS[presetIndex];
     const tableDesign = isCustomizing
@@ -67,6 +111,27 @@ export default function StandingsExportModal({
             ? STANDINGS_TABLE_DESIGNS.map((design) => ({ ...design, tableDesign: design.id, backgroundDesign: backgroundDesign.id }))
             : STANDINGS_BACKGROUND_DESIGNS.map((design) => ({ ...design, tableDesign: tableDesign.id, backgroundDesign: design.id }));
     }, [isCustomizing, isChoosingTable, tableDesign.id, backgroundDesign.id]);
+
+    useEffect(() => {
+        if (!isOpen || !torneo?.id || typeof window === "undefined") return;
+        try {
+            window.localStorage.setItem(getExportSettingsKey(torneo.id), JSON.stringify({
+                isDarkExport,
+                isMobileLayout,
+                showGeneratedDate,
+                isCustomizing,
+                presetId: STANDINGS_DESIGN_PRESETS[presetIndex].id,
+                tableDesignId: STANDINGS_TABLE_DESIGNS[tableDesignIndex].id,
+                backgroundDesignId: STANDINGS_BACKGROUND_DESIGNS[backgroundDesignIndex].id,
+                activeStyleControl,
+                useLeagueColors
+            }));
+        } catch {
+            // Las opciones siguen disponibles durante esta sesión si el navegador bloquea el almacenamiento.
+        }
+    }, [isOpen, torneo?.id, isDarkExport, isMobileLayout, showGeneratedDate,
+        isCustomizing, presetIndex, tableDesignIndex, backgroundDesignIndex,
+        activeStyleControl, useLeagueColors]);
 
     const changeStyleMode = (customize) => {
         if (isExporting || customize === isCustomizing) return;
@@ -99,7 +164,6 @@ export default function StandingsExportModal({
             setMetaInfo({
                 league: "Liga Local",
                 division: "Division Unica",
-                lastJornada: activeJornadaName || "Sin iniciar",
                 leagueLogo: null,
                 leagueColors: null
             });
@@ -142,7 +206,6 @@ export default function StandingsExportModal({
             setMetaInfo({
                 league: leagueName,
                 division: divisionName,
-                lastJornada: activeJornadaName || "Sin iniciar",
                 leagueLogo: logo,
                 leagueColors: torData?.division?.league ? {
                     primary: primaryColor || DEFAULT_LEAGUE_COLOR,
@@ -152,29 +215,27 @@ export default function StandingsExportModal({
         } catch (error) {
             if (signal.aborted) return;
             console.error("Error fetching meta info:", error);
-            setMetaInfo({ league: "Liga Local", division: "Division Unica", lastJornada: activeJornadaName || "Sin iniciar", leagueLogo: null, leagueColors: null });
+            setMetaInfo({ league: "Liga Local", division: "Division Unica", leagueLogo: null, leagueColors: null });
         } finally {
             if (!signal.aborted) setLoading(false);
         }
-    }, [activeJornadaName, torneo?.id]);
+    }, [torneo?.id]);
 
     useEffect(() => {
         if (isOpen) {
             const controller = new AbortController();
-            const isAppDark = theme.bodyRgba === "32,32,32";
 
-            setIsDarkExport(isAppDark);
             setIsExporting(false);
             setExportError("");
             setIsConfigPanelOpen(false);
             fetchMetaInfo(controller.signal);
             return () => controller.abort();
         }
-    }, [fetchMetaInfo, isOpen, theme]);
+    }, [fetchMetaInfo, isOpen]);
 
     useEffect(() => {
         const stage = previewStageRef.current;
-        if (!isOpen || loading || !stage) return;
+        if (!isOpen || isPreviewLoading || !stage) return;
 
         const calculateScale = () => {
             if (!stage.clientWidth || !stage.clientHeight) return;
@@ -191,7 +252,7 @@ export default function StandingsExportModal({
         const observer = new ResizeObserver(calculateScale);
         observer.observe(stage);
         return () => observer.disconnect();
-    }, [isOpen, isMobileLayout, loading]);
+    }, [isOpen, isMobileLayout, isPreviewLoading]);
 
     const handleExportPNG = async () => {
         if (exportComponentRef.current && !isExporting) {
@@ -271,11 +332,23 @@ export default function StandingsExportModal({
             bodyPadding="0"
         >
             <PreviewWrapper>
-                {!loading && (
+                {!isPreviewLoading && (
                     <>
                         <div className="mobile-config-bar">
                             {renderConfigControls()}
                         </div>
+
+                        <JornadaControl>
+                            <label htmlFor="standings-export-jornada">Jornada <span>a exportar</span></label>
+                            <StandingsJornadaSelector
+                                id="standings-export-jornada"
+                                selected={selectedJornadaView}
+                                onChange={setSelectedJornadaView}
+                                effectiveJornada={effectiveJornada}
+                                jornadasOptions={jornadasConfirmadasForDropdown}
+                                disabled={isExporting}
+                            />
+                        </JornadaControl>
 
                         <StyleControls role="group" aria-label="Diseño de imagen">
                             <button
@@ -359,16 +432,16 @@ export default function StandingsExportModal({
                     role="region"
                     aria-roledescription="carrusel"
                     aria-label={isCustomizing ? `Vista previa: diseños de ${isChoosingTable ? "tabla" : "fondo"}` : "Vista previa: combinaciones de tabla y fondo"}
-                    aria-describedby={loading ? undefined : "standings-style-description"}
-                    tabIndex={loading ? -1 : 0}
+                    aria-describedby={isPreviewLoading ? undefined : "standings-style-description"}
+                    tabIndex={isPreviewLoading ? -1 : 0}
                     onKeyDown={(event) => {
-                        if (!loading && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+                        if (!isPreviewLoading && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
                             event.preventDefault();
                             cycleStyle(event.key === "ArrowLeft" ? -1 : 1, true);
                         }
                     }}
                 >
-                    {loading ? (
+                    {isPreviewLoading ? (
                         <LoadingContainer>
                             <div className="spinner" />
                             <span>Cargando datos...</span>
@@ -400,7 +473,7 @@ export default function StandingsExportModal({
                                         tablaGeneral,
                                         torneo,
                                         config,
-                                        metaInfo,
+                                        metaInfo: { ...metaInfo, lastJornada: activeJornadaName || "Sin iniciar" },
                                         themeMode: isDarkExport ? "dark" : "light",
                                         layoutMode: isMobileLayout ? "mobile" : "desktop",
                                         showGeneratedDate,
@@ -421,7 +494,7 @@ export default function StandingsExportModal({
                     )}
                 </div>
 
-                {!loading && (
+                {!isPreviewLoading && (
                     <StyleCaption id="standings-style-description" aria-live="polite" aria-atomic="true">
                         <div><strong>{selectedStyle.name}</strong><span>{selectedStyleIndex + 1} / {styleCount}</span></div>
                         <p>{selectedLeagueColors ? "Diseño adaptado a los colores de la liga." : selectedStyle.description}</p>
@@ -437,7 +510,7 @@ export default function StandingsExportModal({
                     <ExportDownloadButton
                         onExport={handleExportPNG}
                         isExporting={isExporting}
-                        disabled={loading}
+                        disabled={isPreviewLoading}
                     />
                 </ModalFooter>
             </PreviewWrapper>
@@ -501,6 +574,58 @@ const PreviewWrapper = styled.div`
 
     @media (prefers-reduced-motion: reduce) {
         &, * { transition: none !important; }
+    }
+`;
+
+const JornadaControl = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 64px 0;
+    flex-shrink: 0;
+
+    label {
+        flex: 0 0 auto;
+        color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
+        font-size: 0.82rem;
+        font-weight: 800;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    > div {
+        min-width: 0;
+        flex: 0 1 280px;
+    }
+
+    select {
+        min-height: 42px;
+        padding: 8px 12px;
+        border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+        border-radius: 10px;
+        background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
+        color: ${({ theme }) => theme.text};
+        font-size: 0.84rem;
+        font-weight: 700;
+        transition: border-color 160ms ease;
+    }
+
+    select:hover:not(:disabled) {
+        border-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+    }
+
+    select:focus-visible {
+        outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+        outline-offset: 2px;
+    }
+
+    @media (max-width: 520px) {
+        padding: 8px 12px 0;
+        gap: 8px;
+        label { font-size: 0.76rem; }
+        label span { display: none; }
+        select { min-height: 40px; font-size: 0.8rem; }
     }
 `;
 

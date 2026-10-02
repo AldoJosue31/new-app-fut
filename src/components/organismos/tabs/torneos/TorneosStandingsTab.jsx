@@ -77,7 +77,6 @@ export const TorneosStandingsTab = ({
     effectiveJornada,
     jornadasConfirmadasForDropdown,
     tablaGeneral,
-    activeJornadaName,
     mergedJornadas,
     isCalculating
   } = useTorneoStandingsLogic({
@@ -259,14 +258,19 @@ export const TorneosStandingsTab = ({
         )}
       </ViewContent>
 
-      <StandingsExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        tablaGeneral={tablaGeneral}
-        torneo={torneo}
-        config={config}
-        activeJornadaName={activeJornadaName} 
-      />
+      {showExportModal && (
+        <StandingsExportModal
+          key={torneo?.id || 'default'}
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          torneo={torneo}
+          equipos={equipos}
+          partidos={partidos}
+          jornadas={mergedJornadas}
+          reglas={reglas}
+          initialJornadaView={selectedJornadaView}
+        />
+      )}
     </StandingsTabContainer>
   );
 };
