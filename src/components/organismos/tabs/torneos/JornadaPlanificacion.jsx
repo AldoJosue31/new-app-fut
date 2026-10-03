@@ -29,7 +29,8 @@ import { isMatchResultConflictError } from "../../../../utils/matchResultConcurr
 import {
   buildPendingMatchCancellationRequest,
   buildPendingMatchResultRequest,
-  getPendingMatchesForManagement,
+  buildUnresultedMatchPendingRequest,
+  getMatchesForManagement,
 } from "../../../../utils/pendingMatchManagement.js";
 
 import { PlanningHeader } from "./planificacion/PlanningHeader";
@@ -108,6 +109,7 @@ export function JornadaPlanificacion({
   onChangeJornada,
   totalJornadas,
   onMatchUpdate,
+  onRefreshAfterBulkPending,
   onResetMatchResult,
   canConfirm,
   onSaveConfig,
@@ -135,7 +137,7 @@ export function JornadaPlanificacion({
     currentJornadaNumber,
     clearDraft,
     saveDraft,
-    isPlanningDataReady,
+    hasLoadedPlanningData,
     showExternalMatches,
     toggleExternalMatches,
     externalMatches,
@@ -162,9 +164,13 @@ export function JornadaPlanificacion({
   const [selectedMatchResult, setSelectedMatchResult] = useState(null);
   const [savingResultMatchId, setSavingResultMatchId] = useState(null);
   const [pendingMatchesModalOpen, setPendingMatchesModalOpen] = useState(false);
-  const [isPendingResult, setIsPendingResult] = useState(false);
+  const [managedResultType, setManagedResultType] = useState(null);
   const [pendingMatchToCancel, setPendingMatchToCancel] = useState(null);
   const [cancelingPendingMatchId, setCancelingPendingMatchId] = useState(null);
+  const [matchToMarkPending, setMatchToMarkPending] = useState(null);
+  const [markingPendingMatchId, setMarkingPendingMatchId] = useState(null);
+  const [matchesToMarkPending, setMatchesToMarkPending] = useState(null);
+  const [bulkPendingProgress, setBulkPendingProgress] = useState(null);
   const [matchToResetResult, setMatchToResetResult] = useState(null);
   const [resettingResultMatchId, setResettingResultMatchId] = useState(null);
 
@@ -309,7 +315,7 @@ export function JornadaPlanificacion({
 
     return activeTournament.config;
   }, [activeTournament?.config]);
-  const managedPendingMatches = useMemo(() => getPendingMatchesForManagement({
+  const managedMatches = useMemo(() => getMatchesForManagement({
     matches: allTournamentMatches,
     jornadas,
     teams,
@@ -449,12 +455,12 @@ export function JornadaPlanificacion({
   const handleCloseResultModal = useCallback(() => {
     setResultModalOpen(false);
     setSelectedMatchResult(null);
-    setIsPendingResult(false);
+    setManagedResultType(null);
   }, []);
 
   const handleOpenResultModal = useCallback((selected) => {
     if (savingResultMatchId) return;
-    setIsPendingResult(false);
+    setManagedResultType(null);
     setSelectedMatchResult(selected);
     setResultModalOpen(true);
   }, [savingResultMatchId]);
@@ -471,10 +477,10 @@ export function JornadaPlanificacion({
 
   const handleClosePendingMatches = useCallback(() => setPendingMatchesModalOpen(false), []);
 
-  const handleOpenPendingResult = (match) => {
-    if (savingResultMatchId || cancelingPendingMatchId) return;
+  const handleOpenManagedResult = (match, isUnresulted = false) => {
+    if (savingResultMatchId || cancelingPendingMatchId || markingPendingMatchId) return;
     setSelectedMatchResult(match);
-    setIsPendingResult(true);
+    setManagedResultType(isUnresulted ? "unresulted" : "pending");
     setResultModalOpen(true);
   };
 
@@ -498,26 +504,96 @@ export function JornadaPlanificacion({
     }
   };
 
+  const handleMarkUnresultedPending = async () => {
+    if (!matchToMarkPending || markingPendingMatchId) return;
+    const match = matchToMarkPending;
+    setMarkingPendingMatchId(match.id);
+    try {
+      if (typeof onMatchUpdate !== "function") throw new Error("No se puede aplazar el partido.");
+      await onMatchUpdate(match.id, buildUnresultedMatchPendingRequest(match));
+      setMatchToMarkPending(null);
+      notify.success(`Partido marcado como pendiente en ${match.originJornada}.`);
+    } catch (error) {
+      if (isMatchResultConflictError(error)) setMatchToMarkPending(null);
+      notify.error(isMatchResultConflictError(error)
+        ? "El partido fue actualizado desde otro dispositivo. Revisa su estado antes de aplazarlo."
+        : error?.message || "No se pudo marcar el partido como pendiente. Intenta de nuevo.");
+    } finally {
+      setMarkingPendingMatchId(null);
+    }
+  };
+
+  const handleMarkAllUnresultedPending = async () => {
+    if (!matchesToMarkPending?.length || bulkPendingProgress) return;
+    const matches = matchesToMarkPending;
+    setBulkPendingProgress({ completed: 0, total: matches.length });
+    let nextIndex = 0;
+    let saved = 0;
+
+    const markNext = async () => {
+      while (nextIndex < matches.length) {
+        const match = matches[nextIndex++];
+        try {
+          await onMatchUpdate(match.id, buildUnresultedMatchPendingRequest(match), { deferRefresh: true });
+          saved += 1;
+        } catch (error) {
+          console.error(`No se pudo aplazar el partido ${match.id}:`, error);
+        } finally {
+          setBulkPendingProgress((current) => current && {
+            ...current, completed: current.completed + 1,
+          });
+        }
+      }
+    };
+
+    try {
+      if (typeof onMatchUpdate !== "function") throw new Error("No se pueden aplazar los partidos.");
+      await Promise.all(Array.from({ length: Math.min(3, matches.length) }, markNext));
+      let refreshFailed = false;
+      try {
+        await onRefreshAfterBulkPending?.();
+      } catch (error) {
+        refreshFailed = true;
+        console.error("No se pudieron sincronizar los partidos aplazados:", error);
+      }
+
+      setMatchesToMarkPending(null);
+      const failed = matches.length - saved;
+      const summary = failed
+        ? `${saved} de ${matches.length} partidos marcados como pendientes; ${failed} no se pudieron actualizar.`
+        : `${saved} ${saved === 1 ? "partido marcado" : "partidos marcados"} como ${saved === 1 ? "pendiente" : "pendientes"}.`;
+      const message = refreshFailed ? `${summary} Actualiza la página para verificar los cambios.` : summary;
+      if (failed === matches.length) notify.error(message);
+      else if (failed || refreshFailed) notify.warning(message);
+      else notify.success(message);
+    } catch (error) {
+      setMatchesToMarkPending(null);
+      notify.error(error?.message || "No se pudieron marcar los partidos como pendientes.");
+    } finally {
+      setBulkPendingProgress(null);
+    }
+  };
+
   const handleSaveResult = useCallback(
     async (id, request) => {
       setSavingResultMatchId(id);
       try {
         if (typeof onMatchUpdate !== "function") throw new Error("No se puede guardar el resultado.");
-        const pendingMatch = isPendingResult ? selectedMatchResult : null;
-        const result = await onMatchUpdate(id, pendingMatch
-          ? buildPendingMatchResultRequest(pendingMatch, request) : request);
-        if (pendingMatch) {
-          removeResolvedPendingMatch(id, pendingMatch.originJornadaId);
+        const managedMatch = managedResultType ? selectedMatchResult : null;
+        const result = await onMatchUpdate(id, managedMatch
+          ? buildPendingMatchResultRequest(managedMatch, request) : request);
+        if (managedResultType === "pending") {
+          removeResolvedPendingMatch(id, managedMatch.originJornadaId);
           setPendingMatchesModalOpen(false);
-          const sourceIndex = jornadas.findIndex((round) => String(round.id) === String(pendingMatch.originJornadaId));
-          if (sourceIndex >= 0) onChangeJornada?.(sourceIndex);
+          const sourceIndex = jornadas.findIndex((round) => String(round.id) === String(managedMatch.originJornadaId));
+          if (sourceIndex >= 0) await onChangeJornada?.(sourceIndex, { smooth: true });
         }
         return result;
       } finally {
         setSavingResultMatchId(null);
       }
     },
-    [onMatchUpdate, isPendingResult, selectedMatchResult, removeResolvedPendingMatch, jornadas, onChangeJornada]
+    [onMatchUpdate, managedResultType, selectedMatchResult, removeResolvedPendingMatch, jornadas, onChangeJornada]
   );
 
   const handleResetMatchResult = useCallback(async () => {
@@ -914,7 +990,7 @@ export function JornadaPlanificacion({
     [chronologicalJornadas, handleChronologicalNavigation]
   );
 
-  if (!isPlanningDataReady) {
+  if (!hasLoadedPlanningData) {
     return <JornadaPlanificacionSkeleton />;
   }
 
@@ -957,7 +1033,7 @@ export function JornadaPlanificacion({
         matchesWithoutResultCount={matchesWithoutResult.length}
         confirmedResultsProgress={confirmedResultsProgress}
         jornadaDurationDays={jornadaDurationDays}
-        pendingMatchesCount={managedPendingMatches.length}
+        pendingMatchesCount={managedMatches.pending.length + managedMatches.unresulted.length}
         onManagePendingMatches={() => setPendingMatchesModalOpen(true)}
       />
 
@@ -1196,12 +1272,16 @@ export function JornadaPlanificacion({
       />
 
       <PendingMatchesModal
-        isOpen={pendingMatchesModalOpen && !resultModalOpen && !pendingMatchToCancel}
+        isOpen={pendingMatchesModalOpen}
+        suspended={resultModalOpen || !!pendingMatchToCancel || !!matchToMarkPending || !!matchesToMarkPending}
         onClose={handleClosePendingMatches}
-        matches={managedPendingMatches}
-        onOpenResult={handleOpenPendingResult}
+        matches={managedMatches.pending}
+        unresultedMatches={managedMatches.unresulted}
+        onOpenResult={handleOpenManagedResult}
         onCancelMatch={setPendingMatchToCancel}
-        busy={!!savingResultMatchId || !!cancelingPendingMatchId}
+        onMarkPending={setMatchToMarkPending}
+        onMarkAllPending={setMatchesToMarkPending}
+        busy={!!savingResultMatchId || !!cancelingPendingMatchId || !!markingPendingMatchId || !!bulkPendingProgress}
       />
 
       <ConfirmModal
@@ -1219,15 +1299,49 @@ export function JornadaPlanificacion({
         thinButtons
       />
 
+      <ConfirmModal
+        isOpen={!!matchToMarkPending}
+        onClose={() => { if (!markingPendingMatchId) setMatchToMarkPending(null); }}
+        onConfirm={handleMarkUnresultedPending}
+        title="Marcar partido como pendiente"
+        message="¿Quitar la programación de este partido?"
+        subMessage={matchToMarkPending
+          ? `${getMatchTeamsLabel(matchToMarkPending)} volverá a pendientes de ${matchToMarkPending.originJornada}, sin fecha ni horario.`
+          : ""}
+        confirmText="Marcar pendiente"
+        loading={!!markingPendingMatchId}
+        loadingMessage="Marcando pendiente..."
+        thinButtons
+      />
+
+      <ConfirmModal
+        isOpen={!!matchesToMarkPending}
+        onClose={() => { if (!bulkPendingProgress) setMatchesToMarkPending(null); }}
+        onConfirm={handleMarkAllUnresultedPending}
+        title={matchesToMarkPending?.length === 1 ? "Marcar partido como pendiente" : "Marcar todos como pendientes"}
+        message={matchesToMarkPending?.length === 1
+          ? "¿Aplazar este partido sin resultado?"
+          : `¿Aplazar ${matchesToMarkPending?.length || 0} partidos sin resultado?`}
+        subMessage={matchesToMarkPending?.length === 1
+          ? "Se quitarán su fecha y horario; el partido volverá a pendientes de su jornada de origen."
+          : "Incluye todo el grupo, aunque la búsqueda oculte algunos. Se quitarán sus fechas y horarios; cada partido volverá a pendientes de su jornada de origen."}
+        confirmText={matchesToMarkPending?.length === 1 ? "Marcar pendiente" : "Marcar todos pendientes"}
+        loading={!!bulkPendingProgress}
+        loadingMessage={bulkPendingProgress
+          ? `Marcando pendientes: ${bulkPendingProgress.completed}/${bulkPendingProgress.total}`
+          : "Marcando pendientes..."}
+        thinButtons
+      />
+
       <ResultModal
         isOpen={resultModalOpen}
         onClose={handleCloseResultModal}
-        onBack={isPendingResult ? handleCloseResultModal : undefined}
+        onBack={managedResultType ? handleCloseResultModal : undefined}
         match={selectedMatchResult}
         activeTournament={activeTournament}
         onSave={handleSaveResult}
-        requireResult={isPendingResult}
-        defaultMatchDate={isPendingResult ? selectedMatchResult?.jornadas?.start_date : undefined}
+        requireResult={!!managedResultType}
+        defaultMatchDate={managedResultType === "pending" ? selectedMatchResult?.jornadas?.start_date : undefined}
       />
 
       <ConflictModal

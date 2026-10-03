@@ -143,6 +143,7 @@ export const usePlanificacionMatches = (
   ]);
 
   const isPlanningDataReady = loadedContextKey === dataContextKey;
+  const hasLoadedPlanningData = loadedContextKey !== null;
 
   const datesStorageKey = useMemo(() => {
       if (!activeTournament?.id) return null;
@@ -551,6 +552,7 @@ export const usePlanificacionMatches = (
     durationMatch, autoAdjustTimes, currentJornadaName, currentJornadaNumber,
     clearDraft, saveDraft,
     isPlanningDataReady,
+    hasLoadedPlanningData,
     showExternalMatches, toggleExternalMatches, 
     externalMatches, loadingExternal,
     fetchExternalMatches

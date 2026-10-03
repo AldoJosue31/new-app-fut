@@ -1,4 +1,5 @@
 import React from "react";
+import styled from "styled-components";
 import { ContainerScroll } from "../../../atomos/ContainerScroll";
 import { SortControl } from "../../../moleculas/SortControl";
 import { InternalViewHeader } from "../InternalViewHeader";
@@ -13,6 +14,7 @@ import {
 export function TeamDetailPlayersView({
   loadingPlayers,
   onBack,
+  onManagePlayers,
   onSortChange,
   players,
   sortConfig,
@@ -30,6 +32,8 @@ export function TeamDetailPlayersView({
           />
         )}
       </InternalViewHeader>
+
+      {onManagePlayers && <ViewTitle>Jugadores</ViewTitle>}
 
       <ContainerScroll $maxHeight="70vh">
         <PlayersGrid>
@@ -54,10 +58,50 @@ export function TeamDetailPlayersView({
               ))}
 
           {!loadingPlayers && players.length === 0 && (
-            <EmptyMessage>Sin jugadores.</EmptyMessage>
+            onManagePlayers ? (
+              <EmptyPlayers>
+                <EmptyMessage>Aún no hay jugadores registrados.</EmptyMessage>
+                <button type="button" onClick={onManagePlayers}>Agregar jugadores</button>
+              </EmptyPlayers>
+            ) : (
+              <EmptyMessage>Sin jugadores.</EmptyMessage>
+            )
           )}
         </PlayersGrid>
       </ContainerScroll>
     </InternalView>
   );
 }
+
+const ViewTitle = styled.h2`
+  margin: 0 0 20px;
+  color: ${({ theme }) => theme.text};
+  font-size: 1.25rem;
+  font-weight: 750;
+`;
+
+const EmptyPlayers = styled.div`
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 44px 16px;
+  text-align: center;
+
+  button {
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid ${({ theme }) => theme.primary};
+    border-radius: 12px;
+    background: ${({ theme }) => theme.primary};
+    color: #071e2a;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  button:hover { background: ${({ theme }) => theme.bg5}; }
+  button:focus-visible { outline: 2px solid ${({ theme }) => theme.primary}; outline-offset: 3px; }
+`;

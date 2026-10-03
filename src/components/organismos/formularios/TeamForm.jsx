@@ -11,6 +11,7 @@ import {
   BiLink,
   BiLockAlt,
   BiPhone,
+  BiPrinter,
   BiQr,
   BiRefresh,
   BiTrash,
@@ -72,6 +73,7 @@ export function TeamForm({
   const containerRef = useRef(null);
   const colorTextRef = useRef(null);
   const colorInputRef = useRef(null);
+  const invitationQrRef = useRef(null);
   const hasLoadedInvitationRef = useRef(false);
   const delegateReturnTimerRef = useRef(null);
   const delegateNoticeTimerRef = useRef(null);
@@ -428,6 +430,72 @@ export function TeamForm({
     }
   };
 
+  const printInvitation = (event) => {
+    event.preventDefault();
+
+    const qrSvg = invitationQrRef.current?.querySelector("svg");
+    if (!invitationUrl || !qrSvg) {
+      showToast?.("No hay un QR de invitacion listo para imprimir.", "error");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=700,height=800");
+    if (!printWindow) {
+      showToast?.("Permite abrir ventanas emergentes para imprimir la invitacion.", "error");
+      return;
+    }
+
+    const printDocument = printWindow.document;
+    printDocument.open();
+    printDocument.write(`<!doctype html>
+      <html lang="es">
+        <head>
+          <meta charset="utf-8" />
+          <title>Invitación para delegado</title>
+          <style>
+            @page { size: A4; margin: 18mm; }
+            body { margin: 0; padding: 24px; font: 16px Arial, sans-serif; color: #0f172a; }
+            main { max-width: 540px; margin: 32px auto; text-align: center; }
+            h1 { margin: 0 0 8px; font-size: 26px; }
+            .team { margin: 0 0 20px; font-size: 20px; font-weight: 700; }
+            .instruction { margin: 0 0 24px; line-height: 1.5; }
+            .qr { display: inline-flex; padding: 14px; background: #fff; }
+            .qr svg { width: 72mm; height: 72mm; }
+            .link { margin: 24px 0 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
+            .expiry { margin-top: 18px; font-size: 14px; }
+            .print-button { display: block; margin: 0 0 24px auto; padding: 10px 16px; border: 0; border-radius: 8px; background: #0f172a; color: #fff; font: inherit; cursor: pointer; }
+            @media print { body { padding: 0; } main { margin: 24mm auto 0; } .print-button { display: none; } }
+          </style>
+        </head>
+        <body>
+          <button class="print-button" id="print-button" type="button">Imprimir</button>
+          <main>
+            <h1>Invitación para delegado</h1>
+            <p class="team" id="team-name"></p>
+            <p class="instruction">Escanea este código QR para registrarte como delegado del equipo.</p>
+            <div class="qr" id="invitation-qr"></div>
+            <p class="link" id="invitation-link"></p>
+            <p class="expiry" id="invitation-expiry"></p>
+          </main>
+        </body>
+      </html>`);
+    printDocument.close();
+
+    printDocument.getElementById("team-name").textContent = form.name || "Equipo";
+    printDocument.getElementById("invitation-qr").appendChild(qrSvg.cloneNode(true));
+    printDocument.getElementById("invitation-link").textContent = invitationUrl;
+    printDocument.getElementById("invitation-expiry").textContent =
+      `Válida hasta el ${new Date(activeInvitation.expires_at).toLocaleString("es-MX")}`;
+    printDocument.getElementById("print-button").addEventListener("click", () => {
+      printWindow.print();
+    });
+
+    printWindow.requestAnimationFrame(() => {
+      printWindow.focus();
+      printWindow.print();
+    });
+  };
+
   const handleGenerateInvitation = async (event) => {
     event.preventDefault();
 
@@ -655,13 +723,23 @@ export function TeamForm({
               </div>
 
               <div className="share-grid">
-                <div className="qr-card">
-                  <QRCode
-                    size={180}
-                    value={invitationUrl}
-                    bgColor="transparent"
-                    fgColor="#0f172a"
-                  />
+                <div className="qr-preview">
+                  <div className="qr-card" ref={invitationQrRef}>
+                    <QRCode
+                      size={180}
+                      value={invitationUrl}
+                      bgColor="transparent"
+                      fgColor="#0f172a"
+                    />
+                  </div>
+                  <ActionButton
+                    type="button"
+                    onClick={printInvitation}
+                    disabled={!invitationUrl || inviteActionLoading}
+                  >
+                    <BiPrinter />
+                    <span>Imprimir invitación</span>
+                  </ActionButton>
                 </div>
 
                 <div className="link-panel">
@@ -1826,6 +1904,12 @@ const InvitationBox = styled.div`
     display: grid;
     grid-template-columns: 1fr;
     gap: 18px;
+  }
+
+  .qr-preview {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
   }
 
   .qr-card {

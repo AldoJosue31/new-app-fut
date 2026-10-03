@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { supabase } from "../../../lib/supabase/browserClient.js";
 import { getTeamTournamentStats } from "../../../services/estadisticas";
-import { ACTIVE_TOURNAMENT_STATUSES } from "../../../utils/constants";
+import { getDelegateTournament } from "../../../services/delegateTournament";
+import { buildTorneoStandingsSnapshot } from "../../../hooks/useTorneoStandingsLogic";
+import { hydrateDelegateMatches } from "../../../utils/delegateMatches";
 import { resolveTeamDivisionId } from "../../../utils/teamDivision";
 import {
   getTeamDelegateChangeRequests,
@@ -14,10 +16,13 @@ import {
   TEAM_DETAIL_VIEWS,
 } from "../teamDetailModal/constants";
 import { useSort } from "../../../hooks/useSort";
-import { TeamDetailOverviewView } from "../teamDetailModal/submenus/TeamDetailOverviewView";
+import { DelegateTeamOverview } from "./DelegateTeamOverview";
+import { DelegateStandingsView } from "./DelegateStandingsView";
 import { TeamDetailPlayersView } from "../teamDetailModal/submenus/TeamDetailPlayersView";
 import { TeamDetailStatsView } from "../teamDetailModal/submenus/TeamDetailStatsView";
 import { TeamDetailDelegateRequestsView } from "../teamDetailModal/submenus/TeamDetailDelegateRequestsView";
+
+const STANDINGS_VIEW = "standings";
 
 /**
  * DelegateTeamDetailPanel
@@ -31,13 +36,20 @@ export function DelegateTeamDetailPanel({
   canReviewDelegateRequests = false,
   onDelegateRequestsUpdated,
   onEdit,
+  onManagePlayers,
+  changesRequireApproval = true,
 }) {
   const [activeView, setActiveView] = useState(TEAM_DETAIL_VIEWS.OVERVIEW);
   const [players, setPlayers] = useState([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [activeStatsTab, setActiveStatsTab] = useState("results");
   const [statsData, setStatsData] = useState(null);
+  const [tournament, setTournament] = useState(null);
+  const [standings, setStandings] = useState([]);
   const [hasActiveTournament, setHasActiveTournament] = useState(false);
+  const [loadingTournament, setLoadingTournament] = useState(false);
+  const [tournamentError, setTournamentError] = useState("");
+  const [tournamentRefreshKey, setTournamentRefreshKey] = useState(0);
   const [loadingStats, setLoadingStats] = useState(false);
   const [delegateRequests, setDelegateRequests] = useState([]);
   const [loadingDelegateRequests, setLoadingDelegateRequests] = useState(false);
@@ -61,42 +73,56 @@ export function DelegateTeamDetailPanel({
     direction: "descending",
   });
 
-  const checkTournamentStatus = useCallback(async () => {
+  const checkTournamentStatus = useCallback(async (signal) => {
     if (!team?.id || !divisionId) return;
-    setLoadingStats(true);
+    setLoadingTournament(true);
+    setTournamentError("");
     try {
-      const { data: torneoSel, error: tournamentError } = await supabase
-        .from("tournaments")
-        .select("id")
-        .eq("division_id", divisionId)
-        .in("status", ACTIVE_TOURNAMENT_STATUSES)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const bundle = await getDelegateTournament(team.id, { signal });
+      if (signal.aborted) return;
 
-      if (tournamentError || !torneoSel) {
-        setHasActiveTournament(false);
+      const activeTournament = bundle.tournament;
+      setTournament(activeTournament);
+      setHasActiveTournament(Boolean(activeTournament));
+      if (!activeTournament) {
+        setStandings([]);
         setStatsData(null);
         return;
       }
 
-      const tournamentId = torneoSel.id;
-      setHasActiveTournament(true);
+      const snapshot = buildTorneoStandingsSnapshot({
+        torneo: activeTournament,
+        equipos: bundle.teams,
+        partidos: bundle.matches,
+        jornadasProp: bundle.jornadas,
+        selectedJornadaView: "recent",
+      });
+      setStandings(snapshot.tablaGeneral);
+      setLoadingStats(true);
+      setLoadingTournament(false);
 
       const data = await getTeamTournamentStats(team.id, divisionId, {
-        tournament: torneoSel,
+        tournament: activeTournament,
+        signal,
+        preloadedMatches: hydrateDelegateMatches({ matches: bundle.matches, teams: bundle.teams, team: { id: team.id } }),
+        preloadedJornadas: bundle.jornadas,
       });
-      const safeData =
-        data && data.hasTournament
-          ? data
-          : { hasTournament: true, matchHistory: [], upcomingRivals: [], playerStats: [] };
-
-      setStatsData({ ...safeData, tournamentId });
-    } catch {
+      if (signal.aborted) return;
+      setStatsData(data?.hasTournament
+        ? data
+        : { hasTournament: true, matchHistory: [], upcomingRivals: [], playerStats: [] });
+    } catch (error) {
+      if (signal.aborted) return;
+      setTournament(null);
+      setStandings([]);
       setHasActiveTournament(false);
       setStatsData(null);
+      setTournamentError(error?.message || "No se pudo cargar el torneo.");
     } finally {
-      setLoadingStats(false);
+      if (!signal.aborted) {
+        setLoadingTournament(false);
+        setLoadingStats(false);
+      }
     }
   }, [divisionId, team?.id]);
 
@@ -110,7 +136,10 @@ export function DelegateTeamDetailPanel({
     setActiveStatsTab("results");
     setPlayers([]);
     setStatsData(null);
+    setTournament(null);
+    setStandings([]);
     setHasActiveTournament(false);
+    setTournamentError("");
     setDelegateRequests([]);
     setLoadingDelegateRequests(false);
 
@@ -125,8 +154,10 @@ export function DelegateTeamDetailPanel({
       return;
     }
 
-    void checkTournamentStatus();
-  }, [checkTournamentStatus, divisionId, team?.id]);
+    const controller = new AbortController();
+    void checkTournamentStatus(controller.signal);
+    return () => controller.abort();
+  }, [checkTournamentStatus, divisionId, team?.id, tournamentRefreshKey]);
 
   const handleShowPlayers = async () => {
     if (!team) return;
@@ -195,6 +226,7 @@ export function DelegateTeamDetailPanel({
         <TeamDetailPlayersView
           loadingPlayers={loadingPlayers}
           onBack={() => setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW)}
+          onManagePlayers={onManagePlayers}
           onSortChange={requestSort}
           players={players}
           sortConfig={sortConfig}
@@ -220,6 +252,15 @@ export function DelegateTeamDetailPanel({
         />
       )}
 
+      {activeView === STANDINGS_VIEW && (
+        <DelegateStandingsView
+          onBack={() => setActiveView(TEAM_DETAIL_VIEWS.OVERVIEW)}
+          standings={standings}
+          teamId={team.id}
+          tournament={tournament}
+        />
+      )}
+
       {activeView === TEAM_DETAIL_VIEWS.DELEGATE_REQUESTS && (
         <TeamDetailDelegateRequestsView
           canReview={canReviewDelegateRequests}
@@ -233,15 +274,23 @@ export function DelegateTeamDetailPanel({
       )}
 
       {activeView === TEAM_DETAIL_VIEWS.OVERVIEW && (
-        <TeamDetailOverviewView
+        <DelegateTeamOverview
           division={division}
+          changesRequireApproval={changesRequireApproval}
           hasActiveTournament={hasActiveTournament}
+          loadingTournament={loadingTournament}
           loadingStats={loadingStats}
+          tournament={tournament}
+          standings={standings}
+          tournamentError={tournamentError}
+          onRetryTournament={() => setTournamentRefreshKey((key) => key + 1)}
           onShowDelegateRequests={handleShowDelegateRequests}
           onShowPlayers={handleShowPlayers}
+          onShowStandings={() => setActiveView(STANDINGS_VIEW)}
           onShowStats={handleShowStats}
           team={team}
           onEdit={onEdit}
+          onManagePlayers={onManagePlayers}
         />
       )}
     </PanelRoot>

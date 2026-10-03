@@ -14,6 +14,7 @@ import { Skeleton } from '../../../atomos/Skeleton';
 import { useTorneoStandingsLogic } from '../../../../hooks/useTorneoStandingsLogic';
 import { getStandingsViewStorageKey } from '../../../../hooks/useTorneoStandingsLogic';
 import { updateTournamentFieldsService } from '../../../../services/torneos';
+import { useAuthStore } from '../../../../store/AuthStore';
 
 export const TorneosStandingsTab = ({
   torneo = {},
@@ -27,6 +28,7 @@ export const TorneosStandingsTab = ({
   forcedView = null,
 }) => {
 
+  const userId = useAuthStore((state) => state.user?.id);
   const [copied, setCopied] = useState(false);
   const [isPublicEnabled, setIsPublicEnabled] = useState(torneo?.is_public || false);
   const [updating, setUpdating] = useState(false);
@@ -77,7 +79,6 @@ export const TorneosStandingsTab = ({
     effectiveJornada,
     jornadasConfirmadasForDropdown,
     tablaGeneral,
-    activeJornadaName,
     mergedJornadas,
     isCalculating
   } = useTorneoStandingsLogic({
@@ -259,14 +260,20 @@ export const TorneosStandingsTab = ({
         )}
       </ViewContent>
 
-      <StandingsExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        tablaGeneral={tablaGeneral}
-        torneo={torneo}
-        config={config}
-        activeJornadaName={activeJornadaName} 
-      />
+      {showExportModal && (
+        <StandingsExportModal
+          key={`${userId || 'anonymous'}:${torneo?.id || 'default'}`}
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          userId={userId}
+          torneo={torneo}
+          equipos={equipos}
+          partidos={partidos}
+          jornadas={mergedJornadas}
+          reglas={reglas}
+          initialJornadaView={selectedJornadaView}
+        />
+      )}
     </StandingsTabContainer>
   );
 };

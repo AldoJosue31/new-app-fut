@@ -54,6 +54,7 @@ const unlockPageScroll = () => {
 
 export const Modal = ({
   isOpen,
+  suspended = false,
   onClose,
   closeDisabled = false,
   title,
@@ -124,7 +125,9 @@ export const Modal = ({
   );
 
   return createPortal(
-    <Overlay $padding={overlayPadding} onClick={closeOnOverlayClick && !closeDisabled ? onClose : undefined}>
+    <Overlay $padding={overlayPadding} $suspended={suspended} aria-hidden={suspended || undefined}
+      inert={suspended || undefined}
+      onClick={closeOnOverlayClick && !closeDisabled && !suspended ? onClose : undefined}>
       {sidePanel ? <LayoutGroup id={sidePanel.id}><DockLayout
         {...positionMotionProps}
         $width={width}
@@ -204,6 +207,8 @@ const Overlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 100000;
+  visibility: ${({ $suspended }) => $suspended ? "hidden" : "visible"};
+  pointer-events: ${({ $suspended }) => $suspended ? "none" : "auto"};
   animation: ${fadeIn} 0.2s ease-out;
   padding: ${({ $padding }) => $padding};
   overflow: hidden;
