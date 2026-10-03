@@ -179,23 +179,6 @@ export const EquiposTemplate = ({
     : equipos?.find((team) => String(team.id) === String(teamId));
   const teamFromUrlDivision = teamFromUrl?.division || division;
   const hasPendingDelegateRequests = delegateRequestOverview.pendingCount > 0;
-  const hasDelegateReviewedUpdates =
-    delegateRequestOverview.approvedTeamsCount > 0 ||
-    delegateRequestOverview.rejectedTeamsCount > 0;
-  const delegateReviewedSummary = [
-    delegateRequestOverview.approvedTeamsCount > 0
-      ? `${delegateRequestOverview.approvedTeamsCount} aprobado${
-          delegateRequestOverview.approvedTeamsCount === 1 ? "" : "s"
-        }`
-      : null,
-    delegateRequestOverview.rejectedTeamsCount > 0
-      ? `${delegateRequestOverview.rejectedTeamsCount} rechazado${
-          delegateRequestOverview.rejectedTeamsCount === 1 ? "" : "s"
-        }`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" y ");
 
   const formatPendingTeamsNames = (names) => {
     if (!names || names.length === 0) return "";
@@ -212,6 +195,7 @@ export const EquiposTemplate = ({
   ];
 
   const [activeTab, setActiveTab] = useState("info");
+  const nextFormTabRef = useRef("info");
   const [teamFilter, setTeamFilter] = useState("all");
   const [isInvitePanelActive, setIsInvitePanelActive] = useState(false);
   const [isInvitationsModalOpen, setIsInvitationsModalOpen] = useState(false);
@@ -824,7 +808,8 @@ export const EquiposTemplate = ({
 
   useEffect(() => {
     if (isFormOpen) {
-      setActiveTab("info");
+      setActiveTab(nextFormTabRef.current);
+      nextFormTabRef.current = "info";
       setIsInvitePanelActive(false);
     }
   }, [isFormOpen]);
@@ -1137,25 +1122,6 @@ export const EquiposTemplate = ({
             </OverviewToolbar>
           )}
 
-          {isDelegateView && (
-            <AccessBanner>
-              Puedes editar tu equipo y registrar jugadores.
-              {delegateChangesRequireApproval &&
-                " Tus cambios se enviaran al manager antes de publicarse."}
-              {!requestSummariesLoading &&
-                (hasPendingDelegateRequests || hasDelegateReviewedUpdates) && (
-                  <BannerMeta>
-                    {hasPendingDelegateRequests &&
-                      `${delegateRequestOverview.pendingCount} cambio${
-                        delegateRequestOverview.pendingCount === 1 ? "" : "s"
-                      } en revision.`}
-                    {hasDelegateReviewedUpdates &&
-                      ` ${delegateReviewedSummary} en tus ultimas respuestas.`}
-                  </BannerMeta>
-                )}
-            </AccessBanner>
-          )}
-
           {!isDelegateView && !requestSummariesLoading && hasPendingDelegateRequests && (
             <RequestBanner>
               <div style={{ flex: 1 }}>
@@ -1218,9 +1184,8 @@ export const EquiposTemplate = ({
 
           {/* === MODO DELEGADO: pantalla completa para el unico equipo del delegado === */}
           {isDelegateView ? (
-            <Card width="100%" maxWidth="100%" style={{ padding: "25px" }}>
-              <div style={{ width: "100%" }}>
-                {loading ? (
+            <DelegateSurface>
+                {loading || requestSummariesLoading ? (
                   <DelegatePageSkeleton>
                     <DelegateSkeletonHeader />
                     <DelegateSkeletonBody />
@@ -1241,14 +1206,22 @@ export const EquiposTemplate = ({
                           division={delegateTeam?.division || division}
                           canReviewDelegateRequests={false}
                           onDelegateRequestsUpdated={onDelegateRequestSubmitted}
-                          onEdit={() => onEdit(delegateTeam)}
+                          onEdit={() => {
+                            setActiveTab("info");
+                            onEdit(delegateTeam);
+                          }}
+                          onManagePlayers={() => {
+                            nextFormTabRef.current = "players";
+                            setActiveTab("players");
+                            onEdit(delegateTeam);
+                          }}
+                          changesRequireApproval={delegateChangesRequireApproval}
                         />
                       </DelegateFullView>
                     );
                   })()
                 )}
-              </div>
-            </Card>
+            </DelegateSurface>
           ) : (
             /* === MODO MANAGER/NORMAL: grid de cards === */
             <Card width="100%" maxWidth="100%">
@@ -1769,23 +1742,6 @@ const InvitationsButton = styled.button`
 
 `;
 
-const AccessBanner = styled.div`
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(243, 156, 18, 0.12), rgba(243, 156, 18, 0.04));
-  border: 1px solid rgba(243, 156, 18, 0.22);
-  font-size: 0.92rem;
-  line-height: 1.5;
-  color: ${({ theme }) => theme.text};
-`;
-
-const BannerMeta = styled.div`
-  margin-top: 8px;
-  font-size: 0.88rem;
-  opacity: 0.9;
-`;
-
 const RequestBanner = styled.div`
   margin-bottom: 18px;
   padding: 10px 16px;
@@ -1858,6 +1814,19 @@ const DelegateFullView = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0;
+`;
+
+const DelegateSurface = styled.div`
+  width: 100%;
+  min-width: 0;
+  padding: 24px;
+  border-radius: 16px;
+  background: ${({ theme }) => theme.bgcards};
+  color: ${({ theme }) => theme.text};
+
+  @media (max-width: 640px) {
+    padding: 18px;
+  }
 `;
 
 

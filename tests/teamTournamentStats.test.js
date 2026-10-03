@@ -6,6 +6,7 @@ process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||= "sb_publishable_test";
 
 const { supabase } = await import("../src/lib/supabase/browserClient.js");
 const { getTeamTournamentStats } = await import("../src/services/estadisticas.js");
+const { hydrateDelegateMatches } = await import("../src/utils/delegateMatches.js");
 const {
   ACTIVE_TOURNAMENT_STATUSES,
   TOURNAMENT_STATUS,
@@ -138,5 +139,50 @@ test("las estadísticas consultan eventos sólo de los partidos del equipo", asy
     });
   } finally {
     supabase.from = originalFrom;
+  }
+});
+
+test("el Delegado recibe resultados y próximos rivales sin consultar equipos rivales por RLS", async () => {
+  const calls = [];
+  const originalFrom = supabase.from;
+  const originalWarn = console.warn;
+  const preloadedMatches = hydrateDelegateMatches({
+    team: { id: 61, name: "Titanes" },
+    teams: [{ id: 61, name: "Titanes" }, { id: 60, name: "Águilas" }],
+    matches: [
+      { id: 1, team1_id: 61, team2_id: 60, goals1: 2, goals2: 1, status: "Finalizado", date: "2026-08-01T10:00:00Z", jornadas: { id: 5, name: "Jornada 1" } },
+      { id: 2, team1_id: 60, team2_id: 61, goals1: null, goals2: null, status: "Pendiente", date: "2026-08-08T10:00:00Z", jornadas: { id: 6, name: "Jornada 2" } },
+      { id: 3, team1_id: 60, team2_id: 62, status: "Pendiente", jornadas: { id: 6, name: "Jornada 2" } },
+    ],
+  });
+  const responses = {
+    players: { data: null, error: { code: "42501", message: "permission denied" } },
+    view_goleadores: { data: [], error: null },
+    match_events: { data: [], error: null },
+  };
+  supabase.from = (table) => {
+    calls.push(table);
+    if (table === "matches" || table === "jornadas" || table === "teams") {
+      throw new Error(`Unexpected direct ${table} read`);
+    }
+    return createQuery(responses[table] || { data: [], error: null }, [], table);
+  };
+  console.warn = () => {};
+
+  try {
+    const stats = await getTeamTournamentStats(61, 11, {
+      tournament: { id: 331, config: {} },
+      preloadedMatches,
+      preloadedJornadas: [{ id: 5, name: "Jornada 1" }, { id: 6, name: "Jornada 2" }],
+    });
+    assert.equal(stats.matchHistory.length, 1);
+    assert.equal(stats.upcomingRivals.length, 1);
+    assert.equal(stats.matchHistory[0].rival.name, "Águilas");
+    assert.equal(stats.upcomingRivals[0].rival.name, "Águilas");
+    assert.equal(stats.matchHistory[0].myGoals, 2);
+    assert.deepEqual(calls, ["players", "view_goleadores", "match_events"]);
+  } finally {
+    supabase.from = originalFrom;
+    console.warn = originalWarn;
   }
 });

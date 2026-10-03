@@ -339,7 +339,7 @@ export const getGoalEventsByTournamentService = async (
 export const getTeamTournamentStats = async (
   teamId,
   divisionId,
-  { tournament = null, signal = null } = {},
+  { tournament = null, signal = null, preloadedMatches = null, preloadedJornadas = null } = {},
 ) => {
   try {
     let torneo = tournament;
@@ -382,7 +382,7 @@ export const getTeamTournamentStats = async (
         { data: teamPlayers, error: playersError },
         { data: goleadoresView, error: goleadoresError },
       ] = await Promise.all([
-      withAbortSignal(
+      Array.isArray(preloadedMatches) ? Promise.resolve({ data: preloadedMatches, error: null }) : withAbortSignal(
         supabase
           .from('matches')
           .select(`
@@ -396,7 +396,7 @@ export const getTeamTournamentStats = async (
           .order('date', { ascending: true, nullsFirst: false }),
         signal,
       ),
-      withAbortSignal(
+      Array.isArray(preloadedJornadas) ? Promise.resolve({ data: preloadedJornadas, error: null }) : withAbortSignal(
         supabase
           .from('jornadas')
           .select('id, name, start_date, end_date')
@@ -423,7 +423,10 @@ export const getTeamTournamentStats = async (
 
       if (matchesError) throw matchesError;
       if (jornadasError) throw jornadasError;
-      if (playersError) throw playersError;
+      if (playersError) {
+        // La ficha de jugadores es opcional; sus permisos no deben ocultar los partidos.
+        console.warn('getTeamTournamentStats players fallback error:', playersError);
+      }
       if (goleadoresError) {
         console.warn('getTeamTournamentStats goleadores fallback error:', goleadoresError);
       }

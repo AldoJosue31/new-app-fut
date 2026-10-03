@@ -202,6 +202,23 @@ test("las ocho rutas leen Bearer y preservan sus validaciones de entrada", async
   }
 });
 
+test("la ruta de torneo de Delegado resuelve teamId y mantiene el contrato privado", async () => {
+  const routeModule = await import("../../app/api/delegates/teams/[teamId]/tournament/route.js");
+  const { createRoute } = await import("../../app/api/delegates/teams/[teamId]/tournament/routeFactory.js");
+  assert.equal(routeModule.dynamic, "force-dynamic");
+  assert.equal(routeModule.runtime, "nodejs");
+
+  const route = createRoute({ requireUser: assertBearer, supabaseAdmin: {} });
+  const context = { params: Promise.resolve({ teamId: "invalido" }) };
+  const response = await route(createRequest("/api/delegates/teams/invalido/tournament", "GET"), context);
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "teamId invalido." });
+  assert.match(response.headers.get("cache-control") || "", /private.*no-store/);
+
+  const wrongMethod = await route(createRequest("/api/delegates/teams/17/tournament", "POST"), context);
+  assert.equal(wrongMethod.status, 405);
+});
+
 test("mutaciones con cookie exigen Origin del mismo origen", async () => {
   let handlerCalls = 0;
   const route = createRouteHandler(
