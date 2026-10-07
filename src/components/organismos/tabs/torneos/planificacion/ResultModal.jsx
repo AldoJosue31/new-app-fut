@@ -831,6 +831,7 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
           <CedulaPhotoFlow attachment={cedulaPhoto} match={match} onBack={() => setShowCedulaPhotoFlow(false)} />
         ) : showCedulaScanner ? (
           <CedulaScanFlow
+            key={match.id}
             match={match}
             savedPhoto={cedulaPhoto.photo}
             referees={referees}

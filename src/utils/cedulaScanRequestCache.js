@@ -3,6 +3,7 @@ const MAX_CACHE_ENTRIES = 10;
 
 const resultCache = new Map();
 const inFlightRequests = new Map();
+let cacheEpoch = 0;
 
 const canonicalize = (value, ancestors = new Set()) => {
   if (value === null) return "null";
@@ -129,6 +130,11 @@ const writeCachedResult = (fingerprint, value, expiresAt) => {
   }
 };
 
+/** Reads a previous success without starting a request or consuming quota. */
+export const getCachedCedulaScanResult = (fingerprint, { now = Date.now } = {}) => (
+  readCachedResult(fingerprint, now()).value
+);
+
 /**
  * Returns a recent result or runs `requestFactory` once for all concurrent callers.
  * Results live only in this JavaScript module; rejected requests are never cached.
@@ -157,10 +163,13 @@ export const getOrCreateCedulaScanRequest = (
   const inFlight = inFlightRequests.get(fingerprint);
   if (inFlight) return inFlight;
 
+  const requestEpoch = cacheEpoch;
   const request = Promise.resolve()
     .then(requestFactory)
     .then((value) => {
-      writeCachedResult(fingerprint, value, now() + ttlMs);
+      if (requestEpoch === cacheEpoch) {
+        writeCachedResult(fingerprint, value, now() + ttlMs);
+      }
       return value;
     })
     .finally(() => {
@@ -174,6 +183,7 @@ export const getOrCreateCedulaScanRequest = (
 };
 
 export const resetCedulaScanRequestCache = () => {
+  cacheEpoch += 1;
   resultCache.clear();
   inFlightRequests.clear();
 };

@@ -102,10 +102,15 @@ Variables de las funciones:
 | `GEMINI_API_KEY` | secreto | Respaldo semantico existente |
 | `GEMINI_CEDULA_MODEL` | ID de modelo | Principal para cedulas; predeterminado `gemini-3.8-flash` |
 | `GEMINI_CEDULA_FALLBACK_MODEL` | ID de modelo | Respaldo para cedulas; predeterminado `gemini-3.6-flash` |
+| `GEMINI_CEDULA_EXTRA_FALLBACK_MODEL` | ID de modelo u `off` | Ultimo respaldo de cedulas cuando los anteriores fallan; predeterminado `gemini-3.7-flash`, dentro del mismo plazo total |
 | `GEMINI_MODEL` | ID de modelo | Principal para roles; predeterminado `gemini-3.8-flash` |
 | `GEMINI_FALLBACK_MODEL` | ID de modelo | Respaldo para roles; predeterminado `gemini-3.6-flash` |
 
-Ambas funciones cambian al modelo de respaldo cuando el principal no esta disponible, presenta un error temporal o alcanza una cuota temporal o diaria. Los errores de autenticacion o facturacion no activan otra llamada porque cambiar de modelo no corrige esas condiciones.
+Ambas funciones cambian al modelo de respaldo cuando el principal no esta disponible, presenta un error temporal o alcanza una cuota temporal o diaria. En cedulas, un timeout tambien activa el respaldo: cada intento dispone de hasta 45 segundos y hasta tres modelos distintos comparten un presupuesto total de 90 segundos. El ultimo respaldo solo se intenta si queda tiempo despues de los anteriores. Vision dispone de hasta 12 segundos y el cliente cancela el transporte a los 120 segundos. Los errores de autenticacion o facturacion no activan otra llamada porque cambiar de modelo no corrige esas condiciones.
+
+La funcion de cedulas conserva temporalmente la disponibilidad de cada modelo y credencial en el worker. Respeta `Retry-After`, omite modelos cuya pausa sigue activa y devuelve la primera espera recuperable disponible. Esta proteccion y la cache del servidor viven en memoria del worker; no garantizan deduplicacion entre workers distintos. La autenticacion y el perfil activo se comprueban antes de devolver resultados de cache. La cuota por usuario solo se consume al iniciar una lectura remota nueva, una vez para el principal y su respaldo.
+
+El navegador conserva resultados validos durante 30 minutos, separados por proyecto, usuario, partido, contexto y bytes de imagen/recortes. Salir de la vista abandona ese suscriptor y evita respuestas o avisos tardios; la solicitud compartida puede concluir y reutilizarse al volver. Los fallos no se cachean. La pausa del servicio se sincroniza entre vistas y pestañas del mismo usuario, y permite abrir una lectura previamente guardada incluso durante la pausa.
 
 Modos recomendados:
 
@@ -180,4 +185,4 @@ node --test tests/*.test.js
 deno test supabase/functions/_shared/documentOcr_test.ts supabase/functions/procesar-cedula/*_test.ts supabase/functions/procesar-rol-juego/*_test.ts
 ```
 
-Las pruebas de Edge no necesitan claves reales: el adaptador HTTP debe recibir `fetch` inyectado y usar respuestas simuladas. Las verificaciones contra el proyecto remoto se ejecutan por separado con los scripts `verify-cedula-edge.mjs` y `verify-rol-juego-edge.mjs`; ambos aceptan `--smoke` para probar el contrato del proveedor con una imagen sintetica y sin datos personales.
+Las pruebas de Edge no necesitan claves reales: el adaptador HTTP debe recibir `fetch` inyectado y usar respuestas simuladas. Las verificaciones contra el proyecto remoto se ejecutan por separado con los scripts `verify-cedula-edge.mjs` y `verify-rol-juego-edge.mjs`; ambos aceptan `--smoke` para probar el contrato del proveedor con una imagen sintetica y sin datos personales. El script de cedulas tambien acepta `--client-smoke` para validar autenticacion, normalizacion y cache sin llamar a Gemini, cuando la politica permite OCR cliente. Lee `.env` y `.env.local`, admite las variables Next actuales y requiere `SUPABASE_SERVICE_ROLE_KEY` o `CEDULA_VERIFY_ACCESS_TOKEN` en el entorno del script; ninguna credencial se imprime ni se envia a React.

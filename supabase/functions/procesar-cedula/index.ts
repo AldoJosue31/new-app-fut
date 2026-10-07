@@ -3,15 +3,18 @@ import { GoogleGenAI } from "@google/genai";
 import {
   classifyProviderError,
   selectGeminiFallbackModel,
+  selectGeminiExtraFallbackModel,
   selectGeminiModel,
-  shouldFallbackProviderError,
 } from "./scanErrors.ts";
+import { authorizeScanRequest, createScanQuotaGate, ScanRequestError } from "./scanAuthorization.ts";
+import { createProviderResourceKey, runScanWithFallback, ScanProviderCircuitBreaker } from "./scanProvider.ts";
 import { createScanRequestFingerprint, EphemeralScanCache } from "./scanCache.ts";
 import {
   classifyDocumentOcrError,
   createScanMeta,
   type DocumentOcrResult,
   normalizeClientOcr,
+  normalizeDocumentOcrPolicy,
   resolveDocumentOcr,
 } from "../_shared/documentOcr.ts";
 import { validateClientCedulaScan } from "./clientScan.ts";
@@ -29,7 +32,6 @@ const MAX_BASE64_LENGTH = 17_500_000;
 const MAX_DETAIL_IMAGES = 2;
 const MAX_DETAIL_IMAGE_BYTES = 2.5 * 1024 * 1024;
 const MAX_DETAIL_TOTAL_BYTES = 5 * 1024 * 1024;
-const GEMINI_TIMEOUT_MS = 45_000;
 const GEMINI_THINKING_LEVEL = "low";
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
@@ -181,8 +183,11 @@ const createScanInteraction = (
   mimeType: string,
   scanInstructions: string,
   detailImages: ScanDetailImage[] = [],
+  timeoutMs = 45_000,
+  signal?: AbortSignal,
 ) => client.interactions.create({
   model,
+  store: false,
   generation_config: {
     thinking_level: GEMINI_THINKING_LEVEL,
   },
@@ -204,9 +209,9 @@ const createScanInteraction = (
     schema: matchSheetSchema,
   },
 }, {
-  // Dos intentos de 45 s evitan esperas cercanas a dos minutos y caben con margen en Supabase.
-  timeout: GEMINI_TIMEOUT_MS,
+  timeout: timeoutMs,
   maxRetries: 0,
+  signal,
 });
 
 type GeminiTeamBlock = {
@@ -408,6 +413,7 @@ const scanResultCache = new EphemeralScanCache<CachedScanResult>({
   ttlMs: 30 * 60 * 1000,
   maxEntries: 24,
 });
+const providerCircuit = new ScanProviderCircuitBreaker();
 
 const bytesToBase64 = (bytes: Uint8Array) => {
   const chunkSize = 0x8000;
@@ -424,20 +430,6 @@ const base64ToBytes = (value: string) => {
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   return bytes;
-};
-
-const requestActor = (req: Request) => {
-  const token = String(req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  const payload = token.split(".")[1];
-  if (!payload) return "authenticated";
-  try {
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/")
-      .padEnd(Math.ceil(payload.length / 4) * 4, "=");
-    const claims = JSON.parse(atob(normalized)) as { sub?: unknown; role?: unknown };
-    return String(claims.sub || claims.role || "authenticated").slice(0, 128);
-  } catch {
-    return "authenticated";
-  }
 };
 
 const fingerprintContext = (context: ScanContext) => ({
@@ -494,12 +486,15 @@ const readImageRequest = async (req: Request) => {
     };
   }
 
-  const { imageBase64, mimeType, matchContext, clientOcr } = await req.json();
-  const imageBytes = typeof imageBase64 === "string" ? base64ToBytes(imageBase64) : new Uint8Array();
+  const { imageBase64: rawBase64, mimeType, matchContext, clientOcr } = await req.json();
+  if (typeof rawBase64 !== "string" || !rawBase64.length || rawBase64.length > MAX_BASE64_LENGTH) throw new Error("INVALID_IMAGE_SIZE");
+  const imageBase64 = rawBase64.replace(/^data:[^;,]+;base64,/i, "").replace(/\s+/g, "");
+  const imageBytes = base64ToBytes(imageBase64);
+  if (!imageBytes.length || imageBytes.length > 12 * 1024 * 1024) throw new Error("INVALID_IMAGE_SIZE");
   return {
     imageBytes,
     imageBase64,
-    mimeType,
+    mimeType: String(mimeType || "").toLowerCase(),
     inputBytes: imageBytes.byteLength,
     detailImages: [] as ScanDetailImage[],
     matchContext: normalizeScanContext(matchContext),
@@ -526,18 +521,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Metodo no permitido.", requestId }, 405, responseHeaders);
   }
 
-  const rateLimit = await authorizeRateLimitedRequest(req, {
-    scope: "procesar-cedula",
-  });
-  if (!rateLimit.allowed) {
-    return jsonResponse(
-      { ...rateLimit.body, requestId },
-      rateLimit.status || 503,
-      { ...responseHeaders, ...rateLimit.headers },
-    );
-  }
-
   try {
+    const actor = await authorizeScanRequest(req);
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     const fallbackApiKey = Deno.env.get("GEMINI_FALLBACK_API_KEY");
     let imageRequest;
@@ -563,9 +548,9 @@ Deno.serve(async (req) => {
     }
 
     const normalizedClientOcr = normalizeClientOcr(clientOcr);
-    const ocrPolicy = Deno.env.get("CEDULA_OCR_PROVIDER") || "client-only";
+    const ocrPolicy = normalizeDocumentOcrPolicy(Deno.env.get("CEDULA_OCR_PROVIDER"), "client-only");
     const cacheKey = await createScanRequestFingerprint(imageBytes, mimeType, {
-      actor: requestActor(req),
+      actor,
       matchContext: fingerprintContext(matchContext),
       ocrPolicy,
       clientOcr: normalizedClientOcr
@@ -579,6 +564,17 @@ Deno.serve(async (req) => {
         : null,
     }, detailImages.map(detail => ({ bytes: detail.bytes, mimeType: detail.mimeType })));
     const cachedResult = await scanResultCache.getOrCreate(cacheKey, async () => {
+      // Autorizacion previa para cada API externa, con un solo consumo por
+      // lectura nueva. Los hits y solicitudes coalescidas no entran aqui.
+      const ensureRateLimit = createScanQuotaGate(() => authorizeRateLimitedRequest(req, {
+        scope: "procesar-cedula",
+        fetcher: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(6_000) }),
+      }));
+      const visionApiKey = Deno.env.get("GOOGLE_CLOUD_VISION_API_KEY") || "";
+      if (!normalizedClientOcr && visionApiKey.trim() && ["auto", "google-vision"].includes(ocrPolicy)) {
+        // Este rechazo debe propagarse; no es un fallo OCR recuperable.
+        await ensureRateLimit();
+      }
       let ocrResult: DocumentOcrResult | null = null;
       let ocrAttempted = false;
       try {
@@ -586,10 +582,10 @@ Deno.serve(async (req) => {
           clientOcr: normalizedClientOcr,
           imageBase64,
           mimeType,
-          apiKey: Deno.env.get("GOOGLE_CLOUD_VISION_API_KEY") || "",
+          apiKey: visionApiKey,
           policy: ocrPolicy,
           defaultPolicy: "client-only",
-          timeoutMs: Deno.env.get("GOOGLE_CLOUD_VISION_TIMEOUT_MS"),
+          timeoutMs: Math.min(12_000, Math.max(3_000, Number(Deno.env.get("GOOGLE_CLOUD_VISION_TIMEOUT_MS")) || 12_000)),
           parent: Deno.env.get("GOOGLE_CLOUD_VISION_PARENT"),
           languageHints: ["es"],
         });
@@ -639,46 +635,37 @@ Deno.serve(async (req) => {
         Deno.env.get("GEMINI_CEDULA_FALLBACK_MODEL"),
         model,
       );
+      const extraFallbackModel = selectGeminiExtraFallbackModel(
+        Deno.env.get("GEMINI_CEDULA_EXTRA_FALLBACK_MODEL"), model, fallbackModel,
+      );
       const scanInstructions = buildScanInstructions(matchContext, ocrResult);
       const geminiStartedAt = performance.now();
-      const attemptedModels = [model];
-      let activeModel = model;
-      let interaction;
-      try {
-        interaction = await createScanInteraction(
-          client,
-          model,
-          imageBase64,
-          mimeType,
-          scanInstructions,
-          detailImages,
-        );
-      } catch (error) {
-        if (!fallbackModel || !shouldFallbackProviderError(error)) throw error;
-        const primaryError = classifyProviderError(error);
-        console.warn("procesar-cedula: usando modelo de respaldo", JSON.stringify({
-          requestId,
-          model,
-          fallbackModel,
-          code: primaryError.responseCode,
-          upstreamStatus: primaryError.upstreamStatus,
-          quotaKind: primaryError.quotaKind,
-          retryAfterSeconds: primaryError.retryAfterSeconds,
-        }));
-        if (primaryError.responseCode === "SCAN_TEMPORARY_ERROR") {
-          await new Promise(resolve => setTimeout(resolve, 600 + Math.floor(Math.random() * 401)));
-        }
-        activeModel = fallbackModel;
-        attemptedModels.push(fallbackModel);
-        interaction = await createScanInteraction(
-          fallbackClient,
-          fallbackModel,
-          imageBase64,
-          mimeType,
-          scanInstructions,
-          detailImages,
-        );
-      }
+      const primaryResourceKey = await createProviderResourceKey(apiKey, model);
+      const fallbackResourceKey = await createProviderResourceKey(fallbackApiKey || apiKey, fallbackModel);
+      const extraFallbackResourceKey = extraFallbackModel
+        ? await createProviderResourceKey(fallbackApiKey || apiKey, extraFallbackModel)
+        : "";
+      const providerResult = await runScanWithFallback({
+        primary: { model, resourceKey: primaryResourceKey },
+        fallback: fallbackModel ? { model: fallbackModel, resourceKey: fallbackResourceKey } : undefined,
+        additionalFallback: extraFallbackModel ? { model: extraFallbackModel, resourceKey: extraFallbackResourceKey } : undefined,
+        circuit: providerCircuit,
+        beforeExecute: ensureRateLimit,
+        execute: (target, timeoutMs, signal) => createScanInteraction(
+          target.resourceKey === primaryResourceKey ? client : fallbackClient,
+          target.model, imageBase64, mimeType, scanInstructions, detailImages, timeoutMs, signal,
+        ),
+        onFallback: (previousError, target, previousTarget) => console.warn("procesar-cedula: usando modelo de respaldo", JSON.stringify({
+          requestId, model: previousTarget.model, fallbackModel: target.model,
+          code: previousError.responseCode,
+          upstreamStatus: previousError.upstreamStatus,
+          quotaKind: previousError.quotaKind,
+          retryAfterSeconds: previousError.retryAfterSeconds,
+        })),
+      });
+      const interaction = providerResult.value;
+      const activeModel = providerResult.model;
+      const attemptedModels = providerResult.attemptedModels;
 
       const outputText = interaction.output_text;
       if (!outputText) throw new Error("Gemini no devolvio contenido.");
@@ -702,7 +689,7 @@ Deno.serve(async (req) => {
         scan: normalizeGeminiScan(JSON.parse(outputText) as GeminiScan),
         scanMeta: createScanMeta({
           provider: "gemini",
-          fallbackUsed: ocrAttempted,
+          fallbackUsed: ocrAttempted || activeModel !== model,
           confidence: null,
           ocrResult,
         }),
@@ -724,6 +711,15 @@ Deno.serve(async (req) => {
       "X-Scan-Provider": cachedResult.value.scanMeta.provider,
     });
   } catch (error) {
+    if (error instanceof ScanRequestError) {
+      const { decision } = error;
+      const retryAfterSeconds = Number(decision.headers?.["Retry-After"]) || undefined;
+      return jsonResponse({
+        ...decision.body, requestId,
+        retryable: Boolean(retryAfterSeconds),
+        ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+      }, decision.status || 503, { ...responseHeaders, ...decision.headers });
+    }
     if ((error as { code?: unknown })?.code === "MISSING_GEMINI_KEY") {
       return jsonResponse({
         error: "GEMINI_API_KEY no esta configurada y el OCR local no produjo una lectura completa.",
