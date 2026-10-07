@@ -287,6 +287,38 @@ test("mutaciones con cookie exigen Origin del mismo origen", async () => {
   );
 });
 
+test("CORS no expone respuestas privadas a otro origen ni habilita preflight", async () => {
+  const route = createRouteHandler(
+    () => async (request, response) => {
+      if (request.method !== "GET") {
+        return response.status(405).json({ error: "Method not allowed" });
+      }
+      return response.status(200).json({ privateData: "solo usuario autenticado" });
+    },
+    {},
+  );
+  const externalOrigin = "https://attacker.example";
+  const readResponse = await route(new Request("http://localhost/api/private", {
+    headers: { Authorization: "Bearer test-token", Origin: externalOrigin },
+  }));
+  assert.equal(readResponse.status, 200);
+  assert.equal(readResponse.headers.has("access-control-allow-origin"), false);
+  assert.equal(readResponse.headers.has("access-control-allow-credentials"), false);
+  assert.match(readResponse.headers.get("cache-control") || "", /private.*no-store/);
+
+  const preflightResponse = await route(new Request("http://localhost/api/private", {
+    method: "OPTIONS",
+    headers: {
+      Origin: externalOrigin,
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "Authorization",
+    },
+  }));
+  assert.equal(preflightResponse.status, 405);
+  assert.equal(preflightResponse.headers.has("access-control-allow-origin"), false);
+  assert.equal(preflightResponse.headers.has("access-control-allow-headers"), false);
+});
+
 test("Bearer conserva compatibilidad y no depende de Origin", async () => {
   const route = createRouteHandler(
     () => async (_request, response) =>

@@ -27,8 +27,9 @@ export default async function LoginPage({ searchParams }) {
     getServerAuthSnapshot(),
     searchParams,
   ]);
+  const initialRecovery = readSearchValue(resolvedSearchParams?.recovery) === "1";
 
-  if (initialAuth.status === "authenticated") {
+  if (initialAuth.status === "authenticated" && !initialRecovery) {
     const fallback = getDefaultAuthenticatedPath(
       initialAuth.profile.role,
     );
@@ -41,7 +42,7 @@ export default async function LoginPage({ searchParams }) {
 
   return (
     <PublicPageProviders initialAuth={initialAuth}>
-      <LoginTemplate />
+      <LoginTemplate initialRecovery={initialRecovery} />
     </PublicPageProviders>
   );
 }

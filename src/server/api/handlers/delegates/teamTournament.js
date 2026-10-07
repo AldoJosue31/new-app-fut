@@ -29,12 +29,12 @@ const normalizeTournamentConfig = (config) => {
   };
 };
 
-const publicMatch = (match) => ({
+const publicMatch = (match, teamId) => ({
   id: match.id,
   jornada_id: match.jornada_id,
   team1_id: match.team1_id,
   team2_id: match.team2_id,
-  date: match.date,
+  date: match.team1_id === teamId || match.team2_id === teamId ? match.date : null,
   status: match.status,
   goals1: match.goals1,
   goals2: match.goals2,
@@ -43,7 +43,9 @@ const publicMatch = (match) => ({
   jornadas: match.jornadas,
   observations: /doble\s*w\.?o\.?|ambos\s+pierden\s+por\s+default/i.test(match.observations || "")
     ? "Doble W.O."
-    : (String(match.observations || "").match(/Pen.*?:\s*\d+\s*-\s*\d+/i)?.[0] || ""),
+    : (match.team1_id === teamId || match.team2_id === teamId
+      ? String(match.observations || "").match(/Pen.*?:\s*\d+\s*-\s*\d+/i)?.[0] || ""
+      : ""),
 });
 
 const MATCH_PAGE_SIZE = 1000;
@@ -156,7 +158,7 @@ export const createHandler = (dependencies = {}) => {
         },
         teams: teamsResult.data || [],
         jornadas: jornadasResult.data || [],
-        matches: matchesResult.map(publicMatch),
+        matches: matchesResult.map((match) => publicMatch(match, teamId)),
       });
     } catch (error) {
       return respondWithError(res, error);

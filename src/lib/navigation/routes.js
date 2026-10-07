@@ -3,6 +3,7 @@ const encodePathSegment = (value) => encodeURIComponent(String(value));
 export const ROUTES = Object.freeze({
   ADMIN_MANAGERS: "/admin/managers",
   AUTH_CALLBACK: "/auth/callback",
+  AUTH_CONFIRM: "/auth/confirm",
   CONFIGURATION: "/configuracion",
   DASHBOARD: "/dashboard",
   DELEGATE_INVITATION_PATTERN: "/delegate/invitation/:token",
@@ -13,6 +14,7 @@ export const ROUTES = Object.freeze({
   LANDING: "/landing",
   LEAGUE_PATTERN: "/liga/:tab?",
   LOGIN: "/login",
+  RESET_PASSWORD: "/restablecer-contrasena",
   MANAGER_INVITATION_PATTERN: "/invitation/:token",
   MATCHES: "/partidos",
   PUBLIC_STANDINGS_PATTERN: "/share/standings/:torneoId",
@@ -61,6 +63,12 @@ export const buildAuthCallbackPath = (origin, returnPath) => {
   const safeReturnPath = sanitizeInternalPath(returnPath, "");
   if (safeReturnPath) callbackUrl.searchParams.set("next", safeReturnPath);
   return callbackUrl.toString();
+};
+
+export const buildPasswordRecoveryPath = (origin) => {
+  const confirmUrl = new URL(ROUTES.AUTH_CONFIRM, origin);
+  confirmUrl.searchParams.set("next", ROUTES.RESET_PASSWORD);
+  return confirmUrl.toString();
 };
 
 const hasUnsafeDecodedPath = (value) => {

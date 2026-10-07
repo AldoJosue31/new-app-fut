@@ -22,6 +22,7 @@ const PUBLIC_PATTERNS = [
   /^\/$/,
   /^\/landing\/?$/,
   /^\/login\/?$/,
+  /^\/restablecer-contrasena\/?$/,
   /^\/share\/standings\/[^/]+\/?$/,
   /^\/invitation\/[^/]+\/?$/,
   /^\/delegate\/invitation\/[^/]+\/?$/,

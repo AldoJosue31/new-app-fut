@@ -3,11 +3,17 @@ import { supabase } from "../lib/supabase/browserClient.js";
 import { isAuthUnavailable } from "../lib/auth/sessionErrors.js";
 import {
   buildAuthCallbackPath,
+  buildPasswordRecoveryPath,
   ROUTES,
 } from "../lib/navigation/routes.js";
 import { useDivisionStore } from './DivisionStore';
 import { useEquiposStore } from './EquiposStore';
 import { ROLES } from '../utils/constants';
+import {
+  normalizeRecoveryEmail,
+  validateRecoveryEmail,
+  validateNewPassword,
+} from '../lib/auth/passwordRecovery.js';
 
 export const useAuthStore = create((set, get) => {
   const clearSessionState = () => {
@@ -62,6 +68,33 @@ export const useAuthStore = create((set, get) => {
   };
 
   const actions = {
+    requestPasswordRecovery: async (email) => {
+      const normalizedEmail = normalizeRecoveryEmail(email);
+      const validationError = validateRecoveryEmail(normalizedEmail);
+      if (validationError) throw new Error(validationError);
+      set({ authLoadingAction: true });
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+          redirectTo: buildPasswordRecoveryPath(window.location.origin),
+        });
+        if (error) throw error;
+      } finally {
+        set({ authLoadingAction: false });
+      }
+    },
+
+    updateRecoveredPassword: async (password, confirmation) => {
+      const validationError = validateNewPassword(password, confirmation);
+      if (validationError) throw new Error(validationError);
+      set({ authLoadingAction: true });
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+      } finally {
+        set({ authLoadingAction: false });
+      }
+    },
+
     signupWithEmail: async (email, password, extra = {}) => {
       set({ authLoadingAction: true });
 
