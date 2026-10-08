@@ -29,7 +29,9 @@ import {
 import {
   createCedulaScanFingerprint,
   getOrCreateCedulaScanRequest,
+  getCachedCedulaScanResult,
 } from "../../../../../../utils/cedulaScanRequestCache";
+import { invokeCedulaScan, waitForCedulaScan } from "../../../../../../utils/cedulaScanClient.js";
 import {
   CEDULA_PLAYER_DETAIL_VERSION,
   getCedulaPlayerDetailRegions,
@@ -45,24 +47,32 @@ import { ScanShell, PanelHeading, ChoiceRow, Action, PrimaryAction, SecondaryAct
 
 const MAX_PLAYER_DETAIL_SIDE = 2400;
 const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
-const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v2";
-const DAILY_QUOTA_CODE = "SCAN_DAILY_QUOTA_EXCEEDED";
+const SCAN_COOLDOWN_STORAGE_KEY = "cedula-scan-cooldown-until-v3";
+const SCAN_COOLDOWN_EVENT = "cedula-scan-cooldown";
+const cooldowns = new Map();
 
-const readScanCooldownUntil = () => {
+const readScanCooldownUntil = (scope) => {
+  const inMemory = cooldowns.get(scope) || 0;
   if (typeof window === "undefined") return 0;
   try {
-    const value = Number(window.localStorage.getItem(SCAN_COOLDOWN_STORAGE_KEY));
+    const value = Math.max(inMemory, Number(window.localStorage.getItem(`${SCAN_COOLDOWN_STORAGE_KEY}:${scope}`)) || 0);
     return Number.isFinite(value) && value > Date.now() ? value : 0;
   } catch {
-    return 0;
+    return inMemory > Date.now() ? inMemory : 0;
   }
 };
 
-const storeScanCooldownUntil = (value) => {
+const storeScanCooldownUntil = (scope, value) => {
+  const previous = cooldowns.get(scope) || 0;
+  const current = readScanCooldownUntil(scope);
+  const nextValue = value > Date.now() ? Math.max(current, value) : current;
+  if (nextValue > Date.now()) cooldowns.set(scope, nextValue);
+  else cooldowns.delete(scope);
   try {
-    if (value > Date.now()) window.localStorage.setItem(SCAN_COOLDOWN_STORAGE_KEY, String(value));
-    else window.localStorage.removeItem(SCAN_COOLDOWN_STORAGE_KEY);
+    if (nextValue > Date.now()) window.localStorage.setItem(`${SCAN_COOLDOWN_STORAGE_KEY}:${scope}`, String(nextValue));
+    else window.localStorage.removeItem(`${SCAN_COOLDOWN_STORAGE_KEY}:${scope}`);
   } catch { /* El bloqueo sigue activo en memoria si localStorage no esta disponible. */ }
+  if (previous !== nextValue) window.dispatchEvent(new CustomEvent(SCAN_COOLDOWN_EVENT, { detail: { scope } }));
 };
 
 const secondsUntil = (timestamp) => Math.max(0, Math.ceil((timestamp - Date.now()) / 1000));
@@ -136,43 +146,25 @@ const fileToScanPayload = (file) => prepareImageForScan(file, {
   createDetailImages: createPlayerDetailImages,
 });
 
-const invokeScanFunction = async (image, matchContext) => {
-  const formData = new FormData();
-  formData.append("image", image.blob, image.fileName);
-  formData.append("mimeType", image.mimeType);
-  formData.append("matchContext", JSON.stringify(matchContext));
-  for (const detail of image.detailImages || []) {
-    formData.append("detailImages", detail.blob, detail.fileName);
-  }
-  const clientRequestId = globalThis.crypto?.randomUUID?.() || `cedula-${Date.now()}`;
-  const { data, error } = await supabase.functions.invoke("procesar-cedula", {
-    body: formData,
-    headers: { "x-request-id": clientRequestId },
+const prepareFileForScan = (file) => {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(Object.assign(
+      new Error("No se pudo preparar la imagen a tiempo. Intenta de nuevo o elige otra foto."),
+      { code: "SCAN_IMAGE_TIMEOUT", retryable: true },
+    )), 20_000);
   });
-  if (!error) return data;
+  return Promise.race([fileToScanPayload(file), deadline])
+    .then(payload => ({ payload, error: null }))
+    .catch(error => ({ payload: null, error }))
+    .finally(() => window.clearTimeout(timer));
+};
 
-  const status = Number(error?.context?.status);
-  let responseBody = null;
-  try {
-    const response = typeof error.context?.clone === "function" ? error.context.clone() : error.context;
-    responseBody = await response?.json();
-  } catch { /* La respuesta no era JSON. */ }
-
-  const responseHeaders = error?.context?.headers;
-  const gatewayCode = responseHeaders?.get?.("sb-error-code") || "";
-  const retryAfterHeader = Number(responseHeaders?.get?.("retry-after"));
-  const retryAfterSeconds = Number(responseBody?.retryAfterSeconds) || retryAfterHeader || (status === 429 ? 60 : 0);
-  const fallbackMessage = status === 429
-    ? "El servicio alcanzo temporalmente su limite de lecturas. Espera antes de volver a intentar."
-    : error.message;
-  const invocationError = new Error(responseBody?.error || fallbackMessage || "No se pudo escanear la cedula.");
-  invocationError.code = responseBody?.code || gatewayCode || "FUNCTION_ERROR";
-  invocationError.retryable = typeof responseBody?.retryable === "boolean"
-    ? responseBody.retryable
-    : [429, 502, 503, 504].includes(status);
-  invocationError.retryAfterSeconds = Math.max(0, Math.ceil(retryAfterSeconds));
-  invocationError.requestId = responseBody?.requestId || responseHeaders?.get?.("x-request-id") || clientRequestId;
-  throw invocationError;
+const fingerprintImage = async (image, context) => {
+  const detailHashes = await Promise.all((image.detailImages || []).map(detail => (
+    createCedulaScanFingerprint(detail.blob, { mimeType: detail.mimeType })
+  )));
+  return createCedulaScanFingerprint(image.blob, { ...context, detailHashes }, "cedula-scan-v4-reliability");
 };
 
 const emptyScan = {
@@ -210,9 +202,14 @@ export function CedulaScanFlow({
   const [rawScan, setRawScan] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
+  const [scanError, setScanError] = useState(null);
+  const [scanScope, setScanScope] = useState("");
+  const [hasCachedScan, setHasCachedScan] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [cooldownHydrated, setCooldownHydrated] = useState(false);
+  const [cooldownScope, setCooldownScope] = useState("");
   const [applyScannedDate, setApplyScannedDate] = useState(false);
   const [applyScannedTime, setApplyScannedTime] = useState(false);
   const [scoreResolutions, setScoreResolutions] = useState({});
@@ -221,14 +218,44 @@ export function CedulaScanFlow({
   const preparedImageRef = useRef(null);
   const scanInFlightRef = useRef(false);
   const cooldownUntilRef = useRef(0);
+  const scanWaitRef = useRef(null);
+  const scanGenerationRef = useRef(0);
 
   useEffect(() => {
-    const storedCooldownUntil = readScanCooldownUntil();
+    let active = true;
+    const updateScope = (session) => {
+      if (active) setScanScope(`${supabase.supabaseUrl}:${session?.user?.id || "anonymous"}`);
+    };
+    supabase.auth.getSession().then(({ data }) => updateScope(data.session)).catch(() => updateScope(null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => updateScope(session));
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    scanGenerationRef.current += 1;
+    scanWaitRef.current?.abort();
+    scanInFlightRef.current = false;
+    setScanning(false);
+    setRawScan(null);
+    setScanError(null);
+    setHasCachedScan(false);
+    if (!scanScope) return undefined;
+    const storedCooldownUntil = readScanCooldownUntil(scanScope);
     cooldownUntilRef.current = storedCooldownUntil;
     setCooldownUntil(storedCooldownUntil);
     setCooldownSeconds(secondsUntil(storedCooldownUntil));
+    setCooldownScope(scanScope);
     setCooldownHydrated(true);
-  }, []);
+    return () => {
+      scanGenerationRef.current += 1;
+      scanWaitRef.current?.abort();
+      if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    };
+  }, [scanScope]);
 
   const scanContext = useMemo(() => ({
     teams: [
@@ -251,16 +278,35 @@ export function CedulaScanFlow({
     ],
   }), [localPlayers, match, visitPlayers]);
 
+  const fingerprintContext = useMemo(() => ({
+    scope: scanScope,
+    detailVersion: CEDULA_PLAYER_DETAIL_VERSION,
+    matchId: match?.id || match?.match_id || match?.partido_id || "",
+    localTeamId: match?.local?.id || "",
+    visitorTeamId: match?.visitante?.id || "",
+    scanContext,
+  }), [scanScope, scanContext, match?.id, match?.match_id, match?.partido_id, match?.local?.id, match?.visitante?.id]);
+
+  useEffect(() => {
+    let active = true;
+    setHasCachedScan(false);
+    if (!file || !scanScope) return undefined;
+    const preparation = preparedImageRef.current || prepareFileForScan(file);
+    preparedImageRef.current = preparation;
+    preparation.then(async ({ payload }) => {
+      if (!payload) return;
+      const fingerprint = await fingerprintImage(payload, fingerprintContext);
+      if (active) setHasCachedScan(Boolean(getCachedCedulaScanResult(fingerprint)));
+    }).catch(() => { /* El escaneo puede continuar sin cache en navegadores antiguos. */ });
+    return () => { active = false; };
+  }, [file, fingerprintContext, scanScope]);
+
   useEffect(() => () => {
     if (previewUrl && previewUrl !== savedPhoto?.url) URL.revokeObjectURL(previewUrl);
   }, [previewUrl, savedPhoto?.url]);
 
-  useEffect(() => () => {
-    if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
-  }, []);
-
   useEffect(() => {
-    if (!cooldownHydrated) return undefined;
+    if (!cooldownHydrated || cooldownScope !== scanScope) return undefined;
 
     cooldownUntilRef.current = cooldownUntil;
     let timerId = null;
@@ -268,7 +314,7 @@ export function CedulaScanFlow({
       const remaining = secondsUntil(cooldownUntilRef.current);
       setCooldownSeconds(remaining);
       if (remaining === 0) {
-        storeScanCooldownUntil(0);
+        storeScanCooldownUntil(scanScope, 0);
         if (timerId) window.clearInterval(timerId);
       }
     };
@@ -277,40 +323,52 @@ export function CedulaScanFlow({
     return () => {
       if (timerId) window.clearInterval(timerId);
     };
-  }, [cooldownHydrated, cooldownUntil]);
+  }, [cooldownHydrated, cooldownUntil, scanScope, cooldownScope]);
 
   useEffect(() => {
     const syncCooldownAcrossTabs = (event) => {
-      if (event.key !== SCAN_COOLDOWN_STORAGE_KEY) return;
+      if (event.key !== `${SCAN_COOLDOWN_STORAGE_KEY}:${scanScope}`) return;
       const nextCooldownUntil = Number(event.newValue) || 0;
+      if (nextCooldownUntil > Date.now()) cooldowns.set(scanScope, nextCooldownUntil);
+      else cooldowns.delete(scanScope);
+      cooldownUntilRef.current = nextCooldownUntil;
+      setCooldownUntil(nextCooldownUntil);
+      setCooldownSeconds(secondsUntil(nextCooldownUntil));
+    };
+    const syncCooldownInThisTab = (event) => {
+      if (event.detail?.scope !== scanScope) return;
+      const nextCooldownUntil = readScanCooldownUntil(scanScope);
       cooldownUntilRef.current = nextCooldownUntil;
       setCooldownUntil(nextCooldownUntil);
       setCooldownSeconds(secondsUntil(nextCooldownUntil));
     };
     window.addEventListener("storage", syncCooldownAcrossTabs);
-    return () => window.removeEventListener("storage", syncCooldownAcrossTabs);
-  }, []);
+    window.addEventListener(SCAN_COOLDOWN_EVENT, syncCooldownInThisTab);
+    return () => {
+      window.removeEventListener("storage", syncCooldownAcrossTabs);
+      window.removeEventListener(SCAN_COOLDOWN_EVENT, syncCooldownInThisTab);
+    };
+  }, [scanScope]);
 
-  const startScanCooldown = useCallback((seconds, code) => {
-    const maxDuration = code === DAILY_QUOTA_CODE ? 26 * 60 * 60 : 5 * 60;
-    const duration = Math.min(maxDuration, Math.max(1, Math.ceil(Number(seconds) || 0)));
+  const startScanCooldown = useCallback((seconds) => {
+    const duration = Math.max(1, Math.ceil(Number(seconds) || 0));
     const nextCooldownUntil = Math.max(cooldownUntilRef.current, Date.now() + duration * 1000);
     cooldownUntilRef.current = nextCooldownUntil;
-    storeScanCooldownUntil(nextCooldownUntil);
+    storeScanCooldownUntil(scanScope, nextCooldownUntil);
     setCooldownUntil(nextCooldownUntil);
     setCooldownSeconds(secondsUntil(nextCooldownUntil));
-  }, []);
+  }, [scanScope]);
 
   const selectFile = useCallback((nextFile) => {
     if (!nextFile) return;
     setUsingSavedPhoto(false);
     setPreviewUrl(URL.createObjectURL(nextFile));
     setFile(nextFile);
-    preparedImageRef.current = fileToScanPayload(nextFile)
-      .then(payload => ({ payload, error: null }))
-      .catch(error => ({ payload: null, error }));
+    preparedImageRef.current = prepareFileForScan(nextFile);
     setPreviewAvailable(null);
     setRawScan(null);
+    setScanError(null);
+    setHasCachedScan(false);
     setScanProgress(0);
     setApplyScannedDate(false);
     setApplyScannedTime(false);
@@ -448,69 +506,74 @@ export function CedulaScanFlow({
   }, [localPlayers, match, rawScan, referees, visitPlayers]);
 
   const scanImage = async () => {
-    if (!file || scanInFlightRef.current || Date.now() < cooldownUntilRef.current) return;
+    if (!file || !cooldownHydrated || cooldownScope !== scanScope || !scanScope || scanInFlightRef.current) return;
     scanInFlightRef.current = true;
+    const generation = ++scanGenerationRef.current;
+    const controller = new AbortController();
+    scanWaitRef.current = controller;
+    const isCurrent = () => generation === scanGenerationRef.current && !controller.signal.aborted;
+    const startedAt = Date.now();
     setApplyScannedDate(false);
     setApplyScannedTime(false);
     setScoreResolutions({});
     setHasAcceptedTeamMismatch(false);
     setScanning(true);
+    setScanError(null);
+    setScanElapsedSeconds(0);
     setScanProgress(6);
     progressTimerRef.current = window.setInterval(() => {
-      setScanProgress(current => {
-        if (current < 28) return Math.min(28, current + 5);
-        if (current < 58) return Math.min(58, current + 3);
-        if (current < 80) return Math.min(80, current + 2);
-        if (current < 92) return current + 1;
-        return current;
-      });
-    }, 420);
+      if (isCurrent()) setScanElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
     try {
-      const prepared = await (preparedImageRef.current || fileToScanPayload(file)
-        .then(payload => ({ payload, error: null }))
-        .catch(error => ({ payload: null, error })));
-      if (prepared.error || !prepared.payload) throw prepared.error || new Error("No se pudo preparar la imagen.");
+      const prepared = await waitForCedulaScan(preparedImageRef.current || prepareFileForScan(file), controller.signal);
+      if (prepared.error || !prepared.payload) {
+        preparedImageRef.current = null;
+        throw prepared.error || new Error("No se pudo preparar la imagen.");
+      }
       const image = prepared.payload;
-      setScanProgress(current => Math.max(current, 18));
-      const fingerprintContext = {
-        detailVersion: CEDULA_PLAYER_DETAIL_VERSION,
-        matchId: match?.id || match?.match_id || match?.partido_id || "",
-        localTeamId: match?.local?.id || "",
-        visitorTeamId: match?.visitante?.id || "",
-        scanContext,
-      };
+      if (!isCurrent()) return;
+      setScanProgress(18);
       let fingerprint = "";
       try {
-        fingerprint = await createCedulaScanFingerprint(image.blob, fingerprintContext);
+        fingerprint = await waitForCedulaScan(fingerprintImage(image, fingerprintContext), controller.signal);
       } catch { /* Navegadores antiguos pueden continuar sin cache local. */ }
-      const data = fingerprint
-        ? await getOrCreateCedulaScanRequest(
-          fingerprint,
-          () => invokeScanFunction(image, scanContext),
-        )
-        : await invokeScanFunction(image, scanContext);
-      if (!data?.scan) throw new Error(data?.error || "La funcion no devolvio datos del escaneo.");
-      if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
-      setScanProgress(100);
-      await new Promise(resolve => window.setTimeout(resolve, 120));
-      setRawScan({ ...emptyScan, ...data.scan });
-    } catch (error) {
-      if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds, error.code);
-      let message = error?.message || "No se pudo escanear la cedula.";
-      if (error?.context) {
+      if (!isCurrent()) return;
+      const requestFactory = async () => {
+        const remaining = secondsUntil(readScanCooldownUntil(scanScope));
+        if (remaining > 0) throw Object.assign(new Error("Espera a que termine la pausa antes de solicitar otra lectura."), {
+          code: "SCAN_COOLDOWN", retryable: true, retryAfterSeconds: remaining,
+        });
         try {
-          const body = await error.context.json();
-          message = body?.error || message;
-        } catch { /* La respuesta no era JSON. */ }
-      }
+          return await invokeCedulaScan(supabase, image, scanContext);
+        } catch (error) {
+          // La solicitud compartida puede terminar después de salir de esta vista.
+          if (error.retryAfterSeconds > 0) storeScanCooldownUntil(scanScope, Date.now() + error.retryAfterSeconds * 1000);
+          throw error;
+        }
+      };
+      const request = fingerprint
+        ? getOrCreateCedulaScanRequest(fingerprint, requestFactory)
+        : requestFactory();
+      const data = await waitForCedulaScan(request, controller.signal);
+      if (!isCurrent()) return;
+      setScanProgress(100);
+      setRawScan({ ...emptyScan, ...data.scan });
+      setHasCachedScan(Boolean(fingerprint));
+    } catch (error) {
+      if (!isCurrent() || error.code === "SCAN_CANCELLED") return;
+      if (error?.retryAfterSeconds > 0) startScanCooldown(error.retryAfterSeconds);
+      const message = error?.message || "No se pudo escanear la cedula.";
+      setScanError({ message, retryable: error.retryable, requestId: error.requestId });
       showToast(message, "error");
       setScanProgress(0);
     } finally {
-      scanInFlightRef.current = false;
-      if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
-      setScanning(false);
+      if (isCurrent()) {
+        scanInFlightRef.current = false;
+        scanWaitRef.current = null;
+        if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+        setScanning(false);
+      }
     }
   };
 
@@ -532,7 +595,7 @@ export function CedulaScanFlow({
         || event.shiftKey
         || event.defaultPrevented
         || scanInFlightRef.current
-        || Date.now() < cooldownUntilRef.current
+        || (!hasCachedScan && Date.now() < cooldownUntilRef.current)
       ) return;
 
       const target = event.target;
@@ -549,7 +612,7 @@ export function CedulaScanFlow({
 
     window.addEventListener("keydown", handleEnterToScan);
     return () => window.removeEventListener("keydown", handleEnterToScan);
-  }, [file, rawScan]);
+  }, [file, rawScan, hasCachedScan]);
 
   const scanLocalName = match?.local?.name || "Local";
   const scanVisitorName = match?.visitante?.name || "Visitante";
@@ -591,6 +654,8 @@ export function CedulaScanFlow({
 
   if (!rawScan || !interpretation) {
     const cooldownLabel = formatCooldown(cooldownSeconds);
+    const waitingForQuota = cooldownSeconds > 0 && !hasCachedScan;
+    const scanStatus = scanProgress < 18 ? "Preparando imagen" : scanElapsedSeconds >= 45 ? "La lectura sigue en curso" : "Leyendo cédula";
     return (
       <ScanShell>
         <PanelHeading>
@@ -620,36 +685,50 @@ export function CedulaScanFlow({
               <div className="scan-line" />
               <div className="scan-status">
                 <RiScan2Line />
-                <span>Analizando documento</span>
-                <strong>{scanProgress}%</strong>
+                <span>{scanStatus}</span>
+                <strong>{scanElapsedSeconds}s</strong>
               </div>
             </ScanningOverlay>
           )}
         </PreviewFrame>
+        {scanError && (
+          <ScanErrorNotice role="alert">
+            <RiErrorWarningLine aria-hidden="true" />
+            <div>
+              <strong>{scanError.message}</strong>
+              <p>{waitingForQuota
+                ? `Puedes volver a intentar en ${cooldownLabel}. La imagen sigue lista.`
+                : scanError.retryable === false
+                  ? "La imagen sigue lista. Revisa el problema indicado antes de volver a intentar."
+                  : "La imagen sigue lista para volver a intentar."}</p>
+              {scanError.requestId && <small>Referencia: {scanError.requestId}</small>}
+            </div>
+          </ScanErrorNotice>
+        )}
         <ChoiceRow>
           {!coarseDevice && !scanning && cooldownSeconds === 0 && (
             <ScanShortcut aria-hidden="true">
               Presiona <kbd>Enter</kbd> para escanear
             </ScanShortcut>
           )}
-          <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setPreviewUrl(""); setRawScan(null); setUsingSavedPhoto(false); }}>
+          <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); setPreviewUrl(""); setRawScan(null); setScanError(null); setHasCachedScan(false); setUsingSavedPhoto(false); }}>
             <RiRefreshLine /> Cambiar foto
           </SecondaryAction>
           <ScanProgressButton
             type="button"
-            disabled={scanning || cooldownSeconds > 0}
+            disabled={scanning || !cooldownHydrated || cooldownScope !== scanScope || waitingForQuota}
             onClick={scanImage}
             aria-keyshortcuts="Enter"
             $scanning={scanning}
             $progress={scanning ? scanProgress : 100}
             aria-label={scanning
-              ? `Escaneando cedula ${scanProgress}%`
-              : cooldownSeconds > 0 ? `Reintentar escaneo en ${cooldownLabel}` : "Escanear cedula"}
+              ? `${scanStatus}, ${scanElapsedSeconds} segundos`
+              : waitingForQuota ? `Reintentar escaneo en ${cooldownLabel}` : "Escanear cedula"}
           >
             <span className="button-content">
               <RiScan2Line /> {scanning
-                ? `Escaneando ${scanProgress}%`
-                : cooldownSeconds > 0 ? `Reintentar en ${cooldownLabel}` : "Escanear"}
+                ? `Leyendo · ${scanElapsedSeconds}s`
+                : waitingForQuota ? `Reintentar en ${cooldownLabel}` : hasCachedScan ? "Ver lectura" : scanError ? "Reintentar" : "Escanear"}
             </span>
           </ScanProgressButton>
         </ChoiceRow>
@@ -1350,6 +1429,14 @@ const SavedPhotoHint = styled.p`
   color:${({theme})=>theme.text};
   font-size:.82rem;
   line-height:1.4;
+`;
+const ScanErrorNotice = styled.div`
+  display:flex;gap:10px;padding:12px;flex-shrink:0;
+  border:1px solid ${v.rojo}55;border-radius:10px;background:${v.rojo}0a;
+  color:${({theme})=>theme.text};font-size:.82rem;line-height:1.4;
+  >svg{flex-shrink:0;color:${v.rojo};font-size:1.2rem;}
+  p{margin:5px 0;}
+  small{display:block;opacity:.65;overflow-wrap:anywhere;}
 `;
 const ScanShortcut = styled.span`
   align-self:center;

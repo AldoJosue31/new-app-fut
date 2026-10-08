@@ -16,6 +16,7 @@ import {
   sanitizeInternalPath,
 } from "../../lib/navigation/routes.js";
 import { notify } from "../../lib/notifications/notify.js";
+import PasswordRecoveryRequest from "../organismos/auth/PasswordRecoveryRequest.jsx";
 
 const GoogleIcon = v.iconogoogle;
 const showLoginError = (message) => notify.error(message, { duration: 6000 });
@@ -49,12 +50,18 @@ const getOAuthErrorMessage = (errorCode, errorDescription) => {
     return 'No fue posible iniciar sesión con Google. Inténtalo nuevamente.';
 };
 
-export function LoginTemplate() {
+export function LoginTemplate({ initialRecovery = false }) {
     const { loginWithEmail, loginGoogle, authLoadingAction } = useAuthStore();
     const emailRef = useRef(null);
     const passRef = useRef(null);
     const authActionInFlight = useRef(false);
     const [returnPath, setReturnPath] = useState(ROUTES.DASHBOARD);
+    const [recoveringPassword, setRecoveringPassword] = useState(initialRecovery);
+    const [recoveryEmail, setRecoveryEmail] = useState("");
+
+    useEffect(() => {
+        if (!recoveringPassword) emailRef.current?.focus();
+    }, [recoveringPassword]);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(window.location.search);
@@ -138,6 +145,16 @@ export function LoginTemplate() {
         }
     };
 
+    if (recoveringPassword) return (
+        <PasswordRecoveryRequest initialEmail={recoveryEmail} onBack={(email) => {
+            setRecoveryEmail(email);
+            setRecoveringPassword(false);
+            const url = new URL(window.location.href);
+            url.searchParams.delete("recovery");
+            window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+        }} />
+    );
+
     return (
         <Container>
             <BackgroundLayer />
@@ -163,6 +180,7 @@ export function LoginTemplate() {
                         <InputText2>
                             <input
                                 ref={emailRef}
+                                defaultValue={recoveryEmail}
                                 className="form__field"
                                 placeholder="Correo electrónico"
                                 type="email"
@@ -188,6 +206,12 @@ export function LoginTemplate() {
                             />
                         </InputText2>
                     </InputWrapper>
+
+                    <ForgotPasswordButton type="button" disabled={authLoadingAction}
+                        onClick={() => {
+                            setRecoveryEmail(emailRef.current?.value || "");
+                            setRecoveringPassword(true);
+                        }}>¿Olvidaste tu contraseña?</ForgotPasswordButton>
 
                     <div className="actions">
                         <Btnsave
@@ -381,6 +405,24 @@ const Form = styled.form`
   flex-direction: column;
   gap: 12px;
   margin-top: 6px;
+`;
+
+const ForgotPasswordButton = styled.button`
+  align-self: flex-end;
+  min-height: 44px;
+  margin-top: -4px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: ${({ theme }) => theme.body === "#202020" ? "#69ccfa" : "#0874a8"};
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-underline-offset: 4px;
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; border-radius: 4px; }
+  &:disabled { opacity: 0.7; cursor: wait; }
 `;
 
 const InputWrapper = styled.div`

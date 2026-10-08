@@ -2,7 +2,9 @@ import {
   classifyProviderError,
   DEFAULT_GEMINI_FALLBACK_MODEL,
   DEFAULT_GEMINI_MODEL,
+  DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL,
   selectGeminiFallbackModel,
+  selectGeminiExtraFallbackModel,
   selectGeminiModel,
   secondsUntilNextPacificMidnight,
   shouldFallbackProviderError,
@@ -102,5 +104,29 @@ Deno.test("usa respaldo por indisponibilidad o agotamiento del modelo principal"
     "modelo no disponible",
   );
   assertEquals(shouldFallbackProviderError({ status: 429 }), true, "429 con respaldo");
-  assertEquals(shouldFallbackProviderError({ status: 504 }), false, "timeout sin segunda llamada");
+  assertEquals(shouldFallbackProviderError({ status: 504 }), true, "timeout con respaldo acotado");
+});
+
+Deno.test("respeta Retry-After largo y la fecha HTTP del proveedor", () => {
+  const now = new Date("2026-10-07T12:00:00.000Z");
+  assertEquals(classifyProviderError({ status: 429, headers: new Headers({ "Retry-After": "600" }) }, now).retryAfterSeconds, 600, "espera sin truncar");
+  assertEquals(classifyProviderError({ status: 429, headers: { "Retry-After": "Wed, 07 Oct 2026 12:05:00 GMT" } }, now).retryAfterSeconds, 300, "espera con fecha");
+});
+
+Deno.test("clasifica limite de gasto aunque aparezca solo en el mensaje", () => {
+  const classified = classifyProviderError({ statusCode: 429, message: "Project spend-based rate limit exceeded" });
+  assertEquals(classified.responseCode, "SCAN_BILLING_LIMIT", "codigo de gasto");
+  assertEquals(shouldFallbackProviderError({ status: 429, message: "Project spend limit exceeded" }), false, "no repite una cuota compartida de gasto");
+});
+
+Deno.test("respaldo adicional usa Flash 3.7, respeta off e ignora retirados y duplicados", () => {
+  const select = (configured: string) => selectGeminiExtraFallbackModel(configured, DEFAULT_GEMINI_MODEL, DEFAULT_GEMINI_FALLBACK_MODEL);
+  assertEquals(select(""), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "modelo adicional");
+  assertEquals(DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "gemini-3.7-flash", "Flash completo");
+  assertEquals(select("off"), "", "desactivado");
+  assertEquals(select("models/gemini-3.8-flash"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin duplicar principal");
+  assertEquals(select("gemini-2.0-flash"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin retirados");
+  assertEquals(select("gemini-3.5-flash-lite"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin Lite");
+  assertEquals(select("gemini-3.1-pro-preview"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin Pro");
+  assertEquals(selectGeminiExtraFallbackModel("", "gemini-3.7-flash", DEFAULT_GEMINI_FALLBACK_MODEL), "", "default ya usado");
 });

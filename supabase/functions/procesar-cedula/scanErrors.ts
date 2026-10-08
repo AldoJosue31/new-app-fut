@@ -1,5 +1,6 @@
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.6-flash";
+export const DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL = "gemini-3.7-flash";
 
 const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 const PACIFIC_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -11,9 +12,11 @@ const PACIFIC_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 
 type ProviderError = {
   status?: unknown;
+  statusCode?: unknown;
   code?: unknown;
   name?: unknown;
   message?: unknown;
+  headers?: Headers | Record<string, string>;
   error?: { code?: unknown; status?: unknown; message?: unknown; details?: unknown };
 };
 
@@ -29,6 +32,14 @@ export type ScanErrorClassification = {
   retryAfterSeconds?: number;
   quotaKind?: "daily" | "spend" | "temporary";
 };
+
+/** Conserva una clasificacion interna al devolver un circuito abierto. */
+export class ClassifiedScanError extends Error {
+  constructor(readonly classification: ScanErrorClassification) {
+    super(classification.responseMessage);
+    this.name = classification.name;
+  }
+}
 
 const cleanModelName = (value: unknown) =>
   String(value || "").trim().replace(/^models\//i, "");
@@ -117,7 +128,7 @@ const quotaMetadata = (details: unknown, message: string) => {
   for (const entry of entries) {
     if (!entry || typeof entry !== "object") continue;
     const detail = entry as { retryDelay?: unknown; violations?: unknown };
-    retryAfterSeconds ||= secondsFromDuration(detail.retryDelay);
+    retryAfterSeconds = Math.max(retryAfterSeconds, secondsFromDuration(detail.retryDelay));
     if (!Array.isArray(detail.violations)) continue;
     for (const violation of detail.violations) {
       if (!violation || typeof violation !== "object") continue;
@@ -133,17 +144,43 @@ const quotaMetadata = (details: unknown, message: string) => {
   const quotaText = `${quotaDetailsText} ${message}`;
   const quotaKind = /requests?\s*per[\s_-]*day|per[\s_-]*day|daily|\brpd\b/i.test(quotaText)
     ? "daily"
-    : /spend|billing|factur|paid.?tier.?spend/i.test(quotaDetailsText)
+    : /spend|billing.{0,50}(?:limit|exceed)|factur|paid.?tier.?spend/i.test(quotaText)
     ? "spend"
     : "temporary";
   return { retryAfterSeconds, quotaKind } as const;
 };
 
-const providerDetails = (error: unknown) => {
+const retryAfterHeader = (headers: ProviderError["headers"], now: Date) => {
+  const value = headers instanceof Headers
+    ? headers.get("retry-after")
+    : Object.entries(headers || {}).find(([key]) => key.toLowerCase() === "retry-after")?.[1];
+  if (!value) return 0;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return Math.max(0, Math.ceil(numeric));
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, Math.ceil((date - now.getTime()) / 1000)) : 0;
+};
+
+export const selectGeminiExtraFallbackModel = (
+  configuredModel: unknown,
+  primaryModel: unknown,
+  fallbackModel: unknown,
+) => {
+  const configured = cleanModelName(configuredModel);
+  if (configured.toLowerCase() === "off") return "";
+  const used = new Set([cleanModelName(primaryModel), cleanModelName(fallbackModel)]);
+  // El respaldo adicional conserva la familia Flash completa. No cambia a
+  // Lite ni Pro cuando un modelo esta ocupado.
+  const candidates = [configured, DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL];
+  return candidates.find(candidate => candidate && !used.has(candidate) &&
+    !isRetiredModel(candidate) && /^gemini-\d+(?:\.\d+)?-flash$/i.test(candidate)) || "";
+};
+
+const providerDetails = (error: unknown, now: Date) => {
   const candidate = (error || {}) as ProviderError;
   const rawMessage = String(candidate.message || candidate.error?.message || "Error desconocido");
   const payloadError = parseProviderPayload(rawMessage)?.error;
-  const upstreamStatus = numberStatus(candidate.status) || numberStatus(payloadError?.code) ||
+  const upstreamStatus = numberStatus(candidate.status) || numberStatus(candidate.statusCode) || numberStatus(payloadError?.code) ||
     numberStatus(candidate.error?.code) || numberStatus(candidate.code);
   const upstreamCode = String(payloadError?.status || candidate.error?.status ||
     (typeof candidate.code === "string" ? candidate.code : "") || "").trim();
@@ -151,7 +188,10 @@ const providerDetails = (error: unknown) => {
   const providerMessage = String(payloadError?.message || rawMessage);
   const message = providerMessage.slice(0, 500);
   const quota = quotaMetadata(payloadError?.details || candidate.error?.details, providerMessage);
-  return { upstreamStatus, upstreamCode, name, message, ...quota };
+  return {
+    upstreamStatus, upstreamCode, name, message, ...quota,
+    retryAfterSeconds: Math.max(quota.retryAfterSeconds, retryAfterHeader(candidate.headers, now)),
+  };
 };
 
 const unavailableModel = (message: string, code: string) =>
@@ -167,7 +207,8 @@ export const classifyProviderError = (
   error: unknown,
   now: Date = new Date(),
 ): ScanErrorClassification => {
-  const details = providerDetails(error);
+  if (error instanceof ClassifiedScanError) return error.classification;
+  const details = providerDetails(error, now);
   const { upstreamStatus: status, upstreamCode: code, message } = details;
   if (status === 404 || unavailableModel(message, code)) return {
     ...details, responseStatus: 502, responseCode: "SCAN_MODEL_UNAVAILABLE",
@@ -175,7 +216,8 @@ export const classifyProviderError = (
   };
   if (timeout(status, message)) return {
     ...details, responseStatus: 504, responseCode: "SCAN_TIMEOUT",
-    responseMessage: "El analisis tardo mas de lo esperado. Intenta nuevamente con la misma imagen.", retryable: false,
+    responseMessage: "El servicio de lectura tardo mas de lo esperado. Puedes reintentar con la misma imagen en unos segundos.",
+    retryable: true, retryAfterSeconds: 15,
   };
   if ((status === 429 || code === "RESOURCE_EXHAUSTED") && details.quotaKind === "daily") return {
     ...details, responseStatus: 429, responseCode: "SCAN_DAILY_QUOTA_EXCEEDED",
@@ -190,7 +232,7 @@ export const classifyProviderError = (
   if (status === 429 || code === "RESOURCE_EXHAUSTED") return {
     ...details, responseStatus: 429, responseCode: "SCAN_RATE_LIMITED",
     responseMessage: "Se alcanzo temporalmente el limite de lecturas. Espera unos segundos antes de intentar nuevamente.",
-    retryable: true, retryAfterSeconds: Math.min(120, Math.max(5, details.retryAfterSeconds || 20)),
+    retryable: true, retryAfterSeconds: Math.max(5, details.retryAfterSeconds || 20),
   };
   if ([401, 403].includes(status)) return {
     ...details, responseStatus: 502, responseCode: "SCAN_PROVIDER_AUTH_ERROR",
@@ -212,6 +254,7 @@ export const classifyProviderError = (
 };
 
 export const shouldFallbackProviderError = (error: unknown) => [
+  "SCAN_TIMEOUT",
   "SCAN_MODEL_UNAVAILABLE",
   "SCAN_CONFIGURATION_ERROR",
   "SCAN_RATE_LIMITED",

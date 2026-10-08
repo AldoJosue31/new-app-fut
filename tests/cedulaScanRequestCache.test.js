@@ -4,6 +4,7 @@ import {
   DEFAULT_CACHE_TTL_MS,
   MAX_CACHE_ENTRIES,
   createCedulaScanFingerprint,
+  getCachedCedulaScanResult,
   getOrCreateCedulaScanRequest,
   resetCedulaScanRequestCache,
 } from "../src/utils/cedulaScanRequestCache.js";
@@ -130,4 +131,51 @@ test("rechaza contextos circulares sin retener la imagen", async () => {
     createCedulaScanFingerprint(new ArrayBuffer(0), context),
     /referencias circulares/,
   );
+});
+
+test("consulta resultados existentes sin generar peticiones y respeta el vencimiento", async () => {
+  let currentTime = 1000;
+  const options = { ttlMs: 100, now: () => currentTime };
+  assert.equal(getCachedCedulaScanResult("read", options), undefined);
+  const value = { scan: "saved" };
+  await getOrCreateCedulaScanRequest("read", () => value, options);
+  assert.strictEqual(getCachedCedulaScanResult("read", options), value);
+  currentTime = 1100;
+  assert.equal(getCachedCedulaScanResult("read", options), undefined);
+});
+
+test("reset evita que una petición antigua repueble o reemplace el resultado de la nueva sesión", async () => {
+  let resolveOld;
+  const oldRequest = getOrCreateCedulaScanRequest("same", () => new Promise(resolve => { resolveOld = resolve; }));
+  await Promise.resolve();
+  resetCedulaScanRequestCache();
+  const newer = { request: "new-session" };
+  assert.strictEqual(await getOrCreateCedulaScanRequest("same", () => newer), newer);
+  resolveOld({ request: "old-session" });
+  assert.deepEqual(await oldRequest, { request: "old-session" });
+  assert.strictEqual(getCachedCedulaScanResult("same"), newer);
+
+  let resolveReset;
+  const abandoned = getOrCreateCedulaScanRequest("discarded", () => new Promise(resolve => { resolveReset = resolve; }));
+  await Promise.resolve();
+  resetCedulaScanRequestCache();
+  resolveReset("old-result");
+  await abandoned;
+  assert.equal(getCachedCedulaScanResult("discarded"), undefined);
+});
+
+test("el final de una petición anterior al reset no elimina otra petición pendiente con la misma huella", async () => {
+  let resolveOld;
+  let resolveNew;
+  const oldRequest = getOrCreateCedulaScanRequest("same", () => new Promise(resolve => { resolveOld = resolve; }));
+  await Promise.resolve();
+  resetCedulaScanRequestCache();
+  const newRequest = getOrCreateCedulaScanRequest("same", () => new Promise(resolve => { resolveNew = resolve; }));
+  await Promise.resolve();
+  resolveOld("old");
+  await oldRequest;
+  const joined = getOrCreateCedulaScanRequest("same", () => { throw new Error("No debe repetir la petición."); });
+  assert.strictEqual(joined, newRequest);
+  resolveNew("new");
+  assert.equal(await joined, "new");
 });
