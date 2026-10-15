@@ -11,6 +11,7 @@ import {
     buildRepositionJornadaName,
     isOfficialJornadaName,
 } from "../utils/jornadaUtils";
+import { isPendingRepositionMatch } from "../utils/repositionUtils";
 import {
     normalizeFixtureByeMatch as normalizeByeMatch,
     isFixtureMatchLocked,
@@ -421,15 +422,14 @@ export const useFixturePreview = (
         setMatches((prev) => [...prev, ...extraRoundMatches]);
     }, [config, existingData?.jornadas, isEditMode, teams]);
 
-    const handleGenerateRepositionRound = useCallback(() => {
+    const handleGenerateRepositionRound = useCallback(({ preview = true } = {}) => {
         if (!isEditMode || !Array.isArray(existingData?.jornadas) || !Array.isArray(existingData?.pendingMatches)) {
             return;
         }
 
         const repositionCandidates = existingData.pendingMatches.filter((match) => {
             const jornadaName = match?.jornadas?.name || "";
-            const hasTeams = match?.team1_id && match?.team2_id;
-            return hasTeams && isOfficialJornadaName(jornadaName);
+            return isPendingRepositionMatch(match) && isOfficialJornadaName(jornadaName);
         });
 
         if (repositionCandidates.length === 0) {
@@ -472,8 +472,10 @@ export const useFixturePreview = (
             return;
         }
 
-        setMatches((prev) => [...prev, ...repositionMatches]);
-    }, [existingData?.jornadas, existingData?.pendingMatches, isEditMode, teams]);
+        const nextMatches = [...matches, ...repositionMatches];
+        if (preview) setMatches(nextMatches);
+        return nextMatches;
+    }, [existingData?.jornadas, existingData?.pendingMatches, isEditMode, matches, teams]);
 
     const handleReplaceRoundMatches = useCallback((roundIndex, nextPairs = [], options = {}) => {
         if (isAnimating || isOptimizing) return false;

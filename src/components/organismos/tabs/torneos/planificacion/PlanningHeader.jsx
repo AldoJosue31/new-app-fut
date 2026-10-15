@@ -16,6 +16,7 @@ import {
 } from "react-icons/ri";
 import { ViewToggle } from "../../../toggle/ViewToggle";
 import { addDaysToDate } from "../../../../../utils/dateUtils";
+import { getJornadaDisplayName } from "../../../../../utils/jornadaUtils";
 
 export const PlanningHeader = memo(
   ({
@@ -154,12 +155,14 @@ export const PlanningHeader = memo(
     const canSelectJornada =
       typeof onSelectJornada === "function" && jornadaOptions.length > 1;
     const getJornadaLabel = (jornada) => {
-      const baseLabel = jornada?.name || `Jornada ${jornadaIndex + 1}`;
+      const baseLabel = getJornadaDisplayName(jornada?.name || `Jornada ${jornadaIndex + 1}`);
       if (!jornada?.progress) return baseLabel;
       return `${baseLabel} (${jornada.progress.completed}/${jornada.progress.total})`;
     };
     const getSelectedJornadaLabel = (jornada) =>
-      jornada?.name || `Jornada ${jornadaIndex + 1}`;
+      getJornadaDisplayName(
+        (isRepositionMode ? jornadaData?.name : jornada?.name) || `Jornada ${jornadaIndex + 1}`
+      );
 
     const handleJornadaSelect = (nextJornadaId) => {
       if (!nextJornadaId || String(nextJornadaId) === selectedValue) {
@@ -309,7 +312,7 @@ export const PlanningHeader = memo(
                   )}
                 </JornadaDropdown>
               ) : (
-                <span>{jornadaData?.name || `Jornada ${jornadaIndex + 1}`}</span>
+                <span>{getSelectedJornadaLabel(jornadaData)}</span>
               )}
               <small>{status}</small>
               {confirmedResultsLabel && (

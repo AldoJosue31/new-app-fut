@@ -32,6 +32,11 @@ export const isRepositionJornadaName = (name) => {
   return /^(?:jornada de )?reposicion(?: \d+)?$/.test(normalized);
 };
 
+export const getJornadaDisplayName = (name) => {
+  if (!isRepositionJornadaName(name)) return name;
+  return `Reposición ${parseJornadaNumber(name, 1)}`;
+};
+
 export const sortJornadas = (jornadas = []) => {
   return [...jornadas].sort((a, b) => {
     const startA = a?.start_date || "";

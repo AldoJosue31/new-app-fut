@@ -9,6 +9,7 @@ import {
   parseJornadaNumber,
 } from "../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../utils/playoffUtils";
+import { isPendingRepositionMatch } from "../utils/repositionUtils";
 import {
   canReusePlanningDraftMatch,
   getPlanningDraftStorageKey,
@@ -69,6 +70,7 @@ export const usePlanificacionMatches = (
   const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
   const currentJornadaNumber = getJornadaReferenceNumber(jornadaData, jornadaIndex);
   const isRepositionJornada = isRepositionJornadaName(currentJornadaName);
+  const isTemporaryReposition = Boolean(jornadaData?.isTemporary);
   const isPlayoffJornada = isPlayoffJornadaName(currentJornadaName);
   const isConfirmed = jornadaStatus === 'Confirmada' || jornadaStatus === 'Finalizada';
   const planningDraftRevision = getPlanningDraftRevision(activeTournament?.config, jornadaData?.id);
@@ -371,6 +373,7 @@ export const usePlanificacionMatches = (
         date: finalDate,
         time: finalTime,
         status: (!m.date && m.status === 'Programado') ? 'Pendiente' : m.status,
+        persistedStatus: m.status,
         goals1: m.goals1,
         goals2: m.goals2,
         result_revision: m.result_revision,
@@ -418,6 +421,7 @@ export const usePlanificacionMatches = (
     const officialJornadaIds = new Set(matchesDBList.map(m => String(m.id)));
     
     const cleanGlobalMatches = isPlayoffJornada ? [] : (globalPendingMatches || []).reduce((acc, gm) => {
+        if (isTemporaryReposition && !isPendingRepositionMatch(gm)) return acc;
         const gmId = String(gm.id);
         const gmOriginName = (gm.jornadas?.name || gm.originJornada || "").trim();
 
@@ -530,6 +534,7 @@ export const usePlanificacionMatches = (
       isConfirmed, storageKey, formatMatch, 
       currentJornadaName, jornadaIndex, byeTeam,
       targetJornadaIndex, currentJornadaNumber, isRepositionJornada, isPlayoffJornada,
+      isTemporaryReposition,
       dataContextKey, planningDraftRevision,
   ]); 
 

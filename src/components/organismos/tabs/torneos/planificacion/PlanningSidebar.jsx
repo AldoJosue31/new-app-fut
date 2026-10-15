@@ -6,6 +6,7 @@ import { PendingMatchCard } from "./PendingMatchCard";
 import { v } from "../../../../../styles/variables";
 import { RiArrowDownSLine, RiArrowUpSLine, RiStackLine } from "react-icons/ri";
 import { parseJornadaNumber } from "../../../../../utils/jornadaUtils";
+import { isPendingRepositionMatch } from "../../../../../utils/repositionUtils";
 
 export function PlanningSidebar({
   matches = [],
@@ -17,6 +18,7 @@ export function PlanningSidebar({
   onOpenResolution,
   onClearResolution,
   isRepositionMode = false,
+  isTemporaryReposition = false,
   onSelectMatch,
   selectedMatchId = null,
   isTapSelectionEnabled = false,
@@ -31,6 +33,7 @@ export function PlanningSidebar({
     const currentNum = currentJornadaNumber;
     const restingTeams = new Set();
     const visibleMatches = matches.filter((match) => {
+      if (isRepositionMode && !isPendingRepositionMatch(match)) return false;
       if (!match.isByeMatch) return true;
       if (isPlayoffMode || isRepositionMode) return false;
 
@@ -94,8 +97,15 @@ export function PlanningSidebar({
           <div className="list-content">
             {isRepositionMode && (
               <ModeHint>
-                Solo hay pendientes arrastrados de jornadas anteriores. Esta
-                confirmacion se tratara como jornada de reposicion.
+                {isTemporaryReposition ? (
+                  <>Esta reposición es temporal y se guardará al confirmarla. Selecciona los partidos pendientes que quieras programar.</>
+                ) : (
+                  <>
+                Programa únicamente pendientes de jornadas anteriores para crear
+                una jornada de reposición. Los partidos de la jornada actual
+                conservarán su jornada y su estado.
+                  </>
+                )}
               </ModeHint>
             )}
             
