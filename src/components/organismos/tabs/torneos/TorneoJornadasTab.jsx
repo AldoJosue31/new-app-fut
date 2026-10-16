@@ -35,12 +35,14 @@ import {
 } from "../../../../utils/fixturePlanning.js";
 import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
 import {
+  buildRepositionJornadaName,
   isOfficialJornadaName,
   isRepositionJornadaName,
   parseJornadaNumber,
   resolveRepositionMappings,
   sortJornadas,
 } from "../../../../utils/jornadaUtils";
+import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 import { notify } from "../../../../lib/notifications/notify.js";
@@ -60,6 +62,8 @@ const NormalizeJornadaDatesModal = dynamic(
     ),
   { loading: () => null, ssr: false }
 );
+
+const EMPTY_MATCHES = [];
 
 const getDateDurationDays = (startDate, endDate) => {
   if (!startDate || !endDate) return null;
@@ -398,6 +402,12 @@ export function TorneoJornadasTab({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
   const [editorData, setEditorData] = useState(null); 
+  const [temporaryReposition, setTemporaryReposition] = useState(null);
+  const [isTemporaryRepositionSelected, setIsTemporaryRepositionSelected] = useState(false);
+  const planningJornadas = useMemo(
+    () => temporaryReposition ? [...jornadas, temporaryReposition] : jornadas,
+    [jornadas, temporaryReposition]
+  );
   const currentJornadaMatchesRequestRef = useRef(0);
   const selectedJornadaIdRef = useRef(null);
   const routeJornadaMatchesRequestRef = useRef(0);
@@ -419,6 +429,15 @@ export function TorneoJornadasTab({
   useEffect(() => {
     setActiveTournament(initialTournament);
   }, [initialTournament]);
+
+  useEffect(() => {
+    setTemporaryReposition(null);
+    setIsTemporaryRepositionSelected(false);
+  }, [initialTournament?.id]);
+
+  useEffect(() => {
+    setIsTemporaryRepositionSelected(false);
+  }, [routeJornadaId]);
 
   const syncJornadaPath = useCallback(
     (jornadaId, options = {}) => {
@@ -523,8 +542,13 @@ export function TorneoJornadasTab({
   }, [jornadas, currentJornadaIndex]);
 
   const handleChangeJornada = async (newIndex, options = {}) => {
+      if (temporaryReposition && newIndex === jornadas.length) {
+        setIsTemporaryRepositionSelected(true);
+        return;
+      }
       const targetJornada = jornadas[newIndex];
       if (!targetJornada?.id) return;
+      setIsTemporaryRepositionSelected(false);
 
       if (options.smooth) {
         try {
@@ -888,8 +912,34 @@ export function TorneoJornadasTab({
 
   const handleConfirmFixtureUpdate = async (
     updatedMatches,
-    { deletedMatchIds = [], replacedRoundIndexes = [] } = {},
+    { deletedMatchIds = [], replacedRoundIndexes = [], openGeneratedReposition = false } = {},
   ) => {
+      if (openGeneratedReposition) {
+        const generatedReposition = updatedMatches.find((match) =>
+          match.isGeneratedRound && match.roundType === "reposition"
+        );
+        if (!generatedReposition) return;
+
+        const window = getSuggestedRepositionWindow({
+          jornadas,
+          jornadaIndex: jornadas.length,
+          fallbackStartDate: activeTournament?.start_date,
+          jornadaDurationDays,
+        });
+        setTemporaryReposition({
+          id: `draft-reposition-${activeTournament.id}`,
+          name: buildRepositionJornadaName({ existingJornadas: jornadas }),
+          status: 'Pendiente',
+          start_date: window.startDate,
+          end_date: window.endDate,
+          isTemporary: true,
+          referenceJornadaId: jornadas[jornadas.length - 1]?.id,
+        });
+        setIsTemporaryRepositionSelected(true);
+        setIsEditorOpen(false);
+        setEditorData(null);
+        return;
+      }
       setLoading(true);
       let completionToast = null;
       try {
@@ -1229,6 +1279,10 @@ export function TorneoJornadasTab({
   };
 
   const handleCascadingDateUpdate = async (newStart, newEnd) => {
+      if (isTemporaryRepositionSelected) {
+        setTemporaryReposition((previous) => ({ ...previous, start_date: newStart, end_date: newEnd }));
+        return;
+      }
       setLoading(true);
       try {
           const currentJornada = jornadas[currentJornadaIndex];
@@ -1466,22 +1520,46 @@ export function TorneoJornadasTab({
   };
 
   const handleConfirmJornada = async (dataToSave) => {
+    if (isTemporaryRepositionSelected && (!dataToSave.matches?.length || !dataToSave.repositionConfig?.enabled)) {
+      throw new Error("Asigna al menos un partido pendiente antes de confirmar la reposición.");
+    }
     setLoading(true);
     try {
-        const preservedJornadaId = jornadas[currentJornadaIndex]?.id || null;
-        await guardarJornadaService(activeTournament.id, dataToSave);
+        const preservedJornadaId = isTemporaryRepositionSelected
+          ? temporaryReposition.referenceJornadaId
+          : jornadas[currentJornadaIndex]?.id || null;
+        const originalJornada = jornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId));
+        const confirmationData = isTemporaryRepositionSelected
+          ? {
+              ...dataToSave,
+              jornada_id: preservedJornadaId,
+              jornada_name: originalJornada?.name,
+              jornada_numero: parseJornadaNumber(originalJornada?.name),
+            }
+          : dataToSave;
+        await guardarJornadaService(activeTournament.id, confirmationData);
 
         const updatedMappings = await fetchTournamentConfig();
         const updatedJornadasResult = await fetchJornadas(preservedJornadaId);
         const updatedJornadas = updatedJornadasResult?.jornadas || [];
         const tournamentMatches = await fetchAllTournamentMatches();
 
-        const jornadaToRefresh =
+        const confirmedReposition = isTemporaryRepositionSelected
+          ? updatedJornadas.find((jornada) =>
+              isRepositionJornadaName(jornada.name) &&
+              !jornadas.some((previous) => String(previous.id) === String(jornada.id))
+            )
+          : null;
+        const jornadaToRefresh = confirmedReposition ||
           updatedJornadasResult?.selectedJornada ||
           updatedJornadas.find((jornada) => String(jornada.id) === String(preservedJornadaId)) ||
           updatedJornadas[currentJornadaIndex];
 
         if (jornadaToRefresh?.id) {
+          if (confirmedReposition) {
+            setCurrentJornadaIndex(updatedJornadas.findIndex((jornada) => jornada.id === confirmedReposition.id));
+            syncJornadaPath(confirmedReposition.id);
+          }
           await fetchCurrentJornadaMatches(
             jornadaToRefresh.id,
             updatedJornadas,
@@ -1491,6 +1569,10 @@ export function TorneoJornadasTab({
           );
         }
         
+        if (isTemporaryRepositionSelected) {
+          setTemporaryReposition(null);
+          setIsTemporaryRepositionSelected(false);
+        }
         setDataVersion(prev => prev + 1);
         if (refreshStandings) await refreshStandings();
     } catch (error) {
@@ -1498,6 +1580,7 @@ export function TorneoJornadasTab({
           const didRefresh = await refreshAfterResultConflict();
           if (!didRefresh) error.resultRefreshFailed = true;
         }
+
         throw error;
     } finally { 
         setLoading(false); 
@@ -1797,8 +1880,10 @@ export function TorneoJornadasTab({
 
   if (!activeTournament) return <EmptyState>No hay torneo activo.</EmptyState>;
 
-  const currentJornada = jornadas[currentJornadaIndex] || null;
+  const visibleJornadaIndex = isTemporaryRepositionSelected ? jornadas.length : currentJornadaIndex;
+  const currentJornada = isTemporaryRepositionSelected ? temporaryReposition : jornadas[currentJornadaIndex] || null;
   const isCurrentJornadaMatchesReady =
+    currentJornada?.isTemporary ||
     currentJornada?.id &&
     String(currentMatchesJornadaId || "") === String(currentJornada.id);
   
@@ -1816,7 +1901,7 @@ export function TorneoJornadasTab({
   }
 
   const isPhaseAssignment = currentJornada.status !== 'Finalizada'; 
-  const prevJornada = currentJornadaIndex > 0 ? jornadas[currentJornadaIndex - 1] : null;
+  const prevJornada = visibleJornadaIndex > 0 ? planningJornadas[visibleJornadaIndex - 1] : null;
   const canConfirm = !prevJornada || ['Confirmada', 'Finalizada'].includes(prevJornada.status);
 
   return (
@@ -1855,16 +1940,16 @@ export function TorneoJornadasTab({
        {isPhaseAssignment ? (
           <JornadaPlanificacion 
             key={`plan-${currentJornada.id}-${dataVersion}`} 
-            matchesDB={currentMatches} 
+            matchesDB={isTemporaryRepositionSelected ? EMPTY_MATCHES : currentMatches}
             globalPendingMatches={globalPendingMatches}
             teams={participatingTeams} 
-            jornadaIndex={currentJornadaIndex} 
+            jornadaIndex={visibleJornadaIndex}
             activeTournament={activeTournament} 
             jornadaData={currentJornada}
             onConfirm={handleConfirmJornada} 
             onUndoConfirmation={handleUndoJornadaConfirmation}
             onChangeJornada={handleChangeJornada}
-            totalJornadas={jornadas.length} 
+            totalJornadas={planningJornadas.length}
             onMatchUpdate={handleMatchUpdate}
             onRefreshAfterBulkPending={refreshAfterBulkPending}
             onResetMatchResult={handleResetMatchResult}
@@ -1873,7 +1958,7 @@ export function TorneoJornadasTab({
             onEditFixture={handleOpenFixtureEditor}
             isTournamentActive={true} 
             dataVersion={dataVersion}
-            jornadas={jornadas} 
+            jornadas={planningJornadas}
             allTournamentMatches={allTournamentMatches}
             onUpdateDates={handleCascadingDateUpdate}
             jornadaDurationDays={jornadaDurationDays}

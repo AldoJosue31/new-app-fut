@@ -35,6 +35,7 @@ import {
     isOfficialJornadaName,
     isRepositionJornadaName,
 } from "../../../../../utils/jornadaUtils";
+import { isPendingRepositionMatch } from "../../../../../utils/repositionUtils";
 import { resolveScannedSchedule } from "../../../../../utils/scannedScheduleUtils";
 import { getChangedFixtureRoundIndexes, isScannedFixtureMatch } from "../../../../../utils/fixturePlanning.js";
 import {
@@ -724,7 +725,7 @@ export function FixturePreviewModal({
             Array.isArray(existingData?.pendingMatches) &&
             existingData.pendingMatches.some((match) => {
                 const jornadaName = match?.jornadas?.name || "";
-                return Boolean(match?.team1_id && match?.team2_id && isOfficialJornadaName(jornadaName));
+                return isPendingRepositionMatch(match) && isOfficialJornadaName(jornadaName);
             }),
         [existingData?.pendingMatches]
     );
@@ -739,6 +740,18 @@ export function FixturePreviewModal({
         !hasGeneratedRound;
     const canGenerateExtraRound = canShowRoundGenerators;
     const canGenerateRepositionRound = canShowRoundGenerators && pendingMatchesAvailable;
+    const handleCreateRepositionRound = () => {
+        if (!canGenerateRepositionRound || isLoading || isAnimating || isOptimizing) return;
+
+        const nextMatches = handleGenerateRepositionRound({ preview: false });
+        if (!nextMatches) return;
+
+        onConfirm(nextMatches, {
+            deletedMatchIds,
+            replacedRoundIndexes: getChangedFixtureRoundIndexes(initialMatches, nextMatches),
+            openGeneratedReposition: true,
+        });
+    };
     const defaultRoundMatchCount = useMemo(
         () => Math.floor(teams.filter((team) => team?.id !== undefined && team?.id !== null).length / 2),
         [teams]
@@ -1298,7 +1311,7 @@ export function FixturePreviewModal({
                         {canShowRoundGenerators && (
                             <RoundCreationPanel>
                                 {canGenerateExtraRound && (
-                                    <button type="button" onClick={handleGenerateExtraRound} disabled={isAnimating}>
+                                    <button type="button" onClick={handleGenerateExtraRound} disabled={isLoading || isAnimating || isOptimizing}>
                                         <RiAddLine />
                                         <div>
                                             <strong>Jornada extra</strong>
@@ -1309,14 +1322,14 @@ export function FixturePreviewModal({
                                 {canGenerateRepositionRound && (
                                     <button
                                         type="button"
-                                        onClick={handleGenerateRepositionRound}
-                                        disabled={isAnimating}
+                                        onClick={handleCreateRepositionRound}
+                                        disabled={isLoading || isAnimating || isOptimizing}
                                         className="reposition"
                                     >
                                         <RiHistoryLine />
                                         <div>
-                                            <strong>Jornada de reposicion</strong>
-                                            <span>Crea una fecha con los partidos pendientes del torneo.</span>
+                                            <strong>Abrir reposición temporal</strong>
+                                            <span>Selecciona y programa pendientes en Jornadas. Se guardará al confirmar.</span>
                                         </div>
                                     </button>
                                 )}

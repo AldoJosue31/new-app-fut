@@ -17,12 +17,17 @@ import { usePlanificacionMatches } from "../../../../hooks/usePlanificacionMatch
 import { addDaysToDate, formatDateWithWeekday } from "../../../../utils/dateUtils";
 import { findScheduleConflicts, checkOverlap } from "../../../../utils/matchValidation";
 import {
+  buildRepositionJornadaName,
   isOfficialJornadaName,
   isRepositionJornadaName,
   parseJornadaNumber,
   sortJornadas,
 } from "../../../../utils/jornadaUtils";
-import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
+import {
+  getRepositionMode,
+  getSuggestedRepositionWindow,
+  REPOSITION_MODE,
+} from "../../../../utils/repositionUtils";
 import { buildRepositionPreview } from "../../../../utils/jornadaUtils";
 import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
 import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
@@ -48,6 +53,7 @@ import { EmptyDropZone } from "./planificacion/EmptyDropZone";
 import { ConfirmModal } from "../../ConfirmModal";
 import { MatchResolutionModal } from "./planificacion/MatchResolutionModal";
 import { RepositionPlannerModal } from "./planificacion/RepositionPlannerModal";
+import { RepositionModalSummary } from "./planificacion/RepositionModalSummary";
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 import { notify } from "../../../../lib/notifications/notify.js";
 
@@ -181,6 +187,7 @@ export function JornadaPlanificacion({
 
   const [repositionPlannerOpen, setRepositionPlannerOpen] = useState(false);
   const [confirmJornadaModalOpen, setConfirmJornadaModalOpen] = useState(false);
+  const [confirmRepositionAssignmentOpen, setConfirmRepositionAssignmentOpen] = useState(false);
   const [undoJornadaModalOpen, setUndoJornadaModalOpen] = useState(false);
   const [isUndoingConfirmation, setIsUndoingConfirmation] = useState(false);
   const [matchToPostpone, setMatchToPostpone] = useState(null);
@@ -193,10 +200,16 @@ export function JornadaPlanificacion({
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
 
   const isConfirmed = jornadaData?.status === "Confirmada";
-  const isRepositionMode = useMemo(
-    () => isRepositionJornadaName(jornadaData?.name),
-    [jornadaData?.name]
-  );
+  const isTemporaryReposition = Boolean(jornadaData?.isTemporary);
+  const isCreatingReposition =
+    isTemporaryReposition || (
+      !["Confirmada", "Finalizada"].includes(jornadaData?.status) &&
+      isOfficialJornadaName(currentJornadaName) &&
+      getRepositionMode({ scheduledMatches, currentJornadaNumber }) === REPOSITION_MODE.ONLY_DELAYED
+    );
+  const isRepositionMode =
+    isRepositionJornadaName(currentJornadaName) || isCreatingReposition;
+  const persistedJornadas = useMemo(() => jornadas.filter((jornada) => !jornada.isTemporary), [jornadas]);
   const isPlayoffJornada = useMemo(
     () => isPlayoffJornadaName(currentJornadaName),
     [currentJornadaName]
@@ -273,8 +286,12 @@ export function JornadaPlanificacion({
   });
 
   const editableScheduledMatches = useMemo(
-    () => scheduledMatches.filter((match) => !match.isReferenceOnly && match.status !== "Cancelado"),
-    [scheduledMatches]
+    () => scheduledMatches.filter((match) =>
+      !match.isReferenceOnly &&
+      match.status !== "Cancelado" &&
+      (!isCreatingReposition || !match.isByeMatch)
+    ),
+    [isCreatingReposition, scheduledMatches]
   );
 
   const confirmedResultsProgress = useMemo(() => {
@@ -300,6 +317,9 @@ export function JornadaPlanificacion({
     if (match.resolution?.type === "default") return false;
     return parseJornadaNumber(match.originJornada, currentJornadaNumber) < currentJornadaNumber;
   }).length;
+  const repositionPendingMatchesCount = isCreatingReposition && !isTemporaryReposition
+    ? pendingAfterRepositionConfirm
+    : sidebarMatches.filter((match) => !match.isByeMatch).length;
 
   const tournamentConfig = useMemo(() => {
     if (!activeTournament?.config) return {};
@@ -330,7 +350,7 @@ export function JornadaPlanificacion({
   const suggestedRepositionWindow = useMemo(
     () =>
       getSuggestedRepositionWindow({
-        jornadas,
+        jornadas: persistedJornadas,
         jornadaIndex,
         fallbackStartDate:
           jornadaData?.start_date || weekStartDate || activeTournament?.start_date,
@@ -341,22 +361,25 @@ export function JornadaPlanificacion({
       jornadaData?.start_date,
       jornadaDurationDays,
       jornadaIndex,
-      jornadas,
+      persistedJornadas,
       weekStartDate,
     ]
   );
 
   const headerJornadaData = useMemo(() => {
-    if (!isRepositionMode) return jornadaData;
+    if (!isCreatingReposition) return jornadaData;
 
     return {
       ...jornadaData,
+      name: isTemporaryReposition ? jornadaData.name : buildRepositionJornadaName({ existingJornadas: persistedJornadas }),
       start_date: repositionWeek.startDate || suggestedRepositionWindow.startDate,
       end_date: repositionWeek.endDate || suggestedRepositionWindow.endDate,
     };
   }, [
-    isRepositionMode,
+    isCreatingReposition,
+    isTemporaryReposition,
     jornadaData,
+    persistedJornadas,
     repositionWeek.endDate,
     repositionWeek.startDate,
     suggestedRepositionWindow.endDate,
@@ -375,7 +398,7 @@ export function JornadaPlanificacion({
   }, [jornadaData?.id]);
 
   useEffect(() => {
-    if (!isRepositionMode) {
+    if (!isCreatingReposition) {
       setRepositionWeek({ startDate: "", endDate: "" });
       return;
     }
@@ -385,7 +408,7 @@ export function JornadaPlanificacion({
       endDate: prev.endDate || suggestedRepositionWindow.endDate,
     }));
   }, [
-    isRepositionMode,
+    isCreatingReposition,
     suggestedRepositionWindow.endDate,
     suggestedRepositionWindow.startDate,
   ]);
@@ -405,7 +428,7 @@ export function JornadaPlanificacion({
   const futureJornadaPreview = useMemo(
     () =>
       buildRepositionPreview({
-        jornadas,
+        jornadas: persistedJornadas,
         jornadaIndex,
         repositionStartDate:
           repositionWeek.startDate || suggestedRepositionWindow.startDate,
@@ -416,7 +439,7 @@ export function JornadaPlanificacion({
     [
       jornadaIndex,
       jornadaDurationDays,
-      jornadas,
+      persistedJornadas,
       repositionWeek.endDate,
       repositionWeek.startDate,
       suggestedRepositionWindow.endDate,
@@ -425,7 +448,7 @@ export function JornadaPlanificacion({
   );
 
   const nextJornadaPreview = futureJornadaPreview[1] || null;
-  const planningReferenceStartDate = isRepositionMode
+  const planningReferenceStartDate = isCreatingReposition
     ? repositionWeek.startDate || suggestedRepositionWindow.startDate
     : weekStartDate;
   const planningWindowStartDate =
@@ -803,7 +826,11 @@ export function JornadaPlanificacion({
   };
 
   const handleConfirmJornada = async () => {
-    if (isRepositionMode && (!repositionWeek.startDate || !repositionWeek.endDate)) {
+    if (isTemporaryReposition && editableScheduledMatches.length === 0) {
+      notify.error("Asigna al menos un partido pendiente antes de confirmar la reposición.");
+      return;
+    }
+    if (isCreatingReposition && (!repositionWeek.startDate || !repositionWeek.endDate)) {
       notify.error("Define el inicio y fin de la semana de reposicion");
       return;
     }
@@ -845,7 +872,7 @@ export function JornadaPlanificacion({
             jornada_name: jornadaData?.name,
             matches: editableScheduledMatches,
             allPendingMatches,
-            repositionConfig: isRepositionMode
+            repositionConfig: isCreatingReposition
               ? {
                   enabled: true,
                   startDate: repositionWeek.startDate,
@@ -930,7 +957,11 @@ export function JornadaPlanificacion({
   };
 
   const handleOpenConfirmModal = () => {
-    if (isRepositionMode) {
+    if (isTemporaryReposition && editableScheduledMatches.length === 0) {
+      notify.error("Asigna al menos un partido pendiente antes de confirmar la reposición.");
+      return;
+    }
+    if (isCreatingReposition) {
       setRepositionPlannerOpen(true);
       return;
     }
@@ -1000,7 +1031,9 @@ export function JornadaPlanificacion({
         jornadaIndex={jornadaIndex}
         jornadaData={headerJornadaData}
         status={
-          isRepositionMode && !["Confirmada", "Finalizada"].includes(jornadaData?.status)
+          isTemporaryReposition
+            ? "Reposición temporal"
+            : isCreatingReposition
             ? "Jornada de Reposicion"
             : jornadaData?.status || "Pendiente"
         }
@@ -1020,7 +1053,7 @@ export function JornadaPlanificacion({
         onSelectJornada={handleSelectJornada}
         onSaveDates={onUpdateDates}
         onDateChange={handleRepositionHeaderDates}
-        isRepositionMode={isRepositionMode}
+        isRepositionMode={isCreatingReposition}
         onAutoFill={handleAutoFillWrapper}
         onConfig={() => setConfigModalOpen(true)}
         viewMode={viewMode}
@@ -1071,6 +1104,7 @@ export function JornadaPlanificacion({
               onOpenResolution={handleOpenResolution}
               onClearResolution={handleClearResolution}
               isRepositionMode={isRepositionMode}
+              isTemporaryReposition={isTemporaryReposition}
               isPlayoffMode={isPlayoffJornada}
               onSelectMatch={toggleSelectedPendingMatch}
               selectedMatchId={selectedPendingMatch?.id || null}
@@ -1393,9 +1427,11 @@ export function JornadaPlanificacion({
         endDate={repositionWeek.endDate}
         suggestedStartDate={suggestedRepositionWindow.startDate}
         suggestedEndDate={suggestedRepositionWindow.endDate}
-        jornadas={jornadas}
+        jornadas={persistedJornadas}
         jornadaIndex={jornadaIndex}
         futureJornadaPreview={futureJornadaPreview}
+        scheduledMatchesCount={editableScheduledMatches.length}
+        pendingMatchesCount={repositionPendingMatchesCount}
         onStartDateChange={(e) => {
           const startDate = e.target.value;
           setRepositionWeek({
@@ -1417,36 +1453,53 @@ export function JornadaPlanificacion({
         onClose={() => setConfirmJornadaModalOpen(false)}
         onConfirm={() => {
           if (
-            isRepositionMode &&
+            isCreatingReposition &&
             (!repositionWeek.startDate || !repositionWeek.endDate)
           ) {
             notify.error("Define el inicio y fin de la semana de reposicion");
             return;
           }
           setConfirmJornadaModalOpen(false);
+          if (isRepositionMode) {
+            setConfirmRepositionAssignmentOpen(true);
+            return;
+          }
           handleConfirmJornada();
         }}
-        title={isRepositionMode ? "Confirmar Jornada de Reposicion" : "Confirmar Jornada"}
+        title={isRepositionMode ? "Publicar reposición" : "Confirmar Jornada"}
         message={
           isRepositionMode
-            ? "Define la semana de reposicion antes de publicar esta jornada."
+            ? "Al publicar, los partidos seleccionados quedarán programados en esta reposición."
             : "¿Estás seguro de confirmar y publicar esta jornada?"
         }
-        confirmText={isRepositionMode ? "Publicar Reposicion" : "Publicar Jornada"}
-        confirmColor={isRepositionMode ? "#f39c12" : v.colorPrincipal}
+        variant={isRepositionMode ? "review" : "default"}
+        width={isRepositionMode ? "600px" : "400px"}
+        cancelText={isCreatingReposition ? "Volver a fechas" : "Cancelar"}
+        onCancel={isCreatingReposition ? () => {
+          setConfirmJornadaModalOpen(false);
+          setRepositionPlannerOpen(true);
+        } : undefined}
+        confirmText={isRepositionMode ? "Publicar reposición" : "Publicar Jornada"}
+        confirmColor={v.colorPrincipal}
         confirmIcon={<RiCheckDoubleLine />}
         thinButtons={true}
       >
-        <StatsContainer>
-          {isRepositionMode ? (
-            <StatBox $color="#f39c12">
-              <span className="num">{pendingAfterRepositionConfirm}</span>
-              <span className="lbl" style={{ textAlign: "center" }}>
-                Quedaran Pendientes
-              </span>
-            </StatBox>
-          ) : (
-            <>
+        {isRepositionMode ? (
+          <RepositionModalSummary
+            name={headerJornadaData?.name}
+            startDate={headerJornadaData?.start_date}
+            endDate={headerJornadaData?.end_date}
+            scheduledMatchesCount={editableScheduledMatches.length}
+            pendingMatchesCount={repositionPendingMatchesCount}
+            nextJornada={isCreatingReposition && nextJornadaPreview ? {
+              ...nextJornadaPreview,
+              originalStartDate: jornadaData?.start_date,
+              originalEndDate: jornadaData?.end_date,
+            } : null}
+            originalJornadaName={isCreatingReposition && !isTemporaryReposition ? currentJornadaName : undefined}
+          />
+        ) : (
+          <StatsContainer>
               <StatBox $color="#2ecc71">
                 <span className="num">{editableScheduledMatches.length}</span>
                 <span className="lbl">A Confirmar</span>
@@ -1460,19 +1513,45 @@ export function JornadaPlanificacion({
                   (Esta Jornada)
                 </span>
               </StatBox>
-            </>
-          )}
-        </StatsContainer>
-        {isRepositionMode && nextJornadaPreview && (
-          <ConfirmNote>
-            La reposicion se publicará del{" "}
-            <strong>{formatDateWithWeekday(repositionWeek.startDate)}</strong> al{" "}
-            <strong>{formatDateWithWeekday(repositionWeek.endDate)}</strong>.{" "}
-            {nextJornadaPreview.name} quedará del{" "}
-            <strong>{formatDateWithWeekday(nextJornadaPreview.start_date)}</strong> al{" "}
-            <strong>{formatDateWithWeekday(nextJornadaPreview.end_date)}</strong>.
-          </ConfirmNote>
+          </StatsContainer>
         )}
+      </ConfirmModal>
+
+      <ConfirmModal
+        isOpen={confirmRepositionAssignmentOpen}
+        onClose={() => setConfirmRepositionAssignmentOpen(false)}
+        onCancel={() => {
+          setConfirmRepositionAssignmentOpen(false);
+          setConfirmJornadaModalOpen(true);
+        }}
+        onConfirm={() => {
+          setConfirmRepositionAssignmentOpen(false);
+          handleConfirmJornada();
+        }}
+        title="Confirmar reposición"
+        message="Revisa cuántos partidos se asignarán antes de publicar la reposición."
+        variant="review"
+        width="500px"
+        cancelText="Volver al resumen"
+        confirmText="Confirmar y publicar"
+        confirmIcon={<RiCheckDoubleLine />}
+      >
+        <RepositionAssignmentStats>
+          <dl aria-label="Asignación de partidos">
+            <div className="assigned">
+              <dt>Se asignarán</dt>
+              <dd>{editableScheduledMatches.length}</dd>
+            </div>
+            <div>
+              <dt>Quedarán sin asignar</dt>
+              <dd>{repositionPendingMatchesCount}</dd>
+            </div>
+          </dl>
+          <p>Los partidos sin asignar seguirán disponibles en Pendientes.</p>
+          {isCreatingReposition && !isTemporaryReposition && (
+            <p>Los partidos de <strong>{currentJornadaName}</strong> conservarán su jornada y su estado actual.</p>
+          )}
+        </RepositionAssignmentStats>
       </ConfirmModal>
 
       <ConfirmModal
@@ -1553,7 +1632,6 @@ const Container = styled.div`
   height: 100%;
   min-height: 0;
 `;
-
 const TransitionWrapper = styled.div`
   animation: ${keyframes`
     from { opacity: 0; transform: translateX(20px); }
@@ -1773,6 +1851,40 @@ const StatsContainer = styled.div`
   width: 100%;
 `;
 
+const RepositionAssignmentStats = styled.div`
+  width: 100%;
+  color: ${({ theme }) => theme.text};
+
+  dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0 0 16px;
+  }
+  dl > div {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px;
+    border-radius: 12px;
+    background: ${({ theme }) => theme.tournamentDashboard.itemSurface};
+  }
+  .assigned {
+    background: ${({ theme }) => theme.tournamentDashboard.metrics.accentSoft};
+    color: ${({ theme }) => theme.tournamentDashboard.metrics.accentStrong};
+  }
+  dt { order: 1; font-size: 0.82rem; line-height: 1.5; }
+  dd { margin: 0; font-size: 2rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  p { margin: 0; color: ${({ theme }) => theme.tournamentDashboard.muted}; font-size: 0.84rem; line-height: 1.6; }
+  p + p { margin-top: 10px; }
+  strong { color: ${({ theme }) => theme.text}; font-weight: 600; }
+
+  @media (max-width: 480px) {
+    dl { gap: 10px; }
+    dl > div { padding: 14px; }
+  }
+`;
+
 const StatBox = styled.div`
   display: flex;
   flex-direction: column;
@@ -1799,21 +1911,5 @@ const StatBox = styled.div`
     text-transform: uppercase;
     letter-spacing: 0.5px;
     opacity: 0.8;
-  }
-`;
-
-const ConfirmNote = styled.div`
-  width: 100%;
-  margin-top: 14px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: rgba(243, 156, 18, 0.12);
-  border: 1px solid rgba(243, 156, 18, 0.25);
-  font-size: 0.88rem;
-  line-height: 1.55;
-  text-align: left;
-
-  strong {
-    color: #c57d0a;
   }
 `;
