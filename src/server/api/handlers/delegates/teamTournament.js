@@ -65,100 +65,105 @@ const fetchTournamentMatches = async (adminClient, tournamentId) => {
   }
 };
 
-export const createHandler = (dependencies = {}) => {
+export const loadDelegateTournament = async (dependencies, req) => {
   const authorizeUser = dependencies.requireUser;
   const adminClient = dependencies.supabaseAdmin;
-  const respondWithError = dependencies.sendError || sendError;
+  const { user } = await authorizeUser(req);
+  const teamId = Number(req.query.teamId);
+  if (!Number.isSafeInteger(teamId) || teamId <= 0) {
+    fail("teamId invalido.", 400);
+  }
 
-  return async function handler(req, res) {
-    if (req.method !== "GET") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+  const { data: profile, error: profileError } = await adminClient
+    .from("profiles")
+    .select("id, role, is_suspended, is_deleted")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (
+    profile?.role !== ROLES.DELEGATE ||
+    profile.is_suspended ||
+    profile.is_deleted
+  ) {
+    fail("No tienes acceso a este equipo.", 403);
+  }
 
-    try {
-      const { user } = await authorizeUser(req);
-      const teamId = Number(req.query.teamId);
-      if (!Number.isSafeInteger(teamId) || teamId <= 0) {
-        return res.status(400).json({ error: "teamId invalido." });
-      }
+  const { data: assignment, error: assignmentError } = await adminClient
+    .from("team_delegates")
+    .select("team_id")
+    .eq("team_id", teamId)
+    .eq("delegate_profile_id", user.id)
+    .maybeSingle();
+  if (assignmentError) throw assignmentError;
+  if (!assignment) fail("No tienes acceso a este equipo.", 403);
 
-      const { data: profile, error: profileError } = await adminClient
-        .from("profiles")
-        .select("id, role, is_suspended, is_deleted")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profileError) throw profileError;
-      if (
-        profile?.role !== ROLES.DELEGATE ||
-        profile.is_suspended ||
-        profile.is_deleted
-      ) {
-        fail("No tienes acceso a este equipo.", 403);
-      }
+  const { data: team, error: teamError } = await adminClient
+    .from("teams")
+    .select("id, division_id")
+    .eq("id", teamId)
+    .maybeSingle();
+  if (teamError) throw teamError;
+  if (!team) fail("Equipo no encontrado.", 404);
 
-      const { data: assignment, error: assignmentError } = await adminClient
-        .from("team_delegates")
-        .select("team_id")
-        .eq("team_id", teamId)
-        .eq("delegate_profile_id", user.id)
-        .maybeSingle();
-      if (assignmentError) throw assignmentError;
-      if (!assignment) fail("No tienes acceso a este equipo.", 403);
+  const { data: tournament, error: tournamentError } = await adminClient
+    .from("tournaments")
+    .select("id, season, category, format, status, start_date, config")
+    .eq("division_id", team.division_id)
+    .in("status", ACTIVE_TOURNAMENT_STATUSES)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (tournamentError) throw tournamentError;
+  if (!tournament) {
+    return { tournament: null, teams: [], jornadas: [], matches: [] };
+  }
 
-      const { data: team, error: teamError } = await adminClient
-        .from("teams")
-        .select("id, division_id")
-        .eq("id", teamId)
-        .maybeSingle();
-      if (teamError) throw teamError;
-      if (!team) fail("Equipo no encontrado.", 404);
-
-      const { data: tournament, error: tournamentError } = await adminClient
-        .from("tournaments")
-        .select("id, season, category, format, status, start_date, config")
+  const config = normalizeTournamentConfig(tournament.config);
+  const participantIds = [...new Set(config.participatingIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))];
+  if (!participantIds.includes(teamId)) {
+    return { tournament: null, teams: [], jornadas: [], matches: [] };
+  }
+  const [teamsResult, jornadasResult, matchesResult] = await Promise.all([
+    participantIds.length
+      ? adminClient.from("teams")
+        .select("id, name, logo_url, color")
         .eq("division_id", team.division_id)
-        .in("status", ACTIVE_TOURNAMENT_STATUSES)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (tournamentError) throw tournamentError;
-      if (!tournament) {
-        return res.status(200).json({ tournament: null, teams: [], jornadas: [], matches: [] });
-      }
+        .in("id", participantIds)
+      : Promise.resolve({ data: [], error: null }),
+    adminClient.from("jornadas")
+      .select("id, name, status, tournament_id, start_date, end_date")
+      .eq("tournament_id", tournament.id),
+    fetchTournamentMatches(adminClient, tournament.id),
+  ]);
+  if (teamsResult.error) throw teamsResult.error;
+  if (jornadasResult.error) throw jornadasResult.error;
 
-      const config = normalizeTournamentConfig(tournament.config);
-      const participantIds = [...new Set(config.participatingIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))];
-      if (!participantIds.includes(teamId)) {
-        return res.status(200).json({ tournament: null, teams: [], jornadas: [], matches: [] });
-      }
-      const [teamsResult, jornadasResult, matchesResult] = await Promise.all([
-        participantIds.length
-          ? adminClient.from("teams")
-            .select("id, name, logo_url, color")
-            .eq("division_id", team.division_id)
-            .in("id", participantIds)
-          : Promise.resolve({ data: [], error: null }),
-        adminClient.from("jornadas")
-          .select("id, name, status, tournament_id, start_date, end_date")
-          .eq("tournament_id", tournament.id),
-        fetchTournamentMatches(adminClient, tournament.id),
-      ]);
-      if (teamsResult.error) throw teamsResult.error;
-      if (jornadasResult.error) throw jornadasResult.error;
+  return {
+    teamId,
+    divisionId: team.division_id,
+    tournament: {
+      ...tournament,
+      config: typeof tournament.config === "string" ? JSON.parse(tournament.config) : tournament.config || {},
+    },
+    teams: teamsResult.data || [],
+    jornadas: jornadasResult.data || [],
+    matches: matchesResult,
+  };
+};
 
+export const createHandler = (dependencies = {}) => {
+  const respondWithError = dependencies.sendError || sendError;
+  return async function handler(req, res) {
+    if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+    try {
+      const bundle = await loadDelegateTournament(dependencies, req);
+      if (!bundle.tournament) return res.status(200).json(bundle);
+      const { id, season, category, format, status, start_date, config } = bundle.tournament;
       return res.status(200).json({
-        tournament: {
-          id: tournament.id,
-          season: tournament.season,
-          category: tournament.category,
-          format: tournament.format,
-          status: tournament.status,
-          start_date: tournament.start_date,
-          config,
-        },
-        teams: teamsResult.data || [],
-        jornadas: jornadasResult.data || [],
-        matches: matchesResult.map((match) => publicMatch(match, teamId)),
+        tournament: { id, season, category, format, status, start_date, config: normalizeTournamentConfig(config) },
+        teams: bundle.teams,
+        jornadas: bundle.jornadas,
+        matches: bundle.matches.map((match) => publicMatch(match, bundle.teamId)),
       });
     } catch (error) {
       return respondWithError(res, error);

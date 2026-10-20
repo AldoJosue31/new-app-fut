@@ -9,6 +9,7 @@ import {
   RiTrophyLine,
 } from "react-icons/ri";
 import { TeamLogo } from "../teamDetailModal/TeamLogo";
+import { DelegateForecastSection } from "./DelegateForecastSection";
 
 export function DelegateTeamOverview({
   team,
@@ -142,6 +143,10 @@ export function DelegateTeamOverview({
           </>
         )}
       </TournamentSection>
+
+      {!loadingTournament && !tournamentError && hasActiveTournament && (
+        <DelegateForecastSection teamId={team.id} teamName={team.name} team={team} tournamentId={tournament.id} />
+      )}
 
       <Activity aria-label="Actividad del equipo">
         <ActivityButton type="button" onClick={onShowDelegateRequests}>
