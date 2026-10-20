@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHandler } from "../src/server/api/handlers/delegates/teamTournament.js";
+import { createHandler as createForecastHandler } from "../src/server/api/handlers/delegates/teamForecast.js";
 
 const createResponse = () => ({
   statusCode: null,
@@ -63,9 +64,9 @@ const makeClient = ({ actorId = "delegate-1", actorRole = "delegate", suspended 
   };
 };
 
-const invoke = async (client, teamId = "17", actorId = "delegate-1") => {
+const invoke = async (client, teamId = "17", actorId = "delegate-1", handlerFactory = createHandler) => {
   const response = createResponse();
-  await createHandler({
+  await handlerFactory({
     requireUser: async () => ({ user: { id: actorId } }),
     supabaseAdmin: client,
   })({ method: "GET", query: { teamId } }, response);
@@ -148,4 +149,33 @@ test("rejects invalid team ids before querying private tables", async () => {
   const response = await invoke(client, "17abc");
   assert.equal(response.statusCode, 400);
   assert.equal(client.queries.length, 0);
+});
+
+test("forecast enforces the same assignment, role and account checks before any analytics reads", async () => {
+  for (const variant of [{ assignedTo: null }, { actorRole: "manager" }, { suspended: true }, { deleted: true }]) {
+    const client = makeClient(variant);
+    const response = await invoke(client, "17", "delegate-1", createForecastHandler);
+    assert.equal(response.statusCode, 403);
+    assert.equal(client.queries.some(({ table }) => ["matches", "divisions", "tournaments"].includes(table)), false);
+  }
+});
+
+test("forecast returns its own empty state and never returns raw private match notes", async () => {
+  const response = await invoke(makeClient(), "17", "delegate-1", createForecastHandler);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.forecast.available, false);
+  assert.equal(JSON.stringify(response.body).includes("Nota privada"), false);
+  assert.equal(response.body.matches, undefined);
+  const missing = await invoke(makeClient({ tournament: false }), "17", "delegate-1", createForecastHandler);
+  assert.equal(missing.statusCode, 200);
+  assert.equal(missing.body.forecast.available, false);
+});
+
+test("forecast rejects unsupported methods and malformed team identifiers", async () => {
+  const client = makeClient();
+  const invalid = await invoke(client, "17abc", "delegate-1", createForecastHandler);
+  assert.equal(invalid.statusCode, 400);
+  const response = createResponse();
+  await createForecastHandler({})({ method: "POST" }, response);
+  assert.equal(response.statusCode, 405);
 });
