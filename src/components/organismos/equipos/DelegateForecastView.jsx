@@ -1,11 +1,11 @@
 import React, { useId, useRef, useState } from "react";
 import styled from "styled-components";
 import { RiArrowDownSLine, RiArrowLeftSLine, RiArrowRightSLine, RiArrowUpDownLine, RiBarChartGroupedLine, RiCalendarEventLine, RiInformationLine, RiRefreshLine, RiTrophyLine } from "react-icons/ri";
-import { formatForecastPercent } from "../../../utils/forecastPresentation.js";
+import { formatForecastMatchDate, formatForecastPercent } from "../../../utils/forecastPresentation.js";
 import { Skeleton } from "../../atomos/Skeleton";
 import { TeamLogo } from "../teamDetailModal/TeamLogo";
 
-const dateLabel = (date) => date && Number.isFinite(Date.parse(date)) ? new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(date)) : "Fecha por confirmar";
+const updatedAtLabel = (date) => date && Number.isFinite(Date.parse(date)) ? new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(date)) : "Fecha por confirmar";
 const phaseLabel = (match) => match.stageName || `Jornada ${match.round}`;
 const classificationIds = new Set(["direct", "repechage", "qualified"]);
 
@@ -41,7 +41,7 @@ function ForecastContent({ forecast, teamName, team }) {
         <FixtureNavigation><div><h4>{selectedIndex === 0 ? "Tu próximo enfrentamiento" : "Enfrentamiento seleccionado"}</h4><Small>{forecast.upcoming.length} partido{forecast.upcoming.length === 1 ? "" : "s"} pendiente{forecast.upcoming.length === 1 ? "" : "s"} de tu equipo</Small></div><MatchPicker><label className="sr-only" htmlFor={`${id}-match`}>Partido a analizar</label><select id={`${id}-match`} value={String(selected.matchId)} onChange={(event) => setSelectedId(event.target.value)}>{forecast.upcoming.map((match) => <option key={match.matchId} value={String(match.matchId)}>{phaseLabel(match)} · {match.rival.name}</option>)}</select>{forecast.upcoming.length > 1 && <MatchArrows><IconButton type="button" aria-label="Rival anterior" disabled={selectedIndex === 0} onClick={() => setSelectedId(String(forecast.upcoming[selectedIndex - 1].matchId))}><RiArrowLeftSLine aria-hidden="true" /></IconButton><IconButton type="button" aria-label="Siguiente rival" disabled={selectedIndex === forecast.upcoming.length - 1} onClick={() => setSelectedId(String(forecast.upcoming[selectedIndex + 1].matchId))}><RiArrowRightSLine aria-hidden="true" /></IconButton></MatchArrows>}</MatchPicker></FixtureNavigation>
         <MatchWorkspace>
           <MatchAnalysis aria-label={`Pronóstico: ${teamName} vs. ${selected.rival.name}`}>
-            <FixtureDate><RiCalendarEventLine aria-hidden="true" />{phaseLabel(selected)}<span>{dateLabel(selected.date)}</span></FixtureDate>
+            <FixtureDate><RiCalendarEventLine aria-hidden="true" />{phaseLabel(selected)}<span>{formatForecastMatchDate(selected.date)}</span></FixtureDate>
             <MatchIdentity><TeamIdentity><Logo><TeamLogo club={team} size="64px" /></Logo><strong>{teamName}</strong><span>Tu equipo</span></TeamIdentity><Versus aria-hidden="true">vs.</Versus><TeamIdentity><Logo><TeamLogo club={selected.rival} size="64px" /></Logo><strong>{selected.rival.name}</strong><span>Rival</span></TeamIdentity></MatchIdentity>
             <MatchVerdict>{selected.probabilities.draw > Math.max(selected.probabilities.win, selected.probabilities.lose) ? "El empate es el resultado más probable" : selected.probabilities.win === selected.probabilities.lose ? "Se perfila un partido parejo" : selected.probabilities.win > selected.probabilities.lose ? "Tu equipo parte con ventaja" : "El rival parte con ventaja"}</MatchVerdict>
             <Probabilities aria-label="Probabilidades del partido en tiempo reglamentario">{[{ id: "win", label: "Ganar" }, { id: "draw", label: "Empatar" }, { id: "lose", label: "Perder" }].map((outcome) => <div key={outcome.id}><span><i className={outcome.id} />{outcome.label}</span><strong>{formatForecastPercent(selected.probabilities[outcome.id])}</strong></div>)}</Probabilities>
@@ -56,7 +56,7 @@ function ForecastContent({ forecast, teamName, team }) {
     </Panel>
     <Panel role="tabpanel" id={`${id}-season-panel`} aria-labelledby={`${id}-season-tab`} hidden={activeTab !== "season"} tabIndex={0}><SeasonProjection season={forecast.season} /></Panel>
     <Method><summary><span><RiInformationLine aria-hidden="true" />Cómo se calcula</span><RiArrowDownSLine aria-hidden="true" /></summary><MethodBody><p>Estimamos los goles con un modelo Poisson de ataque y defensa ajustado por los rivales enfrentados. Los resultados recientes pesan más: su peso se reduce a la mitad cada seis jornadas, usando sus fechas cuando están disponibles. Con pocos encuentros, usamos una referencia de seis partidos al promedio del torneo para moderar cambios extremos. La dificultad compara las posibilidades de ganar y perder.</p><p>Los rivales comunes aportan un ajuste pequeño. La localía es neutral. Para la tabla conservamos los puntos oficiales y las reposiciones; en las simulaciones aplicamos puntos, diferencia de goles, goles a favor y menos partidos jugados. Si hay penales, cada equipo tiene un 50 % de probabilidad de obtener el punto extra; en repechaje se respetan las vueltas y el desempate configurados.</p><p>{forecast.excludedWalkovers > 0 ? `${forecast.excludedWalkovers} resultado(s) por default cuentan en la tabla, pero se excluyen del modelo deportivo. ` : ""}Los partidos sin fecha van al inicio por jornada oficial en los historiales. Las estimaciones todavía no tienen calibración externa. {forecast.validation.matches > 0 ? `Evaluación retrospectiva interna sobre ${forecast.validation.matches} partidos, usando solo resultados de fechas anteriores a cada encuentro.` : "Todavía no hay historial suficiente para una evaluación retrospectiva."} Un porcentaje cercano a 0 o 100 no demuestra eliminación o clasificación matemática.</p></MethodBody></Method>
-    <DataNote><span>{forecast.analyzedMatches} partidos del torneo analizados</span><span>Actualizado {dateLabel(forecast.computedAt)}</span></DataNote>
+    <DataNote><span>{forecast.analyzedMatches} partidos del torneo analizados</span><span>Actualizado {updatedAtLabel(forecast.computedAt)}</span></DataNote>
   </>;
 }
 
