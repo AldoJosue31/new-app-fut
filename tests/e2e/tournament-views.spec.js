@@ -198,14 +198,14 @@ const mockExternalSchedule = async (page, { holdMatches = false } = {}) => {
     if (table === "matches" && url.searchParams.has("gte")) {
       throw new Error("Date filter must be scoped to date");
     }
-    if (table === "matches" && columns === "id,date,status,jornada_id,team1_id,team2_id") {
+    if (table === "matches" && columns === "id,date,status,jornada_id,team1_id,team2_id,goals1,goals2") {
       queries.push({ table, filters: url.searchParams.toString() });
       await gate;
       const start = url.searchParams.getAll("date").find((filter) => filter.startsWith("gte."))
         .slice(4, 14);
       data = [{
         id: 93, jornada_id: 458, team1_id: 51, team2_id: 52,
-        date: `${start} 12:00:00`, status: "Programado",
+        date: `${start} 12:00:00`, status: "Finalizado", goals1: 2, goals2: 1,
       }];
     } else if (data !== undefined) {
       queries.push({ table, filters: url.searchParams.toString() });
@@ -251,4 +251,29 @@ test("ocultar durante la carga cancela la espera y reactivar muestra los externo
   release();
   await expect(page.getByText("Tigres", { exact: true })).toBeVisible();
   expect(queries.filter(({ table }) => table === "divisions")).toHaveLength(1);
+});
+
+test("el marcador conserva ceros, muestra resultados externos y distingue partidos sin resultado", async ({ page }) => {
+  await mockExternalSchedule(page);
+  await page.route("**/rest/v1/matches**", (route) => {
+    const columns = new URL(route.request().url()).searchParams.get("select") || "";
+    if (!columns.startsWith("*")) return route.fallback();
+    return route.fulfill({ json: matches.map((match, index) => index === 0
+      ? { ...match, status: "Finalizado", goals1: 0, goals2: 0 }
+      : match) });
+  });
+  await page.goto(roundPath(456, "grid"));
+  await expect(page.getByRole("group", { name: "Goles de Halcones", exact: true })).toHaveText("0");
+  await expect(page.getByRole("group", { name: "Goles de Leones", exact: true })).toHaveText("0");
+  await expect(page.getByRole("group", { name: "Goles de Tigres", exact: true })).toHaveText("2");
+  await expect(page.getByRole("group", { name: "Goles de Lobos", exact: true })).toHaveText("1");
+  await page.getByRole("button", { name: "Seleccionar jornada", exact: true }).click();
+  await page.getByRole("option", { name: /Jornada 2/ }).click();
+  const homeScore = page.getByRole("group", { name: "Goles de Halcones", exact: true });
+  const awayScore = page.getByRole("group", { name: "Goles de Leones", exact: true });
+  await expect(homeScore).toContainText("Sin resultado");
+  await expect(awayScore).toContainText("Sin resultado");
+  await expect(homeScore.locator('[aria-hidden="true"]')).toHaveText("—");
+  await expect(awayScore.locator('[aria-hidden="true"]')).toHaveText("—");
+  await expect(page.getByText("Borrador", { exact: true })).toBeVisible();
 });

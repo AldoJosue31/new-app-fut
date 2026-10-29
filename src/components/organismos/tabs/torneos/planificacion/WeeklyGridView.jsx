@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import styled, { keyframes, css } from "styled-components";
+import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
 import { Device } from "../../../../../styles/breakpoints";
 import { formatTimeTo12Hour } from "../../../../../utils/dateUtils";
@@ -8,6 +8,52 @@ import {
     buildDivisionColorMap,
     normalizeDivisionName,
 } from "../../../../../utils/divisionColors";
+
+function WeeklyMatchCard({ match, day }) {
+    const homeName = match.local?.name || 'Local';
+    const awayName = match.visitante?.name || 'Visita';
+    const hasResult = [match.goals1, match.goals2].every((score) =>
+        score !== null && score !== undefined && String(score).trim() !== '' &&
+        Number.isInteger(Number(score)) && Number(score) >= 0
+    );
+    const homeScore = hasResult ? Number(match.goals1) : '—';
+    const awayScore = hasResult ? Number(match.goals2) : '—';
+
+    return (
+        <MatchCard $isPreview={match.isPreview} $isExternal={match.isExternal} $divisionColor={match.divisionColor}>
+            {match.isExternal && <span className="sr-only">Partido de otra división.</span>}
+            <div className="match-header">
+                <div className="kickoff">
+                    <time className={match.time ? undefined : 'unscheduled'} dateTime={match.time ? `${day}T${match.time}` : undefined}>
+                        {match.time ? formatTimeTo12Hour(match.time) : 'Sin horario'}
+                    </time>
+                    {match.isPreview && <span className="draft-label">Borrador</span>}
+                </div>
+                <div className="division-cell">
+                    <span className="division-name" title={match.division}>{match.division}</span>
+                </div>
+            </div>
+            <div className="scoreboard">
+                <div className="team home">
+                    <span className="sr-only">Local: </span>
+                    <span className="team-name" title={homeName}>{homeName}</span>
+                </div>
+                <span className="team-score" role="group" aria-label={`Goles de ${homeName}`}>
+                    {!hasResult && <span className="sr-only">Sin resultado</span>}
+                    <span aria-hidden={hasResult ? undefined : true}>{homeScore}</span>
+                </span>
+                <div className="team away">
+                    <span className="sr-only">Visitante: </span>
+                    <span className="team-name" title={awayName}>{awayName}</span>
+                </div>
+                <span className="team-score" role="group" aria-label={`Goles de ${awayName}`}>
+                    {!hasResult && <span className="sr-only">Sin resultado</span>}
+                    <span aria-hidden={hasResult ? undefined : true}>{awayScore}</span>
+                </span>
+            </div>
+        </MatchCard>
+    );
+}
 
 export function WeeklyGridView({
     weekStartDate,
@@ -73,8 +119,10 @@ export function WeeklyGridView({
                 addToGroup(dateKey, {
                     id: m.id,
                     time: m.time,
-                    local: { name: m.local_name || m.local },
-                    visitante: { name: m.visitante_name || m.visitante },
+                    goals1: m.goals1,
+                    goals2: m.goals2,
+                    local: { name: m.local_name || m.local?.name || m.local },
+                    visitante: { name: m.visitante_name || m.visitante?.name || m.visitante },
                     // IMPORTANTE: Aseguramos que el nombre de la división llegue para el color
                     division: divisionName,
                     divisionColor: divisionColorMap.get(divisionName) || DIVISION_COLORS[0],
@@ -106,7 +154,7 @@ export function WeeklyGridView({
     };
 
     return (
-        <Container>
+        <Container role="region" aria-label="Calendario semanal" tabIndex={0}>
             <Legend>
                {Array.from(divisionColorMap.entries()).map(([divisionName, color]) => (
                     <div className="item" key={divisionName}>
@@ -125,29 +173,11 @@ export function WeeklyGridView({
                             <MobileHeader>{formatMobileDay(day)}</MobileHeader>
                             <DayColumn>
                                 <DesktopHeader>{formatDesktopDay(day)}</DesktopHeader>
-                                <MatchesList>
+                                <MatchesList aria-label={`Partidos del ${formatMobileDay(day)}`} tabIndex={matchesForDay.length ? 0 : undefined}>
                                     {matchesForDay.map((m, idx) => (
-                                        <MatchCard 
-                                            key={m.id || `temp-${idx}`} 
-                                            $isExternal={m.isExternal}
-                                            $isPreview={m.isPreview}
-                                            $divisionColor={m.divisionColor}
-                                        >
-                                            <div className="time-pill">{formatTimeTo12Hour(m.time)}</div>
-                                            <div className="info">
-                                                <span className={`div-tag ${m.isExternal ? 'external' : 'local'}`}>
-                                                    {m.division}
-                                                    {m.isPreview && " (Borrador)"}
-                                                </span>
-                                                <div className="teams">
-                                                    <span>{m.local?.name || 'Local'}</span>
-                                                    <span className="vs">vs</span>
-                                                    <span>{m.visitante?.name || 'Visita'}</span>
-                                                </div>
-                                            </div>
-                                        </MatchCard>
+                                        <WeeklyMatchCard key={m.id || `temp-${idx}`} match={m} day={day} />
                                     ))}
-                                    {matchesForDay.length === 0 && <EmptyState>Libre</EmptyState>}
+                                    {matchesForDay.length === 0 && <EmptyState as="li">Libre</EmptyState>}
                                 </MatchesList>
                             </DayColumn>
                         </DayWrapper>
@@ -159,38 +189,35 @@ export function WeeklyGridView({
 }
 
 // --- ESTILOS ---
-const pulseAnimation = keyframes`
-  0% { opacity: 0.7; box-shadow: 0 0 0 rgba(0,0,0,0); }
-  50% { opacity: 1; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-  100% { opacity: 0.7; box-shadow: 0 0 0 rgba(0,0,0,0); }
-`;
-
 const Container = styled.div`
     display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%; flex: 1 1 auto; min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    &:focus-visible { outline: 2px solid ${v.colorPrincipal}; outline-offset: -2px; }
     @media ${Device.laptop} {
-        display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 5px;
+        display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; overflow: hidden;
     }
 `;
 
 const Legend = styled.div`
-    display: flex; flex-wrap: wrap; gap: 8px 15px; font-size: 0.75rem; font-weight: 700; 
-    color: ${({theme})=>theme.text};
+    display: flex; flex-wrap: wrap; gap: 8px 15px; font-size: 0.75rem; font-weight: 600;
+    color: ${({theme})=>theme.tournamentDashboard?.muted || theme.colorSubtitle};
     flex-shrink: 0;
-    padding-left: 5px; opacity: 0.8;
+    padding-left: 4px;
     .item { display: flex; align-items: center; gap: 5px; }
     .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 `;
 
 const GridContainer = styled.div`
-    display: flex; flex-direction: column; gap: 15px; width: 100%; height: 100%; flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; gap: 20px; width: 100%; flex: 1 0 auto; min-height: 0;
     @media ${Device.laptop} {
-        display: grid; grid-template-columns: repeat(${({ $daysCount }) => $daysCount}, minmax(130px, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 1px;
+        display: grid; grid-template-columns: repeat(${({ $daysCount }) => $daysCount}, minmax(180px, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 1px;
         background: ${({theme})=>theme.bg4}; border-radius: 10px; overflow: auto;
     }
 `;
 
 const DayWrapper = styled.div`
-    display: flex; flex-direction: column; gap: 5px; width: 100%;
+    display: flex; flex-direction: column; gap: 8px; width: 100%; flex-shrink: 0;
     min-height: 0;
     @media ${Device.laptop} { gap: 0; height: 100%; min-width: 0; }
 `;
@@ -202,6 +229,7 @@ const MobileHeader = styled.div`
 
 const DesktopHeader = styled.div`
     display: none;
+    flex-shrink: 0;
     @media ${Device.laptop} {
         display: block; background: ${({theme})=>theme.bg3}; padding: 8px;
         text-align: center; font-weight: 700; font-size: 0.75rem; color: ${v.colorPrincipal};
@@ -209,73 +237,111 @@ const DesktopHeader = styled.div`
 `;
 
 const DayColumn = styled.div`
+    container-type: inline-size;
     background: ${({theme})=>theme.bgtotal}; border-radius: 8px; border: 1px solid ${({theme})=>theme.bg4};
     display: flex; flex-direction: column; flex: 1 1 auto; min-height: 60px;
     @media ${Device.laptop} { background: ${({theme})=>theme.bgcards}; border: none; height: 100%; min-height: 0; }
 `;
 
-const MatchesList = styled.div`
-    padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0;
+const MatchesList = styled.ul`
+    margin: 0; list-style: none;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 1 0 auto; min-height: 0;
+    &:focus-visible { outline: 2px solid ${v.colorPrincipal}; outline-offset: -2px; }
     @media ${Device.laptop} {
-        padding: 5px; overflow-y: auto;
+        padding: 6px; overflow-y: auto; flex: 1 1 auto;
         &::-webkit-scrollbar { width: 4px; }
         &::-webkit-scrollbar-thumb { background: ${({theme})=>theme.bg4}; border-radius: 4px; }
     }
 `;
 
-const MatchCard = styled.div`
-    display: flex; align-items: center; gap: 12px;
-    border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
+const MatchCard = styled.li`
+    --card-line: ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
+    --division-color: ${({ $divisionColor }) => $divisionColor};
+    --card-surface: ${({ theme, $isExternal }) => $isExternal ? (theme.tournamentDashboard?.itemSurface || theme.bg2) : theme.bgcards};
+    --division-text: color-mix(in srgb, var(--division-color) 40%, ${({ theme }) => theme.text});
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px ${({ $isPreview }) => $isPreview ? 'dashed' : 'solid'} color-mix(in srgb, var(--division-color) ${({ $isExternal }) => $isExternal ? '55%' : '80%'}, var(--card-line));
+    border-radius: 12px;
+    background: var(--card-surface);
+    color: ${({ theme, $isExternal }) => $isExternal ? `color-mix(in srgb, ${theme.text} 85%, ${theme.bgcards})` : theme.text};
 
-    background: ${({theme, $isExternal})=> $isExternal ? theme.bg4 : theme.bg2};
-    border: 1px solid ${({ $divisionColor }) => `${$divisionColor || v.colorPrincipal}55`};
-
-    /* ESTILOS PREVIEW */
-    ${({ $isPreview, theme, $divisionColor }) => $isPreview && css`
-        background: ${theme.bg4}; 
-        border: 1px dashed ${$divisionColor || "#95a5a6"};
-        animation: ${pulseAnimation} 2s infinite ease-in-out;
-        .time-pill { background: #bdc3c7 !important; color: #2c3e50 !important; }
-        .div-tag.local { color: #7f8c8d !important; }
-    `}
-
-    .time-pill {
-        font-weight: 800; font-size: 0.85rem; background: ${({theme})=>theme.bgtotal};
-        padding: 4px 8px; border-radius: 4px; color: ${({theme})=>theme.text}; white-space: nowrap;
+    .match-header {
+        display: grid;
+        grid-template-columns: minmax(64px, 0.85fr) minmax(0, 1.15fr);
+        align-items: stretch;
+        padding: 4px 8px;
+        border-bottom: 1px solid var(--card-line);
+        background: color-mix(in srgb, var(--division-color) ${({ $isExternal }) => $isExternal ? '3%' : '8%'}, var(--card-surface));
+    }
+    .kickoff { display: grid; align-content: center; justify-items: start; gap: 0; padding-right: 6px; }
+    time { font-size: 0.6875rem; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    time.unscheduled { white-space: normal; text-align: left; }
+    .draft-label { color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle}; font-size: 0.625rem; line-height: 1.3; }
+    .division-cell { display: grid; align-items: center; min-width: 0; padding-left: 8px; border-left: 1px solid var(--card-line); }
+    .division-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        text-align: right;
+        color: var(--division-text);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        line-height: 1.4;
+        text-transform: uppercase;
     }
 
-    .info {
-        display: flex; flex-direction: column; flex: 1; overflow: hidden;
-        
-        .div-tag { 
-            font-size: 0.7rem; 
-            text-transform: uppercase; font-weight: 800; margin-bottom: 2px;
-            &.local { color: ${v.colorPrincipal}; }
-            &.external { color: ${({theme})=>theme.text}; opacity: 0.7; }
-        }
-
-        .teams {
-            display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; white-space: nowrap;
-            color: ${({theme})=>theme.text};
-            span { overflow: hidden; text-overflow: ellipsis; }
-            .vs { font-size: 0.75rem; opacity: 0.5; font-weight: 400; flex-shrink: 0; }
-        }
+    .scoreboard {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 24px;
+        grid-template-rows: repeat(2, minmax(24px, 1fr));
+        column-gap: 6px;
+        padding: 4px 8px;
     }
+    .team { position: relative; display: flex; align-items: center; min-width: 0; padding: 3px 0; }
+    .team.home { border-bottom: 1px solid var(--card-line); }
+    .team-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+    .team-score {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        padding: 2px;
+        border: 1px solid var(--card-line);
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--division-color) ${({ $isExternal }) => $isExternal ? '2%' : '5%'}, var(--card-surface));
+        font-size: 0.875rem;
+        font-weight: 600;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-    @media ${Device.laptop} {
-        flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px;
-        .time-pill { font-size: 0.7rem; padding: 2px 6px; }
-        .info {
-            width: 100%;
-            .teams { flex-direction: column; align-items: flex-start; gap: 2px; font-size: 0.75rem; line-height: 1.2; .vs { display: none; } }
-        }
+    @container (min-width: 580px) {
+        max-width: 480px;
+        align-self: center;
     }
 `;
 
 const EmptyState = styled.div`
-    text-align: center; font-size: 0.8rem; opacity: 0.4; font-style: italic; padding: 10px;
-    color: ${({theme})=>theme.text};
+    text-align: center; font-size: 0.8rem; padding: 10px;
+    color: ${({theme})=>theme.tournamentDashboard?.muted || theme.colorSubtitle};
     flex: 1 1 auto;
     display: flex;
     align-items: center;

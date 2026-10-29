@@ -153,7 +153,7 @@ const loadExternalMatches = async (
   const matches = await getRows(
     supabase
       .from('matches')
-      .select('id, date, status, jornada_id, team1_id, team2_id')
+      .select('id, date, status, jornada_id, team1_id, team2_id, goals1, goals2')
       .in('jornada_id', jornadaIds)
       .gte('date', `${startDate} 00:00:00`)
       .lte('date', `${endDate} 23:59:59`)
@@ -232,6 +232,8 @@ const loadExternalMatches = async (
         visitante_logo: team2?.logo_url,
         division_name: division?.name || 'Otra Division',
         status: match.status,
+        goals1: match.goals1,
+        goals2: match.goals2,
         isExternal: true,
       };
     });

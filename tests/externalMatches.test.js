@@ -13,7 +13,7 @@ function createService() {
     tournaments: [{ id: 12, division_id: 1 }, { id: 99, division_id: 1 }, { id: 13, division_id: 2 }],
     jornadas: [{ id: 22, name: "Jornada 1", tournament_id: 12 }, { id: 23, tournament_id: 13 }],
     matches: [
-      { id: 31, jornada_id: 22, team1_id: 41, team2_id: 42, date: "2026-10-26 10:00:00", status: "Programado" },
+      { id: 31, jornada_id: 22, team1_id: 41, team2_id: 42, date: "2026-10-26 10:00:00", status: "Finalizado", goals1: 2, goals2: 0 },
       { id: 32, jornada_id: 22, date: "2026-10-26 11:00:00", status: "Cancelado" },
       { id: 33, jornada_id: 23, date: "2026-10-26 12:00:00", status: "Programado" },
     ],
@@ -65,6 +65,8 @@ test("precarga el contexto y reutiliza equipos al consultar otro rango", async (
   assert.equal(matches[0].local_name, "Halcones");
   assert.equal(matches[0].division_name, "Primera");
   assert.equal(matches[0].time, "10:00");
+  assert.equal(matches[0].goals1, 2);
+  assert.equal(matches[0].goals2, 0);
   service.calls.length = 0;
   await service.getPartidosExternosRango("2026-10-26", "2026-11-01", 99, 7);
   assert.equal(service.calls.length, 0);
