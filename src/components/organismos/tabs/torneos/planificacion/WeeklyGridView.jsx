@@ -257,8 +257,7 @@ const MatchesList = styled.ul`
 const MatchCard = styled.li`
     --card-line: ${({ theme }) => theme.tournamentDashboard?.border || theme.color2};
     --division-color: ${({ $divisionColor }) => $divisionColor};
-    --card-surface: ${({ theme, $isExternal }) => $isExternal ? (theme.tournamentDashboard?.itemSurface || theme.bg2) : theme.bgcards};
-    --division-text: color-mix(in srgb, var(--division-color) 40%, ${({ theme }) => theme.text});
+    --card-surface: ${({ theme, $isExternal }) => $isExternal ? theme.bg2 : theme.bgcards};
     position: relative;
     display: flex;
     flex-direction: column;
@@ -266,8 +265,10 @@ const MatchCard = styled.li`
     width: 100%;
     min-width: 0;
     overflow: hidden;
-    border: 1px ${({ $isPreview }) => $isPreview ? 'dashed' : 'solid'} color-mix(in srgb, var(--division-color) ${({ $isExternal }) => $isExternal ? '55%' : '80%'}, var(--card-line));
-    border-radius: 12px;
+    border: 0;
+    border-block: 1px ${({ $isPreview }) => $isPreview ? 'dashed' : 'solid'} var(--card-line);
+    border-left: 3px solid var(--division-color);
+    border-radius: 0 12px 12px 0;
     background: var(--card-surface);
     color: ${({ theme, $isExternal }) => $isExternal ? `color-mix(in srgb, ${theme.text} 85%, ${theme.bgcards})` : theme.text};
 
@@ -275,9 +276,9 @@ const MatchCard = styled.li`
         display: grid;
         grid-template-columns: minmax(64px, 0.85fr) minmax(0, 1.15fr);
         align-items: stretch;
-        padding: 4px 8px;
+        padding: 3px 8px;
         border-bottom: 1px solid var(--card-line);
-        background: color-mix(in srgb, var(--division-color) ${({ $isExternal }) => $isExternal ? '3%' : '8%'}, var(--card-surface));
+        background: var(--card-surface);
     }
     .kickoff { display: grid; align-content: center; justify-items: start; gap: 0; padding-right: 6px; }
     time { font-size: 0.6875rem; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -291,7 +292,7 @@ const MatchCard = styled.li`
         overflow: hidden;
         overflow-wrap: anywhere;
         text-align: right;
-        color: var(--division-text);
+        color: inherit;
         font-size: 0.6875rem;
         font-weight: 600;
         line-height: 1.4;
@@ -300,12 +301,13 @@ const MatchCard = styled.li`
 
     .scoreboard {
         display: grid;
+        flex: 1;
         grid-template-columns: minmax(0, 1fr) 24px;
-        grid-template-rows: repeat(2, minmax(24px, 1fr));
+        grid-template-rows: repeat(2, minmax(22px, 1fr));
         column-gap: 6px;
-        padding: 4px 8px;
+        padding: 3px 8px;
     }
-    .team { position: relative; display: flex; align-items: center; min-width: 0; padding: 3px 0; }
+    .team { position: relative; display: flex; align-items: center; min-width: 0; padding: 2px 0; }
     .team.home { border-bottom: 1px solid var(--card-line); }
     .team-name {
         display: -webkit-box;
@@ -325,13 +327,19 @@ const MatchCard = styled.li`
         padding: 2px;
         border: 1px solid var(--card-line);
         border-radius: 6px;
-        background: color-mix(in srgb, var(--division-color) ${({ $isExternal }) => $isExternal ? '2%' : '5%'}, var(--card-surface));
+        background: ${({ theme }) => theme.bg2};
         font-size: 0.875rem;
         font-weight: 600;
         line-height: 1;
         font-variant-numeric: tabular-nums;
     }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+    @media ${Device.laptop} {
+        flex-grow: 1;
+        min-height: min-content;
+        max-height: 92px;
+    }
 
     @container (min-width: 580px) {
         max-width: 480px;
