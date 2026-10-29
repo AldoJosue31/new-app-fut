@@ -1,5 +1,5 @@
 // src/components/organismos/tabs/torneos/subcomponents/StandingsTable.jsx
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { v } from '../../../../../styles/variables';
@@ -7,8 +7,22 @@ import { Device } from '../../../../../styles/breakpoints';
 import { RiArrowUpSFill, RiArrowDownSFill, RiSubtractLine, RiInformationLine } from "react-icons/ri";
 import { Skeleton } from '../../../../atomos/Skeleton';
 import { DynamicTeamLogo } from '../../../../organismos/equipos/DynamicTeamLogo'; 
+import { StandingsTeamResultsModal } from './StandingsTeamResultsModal';
 
-export default function StandingsTable({ tablaGeneral = [], config, isPublic, isLoading = false, hideBottomInfo = false }) {
+export default function StandingsTable({
+  tablaGeneral = [], config, isPublic, isLoading = false, hideBottomInfo = false,
+  torneoNombre, partidos = [], jornadas = [], repositionMappings = [],
+  repositionMatchMappings = [], jornadaLimit,
+}) {
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const closeResults = useCallback(() => setSelectedTeam(null), []);
+
+  const openResults = (event, team) => {
+    if (isPublic) return;
+    event.currentTarget.focus();
+    setSelectedTeam(team);
+  };
+
   const getZoneStatus = (index, total) => {
     const rank = index + 1;
     if (rank <= config.ascensos) return { color: '#22c55e', label: 'Ascenso Directo' };
@@ -104,14 +118,16 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
                       $isPublic={isPublic}
                       $zoneColor={zoneColor}
                       $isEven={isEven} // <-- PASAMOS LA PROP EXPLÍCITA AQUÍ
-                      onDoubleClick={() => {
-                          if (!isPublic) {
-                              window.location.assign(
-                                `/equipos/${encodeURIComponent(fila.id)}?view=stats`,
-                              );
-                          }
+                      onDoubleClick={(event) => openResults(event, fila)}
+                      onKeyDown={(event) => {
+                        if (!isPublic && (event.key === 'Enter' || event.key === ' ')) {
+                          event.preventDefault();
+                          openResults(event, fila);
+                        }
                       }}
-                      title={!isPublic ? "Doble click para ver estadísticas detalladas" : ""}
+                      tabIndex={!isPublic ? 0 : undefined}
+                      aria-haspopup={!isPublic ? 'dialog' : undefined}
+                      title={!isPublic ? "Doble clic o Enter para ver resultados del equipo" : ""}
                       variants={isPublic ? rowVariants : {}}
                       initial={isPublic ? "hidden" : undefined}
                       animate={isPublic ? "visible" : undefined}
@@ -215,6 +231,20 @@ export default function StandingsTable({ tablaGeneral = [], config, isPublic, is
             </LeyendaContainer>
           )}
         </BottomInfoContainer>
+      )}
+      {!isPublic && selectedTeam && (
+        <StandingsTeamResultsModal
+          team={selectedTeam}
+          teams={tablaGeneral}
+          config={config}
+          torneoNombre={torneoNombre}
+          partidos={partidos}
+          jornadas={jornadas}
+          repositionMappings={repositionMappings}
+          repositionMatchMappings={repositionMatchMappings}
+          jornadaLimit={jornadaLimit}
+          onClose={closeResults}
+        />
       )}
     </>
   );
@@ -466,6 +496,10 @@ const Td = styled.td`
 `;
 
 const TrBase = styled.tr`
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.primary};
+    outline-offset: -2px;
+  }
   cursor: ${({ $isPublic }) => $isPublic ? 'default' : 'pointer'}; 
   transition: background-color 0.2s;
   

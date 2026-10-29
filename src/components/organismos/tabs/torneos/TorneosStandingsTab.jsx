@@ -80,6 +80,9 @@ export const TorneosStandingsTab = ({
     jornadasConfirmadasForDropdown,
     tablaGeneral,
     mergedJornadas,
+    relevantMatches,
+    repositionMappings,
+    repositionMatchMappings,
     isCalculating
   } = useTorneoStandingsLogic({
     torneo,
@@ -252,10 +255,17 @@ export const TorneosStandingsTab = ({
           />
         ) : (
           <StandingsTable
+            key={torneo.id}
             tablaGeneral={tablaGeneral}
             config={config}
             isPublic={isPublic}
             isLoading={showSkeleton}
+            torneoNombre={torneo.name || torneo.nombre}
+            partidos={relevantMatches}
+            jornadas={mergedJornadas}
+            repositionMappings={repositionMappings}
+            repositionMatchMappings={repositionMatchMappings}
+            jornadaLimit={selectedJornadaView === 'recent' ? effectiveJornada : Number(selectedJornadaView)}
           />
         )}
       </ViewContent>

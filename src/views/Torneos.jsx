@@ -14,6 +14,7 @@ export function Torneos({
   setState: setSidebarState,
   tab,
   tournamentOrTab,
+  view,
 }) {
   const { state, actions, formData } = useTorneosLogic({
     routeDivisionId,
@@ -38,6 +39,7 @@ export function Torneos({
         routeDivisionId={routeDivisionId}
         tab={tab}
         tournamentOrTab={tournamentOrTab}
+        view={view}
 
         loading={state.loading}
         isLoadingData={state.isLoadingData}

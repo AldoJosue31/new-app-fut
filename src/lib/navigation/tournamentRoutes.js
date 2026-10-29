@@ -6,6 +6,7 @@ export const TOURNAMENT_TABS = Object.freeze([
 ]);
 
 const allowedTabs = new Set(TOURNAMENT_TABS);
+const allowedViews = new Set(["list", "grid"]);
 
 const hasSegment = (value) =>
   value !== undefined && value !== null && value !== "";
@@ -36,6 +37,9 @@ export const isPositiveTournamentPathId = (candidate) => {
 export const sanitizeTournamentTab = (candidate) =>
   allowedTabs.has(candidate) ? candidate : "";
 
+export const sanitizeTournamentView = (candidate) =>
+  allowedViews.has(candidate) ? candidate : "";
+
 export const parseTournamentPathname = (pathname) => {
   if (typeof pathname !== "string") return null;
 
@@ -62,13 +66,14 @@ export const parseTournamentPathname = (pathname) => {
     return null;
   }
 
-  if (segments.length > routeStartIndex + 3) return null;
+  if (segments.length > routeStartIndex + 4) return null;
 
   return {
     jornadaId: segments[routeStartIndex + 2] || "",
     routeDivisionId,
     tab: segments[routeStartIndex + 1] || "",
     tournamentOrTab: segments[routeStartIndex] || "",
+    view: segments[routeStartIndex + 3] || "",
   };
 };
 
@@ -76,10 +81,12 @@ export const parseTournamentRoute = ({
   jornadaId,
   tab,
   tournamentOrTab,
+  view,
 } = {}) => {
   const firstSegment = asSegment(tournamentOrTab);
   const secondSegment = asSegment(tab);
   const thirdSegment = asSegment(jornadaId);
+  const fourthSegment = asSegment(view);
   const hasTournamentId = isPositiveTournamentPathId(firstSegment);
   const tournamentId = hasTournamentId ? firstSegment : "";
   const requestedTab = hasTournamentId ? secondSegment : firstSegment;
@@ -93,11 +100,16 @@ export const parseTournamentRoute = ({
   const resolvedJornadaId = isPositiveTournamentPathId(requestedJornadaId)
     ? requestedJornadaId
     : "";
+  const requestedView = resolvedTab === "jornadas"
+    ? hasTournamentId ? fourthSegment : thirdSegment
+    : "";
+  const validView = sanitizeTournamentView(requestedView);
+  const viewMode = resolvedTab === "jornadas" ? validView || "list" : "";
   const ignoredSegments =
     resolvedTab && resolvedTab !== "jornadas"
-      ? [hasTournamentId ? thirdSegment : secondSegment, hasTournamentId ? "" : thirdSegment]
+      ? [hasTournamentId ? thirdSegment : secondSegment, hasTournamentId ? "" : thirdSegment, fourthSegment]
       : resolvedTab === "jornadas" && !hasTournamentId
-        ? [thirdSegment]
+        ? [fourthSegment]
         : [];
 
   return {
@@ -107,11 +119,13 @@ export const parseTournamentRoute = ({
     needsRouteCleanup:
       (Boolean(requestedTab) && !resolvedTab) ||
       ignoredSegments.some(Boolean) ||
-      (Boolean(requestedJornadaId) && !resolvedJornadaId),
+      (Boolean(requestedJornadaId) && !resolvedJornadaId) ||
+      (Boolean(resolvedJornadaId) && !validView),
     requestedJornadaId,
     requestedTab,
     tab: resolvedTab,
     tournamentId,
+    viewMode,
   };
 };
 
@@ -120,6 +134,7 @@ export const buildTournamentPath = ({
   jornadaId,
   tab,
   tournamentId,
+  viewMode,
 } = {}) => {
   const segments = [];
 
@@ -142,7 +157,7 @@ export const buildTournamentPath = ({
     resolvedTab === "jornadas" &&
     isPositiveTournamentPathId(jornadaId)
   ) {
-    segments.push(jornadaId);
+    segments.push(jornadaId, sanitizeTournamentView(viewMode) || "list");
   }
 
   return `/${segments

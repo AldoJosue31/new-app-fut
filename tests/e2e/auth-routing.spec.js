@@ -27,6 +27,14 @@ const protectedRoutes = [
     expectedReturn: "/torneos/123/jornadas/456",
   },
   {
+    pathname: "/torneos/123/jornadas/456/list",
+    expectedReturn: "/torneos/123/jornadas/456/list",
+  },
+  {
+    pathname: "/division/94/torneos/123/jornadas/456/grid",
+    expectedReturn: "/division/94/torneos/123/jornadas/456/grid",
+  },
+  {
     pathname: "/division/94/torneos/123/standings",
     expectedReturn: "/division/94/torneos/123/standings",
   },

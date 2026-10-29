@@ -6,7 +6,7 @@ import {
   resolveRepositionMappings,
 } from '../utils/jornadaUtils';
 
-import { FINISHED_STATUSES, getOfficialJornadaNumberForMatch, isDoubleWalkoverMatch, toFiniteNumber } from "../utils/standingsSnapshot.js";
+import { FINISHED_STATUSES, getMatchStandingsPoints, getOfficialJornadaNumberForMatch, isDoubleWalkoverMatch, toFiniteNumber } from "../utils/standingsSnapshot.js";
 export { buildTorneoStandingsSnapshot, getOfficialJornadaNumberForMatch, getStandingsViewStorageKey } from "../utils/standingsSnapshot.js";
 
 export const useTorneoStandingsLogic = ({
@@ -268,22 +268,7 @@ export const useTorneoStandingsLogic = ({
           local.e += 1; visitante.e += 1;
         }
 
-        let ptsL = parseInt(partido.puntos1, 10);
-        let ptsV = parseInt(partido.puntos2, 10);
-        if (isNaN(ptsL)) ptsL = 0;
-        if (isNaN(ptsV)) ptsV = 0;
-
-        const isZeroZeroLegit = (ptsL === 0 && ptsV === 0 && golesLocal === golesVisitante && config.drawPoints === 0);
-        
-        if (ptsL === 0 && ptsV === 0 && !isZeroZeroLegit) {
-            if (golesLocal > golesVisitante) {
-                ptsL = config.winPoints; ptsV = config.lossPoints;
-            } else if (golesLocal < golesVisitante) {
-                ptsL = config.lossPoints; ptsV = config.winPoints;
-            } else {
-                ptsL = config.drawPoints; ptsV = config.drawPoints;
-            }
-        }
+        const [ptsL, ptsV] = getMatchStandingsPoints(partido, config);
 
         local.pts += ptsL;
         visitante.pts += ptsV;

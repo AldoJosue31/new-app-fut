@@ -80,6 +80,7 @@ export function TorneosTemplate({
   routeDivisionId,
   tab,
   tournamentOrTab,
+  view,
 }) {
   const tournamentRoute = useMemo(
     () =>
@@ -87,12 +88,14 @@ export function TorneosTemplate({
         jornadaId,
         tab,
         tournamentOrTab,
+        view,
       }),
-    [jornadaId, tab, tournamentOrTab],
+    [jornadaId, tab, tournamentOrTab, view],
   );
   const routeTournamentId = tournamentRoute.tournamentId;
   const routeTab = tournamentRoute.tab;
   const routeJornadaId = tournamentRoute.jornadaId;
+  const routeViewMode = tournamentRoute.viewMode;
   const isValidTab = tournamentRoute.isTabValid;
   const [shouldAutoRedirectToJornadas, setShouldAutoRedirectToJornadas] =
     useState(null);
@@ -114,18 +117,21 @@ export function TorneosTemplate({
     (
       nextTabId,
       nextJornadaId = nextTabId === "jornadas" ? routeJornadaId : "",
+      nextViewMode = routeViewMode,
     ) =>
       buildTournamentPath({
         divisionId: visibleDivisionId,
         tournamentId: visibleTournamentId,
         tab: nextTabId,
         jornadaId: nextJornadaId,
+        viewMode: nextViewMode,
       }),
-    [routeJornadaId, visibleDivisionId, visibleTournamentId],
+    [routeJornadaId, routeViewMode, visibleDivisionId, visibleTournamentId],
   );
   const getJornadaPath = useCallback(
-    (nextJornadaId) => getTorneosPath("jornadas", nextJornadaId),
-    [getTorneosPath],
+    (nextJornadaId, nextViewMode = routeViewMode) =>
+      getTorneosPath("jornadas", nextJornadaId, nextViewMode),
+    [getTorneosPath, routeViewMode],
   );
   const navigateWithinTournament = useCallback(
     (href, options = {}) =>
@@ -135,6 +141,13 @@ export function TorneosTemplate({
         preventScrollReset: true,
       }),
     [navigate],
+  );
+  const handlePlanningViewChange = useCallback(
+    (nextViewMode) => {
+      if (!routeJornadaId || nextViewMode === routeViewMode) return;
+      navigateWithinTournament(getJornadaPath(routeJornadaId, nextViewMode));
+    },
+    [getJornadaPath, navigateWithinTournament, routeJornadaId, routeViewMode],
   );
 
   useEffect(() => {
@@ -354,6 +367,8 @@ export function TorneosTemplate({
                     refreshStandings={refreshStandings}
                     divisionName={divisionName}
                     routeJornadaId={routeJornadaId}
+                    viewMode={routeViewMode}
+                    onViewModeChange={handlePlanningViewChange}
                  />
               ) : (
                  <EmptyState title="Torneo no iniciado" description="Debes definir e iniciar un torneo." actionComponent={<ActionButton onClick={() => handleTabChange("definir")}>Ir a Definir</ActionButton>} />

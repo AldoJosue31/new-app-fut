@@ -7,6 +7,8 @@ export function ViewToggle({ currentMode, onToggle }) {
   return (
     <ToggleContainer>
       <ToggleButton 
+        type="button"
+        aria-pressed={currentMode === 'list'}
         $active={currentMode === 'list'} 
         onClick={() => onToggle('list')}
         title="Vista de Lista"
@@ -14,6 +16,8 @@ export function ViewToggle({ currentMode, onToggle }) {
         <RiListCheck />
       </ToggleButton>
       <ToggleButton 
+        type="button"
+        aria-pressed={currentMode === 'grid'}
         $active={currentMode === 'grid'} 
         onClick={() => onToggle('grid')}
         title="Vista de Grilla Semanal"

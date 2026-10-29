@@ -16,6 +16,7 @@ const buildRequestedPath = ({
   jornadaId,
   tab,
   tournamentOrTab,
+  view,
 }) => {
   const segments = [];
 
@@ -23,7 +24,7 @@ const buildRequestedPath = ({
     segments.push("division", divisionId);
   }
 
-  segments.push("torneos", tournamentOrTab, tab, jornadaId);
+  segments.push("torneos", tournamentOrTab, tab, jornadaId, view);
 
   return `/${segments
     .filter(
@@ -39,6 +40,7 @@ export default async function TournamentsPageContent({
   jornadaId,
   tab,
   tournamentOrTab,
+  view,
 }) {
   if (
     divisionId !== undefined &&
@@ -51,18 +53,21 @@ export default async function TournamentsPageContent({
     jornadaId,
     tab,
     tournamentOrTab,
+    view,
   });
   const requestedPath = buildRequestedPath({
     divisionId,
     jornadaId,
     tab,
     tournamentOrTab,
+    view,
   });
   const canonicalPath = buildTournamentPath({
     divisionId,
     jornadaId: tournamentRoute.jornadaId,
     tab: tournamentRoute.tab,
     tournamentId: tournamentRoute.tournamentId,
+    viewMode: tournamentRoute.viewMode,
   });
   const initialAuth = await getPrivatePageAuth({
     pathname: requestedPath,
@@ -83,6 +88,7 @@ export default async function TournamentsPageContent({
         routeDivisionId={divisionId}
         tab={tab}
         tournamentOrTab={tournamentOrTab}
+        view={view}
       />
     </PrivatePageShell>
   );

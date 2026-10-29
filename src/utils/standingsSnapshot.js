@@ -39,6 +39,27 @@ export const isDoubleWalkoverMatch = (match) => {
 
 export const FINISHED_STATUSES = ['finalizado', 'completado', 'jugado', 'terminado'];
 
+export const getMatchStandingsPoints = (match, config = {}) => {
+  if (isDoubleWalkoverMatch(match)) return [0, 0];
+
+  const { winPoints = 3, drawPoints = 1, lossPoints = 0 } = config;
+  const goals1 = parseInt(match.goals1, 10);
+  const goals2 = parseInt(match.goals2, 10);
+  let points1 = parseInt(match.puntos1, 10);
+  let points2 = parseInt(match.puntos2, 10);
+  if (isNaN(points1)) points1 = 0;
+  if (isNaN(points2)) points2 = 0;
+
+  const isZeroPointDraw = points1 === 0 && points2 === 0 && goals1 === goals2 && drawPoints === 0;
+  if (points1 === 0 && points2 === 0 && !isZeroPointDraw) {
+    if (goals1 > goals2) return [winPoints, lossPoints];
+    if (goals1 < goals2) return [lossPoints, winPoints];
+    return [drawPoints, drawPoints];
+  }
+
+  return [points1, points2];
+};
+
 export const toFiniteNumber = (value, fallback = 0) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -291,27 +312,7 @@ export const buildTorneoStandingsSnapshot = ({
         local.e += 1; visitante.e += 1;
       }
 
-      let ptsLocal = parseInt(partido.puntos1, 10);
-      let ptsVisitante = parseInt(partido.puntos2, 10);
-      if (isNaN(ptsLocal)) ptsLocal = 0;
-      if (isNaN(ptsVisitante)) ptsVisitante = 0;
-
-      const isZeroZeroLegit = (
-        ptsLocal === 0 &&
-        ptsVisitante === 0 &&
-        golesLocal === golesVisitante &&
-        config.drawPoints === 0
-      );
-
-      if (ptsLocal === 0 && ptsVisitante === 0 && !isZeroZeroLegit) {
-        if (golesLocal > golesVisitante) {
-          ptsLocal = config.winPoints; ptsVisitante = config.lossPoints;
-        } else if (golesLocal < golesVisitante) {
-          ptsLocal = config.lossPoints; ptsVisitante = config.winPoints;
-        } else {
-          ptsLocal = config.drawPoints; ptsVisitante = config.drawPoints;
-        }
-      }
+      const [ptsLocal, ptsVisitante] = getMatchStandingsPoints(partido, config);
 
       local.pts += ptsLocal;
       visitante.pts += ptsVisitante;

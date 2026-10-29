@@ -9,7 +9,7 @@ export const ROUTES = Object.freeze({
   DELEGATE_INVITATION_PATTERN: "/delegate/invitation/:token",
   DIVISION_TEAMS_PATTERN: "/division/:divisionId/equipos/:teamId?",
   DIVISION_TOURNAMENTS_PATTERN:
-    "/division/:divisionId/torneos/:torneoOrTab?/:tab?/:jornadaId?",
+    "/division/:divisionId/torneos/:torneoOrTab?/:tab?/:jornadaId?/:view?",
   HOME: "/",
   LANDING: "/landing",
   LEAGUE_PATTERN: "/liga/:tab?",
@@ -20,7 +20,7 @@ export const ROUTES = Object.freeze({
   PUBLIC_STANDINGS_PATTERN: "/share/standings/:torneoId",
   TEAMS: "/equipos",
   TEAMS_PATTERN: "/equipos/:teamId?",
-  TOURNAMENTS_PATTERN: "/torneos/:torneoOrTab?/:tab?/:jornadaId?",
+  TOURNAMENTS_PATTERN: "/torneos/:torneoOrTab?/:tab?/:jornadaId?/:view?",
 });
 
 export const buildDivisionTeamsPath = (divisionId, teamId) => {
