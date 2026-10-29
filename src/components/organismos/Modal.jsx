@@ -58,6 +58,7 @@ export const Modal = ({
   onClose,
   closeDisabled = false,
   title,
+  dialogRef = null,
   children,
   headerActions = null,
   headerActionsWrapOnMobile = false,
@@ -97,6 +98,11 @@ export const Modal = ({
 
   const modalContent = (
     <ModalContainer
+        ref={dialogRef}
+        role={dialogRef ? "dialog" : undefined}
+        aria-modal={dialogRef ? true : undefined}
+        aria-label={dialogRef && typeof title === "string" ? title : undefined}
+        tabIndex={dialogRef ? -1 : undefined}
         {...(sidePanel ? { as: motion.div, layout: true, transition: dockTransition } : {})}
         $width={width}
         $maxHeight={maxHeight}
@@ -221,6 +227,15 @@ const Overlay = styled.div`
 `;
 
 const ModalContainer = styled.div`
+  &[role="dialog"] h3 { overflow-wrap: anywhere; }
+  &[role="dialog"] .close-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  &[role="dialog"] .close-btn:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.tournamentDashboard?.hero?.accentStrong || theme.primary};
+    outline-offset: 2px;
+  }
   background-color: ${({ theme }) => theme.bgcards};
   width: ${({ $docked }) => $docked ? '0' : '100%'};
   flex: ${({ $docked }) => $docked ? '1 1 0' : '0 1 auto'};
