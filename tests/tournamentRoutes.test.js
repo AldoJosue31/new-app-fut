@@ -8,6 +8,7 @@ import {
   parseTournamentPathname,
   parseTournamentRoute,
   sanitizeTournamentTab,
+  sanitizeTournamentView,
 } from "../src/lib/navigation/tournamentRoutes.js";
 
 test("parsea rutas legacy con y sin identificador de torneo", () => {
@@ -21,11 +22,12 @@ test("parsea rutas legacy con y sin identificador de torneo", () => {
       hasTournamentId: true,
       isTabValid: true,
       jornadaId: "456",
-      needsRouteCleanup: false,
+      needsRouteCleanup: true,
       requestedJornadaId: "456",
       requestedTab: "jornadas",
       tab: "jornadas",
       tournamentId: "123",
+      viewMode: "list",
     },
   );
 
@@ -38,11 +40,12 @@ test("parsea rutas legacy con y sin identificador de torneo", () => {
       hasTournamentId: false,
       isTabValid: true,
       jornadaId: "456",
-      needsRouteCleanup: false,
+      needsRouteCleanup: true,
       requestedJornadaId: "456",
       requestedTab: "jornadas",
       tab: "jornadas",
       tournamentId: "",
+      viewMode: "list",
     },
   );
 });
@@ -86,7 +89,7 @@ test("construye rutas legacy y canonicas sin jornadas espurias", () => {
   assert.equal(buildTournamentPath(), "/torneos");
   assert.equal(
     buildTournamentPath({ tab: "jornadas", jornadaId: 456 }),
-    "/torneos/jornadas/456",
+    "/torneos/jornadas/456/list",
   );
   assert.equal(
     buildTournamentPath({
@@ -95,7 +98,7 @@ test("construye rutas legacy y canonicas sin jornadas espurias", () => {
       tab: "jornadas",
       jornadaId: 456,
     }),
-    "/division/94/torneos/123/jornadas/456",
+    "/division/94/torneos/123/jornadas/456/list",
   );
   assert.equal(
     buildTournamentPath({
@@ -116,6 +119,7 @@ test("deriva los parametros actuales desde el pathname del navegador", () => {
       routeDivisionId: "94",
       tab: "jornadas",
       tournamentOrTab: "123",
+      view: "",
     },
   );
   assert.deepEqual(parseTournamentPathname("/torneos/goleadores"), {
@@ -123,9 +127,87 @@ test("deriva los parametros actuales desde el pathname del navegador", () => {
     routeDivisionId: "",
     tab: "",
     tournamentOrTab: "goleadores",
+    view: "",
   });
   assert.equal(parseTournamentPathname("/division/invalida/torneos"), null);
   assert.equal(parseTournamentPathname("/equipos"), null);
+});
+
+test("conserva list y grid al leer, recargar y cambiar de jornada", () => {
+  for (const divisionId of [undefined, 94]) {
+    for (const tournamentId of [undefined, 123]) {
+      for (const viewMode of ["list", "grid"]) {
+        const initialPath = buildTournamentPath({
+          divisionId,
+          tournamentId,
+          tab: "jornadas",
+          jornadaId: 456,
+          viewMode,
+        });
+        assert.ok(initialPath.endsWith(`/456/${viewMode}`));
+
+        const pathnameRoute = parseTournamentPathname(initialPath);
+        const route = parseTournamentRoute(pathnameRoute);
+        assert.equal(route.jornadaId, "456");
+        assert.equal(route.viewMode, viewMode);
+        assert.equal(route.needsRouteCleanup, false);
+
+        const nextPath = buildTournamentPath({
+          divisionId: pathnameRoute.routeDivisionId,
+          tournamentId: route.tournamentId,
+          tab: route.tab,
+          jornadaId: 457,
+          viewMode: route.viewMode,
+        });
+        const reloadedRoute = parseTournamentRoute(parseTournamentPathname(nextPath));
+        assert.equal(reloadedRoute.jornadaId, "457");
+        assert.equal(reloadedRoute.viewMode, viewMode);
+        assert.equal(reloadedRoute.needsRouteCleanup, false);
+      }
+    }
+  }
+});
+
+test("normaliza las vistas ausentes o invalidas a list", () => {
+  assert.equal(sanitizeTournamentView("list"), "list");
+  assert.equal(sanitizeTournamentView("grid"), "grid");
+  for (const view of [undefined, "", "lista", "GRID", "invalid"]) {
+    const route = parseTournamentRoute({
+      tournamentOrTab: "123",
+      tab: "jornadas",
+      jornadaId: "456",
+      view,
+    });
+    assert.equal(route.viewMode, "list");
+    assert.equal(route.needsRouteCleanup, true);
+    assert.equal(buildTournamentPath({
+      tournamentId: route.tournamentId,
+      tab: route.tab,
+      jornadaId: route.jornadaId,
+      viewMode: route.viewMode,
+    }), "/torneos/123/jornadas/456/list");
+  }
+});
+
+test("la vista solo pertenece a jornadas y rechaza segmentos adicionales", () => {
+  const route = parseTournamentRoute({
+    tournamentOrTab: "123",
+    tab: "standings",
+    jornadaId: "456",
+    view: "grid",
+  });
+  assert.equal(route.viewMode, "");
+  assert.equal(route.needsRouteCleanup, true);
+  assert.equal(buildTournamentPath({
+    tournamentId: "123",
+    tab: "standings",
+    jornadaId: 456,
+    viewMode: "grid",
+  }), "/torneos/123/standings");
+  assert.equal(parseTournamentPathname("/torneos/123/jornadas/456/grid/extra"), null);
+  assert.equal(parseTournamentRoute(parseTournamentPathname(
+    "/torneos/jornadas/456/grid/extra"
+  )).needsRouteCleanup, true);
 });
 
 test("cambiar division conserva el tab y descarta ids de la division anterior", () => {

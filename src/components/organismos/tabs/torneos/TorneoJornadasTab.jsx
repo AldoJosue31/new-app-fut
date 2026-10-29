@@ -15,6 +15,7 @@ import {
   getMatchesByIdsService,
   getMatchesByJornadaService,
   getTournamentConfigService,
+  prefetchPartidosExternosContext,
   guardarJornadaService,
   resetMatchResultService,
   saveMatchResultAtomicService,
@@ -46,6 +47,7 @@ import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils"
 
 import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 import { notify } from "../../../../lib/notifications/notify.js";
+import { isAbortError } from "../../../../utils/errorUtils.js";
 
 const FixturePreviewModal = dynamic(
   () =>
@@ -386,6 +388,8 @@ export function TorneoJornadasTab({
   refreshStandings,
   divisionName = "",
   routeJornadaId,
+  viewMode = "list",
+  onViewModeChange,
 }) {
   const [activeTournament, setActiveTournament] = useState(initialTournament);
   const [jornadas, setJornadas] = useState([]);
@@ -425,6 +429,18 @@ export function TorneoJornadasTab({
     return activeTournament.config || {};
   }, [activeTournament?.config]);
   const jornadaDurationDays = getConfiguredJornadaDurationDays(tournamentConfig);
+  const tournamentLeagueId = activeTournament?.division?.league_id || activeTournament?.divisions?.league_id;
+
+  useEffect(() => {
+    if (!activeTournament?.id || !tournamentLeagueId) return;
+    const controller = new AbortController();
+    prefetchPartidosExternosContext(activeTournament.id, tournamentLeagueId, {
+      signal: controller.signal,
+    }).catch((error) => {
+      if (!isAbortError(error)) console.error("Error precargando divisiones:", error);
+    });
+    return () => controller.abort();
+  }, [activeTournament?.id, tournamentLeagueId]);
 
   useEffect(() => {
     setActiveTournament(initialTournament);
@@ -1949,6 +1965,8 @@ export function TorneoJornadasTab({
             onConfirm={handleConfirmJornada} 
             onUndoConfirmation={handleUndoJornadaConfirmation}
             onChangeJornada={handleChangeJornada}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
             totalJornadas={planningJornadas.length}
             onMatchUpdate={handleMatchUpdate}
             onRefreshAfterBulkPending={refreshAfterBulkPending}

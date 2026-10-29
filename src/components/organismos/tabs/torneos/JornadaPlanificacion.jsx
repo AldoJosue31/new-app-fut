@@ -113,6 +113,8 @@ export function JornadaPlanificacion({
   onConfirm,
   onUndoConfirmation,
   onChangeJornada,
+  viewMode = "list",
+  onViewModeChange,
   totalJornadas,
   onMatchUpdate,
   onRefreshAfterBulkPending,
@@ -160,7 +162,6 @@ export function JornadaPlanificacion({
     jornadas
   );
 
-  const [viewMode, setViewMode] = useState("list");
   const [draggedMatch, setDraggedMatch] = useState(null);
   const [selectedPendingMatch, setSelectedPendingMatch] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -1057,7 +1058,7 @@ export function JornadaPlanificacion({
         onAutoFill={handleAutoFillWrapper}
         onConfig={() => setConfigModalOpen(true)}
         viewMode={viewMode}
-        onToggleView={setViewMode}
+        onToggleView={onViewModeChange}
         onEditFixture={onEditFixture}
         isTournamentActive={isTournamentActive}
         needsDateNormalization={needsDateNormalization}
@@ -1246,7 +1247,7 @@ export function JornadaPlanificacion({
               <WeeklyGridView
                 weekStartDate={planningReferenceStartDate}
                 scheduledMatches={scheduledMatches}
-                externalMatches={externalMatches}
+                externalMatches={showExternalMatches ? externalMatches : []}
                 divisionActual={
                   activeTournament?.division?.name || activeTournament?.divisions?.name
                 }
@@ -1258,43 +1259,42 @@ export function JornadaPlanificacion({
         </Workspace>
       </TransitionWrapper>
 
-      <Footer>
-        <div className="note">
-          Duración Estimada: {durationMatch} min (Partido + Descanso)
-        </div>
-        <FooterActions>
-          {!isConfirmed && (
-            <Btnsave
-              titulo={
-                isCheckingConflicts
-                  ? "Verificando..."
-                  : isRepositionMode
-                    ? "Confirmar Reposicion"
-                    : "Confirmar Jornada"
-              }
-              funcion={handleOpenConfirmModal}
-              icono={!isCheckingConflicts && <RiCheckDoubleLine />}
-              bgcolor={
-                canConfirm && !isCheckingConflicts
-                  ? isRepositionMode
-                    ? "#f39c12"
-                    : v.colorPrincipal
-                  : "#95a5a6"
-              }
-            />
-          )}
+      {(!isConfirmed || canUndoJornadaConfirmation) && (
+        <Footer>
+          <FooterActions>
+            {!isConfirmed && (
+              <Btnsave
+                titulo={
+                  isCheckingConflicts
+                    ? "Verificando..."
+                    : isRepositionMode
+                      ? "Confirmar Reposicion"
+                      : "Confirmar Jornada"
+                }
+                funcion={handleOpenConfirmModal}
+                icono={!isCheckingConflicts && <RiCheckDoubleLine />}
+                bgcolor={
+                  canConfirm && !isCheckingConflicts
+                    ? isRepositionMode
+                      ? "#f39c12"
+                      : v.colorPrincipal
+                    : "#95a5a6"
+                }
+              />
+            )}
 
-          {canUndoJornadaConfirmation && (
-            <Btnsave
-              titulo={isUndoingConfirmation ? "Deshaciendo..." : "Deshacer confirmacion"}
-              funcion={() => setUndoJornadaModalOpen(true)}
-              icono={<RiArrowGoBackLine />}
-              bgcolor="#e67e22"
-              disabled={isUndoingConfirmation}
-            />
-          )}
-        </FooterActions>
-      </Footer>
+            {canUndoJornadaConfirmation && (
+              <Btnsave
+                titulo={isUndoingConfirmation ? "Deshaciendo..." : "Deshacer confirmacion"}
+                funcion={() => setUndoJornadaModalOpen(true)}
+                icono={<RiArrowGoBackLine />}
+                bgcolor="#e67e22"
+                disabled={isUndoingConfirmation}
+              />
+            )}
+          </FooterActions>
+        </Footer>
+      )}
 
       <TournamentConfigModal
         isOpen={configModalOpen}
@@ -1691,9 +1691,9 @@ const GridList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   min-height: 100%;
-  padding-bottom: 5px;
+  padding-bottom: 10px;
 `;
 
 const TapSelectionBanner = styled.div`
@@ -1761,24 +1761,12 @@ const Footer = styled.div`
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: stretch;
-
-    .note {
-      text-align: center;
-    }
-  }
-
-  .note {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: ${v.colorPrincipal};
-    background: ${`${v.colorPrincipal}15`};
-    padding: 8px 12px;
-    border-radius: 8px;
   }
 `;
 
 const FooterActions = styled.div`
   display: flex;
+  margin-left: auto;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;

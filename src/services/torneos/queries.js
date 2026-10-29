@@ -1,4 +1,9 @@
 import { supabase, ACTIVE_TOURNAMENT_STATUSES } from './shared';
+import { createRequestCache } from '../../utils/requestCache.js';
+
+const externalContextCache = createRequestCache({ ttlMs: 30_000, maxEntries: 8 });
+const externalMatchesCache = createRequestCache({ ttlMs: 15_000 });
+const externalTeamsCache = createRequestCache({ ttlMs: 30_000 });
 
 const withAbortSignal = (query, signal) =>
   signal ? query.abortSignal(signal) : query;
@@ -72,15 +77,7 @@ export const getAllMatchesByTournament = async (tournamentId) => {
   return data || [];
 };
 
-export const getPartidosExternosRango = async (
-  startDate,
-  endDate,
-  currentTournamentId,
-  leagueId,
-  { signal = null } = {},
-) => {
-  if (!startDate || !endDate || !leagueId) return [];
-
+const loadExternalContext = async (currentTournamentId, leagueId, signal) => {
   // Scope each step before reading matches. Besides reducing the result set,
   // this prevents PostgREST from building one very large RLS plan spanning
   // matches, jornadas, tournaments, divisions and teams twice.
@@ -92,7 +89,7 @@ export const getPartidosExternosRango = async (
     signal,
   );
   const divisionIds = uniqueIds(divisions.map((division) => division.id));
-  if (divisionIds.length === 0) return [];
+  if (divisionIds.length === 0) return { divisions, tournaments: [], jornadas: [] };
 
   let tournamentsQuery = supabase
     .from('tournaments')
@@ -107,7 +104,7 @@ export const getPartidosExternosRango = async (
   const tournamentIds = uniqueIds(
     tournaments.map((tournament) => tournament.id),
   );
-  if (tournamentIds.length === 0) return [];
+  if (tournamentIds.length === 0) return { divisions, tournaments, jornadas: [] };
 
   const jornadas = await getRows(
     supabase
@@ -116,6 +113,40 @@ export const getPartidosExternosRango = async (
       .in('tournament_id', tournamentIds),
     signal,
   );
+  return { divisions, tournaments, jornadas };
+};
+
+const getExternalSessionScope = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return session?.access_token || null;
+};
+
+const getExternalContext = (scope, currentTournamentId, leagueId, signal) =>
+  externalContextCache.read(
+    JSON.stringify([scope, leagueId, currentTournamentId]),
+    (requestSignal) => loadExternalContext(currentTournamentId, leagueId, requestSignal),
+    { signal },
+  );
+
+export const prefetchPartidosExternosContext = async (
+  currentTournamentId, leagueId, { signal } = {},
+) => {
+  if (!leagueId) return;
+  const scope = await getExternalSessionScope();
+  if (scope) await getExternalContext(scope, currentTournamentId, leagueId, signal);
+};
+
+const loadExternalMatches = async (
+  startDate, endDate, currentTournamentId, leagueId, scope, signal, forceRefresh,
+) => {
+  const context = forceRefresh
+    ? await loadExternalContext(currentTournamentId, leagueId, signal)
+    : await getExternalContext(scope, currentTournamentId, leagueId, signal);
+  if (forceRefresh) {
+    externalContextCache.set(JSON.stringify([scope, leagueId, currentTournamentId]), context);
+  }
+  const { divisions, tournaments, jornadas } = context;
   const jornadaIds = uniqueIds(jornadas.map((jornada) => jornada.id));
   if (jornadaIds.length === 0) return [];
 
@@ -136,15 +167,19 @@ export const getPartidosExternosRango = async (
   const teamIds = uniqueIds(
     matches.flatMap((match) => [match.team1_id, match.team2_id]),
   );
+  const loadTeams = (requestSignal) => getRows(
+    supabase.from('teams').select('id, name, logo_url').in('id', teamIds),
+    requestSignal,
+  );
+  const teamsCacheKey = JSON.stringify([scope, leagueId, [...teamIds].sort()]);
   const teams = teamIds.length > 0
-    ? await getRows(
-        supabase
-          .from('teams')
-          .select('id, name, logo_url')
-          .in('id', teamIds),
-        signal,
-      )
+    ? await (forceRefresh
+      ? loadTeams(signal)
+      : externalTeamsCache.read(
+        teamsCacheKey, loadTeams, { signal },
+      ))
     : [];
+  if (forceRefresh && teamIds.length > 0) externalTeamsCache.set(teamsCacheKey, teams);
 
   const divisionsById = new Map(
     divisions.map((division) => [String(division.id), division]),
@@ -200,6 +235,30 @@ export const getPartidosExternosRango = async (
         isExternal: true,
       };
     });
+};
+
+export const getPartidosExternosRango = async (
+  startDate, endDate, currentTournamentId, leagueId,
+  { signal, forceRefresh = false, onCachedData } = {},
+) => {
+  if (!startDate || !endDate || !leagueId) return [];
+  const scope = await getExternalSessionScope();
+  if (!scope) return [];
+  const load = (requestSignal) => loadExternalMatches(
+    startDate, endDate, currentTournamentId, leagueId, scope, requestSignal, forceRefresh,
+  );
+  const cacheKey = JSON.stringify([scope, leagueId, currentTournamentId, startDate, endDate]);
+  // Conflict checks always read current schedules, including new rounds/divisions.
+  if (forceRefresh) {
+    const data = await load(signal);
+    externalMatchesCache.set(cacheKey, data);
+    return data;
+  }
+  return externalMatchesCache.read(
+    cacheKey,
+    load,
+    { signal, onCachedData },
+  );
 };
 
 export const getTournamentConfigService = async (tournamentId) => {

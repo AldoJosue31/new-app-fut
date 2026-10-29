@@ -52,7 +52,7 @@ export const usePlanificacionMatches = (
   // --- LOGICA DE FECHAS ---
   const [jornadaDates, setJornadaDates] = useState({});
   const [weekStartDate, setWeekStartDate] = useState(
-    () => new Date().toISOString().split('T')[0],
+    () => jornadaData?.start_date || activeTournament?.start_date || new Date().toISOString().split('T')[0],
   );
 
   // --- LOGICA DE PARTIDOS EXTERNOS ---
@@ -65,6 +65,7 @@ export const usePlanificacionMatches = (
   const activeLeagueId =
     activeTournament?.division?.league_id ||
     activeTournament?.divisions?.league_id;
+  const externalDurationDays = Math.max(1, parseInt(activeTournament?.config?.jornadaDurationDays, 10) || 7);
 
   const jornadaStatus = jornadaData?.status;
   const currentJornadaName = jornadaData?.name || `Jornada ${jornadaIndex + 1}`;
@@ -195,7 +196,7 @@ export const usePlanificacionMatches = (
       setJornadaDates(prev => ({ ...prev, [jornadaIndex]: newDate }));
   };
 
-  const fetchExternalMatches = useCallback(async (startDateToCheck) => {
+  const fetchExternalMatches = useCallback(async (startDateToCheck, { forceRefresh = true } = {}) => {
       if (!activeTournamentId) return [];
       
       if (!activeLeagueId) {
@@ -203,7 +204,7 @@ export const usePlanificacionMatches = (
           return [];
       }
 
-      const endDate = addDaysToDate(startDateToCheck, 7);
+      const endDate = addDaysToDate(startDateToCheck, externalDurationDays - 1);
       const requestId = externalMatchesRequestRef.current + 1;
       externalMatchesRequestRef.current = requestId;
 
@@ -218,7 +219,15 @@ export const usePlanificacionMatches = (
               endDate, 
               activeTournamentId,
               activeLeagueId,
-              { signal: abortController.signal },
+              {
+                signal: abortController.signal,
+                forceRefresh,
+                onCachedData: (cachedMatches) => {
+                  if (requestId === externalMatchesRequestRef.current) {
+                    setExternalMatches(cachedMatches);
+                  }
+                },
+              },
           );
           if (requestId === externalMatchesRequestRef.current) {
               setExternalMatches(data);
@@ -245,16 +254,15 @@ export const usePlanificacionMatches = (
               setLoadingExternal(false);
           }
       }
-  }, [activeLeagueId, activeTournamentId]);
+  }, [activeLeagueId, activeTournamentId, externalDurationDays]);
 
   useEffect(() => {
     if (showExternalMatches && weekStartDate) {
-        fetchExternalMatches(weekStartDate);
+        fetchExternalMatches(weekStartDate, { forceRefresh: false });
     } else if (!showExternalMatches) {
         externalMatchesRequestRef.current += 1;
         externalMatchesAbortRef.current?.abort();
         externalMatchesAbortRef.current = null;
-        setExternalMatches([]);
         setLoadingExternal(false);
     }
 

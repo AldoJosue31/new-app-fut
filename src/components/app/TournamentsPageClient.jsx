@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { Torneos } from "../../views/Torneos.jsx";
@@ -13,6 +13,7 @@ export default function TournamentsPageClient({
   state,
   tab,
   tournamentOrTab,
+  view,
 }) {
   const pathname = usePathname() || "/torneos";
   const router = useRouter();
@@ -33,6 +34,19 @@ export default function TournamentsPageClient({
   const visiblePathname = isClientRouteOverrideCurrent
     ? clientRouteOverride.pathname
     : pathname;
+
+  useEffect(() => {
+    const restoreBrowserRoute = () => {
+      setClientRouteOverride({
+        href: `${window.location.pathname}${window.location.search}`,
+        pathname: window.location.pathname,
+        route: parseTournamentPathname(window.location.pathname),
+      });
+    };
+    window.addEventListener("popstate", restoreBrowserRoute);
+    return () => window.removeEventListener("popstate", restoreBrowserRoute);
+  }, []);
+
   const navigate = useCallback(
     (
       href,
@@ -92,6 +106,7 @@ export default function TournamentsPageClient({
       state={state}
       tab={clientRoute?.tab ?? tab}
       tournamentOrTab={clientRoute?.tournamentOrTab ?? tournamentOrTab}
+      view={clientRoute?.view ?? view}
     />
   );
 }
