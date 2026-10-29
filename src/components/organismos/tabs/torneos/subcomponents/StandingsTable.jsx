@@ -236,6 +236,7 @@ export default function StandingsTable({
         <StandingsTeamResultsModal
           team={selectedTeam}
           teams={tablaGeneral}
+          config={config}
           torneoNombre={torneoNombre}
           partidos={partidos}
           jornadas={jornadas}

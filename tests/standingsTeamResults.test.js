@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getStandingsTeamResults } from '../src/utils/standingsTeamResults.js';
+import { buildTorneoStandingsSnapshot } from '../src/utils/standingsSnapshot.js';
 
 const jornadas = [
   { id: 10, name: 'Jornada 1' },
@@ -83,4 +84,79 @@ test('handles teams without results', () => {
   assert.deepEqual(results([]), []);
   assert.deepEqual(results([match()], { teamId: 55 }), []);
   assert.deepEqual(results([match()], { teamId: null }), []);
+});
+
+test('shows earned points and running totals from the first jornada with the newest result first', () => {
+  const data = results([
+    match({ id: 3, jornada_id: 30, team1_id: 2, team2_id: 1, goals1: 3, goals2: 0 }),
+    match({ id: 1, jornada_id: 10 }),
+    match({ id: 2, jornada_id: 20, goals1: 1, goals2: 1 }),
+  ]);
+  assert.deepEqual(data.map(({ id, pointsEarned, accumulatedPoints }) => [id, pointsEarned, accumulatedPoints]), [
+    [3, 0, 4], [2, 1, 4], [1, 3, 3],
+  ]);
+});
+
+test('uses recorded penalty bonuses and negative points for the selected home or away team', () => {
+  const data = results([
+    match({ id: 1, jornada_id: 10 }),
+    match({ id: 2, jornada_id: 20, goals1: 2, goals2: 2, puntos1: '2', puntos2: '1', observations: 'Penales: 4 - 3' }),
+    match({ id: 3, jornada_id: 30, team1_id: 2, team2_id: 1, goals1: 2, goals2: 0, puntos1: 3, puntos2: -1 }),
+  ]);
+  assert.deepEqual(data.map(({ pointsEarned, accumulatedPoints }) => [pointsEarned, accumulatedPoints]), [
+    [-1, 4], [2, 5], [3, 3],
+  ]);
+});
+
+test('falls back to the tournament rules when stored points are absent or both zero', () => {
+  const data = results([
+    match({ id: 1, jornada_id: 10, puntos1: 0, puntos2: 0 }),
+    match({ id: 2, jornada_id: 20, goals1: 1, goals2: 1 }),
+    match({ id: 3, jornada_id: 30, goals1: 0, goals2: 3 }),
+  ], { config: { winPoints: 5, drawPoints: 2, lossPoints: -1 } });
+  assert.deepEqual(data.map(({ pointsEarned, accumulatedPoints }) => [pointsEarned, accumulatedPoints]), [
+    [-1, 6], [2, 7], [5, 5],
+  ]);
+});
+
+test('preserves a zero-point draw and awards no points for a double default', () => {
+  const data = results([
+    match({ id: 1, jornada_id: 10 }),
+    match({ id: 2, jornada_id: 20, goals1: 0, goals2: 0, puntos1: 0, puntos2: 0 }),
+    match({ id: 3, jornada_id: 30, goals1: 0, goals2: 0, puntos1: 3, puntos2: 3, observations: 'Doble W.O.' }),
+  ], { config: { winPoints: 3, drawPoints: 0, lossPoints: 1 } });
+  assert.deepEqual(data.map(({ pointsEarned, accumulatedPoints }) => [pointsEarned, accumulatedPoints]), [
+    [0, 3], [0, 3], [3, 3],
+  ]);
+});
+
+test('accumulates by official jornada after rescheduling and excludes results beyond the cutoff', () => {
+  const partidos = [
+    match({ id: 1, jornada_id: 40, date: '2026-10-29' }),
+    match({ id: 2, jornada_id: 20, date: '2026-10-01', goals1: 1, goals2: 1 }),
+    match({ id: 3, jornada_id: 30 }),
+  ];
+  const data = results(partidos, {
+    jornadaLimit: 2,
+    repositionMappings: [{ repositionJornadaId: 40, originalJornadaId: 10 }],
+  });
+  assert.deepEqual(data.map(({ id, accumulatedPoints }) => [id, accumulatedPoints]), [[2, 4], [1, 3]]);
+});
+
+test('latest accumulated points agree with the standings snapshot for default and custom rules', () => {
+  const partidos = [
+    match({ id: 1, jornada_id: 10 }),
+    match({ id: 2, jornada_id: 20, goals1: 1, goals2: 1, puntos1: 2, puntos2: 1 }),
+    match({ id: 3, jornada_id: 30, goals1: 0, goals2: 0, observations: 'Doble W.O.' }),
+  ].map((item) => ({ ...item, tournament_id: 99 }));
+
+  for (const config of [{}, { winPoints: 5, drawPoints: 0, lossPoints: -1 }]) {
+    const data = results(partidos, { config });
+    const snapshot = buildTorneoStandingsSnapshot({
+      torneo: { id: 99, config },
+      equipos: [{ id: 1, name: 'Local' }, { id: 2, name: 'Visitante' }],
+      partidos, jornadasProp: jornadas, selectedJornadaView: '3',
+    });
+    assert.equal(data[0].accumulatedPoints, snapshot.tablaGeneral.find((team) => team.id === 1).pts);
+  }
 });

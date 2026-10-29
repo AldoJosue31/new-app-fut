@@ -9,12 +9,12 @@ const resultLabels = { G: 'Ganado', E: 'Empatado', P: 'Perdido' };
 
 export function StandingsTeamResultsModal({
   team, teams, torneoNombre, partidos, jornadas, repositionMappings,
-  repositionMatchMappings, jornadaLimit, onClose,
+  repositionMatchMappings, jornadaLimit, config, onClose,
 }) {
   const dialogRef = useRef(null);
   const results = useMemo(() => getStandingsTeamResults({
-    teamId: team.id, partidos, jornadas, repositionMappings, repositionMatchMappings, jornadaLimit,
-  }), [team.id, partidos, jornadas, repositionMappings, repositionMatchMappings, jornadaLimit]);
+    teamId: team.id, partidos, jornadas, repositionMappings, repositionMatchMappings, jornadaLimit, config,
+  }), [team.id, partidos, jornadas, repositionMappings, repositionMatchMappings, jornadaLimit, config]);
   const teamsById = useMemo(() => new Map(teams.map((item) => [String(item.id), {
     name: item.nombre, logo_url: item.logo, color: item.color,
   }])), [teams]);
@@ -71,7 +71,6 @@ export function StandingsTeamResultsModal({
                   <span className="jornada">Jornada {match.jornadaNumber}</span>
                   {match.date && <time dateTime={match.date}>{formatShortDate(match.date)}</time>}
                 </div>
-                <ResultLabel $result={match.result}>{resultLabels[match.result]}</ResultLabel>
                 <div className="match-score">
                   <div className="club home">
                     <span className="logo"><TeamLogo club={getClub(match, 1)} /></span>
@@ -85,10 +84,15 @@ export function StandingsTeamResultsModal({
                     <span className="club-name" title={getClub(match, 2).name}>{getClub(match, 2).name}</span>
                   </div>
                 </div>
+                <div className="match-summary">
+                  <ResultLabel $result={match.result}>{resultLabels[match.result]}</ResultLabel>
+                  <span className="points-earned"><strong>{match.pointsEarned > 0 ? '+' : ''}{match.pointsEarned} pts</strong></span>
+                  <span className="points-total"><strong>{match.accumulatedPoints}</strong> acumulados</span>
+                </div>
                 {(match.penalties || match.doubleWalkover) && (
                   <div className="match-notes">
-                    {match.penalties && <p>Penales: {match.penalties}</p>}
-                    {match.doubleWalkover && <p>Doble W.O. · Ambos equipos pierden por default</p>}
+                    {match.penalties && <span>Penales: {match.penalties}</span>}
+                    {match.doubleWalkover && <span>Doble W.O. · Ambos equipos pierden por default</span>}
                   </div>
                 )}
               </li>
@@ -107,26 +111,39 @@ const ResultsContent = styled.div`
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 
-  .context, .empty, .match-meta time, .match-notes {
+  .context, .empty, .match-meta time, .match-notes, .points-total {
     color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle};
   }
   .context { margin: 0 0 20px; line-height: 1.5; overflow-wrap: anywhere; }
   .empty { margin: 32px 0; text-align: center; line-height: 1.6; }
-  ol { display: grid; gap: 12px; list-style: none; padding: 0; margin: 0; }
+  ol { display: grid; gap: 8px; list-style: none; padding: 0; margin: 0; }
   .match-row {
     display: grid;
-    grid-template-columns: 72px minmax(0, 1fr) 72px;
+    grid-template-columns: 88px minmax(0, 1fr) 88px;
     grid-template-areas: 'meta fixture result';
     align-items: center;
     column-gap: 12px;
-    row-gap: 8px;
-    padding: 16px;
-    min-height: 96px;
+    row-gap: 4px;
+    padding: 10px 16px;
+    min-height: 72px;
     box-sizing: border-box;
     border-radius: 12px;
     background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
   }
-  .match-row:has(.match-notes) { grid-template-areas: 'meta fixture result' '. notes .'; }
+  .match-row:has(.match-notes) { grid-template-areas: 'meta fixture result' 'meta notes result'; }
+  .match-summary {
+    grid-area: result;
+    display: grid;
+    justify-items: end;
+    align-content: center;
+    gap: 2px;
+    min-width: 0;
+    text-align: right;
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+  .match-summary strong { font-weight: 600; }
+  .points-earned, .points-total { white-space: nowrap; }
   .match-meta { grid-area: meta; display: grid; gap: 4px; font-size: 0.75rem; line-height: 1.4; }
   .jornada { font-weight: 600; }
   .match-score {
@@ -152,41 +169,59 @@ const ResultsContent = styled.div`
   .home { flex-direction: row-reverse; text-align: right; }
   .logo { display: flex; flex: 0 0 28px; width: 28px; height: 28px; align-items: center; justify-content: center; }
   .logo img { width: 100%; height: 100%; object-fit: contain; }
-  .match-notes { grid-area: notes; text-align: center; font-size: 0.75rem; line-height: 1.4; }
-  .match-notes p { margin: 0; }
+  .match-notes {
+    grid-area: notes;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+  .points-earned { color: ${({ theme }) => theme.text}; }
 
   @media (max-width: 640px) {
     padding: 16px;
     .context { margin-bottom: 16px; }
     .match-row {
       grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas: 'meta result' 'fixture fixture';
-      row-gap: 12px;
+      grid-template-areas: 'meta meta' 'fixture fixture' 'result result';
+      row-gap: 4px;
     }
-    .match-row:has(.match-notes) { grid-template-areas: 'meta result' 'fixture fixture' 'notes notes'; }
+    .match-row:has(.match-notes) { grid-template-areas: 'meta notes' 'fixture fixture' 'result result'; }
+    .match-summary {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+    }
+    .match-notes { justify-content: flex-end; max-width: 140px; text-align: right; }
     .match-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
   }
 
   @media (max-width: 520px) {
     --score-width: 72px;
-    .match-row { padding: 12px; }
+    .match-row { padding: 8px 12px; }
     .match-score { align-items: start; }
     .scoreline { align-self: center; }
-    .club { flex-direction: column; text-align: center; gap: 8px; }
+    .club { flex-direction: column; text-align: center; gap: 4px; }
+    .logo { flex-basis: 24px; width: 24px; height: 24px; }
     .club-name {
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
       overflow: hidden;
       width: 100%;
-      min-height: 2.8em;
+      min-height: 2.6em;
       font-size: 0.8125rem;
+      line-height: 1.3;
     }
   }
 `;
 
 const ResultLabel = styled.span`
-  grid-area: result;
   justify-self: end;
   padding: 4px 8px;
   border-radius: 6px;
