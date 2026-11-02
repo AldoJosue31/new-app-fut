@@ -302,12 +302,12 @@ const MatchItem = styled.li`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 19px 22px;
+  gap: 16px;
+  padding: 16px;
   background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards};
   & + & { border-top: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4}; }
   .match-info { min-width: 0; flex: 1; }
-  .match-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; }
+  .match-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 4px; }
   .origin {
     display: inline-flex;
     align-items: center;
@@ -329,17 +329,14 @@ const MatchItem = styled.li`
     overflow-wrap: anywhere;
   }
   .vs { font-size: 0.78rem; font-weight: 500; color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.colorSubtitle}; }
-  .actions { display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 175px; flex: 0 0 175px; }
-  @media (max-width: 600px) {
+  .actions { display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; }
+  @media (max-width: 700px) {
     align-items: stretch;
     flex-direction: column;
-    gap: 16px;
-    padding: 18px;
-    .actions { flex-direction: row; width: 100%; flex: none; }
-    .actions button { flex: 1; }
-  }
-  @media (max-width: 460px) {
-    .actions { flex-direction: column; }
+    gap: 8px;
+    padding: 16px 12px;
+    .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: none; }
+    .actions button { min-width: 0; padding: 6px 8px; gap: 4px; white-space: normal; }
   }
 `;
 
@@ -363,6 +360,7 @@ const ActionButton = styled.button`
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
+  line-height: 1.3;
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease, filter 0.15s ease;
