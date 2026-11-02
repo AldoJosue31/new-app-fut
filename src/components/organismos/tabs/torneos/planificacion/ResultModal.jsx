@@ -141,6 +141,10 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
     return visitGoals + localOwnGoals;
   }, [rosterVisit, rosterLocal, isWalkover, woWinnerId, match]);
 
+  const isOnlyDateUpdate = !requireResult && !selectedReferee &&
+    !rosterLocal.some(p => p.playerId) && !rosterVisit.some(p => p.playerId) &&
+    !isWalkover && totalGoalsLocal === 0 && totalGoalsVisit === 0;
+
   // Tabs Dinámicas
   const modalTabs = useMemo(() => {
     const tabs = [{ id: "general", label: "General", icon: <RiFileList3Line/> }];
@@ -537,19 +541,13 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
     const countLocal = rosterLocal.filter(p => p.playerId).length;
     const countVisit = rosterVisit.filter(p => p.playerId).length;
     const hasGoalsWithoutPlayer = hasUnassignedGoals(rosterLocal) || hasUnassignedGoals(rosterVisit);
-    const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
-    const isOnlyDateUpdate = !requireResult && !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
-
-    // Validación estricta del árbitro independientemente de si es o no W.O. 
-    // (A menos que sea únicamente una edición de fecha sin W.O. y sin rosters)
-    if (!isOnlyDateUpdate && !selectedReferee) {
-        return notify.error("Debe asignar un árbitro.");
-    }
+    const bothTeamsHaveEnoughRegisteredPlayers =
+      localPlayers.length >= halfMinPlayers && visitPlayers.length >= halfMinPlayers;
 
     if (isWalkover) {
         if (!woWinnerId) return notify.error("Seleccione la resolucion por default.");
     } else if (!isOnlyDateUpdate) {
-        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return notify.warning("Pocos jugadores registrados.");
+        if (bothTeamsHaveEnoughRegisteredPlayers && countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return notify.warning("Pocos jugadores registrados.");
         if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
           if (parseInt(penalties.local) === parseInt(penalties.visit)) return notify.error("Los penales no pueden terminar en empate.");
         }
@@ -721,11 +719,6 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
       if (manualObservations && manualObservations.trim() !== "") finalObsParts.push(manualObservations.trim());
       
       const fullDate = (matchDate && matchTime) ? `${matchDate} ${matchTime}:00` : null;
-
-      const countLocal = rosterLocal.filter(p => p.playerId).length;
-      const countVisit = rosterVisit.filter(p => p.playerId).length;
-      const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
-      const isOnlyDateUpdate = !requireResult && !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
 
       // La foto tiene guardado independiente; un fallo impide cerrar el modal.
       await cedulaPhoto.save();
@@ -925,7 +918,7 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
       </Container>
 
       {showConfirm && (
-         <ConfirmResultOverlay match={match} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading || isSaving} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
+         <ConfirmResultOverlay match={match} selectedReferee={selectedReferee} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading || isSaving} isOnlyDateUpdate={isOnlyDateUpdate} />
       )}
 
     </Modal>

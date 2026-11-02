@@ -51,9 +51,9 @@ export const GeneralTab = ({
             {/* Se removió la condición !isWalkover para que estos inputs siempre sean visibles */}
             <GridInputs>
                 <InputGroup>
-                    <label htmlFor="result-referee"><RiUserStarFill/> Árbitro Principal *</label>
+                    <label htmlFor="result-referee"><RiUserStarFill/> Árbitro Principal (Opcional)</label>
                     <select id="result-referee" value={selectedReferee} onChange={(e) => setSelectedReferee(e.target.value)}>
-                        <option value="">Seleccione un árbitro...</option>
+                        <option value="">Sin árbitro asignado</option>
                         {referees.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
                     </select>
                 </InputGroup>

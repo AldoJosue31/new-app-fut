@@ -1374,7 +1374,7 @@ export function JornadaPlanificacion({
         match={selectedMatchResult}
         activeTournament={activeTournament}
         onSave={handleSaveResult}
-        requireResult={!!managedResultType}
+        requireResult
         defaultMatchDate={managedResultType === "pending" ? selectedMatchResult?.jornadas?.start_date : undefined}
       />
 
