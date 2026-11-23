@@ -1,12 +1,12 @@
 import React, { useEffect, useEffectEvent, useState, useRef, useMemo } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiCloseLine, RiSettings3Line } from "react-icons/ri";
-import { v } from "../../../../../../styles/variables";
-import { Modal } from "../../../../Modal";
+import { TournamentModal, ModalFooter } from "../../TournamentModal";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { ExportDownloadButton, ExportPreviewHeader } from '../shared/ExportPreviewHeader';
 import MatchSheetExportLayout from "./MatchSheetExportLayout";
+import { MatchSheetPreview } from "./MatchSheetPreview";
 
 const POST_EXPORT_SIZE = { width: 1080, height: 1350 };
 const MOBILE_EXPORT_SIZE = { width: 480, height: 1180 };
@@ -22,7 +22,6 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
     const [isDarkExport, setIsDarkExport] = useState(false);
     const [isMobileLayout, setIsMobileLayout] = useState(false);
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
-    const [previewScale, setPreviewScale] = useState(0.5); 
     const [isExporting, setIsExporting] = useState(false);
     const exportComponentRef = useRef(null);
 
@@ -36,28 +35,6 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
             if (matchId) fetchSheetDataEvent();
         }
     }, [isOpen, matchId, theme]);
-
-    // Calcular escala dinámica para que quepa en pantalla
-    useEffect(() => {
-        const calculateScale = () => {
-            const exportSize = isMobileLayout ? MOBILE_EXPORT_SIZE : POST_EXPORT_SIZE;
-            const compactViewport = window.innerWidth <= 520;
-            const screenPaddingX = compactViewport ? 56 : 80;
-            const screenPaddingY = compactViewport ? 240 : 200;
-            const availableWidth = Math.max(window.innerWidth - screenPaddingX, 260);
-            const availableHeight = Math.max(window.innerHeight - screenPaddingY, 260);
-            
-            let newScale = Math.min(availableWidth / exportSize.width, availableHeight / exportSize.height);
-            if (newScale > 1) newScale = 1;
-            setPreviewScale(newScale * 0.94);
-        };
-
-        if (isOpen) {
-            calculateScale();
-            window.addEventListener('resize', calculateScale);
-        }
-        return () => window.removeEventListener('resize', calculateScale);
-    }, [isOpen, isMobileLayout]);
 
     async function fetchSheetData() {
         setLoading(true);
@@ -168,9 +145,6 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
     if (!isOpen) return null;
 
     const exportSize = isMobileLayout ? MOBILE_EXPORT_SIZE : POST_EXPORT_SIZE;
-    const modalWidth = `${Math.max((exportSize.width * previewScale) + 60, 760)}px`;
-    const previewWidth = exportSize.width * previewScale;
-    const previewHeight = exportSize.height * previewScale;
 
     const renderConfigControls = () => (
         <ExportPreviewHeader
@@ -189,16 +163,10 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
     );
 
     return (
-        <Modal
+        <TournamentModal
             isOpen={isOpen}
             onClose={onClose}
             title="Vista Previa Cédula"
-            width={modalWidth}
-            compactHeader
-            overlayPadding="6px 18px"
-            maxHeight="calc(100dvh - 24px)"
-            bodyOverflowY="hidden"
-            bodyPadding="0"
         >
             <PreviewWrapper>
                 {!loading && (
@@ -227,98 +195,96 @@ const MatchSheetModal = ({ isOpen, onClose, match }) => {
                 <div className="preview-viewport">
                     {loading ? (
                         <LoadingContainer><div className="spinner" /><span>Cargando datos...</span></LoadingContainer>
+                    ) : exportData ? (
+                        <MatchSheetPreview {...exportSize} fitHeight>
+                            <MatchSheetExportLayout
+                                ref={exportComponentRef}
+                                {...exportData}
+                                themeMode={isDarkExport ? 'dark' : 'light'}
+                                layoutMode={isMobileLayout ? 'mobile' : 'desktop'}
+                            />
+                        </MatchSheetPreview>
                     ) : (
-                        <div
-                            className="scale-box"
-                            style={{
-                                width: previewWidth,
-                                height: previewHeight,
-                            }}
-                        >
-                            <div
-                                style={{
-                                    transform: `scale(${previewScale})`,
-                                    transformOrigin: 'top left',
-                                    width: `${exportSize.width}px`,
-                                    height: `${exportSize.height}px`,
-                                    transition: 'transform 260ms ease',
-                                }}
-                            >
-                                {exportData && (
-                                    <MatchSheetExportLayout
-                                        ref={exportComponentRef}
-                                        {...exportData}
-                                        themeMode={isDarkExport ? 'dark' : 'light'}
-                                        layoutMode={isMobileLayout ? 'mobile' : 'desktop'}
-                                    />
-                                )}
-                            </div>
-                        </div>
+                        <LoadError role="alert">No se pudo cargar la cédula. Inténtalo de nuevo.</LoadError>
                     )}
                 </div>
-
-                <ModalFooter>
-                    <button type="button" className="cancel-btn" onClick={onClose}>
-                        Cancelar
-                    </button>
-                    <ExportDownloadButton
-                        onExport={handleExportPNG}
-                        isExporting={isExporting}
-                        disabled={loading || !exportData}
-                    />
-                </ModalFooter>
             </PreviewWrapper>
-        </Modal>
+            <ModalFooter>
+                <button type="button" className="cancel-btn" onClick={onClose}>
+                    Cancelar
+                </button>
+                <ExportDownloadButton
+                    onExport={handleExportPNG}
+                    isExporting={isExporting}
+                    disabled={loading || !exportData}
+                />
+            </ModalFooter>
+        </TournamentModal>
     );
 };
 
 export default MatchSheetModal;
 
-const LoadingContainer = styled.div` padding: 80px; text-align: center; .spinner { border: 4px solid #eee; width: 40px; height: 40px; border-radius: 50%; border-left-color: ${v.colorPrincipal}; animation: spin 1s linear infinite; margin: 0 auto 15px; } @keyframes spin { to { transform: rotate(360deg); } } span { font-weight: 600; color: ${({theme})=>theme.text}; opacity: 0.7; } `;
+const LoadingContainer = styled.div`
+    margin: auto;
+    padding: 80px 16px;
+    text-align: center;
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 15px;
+        border: 4px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+        border-left-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+        border-radius: 50%;
+        animation: spin-match-sheet 1s linear infinite;
+    }
+
+    span {
+        color: ${({ theme }) => theme.text};
+        font-weight: 600;
+        opacity: 0.72;
+    }
+
+    @keyframes spin-match-sheet {
+        to { transform: rotate(360deg); }
+    }
+`;
+
+const LoadError = styled.p`
+    margin: auto;
+    padding: 8px 18px;
+    color: ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || theme.text};
+    text-align: center;
+    font-size: 0.82rem;
+`;
+
 const PreviewWrapper = styled.div`
     width: 100%;
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    background: ${({theme}) => theme.bgtotal || theme.bg};
+    background: ${({ theme }) => theme.bgtotal || theme.bg};
     position: relative;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     transition: background 220ms ease;
 
     .mobile-config-bar {
         display: none;
     }
 
+    /* Same footprint as the standings preview: side gutters keep the
+       floating config button from covering the image. */
     .preview-viewport {
-        flex: 1 1 auto;
+        flex: 1 0 min(180px, 40dvh);
         min-height: 0;
-        display: grid;
-        place-items: center;
-        padding: 16px;
-        overflow-x: auto;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-gutter: stable both-edges;
-    }
-
-    .scale-box {
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
-        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 12px 64px;
         overflow: hidden;
-        background: transparent;
-        flex: 0 0 auto;
-        margin: auto;
-        justify-self: center;
-        align-self: center;
-        max-width: 100%;
-        transition: box-shadow 220ms ease;
-    }
-
-    .scale-box,
-    .scale-box * {
-        transition-property: background-color, border-color, color, opacity, box-shadow, transform;
-        transition-duration: 220ms;
-        transition-timing-function: ease;
     }
 
     @media (max-width: 520px) {
@@ -327,8 +293,12 @@ const PreviewWrapper = styled.div`
         }
 
         .preview-viewport {
-            padding: 12px;
+            padding: 8px 6px;
         }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &, * { transition: none !important; }
     }
 `;
 
@@ -365,11 +335,10 @@ const FloatingConfigPanel = styled.div`
         position: absolute;
         top: 0;
         right: 48px;
-        width: ${({ $open }) => ($open ? "292px" : "0")};
-        max-width: 292px;
-        height: 42px;
+        width: 320px;
         overflow: hidden;
         opacity: ${({ $open }) => ($open ? 1 : 0)};
+        visibility: ${({ $open }) => ($open ? "visible" : "hidden")};
         pointer-events: ${({ $open }) => ($open ? "auto" : "none")};
         border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
         border-radius: 14px;
@@ -380,59 +349,10 @@ const FloatingConfigPanel = styled.div`
         > div {
             border-bottom: 0;
             background: transparent;
-            min-width: 292px;
-            height: 100%;
-            padding-top: 3px;
-            padding-bottom: 3px;
         }
     }
 
     @media (max-width: 520px) {
         display: none;
-    }
-`;
-
-const ModalFooter = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
-    background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
-    border-top: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
-
-    .cancel-btn {
-        min-height: 40px;
-        padding: 9px 20px;
-        border-radius: 12px;
-        border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
-        background: transparent;
-        color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: 800;
-        transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-    }
-
-    .cancel-btn:hover {
-        background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
-        color: ${({ theme }) => theme.text};
-    }
-
-    .export-action > button {
-        min-height: 42px;
-        padding: 10px 22px;
-        font-size: 0.92rem;
-    }
-
-    @media (max-width: 520px) {
-        padding: 12px;
-
-        .cancel-btn,
-        .export-action,
-        .export-action > button {
-            flex: 1 1 0;
-            width: 100%;
-        }
     }
 `;

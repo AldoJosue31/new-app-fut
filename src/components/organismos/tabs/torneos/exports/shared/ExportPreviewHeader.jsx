@@ -86,7 +86,8 @@ export const ExportDownloadButton = ({
     isExporting,
     disabled = false,
     exportLabel = "Descargar",
-    exportingLabel = "Exportando..."
+    exportingLabel = "Exportando...",
+    icon = <RiFileDownloadLine />
 }) => {
     const theme = useTheme();
     const palette = theme?.tournamentDashboard || {};
@@ -100,7 +101,7 @@ export const ExportDownloadButton = ({
             <Btnsave
                 titulo={isExporting ? exportingLabel : exportLabel}
                 bgcolor={exportButtonColor}
-                icono={isExporting ? <div className="spinner-mini" /> : <RiFileDownloadLine />}
+                icono={isExporting ? <div className="spinner-mini" /> : icon}
                 funcion={onExport}
                 disabled={isExporting || disabled}
                 color="255,255,255"

@@ -11,6 +11,7 @@ export function TabsNavigation({
   equalWidth = false,
   compact = false,
   ariaLabel = "Secciones",
+  className,
 }) {
   const [indicatorStyle, setIndicatorStyle] = useState({
     height: 0,
@@ -123,8 +124,8 @@ export function TabsNavigation({
   }, [scheduleIndicatorUpdate]);
 
   return (
-    <Container ref={containerRef} role="tablist" aria-label={ariaLabel} $compact={compact}>
-      <Glider
+    <Container className={className} ref={containerRef} role="tablist" aria-label={ariaLabel} $compact={compact}>
+      <Glider className="tab-indicator" aria-hidden="true"
         style={{
           transform: `translate3d(${indicatorStyle.left}px, ${indicatorStyle.top}px, 0)`,
           height: `${indicatorStyle.height}px`,

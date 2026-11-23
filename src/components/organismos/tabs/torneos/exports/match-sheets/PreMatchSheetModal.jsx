@@ -1,18 +1,18 @@
 import React, { useEffect, useEffectEvent, useState } from "react";
 import { createPortal } from "react-dom";
 import styled, { createGlobalStyle } from "styled-components";
-import { v } from "../../../../../../styles/variables";
-import { Modal } from "../../../../Modal";
-import { Btnsave } from "../../../../../moleculas/Btnsave";
+import { TournamentModal, ModalFooter } from "../../TournamentModal";
+import { ExportDownloadButton } from "../shared/ExportPreviewHeader";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { RiPrinterLine } from "react-icons/ri";
-import { MatchSheetA4 } from "./MatchSheetA4"; 
+import { MatchSheetA4 } from "./MatchSheetA4";
+import { MatchSheetPreview, A4_WIDTH, A4_HEIGHT } from "./MatchSheetPreview";
 
 const PrintStyles = createGlobalStyle`
   #print-portal-root { display: none; }
 
   @media print {
-    #root, .modal-root, .ReactModal__Overlay, header, footer, nav {
+    #root, #modal-root, .modal-root, .ReactModal__Overlay, header, footer, nav {
       display: none !important;
       height: 0 !important; width: 0 !important; overflow: hidden !important; visibility: hidden !important;
     }
@@ -176,25 +176,19 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
     return (
         <>
             <PrintStyles />
-            <Modal isOpen={isOpen} onClose={onClose} title="Pre-Cédula Oficial" width="950px">
+            <TournamentModal isOpen={isOpen} onClose={onClose} title="Pre-Cédula Oficial">
                 <ModalContentWrapper>
-                    <div className="toolbar">
-                        <span className="info-msg">Vista Previa de Impresión (A4)</span>
-                        <div className="actions">
-                            <Btnsave 
-                                titulo="Imprimir Cédula" 
-                                bgcolor={v.colorPrincipal} 
-                                icono={<RiPrinterLine/>} 
-                                funcion={handlePrint} 
-                            />
-                        </div>
-                    </div>
-
+                    <p className="info-msg">Vista Previa de Impresión (A4)</p>
                     <div className="preview-area">
-                        {loading || !matchData ? (
-                            <div className="loading">Generando formato...</div>
+                        {loading ? (
+                            <div className="loading" role="status">
+                                <div className="spinner" />
+                                <span>Generando formato...</span>
+                            </div>
+                        ) : !matchData ? (
+                            <p className="load-error" role="alert">No se pudo cargar la pre-cédula. Inténtalo de nuevo.</p>
                         ) : (
-                            <div className="preview-scale">
+                            <MatchSheetPreview width={A4_WIDTH} height={A4_HEIGHT} maxScale={0.65}>
                                 <MatchSheetA4 
                                     matchData={matchData} 
                                     players={players} 
@@ -202,39 +196,98 @@ export function PreMatchSheetModal({ isOpen, onClose, matchId }) {
                                     formatTime={formatTime}
                                     showPenalties={config.showPenalties}
                                 />
-                            </div>
+                            </MatchSheetPreview>
                         )}
                     </div>
                 </ModalContentWrapper>
-            </Modal>
+                <ModalFooter>
+                    <button type="button" className="cancel-btn" onClick={onClose}>
+                        Cancelar
+                    </button>
+                    <ExportDownloadButton
+                        onExport={handlePrint}
+                        isExporting={false}
+                        disabled={loading || !matchData}
+                        exportLabel="Imprimir"
+                        icon={<RiPrinterLine aria-hidden="true" />}
+                    />
+                </ModalFooter>
+            </TournamentModal>
             {!loading && matchData && createPortal(printContent, document.body)}
         </>
     );
 }
 
 const ModalContentWrapper = styled.div`
-    display: flex; flex-direction: column; height: 100%;
-    .toolbar {
-        background: ${({theme})=>theme.bg3}; 
-        padding: 10px 20px;
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center;
-        border-bottom: 1px solid ${({theme})=>theme.bg4};
-    }
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    background: ${({ theme }) => theme.bgtotal || theme.bg};
+
     .info-msg {
-        font-size: 14px; font-weight: 500;
-        color: ${({theme})=>theme.text2}; font-style: italic;
+        margin: 0;
+        padding: 12px 18px 0;
+        flex-shrink: 0;
+        color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-align: center;
     }
+
     .preview-area {
-        background: #505050; padding: 30px;
-        display: flex; justify-content: center;
-        overflow-y: auto; height: 70vh; 
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        padding: 12px 18px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable both-edges;
     }
-    .preview-scale {
-        transform: scale(0.65); transform-origin: top center;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5); background: white;
-        width: 210mm; height: 297mm;
+
+    .loading {
+        margin: auto;
+        padding: 80px 16px;
+        text-align: center;
     }
-    .loading { color: white; padding: 40px; text-align: center; }
+
+    .loading .spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 15px;
+        border: 4px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+        border-left-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+        border-radius: 50%;
+        animation: spin-prematch-sheet 1s linear infinite;
+    }
+
+    .loading span {
+        color: ${({ theme }) => theme.text};
+        font-weight: 600;
+        opacity: 0.72;
+    }
+
+    .load-error {
+        margin: auto;
+        padding: 8px 18px;
+        color: ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || theme.text};
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    @keyframes spin-prematch-sheet {
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 520px) {
+        .info-msg {
+            padding: 8px 12px 0;
+            font-size: 0.76rem;
+        }
+
+        .preview-area {
+            padding: 8px 6px;
+        }
+    }
 `;
