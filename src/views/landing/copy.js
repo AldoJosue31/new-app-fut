@@ -1,11 +1,9 @@
 // src/views/landing/copy.js
 
-import { v } from "../../styles/variables";
+import { APP_NAME } from "../../lib/brand.js";
 
 export const landingCopy = {
   nav: {
-    logoText: "Bracket App",
-    logoImg: v.logo,
     links: [
       { label: "Plataforma", href: "#producto" },
       { label: "Proceso", href: "#como-funciona" },
@@ -91,7 +89,7 @@ export const landingCopy = {
   },
   testimonial: {
     quote:
-      "Con Bracket App dejamos atrás las hojas de cálculo y ahora Green Sport tiene calendario, resultados y tabla en un solo lugar. Los equipos siempre saben qué sigue.",
+      `Con ${APP_NAME} dejamos atrás las hojas de cálculo y ahora Green Sport tiene calendario, resultados y tabla en un solo lugar. Los equipos siempre saben qué sigue.`,
     author: "Felipe Gonzalez",
     role: "Administrador de Liga",
     league: "Green Sport",
@@ -217,8 +215,8 @@ export const landingCopy = {
     ctaSecondary: "Hablar con ventas",
   },
   footer: {
-    tagline: "Bracket App - Plataforma de gestión deportiva.",
+    tagline: `${APP_NAME} - Plataforma de gestión deportiva.`,
     columns: [],
-    copyright: "© {year} Bracket App. Todos los derechos reservados.",
+    copyright: `© {year} ${APP_NAME}. Todos los derechos reservados.`,
   },
 };

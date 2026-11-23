@@ -1,5 +1,6 @@
 import React from "react";
 import { landingCopy } from "../../views/landing/copy";
+import { BrandLogo } from "../atomos/BrandLogo.jsx";
 
 // ─── Nav links estructurales del footer ─────────────────────────────────────
 const FOOTER_SECTIONS = [
@@ -40,7 +41,7 @@ const STATS = [
 ];
 
 export default function LandingFooter() {
-  const { footer, nav } = landingCopy;
+  const { footer } = landingCopy;
   const year = new Date().getFullYear();
 
   // Usar columnas del copy si existen, si no, las estructurales
@@ -86,21 +87,11 @@ export default function LandingFooter() {
             {/* Logo */}
             <a
               href="#"
-              className="inline-flex items-center gap-2.5 group w-fit"
-              aria-label={nav.logoText}
+              className="inline-flex items-center group w-fit max-w-full"
             >
-              <img
-                src={nav.logoImg}
-                alt={nav.logoText}
-                className="h-9 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+              <BrandLogo
+                className="h-auto w-[148px] max-w-full transition-transform duration-200 group-hover:scale-105"
               />
-              <span className="
-                text-[var(--lp-text)]
-                font-extrabold text-[17px] tracking-tight
-                transition-opacity duration-200 group-hover:opacity-80
-              ">
-                {nav.logoText}
-              </span>
             </a>
 
             {/* Tagline */}

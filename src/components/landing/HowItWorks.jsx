@@ -1,6 +1,7 @@
 // src/components/landing/HowItWorks.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { RiSettings3Line, RiGroupLine, RiCalendarCheckLine } from "react-icons/ri";
+import { APP_NAME } from "../../lib/brand.js";
 import { landingCopy } from "../../views/landing/copy";
 
 // ─── Datos estáticos por paso ──────────────────────────────────────────────
@@ -232,7 +233,7 @@ function HowItWorksStepDetail({ howItWorks, activeStep, setActiveStep }) {
                   <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--lp-border)", display: "inline-block" }} aria-hidden="true" />
                   <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--lp-border)", display: "inline-block" }} aria-hidden="true" />
                   <span style={{ marginLeft: "8px", fontSize: "12px", fontWeight: 600, color: "var(--lp-text-muted)" }}>
-                    Bracket App
+                    {APP_NAME}
                   </span>
                 </div>
                 <div style={{ padding: "12px", background: "rgba(0,0,0,0.1)" }}>

@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
-import { Icon } from "@iconify/react";
+import { RiCloseLine, RiMenuLine } from "react-icons/ri";
 import { landingCopy } from "../../views/landing/copy";
+import { BrandLogo } from "../atomos/BrandLogo.jsx";
 
 export default function LandingHeader() {
   const [scrolled, setScrolled] = useState(false);
@@ -81,7 +82,7 @@ export default function LandingHeader() {
       }}
     >
       <div
-        className="lp-container"
+        className="lp-container lp-header-inner"
         style={{
           display: "flex",
           alignItems: "center",
@@ -89,7 +90,6 @@ export default function LandingHeader() {
           height: 74,
         }}
       >
-        {/* LOGO REAL INYECTADO AQUÍ */}
         <a
           href="#top"
           onClick={() => {
@@ -98,23 +98,8 @@ export default function LandingHeader() {
             setTimeout(() => { isClickScrolling.current = false; }, 800);
           }}
           className="lp-brand-link"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            textDecoration: "none",
-            color: "var(--lp-text)",
-          }}
         >
-          <img 
-            src={landingCopy.nav.logoImg} 
-            alt={landingCopy.nav.logoText} 
-            className="lp-brand-mark"
-            style={{ height: "36px", width: "auto", objectFit: "contain" }} 
-          />
-          <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.02em" }}>
-            {landingCopy.nav.logoText}
-          </span>
+          <BrandLogo className="lp-brand-mark" />
         </a>
 
         <nav className="lp-nav-desktop" style={{ display: "flex", gap: 24 }}>
@@ -164,7 +149,7 @@ export default function LandingHeader() {
           })}
         </nav>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="lp-header-actions">
           <a
             href="/login"
             className="lp-btn lp-btn-ghost"
@@ -175,7 +160,6 @@ export default function LandingHeader() {
           <a
             href="/login"
             className="lp-btn lp-btn-primary"
-            style={{ padding: "10px 20px", fontSize: 13 }}
           >
             {landingCopy.nav.ctaStart}
           </a>
@@ -189,7 +173,6 @@ export default function LandingHeader() {
               background: "var(--lp-surface)",
               border: "1px solid var(--lp-border)",
               color: "var(--lp-text)",
-              padding: "8px 10px",
               borderRadius: 8,
               cursor: "pointer",
             }}
@@ -197,7 +180,7 @@ export default function LandingHeader() {
             aria-expanded={open}
             aria-label={open ? "Cerrar menú" : "Menú"}
           >
-            <Icon icon={open ? "mdi:close" : "mdi:menu"} width={24} />
+            {open ? <RiCloseLine aria-hidden="true" /> : <RiMenuLine aria-hidden="true" />}
           </button>
         </div>
       </div>
@@ -232,7 +215,15 @@ export default function LandingHeader() {
       )}
 
       <style>{`
+        .landing-scope .lp-brand-link {
+          display: flex;
+          align-items: center;
+          flex: 0 0 auto;
+          min-height: 44px;
+        }
         .landing-scope .lp-brand-mark {
+          width: clamp(104px, 18vw, 148px);
+          height: auto;
           transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
         }
         .landing-scope .lp-brand-link:hover .lp-brand-mark {
@@ -243,6 +234,25 @@ export default function LandingHeader() {
         }
         .landing-scope .lp-nav-link:hover {
           color: var(--lp-primary) !important;
+        }
+        .landing-scope .lp-header-actions {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+        }
+        .landing-scope .lp-header-actions .lp-btn-primary {
+          padding: 10px 20px;
+          font-size: 13px;
+          white-space: nowrap;
+        }
+        .landing-scope .lp-nav-mobile-toggle {
+          flex: 0 0 44px;
+          width: 44px;
+          height: 44px;
+          padding: 0;
+          align-items: center;
+          justify-content: center;
+          font-size: 22px;
         }
         .landing-scope .lp-nav-mobile-toggle:hover {
           border-color: var(--lp-primary);
@@ -299,6 +309,11 @@ export default function LandingHeader() {
         }
         @media (max-width: 640px) {
           .landing-scope .lp-btn-ghost { display: none !important; }
+        }
+        @media (max-width: 400px) {
+          .landing-scope .lp-header-inner { padding-inline: 16px; }
+          .landing-scope .lp-header-actions { gap: 8px; }
+          .landing-scope .lp-header-actions .lp-btn-primary { padding-inline: 10px; }
         }
       `}</style>
     </motion.header>

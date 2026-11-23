@@ -1,4 +1,5 @@
 import "../src/index.css";
+import { APP_NAME, BRAND_FAVICON } from "../src/lib/brand.js";
 import { WebVitals } from "./_components/WebVitals.jsx";
 import Providers from "./providers.jsx";
 
@@ -13,9 +14,9 @@ export const metadata = {
   metadataBase: new URL(metadataOrigin),
   description: "Gestion de ligas y torneos de futbol.",
   icons: {
-    icon: "/logo_app.png",
+    icon: BRAND_FAVICON,
   },
-  title: "Bracket app",
+  title: APP_NAME,
 };
 
 export const viewport = {

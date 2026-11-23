@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
+import { APP_NAME } from "../../lib/brand.js";
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
@@ -8,7 +9,7 @@ export function Footer() {
     return (
         <FooterContainer>
             <span className="copyright">
-                © {currentYear} Bracket App
+                © {currentYear} {APP_NAME}
             </span>
             <div className="links">
                 <a href="/terminos">Términos</a>

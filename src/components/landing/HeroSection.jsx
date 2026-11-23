@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { Icon } from "@iconify/react";
+import { APP_NAME } from "../../lib/brand.js";
 import { landingCopy } from "../../views/landing/copy";
 import RealStandingsTable from "../organismos/tabs/torneos/subcomponents/StandingsTable";
 import { InlineStatus } from "../atomos/InlineStatus";
@@ -239,7 +240,7 @@ export default function HeroSection() {
                 <AppWindow>
                   <div className="win-bar">
                     <span className="dot c" /><span className="dot m" /><span className="dot x" />
-                    <span className="win-title">Bracket App &middot; Liga Municipal 2025</span>
+                    <span className="win-title">{APP_NAME} &middot; Liga Municipal 2025</span>
                   </div>
 
                   <TabRow>

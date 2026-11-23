@@ -7,6 +7,7 @@ import styled, { keyframes, css } from 'styled-components';
 import { Btnsave } from "../moleculas/Btnsave";
 import { InputText2 } from "../organismos/formularios/InputText2";
 import { Title } from "../atomos/Title";
+import { BrandLogo } from "../atomos/BrandLogo.jsx";
 import { Footer } from "../organismos/Footer";
 import { v } from "../../styles/variables";
 import { Device } from "../../styles/breakpoints";
@@ -166,11 +167,7 @@ export function LoginTemplate({ initialRecovery = false }) {
                 </HomeLink>
 
                 <ContentLogo>
-                    <img src="/logo_app.png" alt="Logo" />
-                    <div className="logoText">
-                        <span className="line1">Bracket</span>
-                        <span className="line2">App</span>
-                    </div>
+                    <BrandLogo variant="stacked" />
                 </ContentLogo>
 
                 <Title $paddingbottom="20px">Ingresar</Title>
@@ -359,44 +356,18 @@ const HomeLink = styled(Link)`
 `;
 
 const ContentLogo = styled.section`
-  display:flex;
-  flex-direction: column;
-  align-items:center;
-  justify-content:center;
+  display: flex;
+  justify-content: center;
   margin-bottom: 6px;
-  gap: 12px;
 
   img {
-    width: 96px;
-    height: 96px;
-    object-fit: contain;
+    width: 116px;
+    max-width: 100%;
+    height: auto;
     filter: drop-shadow(0 4px 16px rgba(16,20,40,0.06));
     transform-origin: center;
     animation: ${floatY} 3.6s ease-in-out infinite;
     ${reducedMotion}
-  }
-
-  .logoText {
-    display:flex;
-    flex-direction: column;
-    align-items:center;
-    gap: 2px;
-  }
-
-  .logoText .line1 {
-    font-size: 20px;
-    font-weight: 800;
-    color: ${({ theme }) => theme.text};
-    line-height: 1;
-    letter-spacing: -0.4px;
-  }
-
-  .logoText .line2 {
-    font-size: 14px;
-    font-weight: 600;
-    color: ${({ theme }) => theme.text};
-    opacity: 0.85;
-    transform: translateY(-1px);
   }
 `;
 

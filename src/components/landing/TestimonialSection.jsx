@@ -2,10 +2,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import { Icon } from "@iconify/react";
+import { APP_NAME } from "../../lib/brand.js";
 
 const TESTIMONIALS = [
   {
-    quote: "Con Bracket App dejamos atrás las hojas de cálculo y ahora Green Sport tiene calendario, resultados y tabla en un solo lugar. Los equipos siempre saben qué sigue.",
+    quote: `Con ${APP_NAME} dejamos atrás las hojas de cálculo y ahora Green Sport tiene calendario, resultados y tabla en un solo lugar. Los equipos siempre saben qué sigue.`,
     author: "Felipe Gonzalez",
     role: "Administrador de Liga",
     league: "Green Sport",
@@ -60,7 +61,7 @@ export default function TestimonialSection() {
       <div className="lp-container" style={{ position: "relative", zIndex: 1 }}>
         <SectionHeader ref={hRef} className={hVisible ? "visible" : ""}>
           <h2 className="lp-h2">Organizadores que ya confían en nosotros</h2>
-          <SectionLead>No palabras nuestras, sino de quienes usan Bracket App cada semana.</SectionLead>
+          <SectionLead>No palabras nuestras, sino de quienes usan {APP_NAME} cada semana.</SectionLead>
         </SectionHeader>
 
         <TestimLayout>
@@ -126,7 +127,7 @@ export default function TestimonialSection() {
 
             {/* CTA pequeño */}
             <TestimCTA>
-              <p>¿Usas Bracket App?</p>
+              <p>¿Usas {APP_NAME}?</p>
               <a href="mailto:contacto@bracketapp.mx">Comparte tu historia →</a>
             </TestimCTA>
           </TestimSide>
