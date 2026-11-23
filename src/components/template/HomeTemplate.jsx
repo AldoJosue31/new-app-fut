@@ -32,13 +32,14 @@ export function HomeTemplate({ state, setState }) {
                 <MainContainer $maxWidth={VIEW_MAX_WIDTH}>
                     {loading ? (
                         <DashboardLoading
+                            role="status"
                             aria-busy="true"
                             aria-label="Cargando resumen del panel"
                         >
                             <div className="loading-header">
                                 <div>
-                                    <Skeleton width="230px" height="32px" />
-                                    <Skeleton width="310px" height="18px" />
+                                    <Skeleton width="min(230px, 100%)" height="32px" />
+                                    <Skeleton width="min(310px, 100%)" height="18px" />
                                 </div>
                                 <div className="loading-badges">
                                     <Skeleton width="138px" height="38px" radius="19px" />
@@ -51,7 +52,7 @@ export function HomeTemplate({ state, setState }) {
                                     <Skeleton
                                         key={index}
                                         width="100%"
-                                        height="180px"
+                                        height="248px"
                                         radius="14px"
                                     />
                                 ))}
@@ -73,6 +74,10 @@ const StyledContentContainer = styled(ContentContainer)`
   && {
     padding-top: 0 !important;
     margin-top: 0 !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
   }
 `;
 
@@ -106,6 +111,7 @@ const DashboardLoading = styled.div`
       flex-direction: column;
       gap: 10px;
     }
+    > div:first-child { width: min(310px, 100%); }
   }
 
   .loading-badges {
@@ -116,7 +122,7 @@ const DashboardLoading = styled.div`
 
   .loading-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
     gap: 20px;
   }
 
