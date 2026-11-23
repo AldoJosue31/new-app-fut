@@ -1,3 +1,5 @@
+import { ScanShell, ScanBody, PanelHeading } from "../../TournamentScanLayout";
+import { ModalFooter } from "../../TournamentModal";
 import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -43,7 +45,7 @@ import {
 import { useCedulaImageInput } from "../../../../../../hooks/useCedulaImageInput.js";
 import { useCedulaPreviewZoom } from "../../../../../../hooks/useCedulaPreviewZoom.js";
 import { CedulaImagePicker } from "./CedulaImagePicker";
-import { ScanShell, PanelHeading, ChoiceRow, Action, PrimaryAction, SecondaryAction, PreviewFrame, cedulaPreviewZoomStyles } from "./CedulaFlowPrimitives";
+import { Action, PrimaryAction, SecondaryAction, PreviewFrame, cedulaPreviewZoomStyles } from "./CedulaFlowPrimitives";
 
 const MAX_PLAYER_DETAIL_SIDE = 2400;
 const MAX_PLAYER_DETAIL_BYTES = 2.5 * 1024 * 1024;
@@ -644,10 +646,9 @@ export function CedulaScanFlow({
       <ScanShell>
         <PanelHeading>
           <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
-          <div><h4>Escanear cedula</h4><p>Sube una foto clara y completa. Podrás guardar una copia de la foto con el resultado.</p></div>
+          <div><h4>Escanear cédula</h4><p>Sube una foto clara y completa. Podrás guardar una copia de la foto con el resultado.</p></div>
         </PanelHeading>
-        {scanMatchContext}
-        <CedulaImagePicker input={imageInput} />
+        <CedulaImagePicker input={imageInput}>{scanMatchContext}</CedulaImagePicker>
       </ScanShell>
     );
   }
@@ -662,50 +663,52 @@ export function CedulaScanFlow({
           <button type="button" onClick={onBack} aria-label="Volver"><RiArrowLeftLine /></button>
           <div><h4>Vista previa</h4><p>Comprueba que nombres, marcador y anotaciones sean legibles.</p></div>
         </PanelHeading>
-        {scanMatchContext}
-        {usingSavedPhoto && <SavedPhotoHint role="status">{savedPhoto?.pending ? 'Foto seleccionada cargada automáticamente.' : 'Foto guardada cargada automáticamente.'} Puedes escanearla o cambiarla.</SavedPhotoHint>}
-        <PreviewFrame aria-busy={scanning}>
-          {previewAvailable !== false ? (
-            <img
-              src={previewUrl}
-              alt="Cedula seleccionada"
-              onLoad={() => setPreviewAvailable(true)}
-              onError={() => setPreviewAvailable(false)}
-            />
-          ) : (
-            <PreviewFallback>
-              <RiFileImageLine />
-              <strong>Imagen lista para escanear</strong>
-              <span>{file.name || "Foto tomada desde el dispositivo"}</span>
-              <small>{(file.size / (1024 * 1024)).toFixed(1)} MB · La vista previa no es compatible con este formato</small>
-            </PreviewFallback>
-          )}
-          {scanning && (
-            <ScanningOverlay aria-live="polite">
-              <div className="scan-line" />
-              <div className="scan-status">
-                <RiScan2Line />
-                <span>{scanStatus}</span>
-                <strong>{scanElapsedSeconds}s</strong>
+        <ScanBody>
+          {scanMatchContext}
+          {usingSavedPhoto && <SavedPhotoHint role="status">{savedPhoto?.pending ? 'Foto seleccionada cargada automáticamente.' : 'Foto guardada cargada automáticamente.'} Puedes escanearla o cambiarla.</SavedPhotoHint>}
+          <PreviewFrame aria-busy={scanning}>
+            {previewAvailable !== false ? (
+              <img
+                src={previewUrl}
+                alt="Cedula seleccionada"
+                onLoad={() => setPreviewAvailable(true)}
+                onError={() => setPreviewAvailable(false)}
+              />
+            ) : (
+              <PreviewFallback>
+                <RiFileImageLine />
+                <strong>Imagen lista para escanear</strong>
+                <span>{file.name || "Foto tomada desde el dispositivo"}</span>
+                <small>{(file.size / (1024 * 1024)).toFixed(1)} MB · La vista previa no es compatible con este formato</small>
+              </PreviewFallback>
+            )}
+            {scanning && (
+              <ScanningOverlay aria-live="polite">
+                <div className="scan-line" />
+                <div className="scan-status">
+                  <RiScan2Line />
+                  <span>{scanStatus}</span>
+                  <strong>{scanElapsedSeconds}s</strong>
+                </div>
+              </ScanningOverlay>
+            )}
+          </PreviewFrame>
+          {scanError && (
+            <ScanErrorNotice role="alert">
+              <RiErrorWarningLine aria-hidden="true" />
+              <div>
+                <strong>{scanError.message}</strong>
+                <p>{waitingForQuota
+                  ? `Puedes volver a intentar en ${cooldownLabel}. La imagen sigue lista.`
+                  : scanError.retryable === false
+                    ? "La imagen sigue lista. Revisa el problema indicado antes de volver a intentar."
+                    : "La imagen sigue lista para volver a intentar."}</p>
+                {scanError.requestId && <small>Referencia: {scanError.requestId}</small>}
               </div>
-            </ScanningOverlay>
+            </ScanErrorNotice>
           )}
-        </PreviewFrame>
-        {scanError && (
-          <ScanErrorNotice role="alert">
-            <RiErrorWarningLine aria-hidden="true" />
-            <div>
-              <strong>{scanError.message}</strong>
-              <p>{waitingForQuota
-                ? `Puedes volver a intentar en ${cooldownLabel}. La imagen sigue lista.`
-                : scanError.retryable === false
-                  ? "La imagen sigue lista. Revisa el problema indicado antes de volver a intentar."
-                  : "La imagen sigue lista para volver a intentar."}</p>
-              {scanError.requestId && <small>Referencia: {scanError.requestId}</small>}
-            </div>
-          </ScanErrorNotice>
-        )}
-        <ChoiceRow>
+        </ScanBody>
+        <ModalFooter>
           {!coarseDevice && !scanning && cooldownSeconds === 0 && (
             <ScanShortcut aria-hidden="true">
               Presiona <kbd>Enter</kbd> para escanear
@@ -731,7 +734,7 @@ export function CedulaScanFlow({
                 : waitingForQuota ? `Reintentar en ${cooldownLabel}` : hasCachedScan ? "Ver lectura" : scanError ? "Reintentar" : "Escanear"}
             </span>
           </ScanProgressButton>
-        </ChoiceRow>
+        </ModalFooter>
       </ScanShell>
     );
   }
@@ -905,7 +908,7 @@ export function CedulaScanFlow({
     ];
 
     return (
-      <ScanShell $warning>
+      <ScanShell>
         <PanelHeading>
           <button
             type="button"
@@ -993,32 +996,27 @@ export function CedulaScanFlow({
             <RiErrorWarningLine aria-hidden="true" />
             <span>Ningún jugador, marcador o dato de esta cédula se aplicará sin tu confirmación.</span>
           </MismatchSafetyNote>
+          <small>Recomendamos escanear la cédula correcta.</small>
         </TeamMismatchScreen>
-        <MismatchActionBar>
-          <div className="action-copy">
-            <strong>¿Qué deseas hacer?</strong>
-            <span>Recomendamos escanear la cédula correcta.</span>
-          </div>
-          <div className="actions">
+        <ModalFooter>
             <PrimaryAction type="button" onClick={scanAnotherImage}>
               <RiRefreshLine /> Escanear otra cédula
             </PrimaryAction>
             <ContinueAnywayAction type="button" onClick={() => setHasAcceptedTeamMismatch(true)}>
               Revisar de todas maneras <RiArrowRightLine />
             </ContinueAnywayAction>
-          </div>
-        </MismatchActionBar>
+        </ModalFooter>
       </ScanShell>
     );
   }
 
   return (
-    <ScanShell $review>
+    <ScanShell>
       <PanelHeading>
         <button type="button" onClick={onBack} disabled={applying} aria-label="Volver"><RiArrowLeftLine /></button>
         <div>
           <h4>Resultado escaneado</h4>
-          <p>La cedula queda a la izquierda; a la derecha revisas el partido interpretado, los jugadores y las diferencias.</p>
+          <p>Compara la cédula con los datos del partido y revisa las diferencias antes de aplicar el escaneo.</p>
         </div>
       </PanelHeading>
       <ReviewScrollArea
@@ -1323,14 +1321,14 @@ export function CedulaScanFlow({
             )}
           </ReviewSidebar>
         </ReviewWorkspace>
+        {usingSavedPhoto ? <SavedPhotoHint role="status">{savedPhoto?.pending ? 'La foto se guardará con el resultado.' : 'La foto ya está guardada con este partido.'}</SavedPhotoHint> : (
+          <PhotoRetentionChoice>
+            <input type="checkbox" checked={savePhoto} disabled={applying} onChange={event => setSavePhoto(event.target.checked)} />
+            <span>Guardar foto de la cédula con el marcador <small>La copia se comprime y se elimina al finalizar el torneo.</small></span>
+          </PhotoRetentionChoice>
+        )}
       </ReviewScrollArea>
-      {usingSavedPhoto ? <SavedPhotoHint role="status">{savedPhoto?.pending ? 'La foto se guardará con el resultado.' : 'La foto ya está guardada con este partido.'}</SavedPhotoHint> : (
-        <PhotoRetentionChoice>
-          <input type="checkbox" checked={savePhoto} disabled={applying} onChange={event => setSavePhoto(event.target.checked)} />
-          <span>Guardar foto de la cédula con el marcador <small>La copia se comprime y se elimina al finalizar el torneo.</small></span>
-        </PhotoRetentionChoice>
-      )}
-      <ChoiceRow>
+      <ModalFooter>
         <SecondaryAction type="button" onClick={onBack} disabled={applying}>Cancelar</SecondaryAction>
         <PrimaryAction
           type="button"
@@ -1340,7 +1338,7 @@ export function CedulaScanFlow({
         >
           {applying ? "Preparando foto…" : hasUnresolvedScores ? "Elige como guardar los goles" : "Aplicar escaneo"}
         </PrimaryAction>
-      </ChoiceRow>
+      </ModalFooter>
     </ScanShell>
   );
 
@@ -1595,8 +1593,8 @@ const ReviewSidebar = styled.div`
 
   @media(max-width:960px){
     height:auto;
-    max-height:min(58dvh,580px);
-    padding-right:4px;
+    overflow:visible;
+    padding-right:0;
   }
 `;
 const ReviewPlayersPanel = styled.section`
@@ -1619,15 +1617,13 @@ const ReviewSectionHeader = styled.header`
   strong{font-size:.94rem;line-height:1.35;}
   span{font-size:.76rem;line-height:1.4;opacity:.64;}
 `;
-const ReviewScrollArea = styled.div`
+const ReviewScrollArea = styled(ScanBody)`
   display:flex;
   flex-direction:column;
   gap:18px;
   flex:1 1 0;
   min-height:0;
-  overflow-x:hidden;
-  overflow:hidden;
-  padding:2px 6px 2px 2px;
+  > * { flex-shrink: 0; }
   &:focus-visible{
     outline:3px solid ${v.colorPrincipal}44;
     outline-offset:-1px;
@@ -1810,7 +1806,7 @@ const TeamMismatchScreen = styled.section`
   flex:1 1 0;
   min-height:0;
   overflow-y:auto;
-  padding:2px 4px 2px 2px;
+  padding:12px var(--scan-inset) 16px;
   color:${({theme})=>theme.text};
   scrollbar-width:thin;
   scrollbar-color:${({theme})=>theme.colorScroll} transparent;
@@ -1965,27 +1961,6 @@ const MismatchSafetyNote = styled.div`
   opacity:.72;
 
   svg{flex:0 0 auto;color:${v.rojo};font-size:1rem;}
-`;
-const MismatchActionBar = styled.div`
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:18px;
-  padding-top:14px;
-  border-top:1px solid ${({theme})=>theme.bg4};
-
-  .action-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
-  .action-copy strong{font-size:.84rem;}
-  .action-copy span{font-size:.74rem;line-height:1.35;opacity:.64;}
-  .actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
-
-  @media(max-width:700px){
-    align-items:stretch;
-    flex-direction:column;
-    gap:10px;
-    .actions{display:grid;grid-template-columns:1fr;}
-    .actions button{width:100%;min-height:44px;}
-  }
 `;
 const ScoreDiscrepancyPanel = styled.section`
   overflow:hidden;

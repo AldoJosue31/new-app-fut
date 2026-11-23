@@ -1,3 +1,5 @@
+import { ScanShell, ScanBody, PanelHeading } from "../TournamentScanLayout";
+import { ModalFooter } from "../TournamentModal";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import {
@@ -407,13 +409,15 @@ export function RolJuegoScanFlow({
                         <p>Sube una imagen clara. Se interpretarán únicamente los cruces de esta jornada.</p>
                     </div>
                 </PanelHeading>
-                <UploadZone type="button" onClick={() => uploadInputRef.current?.click()}>
-                    <RiFileImageLine />
-                    <strong>Cargar imagen del rol</strong>
-                    <span>{coarseDevice ? "Puedes elegir una foto o tomarla ahora" : "También puedes pegarla con Ctrl/Cmd + V"}</span>
-                </UploadZone>
-                {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
-                <ChoiceRow>
+                <ScanBody>
+                    <UploadZone type="button" onClick={() => uploadInputRef.current?.click()}>
+                        <RiFileImageLine />
+                        <strong>Cargar imagen del rol</strong>
+                        <span>{coarseDevice ? "Puedes elegir una foto o tomarla ahora" : "También puedes pegarla con Ctrl/Cmd + V"}</span>
+                    </UploadZone>
+                    {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
+                </ScanBody>
+                <ModalFooter>
                     <SecondaryAction type="button" onClick={onCancel}>Cancelar</SecondaryAction>
                     {coarseDevice && (
                         <SecondaryAction type="button" onClick={() => cameraInputRef.current?.click()}>
@@ -423,7 +427,7 @@ export function RolJuegoScanFlow({
                     <PrimaryAction type="button" onClick={() => uploadInputRef.current?.click()}>
                         <RiFileImageLine /> Elegir imagen
                     </PrimaryAction>
-                </ChoiceRow>
+                </ModalFooter>
                 <input
                     ref={uploadInputRef}
                     hidden
@@ -458,21 +462,23 @@ export function RolJuegoScanFlow({
                     <button type="button" onClick={onCancel} aria-label="Volver al fixture"><RiArrowLeftLine /></button>
                     <div><h4>Vista previa · {roundTitle}</h4><p>Comprueba que todos los nombres y cruces sean legibles.</p></div>
                 </PanelHeading>
-                <PreviewFrame aria-busy={scanning}>
-                    {previewAvailable !== false ? (
-                        <img src={previewUrl} alt="Rol de juego seleccionado" onLoad={() => setPreviewAvailable(true)} onError={() => setPreviewAvailable(false)} />
-                    ) : (
-                        <PreviewFallback><RiFileImageLine /><strong>Imagen lista para escanear</strong><span>{file.name}</span></PreviewFallback>
-                    )}
-                    {scanning && (
-                        <ScanningOverlay aria-live="polite">
-                            <div className="scan-line" />
-                            <div className="scan-status"><RiScan2Line /><span>Interpretando cruces</span><strong>{scanProgress}%</strong></div>
-                        </ScanningOverlay>
-                    )}
-                </PreviewFrame>
-                {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
-                <ChoiceRow>
+                <ScanBody>
+                    <PreviewFrame aria-busy={scanning}>
+                        {previewAvailable !== false ? (
+                            <img src={previewUrl} alt="Rol de juego seleccionado" onLoad={() => setPreviewAvailable(true)} onError={() => setPreviewAvailable(false)} />
+                        ) : (
+                            <PreviewFallback><RiFileImageLine /><strong>Imagen lista para escanear</strong><span>{file.name}</span></PreviewFallback>
+                        )}
+                        {scanning && (
+                            <ScanningOverlay aria-live="polite">
+                                <div className="scan-line" />
+                                <div className="scan-status"><RiScan2Line /><span>Interpretando cruces</span><strong>{scanProgress}%</strong></div>
+                            </ScanningOverlay>
+                        )}
+                    </PreviewFrame>
+                    {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
+                </ScanBody>
+                <ModalFooter>
                     <SecondaryAction type="button" disabled={scanning} onClick={() => { preparedImageRef.current = null; setFile(null); }}>
                         <RiRefreshLine /> Cambiar imagen
                     </SecondaryAction>
@@ -481,7 +487,7 @@ export function RolJuegoScanFlow({
                             ? `Escaneando ${scanProgress}%`
                             : cooldownSeconds > 0 ? `Reintentar en ${formatCooldown(cooldownSeconds)}` : "Escanear rol"}
                     </PrimaryAction>
-                </ChoiceRow>
+                </ModalFooter>
             </ScanShell>
         );
     }
@@ -492,105 +498,107 @@ export function RolJuegoScanFlow({
                 <button type="button" onClick={() => setRawScan(null)} aria-label="Volver a la imagen"><RiArrowLeftLine /></button>
                 <div><h4>Revisar cruces · {roundTitle}</h4><p>Confirma que cada equipo aparezca una sola vez antes de bloquear la jornada.</p></div>
             </PanelHeading>
+            <ScanBody>
 
-            <ReviewSummary $valid={reviewValidation.isValid}>
-                <strong>{reviewValidation.isValid ? "Jornada completa" : "Revisión necesaria"}</strong>
-                <span>{reviewValidation.isValid ? `${teams.length} equipos interpretados` : "Completa los campos marcados y elimina equipos repetidos."}</span>
-            </ReviewSummary>
+                <ReviewSummary $valid={reviewValidation.isValid}>
+                    <strong>{reviewValidation.isValid ? "Jornada completa" : "Revisión necesaria"}</strong>
+                    <span>{reviewValidation.isValid ? `${teams.length} equipos interpretados` : "Completa los campos marcados y elimina equipos repetidos."}</span>
+                </ReviewSummary>
 
-            <ScheduleOption $active={preserveDetectedSchedule}>
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={preserveDetectedSchedule}
-                        onChange={(event) => setPreserveDetectedSchedule(event.target.checked)}
-                    />
-                    <span>
-                        <strong>Guardar fechas y horas detectadas</strong>
-                        <small>Es opcional. Puedes corregirlas antes de aplicar la jornada.</small>
-                    </span>
-                </label>
-                <ScheduleCount $complete={reviewValidation.completeScheduleRows === expectedMatches}>
-                    {reviewValidation.completeScheduleRows}/{expectedMatches} horarios completos
-                </ScheduleCount>
-            </ScheduleOption>
+                <ScheduleOption $active={preserveDetectedSchedule}>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={preserveDetectedSchedule}
+                            onChange={(event) => setPreserveDetectedSchedule(event.target.checked)}
+                        />
+                        <span>
+                            <strong>Guardar fechas y horas detectadas</strong>
+                            <small>Es opcional. Puedes corregirlas antes de aplicar la jornada.</small>
+                        </span>
+                    </label>
+                    <ScheduleCount $complete={reviewValidation.completeScheduleRows === expectedMatches}>
+                        {reviewValidation.completeScheduleRows}/{expectedMatches} horarios completos
+                    </ScheduleCount>
+                </ScheduleOption>
 
-            <MatchReviewList>
-                {reviewRows.map((row, index) => (
-                    <MatchReviewRow key={row.id}>
-                        <span className="match-number">{index + 1}</span>
-                        <TeamSelect $invalid={!row.localId || reviewValidation.duplicates.has(row.localId)}>
-                            <label htmlFor={`${row.id}-local`}>Local</label>
-                            <select id={`${row.id}-local`} value={row.localId} onChange={(event) => updateRow(row.id, "localId", event.target.value)}>
-                                <option value="">Selecciona equipo</option>
-                                {teams.map((team) => <option key={team.id} value={String(team.id)}>{team.name}</option>)}
-                            </select>
-                            {row.rawLocal && <small>Leído como: {row.rawLocal}</small>}
-                        </TeamSelect>
-                        <Versus>VS</Versus>
-                        <TeamSelect $invalid={!row.visitorId || reviewValidation.duplicates.has(row.visitorId)}>
-                            <label htmlFor={`${row.id}-visitor`}>Visitante</label>
-                            <select id={`${row.id}-visitor`} value={row.visitorId} onChange={(event) => updateRow(row.id, "visitorId", event.target.value)}>
-                                <option value="">Selecciona equipo</option>
-                                {teams.map((team) => <option key={team.id} value={String(team.id)}>{team.name}</option>)}
-                            </select>
-                            {row.rawVisitor && <small>Leído como: {row.rawVisitor}</small>}
-                        </TeamSelect>
-                        <ScheduleFields
-                            $invalid={preserveDetectedSchedule && !(normalizeScannedDate(row.date) && normalizeScannedTime(row.time))}
-                        >
-                            <div>
-                                <label htmlFor={`${row.id}-date`}><RiCalendarEventLine /> Fecha</label>
-                                <input
-                                    id={`${row.id}-date`}
-                                    type="date"
-                                    value={row.date}
-                                    onChange={(event) => updateRow(row.id, "date", event.target.value)}
-                                />
+                <MatchReviewList>
+                    {reviewRows.map((row, index) => (
+                        <MatchReviewRow key={row.id}>
+                            <span className="match-number">{index + 1}</span>
+                            <TeamSelect $invalid={!row.localId || reviewValidation.duplicates.has(row.localId)}>
+                                <label htmlFor={`${row.id}-local`}>Local</label>
+                                <select id={`${row.id}-local`} value={row.localId} onChange={(event) => updateRow(row.id, "localId", event.target.value)}>
+                                    <option value="">Selecciona equipo</option>
+                                    {teams.map((team) => <option key={team.id} value={String(team.id)}>{team.name}</option>)}
+                                </select>
+                                {row.rawLocal && <small>Leído como: {row.rawLocal}</small>}
+                            </TeamSelect>
+                            <Versus>VS</Versus>
+                            <TeamSelect $invalid={!row.visitorId || reviewValidation.duplicates.has(row.visitorId)}>
+                                <label htmlFor={`${row.id}-visitor`}>Visitante</label>
+                                <select id={`${row.id}-visitor`} value={row.visitorId} onChange={(event) => updateRow(row.id, "visitorId", event.target.value)}>
+                                    <option value="">Selecciona equipo</option>
+                                    {teams.map((team) => <option key={team.id} value={String(team.id)}>{team.name}</option>)}
+                                </select>
+                                {row.rawVisitor && <small>Leído como: {row.rawVisitor}</small>}
+                            </TeamSelect>
+                            <ScheduleFields
+                                $invalid={preserveDetectedSchedule && !(normalizeScannedDate(row.date) && normalizeScannedTime(row.time))}
+                            >
+                                <div>
+                                    <label htmlFor={`${row.id}-date`}><RiCalendarEventLine /> Fecha</label>
+                                    <input
+                                        id={`${row.id}-date`}
+                                        type="date"
+                                        value={row.date}
+                                        onChange={(event) => updateRow(row.id, "date", event.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor={`${row.id}-time`}><RiTimeLine /> Hora</label>
+                                    <input
+                                        id={`${row.id}-time`}
+                                        type="time"
+                                        value={row.time}
+                                        onChange={(event) => updateRow(row.id, "time", event.target.value)}
+                                    />
+                                </div>
+                                <small>
+                                    {row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel || row.rawSchedule?.timeLabel
+                                        ? `Detectado: ${[
+                                            row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel,
+                                            row.rawSchedule?.timeLabel,
+                                        ].filter(Boolean).join(" · ")}`
+                                        : "Sin horario legible; puedes capturarlo manualmente."}
+                                </small>
+                            </ScheduleFields>
+                        </MatchReviewRow>
+                    ))}
+
+                    {needsBye && (
+                        <ByeReview $invalid={!byeId || reviewValidation.duplicates.has(byeId)}>
+                            <div><strong>Equipo que descansa</strong><span>La división tiene un número impar de participantes.</span></div>
+                            <div className="bye-control">
+                                <select value={byeId} onChange={(event) => setByeId(event.target.value)} aria-label="Equipo que descansa">
+                                    <option value="">Selecciona equipo</option>
+                                    {teams.map((team) => <option key={team.id} value={String(team.id)}>{team.name}</option>)}
+                                </select>
+                                {rawBye && <small>Leído como: {rawBye}</small>}
                             </div>
-                            <div>
-                                <label htmlFor={`${row.id}-time`}><RiTimeLine /> Hora</label>
-                                <input
-                                    id={`${row.id}-time`}
-                                    type="time"
-                                    value={row.time}
-                                    onChange={(event) => updateRow(row.id, "time", event.target.value)}
-                                />
-                            </div>
-                            <small>
-                                {row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel || row.rawSchedule?.timeLabel
-                                    ? `Detectado: ${[
-                                        row.rawSchedule?.weekdayLabel || row.rawSchedule?.dateLabel,
-                                        row.rawSchedule?.timeLabel,
-                                    ].filter(Boolean).join(" · ")}`
-                                    : "Sin horario legible; puedes capturarlo manualmente."}
-                            </small>
-                        </ScheduleFields>
-                    </MatchReviewRow>
-                ))}
+                        </ByeReview>
+                    )}
+                </MatchReviewList>
 
-                {needsBye && (
-                    <ByeReview $invalid={!byeId || reviewValidation.duplicates.has(byeId)}>
-                        <div><strong>Equipo que descansa</strong><span>La división tiene un número impar de participantes.</span></div>
-                        <div className="bye-control">
-                            <select value={byeId} onChange={(event) => setByeId(event.target.value)} aria-label="Equipo que descansa">
-                                <option value="">Selecciona equipo</option>
-                                {teams.map((team) => <option key={team.id} value={String(team.id)}>{team.name}</option>)}
-                            </select>
-                            {rawBye && <small>Leído como: {rawBye}</small>}
-                        </div>
-                    </ByeReview>
+                {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
+                {preserveDetectedSchedule && !reviewValidation.scheduleIsValid && (
+                    <ErrorNotice role="alert">
+                        Completa una fecha y una hora válidas para cada partido o desactiva el guardado de horarios.
+                    </ErrorNotice>
                 )}
-            </MatchReviewList>
-
-            {errorMessage && <ErrorNotice role="alert">{errorMessage}</ErrorNotice>}
-            {preserveDetectedSchedule && !reviewValidation.scheduleIsValid && (
-                <ErrorNotice role="alert">
-                    Completa una fecha y una hora válidas para cada partido o desactiva el guardado de horarios.
-                </ErrorNotice>
-            )}
-            <PrivacyNote>La imagen se usa solo para este análisis y no se guarda en el fixture.</PrivacyNote>
-            <ChoiceRow>
+                <PrivacyNote>La imagen se usa solo para este análisis y no se guarda en el fixture.</PrivacyNote>
+            </ScanBody>
+            <ModalFooter>
                 <SecondaryAction type="button" onClick={onCancel}>Cancelar</SecondaryAction>
                 <PrimaryAction
                     type="button"
@@ -599,23 +607,13 @@ export function RolJuegoScanFlow({
                 >
                     Aplicar y bloquear jornada
                 </PrimaryAction>
-            </ChoiceRow>
+            </ModalFooter>
         </ScanShell>
     );
 }
 
 const scanSweep = keyframes`from{transform:translateY(-70px);opacity:0}12%{opacity:1}88%{opacity:1}to{transform:translateY(calc(100% + 10px));opacity:0}`;
 
-const ScanShell = styled.section`
-    width: min(900px, 100%); margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 18px;
-    @media(max-width:600px){padding:16px 12px;}
-`;
-const PanelHeading = styled.div`
-    display:flex;align-items:flex-start;gap:12px;
-    button{width:38px;height:38px;display:grid;place-items:center;border:1px solid ${({theme})=>theme.bg4};border-radius:10px;background:${({theme})=>theme.bgcards};color:${({theme})=>theme.text};cursor:pointer;font-size:1.1rem;flex-shrink:0;}
-    button:hover{background:${({theme})=>theme.bg3};} button:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
-    h4,p{margin:0;} h4{font-size:1.05rem;color:${({theme})=>theme.text};} p{margin-top:4px;color:${({theme})=>theme.textFade};line-height:1.45;}
-`;
 const UploadZone = styled.button`
     width:100%;min-height:250px;border:2px dashed ${({theme})=>theme.bg4};border-radius:14px;background:${({theme})=>theme.bgcards};color:${({theme})=>theme.text};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;
     svg{font-size:2rem;color:${v.colorPrincipal};} strong{font-size:1rem;} span{font-size:.82rem;color:${({theme})=>theme.textFade};}
@@ -632,7 +630,6 @@ const ScanningOverlay = styled.div`
     .scan-status{position:relative;display:flex;align-items:center;gap:8px;padding:10px 13px;border-radius:10px;background:rgba(7,14,20,.92);color:#fff;font-size:.85rem;}.scan-status svg{color:${v.colorPrincipal};}.scan-status strong{font-variant-numeric:tabular-nums;}
     @media(prefers-reduced-motion:reduce){.scan-line{animation:none;top:45%;}}
 `;
-const ChoiceRow = styled.div`display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;@media(max-width:600px){button{flex:1;}}`;
 const Action = styled.button`
     min-height:42px;padding:9px 16px;border-radius:10px;font:inherit;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
     &:disabled{cursor:not-allowed;opacity:.55;} &:focus-visible{outline:3px solid ${v.colorPrincipal}44;outline-offset:2px;}
@@ -661,7 +658,7 @@ const MatchReviewRow = styled.div`
 const ScheduleFields = styled.div`
     grid-column:2 / -1;display:grid;grid-template-columns:minmax(145px,1fr) minmax(125px,.8fr) minmax(190px,1.4fr);align-items:end;gap:10px;padding-top:10px;border-top:1px solid ${({theme})=>theme.bg3};
     >div{display:flex;flex-direction:column;gap:4px;}label{display:flex;align-items:center;gap:5px;color:${({theme})=>theme.textFade};font-size:.72rem;font-weight:700;}label svg{color:${v.colorPrincipal};}input{width:100%;min-height:38px;border:1px solid ${({theme,$invalid})=>$invalid ? v.colorError : theme.bg4};border-radius:8px;background:${({theme})=>theme.bg2};color:${({theme})=>theme.text};padding:7px 9px;font:inherit;font-size:.84rem;}input:focus-visible{outline:3px solid ${v.colorPrincipal}35;outline-offset:1px;}small{align-self:center;color:${({theme})=>theme.textFade};font-size:.74rem;line-height:1.35;}
-    @media(max-width:650px){grid-column:2;grid-template-columns:1fr 1fr;small{grid-column:1 / -1;align-self:start;}}
+    @media(max-width:650px){grid-column:2;grid-template-columns:repeat(2,minmax(0,1fr)); >div,input{min-width:0;}small{grid-column:1 / -1;align-self:start;}}
 `;
 const TeamSelect = styled.div`
     min-width:0;display:flex;flex-direction:column;gap:4px;
