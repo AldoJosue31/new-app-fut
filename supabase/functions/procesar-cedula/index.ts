@@ -32,6 +32,7 @@ const MAX_BASE64_LENGTH = 17_500_000;
 const MAX_DETAIL_IMAGES = 2;
 const MAX_DETAIL_IMAGE_BYTES = 2.5 * 1024 * 1024;
 const MAX_DETAIL_TOTAL_BYTES = 5 * 1024 * 1024;
+// Hydrogen usa high por defecto; fijar low mantiene la lectura interactiva.
 const GEMINI_THINKING_LEVEL = "low";
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
@@ -549,10 +550,19 @@ Deno.serve(async (req) => {
 
     const normalizedClientOcr = normalizeClientOcr(clientOcr);
     const ocrPolicy = normalizeDocumentOcrPolicy(Deno.env.get("CEDULA_OCR_PROVIDER"), "client-only");
+    // Incluir el perfil en la huella evita reutilizar lecturas de otro modelo.
+    const model = selectGeminiModel(Deno.env.get("GEMINI_CEDULA_MODEL"));
+    const fallbackModel = selectGeminiFallbackModel(
+      Deno.env.get("GEMINI_CEDULA_FALLBACK_MODEL"), model,
+    );
+    const extraFallbackModel = selectGeminiExtraFallbackModel(
+      Deno.env.get("GEMINI_CEDULA_EXTRA_FALLBACK_MODEL"), model, fallbackModel,
+    );
     const cacheKey = await createScanRequestFingerprint(imageBytes, mimeType, {
       actor,
       matchContext: fingerprintContext(matchContext),
       ocrPolicy,
+      modelProfile: { model, fallbackModel, extraFallbackModel, thinkingLevel: GEMINI_THINKING_LEVEL },
       clientOcr: normalizedClientOcr
         ? {
           // Debe coincidir con el maximo que buildOcrHint incorpora al prompt;
@@ -629,15 +639,6 @@ Deno.serve(async (req) => {
       const fallbackClient = fallbackApiKey
         ? new GoogleGenAI({ apiKey: fallbackApiKey })
         : client;
-      // Las cedulas usan su propio perfil para no competir con el escaner de roles.
-      const model = selectGeminiModel(Deno.env.get("GEMINI_CEDULA_MODEL"));
-      const fallbackModel = selectGeminiFallbackModel(
-        Deno.env.get("GEMINI_CEDULA_FALLBACK_MODEL"),
-        model,
-      );
-      const extraFallbackModel = selectGeminiExtraFallbackModel(
-        Deno.env.get("GEMINI_CEDULA_EXTRA_FALLBACK_MODEL"), model, fallbackModel,
-      );
       const scanInstructions = buildScanInstructions(matchContext, ocrResult);
       const geminiStartedAt = performance.now();
       const primaryResourceKey = await createProviderResourceKey(apiKey, model);

@@ -164,7 +164,7 @@ const fingerprintImage = async (image, context) => {
   const detailHashes = await Promise.all((image.detailImages || []).map(detail => (
     createCedulaScanFingerprint(detail.blob, { mimeType: detail.mimeType })
   )));
-  return createCedulaScanFingerprint(image.blob, { ...context, detailHashes }, "cedula-scan-v4-reliability");
+  return createCedulaScanFingerprint(image.blob, { ...context, detailHashes }, "cedula-scan-v5-hydrogen-low");
 };
 
 const emptyScan = {

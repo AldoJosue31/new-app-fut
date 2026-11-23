@@ -1,4 +1,4 @@
-export const CEDULA_SCAN_CACHE_VERSION = "cedula-scan-v3-goal-geometry-observations";
+export const CEDULA_SCAN_CACHE_VERSION = "cedula-scan-v4-hydrogen-low";
 
 type CacheEntry<T> = {
   value: T;
