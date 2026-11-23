@@ -355,7 +355,7 @@ const Overlay = styled.div`
 `;
 
 const Container = styled.div`
-  background: ${({ theme }) => theme.bgtotal};
+  background: ${({ theme }) => theme.bgNav || theme.bgtotal};
   color: ${(props) => props.theme.text};
   position: fixed;
   top: 0;

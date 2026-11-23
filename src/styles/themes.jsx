@@ -25,6 +25,7 @@ export const Light = {
     bg5: "#84d8ff",
     bg6: "rgba(132, 216, 255, 0.3)",
     bgtotal: "#EDF3FB",
+    bgNav: "#E8EFF8",
     bgtgderecha: "#eeeeee",
     colorToggle: "#F9743B",
     translateToggle: "-12px",
@@ -102,6 +103,7 @@ export const Dark = {
     bg5: "#84d8ff",
     bg6: "rgba(132, 216, 255, 0.1)",
     bgtotal: "#131F24",
+    bgNav: "#111C21",
     colorToggle: "rgb(52, 131, 235)",
     translateToggle: "26px",
 
