@@ -96,6 +96,62 @@ const expectMode = async (page, view) => {
     .toHaveAttribute("aria-pressed", String(view === "grid"));
 };
 
+test("Liga cambia las cuatro pestañas sin recargar ni volver a pedir sus datos", async ({ page }) => {
+  const tabs = page.getByRole("tablist", { name: "Vistas de la liga" });
+  const tab = (label) => tabs.getByTitle(label, { exact: true });
+  const leagueName = page.getByLabel("Nombre Oficial");
+  await page.goto("/liga");
+  await expect(leagueName).toHaveValue(league.name);
+
+  const requests = [];
+  const recordRequest = (request) => {
+    const { pathname } = new URL(request.url());
+    if (
+      request.resourceType() === "document" ||
+      pathname === "/rest/v1/leagues" ||
+      (pathname.startsWith("/liga/") && request.headers().rsc === "1")
+    ) {
+      requests.push(pathname);
+    }
+  };
+  page.on("request", recordRequest);
+
+  for (const [label, path, content] of [
+    ["Plantilla Reglas", "/liga/rules", page.getByLabel("Mínimo de Jugadores")],
+    ["Divisiones", "/liga/divisions", page.getByText("Estructura de la Liga", { exact: true })],
+    ["Árbitros", "/liga/referees", page.getByText("Nuevo Árbitro", { exact: true })],
+    ["Configuración", "/liga/general", leagueName],
+  ]) {
+    await tab(label).click();
+    await expect(page).toHaveURL(path);
+    await expect(tab(label)).toHaveAttribute("aria-selected", "true");
+    await expect(content).toBeVisible();
+  }
+
+  await page.goBack();
+  await expect(page).toHaveURL("/liga/referees");
+  await expect(tab("Árbitros")).toHaveAttribute("aria-selected", "true");
+  await page.goForward();
+  await expect(page).toHaveURL("/liga/general");
+  await expect(leagueName).toHaveValue(league.name);
+
+  await leagueName.fill("Nombre de borrador");
+  await tab("Plantilla Reglas").click();
+  await expect(page.getByLabel("Mínimo de Jugadores")).toBeVisible();
+  await page.goBack();
+  await expect(leagueName).toHaveValue("Nombre de borrador");
+  await leagueName.fill(league.name);
+
+  expect(requests).toEqual([]);
+  page.off("request", recordRequest);
+
+  await page.goBack();
+  await page.reload();
+  await expect(page).toHaveURL("/liga/referees");
+  await expect(tab("Árbitros")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("Nuevo Árbitro", { exact: true })).toBeVisible();
+});
+
 test("navegar desde el sidebar conserva la vista hasta que llega la siguiente", async ({ page, isMobile }) => {
   test.skip(isMobile, "Usa los enlaces visibles del sidebar de escritorio");
 

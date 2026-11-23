@@ -1,4 +1,5 @@
 import React from "react";
+import { usePathname } from "next/navigation";
 import styled from "styled-components";
 import {
   RiBookLine,
@@ -14,6 +15,22 @@ import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
 import { LigaRefereesTab } from "../organismos/tabs/liga/LigaRefereesTab";
 import { LigaRulesTab } from "../organismos/tabs/liga/LigaRulesTab";
+
+const leagueTabs = [
+  { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
+  { id: "rules", label: "Plantilla Reglas", icon: <RiBookLine /> },
+  { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
+  { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
+];
+
+function getLeagueTab(pathname, routeTab) {
+  try {
+    const tab = pathname ? decodeURIComponent(pathname.split("/")[2] ?? "") : routeTab;
+    return leagueTabs.some(({ id }) => id === tab) ? tab : "general";
+  } catch {
+    return "general";
+  }
+}
 
 export function LigaTemplate({
   routeTab,
@@ -33,18 +50,13 @@ export function LigaTemplate({
   state,
   setState,
 }) {
-  const tabList = [
-    { id: "general", label: "Configuración", icon: <RiSettings4Line /> },
-    { id: "rules", label: "Plantilla Reglas", icon: <RiBookLine /> },
-    { id: "divisions", label: "Divisiones", icon: <RiBuilding2Line /> },
-    { id: "referees", label: "Árbitros", icon: <GiWhistle /> },
-  ];
-
-  const validTabIds = tabList.map((currentTab) => currentTab.id);
-  const activeTab = validTabIds.includes(routeTab) ? routeTab : "general";
+  const pathname = usePathname();
+  const activeTab = getLeagueTab(pathname, routeTab);
 
   const handleTabChange = (newTabId) => {
-    window.location.assign(`/liga/${newTabId}`);
+    if (newTabId === getLeagueTab(window.location.pathname, routeTab)) return;
+    window.history.pushState(null, "", `/liga/${newTabId}`);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   };
 
   if (!loading && !leagueData) {
@@ -68,7 +80,7 @@ export function LigaTemplate({
         setState={setState}
         tabs={
           <SegmentedViewSelector
-            tabs={tabList}
+            tabs={leagueTabs}
             activeTab={activeTab}
             setActiveTab={handleTabChange}
             ariaLabel="Vistas de la liga"
@@ -78,9 +90,12 @@ export function LigaTemplate({
 
       <StyledContentContainer>
         <ContentGrid>
-          {activeTab === "general" && (
-            <LigaConfigTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
-          )}
+          <LigaConfigTab
+            active={activeTab === "general"}
+            data={leagueData}
+            onUpdate={onUpdateLeague}
+            loading={loading}
+          />
 
           {activeTab === "rules" && (
             <LigaRulesTab data={leagueData} onUpdate={onUpdateLeague} loading={loading} />
