@@ -13,23 +13,31 @@ export const DashboardCard = ({ title, subtitle, icon, onClick, stats, footerTex
 
 const CardContainer = styled.article`
     --accent: ${({ $color, theme }) => $color || theme.primary};
+    --surface: ${({ theme }) => theme.bgcards};
+    --action-tint: 14%;
     position: relative;
     display: flex;
     flex-direction: column;
     min-width: 0;
     padding: 22px ${v.lgSpacing} 18px;
     overflow-wrap: anywhere;
-    background: ${({ theme }) => theme.bgcards};
+    background-color: var(--surface);
+    background-image: radial-gradient(ellipse at top right,
+        color-mix(in srgb, var(--accent) 32%, transparent), transparent 66%);
     color: ${({ theme }) => theme.text};
     border-radius: 14px;
     box-shadow: inset 3px 0 var(--accent), 0 3px 10px rgba(13, 39, 59, .07);
 
     &:has(button:focus-visible) {
+        --action-tint: 54%;
         outline: 3px solid ${({ theme }) => theme.tournamentDashboard.hero.accentStrong};
         outline-offset: 3px;
     }
     @media (hover: hover) and (pointer: fine) {
-        &:hover { box-shadow: inset 3px 0 var(--accent), 0 5px 16px rgba(13, 39, 59, .12); }
+        &:hover {
+            --action-tint: 54%;
+            box-shadow: inset 3px 0 var(--accent), 0 5px 16px rgba(13, 39, 59, .12);
+        }
     }
     @media (prefers-reduced-motion: no-preference) {
         transition: transform 140ms cubic-bezier(.23, 1, .32, 1);
@@ -44,8 +52,10 @@ const IconWrapper = styled.div`
     height: 42px;
     margin-bottom: 14px;
     border-radius: 12px;
-    color: color-mix(in srgb, var(--accent) 65%, ${({ theme }) => theme.text});
-    background: color-mix(in srgb, var(--accent) 13%, ${({ theme }) => theme.bgcards});
+    color: color-mix(in srgb, var(--accent) 36%, ${({ theme }) => theme.text});
+    background: linear-gradient(140deg,
+        color-mix(in srgb, var(--accent) 12%, var(--surface)),
+        color-mix(in srgb, var(--accent) 38%, var(--surface)));
     font-size: 24px;
 `;
 
@@ -122,10 +132,8 @@ const Footer = styled.div`
         width: 26px;
         height: 26px;
         border-radius: 50%;
-        background: ${({ theme }) => theme.tournamentDashboard.itemSurface};
-    }
-    article:focus-within & span { background: ${({ theme }) => theme.tournamentDashboard.primarySoft}; }
-    @media (hover: hover) and (pointer: fine) {
-        article:hover & span { background: ${({ theme }) => theme.tournamentDashboard.primarySoft}; }
+        background: linear-gradient(135deg, ${({ theme }) => theme.tournamentDashboard.itemSurface},
+            color-mix(in srgb, var(--accent) var(--action-tint), var(--surface)));
+        color: color-mix(in srgb, var(--accent) 27%, ${({ theme }) => theme.text});
     }
 `;

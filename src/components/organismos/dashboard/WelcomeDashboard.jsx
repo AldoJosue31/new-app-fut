@@ -56,7 +56,9 @@ const Container = styled.div`
 const Content = styled.div`
     text-align: center;
     max-width: 600px;
-    background: ${({ theme }) => theme.bgcards};
+    background-color: ${({ theme }) => theme.bgcards};
+    background-image: radial-gradient(ellipse 75% 42% at 50% 0%,
+        ${({ theme }) => theme.tournamentDashboard.primarySoft}, transparent);
     padding: clamp(20px, 4vw, 40px);
     border-radius: 16px;
     box-shadow: 0 4px 16px rgba(13, 39, 59, .08);
@@ -142,6 +144,11 @@ const Arrow = styled.span`
 const ActionButtons = styled.div`
     display: flex;
     justify-content: center;
+    button {
+        background: linear-gradient(120deg, ${({ theme }) => theme.bg5}, ${({ theme }) => theme.primary});
+        border-color: ${({ theme }) => theme.tournamentDashboard.hero.accentStrong};
+        color: #102934;
+    }
     button:focus-visible { outline: 3px solid ${({ theme }) => theme.tournamentDashboard.hero.accentStrong}; outline-offset: 3px; }
     @media (prefers-reduced-motion: reduce) {
         button, button:hover, button:active { transform: none; transition: none; }
