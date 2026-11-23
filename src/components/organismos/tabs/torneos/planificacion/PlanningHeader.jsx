@@ -198,7 +198,7 @@ export const PlanningHeader = memo(
         />
 
         {hasChanges && !isRepositionMode && (
-          <ConfirmBtn
+          <ConfirmBtn data-tone="confirm"
             onClick={handleConfirmChanges}
             title="Guardar y actualizar jornadas siguientes"
           >
@@ -211,7 +211,7 @@ export const PlanningHeader = memo(
           !hasChanges &&
           !isConfirmed &&
           onAutoFill && (
-            <AutoFillBtn
+            <AutoFillBtn data-tone="schedule"
               onClick={onAutoFill}
               title="Auto-calcular fechas para todas las jornadas"
             >
@@ -222,7 +222,7 @@ export const PlanningHeader = memo(
     );
 
     const pendingControl = typeof onManagePendingMatches === "function" && (
-      <PendingButton type="button" onClick={onManagePendingMatches}
+      <PendingButton data-tone={pendingMatchesCount > 0 ? "attention" : "utility"} type="button" onClick={onManagePendingMatches}
         title="Administrar aplazados y partidos sin resultado de jornadas anteriores"
         aria-label={`Administrar partidos pendientes y sin resultado (${pendingMatchesCount})`}>
         <RiTimeLine size={19} aria-hidden="true" />
@@ -235,16 +235,18 @@ export const PlanningHeader = memo(
         {!isMobileViewport && pendingControl}
         {showPrintButton && (
           <BtnAction
+            data-tone="utility"
             onClick={onPrintBatch}
             title={`Imprimir ${matchesWithoutResultCount} cedulas pendientes`}
           >
             <RiPrinterLine size={20} />
-            <NotificationBadge>{matchesWithoutResultCount}</NotificationBadge>
+            <NotificationBadge className="print-count">{matchesWithoutResultCount}</NotificationBadge>
           </BtnAction>
         )}
 
         {isTournamentActive && needsDateNormalization && onOpenDateNormalizer && (
           <BtnAction
+            data-tone="attention"
             onClick={onOpenDateNormalizer}
             title={`Ajustar calendario a jornadas de ${jornadaDurationDays} dias`}
           >
@@ -253,12 +255,12 @@ export const PlanningHeader = memo(
         )}
 
         {isTournamentActive && (
-          <BtnAction onClick={onEditFixture} title="Reorganizar partidos futuros">
+          <BtnAction data-tone="schedule" onClick={onEditFixture} title="Reorganizar partidos futuros">
             <RiEdit2Line size={20} />
           </BtnAction>
         )}
 
-        <BtnAction onClick={onConfig} title="Configuracion de jornada">
+        <BtnAction data-tone="rules" onClick={onConfig} title="Configuracion de jornada">
           <RiSettings4Line size={20} />
         </BtnAction>
 
@@ -375,6 +377,49 @@ const Container = styled.div`
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+
+  ${({ theme }) => css`
+    --control-surface: ${theme.tournamentDashboard.surface};
+
+    [data-tone="utility"] {
+      --ink: ${theme.text};
+      --fill: ${theme.tournamentDashboard.itemSurface};
+    }
+    [data-tone="schedule"] {
+      --ink: ${theme.tournamentDashboard.jornada.accentStrong};
+      --fill: ${theme.tournamentDashboard.jornada.accentSoft};
+    }
+    [data-tone="rules"] {
+      --ink: ${theme.tournamentDashboard.rules.accentStrong};
+      --fill: ${theme.tournamentDashboard.rules.accentSoft};
+    }
+    [data-tone="attention"] {
+      --ink: color-mix(in srgb, ${theme.tournamentDashboard.metrics.warning} 42%, ${theme.text});
+      --fill: color-mix(in srgb, ${theme.tournamentDashboard.metrics.warning} 12%, var(--control-surface));
+    }
+    [data-tone="confirm"] {
+      --ink: var(--control-surface);
+      --fill: ${theme.tournamentDashboard.metrics.accentStrong};
+    }
+
+    button[data-tone] {
+      color: var(--ink);
+      background: var(--fill);
+      border-color: color-mix(in srgb, var(--ink) 32%, var(--fill));
+    }
+    button[data-tone]:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--fill) 97%, var(--ink));
+      border-color: var(--ink);
+    }
+    button[data-tone]:focus-visible {
+      outline: 2px solid ${theme.tournamentDashboard.hero.accentStrong};
+      outline-offset: 3px;
+    }
+    .print-count {
+      background: ${theme.tournamentDashboard.jornada.accentStrong};
+      color: var(--control-surface);
+    }
+  `}
 
   @media (min-width: 768px) {
     flex-direction: row;
