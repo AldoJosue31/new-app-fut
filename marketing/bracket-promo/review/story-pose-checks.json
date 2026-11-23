@@ -1,0 +1,183 @@
+{
+  "samples": [
+    {
+      "name": "writing",
+      "t": 0.78,
+      "character": {
+        "mode": "writing",
+        "stress": 0,
+        "reaction": 0,
+        "props": [
+          "paper",
+          "pen"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "paper-back"
+      },
+      "chat": null
+    },
+    {
+      "name": "typing",
+      "t": 1.96,
+      "character": {
+        "mode": "typing",
+        "stress": 0,
+        "reaction": 0,
+        "props": [
+          "laptop",
+          "paper"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "laptop-lid-back"
+      },
+      "chat": null
+    },
+    {
+      "name": "qRole",
+      "t": 6.08,
+      "character": {
+        "mode": "typing",
+        "stress": 0.17,
+        "reaction": 0.670320046035645,
+        "props": [
+          "laptop",
+          "paper"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "laptop-lid-back"
+      },
+      "chat": {
+        "external": true,
+        "count": 1,
+        "questions": [
+          "¿Ya está el rol de juegos?"
+        ]
+      }
+    },
+    {
+      "name": "qTable",
+      "t": 7.34,
+      "character": {
+        "mode": "typing",
+        "stress": 0.34,
+        "reaction": 0.6703200460356271,
+        "props": [
+          "laptop",
+          "paper"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "laptop-lid-back"
+      },
+      "chat": {
+        "external": true,
+        "count": 2,
+        "questions": [
+          "¿Ya está el rol de juegos?",
+          "¿Cómo quedó la tabla?"
+        ]
+      }
+    },
+    {
+      "name": "qGoals",
+      "t": 8.92,
+      "character": {
+        "mode": "typing",
+        "stress": 0.51,
+        "reaction": 0.6703200460356331,
+        "props": [
+          "laptop",
+          "paper"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "laptop-lid-back"
+      },
+      "chat": {
+        "external": true,
+        "count": 3,
+        "questions": [
+          "¿Ya está el rol de juegos?",
+          "¿Cómo quedó la tabla?",
+          "¿Cuántos goles llevo?"
+        ]
+      }
+    },
+    {
+      "name": "qMatches",
+      "t": 10.18,
+      "character": {
+        "mode": "typing",
+        "stress": 0.68,
+        "reaction": 0.6703200460356152,
+        "props": [
+          "laptop",
+          "paper"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "laptop-lid-back"
+      },
+      "chat": {
+        "external": true,
+        "count": 4,
+        "questions": [
+          "¿Ya está el rol de juegos?",
+          "¿Cómo quedó la tabla?",
+          "¿Cuántos goles llevo?",
+          "¿Cuántos partidos jugué?"
+        ]
+      }
+    },
+    {
+      "name": "qCards",
+      "t": 12.14,
+      "character": {
+        "mode": "typing",
+        "stress": 0.8500000000000001,
+        "reaction": 0.6703200460356391,
+        "props": [
+          "laptop",
+          "paper"
+        ],
+        "appOnPhone": false,
+        "objectFacing": "dani",
+        "cameraSees": "laptop-lid-back"
+      },
+      "chat": {
+        "external": true,
+        "count": 5,
+        "questions": [
+          "¿Ya está el rol de juegos?",
+          "¿Cómo quedó la tabla?",
+          "¿Cuántos goles llevo?",
+          "¿Cuántos partidos jugué?",
+          "¿Y mis amarillas?"
+        ]
+      }
+    },
+    {
+      "name": "relief",
+      "t": 54.37000000000001,
+      "character": {
+        "mode": "phone",
+        "stress": 0,
+        "reaction": 0,
+        "props": [
+          "phone",
+          "bracket-ui"
+        ],
+        "appOnPhone": true,
+        "objectFacing": "camera",
+        "cameraSees": "app-screen"
+      },
+      "chat": null
+    }
+  ],
+  "randomAccessDeterministic": true,
+  "provisional": false,
+  "errors": []
+}

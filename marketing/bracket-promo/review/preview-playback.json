@@ -1,0 +1,24 @@
+{
+  "errors": [],
+  "result": {
+    "phone": {
+      "x": 120,
+      "y": 315,
+      "scale": 2.15,
+      "w": 390,
+      "h": 660,
+      "zoom": false,
+      "perspective": false,
+      "entranceTranslationMax": [
+        36,
+        20
+      ]
+    },
+    "playedTo": 49.837865,
+    "audioDuration": 60,
+    "audioSource": "http://127.0.0.1:4188/final/bracket-a-60s.mp4",
+    "captionGroups": 27,
+    "stageFits": true,
+    "firstPlayback": 0.774464
+  }
+}

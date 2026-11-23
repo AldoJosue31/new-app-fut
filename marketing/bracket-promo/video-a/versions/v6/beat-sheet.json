@@ -1,0 +1,62 @@
+[
+  {
+    "start": 0.12,
+    "end": 2.56,
+    "id": "paper",
+    "text": "Dani anota todo en papel y lo pasa a Excel."
+  },
+  {
+    "start": 3.18,
+    "end": 8.1,
+    "id": "requests",
+    "text": "Pero llega la jornada y el chat no para: ¿Ya está el rol? ¿Cómo quedó la tabla?"
+  },
+  {
+    "start": 8.84,
+    "end": 12.76,
+    "id": "player-requests",
+    "text": "¿Cuántos goles llevo? ¿Cuántos partidos jugué? ¿Y mis amarillas?"
+  },
+  {
+    "start": 13.92,
+    "end": 17.040000000000003,
+    "id": "brand-intro",
+    "text": "Con Bracket, cada jornada toma forma."
+  },
+  {
+    "start": 17.760000000000005,
+    "end": 23.460000000000004,
+    "id": "schedule",
+    "text": "Organiza los encuentros, ajusta los horarios y descarga el rol de juegos para compartirlo con tus equipos."
+  },
+  {
+    "start": 24.180000000000003,
+    "end": 33.22,
+    "id": "result",
+    "text": "Al terminar, registra quién jugó, los goles y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado."
+  },
+  {
+    "start": 34.06,
+    "end": 40.879999999999995,
+    "id": "stats",
+    "text": "Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que registraste en cada partido."
+  },
+  {
+    "start": 41.599999999999994,
+    "end": 47.739999999999995,
+    "id": "standings",
+    "text": "Los resultados se reflejan en la tabla de posiciones. Descárgala como imagen para compartirla con tu liga."
+  },
+  {
+    "start": 47.739999999999995,
+    "end": 53.099999999999994,
+    "id": "public",
+    "text": "O habilita la consulta pública para que los equipos puedan revisar la clasificación desde un enlace."
+  },
+  {
+    "start": 53.82000000000001,
+    "end": 58.880000000000024,
+    "id": "closing",
+    "text": "Organiza tu liga. Vive el fútbol. Bracket. Más allá del amateur."
+  }
+]

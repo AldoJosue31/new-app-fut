@@ -1,0 +1,107 @@
+1
+00:00:00,120 --> 00:00:01,760
+Dani anota todo en papel y
+
+2
+00:00:01,760 --> 00:00:02,560
+lo pasa a Excel.
+
+3
+00:00:03,180 --> 00:00:04,680
+Pero llega la jornada y el
+
+4
+00:00:04,680 --> 00:00:06,540
+chat no para: ¿Ya está el
+
+5
+00:00:06,540 --> 00:00:08,100
+rol? ¿Cómo quedó la tabla?
+
+6
+00:00:08,840 --> 00:00:11,340
+¿Cuántos goles llevo? ¿Cuántos partidos jugué?
+
+7
+00:00:12,060 --> 00:00:12,760
+¿Y mis amarillas?
+
+8
+00:00:13,920 --> 00:00:17,040
+Con Bracket, cada jornada toma forma.
+
+9
+00:00:17,760 --> 00:00:20,180
+Organiza los encuentros, ajusta los horarios
+
+10
+00:00:20,180 --> 00:00:21,720
+y descarga el rol de juegos
+
+11
+00:00:21,720 --> 00:00:23,460
+para compartirlo con tus equipos.
+
+12
+00:00:24,180 --> 00:00:26,780
+Al terminar, registra quién jugó, los
+
+13
+00:00:26,780 --> 00:00:29,600
+goles y las tarjetas. También puedes
+
+14
+00:00:29,600 --> 00:00:31,820
+cargar la cédula, revisar su lectura
+
+15
+00:00:31,820 --> 00:00:33,220
+y confirmar el resultado.
+
+16
+00:00:34,060 --> 00:00:36,300
+Consulta el rendimiento de tus jugadores
+
+17
+00:00:36,300 --> 00:00:38,900
+y los goleadores del torneo, con
+
+18
+00:00:38,900 --> 00:00:40,440
+los datos que registraste en cada
+
+19
+00:00:40,440 --> 00:00:40,880
+partido.
+
+20
+00:00:41,600 --> 00:00:43,580
+Los resultados se reflejan en la
+
+21
+00:00:43,580 --> 00:00:46,300
+tabla de posiciones. Descárgala como imagen
+
+22
+00:00:46,300 --> 00:00:47,740
+para compartirla con tu liga.
+
+23
+00:00:47,740 --> 00:00:50,140
+O habilita la consulta pública para
+
+24
+00:00:50,140 --> 00:00:51,700
+que los equipos puedan revisar la
+
+25
+00:00:51,700 --> 00:00:53,100
+clasificación desde un enlace.
+
+26
+00:00:53,820 --> 00:00:56,400
+Organiza tu liga. Vive el fútbol.
+
+27
+00:00:56,980 --> 00:00:58,880
+Bracket. Más allá del amateur.

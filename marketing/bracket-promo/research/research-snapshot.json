@@ -1,0 +1,233 @@
+{
+  "research_session_date": "2026-11-06",
+  "user_timezone": "America/Mexico_City",
+  "status": "Research and planning only; no animation or audiovisual render produced",
+  "git_commit": "449f0f03b4dcf95e12e255e5873c5b1bcfc01da8",
+  "browser_build_id": "s6jPjBTznwisXOiEFUzCF",
+  "assets": [
+    {
+      "path": "public/logo_app.png",
+      "sha256": "8fdfd91bbc70c43ce0b3fd13683c8ec5563a913d4c70e5bb411620b776179217",
+      "bytes": 283758,
+      "png": {
+        "width": 500,
+        "height": 500,
+        "colorType": 6
+      }
+    },
+    {
+      "path": "public/logo_gen.png",
+      "sha256": "0b193d430c64e4f1f382d326bb0c1e10cb7aa1c55e15afd9dad29642b796aed5",
+      "bytes": 80260
+    },
+    {
+      "path": "public/fonts/poppins/poppins-latin-400.woff2",
+      "sha256": "7d93459d86585bfcdbb7e0376056226adb25821ee54b96236fe2123e9560929f",
+      "bytes": 7884
+    },
+    {
+      "path": "public/fonts/poppins/poppins-latin-600.woff2",
+      "sha256": "f4e80d9dfd374d02989b87a27b5ed4cb78fbb177c27f1478e9a8b0afb7513149",
+      "bytes": 8000
+    },
+    {
+      "path": "public/fonts/poppins/poppins-latin-700.woff2",
+      "sha256": "9338e65fc077355c7a87ae0d64cc101e23b9bf8ad78ae65f0f319c857311b526",
+      "bytes": 7816
+    },
+    {
+      "path": "public/fonts/poppins/OFL.txt",
+      "sha256": "6be04893d770899a015649c7aa3b582f871b272f8747a92b78b17c3e5c8b2573",
+      "bytes": 4385
+    }
+  ],
+  "inspected_core_sources": [
+    {
+      "path": "package.json",
+      "sha256": "cdc605bd750617b5b1107bcd77a0678dc32e783dcfbeb45329bbb1a1ebe08dc2",
+      "bytes": 2710
+    },
+    {
+      "path": "app/layout.jsx",
+      "sha256": "cbacad30d552724dc7efc87bdaa88776898780e98cab55c47d0f719762c8b855",
+      "bytes": 934
+    },
+    {
+      "path": "src/lib/auth/routeAccess.js",
+      "sha256": "a5cd0e0c44623205d8eb2056f3f32229071b4c87bfc99dff8f23ec78812b05cf",
+      "bytes": 3106
+    },
+    {
+      "path": "src/lib/navigation/routes.js",
+      "sha256": "8b73cd26f76f2061b16ec0f9ed56303de79a11582aa8372e01977833b9b5fa9c",
+      "bytes": 3664
+    },
+    {
+      "path": "src/styles/themes.jsx",
+      "sha256": "ca8ec99394ed0b82a9158d8a855f89d0e75f25055c93db52b5c5f43cc78bc8f0",
+      "bytes": 3985
+    },
+    {
+      "path": "src/styles/GlobalStyles.jsx",
+      "sha256": "d53db37939101bf3087a4806e9064b41bfcdbe55f2f0c6bfceeba50c99a3b31f",
+      "bytes": 789
+    },
+    {
+      "path": "src/styles/variables.jsx",
+      "sha256": "39ab67a2844a264d48e837844a3d6bfe8424473258ed1cbe66ad31ae3f3609e4",
+      "bytes": 4830
+    },
+    {
+      "path": "src/hooks/pages/useLigaLogic.js",
+      "sha256": "b7e2581d908b99f6c2a306ffb7825034176fa3d85c30b9fb6c7f735c00dd2d07",
+      "bytes": 8051
+    },
+    {
+      "path": "src/hooks/pages/useTorneosLogic.js",
+      "sha256": "b95040ea9b640c1d2c733be75d9623acdaf68d076a9869f04178f687d36d5be7",
+      "bytes": 20693
+    },
+    {
+      "path": "src/components/template/PartidosTemplate.jsx",
+      "sha256": "11116bba091810f09d3638e4b72b0e4c09ae597a5403e7cc007369c3ddc8018e",
+      "bytes": 1141
+    },
+    {
+      "path": "src/components/template/TorneosTemplate.jsx",
+      "sha256": "b6c9a010d23d52f1c19b18660be07e76d5b6c6873975b5a70635030c7a5682f3",
+      "bytes": 17640
+    },
+    {
+      "path": "src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx",
+      "sha256": "e7a3f5faebb81f2dab653fc8d7453afabf5a8f4e1cf847b2a125bdbef93dfd6f",
+      "bytes": 68125
+    },
+    {
+      "path": "src/components/organismos/tabs/torneos/planificacion/ResultModal.jsx",
+      "sha256": "348fb50d22c4266457c5e01e6b1947b5467e6dde3f3cc5e99a87036e73698839",
+      "bytes": 45114
+    },
+    {
+      "path": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/CedulaScanFlow.jsx",
+      "sha256": "93abe9757821c03cfc39affd059529a0ec5bc09d330bbe8befd645ff22afffa6",
+      "bytes": 87165
+    },
+    {
+      "path": "src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx",
+      "sha256": "7408df359e6d7eb455e36e221bd076c60316fc3b34b4ad5031dca522d417684c",
+      "bytes": 20976
+    },
+    {
+      "path": "src/components/organismos/tabs/torneos/exports/standings/StandingsExportModal.jsx",
+      "sha256": "7224c97ccb8bd7c9c006857841cb530b747862c3f9ad0ac7b804924356700ce8",
+      "bytes": 37579
+    },
+    {
+      "path": "src/components/organismos/equipos/DelegateTeamOverview.jsx",
+      "sha256": "967ff02245c19f550e51c6d9b040fb716d4cac06d3210e1cf84abc3dccd3c7c2",
+      "bytes": 16919
+    },
+    {
+      "path": "src/server/api/handlers/delegates/teamTournament.js",
+      "sha256": "2da8322b956d75458a917c923031153bbdb65f828367c38357e1b4467eae9362",
+      "bytes": 6325
+    },
+    {
+      "path": "src/services/torneos/mutations.js",
+      "sha256": "75b2a93e674399f5b6d36745f65ac8f8526a98df7e1243108fb2392a6495a615",
+      "bytes": 28871
+    },
+    {
+      "path": "src/utils/standingsSnapshot.js",
+      "sha256": "770bad75dc3c3b0e50a74ca22bd9059a672d4a6e011a1f4384d02c035a892422",
+      "bytes": 12584
+    },
+    {
+      "path": "src/server/public/publicPageData.js",
+      "sha256": "e4c1b82d022a7d34c579eeff23b6930ba27cfb2715c4159cc2cd6961362985bb",
+      "bytes": 2041
+    },
+    {
+      "path": "src/views/PublicStandings.jsx",
+      "sha256": "ecf4bd41a5b1a6e43f7eb8a1dfc435073e1886203ee689bc173ec381d4fc2c17",
+      "bytes": 13268
+    },
+    {
+      "path": "supabase/functions/procesar-cedula/index.ts",
+      "sha256": "a39c5134cc0ba4b6c07669b828ba6bbcdee6d083ee19ed9d7af27e572bffdb01",
+      "bytes": 37130
+    },
+    {
+      "path": "supabase/migrations/20260711211528_add_safe_public_tournament_bundle.sql",
+      "sha256": "015c1daf1bd9a95f222a5805469e9128d9cdf97ecde33c8d80a31f3ae37b630a",
+      "bytes": 6191
+    },
+    {
+      "path": "supabase/migrations/20260919205300_atomic_match_result_save.sql",
+      "sha256": "b636ed15e066fdc53423239dbe5545b50d2328cfdae182733a4eb0b992dd3268",
+      "bytes": 21364
+    }
+  ],
+  "skills": [
+    {
+      "name": "explainer-default",
+      "path": "C:\\Users\\Aldo\\.agents\\skills\\explainer-default\\SKILL.md",
+      "sha256": "b224712371445e8fe8618bb43c4fad88e6c5f948b69372e276dc927ac0069474",
+      "decision": "Video A after approval"
+    },
+    {
+      "name": "explainer-high-energy",
+      "path": "C:\\Users\\Aldo\\.agents\\skills\\explainer-high-energy\\SKILL.md",
+      "sha256": "3484057af8ffd7ca9adcce2111899007206b6eba30cf867a8dbfdd4de3a048bf",
+      "decision": "Video B after approval"
+    },
+    {
+      "name": "explainer-engaging",
+      "path": "C:\\Users\\Aldo\\.agents\\skills\\explainer-engaging\\SKILL.md",
+      "sha256": "d4741320d78e8a3a6330beb7b1273d44530c3e45262f65bece9729e6d3041d8f",
+      "decision": "Optional Video C after explicit inclusion"
+    },
+    {
+      "name": "sound-effects",
+      "path": "C:\\Users\\Aldo\\.agents\\skills\\sound-effects\\SKILL.md",
+      "sha256": "0754dbfa1d5391e25d43ad048a1846a9b342420bad14f8d5c0bced606494110c",
+      "decision": "One postproduction pass after approval"
+    },
+    {
+      "name": "motion-broll",
+      "path": "C:\\Users\\Aldo\\.agents\\skills\\motion-broll\\SKILL.md",
+      "sha256": "f6ddf5bac5184d8921b1a0e8c8d3d72b95092b9664e5b3afc319ef1f2e46ab7b",
+      "decision": "Evaluated, no base video with transcript"
+    },
+    {
+      "name": "object-separation",
+      "path": "C:\\Users\\Aldo\\.agents\\skills\\object-separation\\SKILL.md",
+      "sha256": "2aeec90402fd0a624f36621644617dbdc388c9b1b057b226a0be2cbfcf1cc489",
+      "decision": "Evaluated, no filmed subject to isolate"
+    }
+  ],
+  "verification": {
+    "selected_node_tests": {
+      "tests": 159,
+      "pass": 159,
+      "fail": 0,
+      "skipped": 0
+    },
+    "existing_browser_suite": {
+      "passed": 14,
+      "scope": "tests/e2e/tournament-views.spec.js on desktop and mobile Chromium",
+      "evidence": "First execution output; its JSON was replaced by the subsequent editorial checks"
+    },
+    "editorial_browser_checks": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Classification/export and result/scanner entry; desktop and mobile Chromium",
+      "report": "ui-results.json"
+    },
+    "environment": "Local existing production build, synthetic auth and data transports",
+    "remote_write_operations": false,
+    "remote_ocr_invoked": false,
+    "valid_public_tournament_opened_remotely": false
+  }
+}

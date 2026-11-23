@@ -1,0 +1,38 @@
+{
+  "verifiedBy": "Actual Bracket standingsSnapshot.js",
+  "rows": [
+    {
+      "name": "Halcones",
+      "pj": 1,
+      "gf": 2,
+      "gc": 1,
+      "dg": 1,
+      "pts": 3
+    },
+    {
+      "name": "Norte",
+      "pj": 1,
+      "gf": 0,
+      "gc": 0,
+      "dg": 0,
+      "pts": 1
+    },
+    {
+      "name": "Sur",
+      "pj": 1,
+      "gf": 0,
+      "gc": 0,
+      "dg": 0,
+      "pts": 1
+    },
+    {
+      "name": "Leones",
+      "pj": 1,
+      "gf": 1,
+      "gc": 2,
+      "dg": -1,
+      "pts": 0
+    }
+  ],
+  "players": 28
+}

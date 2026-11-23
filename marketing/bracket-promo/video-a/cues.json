@@ -1,0 +1,206 @@
+[
+  {
+    "t": 0.18,
+    "type": "movement",
+    "desc": "Dani, papel y Excel"
+  },
+  {
+    "t": 1.86,
+    "type": "typing",
+    "desc": "Dani transcribe del papel a Excel",
+    "dur": 0.9
+  },
+  {
+    "t": 6.0,
+    "type": "appear",
+    "desc": "Chat externo: Rol de juegos",
+    "gain_offset_db": 0.0
+  },
+  {
+    "t": 7.26,
+    "type": "appear",
+    "desc": "Chat externo: Tabla de posiciones",
+    "gain_offset_db": 0.5
+  },
+  {
+    "t": 8.84,
+    "type": "appear",
+    "desc": "Chat externo: Goles",
+    "gain_offset_db": 1.0
+  },
+  {
+    "t": 10.1,
+    "type": "appear",
+    "desc": "Chat externo: Partidos jugados",
+    "gain_offset_db": 1.5
+  },
+  {
+    "t": 12.06,
+    "type": "appear",
+    "desc": "Chat externo: Tarjetas amarillas",
+    "gain_offset_db": 2.0
+  },
+  {
+    "t": 13.45,
+    "type": "build_up",
+    "desc": "La presión del chat se resuelve al presentar Bracket",
+    "dur": 0.85,
+    "gain_offset_db": -4
+  },
+  {
+    "t": 14.3,
+    "type": "reveal",
+    "desc": "Bracket conecta la información de la liga"
+  },
+  {
+    "t": 17.76,
+    "type": "movement",
+    "desc": "Vista móvil de la jornada"
+  },
+  {
+    "t": 19.55,
+    "type": "click",
+    "desc": "Ajustar hora del partido"
+  },
+  {
+    "t": 20.27,
+    "type": "click",
+    "desc": "Confirmar jornada"
+  },
+  {
+    "t": 20.55,
+    "type": "click",
+    "desc": "Abrir Exportar Rol"
+  },
+  {
+    "t": 21.92,
+    "type": "click",
+    "desc": "Descargar rol de juegos"
+  },
+  {
+    "t": 24.18,
+    "type": "movement",
+    "desc": "Definir Resultado: planteles"
+  },
+  {
+    "t": 25.68,
+    "type": "click",
+    "desc": "Registrar participación"
+  },
+  {
+    "t": 26.7,
+    "type": "click",
+    "desc": "Goles de Mateo Ruiz"
+  },
+  {
+    "t": 27.58,
+    "type": "click",
+    "desc": "Amarilla de Diego Luna"
+  },
+  {
+    "t": 29.5,
+    "type": "click",
+    "desc": "Abrir carga de cédula"
+  },
+  {
+    "t": 30.154,
+    "type": "click",
+    "desc": "Escanear la foto"
+  },
+  {
+    "t": 30.8,
+    "type": "success",
+    "desc": "Lectura ilustrativa lista para revisar"
+  },
+  {
+    "t": 31.6893,
+    "type": "click",
+    "desc": "Aplicar escaneo"
+  },
+  {
+    "t": 32.4871,
+    "type": "click",
+    "desc": "Guardar Marcador"
+  },
+  {
+    "t": 33.395,
+    "type": "click",
+    "desc": "Confirmar Sí guardar"
+  },
+  {
+    "t": 33.6,
+    "type": "success",
+    "desc": "Resultado registrado"
+  },
+  {
+    "t": 34.01,
+    "type": "movement",
+    "desc": "Rendimiento Individual del equipo"
+  },
+  {
+    "t": 36.25,
+    "type": "movement",
+    "desc": "Goleadores del torneo"
+  },
+  {
+    "t": 38.45,
+    "type": "click",
+    "desc": "Preparar imagen de goleadores"
+  },
+  {
+    "t": 41.05,
+    "type": "click",
+    "desc": "Descargar imagen de goleadores"
+  },
+  {
+    "t": 41.55,
+    "type": "movement",
+    "desc": "Clasificación del mismo torneo"
+  },
+  {
+    "t": 45.25,
+    "type": "click",
+    "desc": "Abrir exportación de tabla"
+  },
+  {
+    "t": 45.6472,
+    "type": "click",
+    "desc": "Elegir Historia 9:16"
+  },
+  {
+    "t": 47.0091,
+    "type": "click",
+    "desc": "Descargar imagen de clasificación"
+  },
+  {
+    "t": 47.69,
+    "type": "movement",
+    "desc": "Controles de consulta pública"
+  },
+  {
+    "t": 48.8305,
+    "type": "click",
+    "desc": "Habilitar consulta pública"
+  },
+  {
+    "t": 50.3218,
+    "type": "click",
+    "desc": "Copiar enlace"
+  },
+  {
+    "t": 51.55,
+    "type": "movement",
+    "desc": "Consultar clasificación pública"
+  },
+  {
+    "t": 55.55,
+    "type": "build_up",
+    "desc": "Preparar cierre de marca",
+    "dur": 1.55
+  },
+  {
+    "t": 57.1,
+    "type": "reveal",
+    "desc": "Logo oficial y Más allá del amateur"
+  }
+]

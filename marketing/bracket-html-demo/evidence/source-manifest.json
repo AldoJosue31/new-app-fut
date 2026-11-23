@@ -1,0 +1,566 @@
+{
+  "originals": [
+    {
+      "file": "package.json",
+      "sha256": "cdc605bd750617b5b1107bcd77a0678dc32e783dcfbeb45329bbb1a1ebe08dc2",
+      "bytes": 2710
+    },
+    {
+      "file": "PRODUCT.md",
+      "sha256": "5df20cb92641614f91d764a1c0789351e6720f0599cb986e233af4ea2799fdea",
+      "bytes": 2953
+    },
+    {
+      "file": "DESIGN.md",
+      "sha256": "6f0ac5a2b909c1dc524fa3e74e21e4d23a4973b25ed36b96626d29dff0726dae",
+      "bytes": 10201
+    },
+    {
+      "file": "src/lib/navigation/routes.js",
+      "sha256": "8b73cd26f76f2061b16ec0f9ed56303de79a11582aa8372e01977833b9b5fa9c",
+      "bytes": 3664
+    },
+    {
+      "file": "src/lib/navigation/tournamentRoutes.js",
+      "sha256": "b23d823a4ac37e7661653b7c8cc44fb6235cb4cdf6e12033af35fc165050f5f9",
+      "bytes": 4877
+    },
+    {
+      "file": "src/lib/auth/routeAccess.js",
+      "sha256": "a5cd0e0c44623205d8eb2056f3f32229071b4c87bfc99dff8f23ec78812b05cf",
+      "bytes": 3106
+    },
+    {
+      "file": "src/views/Torneos.jsx",
+      "sha256": "d28b492c189543634c98ef290a3d574b2b1b416296650e91e6c5b885dca76998",
+      "bytes": 2163
+    },
+    {
+      "file": "src/views/Equipos.jsx",
+      "sha256": "b1e8ac10d202fba6fe3f7594b1d31c664dc7339ad4a043c5efd0575e4b0fa29c",
+      "bytes": 2295
+    },
+    {
+      "file": "src/views/Liga.jsx",
+      "sha256": "34b4449a44fab4801c06b16b59d705ba89538c56f8579beb3f41a8d0fd8dd206",
+      "bytes": 1041
+    },
+    {
+      "file": "src/views/Home.jsx",
+      "sha256": "6b8558f4e30d86a92223359d3af3e27f67a5906e12430f46eb944a06a5fb4679",
+      "bytes": 275
+    },
+    {
+      "file": "src/views/Partidos.jsx",
+      "sha256": "c93bb5c94634894a276b032f2f532772cec59faede3a33617c3cde4a65cff25d",
+      "bytes": 242
+    },
+    {
+      "file": "src/views/PublicStandings.jsx",
+      "sha256": "ecf4bd41a5b1a6e43f7eb8a1dfc435073e1886203ee689bc173ec381d4fc2c17",
+      "bytes": 13268
+    },
+    {
+      "file": "src/hooks/pages/useTorneosLogic.js",
+      "sha256": "b95040ea9b640c1d2c733be75d9623acdaf68d076a9869f04178f687d36d5be7",
+      "bytes": 20693
+    },
+    {
+      "file": "src/hooks/pages/useEquiposLogic.js",
+      "sha256": "e09972ed09ca91a912ccdfa383978ad098da3beacdd3dbe1a5752f847ed04ed1",
+      "bytes": 28118
+    },
+    {
+      "file": "src/hooks/pages/useLigaLogic.js",
+      "sha256": "b7e2581d908b99f6c2a306ffb7825034176fa3d85c30b9fb6c7f735c00dd2d07",
+      "bytes": 8051
+    },
+    {
+      "file": "src/hooks/usePlanificacionMatches.js",
+      "sha256": "6e93b8c414cfccef0058ccb80f8f8fb5dd9e6f3b82c6e627c9b9529dcf831d1c",
+      "bytes": 22503
+    },
+    {
+      "file": "src/hooks/useFixturePreview.js",
+      "sha256": "b30e8ac893af0d5d4a04fa8a46d401e180135319d896e3fdc2fd0fae8adb6a4f",
+      "bytes": 20199
+    },
+    {
+      "file": "src/hooks/useTorneoStandingsLogic.js",
+      "sha256": "c5482a57e9b692d2e34bfd6f1fd0d18a123dc6ff042c02ffec74e1a272cb924a",
+      "bytes": 17189
+    },
+    {
+      "file": "src/store/EquiposStore.jsx",
+      "sha256": "a6d47938226b8540e0c1135c7a68316f837efd080871e06595ec278b70de4864",
+      "bytes": 1649
+    },
+    {
+      "file": "src/store/JugadoresStore.jsx",
+      "sha256": "35a6fd5f5b57591bf8a062fcbde7d74a59c3fd62613b46888a877f61c54c8989",
+      "bytes": 5797
+    },
+    {
+      "file": "src/components/template/TorneosTemplate.jsx",
+      "sha256": "b6c9a010d23d52f1c19b18660be07e76d5b6c6873975b5a70635030c7a5682f3",
+      "bytes": 17640,
+      "labels": [
+        {
+          "text": "Torneo",
+          "line": 18
+        },
+        {
+          "text": "Jornadas",
+          "line": 33
+        },
+        {
+          "text": "Clasificacion",
+          "line": 54
+        },
+        {
+          "text": "Goleadores",
+          "line": 43
+        }
+      ]
+    },
+    {
+      "file": "src/components/template/EquiposTemplate.jsx",
+      "sha256": "60dd7b582eb8fb2af7fd7c1d333ae9476b72db3ec99e5a0d32f60d34704f123d",
+      "bytes": 58777
+    },
+    {
+      "file": "src/components/template/LigaTemplate.jsx",
+      "sha256": "875f8637e5468b45ccc0dffee2e93beffb02b5f18fc8206aca92788c329696d8",
+      "bytes": 3708
+    },
+    {
+      "file": "src/components/template/PartidosTemplate.jsx",
+      "sha256": "11116bba091810f09d3638e4b72b0e4c09ae597a5403e7cc007369c3ddc8018e",
+      "bytes": 1141
+    },
+    {
+      "file": "src/styles/themes.jsx",
+      "sha256": "ca8ec99394ed0b82a9158d8a855f89d0e75f25055c93db52b5c5f43cc78bc8f0",
+      "bytes": 3985
+    },
+    {
+      "file": "src/styles/variables.jsx",
+      "sha256": "39ab67a2844a264d48e837844a3d6bfe8424473258ed1cbe66ad31ae3f3609e4",
+      "bytes": 4830
+    },
+    {
+      "file": "src/styles/GlobalStyles.jsx",
+      "sha256": "d53db37939101bf3087a4806e9064b41bfcdbe55f2f0c6bfceeba50c99a3b31f",
+      "bytes": 789
+    },
+    {
+      "file": "src/components/organismos/sidebar/Sidebar.jsx",
+      "sha256": "032565d4b3c675ff5b3ad76b1f89134dc04cf16ad001308e27be2aecae5318df",
+      "bytes": 16264
+    },
+    {
+      "file": "src/components/moleculas/TabsNavigation.jsx",
+      "sha256": "991ade05fac53862dff37cc64eace6c72fd90d159ed25bc43547dc7e3f1c9d02",
+      "bytes": 9648
+    },
+    {
+      "file": "src/components/moleculas/Btnsave.jsx",
+      "sha256": "0f53af7a44fbaef75c6b7443f8b8fd376cd7994739850ae18f1e0e8925619e9d",
+      "bytes": 2944,
+      "labels": [
+        {
+          "text": "Guardando...",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/equipos/DynamicTeamLogo.jsx",
+      "sha256": "efd24c0c15a3dab5737aef9b9921a69300ecf1e7f490ebb36dbba45167c92e1c",
+      "bytes": 6072
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/JornadaPlanificacion.jsx",
+      "sha256": "e7a3f5faebb81f2dab653fc8d7453afabf5a8f4e1cf847b2a125bdbef93dfd6f",
+      "bytes": 68125
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/TorneosStandingsTab.jsx",
+      "sha256": "7408df359e6d7eb455e36e221bd076c60316fc3b34b4ad5031dca522d417684c",
+      "bytes": 20976
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/PlanningHeader.jsx",
+      "sha256": "428cdf33e47bbadf13889e407617cb05f6c02ac56135d74de8a8618d7dd1c293",
+      "bytes": 23373,
+      "labels": [
+        {
+          "text": "Semana del",
+          "line": 179
+        },
+        {
+          "text": "Pendientes",
+          "line": 229
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/PlanningSidebar.jsx",
+      "sha256": "ab75b64ddebbf9ed94f05c690eb114b9325774c56ee96dc59c26ece3fba8ebb5",
+      "bytes": 15311,
+      "labels": [
+        {
+          "text": "Por Asignar",
+          "line": 82
+        },
+        {
+          "text": "Todo asignado",
+          "line": 203
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/ScheduledMatchRow.jsx",
+      "sha256": "11ab6e6d82037e88ff25d32ca8a781ce723016db9a3e2291fda10abfcca462b5",
+      "bytes": 40270,
+      "labels": [
+        {
+          "text": "Resultado",
+          "line": 401
+        },
+        {
+          "text": "Editar",
+          "line": 401
+        },
+        {
+          "text": "Ver Cédula",
+          "line": 408
+        },
+        {
+          "text": "Pre-Cédula",
+          "line": 432
+        },
+        {
+          "text": "Aplazar",
+          "line": 437
+        },
+        {
+          "text": "Deshacer",
+          "line": 417
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/WeeklyGridView.jsx",
+      "sha256": "e6e5b141566b41573daf2ed50e89298be1d762b2cf398de88ab12d5f92cb2bd0",
+      "bytes": 15086,
+      "labels": [
+        {
+          "text": "Libre",
+          "line": 180
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/ResultModal.jsx",
+      "sha256": "348fb50d22c4266457c5e01e6b1947b5467e6dde3f3cc5e99a87036e73698839",
+      "bytes": 45114,
+      "labels": [
+        {
+          "text": "Definir Resultado",
+          "line": 791
+        },
+        {
+          "text": "Cargar cédula",
+          "line": 814
+        },
+        {
+          "text": "Escanear cédula",
+          "line": 817
+        },
+        {
+          "text": "Procesando datos...",
+          "line": 844
+        },
+        {
+          "text": "Guardando resultado...",
+          "line": 844
+        },
+        {
+          "text": "Guardar Marcador",
+          "line": 914
+        },
+        {
+          "text": "Resultado guardado correctamente.",
+          "line": 742
+        },
+        {
+          "text": "Se agregaron",
+          "line": 498
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/ScoreHeader.jsx",
+      "sha256": "531bf61e9953922a586e22791297f5d8253101c5abb1b82fa1d1fb9f9e46b5fb",
+      "bytes": 5754
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/GeneralTab.jsx",
+      "sha256": "c78640134d73c764abbc3ba2e682e2256f9e8b5c68e1cd6f3e4e9eb720471da8",
+      "bytes": 7693,
+      "labels": [
+        {
+          "text": "Victoria por Default (W.O.)",
+          "line": 16
+        },
+        {
+          "text": "Árbitro Principal (Opcional)",
+          "line": 54
+        },
+        {
+          "text": "Sin árbitro asignado",
+          "line": 56
+        },
+        {
+          "text": "Observaciones Adicionales (Opcional)",
+          "line": 71
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/RosterTab.jsx",
+      "sha256": "ed4ba1748d1c4b15ac51bcc0497f91a163031059fa710880e3d240fa38a2aed1",
+      "bytes": 31339,
+      "labels": [
+        {
+          "text": "Auto-rellenar titulares",
+          "line": 334
+        },
+        {
+          "text": "Limpiar todos",
+          "line": 342
+        },
+        {
+          "text": "Goles / AG / Tarjetas",
+          "line": 349
+        },
+        {
+          "text": "Seleccionar jugador...",
+          "line": 140
+        },
+        {
+          "text": "Suplentes",
+          "line": 365
+        },
+        {
+          "text": "Titulares (Minimo",
+          "line": 324
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/ConfirmResultOverlay.jsx",
+      "sha256": "f7844095aac4742ce685b577dee007315d20b1ee882d83da96062d61dc98f926",
+      "bytes": 6533,
+      "labels": [
+        {
+          "text": "¿Confirmar Marcador?",
+          "line": 19
+        },
+        {
+          "text": "No se asignó un árbitro.",
+          "line": 54
+        },
+        {
+          "text": "Puedes guardar así o volver a General para asignarlo.",
+          "line": 55
+        },
+        {
+          "text": "Revisar",
+          "line": 61
+        },
+        {
+          "text": "Sí, guardar",
+          "line": 64
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/CedulaScanFlow.jsx",
+      "sha256": "93abe9757821c03cfc39affd059529a0ec5bc09d330bbe8befd645ff22afffa6",
+      "bytes": 87165
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/planificacion/result_modal_components/CedulaPhotoFlow.jsx",
+      "sha256": "3a9b884657b490a542208519b44b1c03c7acc31743ce1235c1c1e7f87f076193",
+      "bytes": 3366
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/subcomponents/StandingsTable.jsx",
+      "sha256": "214afce85f20e8a078a7db086458721a4ff690def95d795f186cb7ef349d243c",
+      "bytes": 24832
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/exports/standings/StandingsExportModal.jsx",
+      "sha256": "7224c97ccb8bd7c9c006857841cb530b747862c3f9ad0ac7b804924356700ce8",
+      "bytes": 37579,
+      "labels": [
+        {
+          "text": "Exportar Tabla General",
+          "line": 313
+        },
+        {
+          "text": "Combinaciones",
+          "line": 349
+        },
+        {
+          "text": "Personalizar",
+          "line": 358
+        },
+        {
+          "text": "Colores de la liga",
+          "line": 373
+        },
+        {
+          "text": "Cargando datos...",
+          "line": 435
+        }
+      ]
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/exports/standings/StandingsExportLayout.jsx",
+      "sha256": "7134997f1c57115b575bbce28d68498a576a7d692ca5580f7bab3fb5ccd43a17",
+      "bytes": 25162
+    },
+    {
+      "file": "src/components/organismos/tabs/torneos/exports/standings/standingsExportStyles.js",
+      "sha256": "3ef98fedc94e17c378d8ead48e60276ea7bfbf040f34fc850a83f8f51404e32d",
+      "bytes": 10200,
+      "labels": [
+        {
+          "text": "Clásica",
+          "line": 4
+        },
+        {
+          "text": "Una combinación limpia que da prioridad a los resultados.",
+          "line": 19
+        }
+      ]
+    },
+    {
+      "file": "src/lib/notifications/policy.js",
+      "sha256": "25c16e0e4a699bd079ada361d788ec8843a51d5d4e73e5db72980786982b4f78",
+      "bytes": 1719,
+      "labels": [
+        {
+          "text": "Listo",
+          "line": 2
+        }
+      ]
+    },
+    {
+      "file": "src/services/torneos/mutations.js",
+      "sha256": "75b2a93e674399f5b6d36745f65ac8f8526a98df7e1243108fb2392a6495a615",
+      "bytes": 28871
+    },
+    {
+      "file": "src/services/estadisticas.js",
+      "sha256": "38b462a05807aafb0066b80e1a3a0267d82e30051b743415fa811451721028e2",
+      "bytes": 21951
+    },
+    {
+      "file": "src/utils/standingsSnapshot.js",
+      "sha256": "770bad75dc3c3b0e50a74ca22bd9059a672d4a6e011a1f4384d02c035a892422",
+      "bytes": 12584
+    },
+    {
+      "file": "src/utils/fixtureAlgorithms.js",
+      "sha256": "27cfe3f732e6f48a77e8ad9230df88635a3fec92d5d3ee2642e8f2d9119d9f47",
+      "bytes": 9388
+    },
+    {
+      "file": "src/utils/playoffUtils.js",
+      "sha256": "cabc3717ca3f0e1c4ecceed98754c185bb06fa4331c92a8ed331b45c02a7c514",
+      "bytes": 12124
+    },
+    {
+      "file": "tests/e2e/tournament-views.spec.js",
+      "sha256": "7acf4fb8f072309403f7ab3644dd5d94caa50f5faf5363a9e225ac0de251f3b6",
+      "bytes": 13011
+    },
+    {
+      "file": "tests/e2e/fixtures/password-recovery-session.mjs",
+      "sha256": "a7961296652caec73787d7da0bb0ca3501dfd99dada3208709c67dbb50bc4089",
+      "bytes": 1024
+    },
+    {
+      "file": "tests/e2e/fixtures/password-recovery-mock.mjs",
+      "sha256": "ae2370f770b1c2f570a49c9529c0dab0fbe01d6c6979caa469710d2b759c4cd9",
+      "bytes": 1694
+    },
+    {
+      "file": "public/logo_app.png",
+      "sha256": "8fdfd91bbc70c43ce0b3fd13683c8ec5563a913d4c70e5bb411620b776179217",
+      "bytes": 283758
+    },
+    {
+      "file": "public/fonts/poppins/poppins-latin-400.woff2",
+      "sha256": "7d93459d86585bfcdbb7e0376056226adb25821ee54b96236fe2123e9560929f",
+      "bytes": 7884
+    },
+    {
+      "file": "public/fonts/poppins/poppins-latin-600.woff2",
+      "sha256": "f4e80d9dfd374d02989b87a27b5ed4cb78fbb177c27f1478e9a8b0afb7513149",
+      "bytes": 8000
+    },
+    {
+      "file": "public/fonts/poppins/poppins-latin-700.woff2",
+      "sha256": "9338e65fc077355c7a87ae0d64cc101e23b9bf8ad78ae65f0f319c857311b526",
+      "bytes": 7816
+    },
+    {
+      "file": "public/fonts/poppins/OFL.txt",
+      "sha256": "6be04893d770899a015649c7aa3b582f871b272f8747a92b78b17c3e5c8b2573",
+      "bytes": 4385
+    }
+  ],
+  "skill": {
+    "location": "C:/Users/Aldo/.agents/skills/html-demo/",
+    "files": [
+      {
+        "file": "SKILL.md",
+        "sha256": "9711c548ddaded2dee815972606a23bf1af8053b47cbf7e9540b6ae6c8d6d206"
+      },
+      {
+        "file": "references/contract.md",
+        "sha256": "82508fe6baccd96a8114e01bccdbd5ce9e1ea93e9d75b0262daeef1c5b8dee96"
+      },
+      {
+        "file": "references/film.md",
+        "sha256": "dcb4d31bf24bca343cf7b9169cb83a51fdca4338656be05719571ea3555dcab1"
+      },
+      {
+        "file": "scripts/example-steps.jsx",
+        "sha256": "f8101bb90c27eb658fd6e9f40bca0a462c3a19d0abddeb8d4f48808f36615165"
+      },
+      {
+        "file": "scripts/StepWindow.jsx",
+        "sha256": "d6b3fbe2395bceabbbc5cc22e41ba34ce0e1f8e513bde031db1132aada3d1d56"
+      },
+      {
+        "file": "scripts/step-window.css",
+        "sha256": "a218cae65c5b85e67f1d464db07c08bd61e724a5b6501d29641957900c6c6590"
+      },
+      {
+        "file": "scripts/shoot.mjs",
+        "sha256": "0eda113d0092b9ee583cb92fa7b4399953f18f62a0c773a0e5b0334859046b2a"
+      },
+      {
+        "file": "demo/PROMPT.md",
+        "sha256": "8727307cd5caf21e9bdb843ae0e948a5ff5c78b86909f820c70351930d989abd"
+      }
+    ]
+  },
+  "missing": []
+}

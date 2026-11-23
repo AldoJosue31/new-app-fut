@@ -1,0 +1,57 @@
+{
+  "samples": 303,
+  "overflow": [],
+  "randomAccessDeterministic": true,
+  "phone": {
+    "x": 120,
+    "y": 315,
+    "scale": 2.15,
+    "w": 390,
+    "h": 660,
+    "zoom": false,
+    "perspective": false,
+    "entranceTranslationMax": [
+      36,
+      20
+    ]
+  },
+  "theme": {
+    "bg": "#131F24",
+    "surface": "#10191d",
+    "border": "#263740",
+    "text": "#ffffff",
+    "muted": "rgba(255,255,255,.62)",
+    "blue": "#1cb0f6",
+    "soft": "rgba(28,176,246,.16)",
+    "strong": "#38d4ff",
+    "green": "#7ee2b8"
+  },
+  "fonts": [
+    {
+      "family": "Poppins",
+      "weight": "400",
+      "status": "loaded"
+    },
+    {
+      "family": "Poppins",
+      "weight": "600",
+      "status": "loaded"
+    },
+    {
+      "family": "Poppins",
+      "weight": "700",
+      "status": "loaded"
+    },
+    {
+      "family": "BarlowDisplay",
+      "weight": "800",
+      "status": "loaded"
+    },
+    {
+      "family": "BarlowDisplay",
+      "weight": "800",
+      "status": "loaded"
+    }
+  ],
+  "errors": []
+}

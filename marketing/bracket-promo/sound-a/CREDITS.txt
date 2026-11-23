@@ -1,0 +1,13 @@
+Sound effects
+"Whoosh" by qubodup (Freesound), CC0 1.0 - https://freesound.org/people/qubodup/sounds/60013/
+"Fast laptop keyboard typing" by Mixkit (Mixkit), Mixkit SFX Free License - https://mixkit.co/free-sound-effects/typing/
+"POP SFX Neutral" by ethernel0 (Freesound), CC0 1.0 - https://freesound.org/people/ethernel0/sounds/776016/
+"Cinematic Riser #3 subtle" by BeaconStudio (Freesound), CC0 1.0 - https://freesound.org/people/BeaconStudio/sounds/859482/
+"soft_impact3" by peoplearehappy (Freesound), CC0 1.0 - https://freesound.org/people/peoplearehappy/sounds/841274/
+"Classic Click" by adh.dreaming (Freesound), CC0 1.0 - https://freesound.org/people/adh.dreaming/sounds/671105/
+
+Music
+Tech House vibes, Alejandro Magana (A. M.), Mixkit130, https://mixkit.co/free-stock-music/, Mixkit Stock Music Free License
+
+Narration
+Original synthetic Spanish narrator, Qwen3-TTS-12Hz-1.7B-VoiceDesign, Apache 2.0: https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign

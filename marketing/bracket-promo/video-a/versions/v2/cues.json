@@ -1,0 +1,154 @@
+[
+  {
+    "t": 0.4,
+    "type": "movement",
+    "desc": "Apertura de línea azul"
+  },
+  {
+    "t": 4.65,
+    "type": "reveal",
+    "desc": "Presentación del emblema oficial"
+  },
+  {
+    "t": 7.55,
+    "type": "typing",
+    "dur": 0.85,
+    "desc": "Temporada Copa de Barrio"
+  },
+  {
+    "t": 8.9,
+    "type": "click",
+    "desc": "Fecha de inicio"
+  },
+  {
+    "t": 11.4,
+    "type": "click",
+    "desc": "Incluir Norte entre participantes"
+  },
+  {
+    "t": 12.25,
+    "type": "click",
+    "desc": "Incluir Sur entre participantes"
+  },
+  {
+    "t": 14,
+    "type": "click",
+    "desc": "Siguiente: Sorteo"
+  },
+  {
+    "t": 15.3,
+    "type": "movement",
+    "desc": "Recorrido de cámara entre etapas de la competición"
+  },
+  {
+    "t": 17.45,
+    "type": "appear",
+    "desc": "Cruces de Jornada 1"
+  },
+  {
+    "t": 19.385714285714286,
+    "type": "click",
+    "desc": "Confirmar Fixture"
+  },
+  {
+    "t": 22.1,
+    "type": "click",
+    "desc": "Hora del partido 11:30"
+  },
+  {
+    "t": 24.3,
+    "type": "click",
+    "desc": "Vista de grilla semanal"
+  },
+  {
+    "t": 25.65,
+    "type": "click",
+    "desc": "Confirmar Jornada"
+  },
+  {
+    "t": 27.3,
+    "type": "movement",
+    "desc": "Recorrido de cámara entre etapas de la competición"
+  },
+  {
+    "t": 29.8,
+    "type": "click",
+    "desc": "Abrir escáner de cédula"
+  },
+  {
+    "t": 31.4,
+    "type": "click",
+    "desc": "Iniciar lectura ilustrativa"
+  },
+  {
+    "t": 33.4,
+    "type": "success",
+    "desc": "Mostrar datos interpretados para revisar"
+  },
+  {
+    "t": 34.95,
+    "type": "click",
+    "desc": "Aplicar escaneo revisado"
+  },
+  {
+    "t": 36.4,
+    "type": "click",
+    "desc": "Guardar Marcador"
+  },
+  {
+    "t": 37.65,
+    "type": "click",
+    "desc": "Sí, guardar marcador 2–1"
+  },
+  {
+    "t": 38.1,
+    "type": "success",
+    "desc": "Resultado guardado correctamente"
+  },
+  {
+    "t": 39.3,
+    "type": "movement",
+    "desc": "Recorrido de cámara entre etapas de la competición"
+  },
+  {
+    "t": 43.15,
+    "type": "hover_or_small_ui",
+    "desc": "Clasificación: Halcones 3 puntos"
+  },
+  {
+    "t": 47,
+    "type": "click",
+    "desc": "Seleccionar Historia 9:16"
+  },
+  {
+    "t": 48.85,
+    "type": "click",
+    "desc": "Descargar imagen de clasificación"
+  },
+  {
+    "t": 50.75,
+    "type": "click",
+    "desc": "Activar acceso público"
+  },
+  {
+    "t": 51.65,
+    "type": "click",
+    "desc": "Copiar enlace de consulta"
+  },
+  {
+    "t": 52.3,
+    "type": "movement",
+    "desc": "Viaje hacia la consulta pública"
+  },
+  {
+    "t": 55.4,
+    "type": "build_up",
+    "dur": 1.85,
+    "desc": "Preparar cierre de marca"
+  },
+  {
+    "t": 57.25,
+    "type": "reveal",
+    "desc": "Logo oficial y Más allá del amateur"
+  }
+]

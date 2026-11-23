@@ -1,0 +1,12 @@
+{
+  "name": "bracket-html-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../node_modules/next/dist/bin/next dev --webpack --hostname 127.0.0.1 --port 5190",
+    "build": "node ../../node_modules/next/dist/bin/next build --webpack",
+    "preview": "node scripts/serve.mjs",
+    "references": "node scripts/references.mjs",
+    "verify": "node scripts/verify.mjs"
+  }
+}

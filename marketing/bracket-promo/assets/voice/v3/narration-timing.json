@@ -1,0 +1,154 @@
+[
+  {
+    "start": 0.35,
+    "until": 3.8,
+    "speed": 1.0,
+    "text": "Es domingo. Dani organiza la jornada.",
+    "end": 3.192,
+    "duration": 2.842,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-00.wav"
+  },
+  {
+    "start": 4.0,
+    "until": 8.8,
+    "speed": 1.01,
+    "text": "Le cambian un horario. El marcador llega por otro chat.",
+    "end": 7.711333333333333,
+    "duration": 3.711333333333333,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-01.wav"
+  },
+  {
+    "start": 9.0,
+    "until": 12.7,
+    "speed": 0.99,
+    "text": "Y otra vez: ¿cómo va la tabla?",
+    "end": 11.039333333333333,
+    "duration": 2.0393333333333334,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-02.wav"
+  },
+  {
+    "start": 13.25,
+    "until": 15.9,
+    "speed": 1.0,
+    "text": "Para eso está Bracket.",
+    "tts": "Para eso está Bráquet.",
+    "end": 14.920666666666667,
+    "duration": 1.6706666666666667,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-03.wav"
+  },
+  {
+    "start": 16.25,
+    "until": 22.85,
+    "speed": 1.0,
+    "text": "Su liga, sus equipos y sus reglas, en un mismo lugar.",
+    "end": 19.660666666666668,
+    "duration": 3.4106666666666667,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-04.wav"
+  },
+  {
+    "start": 23.25,
+    "until": 25.8,
+    "speed": 1.01,
+    "text": "Prepara los cruces.",
+    "end": 24.771333333333335,
+    "duration": 1.5213333333333334,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-05.wav"
+  },
+  {
+    "start": 26.15,
+    "until": 29.85,
+    "speed": 1.02,
+    "text": "Ajusta el horario y confirma la jornada.",
+    "end": 28.779333333333334,
+    "duration": 2.6293333333333333,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-06.wav"
+  },
+  {
+    "start": 30.3,
+    "until": 33.9,
+    "speed": 1.0,
+    "text": "Al terminar, carga la cédula.",
+    "end": 32.39333333333333,
+    "duration": 2.0933333333333333,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-07.wav"
+  },
+  {
+    "start": 34.3,
+    "until": 37.8,
+    "speed": 1.0,
+    "text": "Revisa lo que se leyó y aplica los datos.",
+    "end": 37.025999999999996,
+    "duration": 2.726,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-08.wav"
+  },
+  {
+    "start": 38.05,
+    "until": 40.5,
+    "speed": 1.0,
+    "text": "Después, confirma el marcador.",
+    "end": 40.17466666666667,
+    "duration": 2.1246666666666667,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-09.wav"
+  },
+  {
+    "start": 41.15,
+    "until": 44.9,
+    "speed": 1.0,
+    "text": "La tabla toma forma.",
+    "end": 42.788,
+    "duration": 1.638,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-10.wav"
+  },
+  {
+    "start": 45.85,
+    "until": 49.35,
+    "speed": 1.02,
+    "text": "Descarga una imagen para compartirla con tus equipos.",
+    "end": 49.248666666666665,
+    "duration": 3.3986666666666667,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-11.wav"
+  },
+  {
+    "start": 49.9,
+    "until": 54.1,
+    "speed": 1.02,
+    "text": "Y habilita el enlace público para que puedan consultarla.",
+    "end": 53.32,
+    "duration": 3.42,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-12.wav"
+  },
+  {
+    "start": 54.25,
+    "until": 56.85,
+    "speed": 1.03,
+    "text": "Tu liga merece estar a la altura.",
+    "end": 56.48533333333333,
+    "duration": 2.235333333333333,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-13.wav"
+  },
+  {
+    "start": 57.05,
+    "until": 59.85,
+    "speed": 0.98,
+    "text": "Bracket. Más allá del amateur.",
+    "tts": "Bráquet. Más allá del amateur.",
+    "end": 59.268,
+    "duration": 2.218,
+    "voice": "ef_dora",
+    "file": "assets/voice/narration-14.wav"
+  }
+]

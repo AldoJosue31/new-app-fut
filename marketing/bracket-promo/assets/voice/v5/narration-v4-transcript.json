@@ -1,0 +1,680 @@
+{
+  "language": "es",
+  "duration": 50.64,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 5.46,
+      "text": " Mañana hay Jornada. Dani tiene la Liga en la cabeza y los pendientes por todas partes."
+    },
+    {
+      "start": 6.46,
+      "end": 12.62,
+      "text": " Un equipo quedó fuera de la lista. Hay partidos sin horario confirmado. El marcador llegó"
+    },
+    {
+      "start": 12.62,
+      "end": 19.0,
+      "text": " en una foto y, claro, todos quieren ver la tabla. Con Bracket, cada cosa encuentra su"
+    },
+    {
+      "start": 19.0,
+      "end": 26.5,
+      "text": " lugar. Incorpora a los equipos y define tus reglas. Prepara los cruces, ajusta los horarios"
+    },
+    {
+      "start": 26.5,
+      "end": 34.94,
+      "text": " y confirma la jornada. Al terminar, carga la cédula, revisa la lectura y confirma el marcador. La"
+    },
+    {
+      "start": 34.94,
+      "end": 42.1,
+      "text": " clasificación toma forma. Descarga una imagen para compartir o habilita el enlace público para"
+    },
+    {
+      "start": 42.1,
+      "end": 50.36,
+      "text": " consultarla. Que organizar tu Liga también se disfrute. Bracket. Más allá del amator."
+    }
+  ],
+  "words": [
+    {
+      "start": 0.0,
+      "end": 0.46,
+      "word": " Mañana",
+      "probability": 0.696533203125
+    },
+    {
+      "start": 0.46,
+      "end": 0.72,
+      "word": " hay",
+      "probability": 0.97216796875
+    },
+    {
+      "start": 0.72,
+      "end": 1.18,
+      "word": " Jornada.",
+      "probability": 0.6683502197265625
+    },
+    {
+      "start": 1.5,
+      "end": 1.7,
+      "word": " Dani",
+      "probability": 0.57177734375
+    },
+    {
+      "start": 1.7,
+      "end": 1.94,
+      "word": " tiene",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 1.94,
+      "end": 2.1,
+      "word": " la",
+      "probability": 0.94482421875
+    },
+    {
+      "start": 2.1,
+      "end": 2.36,
+      "word": " Liga",
+      "probability": 0.903076171875
+    },
+    {
+      "start": 2.36,
+      "end": 2.48,
+      "word": " en",
+      "probability": 0.97314453125
+    },
+    {
+      "start": 2.48,
+      "end": 2.58,
+      "word": " la",
+      "probability": 0.994140625
+    },
+    {
+      "start": 2.58,
+      "end": 2.94,
+      "word": " cabeza",
+      "probability": 0.90234375
+    },
+    {
+      "start": 2.94,
+      "end": 3.82,
+      "word": " y",
+      "probability": 0.51220703125
+    },
+    {
+      "start": 3.82,
+      "end": 3.98,
+      "word": " los",
+      "probability": 0.92919921875
+    },
+    {
+      "start": 3.98,
+      "end": 4.48,
+      "word": " pendientes",
+      "probability": 0.951171875
+    },
+    {
+      "start": 4.48,
+      "end": 4.78,
+      "word": " por",
+      "probability": 0.95849609375
+    },
+    {
+      "start": 4.78,
+      "end": 5.02,
+      "word": " todas",
+      "probability": 0.99462890625
+    },
+    {
+      "start": 5.02,
+      "end": 5.46,
+      "word": " partes.",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 6.46,
+      "end": 6.68,
+      "word": " Un",
+      "probability": 0.9873046875
+    },
+    {
+      "start": 6.68,
+      "end": 6.96,
+      "word": " equipo",
+      "probability": 0.9912109375
+    },
+    {
+      "start": 6.96,
+      "end": 7.32,
+      "word": " quedó",
+      "probability": 0.991943359375
+    },
+    {
+      "start": 7.32,
+      "end": 7.7,
+      "word": " fuera",
+      "probability": 0.98974609375
+    },
+    {
+      "start": 7.7,
+      "end": 7.86,
+      "word": " de",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 7.86,
+      "end": 7.96,
+      "word": " la",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 7.96,
+      "end": 8.24,
+      "word": " lista.",
+      "probability": 0.99462890625
+    },
+    {
+      "start": 8.96,
+      "end": 9.18,
+      "word": " Hay",
+      "probability": 0.98046875
+    },
+    {
+      "start": 9.18,
+      "end": 9.68,
+      "word": " partidos",
+      "probability": 0.858642578125
+    },
+    {
+      "start": 9.68,
+      "end": 9.94,
+      "word": " sin",
+      "probability": 0.99609375
+    },
+    {
+      "start": 9.94,
+      "end": 10.26,
+      "word": " horario",
+      "probability": 0.968994140625
+    },
+    {
+      "start": 10.26,
+      "end": 11.0,
+      "word": " confirmado.",
+      "probability": 0.992919921875
+    },
+    {
+      "start": 11.84,
+      "end": 11.98,
+      "word": " El",
+      "probability": 0.9921875
+    },
+    {
+      "start": 11.98,
+      "end": 12.4,
+      "word": " marcador",
+      "probability": 0.994384765625
+    },
+    {
+      "start": 12.4,
+      "end": 12.62,
+      "word": " llegó",
+      "probability": 0.9814453125
+    },
+    {
+      "start": 12.62,
+      "end": 12.82,
+      "word": " en",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 12.82,
+      "end": 12.96,
+      "word": " una",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 12.96,
+      "end": 13.26,
+      "word": " foto",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 13.26,
+      "end": 13.54,
+      "word": " y,",
+      "probability": 0.8759765625
+    },
+    {
+      "start": 13.8,
+      "end": 14.0,
+      "word": " claro,",
+      "probability": 0.98974609375
+    },
+    {
+      "start": 14.56,
+      "end": 14.68,
+      "word": " todos",
+      "probability": 0.9912109375
+    },
+    {
+      "start": 14.68,
+      "end": 15.02,
+      "word": " quieren",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 15.02,
+      "end": 15.2,
+      "word": " ver",
+      "probability": 0.998046875
+    },
+    {
+      "start": 15.2,
+      "end": 15.34,
+      "word": " la",
+      "probability": 0.99658203125
+    },
+    {
+      "start": 15.34,
+      "end": 15.66,
+      "word": " tabla.",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 16.64,
+      "end": 16.88,
+      "word": " Con",
+      "probability": 0.9921875
+    },
+    {
+      "start": 16.88,
+      "end": 17.38,
+      "word": " Bracket,",
+      "probability": 0.7056477864583334
+    },
+    {
+      "start": 17.68,
+      "end": 17.88,
+      "word": " cada",
+      "probability": 0.9921875
+    },
+    {
+      "start": 17.88,
+      "end": 18.24,
+      "word": " cosa",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 18.24,
+      "end": 18.6,
+      "word": " encuentra",
+      "probability": 0.9775390625
+    },
+    {
+      "start": 18.6,
+      "end": 19.0,
+      "word": " su",
+      "probability": 0.9951171875
+    },
+    {
+      "start": 19.0,
+      "end": 19.32,
+      "word": " lugar.",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 20.2,
+      "end": 20.78,
+      "word": " Incorpora",
+      "probability": 0.895751953125
+    },
+    {
+      "start": 20.78,
+      "end": 20.98,
+      "word": " a",
+      "probability": 0.990234375
+    },
+    {
+      "start": 20.98,
+      "end": 21.1,
+      "word": " los",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 21.1,
+      "end": 21.6,
+      "word": " equipos",
+      "probability": 0.99658203125
+    },
+    {
+      "start": 21.6,
+      "end": 21.74,
+      "word": " y",
+      "probability": 0.9912109375
+    },
+    {
+      "start": 21.74,
+      "end": 22.06,
+      "word": " define",
+      "probability": 0.97998046875
+    },
+    {
+      "start": 22.06,
+      "end": 22.28,
+      "word": " tus",
+      "probability": 0.99169921875
+    },
+    {
+      "start": 22.28,
+      "end": 22.68,
+      "word": " reglas.",
+      "probability": 0.992431640625
+    },
+    {
+      "start": 23.9,
+      "end": 24.28,
+      "word": " Prepara",
+      "probability": 0.886474609375
+    },
+    {
+      "start": 24.28,
+      "end": 24.52,
+      "word": " los",
+      "probability": 0.96630859375
+    },
+    {
+      "start": 24.52,
+      "end": 24.9,
+      "word": " cruces,",
+      "probability": 0.98291015625
+    },
+    {
+      "start": 25.6,
+      "end": 25.98,
+      "word": " ajusta",
+      "probability": 0.98486328125
+    },
+    {
+      "start": 25.98,
+      "end": 26.12,
+      "word": " los",
+      "probability": 0.9267578125
+    },
+    {
+      "start": 26.12,
+      "end": 26.5,
+      "word": " horarios",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 26.5,
+      "end": 27.08,
+      "word": " y",
+      "probability": 0.60791015625
+    },
+    {
+      "start": 27.08,
+      "end": 27.64,
+      "word": " confirma",
+      "probability": 0.99072265625
+    },
+    {
+      "start": 27.64,
+      "end": 27.74,
+      "word": " la",
+      "probability": 0.998046875
+    },
+    {
+      "start": 27.74,
+      "end": 28.22,
+      "word": " jornada.",
+      "probability": 0.998779296875
+    },
+    {
+      "start": 28.98,
+      "end": 29.38,
+      "word": " Al",
+      "probability": 0.99560546875
+    },
+    {
+      "start": 29.38,
+      "end": 29.7,
+      "word": " terminar,",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 30.34,
+      "end": 30.5,
+      "word": " carga",
+      "probability": 0.5673828125
+    },
+    {
+      "start": 30.5,
+      "end": 30.7,
+      "word": " la",
+      "probability": 0.98974609375
+    },
+    {
+      "start": 30.7,
+      "end": 31.06,
+      "word": " cédula,",
+      "probability": 0.8575846354166666
+    },
+    {
+      "start": 31.58,
+      "end": 31.96,
+      "word": " revisa",
+      "probability": 0.933349609375
+    },
+    {
+      "start": 31.96,
+      "end": 32.08,
+      "word": " la",
+      "probability": 0.998046875
+    },
+    {
+      "start": 32.08,
+      "end": 32.48,
+      "word": " lectura",
+      "probability": 0.9951171875
+    },
+    {
+      "start": 32.48,
+      "end": 32.62,
+      "word": " y",
+      "probability": 0.91748046875
+    },
+    {
+      "start": 32.62,
+      "end": 33.12,
+      "word": " confirma",
+      "probability": 0.998291015625
+    },
+    {
+      "start": 33.12,
+      "end": 33.22,
+      "word": " el",
+      "probability": 0.994140625
+    },
+    {
+      "start": 33.22,
+      "end": 33.68,
+      "word": " marcador.",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 34.64,
+      "end": 34.94,
+      "word": " La",
+      "probability": 0.994140625
+    },
+    {
+      "start": 34.94,
+      "end": 35.68,
+      "word": " clasificación",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 35.68,
+      "end": 36.4,
+      "word": " toma",
+      "probability": 0.97216796875
+    },
+    {
+      "start": 36.4,
+      "end": 36.86,
+      "word": " forma.",
+      "probability": 0.99609375
+    },
+    {
+      "start": 38.06,
+      "end": 38.5,
+      "word": " Descarga",
+      "probability": 0.9943033854166666
+    },
+    {
+      "start": 38.5,
+      "end": 38.7,
+      "word": " una",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 38.7,
+      "end": 39.04,
+      "word": " imagen",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 39.04,
+      "end": 39.3,
+      "word": " para",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 39.3,
+      "end": 39.88,
+      "word": " compartir",
+      "probability": 0.99560546875
+    },
+    {
+      "start": 39.88,
+      "end": 40.38,
+      "word": " o",
+      "probability": 0.95947265625
+    },
+    {
+      "start": 40.38,
+      "end": 40.86,
+      "word": " habilita",
+      "probability": 0.97802734375
+    },
+    {
+      "start": 40.86,
+      "end": 41.0,
+      "word": " el",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 41.0,
+      "end": 41.32,
+      "word": " enlace",
+      "probability": 0.995849609375
+    },
+    {
+      "start": 41.32,
+      "end": 41.78,
+      "word": " público",
+      "probability": 0.9853515625
+    },
+    {
+      "start": 41.78,
+      "end": 42.1,
+      "word": " para",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 42.1,
+      "end": 42.82,
+      "word": " consultarla.",
+      "probability": 0.994140625
+    },
+    {
+      "start": 43.74,
+      "end": 44.24,
+      "word": " Que",
+      "probability": 0.46240234375
+    },
+    {
+      "start": 44.24,
+      "end": 44.76,
+      "word": " organizar",
+      "probability": 0.995849609375
+    },
+    {
+      "start": 44.76,
+      "end": 44.9,
+      "word": " tu",
+      "probability": 0.9697265625
+    },
+    {
+      "start": 44.9,
+      "end": 45.12,
+      "word": " Liga",
+      "probability": 0.58538818359375
+    },
+    {
+      "start": 45.12,
+      "end": 45.52,
+      "word": " también",
+      "probability": 0.9873046875
+    },
+    {
+      "start": 45.52,
+      "end": 45.72,
+      "word": " se",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 45.72,
+      "end": 46.2,
+      "word": " disfrute.",
+      "probability": 0.978515625
+    },
+    {
+      "start": 47.48,
+      "end": 48.36,
+      "word": " Bracket.",
+      "probability": 0.7674967447916666
+    },
+    {
+      "start": 48.82,
+      "end": 49.56,
+      "word": " Más",
+      "probability": 0.946044921875
+    },
+    {
+      "start": 49.56,
+      "end": 49.76,
+      "word": " allá",
+      "probability": 0.99609375
+    },
+    {
+      "start": 49.76,
+      "end": 49.98,
+      "word": " del",
+      "probability": 0.7705078125
+    },
+    {
+      "start": 49.98,
+      "end": 50.36,
+      "word": " amator.",
+      "probability": 0.579345703125
+    }
+  ],
+  "elapsed_seconds": 39.61606740951538
+}

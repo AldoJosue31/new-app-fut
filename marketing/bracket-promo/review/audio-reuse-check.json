@@ -1,0 +1,37 @@
+{
+  "reference": {
+    "file": "bracket-a-60s-v6.mp4",
+    "encoded_sha256": "SHA256=b15c3ca90d38fa1e885e6e27a4d9889d4c6f87aeb9360c7d9028d2047edf90c7",
+    "pcm_s16le_sha256": "SHA256=0d17547f20ede82e5aa4bcb5ac95788bfe03031f0057f39c333d9905c10e6fc2",
+    "stream": {
+      "codec_name": "aac",
+      "sample_rate": "48000",
+      "channels": 2,
+      "time_base": "1/48000",
+      "start_pts": 0,
+      "start_time": "0.000000",
+      "duration_ts": 2880000,
+      "duration": "60.000000",
+      "nb_frames": "2814"
+    }
+  },
+  "current": {
+    "file": "bracket-a-60s.mp4",
+    "encoded_sha256": "SHA256=b15c3ca90d38fa1e885e6e27a4d9889d4c6f87aeb9360c7d9028d2047edf90c7",
+    "pcm_s16le_sha256": "SHA256=0d17547f20ede82e5aa4bcb5ac95788bfe03031f0057f39c333d9905c10e6fc2",
+    "stream": {
+      "codec_name": "aac",
+      "sample_rate": "48000",
+      "channels": 2,
+      "time_base": "1/48000",
+      "start_pts": 0,
+      "start_time": "0.000000",
+      "duration_ts": 2880000,
+      "duration": "60.000000",
+      "nb_frames": "2814"
+    }
+  },
+  "encoded_audio_identical": true,
+  "decoded_audio_identical": true,
+  "timing_identical": true
+}

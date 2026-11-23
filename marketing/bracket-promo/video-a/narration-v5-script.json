@@ -1,0 +1,70 @@
+{
+  "text": "Dani lleva su liga entre papel y Excel. Cada jornada le piden el rol de juegos y la tabla. Y los jugadores preguntan por sus goles, partidos jugados y tarjetas amarillas. Con Bracket, cada jornada toma forma. Organiza los encuentros, ajusta los horarios y descarga el rol de juegos para compartirlo con tus equipos. Al terminar, registra quién jugó, los goles y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado. Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que registraste en cada partido. Los resultados se reflejan en la tabla de posiciones. Descárgala como imagen para compartirla con tu liga. O habilita la consulta pública para que los equipos puedan revisar la clasificación desde un enlace. Organiza tu liga. Vive el fútbol. Bracket. Más allá del amateur.",
+  "scenes": [
+    {
+      "id": "paper",
+      "start": 0,
+      "end": 3.5,
+      "text": "Dani lleva su liga entre papel y Excel."
+    },
+    {
+      "id": "requests",
+      "start": 3.5,
+      "end": 8.5,
+      "text": "Cada jornada le piden el rol de juegos y la tabla."
+    },
+    {
+      "id": "player-requests",
+      "start": 8.5,
+      "end": 13.5,
+      "text": "Y los jugadores preguntan por sus goles, partidos jugados y tarjetas amarillas."
+    },
+    {
+      "id": "brand-intro",
+      "start": 13.5,
+      "end": 16,
+      "text": "Con Bracket, cada jornada toma forma."
+    },
+    {
+      "id": "schedule",
+      "start": 16,
+      "end": 24,
+      "text": "Organiza los encuentros, ajusta los horarios y descarga el rol de juegos para compartirlo con tus equipos."
+    },
+    {
+      "id": "result",
+      "start": 24,
+      "end": 34.5,
+      "text": "Al terminar, registra quién jugó, los goles y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado."
+    },
+    {
+      "id": "stats",
+      "start": 34.5,
+      "end": 42,
+      "text": "Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que registraste en cada partido."
+    },
+    {
+      "id": "standings",
+      "start": 42,
+      "end": 49,
+      "text": "Los resultados se reflejan en la tabla de posiciones. Descárgala como imagen para compartirla con tu liga."
+    },
+    {
+      "id": "public",
+      "start": 49,
+      "end": 55.5,
+      "text": "O habilita la consulta pública para que los equipos puedan revisar la clasificación desde un enlace."
+    },
+    {
+      "id": "closing",
+      "start": 55.5,
+      "end": 60,
+      "text": "Organiza tu liga. Vive el fútbol. Bracket. Más allá del amateur."
+    }
+  ],
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "language": "Spanish",
+  "seed": 306,
+  "output_prefix": "narration-v5",
+  "direction": "An original adult male narrator with a warm medium-low voice, native Mexican Spanish, speaking fluently in one connected take for a premium sports app commercial. Brisk clear pace around 165-175 words per minute, target 55 seconds for this 139-word text. Keep momentum throughout; short breaths, minimal pauses at commas and only brief natural pauses at full stops. Connect words fluidly, never separate list items with long gaps. Begin as a friendly storyteller about Dani's league paperwork, build confident upbeat energy as Bracket brings order, finish warmly with the brand. Natural realistic articulation, expressive conversational prosody, subtle breaths, studio close microphone, no echo. Not a solemn or rigid announcer; no shouting, theatrical delivery, long silences or choppy syllables. Read the exact text without adding or omitting words. Do not imitate a specific real person."
+}

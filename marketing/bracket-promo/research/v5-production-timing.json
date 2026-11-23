@@ -1,0 +1,55 @@
+{
+  "cues": 38,
+  "timeline": {
+    "requests": 3.02,
+    "playerRequests": 6.12,
+    "intro": 11.84,
+    "schedule": 14.879999999999999,
+    "adjust": 16.810000000000002,
+    "roleOpen": 17.97,
+    "roleDownload": 19.48,
+    "result": 21.7,
+    "playerSelected": 23.48,
+    "goalRegistered": 24.480000000000004,
+    "cardRegistered": 25.46,
+    "photo": 27.32,
+    "review": 28.78,
+    "confirm": 30.2,
+    "stats": 32.09,
+    "scorers": 34.010000000000005,
+    "scorersExport": 36.4,
+    "standings": 39.370000000000005,
+    "tableExport": 42.93,
+    "public": 46.25,
+    "publicView": 49.65,
+    "closing": 51.99,
+    "brand": 55.13999999999999,
+    "tagline": 56.12,
+    "scanStart": 27.48,
+    "scheduleConfirm": 17.689999999999998,
+    "statsGoal": 32.781200000000005,
+    "statsCards": 33.47240000000001,
+    "resultSaved": 31.712000000000003,
+    "introReveal": 12.1,
+    "logoReveal": 55.36666666666667
+  },
+  "speech_end": 57.379999999999995,
+  "max_interword_gap_s": 0.98,
+  "silent_cuts": [
+    {
+      "start": 11.360000000000001,
+      "end": 11.520000000000001,
+      "removed": 0.16000000000000014
+    },
+    {
+      "start": 31.819999999999997,
+      "end": 32.059999999999995,
+      "removed": 0.23999999999999844
+    },
+    {
+      "start": 51.96,
+      "end": 52.1,
+      "removed": 0.14000000000000057
+    }
+  ]
+}

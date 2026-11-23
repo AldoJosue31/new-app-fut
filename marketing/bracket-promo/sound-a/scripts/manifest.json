@@ -1,0 +1,267 @@
+{
+  "version": 1,
+  "created": "2026-10-12",
+  "format": "OGG Vorbis 48 kHz (q4; ambience q3 mono); mono where channels were identical",
+  "normalisation": "one-shots: leading silence trimmed, max 4s (risers 6s), peak-normalised to -3 dBFS. ambience: 20s, 1s fades, -35 LUFS. Repo copies: trailing silence below -60 dB trimmed, converted from WAV to OGG.",
+  "category_map": {
+    "movement": "whoosh",
+    "scene_cut": "whoosh",
+    "appear": "pop",
+    "click": "click",
+    "typing": "typing",
+    "build_up": "riser",
+    "reveal": "impact",
+    "success": "pop",
+    "error_or_tech": "glitch",
+    "hover_or_small_ui": "tick",
+    "bed": "ambience"
+  },
+  "bundled": [
+    {
+      "category": "whoosh",
+      "title": "Whoosh",
+      "creator": "qubodup",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/qubodup/sounds/60013/",
+      "license": "CC0 1.0",
+      "credit": "\"Whoosh\" by qubodup (https://freesound.org/people/qubodup/sounds/60013/), CC0",
+      "file": "../../assets/audio/whoosh.ogg",
+      "bundled": true
+    },
+    {
+      "category": "click",
+      "title": "Classic Click",
+      "creator": "adh.dreaming",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/adh.dreaming/sounds/671105/",
+      "license": "CC0 1.0",
+      "credit": "\"Classic Click\" by adh.dreaming (https://freesound.org/people/adh.dreaming/sounds/671105/), CC0",
+      "file": "../../assets/audio/click.ogg",
+      "bundled": true
+    },
+    {
+      "category": "pop",
+      "title": "POP SFX Neutral",
+      "creator": "ethernel0",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/ethernel0/sounds/776016/",
+      "license": "CC0 1.0",
+      "credit": "\"POP SFX Neutral\" by ethernel0 (https://freesound.org/people/ethernel0/sounds/776016/), CC0",
+      "file": "../../assets/audio/pop.ogg",
+      "bundled": true
+    },
+    {
+      "category": "riser",
+      "title": "Cinematic Riser #3 subtle",
+      "creator": "BeaconStudio",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/BeaconStudio/sounds/859482/",
+      "license": "CC0 1.0",
+      "credit": "\"Cinematic Riser #3 subtle\" by BeaconStudio (https://freesound.org/people/BeaconStudio/sounds/859482/), CC0",
+      "file": "../../assets/audio/riser.ogg",
+      "bundled": true
+    },
+    {
+      "category": "impact",
+      "title": "soft_impact3",
+      "creator": "peoplearehappy",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/peoplearehappy/sounds/841274/",
+      "license": "CC0 1.0",
+      "credit": "\"soft_impact3\" by peoplearehappy (https://freesound.org/people/peoplearehappy/sounds/841274/), CC0",
+      "file": "../../assets/audio/impact.ogg",
+      "bundled": true
+    },
+    {
+      "category": "tick",
+      "title": "Click / Tick",
+      "creator": "Squirrel_404",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/Squirrel_404/sounds/683048/",
+      "license": "CC0 1.0",
+      "credit": "\"Click / Tick\" by Squirrel_404 (https://freesound.org/people/Squirrel_404/sounds/683048/), CC0",
+      "file": "../../assets/audio/tick.ogg",
+      "bundled": true
+    }
+  ],
+  "runtime": [
+    {
+      "category": "typing",
+      "mixkit_id": "1386",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/1386/1386-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Download at runtime into the user project; never commit (no standalone redistribution). Listen before use; titles not recorded."
+    },
+    {
+      "category": "typing",
+      "mixkit_id": "2531",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/2531/2531-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Download at runtime into the user project; never commit (no standalone redistribution). Listen before use; titles not recorded."
+    },
+    {
+      "category": "typing",
+      "mixkit_id": "2532",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/2532/2532-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Download at runtime into the user project; never commit (no standalone redistribution). Listen before use; titles not recorded."
+    },
+    {
+      "category": "typing",
+      "mixkit_id": "1393",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/1393/1393-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Download at runtime into the user project; never commit (no standalone redistribution). Listen before use; titles not recorded."
+    },
+    {
+      "category": "typing",
+      "mixkit_id": "1372",
+      "title": "Old typewriter typing",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/1372/1372-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Runtime download only."
+    },
+    {
+      "category": "typing",
+      "mixkit_id": "2538",
+      "title": "Hard laptop keyboard typing",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/2538/2538-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Runtime download only."
+    },
+    {
+      "category": "typing",
+      "mixkit_id": "1387",
+      "title": "Fast keyboard typing",
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/1387/1387-preview.mp3",
+      "source_page": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit Sound Effects Free License",
+      "license_url": "https://mixkit.co/license/#sfxFree",
+      "bundled": false,
+      "note": "Runtime download only."
+    }
+  ],
+  "paths": "file paths are relative to this manifest",
+  "default_kit": [
+    {
+      "category": "whoosh",
+      "title": "Whoosh",
+      "creator": "qubodup",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/qubodup/sounds/60013/",
+      "license": "CC0 1.0",
+      "credit": "\"Whoosh\" by qubodup (https://freesound.org/people/qubodup/sounds/60013/), CC0",
+      "file": "../../assets/audio/whoosh.ogg",
+      "bundled": true
+    },
+    {
+      "category": "click",
+      "title": "Classic Click",
+      "creator": "adh.dreaming",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/adh.dreaming/sounds/671105/",
+      "license": "CC0 1.0",
+      "credit": "\"Classic Click\" by adh.dreaming (https://freesound.org/people/adh.dreaming/sounds/671105/), CC0",
+      "file": "../../assets/audio/click.ogg",
+      "bundled": true
+    },
+    {
+      "category": "typing",
+      "title": "Fast laptop keyboard typing",
+      "creator": "Mixkit",
+      "source": "Mixkit",
+      "source_url": "https://mixkit.co/free-sound-effects/typing/",
+      "license": "Mixkit SFX Free License (use in videos OK; no redistribution)",
+      "credit": "\"Fast laptop keyboard typing\" by Mixkit (https://mixkit.co/free-sound-effects/typing/), Mixkit Free License",
+      "file": "../../assets/audio/mixkit-1392-typing.mp3",
+      "bundled": false,
+      "runtime_url": "https://assets.mixkit.co/active_storage/sfx/1392/1392-preview.mp3",
+      "download_to": "sound-effects-cache/typing.mp3",
+      "note": "Mixkit: download at runtime into the user project; never commit."
+    },
+    {
+      "category": "pop",
+      "title": "POP SFX Neutral",
+      "creator": "ethernel0",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/ethernel0/sounds/776016/",
+      "license": "CC0 1.0",
+      "credit": "\"POP SFX Neutral\" by ethernel0 (https://freesound.org/people/ethernel0/sounds/776016/), CC0",
+      "file": "../../assets/audio/pop.ogg",
+      "bundled": true
+    },
+    {
+      "category": "riser",
+      "title": "Cinematic Riser #3 subtle",
+      "creator": "BeaconStudio",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/BeaconStudio/sounds/859482/",
+      "license": "CC0 1.0",
+      "credit": "\"Cinematic Riser #3 subtle\" by BeaconStudio (https://freesound.org/people/BeaconStudio/sounds/859482/), CC0",
+      "file": "../../assets/audio/riser.ogg",
+      "bundled": true
+    },
+    {
+      "category": "impact",
+      "title": "soft_impact3",
+      "creator": "peoplearehappy",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/peoplearehappy/sounds/841274/",
+      "license": "CC0 1.0",
+      "credit": "\"soft_impact3\" by peoplearehappy (https://freesound.org/people/peoplearehappy/sounds/841274/), CC0",
+      "file": "../../assets/audio/impact.ogg",
+      "bundled": true
+    },
+    {
+      "category": "tick",
+      "title": "Click / Tick",
+      "creator": "Squirrel_404",
+      "source": "Freesound (CC0)",
+      "source_url": "https://freesound.org/people/Squirrel_404/sounds/683048/",
+      "license": "CC0 1.0",
+      "credit": "\"Click / Tick\" by Squirrel_404 (https://freesound.org/people/Squirrel_404/sounds/683048/), CC0",
+      "file": "../../assets/audio/tick.ogg",
+      "bundled": true
+    }
+  ],
+  "kit_note": "default_kit is used first (one sound per category, chosen by Bart 12 Oct 2026). Other bundled files are alternatives.",
+  "alt_categories": {
+    "whoosh": [
+      "whoosh"
+    ],
+    "click": [
+      "click"
+    ],
+    "pop": [
+      "pop"
+    ],
+    "riser": [
+      "riser"
+    ],
+    "impact": [
+      "impact"
+    ],
+    "tick": [
+      "tick"
+    ]
+  },
+  "originals_note": "Bundled files are compressed OGG previews. Every bundled and default_kit entry has source_url: the Freesound sound page (download the original from there, free account needed) or the Kenney pack page (the pack zip has the original files)."
+}

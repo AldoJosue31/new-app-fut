@@ -1,0 +1,30 @@
+{
+  "randomAccessDeterministic": true,
+  "fonts": [
+    {
+      "family": "Poppins",
+      "weight": "400",
+      "status": "loaded"
+    },
+    {
+      "family": "Poppins",
+      "weight": "600",
+      "status": "loaded"
+    },
+    {
+      "family": "Poppins",
+      "weight": "700",
+      "status": "loaded"
+    },
+    {
+      "family": "BarlowDisplay",
+      "weight": "800",
+      "status": "loaded"
+    },
+    {
+      "family": "BarlowDisplay",
+      "weight": "800",
+      "status": "loaded"
+    }
+  ]
+}

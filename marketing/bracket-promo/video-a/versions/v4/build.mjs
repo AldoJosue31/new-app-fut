@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+const here=new URL('./',import.meta.url),asset=new URL('../assets/original/',import.meta.url);
+let html=fs.readFileSync(new URL('template.html',here),'utf8');
+for(const [key,file] of [['FONT400','poppins-latin-400.woff2'],['FONT600','poppins-latin-600.woff2'],['FONT700','poppins-latin-700.woff2'],['LOGO','logo_app.png']]) html=html.replace('__'+key+'__',fs.readFileSync(new URL(file,asset)).toString('base64'));
+for(const [key,file] of [['DISPLAY','BarlowCondensed-ExtraBold.ttf'],['DISPLAYITALIC','BarlowCondensed-ExtraBoldItalic.ttf']])html=html.replace('__'+key+'__',fs.readFileSync(new URL('../assets/display/'+file,here)).toString('base64'));
+const narrationFile=new URL('../assets/voice/narration-timing.json',here);
+const narration=fs.existsSync(narrationFile)?JSON.parse(fs.readFileSync(narrationFile,'utf8')):[];
+const alignmentFile=new URL('../assets/voice/narration-v4-alignment.json',here);
+const markers=fs.existsSync(alignmentFile)?JSON.parse(fs.readFileSync(alignmentFile,'utf8')).markers:{team:3,calendar:6.1,photo:9.35,table:12.55,solution:15.4};
+const composition=fs.readFileSync(new URL('mobile-ui.js',here),'utf8')+'\n'+fs.readFileSync(new URL('character.js',here),'utf8')+'\n'+fs.readFileSync(new URL('motion-film.js',here),'utf8').replace('__NARRATION_DATA__',JSON.stringify(narration)).replace('__STORY_DATA__',JSON.stringify(markers));
+html=html.replace('__COMPOSITION__',composition);
+fs.writeFileSync(new URL('index.html',here),html);
+console.log(`Built standalone composition: ${html.length} characters`);

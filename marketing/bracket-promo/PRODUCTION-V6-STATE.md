@@ -1,0 +1,10 @@
+# VIDEO A — revisión6 terminada
+7 de noviembre de2026. SoloA producido; B/C propuestas. App funcional intacta.
+Entregables: final/bracket-a-60s-v6.mp4, final/bracket-a-60s-v6_silent.mp4, final/bracket-a-entrega-v6.zip; copiascanónicas para HTML/paquete.
+Dani redibujado: writing(hoja/bolígrafo)→typing(laptop, sin teléfono)→phone(Brackettablaapública abierta solo en cierre). Ojos/iris/mirada/cejas/boca/arrugas/sudor/hombros reaccionan; final sonriente. Chat externo con5mensajes acumulados, remitentes/entrada/unread, sobresaltos controlados, papeles pendientes y avisos0→2dB.
+Voz DEFINITIVA: segunda toma Qwen VoiceDesign60,32s/144palabras, editada59,16s, termina59,28s, sin timestretch ni cambios artificiales de pitch o esperas entre escenas. Primera prueba54,48s solo en assets/voice/v6-trial, excluida. Fonética Bráquet/amatér (RAE), escrito original. PreguntasF0mediana182Hz/demostración129Hz; solo estimación, no certifica naturalidad.
+Video60s1080×1920/60FPS/3600frames/H264yuv420p/AACfaststart. Rendererexplainer-default4muestras/180°. Dark/móvil entero/sinzoom/contador, PNG oficial intacto.
+QA:303estados móviles sin overflow,5fuentes/determinismo/PNGequivalente;8comprobaciones de poses/chat,25muestras del master revisadas,39cues con proof/framewave. Decodificaciónsinerror; silencioso sin audio. HTMLplayer/scrub probado contra MP4finalsin errores. LuFS−16,5/pico−5,1dBFS estéreo/mono.
+Mixkit130/teclado1392 y5CC0usados, licencias reabiertas7nov2026. Beatscorregidos+37ms, offset3,505s, logos14,30/57,10 errores3ms/3ms. SFXsound-effects, vozprioritaria/ducking10dB.
+Fuentesactivas: mobile-ui.js/product-v5.js(compartido)/character.js/motion-film.js/build/template. Voz yhelpersV6. Fragmento story-v6-fragment.js no es build y se excluye. README/ASSETS/storyboard/LEEME/QA/revisión actualizados; propuestaV5 en07 comohistoriaaprobada.
+ZIPconWAVs/alineación/PNG/fuentes/CC0/código/HTML/investigación/reportes; sinMixkitaislado/modelos/env/binarios/versiones/trial. Manifesttamaño/SHA. Servidorlocal4188 para preview. HistóricoV5conservado. No regenerar voz/modelo para ver/editar.

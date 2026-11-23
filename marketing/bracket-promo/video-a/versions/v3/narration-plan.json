@@ -1,0 +1,17 @@
+[
+ {"start":0.35,"until":3.8,"speed":1.0,"text":"Es domingo. Dani organiza la jornada."},
+ {"start":4.0,"until":8.8,"speed":1.01,"text":"Le cambian un horario. El marcador llega por otro chat."},
+ {"start":9.0,"until":12.7,"speed":0.99,"text":"Y otra vez: ¿cómo va la tabla?"},
+ {"start":13.25,"until":15.9,"speed":1.0,"text":"Para eso está Bracket.","tts":"Para eso está Bráquet."},
+ {"start":16.25,"until":22.85,"speed":1.0,"text":"Su liga, sus equipos y sus reglas, en un mismo lugar."},
+ {"start":23.25,"until":25.8,"speed":1.01,"text":"Prepara los cruces."},
+ {"start":26.15,"until":29.85,"speed":1.02,"text":"Ajusta el horario y confirma la jornada."},
+ {"start":30.3,"until":33.9,"speed":1.0,"text":"Al terminar, carga la cédula."},
+ {"start":34.3,"until":37.8,"speed":1.0,"text":"Revisa lo que se leyó y aplica los datos."},
+ {"start":38.05,"until":40.5,"speed":1.0,"text":"Después, confirma el marcador."},
+ {"start":41.15,"until":44.9,"speed":1.0,"text":"La tabla toma forma."},
+ {"start":45.85,"until":49.35,"speed":1.02,"text":"Descarga una imagen para compartirla con tus equipos."},
+ {"start":49.9,"until":54.1,"speed":1.02,"text":"Y habilita el enlace público para que puedan consultarla."},
+ {"start":54.25,"until":56.85,"speed":1.03,"text":"Tu liga merece estar a la altura."},
+ {"start":57.05,"until":59.85,"speed":0.98,"text":"Bracket. Más allá del amateur.","tts":"Bráquet. Más allá del amateur."}
+]

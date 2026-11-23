@@ -1,0 +1,51 @@
+{
+  "method": "librosa.yin; 12kHz; 10ms hop; voiced energy mask; median filter",
+  "limitation": "Pitch estimation alone does not establish naturalness, emotion or subjective quality. No pitch-shift was applied.",
+  "contexts": [
+    {
+      "context": "Papel / Excel",
+      "start": 0.12,
+      "end": 4.48,
+      "median_hz": 144.96995806139591,
+      "p10_hz": 105.37218989082878,
+      "p90_hz": 193.96763064689173,
+      "p10_p90_semitones": 10.563861095988003
+    },
+    {
+      "context": "Preguntas / presión",
+      "start": 6.0,
+      "end": 13.92,
+      "median_hz": 182.26866658469564,
+      "p10_hz": 112.018907660786,
+      "p90_hz": 244.69852673640656,
+      "p10_p90_semitones": 13.527157802061293
+    },
+    {
+      "context": "Alivio / Bracket",
+      "start": 13.92,
+      "end": 17.760000000000005,
+      "median_hz": 135.16289617950463,
+      "p10_hz": 96.83884962926676,
+      "p90_hz": 193.00338730893003,
+      "p10_p90_semitones": 11.939619855703015
+    },
+    {
+      "context": "Demostración",
+      "start": 17.760000000000005,
+      "end": 53.77000000000001,
+      "median_hz": 129.18015614891618,
+      "p10_hz": 99.35894936173143,
+      "p90_hz": 174.58891745964016,
+      "p10_p90_semitones": 9.75888190980292
+    },
+    {
+      "context": "Cierre",
+      "start": 53.77000000000001,
+      "end": 59.279999999999994,
+      "median_hz": 119.42487248735607,
+      "p10_hz": 95.90597174620689,
+      "p90_hz": 146.39133288082073,
+      "p10_p90_semitones": 7.321651034526868
+    }
+  ]
+}

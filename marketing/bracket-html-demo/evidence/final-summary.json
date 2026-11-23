@@ -1,0 +1,16 @@
+{
+  "checks": 18,
+  "passed": true,
+  "consoleErrors": 0,
+  "externalRequests": 0,
+  "frames": {
+    "round-1": 28,
+    "round-2": 28,
+    "round-3": 56
+  },
+  "staticBundle": {
+    "file": "marketing\\bracket-html-demo\\deliverables\\bracket-demo-web.zip",
+    "bytes": 647326,
+    "sha256": "a4b844dc9a44b0dfce2781822f1f952974a9a3c650223d7f5335011d0529be18"
+  }
+}

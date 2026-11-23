@@ -1,0 +1,19 @@
+[
+ {"start":0,"end":4,"text":"Domingo. Hay jornada.","visual":"Dani, organizador ficticio, atiende su teléfono"},
+ {"start":4,"end":9,"text":"¿Podemos jugar a las 11:30? / Halcones 2–1 Leones","visual":"Dos comunicaciones dispersas, representación editorial"},
+ {"start":9,"end":13.2,"text":"¿Cómo va la tabla?","visual":"La pregunta añade una tarea a Dani"},
+ {"start":12.8,"end":16,"text":"Para eso está Bracket","visual":"Logo original, transición de la historia al producto"},
+ {"start":16,"end":19.8,"text":"Tu liga. Tus reglas.","visual":"Configuración en tema Dark y viewport móvil entero"},
+ {"start":19.8,"end":23.2,"text":"Equipos del Torneo","visual":"Incorporación de equipos con pulsaciones táctiles"},
+ {"start":23.2,"end":26,"text":"Cada cruce, en su lugar.","visual":"Fixture coherente y confirmación"},
+ {"start":26,"end":30.2,"text":"Hora del partido / Confirmar Jornada","visual":"11:30 y confirmación, misma escala móvil fija"},
+ {"start":30.2,"end":34.3,"text":"Tú confirmas el resultado.","visual":"Cédula ilustrativa y progreso de lectura resumido"},
+ {"start":34.3,"end":37.1,"text":"Resultado escaneado / Aplicar escaneo","visual":"Revisión de datos y jugadores"},
+ {"start":37.1,"end":40.6,"text":"Guardar Marcador / Sí, guardar","visual":"Confirmación humana y resultado guardado"},
+ {"start":40.6,"end":45.5,"text":"Que el resultado se vea.","visual":"Tabla coherente: 3, 1, 1, 0 puntos"},
+ {"start":45.5,"end":49.7,"text":"Historia 9:16 / Descargar","visual":"Imagen completa en el modal oscuro"},
+ {"start":49.7,"end":52.1,"text":"La tabla, al alcance.","visual":"Habilitar consulta pública y copiar enlace"},
+ {"start":52.1,"end":54.1,"text":"Tabla General","visual":"Consulta pública completa en móvil"},
+ {"start":54.1,"end":56.7,"text":"Tu liga. A la altura.","visual":"Dani vuelve más tranquilo, resolución de la historia"},
+ {"start":56.65,"end":60,"text":"Bracket. Más allá del amateur.","visual":"Logo original íntegro, revelado y sostén final"}
+]

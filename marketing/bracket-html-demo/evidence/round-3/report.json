@@ -1,0 +1,245 @@
+{
+  "base": "http://127.0.0.1:5190",
+  "results": [
+    {
+      "name": "Autoplay al entrar en el área visible",
+      "passed": true
+    },
+    {
+      "name": "28 segundos, cinco pasos y puntos calculados con el código original",
+      "passed": true
+    },
+    {
+      "name": "Todos los clics caen en su elemento real medido",
+      "passed": true,
+      "detail": [
+        "grid",
+        "list",
+        "result",
+        "result-local",
+        "autofill",
+        "goal",
+        "result-visit",
+        "autofill",
+        "save",
+        "confirm",
+        "tab-standings",
+        "export"
+      ]
+    },
+    {
+      "name": "Fotogramas idénticos al avanzar, retroceder y volver al mismo instante",
+      "passed": true,
+      "detail": [
+        "6d2b320700a7ceb78600e994e60bee3deacd75e5074d18d93d7519da7a5a101b",
+        "4a468269266c95114f2ec948cd6a4ff00aa1892369d792988b682f5261fe8618",
+        "907cd44819ea30eefd15b17494c92d5af5315e1bb6631e7c32f6427e5cd27357"
+      ]
+    },
+    {
+      "name": "Pausa y reanudación desde controles visibles",
+      "passed": true
+    },
+    {
+      "name": "Scrubber y navegación por teclado entre pasos",
+      "passed": true
+    },
+    {
+      "name": "Bucle completo al terminar",
+      "passed": true
+    },
+    {
+      "name": "Pausa fuera de pantalla y reanudación sin salto",
+      "passed": true
+    },
+    {
+      "name": "No avanza por debajo del 30% visible",
+      "passed": true
+    },
+    {
+      "name": "La guarda document.hidden pausa y no acumula tiempo oculto",
+      "passed": true,
+      "detail": "Guard exercised with a controlled document.hidden value; page lifecycle also tested below."
+    },
+    {
+      "name": "Eventos freeze/resume: pausa y restauración sin avance acumulado",
+      "passed": true,
+      "detail": "Lifecycle events dispatched in the test. CDP freeze was not used as evidence: headless Chromium emitted no lifecycle events for a visible page."
+    },
+    {
+      "name": "Composición y controles a 1440 px",
+      "passed": true,
+      "detail": {
+        "width": 1440,
+        "scroll": 1440,
+        "stage": {
+          "x": 56,
+          "y": -0.0625,
+          "width": 1328,
+          "height": 830,
+          "top": -0.0625,
+          "right": 1384,
+          "bottom": 829.9375,
+          "left": 56
+        },
+        "view": {
+          "x": 56,
+          "y": -0.0625,
+          "width": 1328,
+          "height": 830,
+          "top": -0.0625,
+          "right": 1384,
+          "bottom": 829.9375,
+          "left": 56
+        },
+        "buttons": [
+          {
+            "width": 262,
+            "scroll": 262
+          },
+          {
+            "width": 262,
+            "scroll": 262
+          },
+          {
+            "width": 262,
+            "scroll": 262
+          },
+          {
+            "width": 262,
+            "scroll": 262
+          },
+          {
+            "width": 262,
+            "scroll": 262
+          }
+        ]
+      }
+    },
+    {
+      "name": "Composición y controles a 390 px",
+      "passed": true,
+      "detail": {
+        "width": 390,
+        "scroll": 390,
+        "stage": {
+          "x": 16,
+          "y": 330.96875,
+          "width": 358.0000305175781,
+          "height": 223.75,
+          "top": 330.96875,
+          "right": 374.0000305175781,
+          "bottom": 554.71875,
+          "left": 16
+        },
+        "view": {
+          "x": 16,
+          "y": 330.96875,
+          "width": 358,
+          "height": 223.75,
+          "top": 330.96875,
+          "right": 374,
+          "bottom": 554.71875,
+          "left": 16
+        },
+        "buttons": [
+          {
+            "width": 70,
+            "scroll": 70
+          },
+          {
+            "width": 70,
+            "scroll": 70
+          },
+          {
+            "width": 70,
+            "scroll": 70
+          },
+          {
+            "width": 70,
+            "scroll": 70
+          },
+          {
+            "width": 70,
+            "scroll": 70
+          }
+        ]
+      }
+    },
+    {
+      "name": "Composición y controles a 340 px",
+      "passed": true,
+      "detail": {
+        "width": 340,
+        "scroll": 340,
+        "stage": {
+          "x": 12,
+          "y": 347.375,
+          "width": 316,
+          "height": 197.5,
+          "top": 347.375,
+          "right": 328,
+          "bottom": 544.875,
+          "left": 12
+        },
+        "view": {
+          "x": 12,
+          "y": 347.375,
+          "width": 316,
+          "height": 197.5,
+          "top": 347.375,
+          "right": 328,
+          "bottom": 544.875,
+          "left": 12
+        },
+        "buttons": [
+          {
+            "width": 62,
+            "scroll": 62
+          },
+          {
+            "width": 62,
+            "scroll": 62
+          },
+          {
+            "width": 62,
+            "scroll": 62
+          },
+          {
+            "width": 62,
+            "scroll": 62
+          },
+          {
+            "width": 62,
+            "scroll": 62
+          }
+        ]
+      }
+    },
+    {
+      "name": "Movimiento reducido: cinco estados finales completos y pasos activos",
+      "passed": true
+    },
+    {
+      "name": "Capturas principales completas",
+      "passed": true
+    },
+    {
+      "name": "Interfaz simulada accesible como imagen, controles reales",
+      "passed": true,
+      "detail": {
+        "role": "img",
+        "label": "Una jornada en Bracket: Jornada, Goles, Guardar, Clasificación, Exportar",
+        "hidden": "true",
+        "events": "none"
+      }
+    },
+    {
+      "name": "Consola limpia, sin peticiones externas ni video/canvas/WebGL",
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "passed": true
+}

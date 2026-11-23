@@ -1,0 +1,10 @@
+[
+  {"start":0.3,"until":4.8,"text":"Antes del primer gol, hay una liga que poner en marcha."},
+  {"start":4.9,"until":7.0,"text":"Bracket. Tu liga empieza aquí.","tts":"Bráquet. Tu liga empieza aquí."},
+  {"start":7.25,"until":14.8,"text":"Define tu torneo, marca tus reglas e incorpora a los equipos que van a competir."},
+  {"start":15.25,"until":25.2,"text":"Dale forma al calendario. Ajusta los horarios y confirma la jornada. Cada cruce, en su lugar."},
+  {"start":25.6,"until":38.9,"text":"Después del partido, la historia continúa. Carga la cédula, revisa la lectura y confirma el marcador. Tú tienes la última palabra."},
+  {"start":39.35,"until":52.1,"text":"Ahora el resultado se ve. Clasificación clara, una imagen lista para compartir y un enlace público para consultar la tabla."},
+  {"start":52.15,"until":56.5,"text":"Organiza tu liga a la altura de su pasión."},
+  {"start":56.9,"until":59.8,"text":"Bracket. Más allá del amateur.","tts":"Bráquet. Más allá del amateur."}
+]

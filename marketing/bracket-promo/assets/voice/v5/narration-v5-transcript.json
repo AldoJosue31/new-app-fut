@@ -1,0 +1,899 @@
+{
+  "language": "es",
+  "duration": 57.92,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 5.74,
+      "text": " Dani lleva su liga entre papel y Excel. Cada jornada le piden el rol de juegos y la tabla,"
+    },
+    {
+      "start": 6.0,
+      "end": 12.1,
+      "text": " y los jugadores preguntan por sus goles, partidos jugados y tarjetas amarillas. Con"
+    },
+    {
+      "start": 12.1,
+      "end": 18.56,
+      "text": " Bracket, cada jornada toma forma, organiza los encuentros, ajusta los horarios y descarga"
+    },
+    {
+      "start": 18.56,
+      "end": 24.92,
+      "text": " el rol de juegos para compartirlo con tus equipos. Al terminar, registra quién jugó, los goles"
+    },
+    {
+      "start": 24.92,
+      "end": 31.46,
+      "text": " y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado."
+    },
+    {
+      "start": 32.42,
+      "end": 37.4,
+      "text": " Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que"
+    },
+    {
+      "start": 37.4,
+      "end": 43.76,
+      "text": " registraste en cada partido. Los resultados se reflejan en la tabla de posiciones. Descarga"
+    },
+    {
+      "start": 43.76,
+      "end": 49.0,
+      "text": " la como imagen para compartirla con tu liga. O habilita la consulta pública para que los"
+    },
+    {
+      "start": 49.0,
+      "end": 55.1,
+      "text": " equipos puedan revisar la clasificación desde un enlace. Organiza tu liga. Vive el fútbol."
+    },
+    {
+      "start": 55.58,
+      "end": 57.62,
+      "text": " Bracket. Más allá del amator."
+    }
+  ],
+  "words": [
+    {
+      "start": 0.0,
+      "end": 0.24,
+      "word": " Dani",
+      "probability": 0.5087890625
+    },
+    {
+      "start": 0.24,
+      "end": 0.54,
+      "word": " lleva",
+      "probability": 0.99267578125
+    },
+    {
+      "start": 0.54,
+      "end": 0.76,
+      "word": " su",
+      "probability": 0.46142578125
+    },
+    {
+      "start": 0.76,
+      "end": 1.04,
+      "word": " liga",
+      "probability": 0.83984375
+    },
+    {
+      "start": 1.04,
+      "end": 1.28,
+      "word": " entre",
+      "probability": 0.994140625
+    },
+    {
+      "start": 1.28,
+      "end": 1.66,
+      "word": " papel",
+      "probability": 0.94140625
+    },
+    {
+      "start": 1.66,
+      "end": 1.92,
+      "word": " y",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 1.92,
+      "end": 2.24,
+      "word": " Excel.",
+      "probability": 0.29833984375
+    },
+    {
+      "start": 2.9,
+      "end": 3.16,
+      "word": " Cada",
+      "probability": 0.9892578125
+    },
+    {
+      "start": 3.16,
+      "end": 3.68,
+      "word": " jornada",
+      "probability": 0.996337890625
+    },
+    {
+      "start": 3.68,
+      "end": 3.86,
+      "word": " le",
+      "probability": 0.9833984375
+    },
+    {
+      "start": 3.86,
+      "end": 4.12,
+      "word": " piden",
+      "probability": 0.969482421875
+    },
+    {
+      "start": 4.12,
+      "end": 4.3,
+      "word": " el",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 4.3,
+      "end": 4.5,
+      "word": " rol",
+      "probability": 0.95703125
+    },
+    {
+      "start": 4.5,
+      "end": 4.68,
+      "word": " de",
+      "probability": 0.998046875
+    },
+    {
+      "start": 4.68,
+      "end": 5.02,
+      "word": " juegos",
+      "probability": 0.80810546875
+    },
+    {
+      "start": 5.02,
+      "end": 5.26,
+      "word": " y",
+      "probability": 0.9931640625
+    },
+    {
+      "start": 5.26,
+      "end": 5.38,
+      "word": " la",
+      "probability": 0.9951171875
+    },
+    {
+      "start": 5.38,
+      "end": 5.74,
+      "word": " tabla,",
+      "probability": 0.995361328125
+    },
+    {
+      "start": 6.0,
+      "end": 6.42,
+      "word": " y",
+      "probability": 0.99658203125
+    },
+    {
+      "start": 6.42,
+      "end": 6.58,
+      "word": " los",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 6.58,
+      "end": 7.0,
+      "word": " jugadores",
+      "probability": 0.997802734375
+    },
+    {
+      "start": 7.0,
+      "end": 7.64,
+      "word": " preguntan",
+      "probability": 0.9853515625
+    },
+    {
+      "start": 7.64,
+      "end": 7.8,
+      "word": " por",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 7.8,
+      "end": 8.04,
+      "word": " sus",
+      "probability": 0.99609375
+    },
+    {
+      "start": 8.04,
+      "end": 8.42,
+      "word": " goles,",
+      "probability": 0.99560546875
+    },
+    {
+      "start": 8.88,
+      "end": 9.26,
+      "word": " partidos",
+      "probability": 0.995361328125
+    },
+    {
+      "start": 9.26,
+      "end": 9.72,
+      "word": " jugados",
+      "probability": 0.976806640625
+    },
+    {
+      "start": 9.72,
+      "end": 10.04,
+      "word": " y",
+      "probability": 0.8984375
+    },
+    {
+      "start": 10.04,
+      "end": 10.54,
+      "word": " tarjetas",
+      "probability": 0.9860026041666666
+    },
+    {
+      "start": 10.54,
+      "end": 11.0,
+      "word": " amarillas.",
+      "probability": 0.9912109375
+    },
+    {
+      "start": 11.88,
+      "end": 12.1,
+      "word": " Con",
+      "probability": 0.990234375
+    },
+    {
+      "start": 12.1,
+      "end": 12.56,
+      "word": " Bracket,",
+      "probability": 0.74853515625
+    },
+    {
+      "start": 12.86,
+      "end": 13.12,
+      "word": " cada",
+      "probability": 0.99560546875
+    },
+    {
+      "start": 13.12,
+      "end": 13.64,
+      "word": " jornada",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 13.64,
+      "end": 13.9,
+      "word": " toma",
+      "probability": 0.9921875
+    },
+    {
+      "start": 13.9,
+      "end": 14.3,
+      "word": " forma,",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 14.92,
+      "end": 15.36,
+      "word": " organiza",
+      "probability": 0.97705078125
+    },
+    {
+      "start": 15.36,
+      "end": 15.5,
+      "word": " los",
+      "probability": 0.99609375
+    },
+    {
+      "start": 15.5,
+      "end": 16.08,
+      "word": " encuentros,",
+      "probability": 0.989013671875
+    },
+    {
+      "start": 16.6,
+      "end": 17.0,
+      "word": " ajusta",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 17.0,
+      "end": 17.14,
+      "word": " los",
+      "probability": 0.99462890625
+    },
+    {
+      "start": 17.14,
+      "end": 17.54,
+      "word": " horarios",
+      "probability": 0.99658203125
+    },
+    {
+      "start": 17.54,
+      "end": 18.06,
+      "word": " y",
+      "probability": 0.7294921875
+    },
+    {
+      "start": 18.06,
+      "end": 18.56,
+      "word": " descarga",
+      "probability": 0.9954427083333334
+    },
+    {
+      "start": 18.56,
+      "end": 18.7,
+      "word": " el",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 18.7,
+      "end": 18.86,
+      "word": " rol",
+      "probability": 0.99609375
+    },
+    {
+      "start": 18.86,
+      "end": 19.02,
+      "word": " de",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 19.02,
+      "end": 19.32,
+      "word": " juegos",
+      "probability": 0.98681640625
+    },
+    {
+      "start": 19.32,
+      "end": 19.58,
+      "word": " para",
+      "probability": 0.99658203125
+    },
+    {
+      "start": 19.58,
+      "end": 20.28,
+      "word": " compartirlo",
+      "probability": 0.990234375
+    },
+    {
+      "start": 20.28,
+      "end": 20.44,
+      "word": " con",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 20.44,
+      "end": 20.58,
+      "word": " tus",
+      "probability": 0.994140625
+    },
+    {
+      "start": 20.58,
+      "end": 21.1,
+      "word": " equipos.",
+      "probability": 0.998291015625
+    },
+    {
+      "start": 21.74,
+      "end": 21.94,
+      "word": " Al",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 21.94,
+      "end": 22.3,
+      "word": " terminar,",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 22.92,
+      "end": 23.44,
+      "word": " registra",
+      "probability": 0.989501953125
+    },
+    {
+      "start": 23.44,
+      "end": 23.62,
+      "word": " quién",
+      "probability": 0.6953125
+    },
+    {
+      "start": 23.62,
+      "end": 24.04,
+      "word": " jugó,",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 24.42,
+      "end": 24.58,
+      "word": " los",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 24.58,
+      "end": 24.92,
+      "word": " goles",
+      "probability": 0.997314453125
+    },
+    {
+      "start": 24.92,
+      "end": 25.38,
+      "word": " y",
+      "probability": 0.228271484375
+    },
+    {
+      "start": 25.38,
+      "end": 25.54,
+      "word": " las",
+      "probability": 0.953125
+    },
+    {
+      "start": 25.54,
+      "end": 26.06,
+      "word": " tarjetas.",
+      "probability": 0.9876302083333334
+    },
+    {
+      "start": 26.74,
+      "end": 27.2,
+      "word": " También",
+      "probability": 0.99072265625
+    },
+    {
+      "start": 27.2,
+      "end": 27.46,
+      "word": " puedes",
+      "probability": 0.96484375
+    },
+    {
+      "start": 27.46,
+      "end": 27.84,
+      "word": " cargar",
+      "probability": 0.992431640625
+    },
+    {
+      "start": 27.84,
+      "end": 28.02,
+      "word": " la",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 28.02,
+      "end": 28.4,
+      "word": " cédula,",
+      "probability": 0.9358723958333334
+    },
+    {
+      "start": 28.9,
+      "end": 29.32,
+      "word": " revisar",
+      "probability": 0.995361328125
+    },
+    {
+      "start": 29.32,
+      "end": 29.48,
+      "word": " su",
+      "probability": 0.994140625
+    },
+    {
+      "start": 29.48,
+      "end": 29.9,
+      "word": " lectura",
+      "probability": 0.997314453125
+    },
+    {
+      "start": 29.9,
+      "end": 30.34,
+      "word": " y",
+      "probability": 0.841796875
+    },
+    {
+      "start": 30.34,
+      "end": 30.86,
+      "word": " confirmar",
+      "probability": 0.98876953125
+    },
+    {
+      "start": 30.86,
+      "end": 30.98,
+      "word": " el",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 30.98,
+      "end": 31.46,
+      "word": " resultado.",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 32.42,
+      "end": 32.92,
+      "word": " Consulta",
+      "probability": 0.9765625
+    },
+    {
+      "start": 32.92,
+      "end": 33.0,
+      "word": " el",
+      "probability": 0.9794921875
+    },
+    {
+      "start": 33.0,
+      "end": 33.46,
+      "word": " rendimiento",
+      "probability": 0.999755859375
+    },
+    {
+      "start": 33.46,
+      "end": 33.72,
+      "word": " de",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 33.72,
+      "end": 33.88,
+      "word": " tus",
+      "probability": 0.990234375
+    },
+    {
+      "start": 33.88,
+      "end": 34.34,
+      "word": " jugadores",
+      "probability": 0.995849609375
+    },
+    {
+      "start": 34.34,
+      "end": 34.94,
+      "word": " y",
+      "probability": 0.98974609375
+    },
+    {
+      "start": 34.94,
+      "end": 35.1,
+      "word": " los",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 35.1,
+      "end": 35.54,
+      "word": " goleadores",
+      "probability": 0.9871419270833334
+    },
+    {
+      "start": 35.54,
+      "end": 35.78,
+      "word": " del",
+      "probability": 0.99609375
+    },
+    {
+      "start": 35.78,
+      "end": 36.22,
+      "word": " torneo,",
+      "probability": 0.986083984375
+    },
+    {
+      "start": 36.58,
+      "end": 36.84,
+      "word": " con",
+      "probability": 0.998046875
+    },
+    {
+      "start": 36.84,
+      "end": 36.98,
+      "word": " los",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 36.98,
+      "end": 37.2,
+      "word": " datos",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 37.2,
+      "end": 37.4,
+      "word": " que",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 37.4,
+      "end": 38.14,
+      "word": " registraste",
+      "probability": 0.9925130208333334
+    },
+    {
+      "start": 38.14,
+      "end": 38.36,
+      "word": " en",
+      "probability": 0.99365234375
+    },
+    {
+      "start": 38.36,
+      "end": 38.6,
+      "word": " cada",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 38.6,
+      "end": 39.02,
+      "word": " partido.",
+      "probability": 0.9892578125
+    },
+    {
+      "start": 39.7,
+      "end": 39.84,
+      "word": " Los",
+      "probability": 0.99169921875
+    },
+    {
+      "start": 39.84,
+      "end": 40.26,
+      "word": " resultados",
+      "probability": 0.99853515625
+    },
+    {
+      "start": 40.26,
+      "end": 40.52,
+      "word": " se",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 40.52,
+      "end": 40.98,
+      "word": " reflejan",
+      "probability": 0.994873046875
+    },
+    {
+      "start": 40.98,
+      "end": 41.2,
+      "word": " en",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 41.2,
+      "end": 41.3,
+      "word": " la",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 41.3,
+      "end": 41.62,
+      "word": " tabla",
+      "probability": 0.992919921875
+    },
+    {
+      "start": 41.62,
+      "end": 41.76,
+      "word": " de",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 41.76,
+      "end": 42.28,
+      "word": " posiciones.",
+      "probability": 0.97314453125
+    },
+    {
+      "start": 43.26,
+      "end": 43.76,
+      "word": " Descarga",
+      "probability": 0.71875
+    },
+    {
+      "start": 43.76,
+      "end": 43.86,
+      "word": " la",
+      "probability": 0.923828125
+    },
+    {
+      "start": 43.86,
+      "end": 44.04,
+      "word": " como",
+      "probability": 0.7373046875
+    },
+    {
+      "start": 44.04,
+      "end": 44.36,
+      "word": " imagen",
+      "probability": 0.9931640625
+    },
+    {
+      "start": 44.36,
+      "end": 44.62,
+      "word": " para",
+      "probability": 0.99609375
+    },
+    {
+      "start": 44.62,
+      "end": 45.28,
+      "word": " compartirla",
+      "probability": 0.985595703125
+    },
+    {
+      "start": 45.28,
+      "end": 45.46,
+      "word": " con",
+      "probability": 0.998046875
+    },
+    {
+      "start": 45.46,
+      "end": 45.6,
+      "word": " tu",
+      "probability": 0.87158203125
+    },
+    {
+      "start": 45.6,
+      "end": 45.84,
+      "word": " liga.",
+      "probability": 0.831787109375
+    },
+    {
+      "start": 46.58,
+      "end": 46.88,
+      "word": " O",
+      "probability": 0.89990234375
+    },
+    {
+      "start": 46.88,
+      "end": 47.24,
+      "word": " habilita",
+      "probability": 0.950439453125
+    },
+    {
+      "start": 47.24,
+      "end": 47.38,
+      "word": " la",
+      "probability": 0.99658203125
+    },
+    {
+      "start": 47.38,
+      "end": 47.94,
+      "word": " consulta",
+      "probability": 0.991455078125
+    },
+    {
+      "start": 47.94,
+      "end": 48.28,
+      "word": " pública",
+      "probability": 0.9931640625
+    },
+    {
+      "start": 48.28,
+      "end": 48.54,
+      "word": " para",
+      "probability": 0.9921875
+    },
+    {
+      "start": 48.54,
+      "end": 48.66,
+      "word": " que",
+      "probability": 0.99951171875
+    },
+    {
+      "start": 48.66,
+      "end": 49.0,
+      "word": " los",
+      "probability": 0.9990234375
+    },
+    {
+      "start": 49.0,
+      "end": 49.24,
+      "word": " equipos",
+      "probability": 0.5028228759765625
+    },
+    {
+      "start": 49.24,
+      "end": 49.5,
+      "word": " puedan",
+      "probability": 0.85693359375
+    },
+    {
+      "start": 49.5,
+      "end": 49.98,
+      "word": " revisar",
+      "probability": 0.996826171875
+    },
+    {
+      "start": 49.98,
+      "end": 50.08,
+      "word": " la",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 50.08,
+      "end": 50.74,
+      "word": " clasificación",
+      "probability": 0.9944661458333334
+    },
+    {
+      "start": 50.74,
+      "end": 50.98,
+      "word": " desde",
+      "probability": 0.9794921875
+    },
+    {
+      "start": 50.98,
+      "end": 51.24,
+      "word": " un",
+      "probability": 0.9970703125
+    },
+    {
+      "start": 51.24,
+      "end": 51.6,
+      "word": " enlace.",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 52.46,
+      "end": 53.06,
+      "word": " Organiza",
+      "probability": 0.872802734375
+    },
+    {
+      "start": 53.06,
+      "end": 53.24,
+      "word": " tu",
+      "probability": 0.98486328125
+    },
+    {
+      "start": 53.24,
+      "end": 53.5,
+      "word": " liga.",
+      "probability": 0.877685546875
+    },
+    {
+      "start": 54.24,
+      "end": 54.46,
+      "word": " Vive",
+      "probability": 0.9580078125
+    },
+    {
+      "start": 54.46,
+      "end": 54.66,
+      "word": " el",
+      "probability": 0.95068359375
+    },
+    {
+      "start": 54.66,
+      "end": 55.1,
+      "word": " fútbol.",
+      "probability": 0.9611002604166666
+    },
+    {
+      "start": 55.58,
+      "end": 56.12,
+      "word": " Bracket.",
+      "probability": 0.8038736979166666
+    },
+    {
+      "start": 56.56,
+      "end": 56.98,
+      "word": " Más",
+      "probability": 0.944580078125
+    },
+    {
+      "start": 56.98,
+      "end": 57.12,
+      "word": " allá",
+      "probability": 0.99755859375
+    },
+    {
+      "start": 57.12,
+      "end": 57.3,
+      "word": " del",
+      "probability": 0.39892578125
+    },
+    {
+      "start": 57.3,
+      "end": 57.62,
+      "word": " amator.",
+      "probability": 0.58544921875
+    }
+  ],
+  "elapsed_seconds": 5.3686747550964355
+}

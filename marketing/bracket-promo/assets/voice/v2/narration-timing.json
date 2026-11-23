@@ -1,0 +1,84 @@
+[
+  {
+    "start": 0.3,
+    "until": 4.8,
+    "text": "Antes del primer gol, hay una liga que poner en marcha.",
+    "end": 3.9132916666666664,
+    "duration": 3.6132916666666666,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-00.wav"
+  },
+  {
+    "start": 4.9,
+    "until": 7.0,
+    "text": "Bracket. Tu liga empieza aquí.",
+    "tts": "Bráquet. Tu liga empieza aquí.",
+    "end": 6.913333333333334,
+    "duration": 2.013333333333333,
+    "voice": "em_alex",
+    "speed": 0.9766285416666667,
+    "file": "assets/voice/narration-01.wav"
+  },
+  {
+    "start": 7.25,
+    "until": 14.8,
+    "text": "Define tu torneo, marca tus reglas e incorpora a los equipos que van a competir.",
+    "end": 12.689333333333334,
+    "duration": 5.439333333333333,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-02.wav"
+  },
+  {
+    "start": 15.25,
+    "until": 25.2,
+    "text": "Dale forma al calendario. Ajusta los horarios y confirma la jornada. Cada cruce, en su lugar.",
+    "end": 21.399291666666667,
+    "duration": 6.149291666666667,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-03.wav"
+  },
+  {
+    "start": 25.6,
+    "until": 38.9,
+    "text": "Después del partido, la historia continúa. Carga la cédula, revisa la lectura y confirma el marcador. Tú tienes la última palabra.",
+    "end": 34.11995833333334,
+    "duration": 8.519958333333333,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-04.wav"
+  },
+  {
+    "start": 39.35,
+    "until": 52.1,
+    "text": "Ahora el resultado se ve. Clasificación clara, una imagen lista para compartir y un enlace público para consultar la tabla.",
+    "end": 47.77466666666667,
+    "duration": 8.424666666666667,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-05.wav"
+  },
+  {
+    "start": 52.15,
+    "until": 56.5,
+    "text": "Organiza tu liga a la altura de su pasión.",
+    "end": 55.224,
+    "duration": 3.074,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-06.wav"
+  },
+  {
+    "start": 56.9,
+    "until": 59.8,
+    "text": "Bracket. Más allá del amateur.",
+    "tts": "Bráquet. Más allá del amateur.",
+    "end": 59.120666666666665,
+    "duration": 2.220666666666667,
+    "voice": "em_alex",
+    "speed": 0.86,
+    "file": "assets/voice/narration-07.wav"
+  }
+]

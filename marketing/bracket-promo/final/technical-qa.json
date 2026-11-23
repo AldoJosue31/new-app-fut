@@ -1,0 +1,265 @@
+{
+  "master": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_time_base": "1/120",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "width": 1080,
+        "height": 1920,
+        "coded_width": 1088,
+        "coded_height": 1920,
+        "has_b_frames": 2,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "9:16",
+        "pix_fmt": "yuv420p",
+        "level": 42,
+        "chroma_location": "left",
+        "refs": 1,
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "r_frame_rate": "60/1",
+        "avg_frame_rate": "60/1",
+        "time_base": "1/15360",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 921600,
+        "duration": "60.000000",
+        "bit_rate": "1439635",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "3600",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc60.31.102 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_time_base": "1/48000",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 2880000,
+        "duration": "60.000000",
+        "bit_rate": "282270",
+        "max_bit_rate": "282270",
+        "nb_frames": "2814",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\final\\bracket-a-60s.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "60.000000",
+      "size": "13011525",
+      "bit_rate": "1734870",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf60.16.100"
+      }
+    }
+  },
+  "silent": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_time_base": "1/120",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "width": 1080,
+        "height": 1920,
+        "coded_width": 1088,
+        "coded_height": 1920,
+        "has_b_frames": 2,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "9:16",
+        "pix_fmt": "yuv420p",
+        "level": 42,
+        "chroma_location": "left",
+        "refs": 1,
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "r_frame_rate": "60/1",
+        "avg_frame_rate": "60/1",
+        "time_base": "1/15360",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 921600,
+        "duration": "60.000000",
+        "bit_rate": "1439635",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "3600",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc60.31.102 libx264"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\final\\bracket-a-60s_silent.mp4",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "60.000000",
+      "size": "10840683",
+      "bit_rate": "1445424",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf60.16.100"
+      }
+    }
+  },
+  "audio": {
+    "stereo": {
+      "integrated_lufs": -16.5,
+      "true_peak_dbfs": -5.1,
+      "ffmpeg_summary": "Summary:\n\n  Integrated loudness:\n    I:         -16.5 LUFS\n    Threshold: -26.5 LUFS\n\n  Loudness range:\n    LRA:         2.6 LU\n    Threshold: -36.6 LUFS\n    LRA low:   -17.7 LUFS\n    LRA high:  -15.1 LUFS\n\n  True peak:\n    Peak:       -5.1 dBFS\n"
+    },
+    "mono": {
+      "integrated_lufs": -16.5,
+      "true_peak_dbfs": -5.1,
+      "ffmpeg_summary": "Summary:\n\n  Integrated loudness:\n    I:         -16.5 LUFS\n    Threshold: -26.5 LUFS\n\n  Loudness range:\n    LRA:         2.6 LU\n    Threshold: -36.6 LUFS\n    LRA low:   -17.7 LUFS\n    LRA high:  -15.1 LUFS\n\n  True peak:\n    Peak:       -5.1 dBFS\n"
+    }
+  },
+  "decode_errors": false,
+  "logo_sha256": "8fdfd91bbc70c43ce0b3fd13683c8ec5563a913d4c70e5bb411620b776179217",
+  "canvas_equals_browser": true,
+  "composition_checks": {
+    "randomAccessDeterministic": true,
+    "fonts": [
+      {
+        "family": "Poppins",
+        "weight": "400",
+        "status": "loaded"
+      },
+      {
+        "family": "Poppins",
+        "weight": "600",
+        "status": "loaded"
+      },
+      {
+        "family": "Poppins",
+        "weight": "700",
+        "status": "loaded"
+      },
+      {
+        "family": "BarlowDisplay",
+        "weight": "800",
+        "status": "loaded"
+      },
+      {
+        "family": "BarlowDisplay",
+        "weight": "800",
+        "status": "loaded"
+      }
+    ]
+  },
+  "contact_sheet_times": [
+    0.78,
+    2.06,
+    6.12,
+    7.38,
+    8.959999999999999,
+    10.219999999999999,
+    12.18,
+    14.62,
+    19.850000000000005,
+    22.420000000000005,
+    27.780000000000005,
+    30.230000000000004,
+    31.200000000000006,
+    33.7,
+    35.7228,
+    37.385000000000005,
+    39.220000000000006,
+    42.349999999999994,
+    46.15,
+    49.62,
+    52.05,
+    54.37000000000001,
+    57.2,
+    58.30000000000002,
+    59.6
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "text": "Dani anota todo en papel y lo pasa a Excel. Pero llega la jornada y el chat no para: ¿Ya está el rol? ¿Cómo quedó la tabla? ¿Cuántos goles llevo? ¿Cuántos partidos jugué? ¿Y mis amarillas? Con Bracket, cada jornada toma forma. Organiza los encuentros, ajusta los horarios y descarga el rol de juegos para compartirlo con tus equipos. Al terminar, registra quién jugó, los goles y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado. Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que registraste en cada partido. Los resultados se reflejan en la tabla de posiciones. Descárgala como imagen para compartirla con tu liga. O habilita la consulta pública para que los equipos puedan revisar la clasificación desde un enlace. Organiza tu liga. Vive el fútbol. Bracket. Más allá del amateur.",
+  "scenes": [
+    {
+      "id": "paper",
+      "text": "Dani anota todo en papel y lo pasa a Excel."
+    },
+    {
+      "id": "requests",
+      "text": "Pero llega la jornada y el chat no para: ¿Ya está el rol? ¿Cómo quedó la tabla?"
+    },
+    {
+      "id": "player-requests",
+      "text": "¿Cuántos goles llevo? ¿Cuántos partidos jugué? ¿Y mis amarillas?"
+    },
+    {
+      "id": "brand-intro",
+      "text": "Con Bracket, cada jornada toma forma."
+    },
+    {
+      "id": "schedule",
+      "text": "Organiza los encuentros, ajusta los horarios y descarga el rol de juegos para compartirlo con tus equipos."
+    },
+    {
+      "id": "result",
+      "text": "Al terminar, registra quién jugó, los goles y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado."
+    },
+    {
+      "id": "stats",
+      "text": "Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que registraste en cada partido."
+    },
+    {
+      "id": "standings",
+      "text": "Los resultados se reflejan en la tabla de posiciones. Descárgala como imagen para compartirla con tu liga."
+    },
+    {
+      "id": "public",
+      "text": "O habilita la consulta pública para que los equipos puedan revisar la clasificación desde un enlace."
+    },
+    {
+      "id": "closing",
+      "text": "Organiza tu liga. Vive el fútbol. Bracket. Más allá del amateur."
+    }
+  ],
+  "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+  "language": "Spanish",
+  "seed": 306,
+  "output_prefix": "narration-v6",
+  "direction": "Original adult male narrator, warm expressive medium-low voice, native Mexican Spanish. Act a clear emotional arc in one connected take, with distinctly changing intonation by context. Begin 'Dani anota...' as an intimate, relaxed, friendly storyteller. At 'Pero llega la jornada y el chat no para' become quicker and increasingly pressured, a knowing stressed smile. Read each quoted question as a different urgent incoming request, clearly rising questioning pitch and changing emphasis: impatient about the rol, insistent about the tabla, eager about goles, concerned about partidos, worried about amarillas. Build dramatic tension naturally, no yelling or caricature. At 'Con Bracket' release a breath and switch to warm relief, an audible smile and a lower relaxed register. During the product explanation speak smoothly and confidently with lively varied pitch, connecting clauses, not mechanically listing features. Finish 'Organiza tu liga. Vive el fútbol' with an uplifting smile; 'Bracket. Más allá del amateur' confidently, warmly, with conviction. Brisk flowing commercial pace around 160-165 words per minute; target 56-58 seconds for this text, short natural breaths, no long pauses between words or list items. Never keep the same pitch contour for consecutive sentences. Studio close microphone, realistic articulation, clean dry recording, no background sound. Read exactly the supplied words without announcing directions. Do not imitate a real person.",
+  "phonetic_replacements": {
+    "Bracket": "Bráquet",
+    "amateur": "amatér"
+  },
+  "duration": 60.32,
+  "sample_rate": 24000,
+  "generation_seconds": 286.9333527088165,
+  "gpu": "NVIDIA GeForce RTX 4060",
+  "torch": "2.11.0+cu128",
+  "reference_person": null,
+  "source_file": "assets/voice/narration-v6-continuous.wav"
+}

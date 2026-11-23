@@ -1,0 +1,104 @@
+[
+  {
+    "start": 0,
+    "end": 4.65,
+    "text": "Antes del primer gol.",
+    "visual": "Gancho y firma original"
+  },
+  {
+    "start": 4.15,
+    "end": 7.2,
+    "text": "Bracket",
+    "visual": "Emblema original"
+  },
+  {
+    "start": 7,
+    "end": 15.3,
+    "text": "Tu liga. Tus reglas.",
+    "visual": "Título"
+  },
+  {
+    "start": 7,
+    "end": 10.5,
+    "text": "Temporada / Fecha de Inicio",
+    "visual": "Configuración de ejemplo"
+  },
+  {
+    "start": 10.5,
+    "end": 15.3,
+    "text": "Equipos del Torneo / Siguiente: Sorteo",
+    "visual": "Inclusión de equipos elegibles"
+  },
+  {
+    "start": 15.3,
+    "end": 27.3,
+    "text": "Cada cruce. En su lugar.",
+    "visual": "Título"
+  },
+  {
+    "start": 15.3,
+    "end": 20.5,
+    "text": "Editor de Fixture / Confirmar Fixture",
+    "visual": "Cruces válidos"
+  },
+  {
+    "start": 20.5,
+    "end": 27.3,
+    "text": "Jornada 1 / Hora del partido / Confirmar Jornada",
+    "visual": "Programación y grilla"
+  },
+  {
+    "start": 27.3,
+    "end": 39.3,
+    "text": "Del papel al marcador.",
+    "visual": "Título"
+  },
+  {
+    "start": 29,
+    "end": 39.3,
+    "text": "Escanear cédula / Aplicar escaneo / Guardar Marcador / Sí, guardar",
+    "visual": "Lectura ilustrativa resumida y revisión"
+  },
+  {
+    "start": 39.3,
+    "end": 52.3,
+    "text": "El resultado se ve.",
+    "visual": "Título"
+  },
+  {
+    "start": 39.3,
+    "end": 46,
+    "text": "Clasificacion / PTS",
+    "visual": "Actualización editorial de tabla coherente"
+  },
+  {
+    "start": 46,
+    "end": 50,
+    "text": "Exportar Tabla General / Historia (9:16) / Descargar",
+    "visual": "Imagen de tabla"
+  },
+  {
+    "start": 50,
+    "end": 52.3,
+    "text": "Publico / Link / Copiado",
+    "visual": "Controles reales"
+  },
+  {
+    "start": 52.3,
+    "end": 54.3,
+    "text": "Tabla",
+    "visual": "Destino público ilustrativo"
+  },
+  {
+    "start": 54.05,
+    "end": 56.7,
+    "text": "A la altura de tu pasión.",
+    "visual": "Eslogan del usuario"
+  },
+  {
+    "start": 56.65,
+    "end": 60,
+    "text": "Bracket · Más allá del amateur",
+    "visual": "Cierre del emblema original"
+  }
+]

@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const browser=await chromium.launch();
+const page=await browser.newPage();
+await page.goto('https://mixkit.co/license/',{waitUntil:'domcontentloaded'});
+await page.locator('[data-test-id="license-music"]').click();
+await page.waitForFunction(()=>document.body.innerText.includes('Online')||document.body.innerText.includes('YouTube'));
+await page.waitForTimeout(1800);
+const text=await page.locator('body').innerText();
+fs.writeFileSync(new URL('../assets/licenses/mixkit-visible-terms.txt',import.meta.url),text);
+console.log(text.match(/Stock Music Free License[\s\S]*?forward the details[^\n]*/)?.[0]);
+await page.getByText('Close',{exact:true}).click();
+await page.locator('[data-test-id="license-sfx"]').click();
+await page.waitForTimeout(900);
+const sfx=await page.locator('body').innerText();
+fs.writeFileSync(new URL('../assets/licenses/mixkit-sfx-visible-terms.txt',import.meta.url),sfx);
+console.log(sfx.match(/Sound Effects Free License[\s\S]*?User Terms\./)?.[0]||sfx.slice(-6000));
+await browser.close();

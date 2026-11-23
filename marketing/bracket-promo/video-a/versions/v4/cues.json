@@ -1,0 +1,184 @@
+[
+  {
+    "t": 0.3,
+    "type": "movement",
+    "desc": "Inicio de la historia y titulares deportivos"
+  },
+  {
+    "t": 3.4,
+    "type": "appear",
+    "desc": "Sur queda pendiente de incorporar"
+  },
+  {
+    "t": 5.9,
+    "type": "appear",
+    "desc": "Horarios por confirmar"
+  },
+  {
+    "t": 8.78,
+    "type": "appear",
+    "desc": "Cédula recibida en una foto"
+  },
+  {
+    "t": 11.5,
+    "type": "appear",
+    "desc": "El grupo pide la clasificación"
+  },
+  {
+    "t": 14.48,
+    "type": "reveal",
+    "desc": "Los pendientes introducen el logo de Bracket"
+  },
+  {
+    "t": 17.8,
+    "type": "movement",
+    "desc": "Entrada lateral del móvil completo"
+  },
+  {
+    "t": 18.2,
+    "type": "typing",
+    "dur": 0.7,
+    "desc": "Nombre de la temporada"
+  },
+  {
+    "t": 19.35,
+    "type": "click",
+    "desc": "Fecha Inicio"
+  },
+  {
+    "t": 20.8,
+    "type": "click",
+    "desc": "Guardar Configuración"
+  },
+  {
+    "t": 22,
+    "type": "click",
+    "desc": "Incorporar Norte"
+  },
+  {
+    "t": 22.75,
+    "type": "click",
+    "desc": "Incorporar Sur"
+  },
+  {
+    "t": 24.2,
+    "type": "click",
+    "desc": "Siguiente: Sorteo"
+  },
+  {
+    "t": 24.5,
+    "type": "movement",
+    "desc": "Entrada de la jornada"
+  },
+  {
+    "t": 26.7,
+    "type": "click",
+    "desc": "Confirmar Fixture"
+  },
+  {
+    "t": 28.3,
+    "type": "click",
+    "desc": "Ajustar hora del partido"
+  },
+  {
+    "t": 30.2,
+    "type": "click",
+    "desc": "Confirmar Jornada"
+  },
+  {
+    "t": 32,
+    "type": "movement",
+    "desc": "Del papel al marcador"
+  },
+  {
+    "t": 32.65,
+    "type": "click",
+    "desc": "Abrir Escanear cédula"
+  },
+  {
+    "t": 34.3,
+    "type": "click",
+    "desc": "Solicitar lectura ilustrativa"
+  },
+  {
+    "t": 36,
+    "type": "success",
+    "desc": "Resultado disponible para revisar"
+  },
+  {
+    "t": 38.3,
+    "type": "click",
+    "desc": "Aplicar escaneo revisado"
+  },
+  {
+    "t": 39.7,
+    "type": "click",
+    "desc": "Guardar Marcador"
+  },
+  {
+    "t": 41.25,
+    "type": "click",
+    "desc": "Sí, guardar"
+  },
+  {
+    "t": 41.6,
+    "type": "success",
+    "desc": "Resultado guardado"
+  },
+  {
+    "t": 42.3,
+    "type": "movement",
+    "desc": "La clasificación se presenta completa"
+  },
+  {
+    "t": 44.05,
+    "type": "hover_or_small_ui",
+    "desc": "La tabla termina de ordenarse"
+  },
+  {
+    "t": 46.45,
+    "type": "click",
+    "desc": "Abrir exportación de tabla"
+  },
+  {
+    "t": 48,
+    "type": "click",
+    "desc": "Elegir Historia 9:16"
+  },
+  {
+    "t": 50.4,
+    "type": "click",
+    "desc": "Descargar imagen de tabla"
+  },
+  {
+    "t": 51.6,
+    "type": "movement",
+    "desc": "La tabla al alcance"
+  },
+  {
+    "t": 52.25,
+    "type": "click",
+    "desc": "Habilitar Publico"
+  },
+  {
+    "t": 53.1,
+    "type": "click",
+    "desc": "Copiar Link"
+  },
+  {
+    "t": 53.8,
+    "type": "movement",
+    "desc": "Consultar tabla pública"
+  },
+  {
+    "t": 55.9,
+    "type": "build_up",
+    "dur": 1.85,
+    "desc": "Preparar cierre de marca"
+  },
+  {
+    "t": 57.75,
+    "type": "reveal",
+    "desc": "Logo oficial y Más allá del amateur"
+  }
+]

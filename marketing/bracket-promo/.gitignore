@@ -1,0 +1,12 @@
+.sound-effects/
+.tools/
+.models/
+.voice-realistic/
+assets/audio/mixkit-*
+assets/licenses/*-visible-terms.txt
+assets/licenses/mixkit-license.html
+sound-a/sound-effects-cache/
+sound-a/scratch/
+sound-a/mix_raw.wav
+review/*_seg*.mp4
+final/*_seg*.mp4

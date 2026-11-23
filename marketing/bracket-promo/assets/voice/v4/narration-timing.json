@@ -1,0 +1,263 @@
+[
+  {
+    "id": "intro",
+    "start": 0.25,
+    "end": 1.59,
+    "duration": 1.34,
+    "text": "Mañana hay jornada.",
+    "source_start": 0,
+    "source_end": 1.3399999999999999,
+    "reference_start": 0,
+    "reference_end": 3,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 0.25,
+        "end": 1.43,
+        "text": "Mañana hay jornada."
+      }
+    ]
+  },
+  {
+    "id": "story",
+    "start": 3.0,
+    "end": 16.8,
+    "duration": 13.8,
+    "text": "Un equipo quedó fuera de la lista. Hay partidos sin horario confirmado. El marcador llegó en una foto y, claro, todos quieren ver la tabla. Con Bracket, cada cosa encuentra su lugar.",
+    "source_start": 5.96,
+    "source_end": 19.759999999999998,
+    "reference_start": 16,
+    "reference_end": 48,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 3.500000000000001,
+        "end": 5.28,
+        "text": "Un equipo quedó fuera de la lista."
+      },
+      {
+        "start": 6.000000000000001,
+        "end": 9.440000000000001,
+        "text": "Hay partidos sin horario confirmado. El marcador"
+      },
+      {
+        "start": 9.440000000000001,
+        "end": 11.719999999999999,
+        "text": "llegó en una foto y, claro, todos"
+      },
+      {
+        "start": 11.719999999999999,
+        "end": 14.919999999999998,
+        "text": "quieren ver la tabla. Con Bracket, cada"
+      },
+      {
+        "start": 14.919999999999998,
+        "end": 16.36,
+        "text": "cosa encuentra su lugar."
+      }
+    ]
+  },
+  {
+    "id": "setup",
+    "start": 18.75,
+    "end": 22.28,
+    "duration": 3.53,
+    "text": "Incorpora a los equipos y define tus reglas.",
+    "source_start": 19.759999999999998,
+    "source_end": 23.29,
+    "reference_start": 48,
+    "reference_end": 56,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 19.190000000000005,
+        "end": 21.270000000000003,
+        "text": "Incorpora a los equipos y define tus"
+      },
+      {
+        "start": 21.270000000000003,
+        "end": 21.67,
+        "text": "reglas."
+      }
+    ]
+  },
+  {
+    "id": "calendar",
+    "start": 25.2,
+    "end": 30.509999999999998,
+    "duration": 5.31,
+    "text": "Prepara los cruces, ajusta los horarios y confirma la jornada.",
+    "source_start": 23.29,
+    "source_end": 28.6,
+    "reference_start": 56,
+    "reference_end": 66,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 25.809999999999995,
+        "end": 28.990000000000002,
+        "text": "Prepara los cruces, ajusta los horarios y"
+      },
+      {
+        "start": 28.990000000000002,
+        "end": 30.130000000000003,
+        "text": "confirma la jornada."
+      }
+    ]
+  },
+  {
+    "id": "upload",
+    "start": 32.7,
+    "end": 35.42,
+    "duration": 2.72,
+    "text": "Al terminar, carga la cédula,",
+    "source_start": 28.6,
+    "source_end": 31.32,
+    "reference_start": 66,
+    "reference_end": 71,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 33.080000000000005,
+        "end": 35.160000000000004,
+        "text": "Al terminar, carga la cédula,"
+      }
+    ]
+  },
+  {
+    "id": "review",
+    "start": 36.35,
+    "end": 37.51,
+    "duration": 1.16,
+    "text": "revisa la lectura",
+    "source_start": 31.32,
+    "source_end": 32.48,
+    "reference_start": 71,
+    "reference_end": 74,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 36.61000000000001,
+        "end": 37.51,
+        "text": "revisa la lectura"
+      }
+    ]
+  },
+  {
+    "id": "confirm",
+    "start": 39.45,
+    "end": 41.13,
+    "duration": 1.68,
+    "text": "y confirma el marcador.",
+    "source_start": 32.48,
+    "source_end": 34.16,
+    "reference_start": 74,
+    "reference_end": 78,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 39.45000000000001,
+        "end": 40.65,
+        "text": "y confirma el marcador."
+      }
+    ]
+  },
+  {
+    "id": "table",
+    "start": 42.65,
+    "end": 45.949999999999996,
+    "duration": 3.3,
+    "text": "La clasificación toma forma.",
+    "source_start": 34.16,
+    "source_end": 37.46,
+    "reference_start": 78,
+    "reference_end": 82,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 43.129999999999995,
+        "end": 45.349999999999994,
+        "text": "La clasificación toma forma."
+      }
+    ]
+  },
+  {
+    "id": "export",
+    "start": 47.65,
+    "end": 50.07,
+    "duration": 2.42,
+    "text": "Descarga una imagen para compartir,",
+    "source_start": 37.46,
+    "source_end": 39.88,
+    "reference_start": 82,
+    "reference_end": 87,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 48.25000000000001,
+        "end": 50.07,
+        "text": "Descarga una imagen para compartir,"
+      }
+    ]
+  },
+  {
+    "id": "public",
+    "start": 51.75,
+    "end": 55.15,
+    "duration": 3.4,
+    "text": "o habilita el enlace público para consultarla.",
+    "source_start": 39.88,
+    "source_end": 43.28,
+    "reference_start": 87,
+    "reference_end": 94,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 51.75,
+        "end": 54.68999999999999,
+        "text": "o habilita el enlace público para consultarla."
+      }
+    ]
+  },
+  {
+    "id": "brand",
+    "start": 56.15,
+    "end": 59.85,
+    "duration": 3.7,
+    "text": "Bracket. Más allá del amateur.",
+    "source_start": 46.84,
+    "source_end": 50.54,
+    "reference_start": 101,
+    "reference_end": 106,
+    "voice": "Original synthetic male Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false,
+    "captions": [
+      {
+        "start": 56.78999999999999,
+        "end": 59.66999999999999,
+        "text": "Bracket. Más allá del amateur."
+      }
+    ]
+  }
+]

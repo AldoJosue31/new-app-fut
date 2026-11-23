@@ -1,0 +1,332 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--config",
+      "marketing/bracket-promo/research/playwright.config.mjs",
+      "--grep",
+      "evidencia editorial"
+    ],
+    "configFile": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\playwright.config.mjs",
+    "rootDir": "C:/Users/Aldo/Documents/Proyectos/New-App-Fut/new-app-fut/marketing/bracket-promo/research",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/Aldo/Documents/Proyectos/New-App-Fut/new-app-fut/marketing/bracket-promo/research/ui-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/Aldo/Documents/Proyectos/New-App-Fut/new-app-fut/marketing/bracket-promo/research",
+        "testIgnore": [],
+        "testMatch": [
+          "ui-evidence.spec.mjs"
+        ],
+        "timeout": 90000
+      },
+      {
+        "outputDir": "C:/Users/Aldo/Documents/Proyectos/New-App-Fut/new-app-fut/marketing/bracket-promo/research/ui-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "mobile-chromium",
+        "name": "mobile-chromium",
+        "testDir": "C:/Users/Aldo/Documents/Proyectos/New-App-Fut/new-app-fut/marketing/bracket-promo/research",
+        "testIgnore": [],
+        "testMatch": [
+          "ui-evidence.spec.mjs"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "open": "never",
+          "outputFolder": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-report\\"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": {
+      "command": "node node_modules/next/dist/bin/next start --hostname=127.0.0.1 --port=4176",
+      "url": "http://127.0.0.1:4176",
+      "reuseExistingServer": false,
+      "timeout": 120000,
+      "env": {
+        "E2E_PASSWORD_RECOVERY": "1",
+        "NODE_OPTIONS": "--import=file:///C:/Users/Aldo/Documents/Proyectos/New-App-Fut/new-app-fut/tests/e2e/fixtures/password-recovery-mock.mjs"
+      },
+      "cwd": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\"
+    }
+  },
+  "suites": [
+    {
+      "title": "ui-evidence.spec.mjs",
+      "file": "ui-evidence.spec.mjs",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "evidencia editorial de clasificacion y exportacion",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4640,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T02:22:25.362Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "clasificacion",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-933a0-clasificacion-y-exportacion-chromium\\attachments\\clasificacion-64268b292a1f3dcb47b3b9dc4ce8f2bf35cca1a5.png"
+                    },
+                    {
+                      "name": "exportacion-tabla",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-933a0-clasificacion-y-exportacion-chromium\\attachments\\exportacion-tabla-cfbe3f545b7b40df94eb80577588a3c52281b421.png"
+                    },
+                    {
+                      "name": "observed-ui",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-933a0-clasificacion-y-exportacion-chromium\\attachments\\observed-ui-ad4513eea1df0f65c5f1ac62355b701a23a2bab7.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e3e5ca361fd857acdaec-a5adc0a7f4200c7547b5",
+          "file": "ui-evidence.spec.mjs",
+          "line": 13,
+          "column": 1
+        },
+        {
+          "title": "evidencia editorial de resultado y entrada de escaneo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7263,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T02:22:30.514Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "jornada-confirmada",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-chromium\\attachments\\jornada-confirmada-812244b130058c26ff5e6e60bf71a26f17dd6708.png"
+                    },
+                    {
+                      "name": "resultado",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-chromium\\attachments\\resultado-d710d52d2aada044e26b5bcb17c655cf7fef365c.png"
+                    },
+                    {
+                      "name": "entrada-escaneo",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-chromium\\attachments\\entrada-escaneo-37e37089f63435df77a8f58d7d9305e486d07229.png"
+                    },
+                    {
+                      "name": "observed-ui",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-chromium\\attachments\\observed-ui-a19ded64e814dc0dc4d2abf7c54200d5895259d3.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e3e5ca361fd857acdaec-be2160cfd6b984ad25ae",
+          "file": "ui-evidence.spec.mjs",
+          "line": 22,
+          "column": 1
+        },
+        {
+          "title": "evidencia editorial de clasificacion y exportacion",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5680,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T02:22:39.914Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "clasificacion",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-933a0-clasificacion-y-exportacion-mobile-chromium\\attachments\\clasificacion-2f238dd04ebc33fc741a4223791ec171827291a4.png"
+                    },
+                    {
+                      "name": "exportacion-tabla",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-933a0-clasificacion-y-exportacion-mobile-chromium\\attachments\\exportacion-tabla-b546d4ad217f5f45f34a71639f0719952e790c7a.png"
+                    },
+                    {
+                      "name": "observed-ui",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-933a0-clasificacion-y-exportacion-mobile-chromium\\attachments\\observed-ui-5ec773daa6d891b203385df3ae3fd4805b465bc5.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e3e5ca361fd857acdaec-e094e33b02eac0c13b90",
+          "file": "ui-evidence.spec.mjs",
+          "line": 13,
+          "column": 1
+        },
+        {
+          "title": "evidencia editorial de resultado y entrada de escaneo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "mobile-chromium",
+              "projectName": "mobile-chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6801,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-07T02:22:45.844Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "jornada-confirmada",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-mobile-chromium\\attachments\\jornada-confirmada-b07b3c667d9187b0cd24fab97108410b28d257cb.png"
+                    },
+                    {
+                      "name": "resultado",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-mobile-chromium\\attachments\\resultado-173959833a98afc0d8d498463f770228f57d46c0.png"
+                    },
+                    {
+                      "name": "entrada-escaneo",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-mobile-chromium\\attachments\\entrada-escaneo-22656fcd85e658bc703c9b31b626a2627ae3947b.png"
+                    },
+                    {
+                      "name": "observed-ui",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\Aldo\\Documents\\Proyectos\\New-App-Fut\\new-app-fut\\marketing\\bracket-promo\\research\\ui-artifacts\\ui-evidence-evidencia-edit-52eba-ultado-y-entrada-de-escaneo-mobile-chromium\\attachments\\observed-ui-173256a729d02ec94de0c7311a08b09cfd776552.png"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e3e5ca361fd857acdaec-8b85cf362bd5a29795d1",
+          "file": "ui-evidence.spec.mjs",
+          "line": 22,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-07T02:22:19.237Z",
+    "duration": 34054.629,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

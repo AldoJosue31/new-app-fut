@@ -1,0 +1,9 @@
+# VIDEO A — revisión5 terminada
+7 de noviembre de2026. Guion papel/Excel aprobado y producido. SoloA; B/C propuestas.
+Entrega: final/bracket-a-60s-v5.mp4, final/bracket-a-60s-v5_silent.mp4, final/bracket-a-entrega-v5.zip. Copias canónicas para HTML/paquete.
+60s,1080×1920,60FPS,3.600frames,H264/AAC,faststart. Dark real, móvil entero a escala fija, sin zoom/contador. PNG oficial íntegro. Historia de Dani, papel/Excel, solicitudes de rol/tabla y estadísticas; rol exportable, participación/goles/amarillas, rendimiento individual, goleadores/imágenes, clasificación/consulta pública.
+Voz sintética Qwen3-TTS VoiceDesign original: toma57,92s, edición57,26s, termina57,38s. Recortes solo en silencios largos comprobados; sin timestretch ni esperas insertadas. Alineación/transcripción/WAVs en assets/voice/narration-v5*. No regenerar para ver/editar. PruebaDescript no utilizada/publicada.
+Fuentes activas mobile-ui.js,product-v5.js,character.js,motion-film.js,build/template. Tiempos desde palabras reales. Logos completos12,10s/55,3667s, ajustados a cuadrícula real; error1ms/7ms. MúsicaMixkit130, teclado1392, grabacionesCC0, ducking10dB.
+QA final:−16,5LUFS y pico−5,0dBFS estéreo/mono; decode sin errores; silencioso sin audio.312estados sin overflow;5fuentes cargadas; determinismo/PNG equivalente.21muestras del master revisadas.38cues con pruebasframe/wave. HTML playback/scrub probado con audio del master a49,7s sin errores. SHAlogo verificado; datosficticios contrastados.
+Recursossonoros reabiertos7nov2026, licencias compatibles con redes/anunciosonline. ZIP sin modelos/env/binarios/versiones/Mixkit aislado; recursosMixkit se recuperan localmente para remezcla. Manifesttamaño/SHA256.
+README/ASSETS/storyboard/LEEME/QA/revisión actualizados. Guion aprobado en07; ejecución en03. Los rendersv4 quedan localmente históricos. Código funcional de la app intacto: git solo marketing sin seguimiento.

@@ -1,0 +1,252 @@
+[
+  {
+    "id": "paper",
+    "start": 0.12,
+    "end": 2.3600000000000003,
+    "duration": 2.24,
+    "text": "Dani lleva su liga entre papel y Excel.",
+    "captions": [
+      {
+        "start": 0.12,
+        "end": 1.7799999999999998,
+        "text": "Dani lleva su liga entre papel"
+      },
+      {
+        "start": 1.7799999999999998,
+        "end": 2.3600000000000003,
+        "text": "y Excel."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "requests",
+    "start": 3.02,
+    "end": 5.86,
+    "duration": 2.8400000000000003,
+    "text": "Cada jornada le piden el rol de juegos y la tabla.",
+    "captions": [
+      {
+        "start": 3.02,
+        "end": 4.62,
+        "text": "Cada jornada le piden el rol"
+      },
+      {
+        "start": 4.62,
+        "end": 5.86,
+        "text": "de juegos y la tabla."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "player-requests",
+    "start": 6.12,
+    "end": 11.12,
+    "duration": 4.999999999999999,
+    "text": "Y los jugadores preguntan por sus goles, partidos jugados y tarjetas amarillas.",
+    "captions": [
+      {
+        "start": 6.12,
+        "end": 8.159999999999998,
+        "text": "Y los jugadores preguntan por sus"
+      },
+      {
+        "start": 8.159999999999998,
+        "end": 11.12,
+        "text": "goles, partidos jugados y tarjetas amarillas."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "brand-intro",
+    "start": 11.84,
+    "end": 14.26,
+    "duration": 2.42,
+    "text": "Con Bracket, cada jornada toma forma.",
+    "captions": [
+      {
+        "start": 11.84,
+        "end": 14.26,
+        "text": "Con Bracket, cada jornada toma forma."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "schedule",
+    "start": 14.879999999999999,
+    "end": 21.060000000000002,
+    "duration": 6.180000000000003,
+    "text": "Organiza los encuentros, ajusta los horarios y descarga el rol de juegos para compartirlo con tus equipos.",
+    "captions": [
+      {
+        "start": 14.879999999999999,
+        "end": 17.5,
+        "text": "Organiza los encuentros, ajusta los horarios"
+      },
+      {
+        "start": 17.5,
+        "end": 19.28,
+        "text": "y descarga el rol de juegos"
+      },
+      {
+        "start": 19.28,
+        "end": 21.060000000000002,
+        "text": "para compartirlo con tus equipos."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "result",
+    "start": 21.7,
+    "end": 31.42,
+    "duration": 9.720000000000002,
+    "text": "Al terminar, registra quién jugó, los goles y las tarjetas. También puedes cargar la cédula, revisar su lectura y confirmar el resultado.",
+    "captions": [
+      {
+        "start": 21.7,
+        "end": 24.54,
+        "text": "Al terminar, registra quién jugó, los"
+      },
+      {
+        "start": 24.54,
+        "end": 27.42,
+        "text": "goles y las tarjetas. También puedes"
+      },
+      {
+        "start": 27.42,
+        "end": 29.86,
+        "text": "cargar la cédula, revisar su lectura"
+      },
+      {
+        "start": 29.86,
+        "end": 31.42,
+        "text": "y confirmar el resultado."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "stats",
+    "start": 32.14,
+    "end": 38.74,
+    "duration": 6.600000000000001,
+    "text": "Consulta el rendimiento de tus jugadores y los goleadores del torneo, con los datos que registraste en cada partido.",
+    "captions": [
+      {
+        "start": 32.14,
+        "end": 34.06,
+        "text": "Consulta el rendimiento de tus jugadores"
+      },
+      {
+        "start": 34.06,
+        "end": 36.56,
+        "text": "y los goleadores del torneo, con"
+      },
+      {
+        "start": 36.56,
+        "end": 38.32,
+        "text": "los datos que registraste en cada"
+      },
+      {
+        "start": 38.32,
+        "end": 38.74,
+        "text": "partido."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "standings",
+    "start": 39.42,
+    "end": 45.56,
+    "duration": 6.140000000000001,
+    "text": "Los resultados se reflejan en la tabla de posiciones. Descárgala como imagen para compartirla con tu liga.",
+    "captions": [
+      {
+        "start": 39.42,
+        "end": 41.019999999999996,
+        "text": "Los resultados se reflejan en la"
+      },
+      {
+        "start": 41.019999999999996,
+        "end": 44.08,
+        "text": "tabla de posiciones. Descárgala como imagen"
+      },
+      {
+        "start": 44.08,
+        "end": 45.56,
+        "text": "para compartirla con tu liga."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "public",
+    "start": 46.3,
+    "end": 51.32,
+    "duration": 5.020000000000003,
+    "text": "O habilita la consulta pública para que los equipos puedan revisar la clasificación desde un enlace.",
+    "captions": [
+      {
+        "start": 46.3,
+        "end": 48.26,
+        "text": "O habilita la consulta pública para"
+      },
+      {
+        "start": 48.26,
+        "end": 49.8,
+        "text": "que los equipos puedan revisar la"
+      },
+      {
+        "start": 49.8,
+        "end": 51.32,
+        "text": "clasificación desde un enlace."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  },
+  {
+    "id": "closing",
+    "start": 52.04,
+    "end": 57.199999999999996,
+    "duration": 5.159999999999997,
+    "text": "Organiza tu liga. Vive el fútbol. Bracket. Más allá del amateur.",
+    "captions": [
+      {
+        "start": 52.04,
+        "end": 54.68,
+        "text": "Organiza tu liga. Vive el fútbol."
+      },
+      {
+        "start": 55.16,
+        "end": 57.199999999999996,
+        "text": "Bracket. Más allá del amateur."
+      }
+    ],
+    "voice": "Original synthetic Spanish narrator",
+    "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "time_stretch": false
+  }
+]
