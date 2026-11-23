@@ -4,6 +4,7 @@ import { BiCheck, BiShieldQuarter } from 'react-icons/bi';
 import { supabase } from "../lib/supabase/browserClient.js";
 import { migrateLegacyLocalStorageSession } from "../lib/supabase/legacySessionMigration.js";
 import { createSessionRecovery } from "../lib/auth/sessionRecovery.js";
+import { isAuthUnavailable } from "../lib/auth/sessionErrors.js";
 import { ROUTES } from "../lib/navigation/routes.js";
 import { useAuthStore } from '../store/AuthStore';
 import { ROLES } from '../utils/constants';
@@ -23,7 +24,10 @@ export function AuthContextProvider({ children }) {
     user,
   } = useAuthStore();
   const [suspendedNotice, setSuspendedNotice] = useState(null);
-  const [securityNotices, setSecurityNotices] = useState([]);
+  const [loadedSecurityNotices, setSecurityNotices] = useState([]);
+  const securityNotices = profile?.role === ROLES.DELEGATE
+    ? loadedSecurityNotices.filter((notice) => notice.user_id === user?.id)
+    : [];
 
   // Ref para mantener canal de presencia único por sesión
   const presenceRef = useRef(null);
@@ -189,6 +193,28 @@ export function AuthContextProvider({ children }) {
       },
     });
 
+    const unsubscribeServerAuth = useAuthStore.subscribe((state, previousState) => {
+      const snapshot = state.hydratedServerAuth;
+      const previousSnapshot = previousState.hydratedServerAuth;
+      if (snapshot === previousSnapshot) return;
+
+      // A profile request started before this snapshot can return stale access.
+      recovery.invalidate();
+      if (
+        snapshot?.status === "authenticated" &&
+        previousSnapshot?.status === "authenticated" &&
+        snapshot.user.id === previousSnapshot.user.id &&
+        snapshot.profile.role === previousSnapshot.profile.role &&
+        previousState.serverAuthStatus === "authenticated" &&
+        previousState.user?.id === snapshot.user.id &&
+        previousState.profile?.role === snapshot.profile.role
+      ) return;
+
+      if (state.serverAuthStatus === "authenticated" || isAuthUnavailable(state.serverAuthStatus)) {
+        void recovery.recover();
+      }
+    });
+
     const recoverAfterAuthEvent = () => {
       if (authEventTimer !== null) window.clearTimeout(authEventTimer);
       // Leave Supabase's synchronous notification before calling auth methods.
@@ -247,6 +273,7 @@ export function AuthContextProvider({ children }) {
     resumeSession();
 
     return () => {
+      unsubscribeServerAuth();
       recovery.dispose();
       if (authEventTimer !== null) window.clearTimeout(authEventTimer);
       subscription.unsubscribe();
@@ -317,7 +344,7 @@ export function AuthContextProvider({ children }) {
     const loadUnreadNotices = async () => {
       const { data, error } = await supabase
         .from('account_security_notifications')
-        .select('id, title, message, metadata, created_at, read_at')
+        .select('id, user_id, title, message, metadata, created_at, read_at')
         .eq('user_id', user.id)
         .is('read_at', null)
         .order('created_at', { ascending: true })

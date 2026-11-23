@@ -1,21 +1,21 @@
 import { expect, test } from "@playwright/test";
+import { recoveryTestProfile, recoveryTestUser as user } from "./fixtures/password-recovery-session.mjs";
 
 test.skip(process.env.E2E_AUTH_RECOVERY !== "1", "Run with playwright.auth-recovery.config.js");
-
-const user = { id: "00000000-0000-4000-8000-000000000001", email: "recovery@example.invalid" };
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/auth/v1/user", (route) => route.fulfill({ json: user }));
   await page.routeWebSocket("**/realtime/v1/**", (socket) => socket.close());
 });
 
-const seedSession = async (context, baseURL) => {
+const seedSession = async (context, baseURL, { serverAvailable = false } = {}) => {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.VITE_APP_SUPABASE_URL) process.loadEnvFile(".env");
   const expiresAt = Math.floor(Date.now() / 1000) + 3600;
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const signature = serverAvailable ? "codex-recovery-e2e-available" : "codex-recovery-e2e";
   const accessToken = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({
     sub: user.id, exp: expiresAt, role: "authenticated",
-  })}.codex-recovery-e2e`;
+  })}.${signature}`;
   const session = { user, access_token: accessToken, refresh_token: "synthetic-refresh-token",
     expires_at: expiresAt, expires_in: 3600, token_type: "bearer" };
   const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_APP_SUPABASE_URL)
@@ -62,6 +62,55 @@ for (const resumeEvent of ["online", "focus"]) {
     await expect(page).toHaveURL(/\/configuracion\?tab=cuenta$/);
   });
 }
+
+test("reintenta la sesión si el servidor pierde acceso durante la navegación", async ({
+  page, context, baseURL, isMobile,
+}) => {
+  test.skip(isMobile, "Usa el sidebar visible de escritorio");
+  await seedSession(context, baseURL, { serverAvailable: true });
+
+  let profileAvailable = true;
+  let failedProfileReads = 0;
+  await page.route("**/rest/v1/**", (route) => {
+    if (new URL(route.request().url()).pathname !== "/rest/v1/profiles") {
+      return route.fulfill({ json: [] });
+    }
+    if (profileAvailable) return route.fulfill({ json: recoveryTestProfile });
+    failedProfileReads += 1;
+    return route.fulfill({
+      status: 503,
+      headers: { "Retry-After": "0", "Access-Control-Expose-Headers": "Retry-After" },
+      json: { code: "TEMPORARY", message: "Service temporarily unavailable" },
+    });
+  });
+  await page.route((url) => url.pathname === "/partidos", (route) => {
+    const headers = route.request().headers();
+    if (headers["next-router-prefetch"] || headers["next-router-segment-prefetch"]) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+  await page.goto("/configuracion", { waitUntil: "domcontentloaded" });
+  const content = page.locator(".contentRouters");
+  await expect(content.getByText("Configuración", { exact: true })).toBeVisible();
+
+  const documentRequests = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "document") documentRequests.push(request.url());
+  });
+  profileAvailable = false;
+  await seedSession(context, baseURL);
+  await page.locator('#app-sidebar a[href="/partidos"]').click();
+  await expect(page).toHaveURL("/partidos");
+  await expect(page.getByText("Estamos recuperando tu sesión")).toBeVisible();
+  await expect(content).toHaveCount(0);
+  await expect.poll(() => failedProfileReads).toBeGreaterThan(0);
+
+  profileAvailable = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(content.getByText("Partidos", { exact: true })).toBeVisible();
+  expect(documentRequests).toEqual([]);
+});
 
 test("un perfil sin permiso termina solo la sesion local", async ({ page, context, baseURL }) => {
   const cookieName = await seedSession(context, baseURL);

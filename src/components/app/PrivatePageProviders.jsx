@@ -6,13 +6,11 @@ import { ThemeProvider } from "styled-components";
 import { PantallaCarga } from "../organismos/PantallaCarga.jsx";
 import { AuthContextProvider } from "../../context/AuthContent.jsx";
 import { useDivisionStore } from "../../store/DivisionStore.jsx";
-import { useAuthStore } from "../../store/AuthStore.jsx";
 import {
   initializeThemeStore,
   useThemeStore,
 } from "../../store/ThemeStore.jsx";
 import { GlobalStyles } from "../../styles/GlobalStyles.jsx";
-import PrivateAuthGate from "./PrivateAuthGate.jsx";
 
 const subscribeToDivisionHydration = (onStoreChange) => {
   const unsubscribeStart =
@@ -31,7 +29,7 @@ const getDivisionHydrationSnapshot = () =>
 
 const getServerHydrationSnapshot = () => false;
 
-export default function PrivatePageProviders({ children, initialAuth }) {
+export default function PrivatePageProviders({ children }) {
   const { hasHydrated: themeHydrated, themeStyle } = useThemeStore();
   const divisionHydrated = useSyncExternalStore(
     subscribeToDivisionHydration,
@@ -41,26 +39,20 @@ export default function PrivatePageProviders({ children, initialAuth }) {
 
   useEffect(() => {
     const cleanupThemeListener = initializeThemeStore();
-    void useDivisionStore.persist.rehydrate();
-    useAuthStore.getState().hydrateServerAuth(initialAuth);
+    if (!useDivisionStore.persist.hasHydrated()) {
+      void useDivisionStore.persist.rehydrate();
+    }
     return cleanupThemeListener;
-  }, [initialAuth]);
-
-  if (!themeHydrated || !divisionHydrated) {
-    return (
-      <ThemeProvider theme={themeStyle}>
-        <GlobalStyles />
-        <PantallaCarga />
-      </ThemeProvider>
-    );
-  }
+  }, []);
 
   return (
     <ThemeProvider theme={themeStyle}>
       <GlobalStyles />
-      <AuthContextProvider initialAuth={initialAuth}>
-        <PrivateAuthGate initialAuth={initialAuth}>{children}</PrivateAuthGate>
-      </AuthContextProvider>
+      {themeHydrated && divisionHydrated ? (
+        <AuthContextProvider>{children}</AuthContextProvider>
+      ) : (
+        <PantallaCarga />
+      )}
     </ThemeProvider>
   );
 }
