@@ -1,5 +1,6 @@
 import Landing from "../../../src/views/Landing.jsx";
 import PublicPageProviders from "../../../src/components/app/PublicPageProviders.jsx";
+import { APP_NAME, BRAND_MARK } from "../../../src/lib/brand.js";
 
 export const metadata = {
   alternates: { canonical: "/landing" },
@@ -8,12 +9,12 @@ export const metadata = {
   openGraph: {
     description:
       "Gestion integral para ligas y torneos de futbol.",
-    images: ["/logo_app.png"],
+    images: [BRAND_MARK],
     locale: "es_MX",
-    title: "Bracket App | Gestion de ligas",
+    title: `${APP_NAME} | Gestion de ligas`,
     type: "website",
   },
-  title: "Gestiona tu liga | Bracket App",
+  title: `Gestiona tu liga | ${APP_NAME}`,
 };
 
 export default function LandingPage() {

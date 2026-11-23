@@ -4,7 +4,9 @@ import Link from "next/link";
 import localFont from "next/font/local";
 import { RiArrowLeftLine } from "react-icons/ri";
 import styled from "styled-components";
+import { APP_NAME } from "../../../lib/brand.js";
 import { ROUTES } from "../../../lib/navigation/routes.js";
+import { BrandLogo } from "../../atomos/BrandLogo.jsx";
 
 const recoveryFont = localFont({
   src: [
@@ -30,13 +32,12 @@ export function RecoveryCard({ children, onBack, backDisabled = false, backHref 
           </BackLink>
         )}
         <Surface>
-          <Brand href={ROUTES.LANDING} aria-label="Bracket App, volver al inicio">
-            <img src="/logo_app.png" width="52" height="52" alt="" />
-            <span>Bracket <span>App</span></span>
+          <Brand href={ROUTES.LANDING} aria-label={`${APP_NAME}, volver al inicio`}>
+            <BrandLogo alt="" />
           </Brand>
           {children}
         </Surface>
-        <Copyright>© {new Date().getFullYear()} Bracket App</Copyright>
+        <Copyright>© {new Date().getFullYear()} {APP_NAME}</Copyright>
       </Frame>
     </RecoveryPage>
   );
@@ -215,11 +216,9 @@ const Surface = styled.section`
   @media (max-width: 480px) { padding: 28px 24px; }
 `;
 const Brand = styled(Link)`
-  display: inline-flex; align-items: center; gap: 12px; min-height: 52px;
+  display: inline-flex; align-items: center; min-height: 52px;
   color: inherit; text-decoration: none;
-  > span { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
-  > span > span { font-weight: 400; }
-  img { object-fit: contain; }
+  img { width: 154px; max-width: 100%; height: auto; }
   &:focus-visible { outline: 2px solid var(--recovery-link); outline-offset: 4px; border-radius: 4px; }
 `;
 const Copyright = styled.p`

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { Icon } from "@iconify/react";
+import { APP_NAME } from "../../lib/brand.js";
 import { landingCopy } from "../../views/landing/copy";
 
 const BENEFIT_EXTRA = [
@@ -93,7 +94,7 @@ export default function BenefitsSection() {
 
         {/* COMPARATIVA */}
         <CompareSection className={hVisible ? "visible" : ""}>
-          <CompareTitle>¿Por qué Bracket App y no una hoja de cálculo?</CompareTitle>
+          <CompareTitle>¿Por qué {APP_NAME} y no una hoja de cálculo?</CompareTitle>
           <CompareGrid>
             <CompareCol bad>
               <ColHeader>❌ Excel / WhatsApp</ColHeader>
@@ -103,7 +104,7 @@ export default function BenefitsSection() {
             </CompareCol>
             <CompareDivider />
             <CompareCol>
-              <ColHeader>✅ Bracket App</ColHeader>
+              <ColHeader>✅ {APP_NAME}</ColHeader>
               {["Cálculo automático e instantáneo", "Enlace público compartible", "Historial completo por partido", "Multi-usuario con roles", "100% responsive en móvil"].map(t => (
                 <CompareItem key={t}>{t}</CompareItem>
               ))}

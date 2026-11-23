@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
 import styled from "styled-components";
 
@@ -20,6 +20,23 @@ export default function PrivateAuthGate({ children, initialAuth }) {
   const ready = hydratedAuth === initialAuth;
   const access = evaluateRouteAccess({ auth: { profile, status, user }, pathname });
 
+  useLayoutEffect(() => {
+    const auth = useAuthStore.getState();
+    if (suspendedNotice || auth.hydratedServerAuth === initialAuth) return;
+
+    // History can carry a snapshot from before a browser sign-out.
+    if (
+      auth.serverAuthStatus === "anonymous" &&
+      auth.hydratedServerAuth?.status === "authenticated" &&
+      initialAuth.status === "authenticated"
+    ) {
+      useAuthStore.setState({ hydratedServerAuth: initialAuth });
+      return;
+    }
+
+    auth.hydrateServerAuth(initialAuth);
+  }, [initialAuth, suspendedNotice]);
+
   useEffect(() => {
     if (!ready || suspendedNotice || status === "pending" || access.action !== "redirect") return;
     const currentAccess = evaluateRouteAccess({
@@ -29,6 +46,8 @@ export default function PrivateAuthGate({ children, initialAuth }) {
     });
     window.location.replace(currentAccess.destination);
   }, [ready, suspendedNotice, status, profile, user, pathname, access.action]);
+
+  if (suspendedNotice) return null;
 
   if (ready && access.action === "allow") return children;
 
@@ -42,6 +61,18 @@ export default function PrivateAuthGate({ children, initialAuth }) {
         </button>
       </RecoveryStatus>
     );
+  }
+
+  // A fresh snapshot for the same session is applied before the next paint.
+  if (
+    !ready &&
+    status === "authenticated" &&
+    initialAuth.status === "authenticated" &&
+    user?.id === initialAuth.user.id &&
+    profile?.role === initialAuth.profile.role &&
+    access.action === "allow"
+  ) {
+    return null;
   }
 
   return <PantallaCarga />;

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import "./landing/tokens.css";
 import { useThemeStore } from "../store/ThemeStore";
-import { v } from "../styles/variables";
+import { BRAND_MARK } from "../lib/brand.js";
 
 // Componentes de la Landing
 import LandingHeader from "../components/landing/LandingHeader";
@@ -54,7 +54,7 @@ const LiveAppPreview = () => {
     id: "demo-1",
     name: "AFC Kravitt",
     color: "#F9743B",
-    logo_url: v.logo,
+    logo_url: BRAND_MARK,
     delegate_name: "Aldo García",
     status: "Activo",
     players: new Array(15).fill({}),
@@ -114,8 +114,7 @@ export default function Landing() {
 
   return (
     <div className="landing-scope" data-theme={theme} style={landingVars}>
-      {/* Puedes pasarle v.logo a tu LandingHeader si lo recibe por props */}
-      <LandingHeader logo={v.logo} /> 
+      <LandingHeader />
       
       <main>
         <ScrollReveal delay={0}><HeroSection /></ScrollReveal>

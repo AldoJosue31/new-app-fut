@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import LoginTemplate from "../../../src/components/template/LoginTemplate.jsx";
+import { APP_NAME } from "../../../src/lib/brand.js";
 import {
   getDefaultAuthenticatedPath,
 } from "../../../src/lib/auth/routeAccess.js";
@@ -16,7 +17,7 @@ export const revalidate = 0;
 
 export const metadata = {
   robots: { follow: false, index: false },
-  title: "Ingresar | Bracket App",
+  title: `Ingresar | ${APP_NAME}`,
 };
 
 const readSearchValue = (value) =>

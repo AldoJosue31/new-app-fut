@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import Landing from "../../src/views/Landing.jsx";
+import { APP_NAME, BRAND_MARK } from "../../src/lib/brand.js";
 import {
   getDefaultAuthenticatedPath,
 } from "../../src/lib/auth/routeAccess.js";
@@ -17,12 +18,12 @@ export const metadata = {
   openGraph: {
     description:
       "Gestion integral para ligas y torneos de futbol.",
-    images: ["/logo_app.png"],
+    images: [BRAND_MARK],
     locale: "es_MX",
-    title: "Bracket App",
+    title: APP_NAME,
     type: "website",
   },
-  title: "Bracket App | Gestion de ligas de futbol",
+  title: `${APP_NAME} | Gestion de ligas de futbol`,
 };
 
 export default async function HomePage() {

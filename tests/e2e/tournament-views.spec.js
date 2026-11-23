@@ -96,6 +96,79 @@ const expectMode = async (page, view) => {
     .toHaveAttribute("aria-pressed", String(view === "grid"));
 };
 
+test("navegar desde el sidebar conserva la vista hasta que llega la siguiente", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Usa los enlaces visibles del sidebar de escritorio");
+
+  const expectView = expect.configure({ timeout: 15_000 });
+  const content = page.locator(".contentRouters");
+  const settingsTitle = content.getByText("Configuración", { exact: true });
+  const matchesTitle = content.getByText("Partidos", { exact: true });
+  const teamsPath = "/division/94/equipos";
+  const sidebarLink = (path) => page.locator(`#app-sidebar a[href="${path}"]`);
+  let releaseRoute;
+  let requestedRoute = false;
+  const pendingRoute = new Promise((resolve) => { releaseRoute = resolve; });
+
+  await page.route((url) => url.pathname === "/partidos", async (route) => {
+    if (route.request().headers().rsc === "1") {
+      requestedRoute = true;
+      await pendingRoute;
+    }
+    await route.continue();
+  });
+  await page.goto("/configuracion", { waitUntil: "domcontentloaded" });
+  await expectView(settingsTitle).toBeVisible();
+
+  const documentRequests = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "document") documentRequests.push(request.url());
+  });
+  await page.evaluate(() => {
+    const navigation = { loadingScreens: 0, framesWithoutView: 0 };
+    window.sidebarNavigation = navigation;
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof Element && (
+            node.matches("[data-loading-screen]") ||
+            node.querySelector("[data-loading-screen]")
+          )) {
+            navigation.loadingScreens += 1;
+          }
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+
+    const checkView = () => {
+      if (!document.querySelector(".contentRouters")) navigation.framesWithoutView += 1;
+      window.requestAnimationFrame(checkView);
+    };
+    window.requestAnimationFrame(checkView);
+  });
+
+  try {
+    await sidebarLink("/partidos").click();
+    await expectView.poll(() => requestedRoute).toBe(true);
+    await expect(settingsTitle).toBeVisible();
+  } finally {
+    releaseRoute();
+  }
+  await expectView(page).toHaveURL("/partidos");
+  await expectView(matchesTitle).toBeVisible();
+
+  await sidebarLink(teamsPath).click();
+  await expectView(page).toHaveURL(teamsPath);
+  await expectView(sidebarLink(teamsPath)).toHaveAttribute("aria-current", "page");
+  await expectView(content.getByText("Equipos", { exact: true }).first()).toBeVisible();
+
+  await page.goBack();
+  await expectView(page).toHaveURL("/partidos");
+  await expectView(matchesTitle).toBeVisible();
+  expect(documentRequests).toEqual([]);
+  expect(await page.evaluate(() => window.sidebarNavigation))
+    .toEqual({ loadingScreens: 0, framesWithoutView: 0 });
+});
+
 test("grid sobrevive a recarga, cambio de jornada e historial", async ({ page }) => {
   await page.goto(roundPath(456, "grid"));
   await expectMode(page, "grid");

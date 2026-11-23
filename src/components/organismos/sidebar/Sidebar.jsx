@@ -6,6 +6,7 @@ import { useAuthStore } from "../../../store/AuthStore";
 import { useDivisionStore } from "../../../store/DivisionStore";
 import { v } from "../../../styles/variables";
 import { Device } from "../../../styles/breakpoints";
+import { BrandLogo } from "../../atomos/BrandLogo.jsx";
 import { ToggleTema } from "../ToggleTema";
 import { DivisionSelector } from "../../moleculas/DivisionSelector";
 import { ConfirmModal } from "../ConfirmModal";
@@ -200,8 +201,7 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
               })
             }
           >
-            <div className="imgcontent"><img src={v.logo} alt="" /></div>
-            <h2>Bracket <span>App</span></h2>
+            <BrandLogo variant={state ? "horizontal" : "mark"} />
           </Link>
         </div>
 
@@ -403,7 +403,6 @@ const Container = styled.div`
       display: flex;
       justify-content: ${({ $isOpen }) => ($isOpen ? "flex-start" : "center")};
       align-items: center;
-      gap: 13px;
       text-decoration: none;
       color: inherit;
       width: 100%;
@@ -416,45 +415,16 @@ const Container = styled.div`
       }
     }
 
-    .imgcontent {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
+    img {
+      width: ${({ $isOpen }) => ($isOpen ? "min(100%, 166px)" : "48px")};
       height: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
-      flex: 0 0 auto;
-      cursor: pointer;
-      transition: width 280ms ease, height 280ms ease, transform 180ms ease;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        filter: drop-shadow(0 5px 8px rgba(4, 31, 48, 0.16));
-      }
-    }
-
-    h2 {
-      color: ${({ theme }) => theme.text};
-      display: ${({ $isOpen }) => ($isOpen ? "flex" : "none")};
-      align-items: baseline;
-      gap: 5px;
-      min-width: 0;
-      margin: 0;
-      font-size: 21px;
-      line-height: 1;
-      letter-spacing: -0.025em;
-      white-space: nowrap;
-
-      span {
-        color: ${({ theme }) => theme.primary};
-      }
+      object-fit: contain;
+      filter: drop-shadow(0 5px 8px rgba(4, 31, 48, 0.16));
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &,
-    .Logocontent .imgcontent {
+    & {
       transition: none;
     }
   }

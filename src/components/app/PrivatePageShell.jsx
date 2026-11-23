@@ -14,7 +14,7 @@ import {
   SIDEBAR_OPEN_WIDTH,
 } from "../organismos/sidebar/Sidebar.jsx";
 import { Device } from "../../styles/breakpoints.jsx";
-import PrivatePageProviders from "./PrivatePageProviders.jsx";
+import PrivateAuthGate from "./PrivateAuthGate.jsx";
 import { NavigationProgressBar } from "./NavigationProgress.jsx";
 import { useLayoutStore } from "../../store/LayoutStore.jsx";
 
@@ -34,7 +34,7 @@ export default function PrivatePageShell({
 
   return (
     <ErrorBoundary>
-      <PrivatePageProviders initialAuth={initialAuth}>
+      <PrivateAuthGate initialAuth={initialAuth}>
         <Container className={sidebarOpen ? "active" : ""}>
           <section className="contentSidebar">
             <Sidebar
@@ -46,7 +46,7 @@ export default function PrivatePageShell({
           <section className="contentRouters">{content}</section>
         </Container>
         <NavigationProgressBar />
-      </PrivatePageProviders>
+      </PrivateAuthGate>
     </ErrorBoundary>
   );
 }
