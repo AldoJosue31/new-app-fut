@@ -1,0 +1,35 @@
+{
+  "estado": "03-cambio-sin-guardar",
+  "dispositivo": "mobile",
+  "ruta": "/liga/rules",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 646,
+  "scrollX": 50,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-03-cambio-sin-guardar-",
+  "altoPagina": 1745,
+  "nota": "",
+  "objetivos": {
+    "campo": {
+      "x": 225,
+      "y": 68,
+      "w": 205,
+      "h": 43,
+      "cx": 327,
+      "cy": 90,
+      "text": ""
+    },
+    "aviso": {
+      "x": 41,
+      "y": -369,
+      "w": 233,
+      "h": 23,
+      "cx": 158,
+      "cy": -357,
+      "text": "Tienes cambios sin guardar."
+    }
+  }
+}

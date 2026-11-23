@@ -1,0 +1,35 @@
+{
+  "estado": "01-equipos-sin-vincular",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/equipos",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-09-delegado-01-equipos-sin-vincular-",
+  "altoPagina": 3247,
+  "nota": "",
+  "objetivos": {
+    "sinVincular": {
+      "x": 198,
+      "y": 99,
+      "w": 172,
+      "h": 46,
+      "cx": 284,
+      "cy": 122,
+      "text": "9\nSin vincular"
+    },
+    "invitaciones": {
+      "x": 20,
+      "y": 153,
+      "w": 171,
+      "h": 44,
+      "cx": 106,
+      "cy": 175,
+      "text": "Invitaciones"
+    }
+  }
+}

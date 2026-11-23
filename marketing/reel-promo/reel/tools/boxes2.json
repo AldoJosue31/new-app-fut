@@ -1,0 +1,4449 @@
+{
+ "04-resultado/mobile/03-definir-resultado": {
+  "primera fuerza": [
+   [
+    {
+     "tag": "span",
+     "cls": "meta-top",
+     "box": [
+      144,
+      152,
+      101,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScoreHeader__CenterBlock-sc-",
+     "box": [
+      141,
+      152,
+      108,
+      68
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScoreHeader__Container-sc-1f",
+     "box": [
+      24,
+      139,
+      343,
+      94
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "ResultModal__Container-sc-6d",
+     "box": [
+      24,
+      139,
+      343,
+      682
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      12,
+      127,
+      367,
+      700
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__DockLayout-sc-66c7177",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      1515,
+      390,
+      0
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Victoria por Default": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      74,
+      313,
+      271,
+      24
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "button",
+     "cls": "wo-header",
+     "box": [
+      25,
+      298,
+      335,
+      54
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "GeneralTab__WalkoverBox-sc-8",
+     "box": [
+      24,
+      297,
+      337,
+      56
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "GeneralTab__Container-sc-8b2",
+     "box": [
+      24,
+      297,
+      337,
+      607
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      24,
+      297,
+      337,
+      607
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ResultModal__ContentBody-sc-",
+     "box": [
+      24,
+      297,
+      343,
+      469
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ResultModal__Container-sc-6d",
+     "box": [
+      24,
+      139,
+      343,
+      682
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      12,
+      127,
+      367,
+      700
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": "bg r16px"
+    }
+   ]
+  ]
+ },
+ "04-resultado/mobile/05-gol-local": {
+  "primera fuerza": [
+   [
+    {
+     "tag": "span",
+     "cls": "meta-top",
+     "box": [
+      144,
+      152,
+      101,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScoreHeader__CenterBlock-sc-",
+     "box": [
+      141,
+      152,
+      108,
+      68
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScoreHeader__Container-sc-1f",
+     "box": [
+      24,
+      139,
+      343,
+      94
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "ResultModal__Container-sc-6d",
+     "box": [
+      24,
+      139,
+      343,
+      682
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      12,
+      127,
+      367,
+      700
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__DockLayout-sc-66c7177",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      1515,
+      390,
+      0
+     ],
+     "deco": ""
+    }
+   ]
+  ]
+ },
+ "04-resultado/mobile/06-goles-visita": {
+  "primera fuerza": [
+   [
+    {
+     "tag": "span",
+     "cls": "meta-top",
+     "box": [
+      144,
+      152,
+      101,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScoreHeader__CenterBlock-sc-",
+     "box": [
+      141,
+      152,
+      108,
+      68
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScoreHeader__Container-sc-1f",
+     "box": [
+      24,
+      139,
+      343,
+      94
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "ResultModal__Container-sc-6d",
+     "box": [
+      24,
+      139,
+      343,
+      682
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      12,
+      127,
+      367,
+      700
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__DockLayout-sc-66c7177",
+     "box": [
+      12,
+      17,
+      367,
+      810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      1515,
+      390,
+      0
+     ],
+     "deco": ""
+    }
+   ]
+  ]
+ },
+ "04-resultado/mobile/01-tabla-antes": {
+  "EQUIPO": [
+   [
+    {
+     "tag": "th",
+     "cls": "StandingsTable__Th-sc-7302d9",
+     "box": [
+      17,
+      203,
+      194,
+      32
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "box": [
+      17,
+      203,
+      506,
+      32
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "thead",
+     "cls": "",
+     "box": [
+      17,
+      203,
+      506,
+      32
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      203,
+      506,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      203,
+      356,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      202,
+      358,
+      414
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__ViewCon",
+     "box": [
+      16,
+      202,
+      358,
+      558
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__Standin",
+     "box": [
+      0,
+      96,
+      390,
+      664
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      24,
+      96,
+      343,
+      735
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Real Cuauhtémoc": [
+   [
+    {
+     "tag": "span",
+     "cls": "team-name",
+     "box": [
+      78,
+      241,
+      127,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamTextBloc",
+     "box": [
+      78,
+      241,
+      127,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamNameCell",
+     "box": [
+      23,
+      241,
+      182,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "td",
+     "cls": "StandingsTable__Td-sc-7302d9",
+     "box": [
+      17,
+      235,
+      194,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "StandingsTable__TrBase-sc-73",
+     "box": [
+      17,
+      235,
+      506,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "box": [
+      17,
+      235,
+      506,
+      380
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      203,
+      506,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      203,
+      356,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      202,
+      358,
+      414
+     ],
+     "deco": "bg border r12px"
+    }
+   ]
+  ],
+  "Atlético San Isidro": [
+   [
+    {
+     "tag": "span",
+     "cls": "team-name",
+     "box": [
+      79,
+      323,
+      113,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamTextBloc",
+     "box": [
+      79,
+      323,
+      126,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamNameCell",
+     "box": [
+      23,
+      321,
+      182,
+      18
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "td",
+     "cls": "StandingsTable__Td-sc-7302d9",
+     "box": [
+      17,
+      311,
+      194,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "StandingsTable__TrBase-sc-73",
+     "box": [
+      17,
+      311,
+      506,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "box": [
+      17,
+      235,
+      506,
+      380
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      203,
+      506,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      203,
+      356,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      202,
+      358,
+      414
+     ],
+     "deco": "bg border r12px"
+    }
+   ]
+  ],
+  "Unión Santa Fe": [
+   [
+    {
+     "tag": "span",
+     "cls": "team-name",
+     "box": [
+      79,
+      361,
+      93,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamTextBloc",
+     "box": [
+      79,
+      361,
+      126,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamNameCell",
+     "box": [
+      23,
+      359,
+      182,
+      18
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "td",
+     "cls": "StandingsTable__Td-sc-7302d9",
+     "box": [
+      17,
+      349,
+      194,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "StandingsTable__TrBase-sc-73",
+     "box": [
+      17,
+      349,
+      506,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "box": [
+      17,
+      235,
+      506,
+      380
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      203,
+      506,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      203,
+      356,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      202,
+      358,
+      414
+     ],
+     "deco": "bg border r12px"
+    }
+   ]
+  ]
+ },
+ "04-resultado/mobile/09-tabla-despues": {
+  "EQUIPO": [
+   [
+    {
+     "tag": "th",
+     "cls": "StandingsTable__Th-sc-7302d9",
+     "box": [
+      17,
+      202,
+      194,
+      32
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "",
+     "box": [
+      17,
+      202,
+      506,
+      32
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "thead",
+     "cls": "",
+     "box": [
+      17,
+      202,
+      506,
+      32
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      202,
+      506,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      202,
+      356,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      201,
+      358,
+      415
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__ViewCon",
+     "box": [
+      16,
+      201,
+      358,
+      558
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__Standin",
+     "box": [
+      0,
+      95,
+      390,
+      664
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      24,
+      95,
+      343,
+      735
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Real Cuauhtémoc": [
+   [
+    {
+     "tag": "span",
+     "cls": "team-name",
+     "box": [
+      78,
+      240,
+      127,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamTextBloc",
+     "box": [
+      78,
+      240,
+      127,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamNameCell",
+     "box": [
+      23,
+      240,
+      182,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "td",
+     "cls": "StandingsTable__Td-sc-7302d9",
+     "box": [
+      17,
+      234,
+      194,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "StandingsTable__TrBase-sc-73",
+     "box": [
+      17,
+      234,
+      506,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "box": [
+      17,
+      234,
+      506,
+      381
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      202,
+      506,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      202,
+      356,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      201,
+      358,
+      415
+     ],
+     "deco": "bg border r12px"
+    }
+   ]
+  ],
+  "Leones de Tlalpan": [
+   [
+    {
+     "tag": "span",
+     "cls": "team-name",
+     "box": [
+      79,
+      317,
+      112,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamTextBloc",
+     "box": [
+      79,
+      317,
+      126,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamNameCell",
+     "box": [
+      23,
+      317,
+      182,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "td",
+     "cls": "StandingsTable__Td-sc-7302d9",
+     "box": [
+      17,
+      311,
+      194,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "StandingsTable__TrBase-sc-73",
+     "box": [
+      17,
+      311,
+      506,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "box": [
+      17,
+      234,
+      506,
+      381
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      202,
+      506,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      202,
+      356,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      201,
+      358,
+      415
+     ],
+     "deco": "bg border r12px"
+    }
+   ]
+  ],
+  "Unión Santa Fe": [
+   [
+    {
+     "tag": "span",
+     "cls": "team-name",
+     "box": [
+      79,
+      361,
+      93,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamTextBloc",
+     "box": [
+      79,
+      361,
+      126,
+      14
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TeamNameCell",
+     "box": [
+      23,
+      359,
+      182,
+      18
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "td",
+     "cls": "StandingsTable__Td-sc-7302d9",
+     "box": [
+      17,
+      349,
+      194,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tr",
+     "cls": "StandingsTable__TrBase-sc-73",
+     "box": [
+      17,
+      349,
+      506,
+      38
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "tbody",
+     "cls": "",
+     "box": [
+      17,
+      234,
+      506,
+      381
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "table",
+     "cls": "StandingsTable__StyledTable-",
+     "box": [
+      17,
+      202,
+      506,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__ResponsiveTa",
+     "box": [
+      17,
+      202,
+      356,
+      413
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsTable__TableCard-sc",
+     "box": [
+      16,
+      201,
+      358,
+      415
+     ],
+     "deco": "bg border r12px"
+    }
+   ]
+  ]
+ },
+ "07-exportar/mobile/01-tabla-clasica": {
+  "Clásica": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      151,
+      668,
+      55,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      36,
+      668,
+      318,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      666,
+      354,
+      94
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "p",
+     "cls": "combination-details",
+     "box": [
+      36,
+      732,
+      318,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      666,
+      354,
+      94
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-frame",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    }
+   ]
+  ],
+  "Una combinación": [
+   [
+    {
+     "tag": "p",
+     "cls": "",
+     "box": [
+      36,
+      693,
+      318,
+      35
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      666,
+      354,
+      94
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-frame",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    }
+   ]
+  ],
+  "Colores de la liga": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      143,
+      296,
+      118,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "button",
+     "cls": "league-colors-control",
+     "box": [
+      30,
+      283,
+      330,
+      44
+     ],
+     "deco": "bg border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      221,
+      354,
+      108
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Cancelar": [
+   [
+    {
+     "tag": "button",
+     "cls": "cancel-btn",
+     "box": [
+      30,
+      776,
+      163,
+      42
+     ],
+     "deco": "border r12px"
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__ModalF",
+     "box": [
+      18,
+      760,
+      354,
+      72
+     ],
+     "deco": "bg border"
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-frame",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    }
+   ]
+  ],
+  "_slideActual": [
+   96,
+   373,
+   198,
+   248
+  ]
+ },
+ "07-exportar/mobile/07-tabla-colores-liga": {
+  "Clásica": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      151,
+      685,
+      55,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      36,
+      685,
+      318,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      683,
+      354,
+      77
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "p",
+     "cls": "combination-details",
+     "box": [
+      36,
+      732,
+      318,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      683,
+      354,
+      77
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-frame",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    }
+   ]
+  ],
+  "Diseño adaptado": [
+   [
+    {
+     "tag": "p",
+     "cls": "",
+     "box": [
+      36,
+      710,
+      318,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__StyleC",
+     "box": [
+      18,
+      683,
+      354,
+      77
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "StandingsExportModal__Previe",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Body-sc-66c7177b-6",
+     "box": [
+      18,
+      64,
+      354,
+      768
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__ModalContainer-sc-66c",
+     "box": [
+      18,
+      12,
+      354,
+      820
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "Modal__Overlay-sc-66c7177b-0",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      0,
+      844,
+      390,
+      0
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-body",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "bk-frame",
+     "box": [
+      0,
+      0,
+      390,
+      844
+     ],
+     "deco": "bg"
+    }
+   ]
+  ],
+  "_slideActual": [
+   96,
+   382,
+   198,
+   248
+  ]
+ },
+ "09-delegado/mobile/05-analisis-proximo-rival": {
+  "Jornada 8": [
+   [
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Fixtur",
+     "box": [
+      55,
+      331,
+      280,
+      19
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__MatchA",
+     "box": [
+      55,
+      311,
+      280,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchW",
+     "box": [
+      55,
+      310,
+      280,
+      547
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateFul",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateSur",
+     "box": [
+      20,
+      -1122,
+      350,
+      2368
+     ],
+     "deco": "bg r16px"
+    }
+   ]
+  ],
+  "Leones de Tlalpan": [
+   [
+    {
+     "tag": "h2",
+     "cls": "",
+     "box": [
+      124,
+      -1067,
+      228,
+      25
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamOverview__Identi",
+     "box": [
+      124,
+      -1096,
+      228,
+      88
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamOverview__Identi",
+     "box": [
+      38,
+      -1104,
+      314,
+      191
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateFul",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateSur",
+     "box": [
+      20,
+      -1122,
+      350,
+      2368
+     ],
+     "deco": "bg r16px"
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__MainContain",
+     "box": [
+      20,
+      -1122,
+      350,
+      2368
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ContentContainer__StyledCont",
+     "box": [
+      0,
+      -1132,
+      390,
+      2408
+     ],
+     "deco": "bg"
+    }
+   ],
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      55,
+      446,
+      112,
+      44
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__TeamId",
+     "box": [
+      55,
+      374,
+      112,
+      141
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchI",
+     "box": [
+      55,
+      374,
+      280,
+      141
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__MatchA",
+     "box": [
+      55,
+      311,
+      280,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchW",
+     "box": [
+      55,
+      310,
+      280,
+      547
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Tu equipo parte con ventaja": [
+   [
+    {
+     "tag": "p",
+     "cls": "DelegateForecastView__MatchV",
+     "box": [
+      55,
+      531,
+      280,
+      20
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__MatchA",
+     "box": [
+      55,
+      311,
+      280,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchW",
+     "box": [
+      55,
+      310,
+      280,
+      547
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateFul",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateSur",
+     "box": [
+      20,
+      -1122,
+      350,
+      2368
+     ],
+     "deco": "bg r16px"
+    }
+   ]
+  ],
+  "45 %": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      55,
+      597,
+      85,
+      29
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      55,
+      574,
+      85,
+      52
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Probab",
+     "box": [
+      55,
+      574,
+      280,
+      52
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__MatchA",
+     "box": [
+      55,
+      311,
+      280,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchW",
+     "box": [
+      55,
+      310,
+      280,
+      547
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Goles": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      55,
+      666,
+      89,
+      37
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      55,
+      666,
+      147,
+      37
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__GoalEs",
+     "box": [
+      55,
+      666,
+      280,
+      37
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__MatchA",
+     "box": [
+      55,
+      311,
+      280,
+      412
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchW",
+     "box": [
+      55,
+      310,
+      280,
+      547
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "li",
+     "cls": "",
+     "box": [
+      75,
+      1097,
+      260,
+      23
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "ul",
+     "cls": "DelegateForecastView__Explan",
+     "box": [
+      55,
+      1046,
+      280,
+      123
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Detail",
+     "box": [
+      55,
+      998,
+      280,
+      1004
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "details",
+     "cls": "DelegateForecastView__Detail",
+     "box": [
+      55,
+      949,
+      280,
+      49
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "EquiposTemplate__DelegateFul",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "El rival, en contexto": [
+   [
+    {
+     "tag": "h4",
+     "cls": "",
+     "box": [
+      71,
+      754,
+      150,
+      23
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Contex",
+     "box": [
+      71,
+      743,
+      248,
+      44
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Contex",
+     "box": [
+      71,
+      743,
+      248,
+      72
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "aside",
+     "cls": "DelegateForecastView__RivalC",
+     "box": [
+      55,
+      723,
+      280,
+      112
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__MatchW",
+     "box": [
+      55,
+      310,
+      280,
+      547
+     ],
+     "deco": "border"
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateForecastView__Panel-",
+     "box": [
+      39,
+      165,
+      312,
+      852
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateForecastView__Sectio",
+     "box": [
+      38,
+      -19,
+      314,
+      1151
+     ],
+     "deco": "bg border r16px"
+    },
+    {
+     "tag": "section",
+     "cls": "DelegateTeamOverview__Overvi",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "DelegateTeamDetailPanel__Pan",
+     "box": [
+      38,
+      -1104,
+      314,
+      2332
+     ],
+     "deco": ""
+    }
+   ]
+  ]
+ },
+ "06-liguilla/mobile/07-torneo-con-campeon": {
+  "campeón": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      40,
+      376,
+      107,
+      19
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "runner-up",
+     "box": [
+      39,
+      373,
+      109,
+      150
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "champion-panel",
+     "box": [
+      39,
+      274,
+      312,
+      269
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "active-hero",
+     "box": [
+      20,
+      95,
+      350,
+      577
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__ActiveT",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinitionMode__ModeTr",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__StyledC",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosTemplate__ContentGrid",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      188,
+      284,
+      163,
+      24
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "champion",
+     "box": [
+      188,
+      284,
+      163,
+      229
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "champion-panel",
+     "box": [
+      39,
+      274,
+      312,
+      269
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "active-hero",
+     "box": [
+      20,
+      95,
+      350,
+      577
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__ActiveT",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinitionMode__ModeTr",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__StyledC",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosTemplate__ContentGrid",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "subcampeón": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      40,
+      376,
+      107,
+      19
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "runner-up",
+     "box": [
+      39,
+      373,
+      109,
+      150
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "champion-panel",
+     "box": [
+      39,
+      274,
+      312,
+      269
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "active-hero",
+     "box": [
+      20,
+      95,
+      350,
+      577
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__ActiveT",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinitionMode__ModeTr",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__StyledC",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosTemplate__ContentGrid",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Real Cuauhtémoc FC": [
+   [
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      188,
+      455,
+      163,
+      58
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "",
+     "box": [
+      188,
+      313,
+      163,
+      200
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "champion",
+     "box": [
+      188,
+      284,
+      163,
+      229
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "champion-panel",
+     "box": [
+      39,
+      274,
+      312,
+      269
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "active-hero",
+     "box": [
+      20,
+      95,
+      350,
+      577
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__ActiveT",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinitionMode__ModeTr",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__StyledC",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      91,
+      1847,
+      229,
+      15
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "metric-copy",
+     "box": [
+      91,
+      1831,
+      229,
+      46
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "metric-item",
+     "box": [
+      39,
+      1822,
+      312,
+      64
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "metrics-grid",
+     "box": [
+      39,
+      1600,
+      312,
+      286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "metrics-card",
+     "box": [
+      20,
+      1549,
+      350,
+      356
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__ActiveT",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinitionMode__ModeTr",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__StyledC",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Exportar resumen": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      145,
+      569,
+      121,
+      20
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "button",
+     "cls": "primary-action",
+     "box": [
+      39,
+      558,
+      312,
+      42
+     ],
+     "deco": "bg r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "hero-actions",
+     "box": [
+      39,
+      558,
+      312,
+      96
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "active-hero",
+     "box": [
+      20,
+      95,
+      350,
+      577
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__ActiveT",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinitionMode__ModeTr",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoDefinicionTab__StyledC",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosTemplate__ContentGrid",
+     "box": [
+      20,
+      95,
+      350,
+      1810
+     ],
+     "deco": ""
+    }
+   ]
+  ]
+ },
+ "04-resultado/mobile/02-jornada": {
+  "Jornada 8": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      153,
+      113,
+      92,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "button",
+     "cls": "PlanningHeader__JornadaButto",
+     "box": [
+      135,
+      113,
+      128,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlanningHeader__JornadaDropd",
+     "box": [
+      135,
+      113,
+      128,
+      21
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlanningHeader__Title-sc-d9a",
+     "box": [
+      135,
+      113,
+      128,
+      47
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlanningHeader__NavRow-sc-d9",
+     "box": [
+      39,
+      113,
+      320,
+      47
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlanningHeader__InfoGroup-sc",
+     "box": [
+      39,
+      113,
+      320,
+      109
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlanningHeader__Container-sc",
+     "box": [
+      24,
+      98,
+      350,
+      139
+     ],
+     "deco": "bg r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Contai",
+     "box": [
+      24,
+      98,
+      350,
+      1406
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoJornadasTab__TabContai",
+     "box": [
+      24,
+      98,
+      350,
+      1406
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Por Asignar": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      35,
+      261,
+      112,
+      22
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "sb-header",
+     "box": [
+      25,
+      248,
+      348,
+      49
+     ],
+     "deco": "bg"
+    },
+    {
+     "tag": "div",
+     "cls": "PlanningSidebar__SidebarCont",
+     "box": [
+      24,
+      247,
+      350,
+      125
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Worksp",
+     "box": [
+      24,
+      247,
+      350,
+      1192
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Transi",
+     "box": [
+      24,
+      247,
+      350,
+      1192
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Contai",
+     "box": [
+      24,
+      98,
+      350,
+      1406
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneoJornadasTab__TabContai",
+     "box": [
+      24,
+      98,
+      350,
+      1406
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TabsNavigation__TabContent-s",
+     "box": [
+      24,
+      96,
+      350,
+      1406
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosTemplate__ContentGrid",
+     "box": [
+      24,
+      96,
+      350,
+      1406
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Sábado 21/11/26": [
+   [
+    {
+     "tag": "span",
+     "cls": "",
+     "box": [
+      36,
+      414,
+      128,
+      24
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScheduledMatchRow__DateDivid",
+     "box": [
+      36,
+      399,
+      321,
+      44
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScheduledMatchRow__Wrapper-s",
+     "box": [
+      36,
+      399,
+      321,
+      222
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__GridLi",
+     "box": [
+      36,
+      399,
+      321,
+      1028
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__DropZo",
+     "box": [
+      24,
+      387,
+      350,
+      1052
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__MainZo",
+     "box": [
+      24,
+      387,
+      350,
+      1052
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Worksp",
+     "box": [
+      24,
+      247,
+      350,
+      1192
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Transi",
+     "box": [
+      24,
+      247,
+      350,
+      1192
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__Contai",
+     "box": [
+      24,
+      98,
+      350,
+      1406
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "span",
+     "cls": "date-text",
+     "box": [
+      108,
+      496,
+      107,
+      20
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "datetime-display",
+     "box": [
+      47,
+      490,
+      299,
+      33
+     ],
+     "deco": "bg r6px"
+    },
+    {
+     "tag": "div",
+     "cls": "confirmed-actions",
+     "box": [
+      47,
+      490,
+      299,
+      118
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "settings",
+     "box": [
+      47,
+      490,
+      299,
+      121
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScheduledMatchRow__Container",
+     "box": [
+      36,
+      453,
+      321,
+      168
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "ScheduledMatchRow__Wrapper-s",
+     "box": [
+      36,
+      399,
+      321,
+      222
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__GridLi",
+     "box": [
+      36,
+      399,
+      321,
+      1028
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__DropZo",
+     "box": [
+      24,
+      387,
+      350,
+      1052
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__MainZo",
+     "box": [
+      24,
+      387,
+      350,
+      1052
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Real Cuauhtémoc": [
+   [
+    {
+     "tag": "span",
+     "cls": "name",
+     "box": [
+      47,
+      465,
+      136,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "team",
+     "box": [
+      47,
+      465,
+      136,
+      16
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "info",
+     "box": [
+      47,
+      464,
+      299,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "content",
+     "box": [
+      47,
+      464,
+      299,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "ScheduledMatchRow__Container",
+     "box": [
+      36,
+      453,
+      321,
+      168
+     ],
+     "deco": "bg border r8px"
+    },
+    {
+     "tag": "div",
+     "cls": "ScheduledMatchRow__Wrapper-s",
+     "box": [
+      36,
+      399,
+      321,
+      222
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__GridLi",
+     "box": [
+      36,
+      399,
+      321,
+      1028
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__DropZo",
+     "box": [
+      24,
+      387,
+      350,
+      1052
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "JornadaPlanificacion__MainZo",
+     "box": [
+      24,
+      387,
+      350,
+      1052
+     ],
+     "deco": ""
+    }
+   ]
+  ]
+ },
+ "06-liguilla/mobile/06-cuadro-completo": {
+  "Cuartos de final": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      71,
+      222,
+      288,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__FutureSt",
+     "box": [
+      31,
+      217,
+      328,
+      26
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      217,
+      328,
+      706
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__MobileBr",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      17,
+      203,
+      356,
+      1314
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      16,
+      202,
+      358,
+      1316
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__ViewCon",
+     "box": [
+      16,
+      202,
+      358,
+      1338
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__Standin",
+     "box": [
+      0,
+      96,
+      390,
+      1444
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Semifinales": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      71,
+      945,
+      288,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__FutureSt",
+     "box": [
+      31,
+      941,
+      328,
+      26
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      941,
+      328,
+      366
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__MobileBr",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      17,
+      203,
+      356,
+      1314
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      16,
+      202,
+      358,
+      1316
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__ViewCon",
+     "box": [
+      16,
+      202,
+      358,
+      1338
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__Standin",
+     "box": [
+      0,
+      96,
+      390,
+      1444
+     ],
+     "deco": ""
+    }
+   ]
+  ],
+  "Final": [
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      71,
+      222,
+      288,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__FutureSt",
+     "box": [
+      31,
+      217,
+      328,
+      26
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      217,
+      328,
+      706
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__MobileBr",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      17,
+      203,
+      356,
+      1314
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      16,
+      202,
+      358,
+      1316
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__ViewCon",
+     "box": [
+      16,
+      202,
+      358,
+      1338
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__Standin",
+     "box": [
+      0,
+      96,
+      390,
+      1444
+     ],
+     "deco": ""
+    }
+   ],
+   [
+    {
+     "tag": "strong",
+     "cls": "",
+     "box": [
+      71,
+      945,
+      288,
+      17
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__FutureSt",
+     "box": [
+      31,
+      941,
+      328,
+      26
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      941,
+      328,
+      366
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__Connecte",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__MobileBr",
+     "box": [
+      31,
+      217,
+      328,
+      1286
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      17,
+      203,
+      356,
+      1314
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "section",
+     "cls": "PlayoffBracketView__BracketS",
+     "box": [
+      16,
+      202,
+      358,
+      1316
+     ],
+     "deco": "bg border r10px"
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__ViewCon",
+     "box": [
+      16,
+      202,
+      358,
+      1338
+     ],
+     "deco": ""
+    },
+    {
+     "tag": "div",
+     "cls": "TorneosStandingsTab__Standin",
+     "box": [
+      0,
+      96,
+      390,
+      1444
+     ],
+     "deco": ""
+    }
+   ]
+  ]
+ }
+}

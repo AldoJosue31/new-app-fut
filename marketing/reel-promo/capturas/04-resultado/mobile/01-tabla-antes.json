@@ -1,0 +1,44 @@
+{
+  "estado": "01-tabla-antes",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-04-resultado-01-tabla-antes-",
+  "altoPagina": 844,
+  "nota": "",
+  "objetivos": {
+    "asi": {
+      "x": 17,
+      "y": 310,
+      "w": 506,
+      "h": 38,
+      "cx": 270,
+      "cy": 329,
+      "text": "3\nASI\nAtlético San Isidro\n7\n+4\n0\n12\n4\n0\n3\n21\n17"
+    },
+    "leones": {
+      "x": 17,
+      "y": 271,
+      "w": 506,
+      "h": 38,
+      "cx": 270,
+      "cy": 290,
+      "text": "2\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12"
+    },
+    "rcf": {
+      "x": 17,
+      "y": 233,
+      "w": 506,
+      "h": 38,
+      "cx": 270,
+      "cy": 252,
+      "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8"
+    }
+  }
+}

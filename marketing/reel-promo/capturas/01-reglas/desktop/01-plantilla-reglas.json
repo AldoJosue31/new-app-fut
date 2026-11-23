@@ -1,0 +1,35 @@
+{
+  "estado": "01-plantilla-reglas",
+  "dispositivo": "desktop",
+  "ruta": "/liga/rules",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-01-reglas-01-plantilla-reglas-",
+  "altoPagina": 1235,
+  "nota": "",
+  "objetivos": {
+    "titulo": {
+      "x": 451,
+      "y": 144,
+      "w": 489,
+      "h": 30,
+      "cx": 696,
+      "cy": 159,
+      "text": "Plantilla de Reglas del Torneo"
+    },
+    "minJugadores": {
+      "x": 394,
+      "y": 282,
+      "w": 233,
+      "h": 21,
+      "cx": 511,
+      "cy": 293,
+      "text": "Mínimo de Jugadores"
+    }
+  }
+}

@@ -1,0 +1,1820 @@
+{
+ "08-publico/mobile/03-publico-tabla": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "rcf": {
+   "x": 17,
+   "y": 327,
+   "w": 506,
+   "h": 38,
+   "text": "1RCFReal Cuauhtémoc FCLiguilla7+13018601218"
+  },
+  "asi": {
+   "x": 17,
+   "y": 404,
+   "w": 506,
+   "h": 38,
+   "text": "3ASIAtlético San Isidro7+40124032117"
+  },
+  "_bars": [],
+  "_rows": [
+   {
+    "x": 17,
+    "y": 327,
+    "w": 506,
+    "h": 38,
+    "t": "1 RCF Real Cuauhtémoc FC LIGUILLA 7 +13 "
+   },
+   {
+    "x": 17,
+    "y": 366,
+    "w": 506,
+    "h": 38,
+    "t": "2 LDT Leones de Tlalpan LIGUILLA 7 +4 0 "
+   },
+   {
+    "x": 17,
+    "y": 404,
+    "w": 506,
+    "h": 38,
+    "t": "3 ASI Atlético San Isidro 7 +4 0 12 4 0 "
+   },
+   {
+    "x": 17,
+    "y": 442,
+    "w": 506,
+    "h": 38,
+    "t": "4 USF Unión Santa Fe 7 +6 0 11 3 2 2 18 "
+   },
+   {
+    "x": 17,
+    "y": 480,
+    "w": 506,
+    "h": 38,
+    "t": "5 DT Dinamo Tepeyac 7 -2 0 11 3 2 2 12 1"
+   },
+   {
+    "x": 17,
+    "y": 518,
+    "w": 506,
+    "h": 38,
+    "t": "6 DCN Deportivo Colonia Norte 7 0 0 10 3"
+   },
+   {
+    "x": 17,
+    "y": 556,
+    "w": 506,
+    "h": 38,
+    "t": "7 OU Obreros Unidos 7 -6 0 9 3 0 4 15 21"
+   },
+   {
+    "x": 17,
+    "y": 594,
+    "w": 506,
+    "h": 38,
+    "t": "8 RC Racing Coyoacán 7 -5 0 7 2 1 4 9 14"
+   },
+   {
+    "x": 17,
+    "y": 632,
+    "w": 506,
+    "h": 38,
+    "t": "9 IX Inter Xochimilco 7 -2 0 6 2 0 5 11 "
+   },
+   {
+    "x": 17,
+    "y": 670,
+    "w": 506,
+    "h": 38,
+    "t": "10 SLP Sporting Las Palmas 7 -12 0 4 1 1"
+   }
+  ]
+ },
+ "04-resultado/mobile/03-definir-resultado": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "marcador": null,
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "04-resultado/mobile/06-goles-visita": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "luis": null,
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "04-resultado/mobile/07-confirmar": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "guardar": {
+   "x": 158,
+   "y": 596,
+   "w": 85,
+   "h": 23,
+   "text": "Sí, guardar"
+  },
+  "confirmar": {
+   "x": 27,
+   "y": 177,
+   "w": 337,
+   "h": 489,
+   "text": "¿Confirmar Marcador?RCFReal Cuauhtémoc FC1VSASIAtlético San "
+  },
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 128,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "04-resultado/mobile/01-tabla-antes": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "rcf": {
+   "x": 17,
+   "y": 234,
+   "w": 506,
+   "h": 38,
+   "text": "1RCFReal Cuauhtémoc FCLiguilla7+13018601218"
+  },
+  "ldt": {
+   "x": 17,
+   "y": 273,
+   "w": 506,
+   "h": 38,
+   "text": "2LDTLeones de TlalpanLiguilla7+40134121612"
+  },
+  "asi": {
+   "x": 17,
+   "y": 311,
+   "w": 506,
+   "h": 38,
+   "text": "3ASIAtlético San Isidro7+40124032117"
+  },
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 17,
+    "y": 234,
+    "w": 506,
+    "h": 38,
+    "t": "1 RCF Real Cuauhtémoc FC LIGUILLA 7 +13 "
+   },
+   {
+    "x": 17,
+    "y": 273,
+    "w": 506,
+    "h": 38,
+    "t": "2 LDT Leones de Tlalpan LIGUILLA 7 +4 0 "
+   },
+   {
+    "x": 17,
+    "y": 311,
+    "w": 506,
+    "h": 38,
+    "t": "3 ASI Atlético San Isidro 7 +4 0 12 4 0 "
+   },
+   {
+    "x": 17,
+    "y": 349,
+    "w": 506,
+    "h": 38,
+    "t": "4 USF Unión Santa Fe 7 +6 0 11 3 2 2 18 "
+   },
+   {
+    "x": 17,
+    "y": 387,
+    "w": 506,
+    "h": 38,
+    "t": "5 DT Dinamo Tepeyac 7 -2 0 11 3 2 2 12 1"
+   },
+   {
+    "x": 17,
+    "y": 425,
+    "w": 506,
+    "h": 38,
+    "t": "6 DCN Deportivo Colonia Norte 7 0 0 10 3"
+   },
+   {
+    "x": 17,
+    "y": 463,
+    "w": 506,
+    "h": 38,
+    "t": "7 OU Obreros Unidos 7 -6 0 9 3 0 4 15 21"
+   },
+   {
+    "x": 17,
+    "y": 501,
+    "w": 506,
+    "h": 38,
+    "t": "8 RC Racing Coyoacán 7 -5 0 7 2 1 4 9 14"
+   },
+   {
+    "x": 17,
+    "y": 539,
+    "w": 506,
+    "h": 38,
+    "t": "9 IX Inter Xochimilco 7 -2 0 6 2 0 5 11 "
+   },
+   {
+    "x": 17,
+    "y": 577,
+    "w": 506,
+    "h": 38,
+    "t": "10 SLP Sporting Las Palmas 7 -12 0 4 1 1"
+   }
+  ]
+ },
+ "04-resultado/mobile/09-tabla-despues": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "asi": {
+   "x": 17,
+   "y": 273,
+   "w": 506,
+   "h": 38,
+   "text": "2ASIAtlético San IsidroLiguilla8+50155032318"
+  },
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 17,
+    "y": 234,
+    "w": 506,
+    "h": 38,
+    "t": "1 RCF Real Cuauhtémoc FC LIGUILLA 8 +12 "
+   },
+   {
+    "x": 17,
+    "y": 273,
+    "w": 506,
+    "h": 38,
+    "t": "2 ASI Atlético San Isidro LIGUILLA 8 +5 "
+   },
+   {
+    "x": 17,
+    "y": 311,
+    "w": 506,
+    "h": 38,
+    "t": "3 LDT Leones de Tlalpan LIGUILLA 7 +4 0 "
+   },
+   {
+    "x": 17,
+    "y": 349,
+    "w": 506,
+    "h": 38,
+    "t": "4 USF Unión Santa Fe 7 +6 0 11 3 2 2 18 "
+   },
+   {
+    "x": 17,
+    "y": 387,
+    "w": 506,
+    "h": 38,
+    "t": "5 DT Dinamo Tepeyac 7 -2 0 11 3 2 2 12 1"
+   },
+   {
+    "x": 17,
+    "y": 425,
+    "w": 506,
+    "h": 38,
+    "t": "6 DCN Deportivo Colonia Norte 7 0 0 10 3"
+   },
+   {
+    "x": 17,
+    "y": 463,
+    "w": 506,
+    "h": 38,
+    "t": "7 OU Obreros Unidos 7 -6 0 9 3 0 4 15 21"
+   },
+   {
+    "x": 17,
+    "y": 501,
+    "w": 506,
+    "h": 38,
+    "t": "8 RC Racing Coyoacán 7 -5 0 7 2 1 4 9 14"
+   },
+   {
+    "x": 17,
+    "y": 539,
+    "w": 506,
+    "h": 38,
+    "t": "9 IX Inter Xochimilco 7 -2 0 6 2 0 5 11 "
+   },
+   {
+    "x": 17,
+    "y": 577,
+    "w": 506,
+    "h": 38,
+    "t": "10 SLP Sporting Las Palmas 7 -12 0 4 1 1"
+   }
+  ]
+ },
+ "04-resultado/mobile/10-goleadores-despues": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "luis": {
+   "x": 25,
+   "y": 197,
+   "w": 341,
+   "h": 52,
+   "text": "1Luis Flores Estrada#9ASIAtlético San Isidro11"
+  },
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 25,
+    "y": 197,
+    "w": 341,
+    "h": 52,
+    "t": "1 Luis Flores Estrada #9 ASI Atlético Sa"
+   },
+   {
+    "x": 25,
+    "y": 248,
+    "w": 341,
+    "h": 52,
+    "t": "2 Diego Herrera Aguilar #9 RCF Real Cuau"
+   },
+   {
+    "x": 25,
+    "y": 300,
+    "w": 341,
+    "h": 52,
+    "t": "3 Carlos Mejía Cortés #9 LDT Leones de T"
+   },
+   {
+    "x": 25,
+    "y": 353,
+    "w": 341,
+    "h": 52,
+    "t": "4 Héctor Cortés Guerrero #9 USF Unión Sa"
+   },
+   {
+    "x": 25,
+    "y": 405,
+    "w": 341,
+    "h": 52,
+    "t": "5 Iván Morales Guerrero #10 USF Unión Sa"
+   },
+   {
+    "x": 25,
+    "y": 457,
+    "w": 341,
+    "h": 52,
+    "t": "6 Andrés Vázquez Ramos #7 RCF Real Cuauh"
+   },
+   {
+    "x": 25,
+    "y": 509,
+    "w": 341,
+    "h": 52,
+    "t": "7 Cristian López Medina #7 DCN Deportivo"
+   },
+   {
+    "x": 25,
+    "y": 561,
+    "w": 341,
+    "h": 52,
+    "t": "8 Gerardo Rodríguez García #9 IX Inter X"
+   },
+   {
+    "x": 25,
+    "y": 613,
+    "w": 341,
+    "h": 52,
+    "t": "9 Kevin Pérez Vargas #7 OU Obreros Unido"
+   },
+   {
+    "x": 25,
+    "y": 665,
+    "w": 341,
+    "h": 52,
+    "t": "10 Santiago Álvarez Domínguez #9 DCN Dep"
+   },
+   {
+    "x": 25,
+    "y": 717,
+    "w": 341,
+    "h": 52,
+    "t": "11 Alan Hernández López #7 LDT Leones de"
+   },
+   {
+    "x": 25,
+    "y": 769,
+    "w": 341,
+    "h": 52,
+    "t": "12 Alejandro Salazar Navarro #9 RC Racin"
+   },
+   {
+    "x": 25,
+    "y": 821,
+    "w": 341,
+    "h": 52,
+    "t": "13 Daniel Torres Medina #6 OU Obreros Un"
+   },
+   {
+    "x": 25,
+    "y": 873,
+    "w": 341,
+    "h": 52,
+    "t": "14 Jesús Flores Mejía #7 ASI Atlético Sa"
+   },
+   {
+    "x": 25,
+    "y": 925,
+    "w": 341,
+    "h": 52,
+    "t": "15 Kevin Ramírez Álvarez #19 ASI Atlétic"
+   },
+   {
+    "x": 25,
+    "y": 977,
+    "w": 341,
+    "h": 52,
+    "t": "16 Kevin Reyes Álvarez #8 RCF Real Cuauh"
+   },
+   {
+    "x": 25,
+    "y": 1029,
+    "w": 341,
+    "h": 52,
+    "t": "17 Raúl Gutiérrez Cortés #9 DT Dinamo Te"
+   },
+   {
+    "x": 25,
+    "y": 1081,
+    "w": 341,
+    "h": 52,
+    "t": "18 Andrés García Ortiz #10 LDT Leones de"
+   },
+   {
+    "x": 25,
+    "y": 1133,
+    "w": 341,
+    "h": 52,
+    "t": "19 Ángel Ramírez Estrada #11 RC Racing C"
+   },
+   {
+    "x": 25,
+    "y": 1185,
+    "w": 341,
+    "h": 52,
+    "t": "20 Arturo Martínez Rojas #11 DCN Deporti"
+   },
+   {
+    "x": 25,
+    "y": 1237,
+    "w": 341,
+    "h": 52,
+    "t": "21 Arturo Romero García #8 LDT Leones de"
+   },
+   {
+    "x": 25,
+    "y": 1289,
+    "w": 341,
+    "h": 52,
+    "t": "22 Diego Jiménez González #9 SLP Sportin"
+   },
+   {
+    "x": 25,
+    "y": 1341,
+    "w": 341,
+    "h": 52,
+    "t": "23 Emiliano Domínguez Vargas #10 RCF Rea"
+   },
+   {
+    "x": 25,
+    "y": 1393,
+    "w": 341,
+    "h": 52,
+    "t": "24 Fernando Mejía González #11 RCF Real "
+   },
+   {
+    "x": 25,
+    "y": 1445,
+    "w": 341,
+    "h": 52,
+    "t": "25 Gerardo Cortés Ramos #19 DT Dinamo Te"
+   },
+   {
+    "x": 25,
+    "y": 1497,
+    "w": 341,
+    "h": 52,
+    "t": "26 Jesús Pérez Cruz #3 RCF Real Cuauhtém"
+   },
+   {
+    "x": 25,
+    "y": 1549,
+    "w": 341,
+    "h": 52,
+    "t": "27 Kevin Guerrero Estrada #10 RC Racing "
+   },
+   {
+    "x": 25,
+    "y": 1601,
+    "w": 341,
+    "h": 52,
+    "t": "28 Mauricio González Romero #19 OU Obrer"
+   },
+   {
+    "x": 25,
+    "y": 1653,
+    "w": 341,
+    "h": 52,
+    "t": "29 Mauricio Herrera Sánchez #10 DT Dinam"
+   },
+   {
+    "x": 25,
+    "y": 1705,
+    "w": 341,
+    "h": 52,
+    "t": "30 Mauricio Martínez Mejía #9 OU Obreros"
+   },
+   {
+    "x": 25,
+    "y": 1757,
+    "w": 341,
+    "h": 52,
+    "t": "31 Mauricio Torres Medina #7 USF Unión S"
+   },
+   {
+    "x": 25,
+    "y": 1809,
+    "w": 341,
+    "h": 52,
+    "t": "32 Ricardo García Torres #6 USF Unión Sa"
+   },
+   {
+    "x": 25,
+    "y": 1861,
+    "w": 341,
+    "h": 52,
+    "t": "33 Alan Hernández Cruz #14 IX Inter Xoch"
+   },
+   {
+    "x": 25,
+    "y": 1913,
+    "w": 341,
+    "h": 52,
+    "t": "34 Ángel Domínguez Cruz #7 DT Dinamo Tep"
+   },
+   {
+    "x": 25,
+    "y": 1965,
+    "w": 341,
+    "h": 52,
+    "t": "35 Ángel Sánchez Martínez #3 DCN Deporti"
+   },
+   {
+    "x": 25,
+    "y": 2018,
+    "w": 341,
+    "h": 52,
+    "t": "36 Arturo Hernández Torres #14 RC Racing"
+   },
+   {
+    "x": 25,
+    "y": 2070,
+    "w": 341,
+    "h": 52,
+    "t": "37 Brandon Chávez Torres #14 USF Unión S"
+   },
+   {
+    "x": 25,
+    "y": 2122,
+    "w": 341,
+    "h": 52,
+    "t": "38 Brandon Mendoza Morales #2 SLP Sporti"
+   },
+   {
+    "x": 25,
+    "y": 2174,
+    "w": 341,
+    "h": 52,
+    "t": "39 Bryan García Herrera #14 OU Obreros U"
+   },
+   {
+    "x": 25,
+    "y": 2226,
+    "w": 341,
+    "h": 52,
+    "t": "40 Bryan Morales Gutiérrez #6 SLP Sporti"
+   },
+   {
+    "x": 25,
+    "y": 2278,
+    "w": 341,
+    "h": 52,
+    "t": "41 Bryan Ortiz Romero #2 ASI Atlético Sa"
+   },
+   {
+    "x": 25,
+    "y": 2330,
+    "w": 341,
+    "h": 52,
+    "t": "42 Carlos Gómez Rodríguez #7 IX Inter Xo"
+   },
+   {
+    "x": 25,
+    "y": 2382,
+    "w": 341,
+    "h": 52,
+    "t": "43 Cristian Chávez Domínguez #5 ASI Atlé"
+   },
+   {
+    "x": 25,
+    "y": 2434,
+    "w": 341,
+    "h": 52,
+    "t": "44 Diego Herrera González #10 IX Inter X"
+   },
+   {
+    "x": 25,
+    "y": 2486,
+    "w": 341,
+    "h": 52,
+    "t": "45 Eduardo Mejía Cortés #3 ASI Atlético "
+   },
+   {
+    "x": 25,
+    "y": 2538,
+    "w": 341,
+    "h": 52,
+    "t": "46 Emiliano Vargas Mendoza #14 ASI Atlét"
+   },
+   {
+    "x": 25,
+    "y": 2590,
+    "w": 341,
+    "h": 52,
+    "t": "47 Fernando Estrada Romero #4 LDT Leones"
+   },
+   {
+    "x": 25,
+    "y": 2642,
+    "w": 341,
+    "h": 52,
+    "t": "48 Fernando Gutiérrez Guerrero #8 OU Obr"
+   },
+   {
+    "x": 25,
+    "y": 2694,
+    "w": 341,
+    "h": 52,
+    "t": "49 Héctor Martínez Romero #3 USF Unión S"
+   },
+   {
+    "x": 25,
+    "y": 2746,
+    "w": 341,
+    "h": 52,
+    "t": "50 Iván Aguilar Ortiz #16 IX Inter Xochi"
+   },
+   {
+    "x": 25,
+    "y": 2798,
+    "w": 341,
+    "h": 52,
+    "t": "51 Iván Jiménez López #4 SLP Sporting La"
+   },
+   {
+    "x": 25,
+    "y": 2850,
+    "w": 341,
+    "h": 52,
+    "t": "52 Iván Reyes Ortiz #16 DT Dinamo Tepeya"
+   },
+   {
+    "x": 25,
+    "y": 2902,
+    "w": 341,
+    "h": 52,
+    "t": "53 Jesús Álvarez Martínez #19 IX Inter X"
+   },
+   {
+    "x": 25,
+    "y": 2954,
+    "w": 341,
+    "h": 52,
+    "t": "54 Jesús Guerrero Mejía #10 OU Obreros U"
+   },
+   {
+    "x": 25,
+    "y": 3006,
+    "w": 341,
+    "h": 52,
+    "t": "55 Jesús Reyes Fuentes #11 USF Unión San"
+   },
+   {
+    "x": 25,
+    "y": 3058,
+    "w": 341,
+    "h": 52,
+    "t": "56 Jorge Chávez Sánchez #14 LDT Leones d"
+   },
+   {
+    "x": 25,
+    "y": 3110,
+    "w": 341,
+    "h": 52,
+    "t": "57 Jorge Salazar Fuentes #5 SLP Sporting"
+   },
+   {
+    "x": 25,
+    "y": 3162,
+    "w": 341,
+    "h": 52,
+    "t": "58 Kevin Mendoza Álvarez #6 LDT Leones d"
+   },
+   {
+    "x": 25,
+    "y": 3214,
+    "w": 341,
+    "h": 52,
+    "t": "59 Kevin Vargas Flores #14 DT Dinamo Tep"
+   },
+   {
+    "x": 25,
+    "y": 3266,
+    "w": 341,
+    "h": 52,
+    "t": "60 Luis Rodríguez Gutiérrez #3 OU Obrero"
+   },
+   {
+    "x": 25,
+    "y": 3318,
+    "w": 341,
+    "h": 52,
+    "t": "61 Mauricio Ramos Cruz #7 RC Racing Coyo"
+   },
+   {
+    "x": 25,
+    "y": 3370,
+    "w": 341,
+    "h": 52,
+    "t": "62 Mauricio Torres Cortés #8 ASI Atlétic"
+   },
+   {
+    "x": 25,
+    "y": 3422,
+    "w": 341,
+    "h": 52,
+    "t": "63 Omar Salazar López #3 SLP Sporting La"
+   },
+   {
+    "x": 25,
+    "y": 3474,
+    "w": 341,
+    "h": 52,
+    "t": "64 Raúl Jiménez Castillo #11 IX Inter Xo"
+   },
+   {
+    "x": 25,
+    "y": 3526,
+    "w": 341,
+    "h": 52,
+    "t": "65 Raúl Rojas Pérez #11 ASI Atlético San"
+   },
+   {
+    "x": 25,
+    "y": 3578,
+    "w": 341,
+    "h": 52,
+    "t": "66 Ricardo Domínguez Romero #19 LDT Leon"
+   },
+   {
+    "x": 25,
+    "y": 3630,
+    "w": 341,
+    "h": 52,
+    "t": "67 Rodrigo García Salazar #8 DT Dinamo T"
+   },
+   {
+    "x": 25,
+    "y": 3683,
+    "w": 341,
+    "h": 52,
+    "t": "68 Rodrigo Guerrero Estrada #2 USF Unión"
+   },
+   {
+    "x": 25,
+    "y": 3735,
+    "w": 341,
+    "h": 52,
+    "t": "69 Rodrigo Hernández Cruz #5 IX Inter Xo"
+   },
+   {
+    "x": 25,
+    "y": 3787,
+    "w": 341,
+    "h": 52,
+    "t": "70 Santiago Gómez Vargas #16 RCF Real Cu"
+   },
+   {
+    "x": 25,
+    "y": 3839,
+    "w": 341,
+    "h": 52,
+    "t": "71 Uriel Fuentes Ramos #10 DCN Deportivo"
+   },
+   {
+    "x": 25,
+    "y": 3891,
+    "w": 341,
+    "h": 52,
+    "t": "72 Uriel Ortiz Vargas #11 DT Dinamo Tepe"
+   }
+  ]
+ },
+ "01-reglas/mobile/02-puntuacion": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "victoria": {
+   "x": 0,
+   "y": 40,
+   "w": 205,
+   "h": 21,
+   "text": "Puntos por Victoria"
+  },
+  "penales": null,
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "01-reglas/mobile/06-torneo-puntuacion": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "victoria": {
+   "x": 66,
+   "y": 320,
+   "w": 258,
+   "h": 20,
+   "text": "Victoria"
+  },
+  "_bars": [
+   {
+    "x": 39,
+    "y": 301,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 39,
+    "y": 344,
+    "w": 312,
+    "h": 6,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 40,
+    "y": 345,
+    "w": 159,
+    "h": 4,
+    "bg": "rgb(56, 212, 255)"
+   },
+   {
+    "x": 39,
+    "y": 1273,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 132,
+    "y": 850,
+    "w": 226,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "01-reglas/mobile/07-torneo-formato": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "ascensos": {
+   "x": 84,
+   "y": 321,
+   "w": 240,
+   "h": 21,
+   "text": "Habilitar Ascensos y Descensos"
+  },
+  "fase": {
+   "x": 84,
+   "y": 558,
+   "w": 240,
+   "h": 21,
+   "text": "Fase Final (Playoffs)"
+  },
+  "_bars": [
+   {
+    "x": 39,
+    "y": 302,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 39,
+    "y": 345,
+    "w": 312,
+    "h": 6,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 40,
+    "y": 346,
+    "w": 146,
+    "h": 4,
+    "bg": "rgb(56, 212, 255)"
+   },
+   {
+    "x": 39,
+    "y": 1274,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 128,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "01-reglas/mobile/08-torneo-reglas": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "minutos": {
+   "x": 50,
+   "y": 616,
+   "w": 138,
+   "h": 20,
+   "text": "Minutos por Tiempo"
+  },
+  "_bars": [
+   {
+    "x": 39,
+    "y": 301,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 39,
+    "y": 345,
+    "w": 312,
+    "h": 6,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 40,
+    "y": 346,
+    "w": 153,
+    "h": 4,
+    "bg": "rgb(56, 212, 255)"
+   },
+   {
+    "x": 39,
+    "y": 1273,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ },
+ "07-exportar/mobile/01-tabla-clasica": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "descargar": {
+   "x": 257,
+   "y": 784,
+   "w": 79,
+   "h": 22,
+   "text": "Descargar"
+  },
+  "nombre": {
+   "x": 151,
+   "y": 668,
+   "w": 55,
+   "h": 21,
+   "text": "Clásica"
+  },
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 133,
+    "y": 850,
+    "w": 226,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   },
+   {
+    "x": 176,
+    "y": 377,
+    "w": 39,
+    "h": 6,
+    "bg": "rgba(110, 231, 183, 0.1)"
+   },
+   {
+    "x": 106,
+    "y": 414,
+    "w": 179,
+    "h": 10,
+    "bg": "rgb(15, 23, 42)"
+   },
+   {
+    "x": 248,
+    "y": 387,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(196, 181, 253, 0.1)"
+   },
+   {
+    "x": 184,
+    "y": 420,
+    "w": 165,
+    "h": 9,
+    "bg": "rgba(255, 255, 255, 0.06)"
+   },
+   {
+    "x": 320,
+    "y": 387,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(110, 231, 183, 0.1)"
+   },
+   {
+    "x": 256,
+    "y": 420,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(35, 84, 67)"
+   },
+   {
+    "x": 391,
+    "y": 387,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(253, 186, 116, 0.1)"
+   },
+   {
+    "x": 327,
+    "y": 420,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(226, 232, 240)"
+   },
+   {
+    "x": 34,
+    "y": 387,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(110, 231, 183, 0.1)"
+   },
+   {
+    "x": -30,
+    "y": 420,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(35, 84, 67)"
+   },
+   {
+    "x": 106,
+    "y": 387,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(110, 231, 183, 0.1)"
+   },
+   {
+    "x": 42,
+    "y": 420,
+    "w": 165,
+    "h": 9,
+    "bg": "rgba(255, 255, 255, 0.06)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 17,
+    "y": 233,
+    "w": 506,
+    "h": 38,
+    "t": "1 RCF Real Cuauhtémoc FC LIGUILLA 8 +12 "
+   },
+   {
+    "x": 17,
+    "y": 272,
+    "w": 506,
+    "h": 38,
+    "t": "2 ASI Atlético San Isidro LIGUILLA 8 +5 "
+   },
+   {
+    "x": 17,
+    "y": 310,
+    "w": 506,
+    "h": 38,
+    "t": "3 LDT Leones de Tlalpan LIGUILLA 7 +4 0 "
+   },
+   {
+    "x": 17,
+    "y": 348,
+    "w": 506,
+    "h": 38,
+    "t": "4 USF Unión Santa Fe 7 +6 0 11 3 2 2 18 "
+   },
+   {
+    "x": 17,
+    "y": 386,
+    "w": 506,
+    "h": 38,
+    "t": "5 DT Dinamo Tepeyac 7 -2 0 11 3 2 2 12 1"
+   },
+   {
+    "x": 17,
+    "y": 424,
+    "w": 506,
+    "h": 38,
+    "t": "6 DCN Deportivo Colonia Norte 7 0 0 10 3"
+   },
+   {
+    "x": 17,
+    "y": 462,
+    "w": 506,
+    "h": 38,
+    "t": "7 OU Obreros Unidos 7 -6 0 9 3 0 4 15 21"
+   },
+   {
+    "x": 17,
+    "y": 500,
+    "w": 506,
+    "h": 38,
+    "t": "8 RC Racing Coyoacán 7 -5 0 7 2 1 4 9 14"
+   },
+   {
+    "x": 17,
+    "y": 538,
+    "w": 506,
+    "h": 38,
+    "t": "9 IX Inter Xochimilco 7 -2 0 6 2 0 5 11 "
+   },
+   {
+    "x": 17,
+    "y": 576,
+    "w": 506,
+    "h": 38,
+    "t": "10 SLP Sporting Las Palmas 7 -12 0 4 1 1"
+   }
+  ]
+ },
+ "07-exportar/mobile/07-tabla-colores-liga": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "colores": {
+   "x": 146,
+   "y": 296,
+   "w": 118,
+   "h": 17,
+   "text": "Colores de la liga"
+  },
+  "descargar": {
+   "x": 257,
+   "y": 784,
+   "w": 79,
+   "h": 22,
+   "text": "Descargar"
+  },
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   },
+   {
+    "x": 176,
+    "y": 386,
+    "w": 39,
+    "h": 6,
+    "bg": "rgba(242, 183, 5, 0.094)"
+   },
+   {
+    "x": 106,
+    "y": 423,
+    "w": 179,
+    "h": 10,
+    "bg": "rgb(40, 40, 36)"
+   },
+   {
+    "x": 248,
+    "y": 395,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(243, 190, 30, 0.094)"
+   },
+   {
+    "x": 184,
+    "y": 429,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(40, 40, 36)"
+   },
+   {
+    "x": 320,
+    "y": 395,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(243, 190, 30, 0.094)"
+   },
+   {
+    "x": 256,
+    "y": 429,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(242, 183, 5)"
+   },
+   {
+    "x": 391,
+    "y": 395,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(243, 190, 30, 0.094)"
+   },
+   {
+    "x": 327,
+    "y": 429,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(242, 183, 5)"
+   },
+   {
+    "x": 34,
+    "y": 395,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(242, 183, 5, 0.094)"
+   },
+   {
+    "x": -30,
+    "y": 429,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(242, 183, 5)"
+   },
+   {
+    "x": 106,
+    "y": 395,
+    "w": 36,
+    "h": 6,
+    "bg": "rgba(243, 190, 30, 0.094)"
+   },
+   {
+    "x": 42,
+    "y": 429,
+    "w": 165,
+    "h": 9,
+    "bg": "rgb(40, 40, 36)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 17,
+    "y": 234,
+    "w": 506,
+    "h": 38,
+    "t": "1 RCF Real Cuauhtémoc FC LIGUILLA 8 +12 "
+   },
+   {
+    "x": 17,
+    "y": 273,
+    "w": 506,
+    "h": 38,
+    "t": "2 ASI Atlético San Isidro LIGUILLA 8 +5 "
+   },
+   {
+    "x": 17,
+    "y": 311,
+    "w": 506,
+    "h": 38,
+    "t": "3 LDT Leones de Tlalpan LIGUILLA 7 +4 0 "
+   },
+   {
+    "x": 17,
+    "y": 349,
+    "w": 506,
+    "h": 38,
+    "t": "4 USF Unión Santa Fe 7 +6 0 11 3 2 2 18 "
+   },
+   {
+    "x": 17,
+    "y": 387,
+    "w": 506,
+    "h": 38,
+    "t": "5 DT Dinamo Tepeyac 7 -2 0 11 3 2 2 12 1"
+   },
+   {
+    "x": 17,
+    "y": 425,
+    "w": 506,
+    "h": 38,
+    "t": "6 DCN Deportivo Colonia Norte 7 0 0 10 3"
+   },
+   {
+    "x": 17,
+    "y": 463,
+    "w": 506,
+    "h": 38,
+    "t": "7 OU Obreros Unidos 7 -6 0 9 3 0 4 15 21"
+   },
+   {
+    "x": 17,
+    "y": 501,
+    "w": 506,
+    "h": 38,
+    "t": "8 RC Racing Coyoacán 7 -5 0 7 2 1 4 9 14"
+   },
+   {
+    "x": 17,
+    "y": 539,
+    "w": 506,
+    "h": 38,
+    "t": "9 IX Inter Xochimilco 7 -2 0 6 2 0 5 11 "
+   },
+   {
+    "x": 17,
+    "y": 577,
+    "w": 506,
+    "h": 38,
+    "t": "10 SLP Sporting Las Palmas 7 -12 0 4 1 1"
+   }
+  ]
+ },
+ "09-delegado/mobile/04-mi-equipo": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "equipo": {
+   "x": 124,
+   "y": 103,
+   "w": 228,
+   "h": 25,
+   "text": "Leones de Tlalpan"
+  },
+  "_bars": [
+   {
+    "x": 55,
+    "y": 1808,
+    "w": 123,
+    "h": 8,
+    "bg": "rgb(63, 191, 138)"
+   },
+   {
+    "x": 181,
+    "y": 1808,
+    "w": 58,
+    "h": 8,
+    "bg": "rgb(251, 191, 36)"
+   },
+   {
+    "x": 242,
+    "y": 1808,
+    "w": 93,
+    "h": 8,
+    "bg": "rgb(248, 113, 113)"
+   },
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 39,
+    "y": 2237,
+    "w": 312,
+    "h": 64,
+    "t": "35 partidos del torneo analizados Actual"
+   }
+  ]
+ },
+ "09-delegado/mobile/05-analisis-proximo-rival": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "titulo": {
+   "x": 84,
+   "y": 1,
+   "w": 199,
+   "h": 48,
+   "text": "Análisis y probabilidades"
+  },
+  "ventaja": {
+   "x": 55,
+   "y": 531,
+   "w": 280,
+   "h": 20,
+   "text": "Tu equipo parte con ventaja"
+  },
+  "ganar": {
+   "x": 55,
+   "y": 596,
+   "w": 85,
+   "h": 29,
+   "text": "45 %"
+  },
+  "empatar": {
+   "x": 152,
+   "y": 596,
+   "w": 85,
+   "h": 29,
+   "text": "21 %"
+  },
+  "perder": {
+   "x": 250,
+   "y": 596,
+   "w": 85,
+   "h": 29,
+   "text": "34 %"
+  },
+  "vs": {
+   "x": 223,
+   "y": 445,
+   "w": 112,
+   "h": 44,
+   "text": "Deportivo Colonia Norte"
+  },
+  "_bars": [
+   {
+    "x": 55,
+    "y": 637,
+    "w": 123,
+    "h": 8,
+    "bg": "rgb(63, 191, 138)"
+   },
+   {
+    "x": 181,
+    "y": 637,
+    "w": 58,
+    "h": 8,
+    "bg": "rgb(251, 191, 36)"
+   },
+   {
+    "x": 242,
+    "y": 637,
+    "w": 93,
+    "h": 8,
+    "bg": "rgb(248, 113, 113)"
+   },
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 39,
+    "y": 1066,
+    "w": 312,
+    "h": 64,
+    "t": "35 partidos del torneo analizados Actual"
+   }
+  ]
+ },
+ "06-liguilla/mobile/01-tabla-final": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "tabla": null,
+  "_bars": [
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 128,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": [
+   {
+    "x": 17,
+    "y": 235,
+    "w": 506,
+    "h": 38,
+    "t": "1 LDT Leones de Tlalpan LIGUILLA 9 +9 0 "
+   },
+   {
+    "x": 17,
+    "y": 273,
+    "w": 506,
+    "h": 38,
+    "t": "2 RCF Real Cuauhtémoc FC LIGUILLA 9 +11 "
+   },
+   {
+    "x": 17,
+    "y": 311,
+    "w": 506,
+    "h": 38,
+    "t": "3 USF Unión Santa Fe LIGUILLA 9 +10 0 17"
+   },
+   {
+    "x": 17,
+    "y": 350,
+    "w": 506,
+    "h": 38,
+    "t": "4 ASI Atlético San Isidro LIGUILLA 9 +4 "
+   },
+   {
+    "x": 17,
+    "y": 388,
+    "w": 506,
+    "h": 38,
+    "t": "5 DT Dinamo Tepeyac LIGUILLA 9 -3 0 14 4"
+   },
+   {
+    "x": 17,
+    "y": 426,
+    "w": 506,
+    "h": 38,
+    "t": "6 DCN Deportivo Colonia Norte LIGUILLA 9"
+   },
+   {
+    "x": 17,
+    "y": 464,
+    "w": 506,
+    "h": 38,
+    "t": "7 OU Obreros Unidos LIGUILLA 9 -6 0 12 4"
+   },
+   {
+    "x": 17,
+    "y": 503,
+    "w": 506,
+    "h": 38,
+    "t": "8 RC Racing Coyoacán LIGUILLA 9 -7 0 10 "
+   },
+   {
+    "x": 17,
+    "y": 541,
+    "w": 506,
+    "h": 38,
+    "t": "9 SLP Sporting Las Palmas 9 -11 0 7 2 1 "
+   },
+   {
+    "x": 17,
+    "y": 579,
+    "w": 506,
+    "h": 38,
+    "t": "10 IX Inter Xochimilco DESCENSO 9 -4 0 6"
+   }
+  ]
+ },
+ "06-liguilla/mobile/07-torneo-con-campeon": {
+  "viewport": {
+   "width": 390,
+   "height": 844
+  },
+  "campeon": null,
+  "rcf": {
+   "x": 188,
+   "y": 455,
+   "w": 163,
+   "h": 58,
+   "text": "Real Cuauhtémoc FC"
+  },
+  "_bars": [
+   {
+    "x": 39,
+    "y": 1406,
+    "w": 312,
+    "h": 8,
+    "bg": "rgb(19, 31, 36)"
+   },
+   {
+    "x": 40,
+    "y": 1407,
+    "w": 196,
+    "h": 6,
+    "bg": "rgb(34, 211, 238)"
+   },
+   {
+    "x": 0,
+    "y": 850,
+    "w": 390,
+    "h": 4,
+    "bg": "rgb(78, 78, 80)"
+   },
+   {
+    "x": 130,
+    "y": 850,
+    "w": 225,
+    "h": 4,
+    "bg": "rgb(28, 176, 246)"
+   }
+  ],
+  "_rows": []
+ }
+}

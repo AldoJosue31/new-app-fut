@@ -1,0 +1,35 @@
+{
+  "estado": "02-jornada",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-04-resultado-02-jornada-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "partido": {
+      "x": 529,
+      "y": 274,
+      "w": 154,
+      "h": 18,
+      "cx": 606,
+      "cy": 283,
+      "text": "Real Cuauhtémoc FC"
+    },
+    "resultado": {
+      "x": 1052,
+      "y": 266,
+      "w": 107,
+      "h": 31,
+      "cx": 1106,
+      "cy": 281,
+      "text": "Resultado"
+    }
+  }
+}

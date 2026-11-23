@@ -1,0 +1,53 @@
+{
+  "estado": "01-tabla",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-05-tabla-01-tabla-",
+  "altoPagina": 844,
+  "nota": "",
+  "objetivos": {
+    "tabla": {
+      "x": 17,
+      "y": 201,
+      "w": 506,
+      "h": 413,
+      "cx": 270,
+      "cy": 407,
+      "text": "EQUIPO\nPJ\nDIF\nPND\nPTS\nG\nE\nP\nGF\nGC\n1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8\n2\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12\n3\nASI\nAtlético "
+    },
+    "fila1": {
+      "x": 17,
+      "y": 233,
+      "w": 506,
+      "h": 38,
+      "cx": 270,
+      "cy": 252,
+      "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8"
+    },
+    "selector": {
+      "x": 27,
+      "y": 104,
+      "w": 190,
+      "h": 33,
+      "cx": 122,
+      "cy": 120,
+      "text": "Vista Actual (J. 8)"
+    },
+    "criterios": {
+      "x": 26,
+      "y": 657,
+      "w": 338,
+      "h": 50,
+      "cx": 195,
+      "cy": 682,
+      "text": "Criterios de desempate: 1° Puntos ➔ 2° Diferencia de goles (DIF) ➔ 3° Goles a favor (GF) ➔ 4° Menos partidos jugados (PJ)"
+    }
+  }
+}

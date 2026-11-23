@@ -1,0 +1,35 @@
+{
+  "estado": "07-torneo-formato",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-07-torneo-formato-",
+  "altoPagina": 1786,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 20,
+      "w": 350,
+      "h": 804,
+      "cx": 195,
+      "cy": 422,
+      "text": "Ajustes de Torneo (En Curso)\nModalidad de Juego\nSolo Ida (1 vuelta)\nIda y Vuelta (2 vueltas)\nHabilitar Ascensos y Descensos\nAscensos\nDescensos\nFase Final (Playo"
+    },
+    "pestana": {
+      "x": 198,
+      "y": 134,
+      "w": 70,
+      "h": 44,
+      "cx": 233,
+      "cy": 156,
+      "text": ""
+    }
+  }
+}

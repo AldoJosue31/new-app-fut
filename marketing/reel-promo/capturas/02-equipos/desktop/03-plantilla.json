@@ -1,0 +1,26 @@
+{
+  "estado": "03-plantilla",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/equipos/104",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-02-equipos-03-plantilla-",
+  "altoPagina": 1131,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 295,
+      "y": 43,
+      "w": 850,
+      "h": 814,
+      "cx": 720,
+      "cy": 450,
+      "text": "Plantilla\nVolver\nOrdenar:\nDorsal\nNombre\nPosición\n#1\nKevin Ortiz Herrera\nPortero\n#2\nAndrés Castillo Reyes\nDefensa\n#3\nOmar Díaz Vargas\nDefensa\n#4\nFernando Estrada"
+    }
+  }
+}

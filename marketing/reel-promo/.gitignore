@@ -1,0 +1,11 @@
+# Generado o temporal: se rehace con los scripts de capture/ y reel/tools/
+**/.hyperframes/
+**/node_modules/
+capture/out/
+capturas/**/*.check.png
+
+# Exportaciones sin nivelar: las de entrega son las "-redes" (−14 LUFS)
+reel/renders/*.mp4
+reel-voz/renders/*.mp4
+!reel/renders/*-redes.mp4
+!reel-voz/renders/*-redes.mp4

@@ -1,0 +1,35 @@
+{
+  "estado": "04-jornada-grilla",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/jornadas/4508/grid",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-03-calendario-04-jornada-grilla-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "calendario": {
+      "x": 115,
+      "y": 232,
+      "w": 1299,
+      "h": 590,
+      "cx": 764,
+      "cy": 527,
+      "text": "Primera Fuerza\nSegunda Fuerza\nsáb 21\n9:00 AM\nPRIMERA FUERZA\nLocal:\nReal Cuauhtémoc FC\nSin resultado\n—\nVisitante:\nAtlético San Isidro\nSin resultado\n—\n11:00 AM\nPR"
+    },
+    "exportarRol": {
+      "x": 436,
+      "y": 184,
+      "w": 135,
+      "h": 38,
+      "cx": 504,
+      "cy": 203,
+      "text": "Exportar rol"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "estado": "06-tabla-combinacion-6",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-07-exportar-06-tabla-combinacion-6-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 130,
+      "y": 12,
+      "w": 1180,
+      "h": 876,
+      "cx": 720,
+      "cy": 450,
+      "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+    }
+  }
+}

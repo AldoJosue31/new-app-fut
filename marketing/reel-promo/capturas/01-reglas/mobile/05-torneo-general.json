@@ -1,0 +1,26 @@
+{
+  "estado": "05-torneo-general",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-05-torneo-general-",
+  "altoPagina": 1786,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 50,
+      "w": 350,
+      "h": 744,
+      "cx": 195,
+      "cy": 422,
+      "text": "Ajustes de Torneo (En Curso)\nTemporada\nFecha Inicio\nLÍMITES DE PARTICIPACIÓN\nMin. Jugadores\nMin. para Inscribir\nMax. Jugadores\nMax. Equipos\nGuardar Cambios"
+    }
+  }
+}

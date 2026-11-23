@@ -1,0 +1,16 @@
+{
+  "estado": "03-cuadro-cuartos",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-06-liguilla-03-cuadro-cuartos-",
+  "altoPagina": 1310,
+  "nota": "",
+  "objetivos": {}
+}

@@ -1,0 +1,26 @@
+{
+  "estado": "05-estadisticas-jugadores",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/equipos/104",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-02-equipos-05-estadisticas-jugadores-",
+  "altoPagina": 1131,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 295,
+      "y": 43,
+      "w": 850,
+      "h": 814,
+      "cx": 720,
+      "cy": 450,
+      "text": "Estadísticas: Leones de Tlalpan\nVolver\nPartidos\nJugadores\nRENDIMIENTO INDIVIDUAL\nJUGADOR\n\t\n\t\n\t\n\t\n\n\nC\nCarlos Mejía Cortés\n#9\n\t7\t5\t0\t0\n\nA\nAlan Hernández López\n#7\n"
+    }
+  }
+}

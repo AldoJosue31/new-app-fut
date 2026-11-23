@@ -1,0 +1,35 @@
+{
+  "estado": "01-interruptor-publico",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-08-publico-01-interruptor-publico-",
+  "altoPagina": 844,
+  "nota": "",
+  "objetivos": {
+    "publico": {
+      "x": 268,
+      "y": 105,
+      "w": 52,
+      "h": 30,
+      "cx": 294,
+      "cy": 120,
+      "text": "Publico"
+    },
+    "copiar": {
+      "x": 326,
+      "y": 105,
+      "w": 34,
+      "h": 30,
+      "cx": 343,
+      "cy": 120,
+      "text": ""
+    }
+  }
+}

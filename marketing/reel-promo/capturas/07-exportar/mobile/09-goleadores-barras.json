@@ -1,0 +1,26 @@
+{
+  "estado": "09-goleadores-barras",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/goleadores",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-07-exportar-09-goleadores-barras-",
+  "altoPagina": 844,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 18,
+      "y": 42,
+      "w": 354,
+      "h": 760,
+      "cx": 195,
+      "cy": 422,
+      "text": "Exportar Goleadores\nTabla\nBarras\nPastel\nJugadores\nTop 3\nTop 5\nTop 10\nTop 15\nTop 20\nTop 50\nPersonalizado\nLIGA VALLE DORADO\nPRIMERA FUERZA\nTABLA DE GOLEADORES\n\nTo"
+    }
+  }
+}

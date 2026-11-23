@@ -1,0 +1,16 @@
+{
+  "estado": "06-cuadro-completo",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-06-liguilla-06-cuadro-completo-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {}
+}

@@ -1,0 +1,26 @@
+{
+  "estado": "04-publico-goleadores",
+  "dispositivo": "mobile",
+  "ruta": "/share/standings/123",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-08-publico-04-publico-goleadores-",
+  "altoPagina": 4201,
+  "nota": "",
+  "objetivos": {
+    "lider": {
+      "x": 113,
+      "y": 342,
+      "w": 87,
+      "h": 19,
+      "cx": 157,
+      "cy": 352,
+      "text": "Luis Flores Estrada"
+    }
+  }
+}

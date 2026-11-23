@@ -1,0 +1,26 @@
+{
+  "estado": "02-enlace-copiado",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-08-publico-02-enlace-copiado-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "copiar": {
+      "x": 1264,
+      "y": 107,
+      "w": 74,
+      "h": 30,
+      "cx": 1301,
+      "cy": 122,
+      "text": "Copiado"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "estado": "04-reglas-activas",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-04-reglas-activas-",
+  "altoPagina": 1786,
+  "nota": "",
+  "objetivos": {
+    "reglas": {
+      "x": 20,
+      "y": 552,
+      "w": 350,
+      "h": 413,
+      "cx": 195,
+      "cy": 759,
+      "text": "REGLAS ACTIVAS\nPlantillas\nPartido min. 7 / Inscripción min. 7 / Max. 25\nDuracion de Partido\n40' por tiempo / 10' descanso / Jornada 7 dias\nCriterio de Desempate"
+    },
+    "verConfig": {
+      "x": 39,
+      "y": 605,
+      "w": 30,
+      "h": 30,
+      "cx": 54,
+      "cy": 620,
+      "text": ""
+    }
+  }
+}

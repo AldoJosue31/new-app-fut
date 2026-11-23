@@ -1,0 +1,26 @@
+{
+  "estado": "07-confirmar",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-04-resultado-07-confirmar-",
+  "altoPagina": 1515,
+  "nota": "",
+  "objetivos": {
+    "confirmacion": {
+      "x": 12,
+      "y": 17,
+      "w": 367,
+      "h": 810,
+      "cx": 195,
+      "cy": 422,
+      "text": "Definir Resultado\nCargar cédula\nEscanear cédula\nRCF\nReal Cuauhtémoc FC\nPRIMERA FUERZA\n1\n-\n2\n2026-11-21 - 9:00 AM\nASI\nAtlético San Isidro\nGeneral\nReal Cuauhtémoc"
+    }
+  }
+}

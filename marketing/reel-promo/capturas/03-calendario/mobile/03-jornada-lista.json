@@ -1,0 +1,35 @@
+{
+  "estado": "03-jornada-lista",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-03-calendario-03-jornada-lista-",
+  "altoPagina": 1515,
+  "nota": "",
+  "objetivos": {
+    "resultado": {
+      "x": 47,
+      "y": 528,
+      "w": 147,
+      "h": 35,
+      "cx": 120,
+      "cy": 546,
+      "text": "Resultado"
+    },
+    "selector": {
+      "x": 135,
+      "y": 109,
+      "w": 128,
+      "h": 21,
+      "cx": 199,
+      "cy": 120,
+      "text": "Jornada 8"
+    }
+  }
+}

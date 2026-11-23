@@ -1,0 +1,26 @@
+{
+  "estado": "04-titulares-local",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-04-resultado-04-titulares-local-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "autorellenar": {
+      "x": 894,
+      "y": 316,
+      "w": 214,
+      "h": 44,
+      "cx": 1001,
+      "cy": 338,
+      "text": "Auto-rellenar titulares"
+    }
+  }
+}

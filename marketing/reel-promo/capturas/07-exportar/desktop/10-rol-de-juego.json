@@ -1,0 +1,26 @@
+{
+  "estado": "10-rol-de-juego",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/jornadas/4508/grid",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-07-exportar-10-rol-de-juego-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 260,
+      "y": 20,
+      "w": 920,
+      "h": 860,
+      "cx": 720,
+      "cy": 450,
+      "text": "Exportar Rol\nDescargar\nConfigura la imagen del rol\n100%\n125%\n150%\n175%\n200%\nPost horizontal\nHistoria horizontal\nVista del rol\nGrid\nRow\nLIGA VALLE DORADO\nROL DE "
+    }
+  }
+}

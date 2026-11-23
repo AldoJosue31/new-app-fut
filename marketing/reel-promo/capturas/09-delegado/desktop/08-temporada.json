@@ -1,0 +1,26 @@
+{
+  "estado": "08-temporada",
+  "dispositivo": "desktop",
+  "ruta": "/equipos",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 421,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-09-delegado-08-temporada-",
+  "altoPagina": 1321,
+  "nota": "",
+  "objetivos": {
+    "pestana": {
+      "x": 315,
+      "y": 453,
+      "w": 141,
+      "h": 48,
+      "cx": 386,
+      "cy": 477,
+      "text": "Temporada"
+    }
+  }
+}

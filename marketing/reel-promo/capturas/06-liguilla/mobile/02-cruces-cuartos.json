@@ -1,0 +1,35 @@
+{
+  "estado": "02-cruces-cuartos",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-06-liguilla-02-cruces-cuartos-",
+  "altoPagina": 1786,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 20,
+      "w": 350,
+      "h": 804,
+      "cx": 195,
+      "cy": 422,
+      "text": "Avanzar a Cuartos de final\n4 cruces\nVista previa\nCuartos de final\nUnico\nIda/vuelta\nSemifinales\nUnico\nIda/vuelta\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n"
+    },
+    "confirmar": {
+      "x": 171,
+      "y": 1464,
+      "w": 170,
+      "h": 65,
+      "cx": 256,
+      "cy": 1497,
+      "text": "Confirmar cruces"
+    }
+  }
+}

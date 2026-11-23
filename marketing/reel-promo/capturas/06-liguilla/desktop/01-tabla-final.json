@@ -1,0 +1,35 @@
+{
+  "estado": "01-tabla-final",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-06-liguilla-01-tabla-final-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "tabla": {
+      "x": 265,
+      "y": 162,
+      "w": 998,
+      "h": 461,
+      "cx": 764,
+      "cy": 393,
+      "text": "EQUIPO\tPJ\tDIF\tPND\tPTS\tG\tE\tP\tGF\tGC\n\n1\nLDT\nLeones de Tlalpan\nLIGUILLA\n\t9\t+9\t0\t19\t6\t1\t2\t25\t16\n\n2\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t9\t+11\t0\t18\t6\t0\t3\t24\t13\n\n3\nUSF\nUni"
+    },
+    "liguilla": {
+      "x": 383,
+      "y": 223,
+      "w": 44,
+      "h": 10,
+      "cx": 405,
+      "cy": 229,
+      "text": "LIGUILLA"
+    }
+  }
+}

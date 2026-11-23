@@ -1,0 +1,26 @@
+{
+  "estado": "08-guardado",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-04-resultado-08-guardado-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "partido": {
+      "x": 500,
+      "y": 274,
+      "w": 154,
+      "h": 18,
+      "cx": 577,
+      "cy": 283,
+      "text": "Real Cuauhtémoc FC"
+    }
+  }
+}

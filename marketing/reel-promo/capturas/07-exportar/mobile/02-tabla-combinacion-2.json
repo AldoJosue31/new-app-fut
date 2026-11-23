@@ -1,0 +1,26 @@
+{
+  "estado": "02-tabla-combinacion-2",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-07-exportar-02-tabla-combinacion-2-",
+  "altoPagina": 844,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 18,
+      "y": 12,
+      "w": 354,
+      "h": 820,
+      "cx": 195,
+      "cy": 422,
+      "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+    }
+  }
+}

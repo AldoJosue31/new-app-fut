@@ -1,0 +1,35 @@
+{
+  "estado": "05-cruces-final",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-06-liguilla-05-cruces-final-",
+  "altoPagina": 1807,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 20,
+      "w": 350,
+      "h": 804,
+      "cx": 195,
+      "cy": 422,
+      "text": "Avanzar a Final\n1 cruces\nVista previa\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n#2\nRCF\nReal Cuauhtémoc FC\nBRACKET\nFinal\nResiembra\nPrimeros vs ultimos\nMant"
+    },
+    "confirmar": {
+      "x": 171,
+      "y": 878,
+      "w": 170,
+      "h": 65,
+      "cx": 256,
+      "cy": 911,
+      "text": "Confirmar cruces"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "estado": "04-mi-equipo",
+  "dispositivo": "desktop",
+  "ruta": "/equipos",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-09-delegado-04-mi-equipo-",
+  "altoPagina": 1808,
+  "nota": "",
+  "objetivos": {
+    "equipo": {
+      "x": 256,
+      "y": 113,
+      "w": 751,
+      "h": 32,
+      "cx": 631,
+      "cy": 128,
+      "text": "Leones de Tlalpan"
+    },
+    "resumen": {
+      "x": 213,
+      "y": 470,
+      "w": 1087,
+      "h": 27,
+      "cx": 757,
+      "cy": 483,
+      "text": "Torneo actual"
+    }
+  }
+}

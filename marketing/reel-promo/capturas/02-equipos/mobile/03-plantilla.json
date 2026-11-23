@@ -1,0 +1,26 @@
+{
+  "estado": "03-plantilla",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/equipos/104",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-02-equipos-03-plantilla-",
+  "altoPagina": 3247,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 37,
+      "w": 350,
+      "h": 769,
+      "cx": 195,
+      "cy": 422,
+      "text": "Plantilla\nVolver\n#1\nKevin Ortiz Herrera\nPortero\n#2\nAndrés Castillo Reyes\nDefensa\n#3\nOmar Díaz Vargas\nDefensa\n#4\nFernando Estrada Romero\nDefensa\n#5\nOmar Estrada "
+    }
+  }
+}

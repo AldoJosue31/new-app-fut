@@ -1,0 +1,26 @@
+{
+  "estado": "08-goleadores",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/goleadores",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-07-exportar-08-goleadores-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 310,
+      "y": 12,
+      "w": 820,
+      "h": 876,
+      "cx": 720,
+      "cy": 450,
+      "text": "Exportar Goleadores\nTabla\nBarras\nPastel\nJugadores\nTop 3\nTop 5\nTop 10\nTop 15\nTop 20\nTop 50\nPersonalizado\nPost\nHistoria\nLIGA VALLE DORADO\nPRIMERA FUERZA\nTABLA DE "
+    }
+  }
+}

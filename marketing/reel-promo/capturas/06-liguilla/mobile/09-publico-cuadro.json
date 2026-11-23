@@ -1,0 +1,26 @@
+{
+  "estado": "09-publico-cuadro",
+  "dispositivo": "mobile",
+  "ruta": "/share/standings/123",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-06-liguilla-09-publico-cuadro-",
+  "altoPagina": 1751,
+  "nota": "",
+  "objetivos": {
+    "cuadro": {
+      "x": 20,
+      "y": 294,
+      "w": 350,
+      "h": 1338,
+      "cx": 195,
+      "cy": 963,
+      "text": "CF\nCuartos de final\n#1\n#1\nLDT\nLeones de Tlalpan\n2\n#8\nRC\nRacing Coyoacán\n1\nIda\n2-1\nVuelta\n0-0\nGlobal\n2-1\n#2\n#4\nASI\nAtlético San Isidro\n0\n#5\nDT\nDinamo Tepeyac\n3\nI"
+    }
+  }
+}

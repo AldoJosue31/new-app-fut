@@ -1,0 +1,35 @@
+{
+  "estado": "02-invitaciones",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/equipos",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-09-delegado-02-invitaciones-",
+  "altoPagina": 3247,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 90,
+      "w": 350,
+      "h": 664,
+      "cx": 195,
+      "cy": 422,
+      "text": "Invitaciones de delegados\n0 invitaciones en el historial\n\nLos cambios se muestran en tiempo real. Las invitaciones usadas, revocadas o caducadas se eliminan aut"
+    },
+    "crear": {
+      "x": 32,
+      "y": 702,
+      "w": 279,
+      "h": 40,
+      "cx": 172,
+      "cy": 722,
+      "text": "Crear 9 invitaciones"
+    }
+  }
+}

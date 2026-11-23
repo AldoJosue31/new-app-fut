@@ -1,0 +1,35 @@
+{
+  "estado": "01-equipos-sin-vincular",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/equipos",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-09-delegado-01-equipos-sin-vincular-",
+  "altoPagina": 1131,
+  "nota": "",
+  "objetivos": {
+    "sinVincular": {
+      "x": 636,
+      "y": 49,
+      "w": 158,
+      "h": 44,
+      "cx": 715,
+      "cy": 71,
+      "text": "9\nSin vincular"
+    },
+    "invitaciones": {
+      "x": 1122,
+      "y": 49,
+      "w": 142,
+      "h": 44,
+      "cx": 1193,
+      "cy": 71,
+      "text": "Invitaciones"
+    }
+  }
+}

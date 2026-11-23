@@ -1,0 +1,14 @@
+import { launch, openContext, APP } from "./browser.mjs";
+import { MANAGER, DELEGATE } from "./seed.mjs";
+const [, , who = "manager", route = "/dashboard", device = "desktop"] = process.argv;
+const browser = await launch();
+const ctx = await openContext(browser, { user: who === "delegate" ? DELEGATE : MANAGER, device });
+const page = await ctx.newPage();
+page.on("console", (m) => console.log("console", m.type(), m.text().slice(0, 300)));
+page.on("framenavigated", (f) => { if (f === page.mainFrame()) console.log("NAV", f.url()); });
+page.on("response", (r) => { if (r.status() >= 400 || r.url().includes("54399")) console.log("RESP", r.status(), r.request().method(), r.url().slice(0, 200)); });
+page.on("requestfailed", (r) => console.log("FAIL", r.url().slice(0, 160), r.failure()?.errorText));
+await page.goto(APP + route, { waitUntil: "domcontentloaded", timeout: 120000 });
+await page.waitForTimeout(8000);
+console.log("FINAL", page.url());
+await browser.close();

@@ -1,0 +1,35 @@
+{
+  "estado": "08-torneo-reglas",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-08-torneo-reglas-",
+  "altoPagina": 1786,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 20,
+      "w": 350,
+      "h": 804,
+      "cx": 195,
+      "cy": 422,
+      "text": "Ajustes de Torneo (En Curso)\nTIEMPOS Y HORARIOS\nHora Inicio\nHora Límite\nDuración Jornada (días)\nDURACIÓN Y CAMBIOS\nMinutos por Tiempo\nMinutos Descanso\nCambios\nI"
+    },
+    "pestana": {
+      "x": 273,
+      "y": 134,
+      "w": 70,
+      "h": 44,
+      "cx": 308,
+      "cy": 156,
+      "text": ""
+    }
+  }
+}

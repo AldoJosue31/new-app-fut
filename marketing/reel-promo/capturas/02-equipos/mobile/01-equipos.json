@@ -1,0 +1,44 @@
+{
+  "estado": "01-equipos",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/equipos",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-02-equipos-01-equipos-",
+  "altoPagina": 3247,
+  "nota": "",
+  "objetivos": {
+    "leones": {
+      "x": 86,
+      "y": 1624,
+      "w": 218,
+      "h": 26,
+      "cx": 195,
+      "cy": 1637,
+      "text": "Leones de Tlalpan"
+    },
+    "crear": {
+      "x": 199,
+      "y": 150,
+      "w": 171,
+      "h": 44,
+      "cx": 285,
+      "cy": 172,
+      "text": "Crear equipo"
+    },
+    "contadores": {
+      "x": 20,
+      "y": 47,
+      "w": 172,
+      "h": 46,
+      "cx": 106,
+      "cy": 70,
+      "text": "10\nEquipos"
+    }
+  }
+}

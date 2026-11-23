@@ -1,0 +1,26 @@
+{
+  "estado": "04-estadisticas",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/equipos/104",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-02-equipos-04-estadisticas-",
+  "altoPagina": 3247,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 67,
+      "w": 350,
+      "h": 710,
+      "cx": 195,
+      "cy": 422,
+      "text": "Estadísticas: Leones de Tlalpan\nVolver\nPartidos\nJugadores\nULTIMOS RESULTADOS\nJORNADA 7\nG\n14/11\n2\n-\n1\nASI\nAtlético San Isidro\nJORNADA 6\nG\n07/11\n3\n-\n1\nRC\nRacing C"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "estado": "02-ficha-equipo",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/equipos/104",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-02-equipos-02-ficha-equipo-",
+  "altoPagina": 1131,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 445,
+      "y": 96,
+      "w": 550,
+      "h": 709,
+      "cx": 720,
+      "cy": 450,
+      "text": "Ficha del Equipo\nPrimera Fuerza\nLDT\nLeones de Tlalpan\nDelegado\nRicardo Salinas\n\n1 solicitud pendiente\n\n→\nPlantilla\n\nVer Jugadores\n\n➔\nContacto\n\n55 4211 2539\n\nTor"
+    },
+    "delegado": {
+      "x": 539,
+      "y": 472,
+      "w": 121,
+      "h": 23,
+      "cx": 600,
+      "cy": 484,
+      "text": "Ricardo Salinas"
+    },
+    "estadisticas": {
+      "x": 539,
+      "y": 734,
+      "w": 382,
+      "h": 23,
+      "cx": 730,
+      "cy": 745,
+      "text": "Estadísticas"
+    }
+  }
+}

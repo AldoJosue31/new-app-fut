@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #0b1418; }
+      #root { position: relative; width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <!-- Prueba técnica (no es el reel): tres capturas reales de Bracket App convertidas en escenas animables. -->
+    <div id="root" data-composition-id="main" data-start="0" data-duration="12" data-width="1080" data-height="1920">
+      <div id="tabla" data-composition-id="tabla" class="clip" data-composition-src="compositions/tabla.html" data-start="0" data-duration="4" data-track-index="0" data-track-kind="graphics"></div>
+      <div id="cuadro" data-composition-id="cuadro" class="clip" data-composition-src="compositions/cuadro.html" data-start="4" data-duration="4" data-track-index="0" data-track-kind="graphics"></div>
+      <div id="rival" data-composition-id="rival" class="clip" data-composition-src="compositions/rival.html" data-start="8" data-duration="4" data-track-index="0" data-track-kind="graphics"></div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.to({}, { duration: 12 });
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

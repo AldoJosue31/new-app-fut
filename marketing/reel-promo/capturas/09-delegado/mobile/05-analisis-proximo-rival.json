@@ -1,0 +1,35 @@
+{
+  "estado": "05-analisis-proximo-rival",
+  "dispositivo": "mobile",
+  "ruta": "/equipos",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 1171,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-09-delegado-05-analisis-proximo-rival-",
+  "altoPagina": 2445,
+  "nota": "",
+  "objetivos": {
+    "titulo": {
+      "x": 84,
+      "y": 0,
+      "w": 199,
+      "h": 48,
+      "cx": 184,
+      "cy": 24,
+      "text": "Análisis y probabilidades"
+    },
+    "selector": {
+      "x": 55,
+      "y": 244,
+      "w": 180,
+      "h": 44,
+      "cx": 145,
+      "cy": 266,
+      "text": "Jornada 8 · Deportivo Colonia Norte\nJornada 9 · Inter Xochimilco"
+    }
+  }
+}

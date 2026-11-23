@@ -1,0 +1,35 @@
+{
+  "estado": "06-torneo-puntuacion",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-06-torneo-puntuacion-",
+  "altoPagina": 1786,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 20,
+      "y": 63,
+      "w": 350,
+      "h": 719,
+      "cx": 195,
+      "cy": 422,
+      "text": "Ajustes de Torneo (En Curso)\nSistema de Puntuación Personalizado\nVictoria\nEmpate\nDerrota\nCriterio de Desempate\nTradicional (Empate directo)\nPenales/Shootouts (P"
+    },
+    "pestana": {
+      "x": 122,
+      "y": 177,
+      "w": 70,
+      "h": 44,
+      "cx": 157,
+      "cy": 199,
+      "text": ""
+    }
+  }
+}

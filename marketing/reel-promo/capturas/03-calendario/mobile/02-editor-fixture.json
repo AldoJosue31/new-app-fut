@@ -1,0 +1,26 @@
+{
+  "estado": "02-editor-fixture",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-03-calendario-02-editor-fixture-",
+  "altoPagina": 1515,
+  "nota": "",
+  "objetivos": {
+    "modal": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "cx": 195,
+      "cy": 422,
+      "text": "Reorganizar Calendario\nModifica partidos futuros. El pasado es inmutable.\n10 Equipos\nFixture Válido\nEditar texto\nVer confirmadas (8)\nCriterios\nRestaurar\nJornada"
+    }
+  }
+}

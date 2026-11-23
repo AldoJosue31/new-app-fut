@@ -1,0 +1,44 @@
+{
+  "estado": "02-puntuacion",
+  "dispositivo": "mobile",
+  "ruta": "/liga/rules",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 528,
+  "scrollX": 50,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-01-reglas-02-puntuacion-",
+  "altoPagina": 1624,
+  "nota": "",
+  "objetivos": {
+    "seccion": {
+      "x": 0,
+      "y": 0,
+      "w": 430,
+      "h": 24,
+      "cx": 215,
+      "cy": 12,
+      "text": "Sistema de Puntuación y Desempate"
+    },
+    "victoria": {
+      "x": 0,
+      "y": 39,
+      "w": 205,
+      "h": 21,
+      "cx": 102,
+      "cy": 50,
+      "text": "Puntos por Victoria"
+    },
+    "desempate": {
+      "x": -226,
+      "y": 758,
+      "w": 193,
+      "h": 36,
+      "cx": -130,
+      "cy": 776,
+      "text": "Primera Fuerza\nSegunda Fuerza"
+    }
+  }
+}

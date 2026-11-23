@@ -1,0 +1,35 @@
+{
+  "estado": "03-publico-tabla",
+  "dispositivo": "mobile",
+  "ruta": "/share/standings/123",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-08-publico-03-publico-tabla-",
+  "altoPagina": 971,
+  "nota": "",
+  "objetivos": {
+    "titulo": {
+      "x": 54,
+      "y": 40,
+      "w": 316,
+      "h": 72,
+      "cx": 212,
+      "cy": 76,
+      "text": "Temporada Apertura 2026"
+    },
+    "tabla": {
+      "x": 17,
+      "y": 295,
+      "w": 506,
+      "h": 413,
+      "cx": 270,
+      "cy": 502,
+      "text": "EQUIPO\nPJ\nDIF\nPND\nPTS\nG\nE\nP\nGF\nGC\n1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8\n2\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12\n3\nASI\nAtlético "
+    }
+  }
+}

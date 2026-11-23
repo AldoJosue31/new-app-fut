@@ -1,0 +1,16 @@
+{
+  "estado": "07-torneo-con-campeon",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-06-liguilla-07-torneo-con-campeon-",
+  "altoPagina": 934,
+  "nota": "",
+  "objetivos": {}
+}

@@ -1,0 +1,64 @@
+<!-- Subtítulos de la voz (palabra a palabra de ElevenLabs Scribe). Generado por tools/build.mjs. -->
+<template>
+  <style>
+
+#root .sub { position: absolute; left: 60px; right: 60px; top: 304px; height: 160px; display: flex; align-items: flex-start; justify-content: center; opacity: 0; visibility: hidden; }
+#root .sub span { display: inline-block; max-width: 920px; padding: 18px 34px 22px; border-radius: 30px; background: rgba(13, 21, 25, 0.94); color: #fff; font: 700 66px/1.15 Poppins; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45); text-align: center; letter-spacing: -0.01em; }
+
+  </style>
+  <div id="root" data-composition-id="subtitulos" data-width="1080" data-height="1920">
+    <div class="sub" id="s0"><span>Si organizas una</span></div>
+    <div class="sub" id="s1"><span>liga,</span></div>
+    <div class="sub" id="s2"><span>ya sabes qué</span></div>
+    <div class="sub" id="s3"><span>te van a</span></div>
+    <div class="sub" id="s4"><span>preguntar…</span></div>
+    <div class="sub" id="s5"><span>Cada domingo,</span></div>
+    <div class="sub" id="s6"><span>uno por uno.</span></div>
+    <div class="sub" id="s7"><span>Ahora contestas con</span></div>
+    <div class="sub" id="s8"><span>un solo link.</span></div>
+    <div class="sub" id="s9"><span>Capturas el resultado</span></div>
+    <div class="sub" id="s10"><span>del partido…</span></div>
+    <div class="sub" id="s11"><span>y la tabla</span></div>
+    <div class="sub" id="s12"><span>y los goleadores</span></div>
+    <div class="sub" id="s13"><span>se actualizan solos.</span></div>
+    <div class="sub" id="s14"><span>Con tus puntos,</span></div>
+    <div class="sub" id="s15"><span>tus desempates y</span></div>
+    <div class="sub" id="s16"><span>tu liguilla.</span></div>
+    <div class="sub" id="s17"><span>La sacas en</span></div>
+    <div class="sub" id="s18"><span>imagen,</span></div>
+    <div class="sub" id="s19"><span>lista para el</span></div>
+    <div class="sub" id="s20"><span>grupo.</span></div>
+    <div class="sub" id="s21"><span>Y cada delegado</span></div>
+    <div class="sub" id="s22"><span>tiene su propia</span></div>
+    <div class="sub" id="s23"><span>cuenta:</span></div>
+    <div class="sub" id="s24"><span>ve sus números</span></div>
+    <div class="sub" id="s25"><span>y el análisis</span></div>
+    <div class="sub" id="s26"><span>de su próximo</span></div>
+    <div class="sub" id="s27"><span>rival.</span></div>
+    <div class="sub" id="s28"><span>Llevas toda la</span></div>
+    <div class="sub" id="s29"><span>liga hasta la</span></div>
+    <div class="sub" id="s30"><span>final…</span></div>
+    <div class="sub" id="s31"><span>Tu liga entera,</span></div>
+    <div class="sub" id="s32"><span>en un link.</span></div>
+    <div class="sub" id="s33"><span>Bracket App.</span></div>
+    <div class="sub" id="s34"><span>Empieza gratis:</span></div>
+    <div class="sub" id="s35"><span>link en la</span></div>
+    <div class="sub" id="s36"><span>bio.</span></div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+
+      var G = [[0.11,0.93],[0.91,1.57],[1.55,2.29],[2.27,2.69],[2.67,3.45],[3.41,4.87],[4.85,6.03],[5.61,6.697],[6.677,7.817],[7.66,8.528],[8.508,9.608],[9.58,10.213],[10.193,11.133],[11.113,12.653],[13.11,14.015],[13.995,15.162],[15.142,15.922],[16.26,16.776],[16.756,17.496],[17.476,18.136],[18.116,18.656],[20.31,21.306],[21.286,22.026],[22.006,22.826],[22.806,23.626],[23.606,24.386],[24.366,25.146],[25.126,25.666],[26.16,27.193],[27.173,28.073],[28.053,28.753],[30.86,32.007],[31.987,33.127],[32.66,33.68],[33.66,34.88],[34.86,35.24],[35.22,35.76]];
+      G.forEach(function (g, i) {
+        var id = '#s' + i;
+        tl.set(id, { visibility: 'visible' }, g[0]);
+        tl.fromTo(id, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.12, ease: 'power3.out' }, g[0]);
+        tl.to(id, { opacity: 0, duration: 0.08, ease: 'power2.in' }, g[1] - 0.08);
+        tl.set(id, { opacity: 0, visibility: 'hidden' }, g[1]);
+      });
+      tl.to({}, { duration: 36 - tl.duration() });
+      window.__timelines["subtitulos"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,44 @@
+{
+  "estado": "01-torneo",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/definir",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-03-calendario-01-torneo-",
+  "altoPagina": 905,
+  "nota": "",
+  "objetivos": {
+    "definir": {
+      "x": 287,
+      "y": 386,
+      "w": 432,
+      "h": 42,
+      "cx": 503,
+      "cy": 407,
+      "text": "Definir jornadas"
+    },
+    "avanzar": {
+      "x": 731,
+      "y": 386,
+      "w": 167,
+      "h": 42,
+      "cx": 815,
+      "cy": 407,
+      "text": "Avanzar de fase"
+    },
+    "metricas": {
+      "x": 963,
+      "y": 546,
+      "w": 167,
+      "h": 18,
+      "cx": 1046,
+      "cy": 555,
+      "text": "METRICAS DEL TORNEO"
+    }
+  }
+}

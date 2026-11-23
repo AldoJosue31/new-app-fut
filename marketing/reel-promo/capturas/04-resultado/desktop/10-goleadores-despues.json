@@ -1,0 +1,26 @@
+{
+  "estado": "10-goleadores-despues",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/goleadores",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-04-resultado-10-goleadores-despues-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {
+    "lider": {
+      "x": 418,
+      "y": 220,
+      "w": 134,
+      "h": 22,
+      "cx": 485,
+      "cy": 231,
+      "text": "Luis Flores Estrada"
+    }
+  }
+}

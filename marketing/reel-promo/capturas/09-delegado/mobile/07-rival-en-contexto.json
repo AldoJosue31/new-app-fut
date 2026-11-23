@@ -1,0 +1,26 @@
+{
+  "estado": "07-rival-en-contexto",
+  "dispositivo": "mobile",
+  "ruta": "/equipos",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 1912,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-09-delegado-07-rival-en-contexto-",
+  "altoPagina": 2776,
+  "nota": "",
+  "objetivos": {
+    "boton": {
+      "x": 248,
+      "y": 0,
+      "w": 71,
+      "h": 44,
+      "cx": 284,
+      "cy": 22,
+      "text": "Ocultar"
+    }
+  }
+}

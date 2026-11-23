@@ -1,0 +1,16 @@
+{
+  "estado": "05-gol-local",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/jornadas/4508/list",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-04-resultado-05-gol-local-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {}
+}

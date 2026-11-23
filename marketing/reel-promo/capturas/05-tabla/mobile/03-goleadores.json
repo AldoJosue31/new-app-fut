@@ -1,0 +1,35 @@
+{
+  "estado": "03-goleadores",
+  "dispositivo": "mobile",
+  "ruta": "/division/94/torneos/123/goleadores",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-mobile",
+  "prefijoIds": "bk-05-tabla-03-goleadores-",
+  "altoPagina": 844,
+  "nota": "",
+  "objetivos": {
+    "lider": {
+      "x": 117,
+      "y": 204,
+      "w": 84,
+      "h": 19,
+      "cx": 158,
+      "cy": 213,
+      "text": "Luis Flores Estrada"
+    },
+    "tabla": {
+      "x": 25,
+      "y": 157,
+      "w": 341,
+      "h": 3785,
+      "cx": 195,
+      "cy": 2049,
+      "text": "#\tJugador\tEquipo\tGoles\n1\t\nLuis Flores Estrada\n#9\n\t\nASI\nAtlético San Isidro\n\t9\n2\t\nDiego Herrera Aguilar\n#9\n\t\nRCF\nReal Cuauhtémoc FC\n\t7\n3\t\nCarlos Mejía Cortés\n#9\n"
+    }
+  }
+}

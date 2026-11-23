@@ -1,0 +1,3693 @@
+[
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "01-plantilla-reglas",
+    "ruta": "/liga/rules",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/01-plantilla-reglas.html",
+    "css": "01-reglas/desktop/01-plantilla-reglas.css",
+    "png": "01-reglas/desktop/01-plantilla-reglas.png",
+    "completa": "01-reglas/desktop/01-plantilla-reglas.completa.png",
+    "objetivos": {
+      "titulo": {
+        "x": 451,
+        "y": 144,
+        "w": 489,
+        "h": 30,
+        "cx": 696,
+        "cy": 159,
+        "text": "Plantilla de Reglas del Torneo"
+      },
+      "minJugadores": {
+        "x": 394,
+        "y": 282,
+        "w": 233,
+        "h": 21,
+        "cx": 511,
+        "cy": 293,
+        "text": "Mínimo de Jugadores"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "02-puntuacion",
+    "ruta": "/liga/rules",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/02-puntuacion.html",
+    "css": "01-reglas/desktop/02-puntuacion.css",
+    "png": "01-reglas/desktop/02-puntuacion.png",
+    "completa": "01-reglas/desktop/02-puntuacion.completa.png",
+    "objetivos": {
+      "seccion": {
+        "x": 394,
+        "y": 80,
+        "w": 740,
+        "h": 24,
+        "cx": 764,
+        "cy": 92,
+        "text": "Sistema de Puntuación y Desempate"
+      },
+      "victoria": {
+        "x": 394,
+        "y": 119,
+        "w": 233,
+        "h": 21,
+        "cx": 511,
+        "cy": 130,
+        "text": "Puntos por Victoria"
+      },
+      "desempate": {
+        "x": 2,
+        "y": 773,
+        "w": 59,
+        "h": 36,
+        "cx": 32,
+        "cy": 791,
+        "text": "Primera Fuerza\nSegunda Fuerza"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "03-cambio-sin-guardar",
+    "ruta": "/liga/rules",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/03-cambio-sin-guardar.html",
+    "css": "01-reglas/desktop/03-cambio-sin-guardar.css",
+    "png": "01-reglas/desktop/03-cambio-sin-guardar.png",
+    "completa": "01-reglas/desktop/03-cambio-sin-guardar.completa.png",
+    "objetivos": {
+      "campo": {
+        "x": 647,
+        "y": 242,
+        "w": 233,
+        "h": 43,
+        "cx": 764,
+        "cy": 264,
+        "text": ""
+      },
+      "aviso": {
+        "x": 445,
+        "y": -79,
+        "w": 233,
+        "h": 23,
+        "cx": 562,
+        "cy": -67,
+        "text": "Tienes cambios sin guardar."
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "04-reglas-activas",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/04-reglas-activas.html",
+    "css": "01-reglas/desktop/04-reglas-activas.css",
+    "png": "01-reglas/desktop/04-reglas-activas.png",
+    "completa": null,
+    "objetivos": {
+      "reglas": {
+        "x": 942,
+        "y": 94,
+        "w": 322,
+        "h": 411,
+        "cx": 1103,
+        "cy": 300,
+        "text": "REGLAS ACTIVAS\nPlantillas\nPartido min. 7 / Inscripción min. 7 / Max. 25\nDuracion de Partido\n40' por tiempo / 10' descanso / Jornada 7 dias\nCriterio de Desempate"
+      },
+      "verConfig": {
+        "x": 1215,
+        "y": 113,
+        "w": 30,
+        "h": 30,
+        "cx": 1230,
+        "cy": 128,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "05-torneo-general",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/05-torneo-general.html",
+    "css": "01-reglas/desktop/05-torneo-general.css",
+    "png": "01-reglas/desktop/05-torneo-general.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 420,
+        "y": 141,
+        "w": 600,
+        "h": 619,
+        "cx": 720,
+        "cy": 450,
+        "text": "Ajustes de Torneo (En Curso)\nGeneral\nPuntuación\nFormato\nReglas\nTemporada\nFecha Inicio\nLÍMITES DE PARTICIPACIÓN\nMin. Jugadores\nMin. para Inscribir\nMax. Jugadores"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "06-torneo-puntuacion",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/06-torneo-puntuacion.html",
+    "css": "01-reglas/desktop/06-torneo-puntuacion.css",
+    "png": "01-reglas/desktop/06-torneo-puntuacion.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 420,
+        "y": 146,
+        "w": 600,
+        "h": 608,
+        "cx": 720,
+        "cy": 450,
+        "text": "Ajustes de Torneo (En Curso)\nGeneral\nPuntuación\nFormato\nReglas\nSistema de Puntuación Personalizado\nVictoria\nEmpate\nDerrota\nCriterio de Desempate\nTradicional (Em"
+      },
+      "pestana": {
+        "x": 587,
+        "y": 243,
+        "w": 125,
+        "h": 44,
+        "cx": 650,
+        "cy": 265,
+        "text": "Puntuación"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "07-torneo-formato",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/07-torneo-formato.html",
+    "css": "01-reglas/desktop/07-torneo-formato.css",
+    "png": "01-reglas/desktop/07-torneo-formato.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 420,
+        "y": 36,
+        "w": 600,
+        "h": 828,
+        "cx": 720,
+        "cy": 450,
+        "text": "Ajustes de Torneo (En Curso)\nGeneral\nPuntuación\nFormato\nReglas\nModalidad de Juego\nSolo Ida (1 vuelta)\nIda y Vuelta (2 vueltas)\nHabilitar Ascensos y Descensos\nAs"
+      },
+      "pestana": {
+        "x": 728,
+        "y": 133,
+        "w": 125,
+        "h": 44,
+        "cx": 790,
+        "cy": 155,
+        "text": "Formato"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "desktop",
+    "estado": "08-torneo-reglas",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "01-reglas/desktop/08-torneo-reglas.html",
+    "css": "01-reglas/desktop/08-torneo-reglas.css",
+    "png": "01-reglas/desktop/08-torneo-reglas.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 420,
+        "y": 61,
+        "w": 600,
+        "h": 777,
+        "cx": 720,
+        "cy": 450,
+        "text": "Ajustes de Torneo (En Curso)\nGeneral\nPuntuación\nFormato\nReglas\nTIEMPOS Y HORARIOS\nHora Inicio\nHora Límite\nDuración Jornada (días)\nDURACIÓN Y CAMBIOS\nMinutos por"
+      },
+      "pestana": {
+        "x": 868,
+        "y": 159,
+        "w": 125,
+        "h": 44,
+        "cx": 930,
+        "cy": 181,
+        "text": "Reglas"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "01-plantilla-reglas",
+    "ruta": "/liga/rules",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/01-plantilla-reglas.html",
+    "css": "01-reglas/mobile/01-plantilla-reglas.css",
+    "png": "01-reglas/mobile/01-plantilla-reglas.png",
+    "completa": "01-reglas/mobile/01-plantilla-reglas.completa.png",
+    "objetivos": {
+      "titulo": {
+        "x": 107,
+        "y": 144,
+        "w": 373,
+        "h": 30,
+        "cx": 293,
+        "cy": 159,
+        "text": "Plantilla de Reglas del Torneo"
+      },
+      "minJugadores": {
+        "x": 50,
+        "y": 303,
+        "w": 205,
+        "h": 21,
+        "cx": 152,
+        "cy": 314,
+        "text": "Mínimo de Jugadores"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "02-puntuacion",
+    "ruta": "/liga/rules",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/02-puntuacion.html",
+    "css": "01-reglas/mobile/02-puntuacion.css",
+    "png": "01-reglas/mobile/02-puntuacion.png",
+    "completa": "01-reglas/mobile/02-puntuacion.completa.png",
+    "objetivos": {
+      "seccion": {
+        "x": 0,
+        "y": 0,
+        "w": 430,
+        "h": 24,
+        "cx": 215,
+        "cy": 12,
+        "text": "Sistema de Puntuación y Desempate"
+      },
+      "victoria": {
+        "x": 0,
+        "y": 39,
+        "w": 205,
+        "h": 21,
+        "cx": 102,
+        "cy": 50,
+        "text": "Puntos por Victoria"
+      },
+      "desempate": {
+        "x": -226,
+        "y": 758,
+        "w": 193,
+        "h": 36,
+        "cx": -130,
+        "cy": 776,
+        "text": "Primera Fuerza\nSegunda Fuerza"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "03-cambio-sin-guardar",
+    "ruta": "/liga/rules",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/03-cambio-sin-guardar.html",
+    "css": "01-reglas/mobile/03-cambio-sin-guardar.css",
+    "png": "01-reglas/mobile/03-cambio-sin-guardar.png",
+    "completa": "01-reglas/mobile/03-cambio-sin-guardar.completa.png",
+    "objetivos": {
+      "campo": {
+        "x": 225,
+        "y": 68,
+        "w": 205,
+        "h": 43,
+        "cx": 327,
+        "cy": 90,
+        "text": ""
+      },
+      "aviso": {
+        "x": 41,
+        "y": -369,
+        "w": 233,
+        "h": 23,
+        "cx": 158,
+        "cy": -357,
+        "text": "Tienes cambios sin guardar."
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "04-reglas-activas",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/04-reglas-activas.html",
+    "css": "01-reglas/mobile/04-reglas-activas.css",
+    "png": "01-reglas/mobile/04-reglas-activas.png",
+    "completa": "01-reglas/mobile/04-reglas-activas.completa.png",
+    "objetivos": {
+      "reglas": {
+        "x": 20,
+        "y": 552,
+        "w": 350,
+        "h": 413,
+        "cx": 195,
+        "cy": 759,
+        "text": "REGLAS ACTIVAS\nPlantillas\nPartido min. 7 / Inscripción min. 7 / Max. 25\nDuracion de Partido\n40' por tiempo / 10' descanso / Jornada 7 dias\nCriterio de Desempate"
+      },
+      "verConfig": {
+        "x": 39,
+        "y": 605,
+        "w": 30,
+        "h": 30,
+        "cx": 54,
+        "cy": 620,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "05-torneo-general",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/05-torneo-general.html",
+    "css": "01-reglas/mobile/05-torneo-general.css",
+    "png": "01-reglas/mobile/05-torneo-general.png",
+    "completa": "01-reglas/mobile/05-torneo-general.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 50,
+        "w": 350,
+        "h": 744,
+        "cx": 195,
+        "cy": 422,
+        "text": "Ajustes de Torneo (En Curso)\nTemporada\nFecha Inicio\nLÍMITES DE PARTICIPACIÓN\nMin. Jugadores\nMin. para Inscribir\nMax. Jugadores\nMax. Equipos\nGuardar Cambios"
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "06-torneo-puntuacion",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/06-torneo-puntuacion.html",
+    "css": "01-reglas/mobile/06-torneo-puntuacion.css",
+    "png": "01-reglas/mobile/06-torneo-puntuacion.png",
+    "completa": "01-reglas/mobile/06-torneo-puntuacion.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 63,
+        "w": 350,
+        "h": 719,
+        "cx": 195,
+        "cy": 422,
+        "text": "Ajustes de Torneo (En Curso)\nSistema de Puntuación Personalizado\nVictoria\nEmpate\nDerrota\nCriterio de Desempate\nTradicional (Empate directo)\nPenales/Shootouts (P"
+      },
+      "pestana": {
+        "x": 122,
+        "y": 177,
+        "w": 70,
+        "h": 44,
+        "cx": 157,
+        "cy": 199,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "07-torneo-formato",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/07-torneo-formato.html",
+    "css": "01-reglas/mobile/07-torneo-formato.css",
+    "png": "01-reglas/mobile/07-torneo-formato.png",
+    "completa": "01-reglas/mobile/07-torneo-formato.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 20,
+        "w": 350,
+        "h": 804,
+        "cx": 195,
+        "cy": 422,
+        "text": "Ajustes de Torneo (En Curso)\nModalidad de Juego\nSolo Ida (1 vuelta)\nIda y Vuelta (2 vueltas)\nHabilitar Ascensos y Descensos\nAscensos\nDescensos\nFase Final (Playo"
+      },
+      "pestana": {
+        "x": 198,
+        "y": 134,
+        "w": 70,
+        "h": 44,
+        "cx": 233,
+        "cy": 156,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "01-reglas",
+    "titulo": "Tu liga, tus reglas",
+    "dispositivo": "mobile",
+    "estado": "08-torneo-reglas",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "01-reglas/mobile/08-torneo-reglas.html",
+    "css": "01-reglas/mobile/08-torneo-reglas.css",
+    "png": "01-reglas/mobile/08-torneo-reglas.png",
+    "completa": "01-reglas/mobile/08-torneo-reglas.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 20,
+        "w": 350,
+        "h": 804,
+        "cx": 195,
+        "cy": 422,
+        "text": "Ajustes de Torneo (En Curso)\nTIEMPOS Y HORARIOS\nHora Inicio\nHora Límite\nDuración Jornada (días)\nDURACIÓN Y CAMBIOS\nMinutos por Tiempo\nMinutos Descanso\nCambios\nI"
+      },
+      "pestana": {
+        "x": 273,
+        "y": 134,
+        "w": 70,
+        "h": 44,
+        "cx": 308,
+        "cy": 156,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "desktop",
+    "estado": "01-equipos",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "02-equipos/desktop/01-equipos.html",
+    "css": "02-equipos/desktop/01-equipos.css",
+    "png": "02-equipos/desktop/01-equipos.png",
+    "completa": "02-equipos/desktop/01-equipos.completa.png",
+    "objetivos": {
+      "leones": {
+        "x": 243,
+        "y": 641,
+        "w": 218,
+        "h": 26,
+        "cx": 352,
+        "cy": 654,
+        "text": "Leones de Tlalpan"
+      },
+      "crear": {
+        "x": 1272,
+        "y": 46,
+        "w": 148,
+        "h": 44,
+        "cx": 1346,
+        "cy": 68,
+        "text": "Crear equipo"
+      },
+      "contadores": {
+        "x": 108,
+        "y": 49,
+        "w": 142,
+        "h": 44,
+        "cx": 179,
+        "cy": 71,
+        "text": "10\nEquipos"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "desktop",
+    "estado": "02-ficha-equipo",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "02-equipos/desktop/02-ficha-equipo.html",
+    "css": "02-equipos/desktop/02-ficha-equipo.css",
+    "png": "02-equipos/desktop/02-ficha-equipo.png",
+    "completa": "02-equipos/desktop/02-ficha-equipo.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 445,
+        "y": 96,
+        "w": 550,
+        "h": 709,
+        "cx": 720,
+        "cy": 450,
+        "text": "Ficha del Equipo\nPrimera Fuerza\nLDT\nLeones de Tlalpan\nDelegado\nRicardo Salinas\n\n1 solicitud pendiente\n\n→\nPlantilla\n\nVer Jugadores\n\n➔\nContacto\n\n55 4211 2539\n\nTor"
+      },
+      "delegado": {
+        "x": 539,
+        "y": 472,
+        "w": 121,
+        "h": 23,
+        "cx": 600,
+        "cy": 484,
+        "text": "Ricardo Salinas"
+      },
+      "estadisticas": {
+        "x": 539,
+        "y": 734,
+        "w": 382,
+        "h": 23,
+        "cx": 730,
+        "cy": 745,
+        "text": "Estadísticas"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "desktop",
+    "estado": "03-plantilla",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "02-equipos/desktop/03-plantilla.html",
+    "css": "02-equipos/desktop/03-plantilla.css",
+    "png": "02-equipos/desktop/03-plantilla.png",
+    "completa": "02-equipos/desktop/03-plantilla.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 295,
+        "y": 43,
+        "w": 850,
+        "h": 814,
+        "cx": 720,
+        "cy": 450,
+        "text": "Plantilla\nVolver\nOrdenar:\nDorsal\nNombre\nPosición\n#1\nKevin Ortiz Herrera\nPortero\n#2\nAndrés Castillo Reyes\nDefensa\n#3\nOmar Díaz Vargas\nDefensa\n#4\nFernando Estrada"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "desktop",
+    "estado": "04-estadisticas",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "02-equipos/desktop/04-estadisticas.html",
+    "css": "02-equipos/desktop/04-estadisticas.css",
+    "png": "02-equipos/desktop/04-estadisticas.png",
+    "completa": "02-equipos/desktop/04-estadisticas.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 295,
+        "y": 97,
+        "w": 850,
+        "h": 706,
+        "cx": 720,
+        "cy": 450,
+        "text": "Estadísticas: Leones de Tlalpan\nVolver\nPartidos\nJugadores\nULTIMOS RESULTADOS\nTodos\nJORNADA 7\nG\n14/11\n2\n-\n1\nASI\nAtlético San Isidro\nJORNADA 6\nG\n07/11\n3\n-\n1\nRC\nRa"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "desktop",
+    "estado": "05-estadisticas-jugadores",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "02-equipos/desktop/05-estadisticas-jugadores.html",
+    "css": "02-equipos/desktop/05-estadisticas-jugadores.css",
+    "png": "02-equipos/desktop/05-estadisticas-jugadores.png",
+    "completa": "02-equipos/desktop/05-estadisticas-jugadores.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 295,
+        "y": 43,
+        "w": 850,
+        "h": 814,
+        "cx": 720,
+        "cy": 450,
+        "text": "Estadísticas: Leones de Tlalpan\nVolver\nPartidos\nJugadores\nRENDIMIENTO INDIVIDUAL\nJUGADOR\n\t\n\t\n\t\n\t\n\n\nC\nCarlos Mejía Cortés\n#9\n\t7\t5\t0\t0\n\nA\nAlan Hernández López\n#7\n"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "mobile",
+    "estado": "01-equipos",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "02-equipos/mobile/01-equipos.html",
+    "css": "02-equipos/mobile/01-equipos.css",
+    "png": "02-equipos/mobile/01-equipos.png",
+    "completa": "02-equipos/mobile/01-equipos.completa.png",
+    "objetivos": {
+      "leones": {
+        "x": 86,
+        "y": 1624,
+        "w": 218,
+        "h": 26,
+        "cx": 195,
+        "cy": 1637,
+        "text": "Leones de Tlalpan"
+      },
+      "crear": {
+        "x": 199,
+        "y": 150,
+        "w": 171,
+        "h": 44,
+        "cx": 285,
+        "cy": 172,
+        "text": "Crear equipo"
+      },
+      "contadores": {
+        "x": 20,
+        "y": 47,
+        "w": 172,
+        "h": 46,
+        "cx": 106,
+        "cy": 70,
+        "text": "10\nEquipos"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "mobile",
+    "estado": "02-ficha-equipo",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "02-equipos/mobile/02-ficha-equipo.html",
+    "css": "02-equipos/mobile/02-ficha-equipo.css",
+    "png": "02-equipos/mobile/02-ficha-equipo.png",
+    "completa": "02-equipos/mobile/02-ficha-equipo.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 70,
+        "w": 350,
+        "h": 704,
+        "cx": 195,
+        "cy": 422,
+        "text": "Ficha del Equipo\nPrimera Fuerza\nLDT\nLeones de Tlalpan\nDelegado\nRicardo Salinas\n\n1 solicitud pendiente\n\n→\nPlantilla\n\nVer Jugadores\n\n➔\nContacto\n\n55 4211 2539\n\nTor"
+      },
+      "delegado": {
+        "x": 114,
+        "y": 442,
+        "w": 121,
+        "h": 23,
+        "cx": 175,
+        "cy": 453,
+        "text": "Ricardo Salinas"
+      },
+      "estadisticas": {
+        "x": 114,
+        "y": 703,
+        "w": 182,
+        "h": 23,
+        "cx": 205,
+        "cy": 715,
+        "text": "Estadísticas"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "mobile",
+    "estado": "03-plantilla",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "02-equipos/mobile/03-plantilla.html",
+    "css": "02-equipos/mobile/03-plantilla.css",
+    "png": "02-equipos/mobile/03-plantilla.png",
+    "completa": "02-equipos/mobile/03-plantilla.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 37,
+        "w": 350,
+        "h": 769,
+        "cx": 195,
+        "cy": 422,
+        "text": "Plantilla\nVolver\n#1\nKevin Ortiz Herrera\nPortero\n#2\nAndrés Castillo Reyes\nDefensa\n#3\nOmar Díaz Vargas\nDefensa\n#4\nFernando Estrada Romero\nDefensa\n#5\nOmar Estrada "
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "mobile",
+    "estado": "04-estadisticas",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "02-equipos/mobile/04-estadisticas.html",
+    "css": "02-equipos/mobile/04-estadisticas.css",
+    "png": "02-equipos/mobile/04-estadisticas.png",
+    "completa": "02-equipos/mobile/04-estadisticas.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 67,
+        "w": 350,
+        "h": 710,
+        "cx": 195,
+        "cy": 422,
+        "text": "Estadísticas: Leones de Tlalpan\nVolver\nPartidos\nJugadores\nULTIMOS RESULTADOS\nJORNADA 7\nG\n14/11\n2\n-\n1\nASI\nAtlético San Isidro\nJORNADA 6\nG\n07/11\n3\n-\n1\nRC\nRacing C"
+      }
+    }
+  },
+  {
+    "bloque": "02-equipos",
+    "titulo": "Equipos y jugadores",
+    "dispositivo": "mobile",
+    "estado": "05-estadisticas-jugadores",
+    "ruta": "/division/94/equipos/104",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "02-equipos/mobile/05-estadisticas-jugadores.html",
+    "css": "02-equipos/mobile/05-estadisticas-jugadores.css",
+    "png": "02-equipos/mobile/05-estadisticas-jugadores.png",
+    "completa": "02-equipos/mobile/05-estadisticas-jugadores.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 29,
+        "w": 350,
+        "h": 786,
+        "cx": 195,
+        "cy": 422,
+        "text": "Estadísticas: Leones de Tlalpan\nVolver\nPartidos\nJugadores\nRENDIMIENTO INDIVIDUAL\nJUGADOR\n\t\n\t\n\t\n\t\n\n\nC\nCarlos Mejía Cortés\n#9\n\t7\t5\t0\t0\n\nA\nAlan Hernández López\n#7\n"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "desktop",
+    "estado": "01-torneo",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "03-calendario/desktop/01-torneo.html",
+    "css": "03-calendario/desktop/01-torneo.css",
+    "png": "03-calendario/desktop/01-torneo.png",
+    "completa": null,
+    "objetivos": {
+      "definir": {
+        "x": 287,
+        "y": 386,
+        "w": 432,
+        "h": 42,
+        "cx": 503,
+        "cy": 407,
+        "text": "Definir jornadas"
+      },
+      "avanzar": {
+        "x": 731,
+        "y": 386,
+        "w": 167,
+        "h": 42,
+        "cx": 815,
+        "cy": 407,
+        "text": "Avanzar de fase"
+      },
+      "metricas": {
+        "x": 963,
+        "y": 546,
+        "w": 167,
+        "h": 18,
+        "cx": 1046,
+        "cy": 555,
+        "text": "METRICAS DEL TORNEO"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "desktop",
+    "estado": "02-editor-fixture",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "03-calendario/desktop/02-editor-fixture.html",
+    "css": "03-calendario/desktop/02-editor-fixture.css",
+    "png": "03-calendario/desktop/02-editor-fixture.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 70,
+        "y": 45,
+        "w": 1300,
+        "h": 810,
+        "cx": 720,
+        "cy": 450,
+        "text": "Reorganizar Calendario\nModifica partidos futuros. El pasado es inmutable.\n10 Equipos\nFixture Válido\nEditar texto\nVer confirmadas (8)\nCriterios\nRestaurar\nJornada"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "desktop",
+    "estado": "03-jornada-lista",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "03-calendario/desktop/03-jornada-lista.html",
+    "css": "03-calendario/desktop/03-jornada-lista.css",
+    "png": "03-calendario/desktop/03-jornada-lista.png",
+    "completa": null,
+    "objetivos": {
+      "resultado": {
+        "x": 1052,
+        "y": 266,
+        "w": 107,
+        "h": 31,
+        "cx": 1106,
+        "cy": 281,
+        "text": "Resultado"
+      },
+      "selector": {
+        "x": 181,
+        "y": 110,
+        "w": 128,
+        "h": 21,
+        "cx": 245,
+        "cy": 121,
+        "text": "Jornada 8"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "desktop",
+    "estado": "04-jornada-grilla",
+    "ruta": "/division/94/torneos/123/jornadas/4508/grid",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "03-calendario/desktop/04-jornada-grilla.html",
+    "css": "03-calendario/desktop/04-jornada-grilla.css",
+    "png": "03-calendario/desktop/04-jornada-grilla.png",
+    "completa": null,
+    "objetivos": {
+      "calendario": {
+        "x": 115,
+        "y": 232,
+        "w": 1299,
+        "h": 590,
+        "cx": 764,
+        "cy": 527,
+        "text": "Primera Fuerza\nSegunda Fuerza\nsáb 21\n9:00 AM\nPRIMERA FUERZA\nLocal:\nReal Cuauhtémoc FC\nSin resultado\n—\nVisitante:\nAtlético San Isidro\nSin resultado\n—\n11:00 AM\nPR"
+      },
+      "exportarRol": {
+        "x": 436,
+        "y": 184,
+        "w": 135,
+        "h": 38,
+        "cx": 504,
+        "cy": 203,
+        "text": "Exportar rol"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "mobile",
+    "estado": "01-torneo",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "03-calendario/mobile/01-torneo.html",
+    "css": "03-calendario/mobile/01-torneo.css",
+    "png": "03-calendario/mobile/01-torneo.png",
+    "completa": "03-calendario/mobile/01-torneo.completa.png",
+    "objetivos": {
+      "definir": {
+        "x": 39,
+        "y": 369,
+        "w": 312,
+        "h": 42,
+        "cx": 195,
+        "cy": 390,
+        "text": "Definir jornadas"
+      },
+      "avanzar": {
+        "x": 39,
+        "y": 423,
+        "w": 167,
+        "h": 42,
+        "cx": 123,
+        "cy": 444,
+        "text": "Avanzar de fase"
+      },
+      "metricas": {
+        "x": 39,
+        "y": 1434,
+        "w": 167,
+        "h": 18,
+        "cx": 123,
+        "cy": 1443,
+        "text": "METRICAS DEL TORNEO"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "mobile",
+    "estado": "02-editor-fixture",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "03-calendario/mobile/02-editor-fixture.html",
+    "css": "03-calendario/mobile/02-editor-fixture.css",
+    "png": "03-calendario/mobile/02-editor-fixture.png",
+    "completa": "03-calendario/mobile/02-editor-fixture.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 844,
+        "cx": 195,
+        "cy": 422,
+        "text": "Reorganizar Calendario\nModifica partidos futuros. El pasado es inmutable.\n10 Equipos\nFixture Válido\nEditar texto\nVer confirmadas (8)\nCriterios\nRestaurar\nJornada"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "mobile",
+    "estado": "03-jornada-lista",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "03-calendario/mobile/03-jornada-lista.html",
+    "css": "03-calendario/mobile/03-jornada-lista.css",
+    "png": "03-calendario/mobile/03-jornada-lista.png",
+    "completa": "03-calendario/mobile/03-jornada-lista.completa.png",
+    "objetivos": {
+      "resultado": {
+        "x": 47,
+        "y": 528,
+        "w": 147,
+        "h": 35,
+        "cx": 120,
+        "cy": 546,
+        "text": "Resultado"
+      },
+      "selector": {
+        "x": 135,
+        "y": 109,
+        "w": 128,
+        "h": 21,
+        "cx": 199,
+        "cy": 120,
+        "text": "Jornada 8"
+      }
+    }
+  },
+  {
+    "bloque": "03-calendario",
+    "titulo": "Torneo y calendario",
+    "dispositivo": "mobile",
+    "estado": "04-jornada-grilla",
+    "ruta": "/division/94/torneos/123/jornadas/4508/grid",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "03-calendario/mobile/04-jornada-grilla.html",
+    "css": "03-calendario/mobile/04-jornada-grilla.css",
+    "png": "03-calendario/mobile/04-jornada-grilla.png",
+    "completa": "03-calendario/mobile/04-jornada-grilla.completa.png",
+    "objetivos": {
+      "calendario": {
+        "x": 24,
+        "y": 396,
+        "w": 345,
+        "h": 1357,
+        "cx": 196,
+        "cy": 1074,
+        "text": "Primera Fuerza\nSegunda Fuerza\nSábado, 21 De Noviembre\n9:00 AM\nPRIMERA FUERZA\nLocal:\nReal Cuauhtémoc FC\nSin resultado\n—\nVisitante:\nAtlético San Isidro\nSin result"
+      },
+      "exportarRol": {
+        "x": 169,
+        "y": 285,
+        "w": 114,
+        "h": 59,
+        "cx": 225,
+        "cy": 314,
+        "text": "Exportar rol"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "01-tabla-antes",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/01-tabla-antes.html",
+    "css": "04-resultado/desktop/01-tabla-antes.css",
+    "png": "04-resultado/desktop/01-tabla-antes.png",
+    "completa": null,
+    "objetivos": {
+      "asi": {
+        "x": 268,
+        "y": 283,
+        "w": 996,
+        "h": 41,
+        "cx": 765,
+        "cy": 304,
+        "text": "3\nASI\nAtlético San Isidro\n\t7\t+4\t0\t12\t4\t0\t3\t21\t17"
+      },
+      "leones": {
+        "x": 268,
+        "y": 240,
+        "w": 996,
+        "h": 43,
+        "cx": 765,
+        "cy": 262,
+        "text": "2\nLDT\nLeones de Tlalpan\nLIGUILLA\n\t7\t+4\t0\t13\t4\t1\t2\t16\t12"
+      },
+      "rcf": {
+        "x": 268,
+        "y": 197,
+        "w": 996,
+        "h": 43,
+        "cx": 765,
+        "cy": 219,
+        "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t7\t+13\t0\t18\t6\t0\t1\t21\t8"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "02-jornada",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/02-jornada.html",
+    "css": "04-resultado/desktop/02-jornada.css",
+    "png": "04-resultado/desktop/02-jornada.png",
+    "completa": null,
+    "objetivos": {
+      "partido": {
+        "x": 529,
+        "y": 274,
+        "w": 154,
+        "h": 18,
+        "cx": 606,
+        "cy": 283,
+        "text": "Real Cuauhtémoc FC"
+      },
+      "resultado": {
+        "x": 1052,
+        "y": 266,
+        "w": 107,
+        "h": 31,
+        "cx": 1106,
+        "cy": 281,
+        "text": "Resultado"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "03-definir-resultado",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/03-definir-resultado.html",
+    "css": "04-resultado/desktop/03-definir-resultado.css",
+    "png": "04-resultado/desktop/03-definir-resultado.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 140,
+        "y": 23,
+        "w": 1160,
+        "h": 855,
+        "cx": 720,
+        "cy": 450,
+        "text": "Definir Resultado\nCargar cédula\nEscanear cédula\nRCF\nReal Cuauhtémoc FC\nPRIMERA FUERZA\n0\n-\n0\n2026-11-21 - 9:00 AM\nASI\nAtlético San Isidro\nGeneral\nReal Cuauhtémoc"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "04-titulares-local",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/04-titulares-local.html",
+    "css": "04-resultado/desktop/04-titulares-local.css",
+    "png": "04-resultado/desktop/04-titulares-local.png",
+    "completa": null,
+    "objetivos": {
+      "autorellenar": {
+        "x": 894,
+        "y": 316,
+        "w": 214,
+        "h": 44,
+        "cx": 1001,
+        "cy": 338,
+        "text": "Auto-rellenar titulares"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "05-gol-local",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/05-gol-local.html",
+    "css": "04-resultado/desktop/05-gol-local.css",
+    "png": "04-resultado/desktop/05-gol-local.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "06-goles-visita",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/06-goles-visita.html",
+    "css": "04-resultado/desktop/06-goles-visita.css",
+    "png": "04-resultado/desktop/06-goles-visita.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "07-confirmar",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/07-confirmar.html",
+    "css": "04-resultado/desktop/07-confirmar.css",
+    "png": "04-resultado/desktop/07-confirmar.png",
+    "completa": null,
+    "objetivos": {
+      "confirmacion": {
+        "x": 140,
+        "y": 23,
+        "w": 1160,
+        "h": 855,
+        "cx": 720,
+        "cy": 450,
+        "text": "Definir Resultado\nCargar cédula\nEscanear cédula\nRCF\nReal Cuauhtémoc FC\nPRIMERA FUERZA\n1\n-\n2\n2026-11-21 - 9:00 AM\nASI\nAtlético San Isidro\nGeneral\nReal Cuauhtémoc"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "08-guardado",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/08-guardado.html",
+    "css": "04-resultado/desktop/08-guardado.css",
+    "png": "04-resultado/desktop/08-guardado.png",
+    "completa": null,
+    "objetivos": {
+      "partido": {
+        "x": 500,
+        "y": 274,
+        "w": 154,
+        "h": 18,
+        "cx": 577,
+        "cy": 283,
+        "text": "Real Cuauhtémoc FC"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "09-tabla-despues",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/09-tabla-despues.html",
+    "css": "04-resultado/desktop/09-tabla-despues.css",
+    "png": "04-resultado/desktop/09-tabla-despues.png",
+    "completa": null,
+    "objetivos": {
+      "asi": {
+        "x": 268,
+        "y": 240,
+        "w": 996,
+        "h": 43,
+        "cx": 765,
+        "cy": 262,
+        "text": "2\nASI\nAtlético San Isidro\nLIGUILLA\n\t8\t+5\t0\t15\t5\t0\t3\t23\t18"
+      },
+      "leones": {
+        "x": 268,
+        "y": 283,
+        "w": 996,
+        "h": 43,
+        "cx": 765,
+        "cy": 305,
+        "text": "3\nLDT\nLeones de Tlalpan\nLIGUILLA\n\t7\t+4\t0\t13\t4\t1\t2\t16\t12"
+      },
+      "rcf": {
+        "x": 268,
+        "y": 197,
+        "w": 996,
+        "h": 43,
+        "cx": 765,
+        "cy": 219,
+        "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t8\t+12\t0\t18\t6\t0\t2\t22\t10"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "desktop",
+    "estado": "10-goleadores-despues",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "04-resultado/desktop/10-goleadores-despues.html",
+    "css": "04-resultado/desktop/10-goleadores-despues.css",
+    "png": "04-resultado/desktop/10-goleadores-despues.png",
+    "completa": null,
+    "objetivos": {
+      "lider": {
+        "x": 418,
+        "y": 220,
+        "w": 134,
+        "h": 22,
+        "cx": 485,
+        "cy": 231,
+        "text": "Luis Flores Estrada"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "01-tabla-antes",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/01-tabla-antes.html",
+    "css": "04-resultado/mobile/01-tabla-antes.css",
+    "png": "04-resultado/mobile/01-tabla-antes.png",
+    "completa": null,
+    "objetivos": {
+      "asi": {
+        "x": 17,
+        "y": 310,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 329,
+        "text": "3\nASI\nAtlético San Isidro\n7\n+4\n0\n12\n4\n0\n3\n21\n17"
+      },
+      "leones": {
+        "x": 17,
+        "y": 271,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 290,
+        "text": "2\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12"
+      },
+      "rcf": {
+        "x": 17,
+        "y": 233,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 252,
+        "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "02-jornada",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/02-jornada.html",
+    "css": "04-resultado/mobile/02-jornada.css",
+    "png": "04-resultado/mobile/02-jornada.png",
+    "completa": "04-resultado/mobile/02-jornada.completa.png",
+    "objetivos": {
+      "partido": {
+        "x": 47,
+        "y": 461,
+        "w": 136,
+        "h": 16,
+        "cx": 115,
+        "cy": 469,
+        "text": "Real Cuauhtémoc FC"
+      },
+      "resultado": {
+        "x": 47,
+        "y": 528,
+        "w": 147,
+        "h": 35,
+        "cx": 120,
+        "cy": 546,
+        "text": "Resultado"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "03-definir-resultado",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/03-definir-resultado.html",
+    "css": "04-resultado/mobile/03-definir-resultado.css",
+    "png": "04-resultado/mobile/03-definir-resultado.png",
+    "completa": "04-resultado/mobile/03-definir-resultado.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 12,
+        "y": 17,
+        "w": 367,
+        "h": 810,
+        "cx": 195,
+        "cy": 422,
+        "text": "Definir Resultado\nCargar cédula\nEscanear cédula\nRCF\nReal Cuauhtémoc FC\nPRIMERA FUERZA\n0\n-\n0\n2026-11-21 - 9:00 AM\nASI\nAtlético San Isidro\nGeneral\nReal Cuauhtémoc"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "04-titulares-local",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/04-titulares-local.html",
+    "css": "04-resultado/mobile/04-titulares-local.css",
+    "png": "04-resultado/mobile/04-titulares-local.png",
+    "completa": "04-resultado/mobile/04-titulares-local.completa.png",
+    "objetivos": {
+      "autorellenar": {
+        "x": 24,
+        "y": 401,
+        "w": 337,
+        "h": 44,
+        "cx": 192,
+        "cy": 423,
+        "text": "Auto-rellenar titulares"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "05-gol-local",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/05-gol-local.html",
+    "css": "04-resultado/mobile/05-gol-local.css",
+    "png": "04-resultado/mobile/05-gol-local.png",
+    "completa": "04-resultado/mobile/05-gol-local.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "06-goles-visita",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/06-goles-visita.html",
+    "css": "04-resultado/mobile/06-goles-visita.css",
+    "png": "04-resultado/mobile/06-goles-visita.png",
+    "completa": "04-resultado/mobile/06-goles-visita.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "07-confirmar",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/07-confirmar.html",
+    "css": "04-resultado/mobile/07-confirmar.css",
+    "png": "04-resultado/mobile/07-confirmar.png",
+    "completa": "04-resultado/mobile/07-confirmar.completa.png",
+    "objetivos": {
+      "confirmacion": {
+        "x": 12,
+        "y": 17,
+        "w": 367,
+        "h": 810,
+        "cx": 195,
+        "cy": 422,
+        "text": "Definir Resultado\nCargar cédula\nEscanear cédula\nRCF\nReal Cuauhtémoc FC\nPRIMERA FUERZA\n1\n-\n2\n2026-11-21 - 9:00 AM\nASI\nAtlético San Isidro\nGeneral\nReal Cuauhtémoc"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "08-guardado",
+    "ruta": "/division/94/torneos/123/jornadas/4508/list",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/08-guardado.html",
+    "css": "04-resultado/mobile/08-guardado.css",
+    "png": "04-resultado/mobile/08-guardado.png",
+    "completa": "04-resultado/mobile/08-guardado.completa.png",
+    "objetivos": {
+      "partido": {
+        "x": 47,
+        "y": 465,
+        "w": 117,
+        "h": 16,
+        "cx": 105,
+        "cy": 473,
+        "text": "Real Cuauhtémoc FC"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "09-tabla-despues",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/09-tabla-despues.html",
+    "css": "04-resultado/mobile/09-tabla-despues.css",
+    "png": "04-resultado/mobile/09-tabla-despues.png",
+    "completa": null,
+    "objetivos": {
+      "asi": {
+        "x": 17,
+        "y": 271,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 290,
+        "text": "2\nASI\nAtlético San Isidro\nLIGUILLA\n8\n+5\n0\n15\n5\n0\n3\n23\n18"
+      },
+      "leones": {
+        "x": 17,
+        "y": 310,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 329,
+        "text": "3\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12"
+      },
+      "rcf": {
+        "x": 17,
+        "y": 233,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 252,
+        "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n8\n+12\n0\n18\n6\n0\n2\n22\n10"
+      }
+    }
+  },
+  {
+    "bloque": "04-resultado",
+    "titulo": "Resultado que mueve la tabla",
+    "dispositivo": "mobile",
+    "estado": "10-goleadores-despues",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "04-resultado/mobile/10-goleadores-despues.html",
+    "css": "04-resultado/mobile/10-goleadores-despues.css",
+    "png": "04-resultado/mobile/10-goleadores-despues.png",
+    "completa": null,
+    "objetivos": {
+      "lider": {
+        "x": 117,
+        "y": 204,
+        "w": 84,
+        "h": 19,
+        "cx": 158,
+        "cy": 213,
+        "text": "Luis Flores Estrada"
+      }
+    }
+  },
+  {
+    "bloque": "05-tabla",
+    "titulo": "Tabla y goleadores en tiempo real",
+    "dispositivo": "desktop",
+    "estado": "01-tabla",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "05-tabla/desktop/01-tabla.html",
+    "css": "05-tabla/desktop/01-tabla.css",
+    "png": "05-tabla/desktop/01-tabla.png",
+    "completa": null,
+    "objetivos": {
+      "tabla": {
+        "x": 265,
+        "y": 162,
+        "w": 998,
+        "h": 446,
+        "cx": 764,
+        "cy": 385,
+        "text": "EQUIPO\tPJ\tDIF\tPND\tPTS\tG\tE\tP\tGF\tGC\n\n1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t7\t+13\t0\t18\t6\t0\t1\t21\t8\n\n2\nLDT\nLeones de Tlalpan\nLIGUILLA\n\t7\t+4\t0\t13\t4\t1\t2\t16\t12\n\n3\nASI\nAtlé"
+      },
+      "fila1": {
+        "x": 268,
+        "y": 197,
+        "w": 996,
+        "h": 43,
+        "cx": 765,
+        "cy": 219,
+        "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t7\t+13\t0\t18\t6\t0\t1\t21\t8"
+      },
+      "selector": {
+        "x": 197,
+        "y": 103,
+        "w": 280,
+        "h": 39,
+        "cx": 337,
+        "cy": 123,
+        "text": "Vista Actual (J. 8)"
+      },
+      "criterios": {
+        "x": 411,
+        "y": 629,
+        "w": 729,
+        "h": 18,
+        "cx": 775,
+        "cy": 638,
+        "text": "Criterios de desempate: 1° Puntos ➔ 2° Diferencia de goles (DIF) ➔ 3° Goles a favor (GF) ➔ 4° Menos partidos jugados (PJ)"
+      }
+    }
+  },
+  {
+    "bloque": "05-tabla",
+    "titulo": "Tabla y goleadores en tiempo real",
+    "dispositivo": "desktop",
+    "estado": "02-resultados-equipo",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "05-tabla/desktop/02-resultados-equipo.html",
+    "css": "05-tabla/desktop/02-resultados-equipo.css",
+    "png": "05-tabla/desktop/02-resultados-equipo.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "05-tabla",
+    "titulo": "Tabla y goleadores en tiempo real",
+    "dispositivo": "desktop",
+    "estado": "03-goleadores",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "05-tabla/desktop/03-goleadores.html",
+    "css": "05-tabla/desktop/03-goleadores.css",
+    "png": "05-tabla/desktop/03-goleadores.png",
+    "completa": null,
+    "objetivos": {
+      "lider": {
+        "x": 418,
+        "y": 220,
+        "w": 134,
+        "h": 22,
+        "cx": 485,
+        "cy": 231,
+        "text": "Luis Flores Estrada"
+      },
+      "tabla": {
+        "x": 275,
+        "y": 162,
+        "w": 978,
+        "h": 4412,
+        "cx": 764,
+        "cy": 2368,
+        "text": "#\tJugador\tEquipo\tGoles\n1\t\nLuis Flores Estrada\n#9\n\t\nASI\nAtlético San Isidro\n\t9\n2\t\nDiego Herrera Aguilar\n#9\n\t\nRCF\nReal Cuauhtémoc FC\n\t7\n3\t\nCarlos Mejía Cortés\n#9\n"
+      }
+    }
+  },
+  {
+    "bloque": "05-tabla",
+    "titulo": "Tabla y goleadores en tiempo real",
+    "dispositivo": "mobile",
+    "estado": "01-tabla",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "05-tabla/mobile/01-tabla.html",
+    "css": "05-tabla/mobile/01-tabla.css",
+    "png": "05-tabla/mobile/01-tabla.png",
+    "completa": null,
+    "objetivos": {
+      "tabla": {
+        "x": 17,
+        "y": 201,
+        "w": 506,
+        "h": 413,
+        "cx": 270,
+        "cy": 407,
+        "text": "EQUIPO\nPJ\nDIF\nPND\nPTS\nG\nE\nP\nGF\nGC\n1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8\n2\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12\n3\nASI\nAtlético "
+      },
+      "fila1": {
+        "x": 17,
+        "y": 233,
+        "w": 506,
+        "h": 38,
+        "cx": 270,
+        "cy": 252,
+        "text": "1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8"
+      },
+      "selector": {
+        "x": 27,
+        "y": 104,
+        "w": 190,
+        "h": 33,
+        "cx": 122,
+        "cy": 120,
+        "text": "Vista Actual (J. 8)"
+      },
+      "criterios": {
+        "x": 26,
+        "y": 657,
+        "w": 338,
+        "h": 50,
+        "cx": 195,
+        "cy": 682,
+        "text": "Criterios de desempate: 1° Puntos ➔ 2° Diferencia de goles (DIF) ➔ 3° Goles a favor (GF) ➔ 4° Menos partidos jugados (PJ)"
+      }
+    }
+  },
+  {
+    "bloque": "05-tabla",
+    "titulo": "Tabla y goleadores en tiempo real",
+    "dispositivo": "mobile",
+    "estado": "02-resultados-equipo",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "05-tabla/mobile/02-resultados-equipo.html",
+    "css": "05-tabla/mobile/02-resultados-equipo.css",
+    "png": "05-tabla/mobile/02-resultados-equipo.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "05-tabla",
+    "titulo": "Tabla y goleadores en tiempo real",
+    "dispositivo": "mobile",
+    "estado": "03-goleadores",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "05-tabla/mobile/03-goleadores.html",
+    "css": "05-tabla/mobile/03-goleadores.css",
+    "png": "05-tabla/mobile/03-goleadores.png",
+    "completa": null,
+    "objetivos": {
+      "lider": {
+        "x": 117,
+        "y": 204,
+        "w": 84,
+        "h": 19,
+        "cx": 158,
+        "cy": 213,
+        "text": "Luis Flores Estrada"
+      },
+      "tabla": {
+        "x": 25,
+        "y": 157,
+        "w": 341,
+        "h": 3785,
+        "cx": 195,
+        "cy": 2049,
+        "text": "#\tJugador\tEquipo\tGoles\n1\t\nLuis Flores Estrada\n#9\n\t\nASI\nAtlético San Isidro\n\t9\n2\t\nDiego Herrera Aguilar\n#9\n\t\nRCF\nReal Cuauhtémoc FC\n\t7\n3\t\nCarlos Mejía Cortés\n#9\n"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "01-tabla-final",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/01-tabla-final.html",
+    "css": "06-liguilla/desktop/01-tabla-final.css",
+    "png": "06-liguilla/desktop/01-tabla-final.png",
+    "completa": null,
+    "objetivos": {
+      "tabla": {
+        "x": 265,
+        "y": 162,
+        "w": 998,
+        "h": 461,
+        "cx": 764,
+        "cy": 393,
+        "text": "EQUIPO\tPJ\tDIF\tPND\tPTS\tG\tE\tP\tGF\tGC\n\n1\nLDT\nLeones de Tlalpan\nLIGUILLA\n\t9\t+9\t0\t19\t6\t1\t2\t25\t16\n\n2\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t9\t+11\t0\t18\t6\t0\t3\t24\t13\n\n3\nUSF\nUni"
+      },
+      "liguilla": {
+        "x": 383,
+        "y": 223,
+        "w": 44,
+        "h": 10,
+        "cx": 405,
+        "cy": 229,
+        "text": "LIGUILLA"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "02-cruces-cuartos",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/02-cruces-cuartos.html",
+    "css": "06-liguilla/desktop/02-cruces-cuartos.css",
+    "png": "06-liguilla/desktop/02-cruces-cuartos.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 140,
+        "y": 58,
+        "w": 1160,
+        "h": 784,
+        "cx": 720,
+        "cy": 450,
+        "text": "Avanzar a Cuartos de final\n4 cruces\nVista previa\nCuartos de final\nUnico\nIda/vuelta\nSemifinales\nUnico\nIda/vuelta\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n"
+      },
+      "confirmar": {
+        "x": 1071,
+        "y": 774,
+        "w": 200,
+        "h": 44,
+        "cx": 1171,
+        "cy": 795,
+        "text": "Confirmar cruces"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "03-cuadro-cuartos",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/03-cuadro-cuartos.html",
+    "css": "06-liguilla/desktop/03-cuadro-cuartos.css",
+    "png": "06-liguilla/desktop/03-cuadro-cuartos.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "04-cruces-semis",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/04-cruces-semis.html",
+    "css": "06-liguilla/desktop/04-cruces-semis.css",
+    "png": "06-liguilla/desktop/04-cruces-semis.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 140,
+        "y": 58,
+        "w": 1160,
+        "h": 784,
+        "cx": 720,
+        "cy": 450,
+        "text": "Avanzar a Semifinales\n2 cruces\nVista previa\nSemifinales\nUnico\nIda/vuelta\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n#5\nDT\nDinamo Tepeyac\nBRACKET\nSemifinale"
+      },
+      "confirmar": {
+        "x": 1071,
+        "y": 774,
+        "w": 200,
+        "h": 44,
+        "cx": 1171,
+        "cy": 795,
+        "text": "Confirmar cruces"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "05-cruces-final",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/05-cruces-final.html",
+    "css": "06-liguilla/desktop/05-cruces-final.css",
+    "png": "06-liguilla/desktop/05-cruces-final.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 140,
+        "y": 58,
+        "w": 1160,
+        "h": 784,
+        "cx": 720,
+        "cy": 450,
+        "text": "Avanzar a Final\n1 cruces\nVista previa\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n#2\nRCF\nReal Cuauhtémoc FC\nBRACKET\nFinal\nResiembra\nPrimeros vs ultimos\nMant"
+      },
+      "confirmar": {
+        "x": 1071,
+        "y": 774,
+        "w": 200,
+        "h": 44,
+        "cx": 1171,
+        "cy": 795,
+        "text": "Confirmar cruces"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "06-cuadro-completo",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/06-cuadro-completo.html",
+    "css": "06-liguilla/desktop/06-cuadro-completo.css",
+    "png": "06-liguilla/desktop/06-cuadro-completo.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "07-torneo-con-campeon",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/07-torneo-con-campeon.html",
+    "css": "06-liguilla/desktop/07-torneo-con-campeon.css",
+    "png": "06-liguilla/desktop/07-torneo-con-campeon.png",
+    "completa": null,
+    "objetivos": {}
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "desktop",
+    "estado": "09-publico-cuadro",
+    "ruta": "/share/standings/123",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "06-liguilla/desktop/09-publico-cuadro.html",
+    "css": "06-liguilla/desktop/09-publico-cuadro.css",
+    "png": "06-liguilla/desktop/09-publico-cuadro.png",
+    "completa": null,
+    "objetivos": {
+      "cuadro": {
+        "x": 220,
+        "y": 197,
+        "w": 1000,
+        "h": 606,
+        "cx": 720,
+        "cy": 500,
+        "text": "CF\nCuartos de final\nSF\nSemifinales\nF\nFinal\n#1\n#1\nLDT\nLeones de Tlalpan\n2\n#8\nRC\nRacing Coyoacán\n1\nIda\n2-1\nVuelta\n0-0\nGlobal\n2-1\n#2\n#4\nASI\nAtlético San Isidro\n0\n#"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "01-tabla-final",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/01-tabla-final.html",
+    "css": "06-liguilla/mobile/01-tabla-final.css",
+    "png": "06-liguilla/mobile/01-tabla-final.png",
+    "completa": null,
+    "objetivos": {
+      "tabla": {
+        "x": 17,
+        "y": 201,
+        "w": 506,
+        "h": 414,
+        "cx": 270,
+        "cy": 408,
+        "text": "EQUIPO\nPJ\nDIF\nPND\nPTS\nG\nE\nP\nGF\nGC\n1\nLDT\nLeones de Tlalpan\nLIGUILLA\n9\n+9\n0\n19\n6\n1\n2\n25\n16\n2\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n9\n+11\n0\n18\n6\n0\n3\n24\n13\n3\nUSF\nUnión Sa"
+      },
+      "liguilla": {
+        "x": 79,
+        "y": 255,
+        "w": 39,
+        "h": 9,
+        "cx": 99,
+        "cy": 260,
+        "text": "LIGUILLA"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "02-cruces-cuartos",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/02-cruces-cuartos.html",
+    "css": "06-liguilla/mobile/02-cruces-cuartos.css",
+    "png": "06-liguilla/mobile/02-cruces-cuartos.png",
+    "completa": "06-liguilla/mobile/02-cruces-cuartos.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 20,
+        "w": 350,
+        "h": 804,
+        "cx": 195,
+        "cy": 422,
+        "text": "Avanzar a Cuartos de final\n4 cruces\nVista previa\nCuartos de final\nUnico\nIda/vuelta\nSemifinales\nUnico\nIda/vuelta\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n"
+      },
+      "confirmar": {
+        "x": 171,
+        "y": 1464,
+        "w": 170,
+        "h": 65,
+        "cx": 256,
+        "cy": 1497,
+        "text": "Confirmar cruces"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "03-cuadro-cuartos",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/03-cuadro-cuartos.html",
+    "css": "06-liguilla/mobile/03-cuadro-cuartos.css",
+    "png": "06-liguilla/mobile/03-cuadro-cuartos.png",
+    "completa": "06-liguilla/mobile/03-cuadro-cuartos.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "04-cruces-semis",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/04-cruces-semis.html",
+    "css": "06-liguilla/mobile/04-cruces-semis.css",
+    "png": "06-liguilla/mobile/04-cruces-semis.png",
+    "completa": "06-liguilla/mobile/04-cruces-semis.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 20,
+        "w": 350,
+        "h": 804,
+        "cx": 195,
+        "cy": 422,
+        "text": "Avanzar a Semifinales\n2 cruces\nVista previa\nSemifinales\nUnico\nIda/vuelta\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n#5\nDT\nDinamo Tepeyac\nBRACKET\nSemifinale"
+      },
+      "confirmar": {
+        "x": 171,
+        "y": 1071,
+        "w": 170,
+        "h": 65,
+        "cx": 256,
+        "cy": 1103,
+        "text": "Confirmar cruces"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "05-cruces-final",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/05-cruces-final.html",
+    "css": "06-liguilla/mobile/05-cruces-final.css",
+    "png": "06-liguilla/mobile/05-cruces-final.png",
+    "completa": "06-liguilla/mobile/05-cruces-final.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 20,
+        "w": 350,
+        "h": 804,
+        "cx": 195,
+        "cy": 422,
+        "text": "Avanzar a Final\n1 cruces\nVista previa\nFinal\nUnico\nIda/vuelta\n#1\nLDT\nLeones de Tlalpan\n#2\nRCF\nReal Cuauhtémoc FC\nBRACKET\nFinal\nResiembra\nPrimeros vs ultimos\nMant"
+      },
+      "confirmar": {
+        "x": 171,
+        "y": 878,
+        "w": 170,
+        "h": 65,
+        "cx": 256,
+        "cy": 911,
+        "text": "Confirmar cruces"
+      }
+    }
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "06-cuadro-completo",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/06-cuadro-completo.html",
+    "css": "06-liguilla/mobile/06-cuadro-completo.css",
+    "png": "06-liguilla/mobile/06-cuadro-completo.png",
+    "completa": "06-liguilla/mobile/06-cuadro-completo.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "07-torneo-con-campeon",
+    "ruta": "/division/94/torneos/123/definir",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/07-torneo-con-campeon.html",
+    "css": "06-liguilla/mobile/07-torneo-con-campeon.css",
+    "png": "06-liguilla/mobile/07-torneo-con-campeon.png",
+    "completa": "06-liguilla/mobile/07-torneo-con-campeon.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "06-liguilla",
+    "titulo": "Liga → liguilla",
+    "dispositivo": "mobile",
+    "estado": "09-publico-cuadro",
+    "ruta": "/share/standings/123",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "06-liguilla/mobile/09-publico-cuadro.html",
+    "css": "06-liguilla/mobile/09-publico-cuadro.css",
+    "png": "06-liguilla/mobile/09-publico-cuadro.png",
+    "completa": "06-liguilla/mobile/09-publico-cuadro.completa.png",
+    "objetivos": {
+      "cuadro": {
+        "x": 20,
+        "y": 294,
+        "w": 350,
+        "h": 1338,
+        "cx": 195,
+        "cy": 963,
+        "text": "CF\nCuartos de final\n#1\n#1\nLDT\nLeones de Tlalpan\n2\n#8\nRC\nRacing Coyoacán\n1\nIda\n2-1\nVuelta\n0-0\nGlobal\n2-1\n#2\n#4\nASI\nAtlético San Isidro\n0\n#5\nDT\nDinamo Tepeyac\n3\nI"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "01-tabla-clasica",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/01-tabla-clasica.html",
+    "css": "07-exportar/desktop/01-tabla-clasica.css",
+    "png": "07-exportar/desktop/01-tabla-clasica.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      },
+      "siguiente": {
+        "x": 1248,
+        "y": 431,
+        "w": 44,
+        "h": 44,
+        "cx": 1270,
+        "cy": 453,
+        "text": ""
+      },
+      "descargar": {
+        "x": 1135,
+        "y": 824,
+        "w": 155,
+        "h": 47,
+        "cx": 1212,
+        "cy": 847,
+        "text": "Descargar"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "02-tabla-combinacion-2",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/02-tabla-combinacion-2.html",
+    "css": "07-exportar/desktop/02-tabla-combinacion-2.css",
+    "png": "07-exportar/desktop/02-tabla-combinacion-2.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "03-tabla-combinacion-3",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/03-tabla-combinacion-3.html",
+    "css": "07-exportar/desktop/03-tabla-combinacion-3.css",
+    "png": "07-exportar/desktop/03-tabla-combinacion-3.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "04-tabla-combinacion-4",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/04-tabla-combinacion-4.html",
+    "css": "07-exportar/desktop/04-tabla-combinacion-4.css",
+    "png": "07-exportar/desktop/04-tabla-combinacion-4.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "05-tabla-combinacion-5",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/05-tabla-combinacion-5.html",
+    "css": "07-exportar/desktop/05-tabla-combinacion-5.css",
+    "png": "07-exportar/desktop/05-tabla-combinacion-5.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "06-tabla-combinacion-6",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/06-tabla-combinacion-6.html",
+    "css": "07-exportar/desktop/06-tabla-combinacion-6.css",
+    "png": "07-exportar/desktop/06-tabla-combinacion-6.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "07-tabla-colores-liga",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/07-tabla-colores-liga.html",
+    "css": "07-exportar/desktop/07-tabla-colores-liga.css",
+    "png": "07-exportar/desktop/07-tabla-colores-liga.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 12,
+        "w": 1180,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Tabla General\nJornada a exportar\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nSí\nLIGA VALLE DORADO\nTABLA GENERAL\n\nPrimera Fuerza\n\n"
+      },
+      "colores": {
+        "x": 779,
+        "y": 126,
+        "w": 206,
+        "h": 44,
+        "cx": 882,
+        "cy": 148,
+        "text": "Colores de la liga\nSí"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "08-goleadores",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/08-goleadores.html",
+    "css": "07-exportar/desktop/08-goleadores.css",
+    "png": "07-exportar/desktop/08-goleadores.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 310,
+        "y": 12,
+        "w": 820,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Goleadores\nTabla\nBarras\nPastel\nJugadores\nTop 3\nTop 5\nTop 10\nTop 15\nTop 20\nTop 50\nPersonalizado\nPost\nHistoria\nLIGA VALLE DORADO\nPRIMERA FUERZA\nTABLA DE "
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "09-goleadores-barras",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/09-goleadores-barras.html",
+    "css": "07-exportar/desktop/09-goleadores-barras.css",
+    "png": "07-exportar/desktop/09-goleadores-barras.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 310,
+        "y": 12,
+        "w": 820,
+        "h": 876,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Goleadores\nTabla\nBarras\nPastel\nJugadores\nTop 3\nTop 5\nTop 10\nTop 15\nTop 20\nTop 50\nPersonalizado\nPost\nHistoria\nLIGA VALLE DORADO\nPRIMERA FUERZA\nTABLA DE "
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "10-rol-de-juego",
+    "ruta": "/division/94/torneos/123/jornadas/4508/grid",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "07-exportar/desktop/10-rol-de-juego.html",
+    "css": "07-exportar/desktop/10-rol-de-juego.css",
+    "png": "07-exportar/desktop/10-rol-de-juego.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 260,
+        "y": 20,
+        "w": 920,
+        "h": 860,
+        "cx": 720,
+        "cy": 450,
+        "text": "Exportar Rol\nDescargar\nConfigura la imagen del rol\n100%\n125%\n150%\n175%\n200%\nPost horizontal\nHistoria horizontal\nVista del rol\nGrid\nRow\nLIGA VALLE DORADO\nROL DE "
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "descarga:goleadores.png",
+    "png": "07-exportar/desktop/descargas/goleadores.png"
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "descarga:rol-jornada-8.png",
+    "png": "07-exportar/desktop/descargas/rol-jornada-8.png"
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "desktop",
+    "estado": "descarga:tabla-general.png",
+    "png": "07-exportar/desktop/descargas/tabla-general.png"
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "01-tabla-clasica",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/01-tabla-clasica.html",
+    "css": "07-exportar/mobile/01-tabla-clasica.css",
+    "png": "07-exportar/mobile/01-tabla-clasica.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+      },
+      "siguiente": {
+        "x": 322,
+        "y": 475,
+        "w": 44,
+        "h": 44,
+        "cx": 344,
+        "cy": 497,
+        "text": ""
+      },
+      "descargar": {
+        "x": 205,
+        "y": 772,
+        "w": 155,
+        "h": 47,
+        "cx": 282,
+        "cy": 795,
+        "text": "Descargar"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "02-tabla-combinacion-2",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/02-tabla-combinacion-2.html",
+    "css": "07-exportar/mobile/02-tabla-combinacion-2.css",
+    "png": "07-exportar/mobile/02-tabla-combinacion-2.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "03-tabla-combinacion-3",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/03-tabla-combinacion-3.html",
+    "css": "07-exportar/mobile/03-tabla-combinacion-3.css",
+    "png": "07-exportar/mobile/03-tabla-combinacion-3.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "04-tabla-combinacion-4",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/04-tabla-combinacion-4.html",
+    "css": "07-exportar/mobile/04-tabla-combinacion-4.css",
+    "png": "07-exportar/mobile/04-tabla-combinacion-4.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "05-tabla-combinacion-5",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/05-tabla-combinacion-5.html",
+    "css": "07-exportar/mobile/05-tabla-combinacion-5.css",
+    "png": "07-exportar/mobile/05-tabla-combinacion-5.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "06-tabla-combinacion-6",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/06-tabla-combinacion-6.html",
+    "css": "07-exportar/mobile/06-tabla-combinacion-6.css",
+    "png": "07-exportar/mobile/06-tabla-combinacion-6.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nNo\nLIGA VALLE DO"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "07-tabla-colores-liga",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/07-tabla-colores-liga.html",
+    "css": "07-exportar/mobile/07-tabla-colores-liga.css",
+    "png": "07-exportar/mobile/07-tabla-colores-liga.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 12,
+        "w": 354,
+        "h": 820,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Tabla General\nPost (4:5)\nHistoria (9:16)\nFecha de generacion\nJornada\nVista Actual (J. 8)\nCombinaciones\nPersonalizar\nColores de la liga\nSí\nLIGA VALLE DO"
+      },
+      "colores": {
+        "x": 30,
+        "y": 283,
+        "w": 330,
+        "h": 44,
+        "cx": 195,
+        "cy": 305,
+        "text": "Colores de la liga\nSí"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "08-goleadores",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/08-goleadores.html",
+    "css": "07-exportar/mobile/08-goleadores.css",
+    "png": "07-exportar/mobile/08-goleadores.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 42,
+        "w": 354,
+        "h": 760,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Goleadores\nTabla\nBarras\nPastel\nJugadores\nTop 3\nTop 5\nTop 10\nTop 15\nTop 20\nTop 50\nPersonalizado\nLIGA VALLE DORADO\nPRIMERA FUERZA\nTABLA DE GOLEADORES\n\nTo"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "09-goleadores-barras",
+    "ruta": "/division/94/torneos/123/goleadores",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/09-goleadores-barras.html",
+    "css": "07-exportar/mobile/09-goleadores-barras.css",
+    "png": "07-exportar/mobile/09-goleadores-barras.png",
+    "completa": null,
+    "objetivos": {
+      "modal": {
+        "x": 18,
+        "y": 42,
+        "w": 354,
+        "h": 760,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Goleadores\nTabla\nBarras\nPastel\nJugadores\nTop 3\nTop 5\nTop 10\nTop 15\nTop 20\nTop 50\nPersonalizado\nLIGA VALLE DORADO\nPRIMERA FUERZA\nTABLA DE GOLEADORES\n\nTo"
+      }
+    }
+  },
+  {
+    "bloque": "07-exportar",
+    "titulo": "Exportar en imagen",
+    "dispositivo": "mobile",
+    "estado": "10-rol-de-juego",
+    "ruta": "/division/94/torneos/123/jornadas/4508/grid",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "07-exportar/mobile/10-rol-de-juego.html",
+    "css": "07-exportar/mobile/10-rol-de-juego.css",
+    "png": "07-exportar/mobile/10-rol-de-juego.png",
+    "completa": "07-exportar/mobile/10-rol-de-juego.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 115,
+        "w": 350,
+        "h": 613,
+        "cx": 195,
+        "cy": 422,
+        "text": "Exportar Rol\nDescargar\nConfigura la imagen del rol\n100%\n125%\n150%\n175%\n200%\nPost horizontal\nHistoria horizontal\nVista del rol\nGrid\nRow\nLIGA VALLE DORADO\nROL DE "
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "desktop",
+    "estado": "01-interruptor-publico",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "08-publico/desktop/01-interruptor-publico.html",
+    "css": "08-publico/desktop/01-interruptor-publico.css",
+    "png": "08-publico/desktop/01-interruptor-publico.png",
+    "completa": null,
+    "objetivos": {
+      "publico": {
+        "x": 1206,
+        "y": 107,
+        "w": 52,
+        "h": 30,
+        "cx": 1232,
+        "cy": 122,
+        "text": "Publico"
+      },
+      "copiar": {
+        "x": 1264,
+        "y": 107,
+        "w": 74,
+        "h": 30,
+        "cx": 1301,
+        "cy": 122,
+        "text": "Link"
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "desktop",
+    "estado": "02-enlace-copiado",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "08-publico/desktop/02-enlace-copiado.html",
+    "css": "08-publico/desktop/02-enlace-copiado.css",
+    "png": "08-publico/desktop/02-enlace-copiado.png",
+    "completa": null,
+    "objetivos": {
+      "copiar": {
+        "x": 1264,
+        "y": 107,
+        "w": 74,
+        "h": 30,
+        "cx": 1301,
+        "cy": 122,
+        "text": "Copiado"
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "desktop",
+    "estado": "03-publico-tabla",
+    "ruta": "/share/standings/123",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "08-publico/desktop/03-publico-tabla.html",
+    "css": "08-publico/desktop/03-publico-tabla.css",
+    "png": "08-publico/desktop/03-publico-tabla.png",
+    "completa": null,
+    "objetivos": {
+      "titulo": {
+        "x": 578,
+        "y": 40,
+        "w": 318,
+        "h": 36,
+        "cx": 737,
+        "cy": 58,
+        "text": "Temporada Apertura 2026"
+      },
+      "tabla": {
+        "x": 221,
+        "y": 198,
+        "w": 998,
+        "h": 446,
+        "cx": 720,
+        "cy": 421,
+        "text": "EQUIPO\tPJ\tDIF\tPND\tPTS\tG\tE\tP\tGF\tGC\n\n1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n\t7\t+13\t0\t18\t6\t0\t1\t21\t8\n\n2\nLDT\nLeones de Tlalpan\nLIGUILLA\n\t7\t+4\t0\t13\t4\t1\t2\t16\t12\n\n3\nASI\nAtlé"
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "desktop",
+    "estado": "04-publico-goleadores",
+    "ruta": "/share/standings/123",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "08-publico/desktop/04-publico-goleadores.html",
+    "css": "08-publico/desktop/04-publico-goleadores.css",
+    "png": "08-publico/desktop/04-publico-goleadores.png",
+    "completa": "08-publico/desktop/04-publico-goleadores.completa.png",
+    "objetivos": {
+      "lider": {
+        "x": 374,
+        "y": 256,
+        "w": 134,
+        "h": 22,
+        "cx": 441,
+        "cy": 267,
+        "text": "Luis Flores Estrada"
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "mobile",
+    "estado": "01-interruptor-publico",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "08-publico/mobile/01-interruptor-publico.html",
+    "css": "08-publico/mobile/01-interruptor-publico.css",
+    "png": "08-publico/mobile/01-interruptor-publico.png",
+    "completa": null,
+    "objetivos": {
+      "publico": {
+        "x": 268,
+        "y": 105,
+        "w": 52,
+        "h": 30,
+        "cx": 294,
+        "cy": 120,
+        "text": "Publico"
+      },
+      "copiar": {
+        "x": 326,
+        "y": 105,
+        "w": 34,
+        "h": 30,
+        "cx": 343,
+        "cy": 120,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "mobile",
+    "estado": "02-enlace-copiado",
+    "ruta": "/division/94/torneos/123/standings",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "08-publico/mobile/02-enlace-copiado.html",
+    "css": "08-publico/mobile/02-enlace-copiado.css",
+    "png": "08-publico/mobile/02-enlace-copiado.png",
+    "completa": null,
+    "objetivos": {
+      "copiar": {
+        "x": 326,
+        "y": 105,
+        "w": 34,
+        "h": 30,
+        "cx": 343,
+        "cy": 120,
+        "text": ""
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "mobile",
+    "estado": "03-publico-tabla",
+    "ruta": "/share/standings/123",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "08-publico/mobile/03-publico-tabla.html",
+    "css": "08-publico/mobile/03-publico-tabla.css",
+    "png": "08-publico/mobile/03-publico-tabla.png",
+    "completa": "08-publico/mobile/03-publico-tabla.completa.png",
+    "objetivos": {
+      "titulo": {
+        "x": 54,
+        "y": 40,
+        "w": 316,
+        "h": 72,
+        "cx": 212,
+        "cy": 76,
+        "text": "Temporada Apertura 2026"
+      },
+      "tabla": {
+        "x": 17,
+        "y": 295,
+        "w": 506,
+        "h": 413,
+        "cx": 270,
+        "cy": 502,
+        "text": "EQUIPO\nPJ\nDIF\nPND\nPTS\nG\nE\nP\nGF\nGC\n1\nRCF\nReal Cuauhtémoc FC\nLIGUILLA\n7\n+13\n0\n18\n6\n0\n1\n21\n8\n2\nLDT\nLeones de Tlalpan\nLIGUILLA\n7\n+4\n0\n13\n4\n1\n2\n16\n12\n3\nASI\nAtlético "
+      }
+    }
+  },
+  {
+    "bloque": "08-publico",
+    "titulo": "Enlace público",
+    "dispositivo": "mobile",
+    "estado": "04-publico-goleadores",
+    "ruta": "/share/standings/123",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "08-publico/mobile/04-publico-goleadores.html",
+    "css": "08-publico/mobile/04-publico-goleadores.css",
+    "png": "08-publico/mobile/04-publico-goleadores.png",
+    "completa": "08-publico/mobile/04-publico-goleadores.completa.png",
+    "objetivos": {
+      "lider": {
+        "x": 113,
+        "y": 342,
+        "w": 87,
+        "h": 19,
+        "cx": 157,
+        "cy": 352,
+        "text": "Luis Flores Estrada"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "01-equipos-sin-vincular",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/01-equipos-sin-vincular.html",
+    "css": "09-delegado/desktop/01-equipos-sin-vincular.css",
+    "png": "09-delegado/desktop/01-equipos-sin-vincular.png",
+    "completa": "09-delegado/desktop/01-equipos-sin-vincular.completa.png",
+    "objetivos": {
+      "sinVincular": {
+        "x": 636,
+        "y": 49,
+        "w": 158,
+        "h": 44,
+        "cx": 715,
+        "cy": 71,
+        "text": "9\nSin vincular"
+      },
+      "invitaciones": {
+        "x": 1122,
+        "y": 49,
+        "w": 142,
+        "h": 44,
+        "cx": 1193,
+        "cy": 71,
+        "text": "Invitaciones"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "02-invitaciones",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/02-invitaciones.html",
+    "css": "09-delegado/desktop/02-invitaciones.css",
+    "png": "09-delegado/desktop/02-invitaciones.png",
+    "completa": "09-delegado/desktop/02-invitaciones.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 130,
+        "y": 205,
+        "w": 1180,
+        "h": 490,
+        "cx": 720,
+        "cy": 450,
+        "text": "Invitaciones de delegados\n0 invitaciones en el historial\n\nLos cambios se muestran en tiempo real. Las invitaciones usadas, revocadas o caducadas se eliminan aut"
+      },
+      "crear": {
+        "x": 1090,
+        "y": 634,
+        "w": 157,
+        "h": 40,
+        "cx": 1169,
+        "cy": 654,
+        "text": "Crear 9 invitaciones"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "03-invitaciones-creadas",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/03-invitaciones-creadas.html",
+    "css": "09-delegado/desktop/03-invitaciones-creadas.css",
+    "png": "09-delegado/desktop/03-invitaciones-creadas.png",
+    "completa": "09-delegado/desktop/03-invitaciones-creadas.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "04-mi-equipo",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/04-mi-equipo.html",
+    "css": "09-delegado/desktop/04-mi-equipo.css",
+    "png": "09-delegado/desktop/04-mi-equipo.png",
+    "completa": "09-delegado/desktop/04-mi-equipo.completa.png",
+    "objetivos": {
+      "equipo": {
+        "x": 256,
+        "y": 113,
+        "w": 751,
+        "h": 32,
+        "cx": 631,
+        "cy": 128,
+        "text": "Leones de Tlalpan"
+      },
+      "resumen": {
+        "x": 213,
+        "y": 470,
+        "w": 1087,
+        "h": 27,
+        "cx": 757,
+        "cy": 483,
+        "text": "Torneo actual"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "05-analisis-proximo-rival",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/05-analisis-proximo-rival.html",
+    "css": "09-delegado/desktop/05-analisis-proximo-rival.css",
+    "png": "09-delegado/desktop/05-analisis-proximo-rival.png",
+    "completa": "09-delegado/desktop/05-analisis-proximo-rival.completa.png",
+    "objetivos": {
+      "titulo": {
+        "x": 193,
+        "y": 0,
+        "w": 354,
+        "h": 30,
+        "cx": 370,
+        "cy": 15,
+        "text": "Análisis y probabilidades"
+      },
+      "selector": {
+        "x": 971,
+        "y": 153,
+        "w": 300,
+        "h": 44,
+        "cx": 1121,
+        "cy": 175,
+        "text": "Jornada 8 · Deportivo Colonia Norte\nJornada 9 · Inter Xochimilco"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "06-probabilidades",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/06-probabilidades.html",
+    "css": "09-delegado/desktop/06-probabilidades.css",
+    "png": "09-delegado/desktop/06-probabilidades.png",
+    "completa": "09-delegado/desktop/06-probabilidades.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "08-temporada",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/08-temporada.html",
+    "css": "09-delegado/desktop/08-temporada.css",
+    "png": "09-delegado/desktop/08-temporada.png",
+    "completa": "09-delegado/desktop/08-temporada.completa.png",
+    "objetivos": {
+      "pestana": {
+        "x": 315,
+        "y": 453,
+        "w": 141,
+        "h": 48,
+        "cx": 386,
+        "cy": 477,
+        "text": "Temporada"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "desktop",
+    "estado": "09-tabla-delegado",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "html": "09-delegado/desktop/09-tabla-delegado.html",
+    "css": "09-delegado/desktop/09-tabla-delegado.css",
+    "png": "09-delegado/desktop/09-tabla-delegado.png",
+    "completa": null,
+    "objetivos": {
+      "tuEquipo": {
+        "x": 232,
+        "y": 341,
+        "w": 56,
+        "h": 17,
+        "cx": 260,
+        "cy": 350,
+        "text": "Tu equipo"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "01-equipos-sin-vincular",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/01-equipos-sin-vincular.html",
+    "css": "09-delegado/mobile/01-equipos-sin-vincular.css",
+    "png": "09-delegado/mobile/01-equipos-sin-vincular.png",
+    "completa": "09-delegado/mobile/01-equipos-sin-vincular.completa.png",
+    "objetivos": {
+      "sinVincular": {
+        "x": 198,
+        "y": 99,
+        "w": 172,
+        "h": 46,
+        "cx": 284,
+        "cy": 122,
+        "text": "9\nSin vincular"
+      },
+      "invitaciones": {
+        "x": 20,
+        "y": 153,
+        "w": 171,
+        "h": 44,
+        "cx": 106,
+        "cy": 175,
+        "text": "Invitaciones"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "02-invitaciones",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/02-invitaciones.html",
+    "css": "09-delegado/mobile/02-invitaciones.css",
+    "png": "09-delegado/mobile/02-invitaciones.png",
+    "completa": "09-delegado/mobile/02-invitaciones.completa.png",
+    "objetivos": {
+      "modal": {
+        "x": 20,
+        "y": 90,
+        "w": 350,
+        "h": 664,
+        "cx": 195,
+        "cy": 422,
+        "text": "Invitaciones de delegados\n0 invitaciones en el historial\n\nLos cambios se muestran en tiempo real. Las invitaciones usadas, revocadas o caducadas se eliminan aut"
+      },
+      "crear": {
+        "x": 32,
+        "y": 702,
+        "w": 279,
+        "h": 40,
+        "cx": 172,
+        "cy": 722,
+        "text": "Crear 9 invitaciones"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "03-invitaciones-creadas",
+    "ruta": "/division/94/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/03-invitaciones-creadas.html",
+    "css": "09-delegado/mobile/03-invitaciones-creadas.css",
+    "png": "09-delegado/mobile/03-invitaciones-creadas.png",
+    "completa": "09-delegado/mobile/03-invitaciones-creadas.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "04-mi-equipo",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/04-mi-equipo.html",
+    "css": "09-delegado/mobile/04-mi-equipo.css",
+    "png": "09-delegado/mobile/04-mi-equipo.png",
+    "completa": "09-delegado/mobile/04-mi-equipo.completa.png",
+    "objetivos": {
+      "equipo": {
+        "x": 124,
+        "y": 102,
+        "w": 228,
+        "h": 25,
+        "cx": 238,
+        "cy": 115,
+        "text": "Leones de Tlalpan"
+      },
+      "resumen": {
+        "x": 113,
+        "y": 742,
+        "w": 149,
+        "h": 22,
+        "cx": 188,
+        "cy": 753,
+        "text": "Torneo actual"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "05-analisis-proximo-rival",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/05-analisis-proximo-rival.html",
+    "css": "09-delegado/mobile/05-analisis-proximo-rival.css",
+    "png": "09-delegado/mobile/05-analisis-proximo-rival.png",
+    "completa": "09-delegado/mobile/05-analisis-proximo-rival.completa.png",
+    "objetivos": {
+      "titulo": {
+        "x": 84,
+        "y": 0,
+        "w": 199,
+        "h": 48,
+        "cx": 184,
+        "cy": 24,
+        "text": "Análisis y probabilidades"
+      },
+      "selector": {
+        "x": 55,
+        "y": 244,
+        "w": 180,
+        "h": 44,
+        "cx": 145,
+        "cy": 266,
+        "text": "Jornada 8 · Deportivo Colonia Norte\nJornada 9 · Inter Xochimilco"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "06-probabilidades",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/06-probabilidades.html",
+    "css": "09-delegado/mobile/06-probabilidades.css",
+    "png": "09-delegado/mobile/06-probabilidades.png",
+    "completa": "09-delegado/mobile/06-probabilidades.completa.png",
+    "objetivos": {}
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "07-rival-en-contexto",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/07-rival-en-contexto.html",
+    "css": "09-delegado/mobile/07-rival-en-contexto.css",
+    "png": "09-delegado/mobile/07-rival-en-contexto.png",
+    "completa": "09-delegado/mobile/07-rival-en-contexto.completa.png",
+    "objetivos": {
+      "boton": {
+        "x": 248,
+        "y": 0,
+        "w": 71,
+        "h": 44,
+        "cx": 284,
+        "cy": 22,
+        "text": "Ocultar"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "08-temporada",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/08-temporada.html",
+    "css": "09-delegado/mobile/08-temporada.css",
+    "png": "09-delegado/mobile/08-temporada.png",
+    "completa": "09-delegado/mobile/08-temporada.completa.png",
+    "objetivos": {
+      "pestana": {
+        "x": 197,
+        "y": 351,
+        "w": 138,
+        "h": 48,
+        "cx": 266,
+        "cy": 375,
+        "text": "Temporada"
+      }
+    }
+  },
+  {
+    "bloque": "09-delegado",
+    "titulo": "Cuentas de delegado",
+    "dispositivo": "mobile",
+    "estado": "09-tabla-delegado",
+    "ruta": "/equipos",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": "09-delegado/mobile/09-tabla-delegado.html",
+    "css": "09-delegado/mobile/09-tabla-delegado.css",
+    "png": "09-delegado/mobile/09-tabla-delegado.png",
+    "completa": null,
+    "objetivos": {
+      "tuEquipo": {
+        "x": 99,
+        "y": 325,
+        "w": 56,
+        "h": 17,
+        "cx": 127,
+        "cy": 333,
+        "text": "Tu equipo"
+      }
+    }
+  }
+]

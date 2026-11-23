@@ -1,0 +1,16 @@
+{
+  "estado": "02-resultados-equipo",
+  "dispositivo": "desktop",
+  "ruta": "/division/94/torneos/123/standings",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scrollY": 0,
+  "scrollX": 0,
+  "marco": ".bk-desktop",
+  "prefijoIds": "bk-05-tabla-02-resultados-equipo-",
+  "altoPagina": 900,
+  "nota": "",
+  "objetivos": {}
+}
