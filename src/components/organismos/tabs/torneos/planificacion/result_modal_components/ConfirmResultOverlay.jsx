@@ -4,11 +4,11 @@ import styled from "styled-components";
 import { v } from "../../../../../../styles/variables";
 import { BtnNormal } from "../../../../../moleculas/BtnNormal";
 import { Btnsave } from "../../../../../moleculas/Btnsave";
-import { RiCheckDoubleLine } from "react-icons/ri";
+import { RiCheckDoubleLine, RiErrorWarningLine } from "react-icons/ri";
 import { DynamicTeamLogo } from "../../../../equipos/DynamicTeamLogo";
 
 export const ConfirmResultOverlay = ({ 
-    match, isOnlyDateUpdate, isWalkover, isDoubleWalkover, matchDate, matchTime, 
+    match, selectedReferee, isOnlyDateUpdate, isWalkover, isDoubleWalkover, matchDate, matchTime,
     totalGoalsLocal, totalGoalsVisit, penalties, isExtraPointEnabled, 
     setShowConfirm, handleFinalSave, loading 
 }) => {
@@ -46,12 +46,24 @@ export const ConfirmResultOverlay = ({
                     {/* Condicional para mostrar la fecha preservada en caso de W.O. */}
                     {matchDate && matchTime ? `${matchDate} ${matchTime} ${isWalkover ? '(W.O.)' : ''}` : `Definido sin fecha ${isWalkover ? '(W.O.)' : ''}`}
                 </div>
+
+                {!selectedReferee && (
+                    <div className="referee-warning" role="status">
+                        <RiErrorWarningLine size={22} aria-hidden="true" />
+                        <div>
+                            <strong>No se asignó un árbitro.</strong>
+                            Puedes guardar así o volver a General para asignarlo.
+                        </div>
+                    </div>
+                )}
                 
                 <div className="confirm-btns">
                     <BtnNormal titulo="Revisar" funcion={() => setShowConfirm(false)} disabled={loading} />
                     
                     <Btnsave 
-                        titulo="Si, Guardar" 
+                        titulo="Sí, guardar"
+                        bgcolor={v.colorPrincipal}
+                        color="19, 31, 36"
                         funcion={handleFinalSave} 
                         loading={loading} 
                     />
@@ -74,7 +86,32 @@ const Overlay = styled.div`
         .pen-score { font-weight: 700; margin-bottom: 15px; color: ${({theme})=>theme.text}; opacity: 0.8; background: ${({theme})=>theme.bg3}; padding: 8px; border-radius: 10px;} 
         .walkover-note { font-weight: 700; margin-bottom: 15px; color: #e74c3c; background: #e74c3c18; border: 1px solid #e74c3c35; padding: 8px; border-radius: 10px; }
         .match-datetime-confirm { margin-bottom: 25px; opacity: 0.7; font-size: 0.9rem; font-family: monospace; } 
+        .referee-warning {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 12px;
+            border: 1px solid ${({theme})=>theme.tournamentDashboard.metrics.warning};
+            border-radius: 10px;
+            background: color-mix(in srgb, ${({theme})=>theme.tournamentDashboard.metrics.warning} 12%, ${({theme})=>theme.bg3});
+            color: ${({theme})=>theme.text};
+            text-align: left;
+            font-size: 0.875rem;
+            line-height: 1.5;
+
+            svg { flex-shrink: 0; }
+            strong { display: block; }
+        }
         .confirm-btns { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; } 
+        .confirm-btns > button {
+            min-height: 44px;
+
+            &:focus-visible {
+                outline: 3px solid ${({theme})=>theme.text};
+                outline-offset: 3px;
+            }
+        }
     } 
 `;
 

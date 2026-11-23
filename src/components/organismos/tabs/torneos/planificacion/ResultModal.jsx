@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useEffectEvent, useMemo, useCallback, useRef } from "react";
 import styled from "styled-components";
 import { v } from "../../../../../styles/variables";
-import { Modal } from "../../../Modal";
-import { BtnNormal } from "../../../../moleculas/BtnNormal";
+import { TournamentModal, ModalFooter } from "../TournamentModal";
 import { Btnsave } from "../../../../moleculas/Btnsave";
 import { TabsNavigation } from "../../../../moleculas/TabsNavigation";
 import { TabContent } from "../../../../moleculas/TabsNavigation";
@@ -140,6 +139,10 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
     const localOwnGoals = rosterLocal.reduce((acc, p) => acc + toStatNumber(p.ownGoals), 0);
     return visitGoals + localOwnGoals;
   }, [rosterVisit, rosterLocal, isWalkover, woWinnerId, match]);
+
+  const isOnlyDateUpdate = !requireResult && !selectedReferee &&
+    !rosterLocal.some(p => p.playerId) && !rosterVisit.some(p => p.playerId) &&
+    !isWalkover && totalGoalsLocal === 0 && totalGoalsVisit === 0;
 
   // Tabs Dinámicas
   const modalTabs = useMemo(() => {
@@ -537,19 +540,13 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
     const countLocal = rosterLocal.filter(p => p.playerId).length;
     const countVisit = rosterVisit.filter(p => p.playerId).length;
     const hasGoalsWithoutPlayer = hasUnassignedGoals(rosterLocal) || hasUnassignedGoals(rosterVisit);
-    const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
-    const isOnlyDateUpdate = !requireResult && !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
-
-    // Validación estricta del árbitro independientemente de si es o no W.O. 
-    // (A menos que sea únicamente una edición de fecha sin W.O. y sin rosters)
-    if (!isOnlyDateUpdate && !selectedReferee) {
-        return notify.error("Debe asignar un árbitro.");
-    }
+    const bothTeamsHaveEnoughRegisteredPlayers =
+      localPlayers.length >= halfMinPlayers && visitPlayers.length >= halfMinPlayers;
 
     if (isWalkover) {
         if (!woWinnerId) return notify.error("Seleccione la resolucion por default.");
     } else if (!isOnlyDateUpdate) {
-        if (countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return notify.warning("Pocos jugadores registrados.");
+        if (bothTeamsHaveEnoughRegisteredPlayers && countLocal < halfMinPlayers && countVisit < halfMinPlayers && !hasGoalsWithoutPlayer) return notify.warning("Pocos jugadores registrados.");
         if (totalGoalsLocal === totalGoalsVisit && isExtraPointEnabled) {
           if (parseInt(penalties.local) === parseInt(penalties.visit)) return notify.error("Los penales no pueden terminar en empate.");
         }
@@ -722,11 +719,6 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
       
       const fullDate = (matchDate && matchTime) ? `${matchDate} ${matchTime}:00` : null;
 
-      const countLocal = rosterLocal.filter(p => p.playerId).length;
-      const countVisit = rosterVisit.filter(p => p.playerId).length;
-      const hasScoreData = totalGoalsLocal > 0 || totalGoalsVisit > 0;
-      const isOnlyDateUpdate = !requireResult && !selectedReferee && countLocal === 0 && countVisit === 0 && !isWalkover && !hasScoreData;
-
       // La foto tiene guardado independiente; un fallo impide cerrar el modal.
       await cedulaPhoto.save();
       await onSave(matchId, {
@@ -772,18 +764,10 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
   const isCedulaFlow = showCedulaScanner || showCedulaPhotoFlow;
 
   return (
-      <Modal
+    <TournamentModal
       isOpen={isOpen}
       onClose={onClose}
       closeDisabled={isSaving || cedulaPhoto.busy}
-      width={showCedulaScanner ? "min(1520px, 97vw)" : "min(1160px, 94vw)"}
-      maxHeight="95dvh"
-      minHeight="95dvh"
-      smallScreenMaxHeight="96dvh"
-      smallScreenMinHeight="96dvh"
-      overlayPadding="min(8px, 2dvh)"
-      bodyPadding="clamp(12px, 2.5vw, 25px) clamp(12px, 2.5vw, 25px) clamp(6px, 1vw, 10px)"
-      bodyOverflowY="hidden"
       title={onBack ? (
         <ResultTitle>
           <BackHeaderButton
@@ -798,8 +782,18 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
           <span>Definir Resultado</span>
         </ResultTitle>
       ) : "Definir Resultado"}
-      closeOnOverlayClick={false}
       headerActionsWrapOnMobile
+      headerActions={!isCedulaFlow && (
+        <CedulaHeaderActions>
+          <ScanHeaderButton type="button" onClick={() => setShowCedulaPhotoFlow(true)} disabled={loading || isSaving || cedulaPhoto.busy}>
+            <RiImageAddLine /> Cargar cédula
+          </ScanHeaderButton>
+          <ScanHeaderButton type="button" onClick={() => setShowCedulaScanner(true)} disabled={loading || isSaving || cedulaPhoto.busy}>
+            <RiScan2Line /> Escanear cédula
+          </ScanHeaderButton>
+        </CedulaHeaderActions>
+      )}
+      closeOnOverlayClick={false}
       sidePanel={{
         id: `result-cedula-reference-${match.id}`,
         label: "Cédula del partido",
@@ -815,16 +809,6 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
           onPreferredWidth={setCedulaReferenceWidth}
         /> : null,
       }}
-      headerActions={!isCedulaFlow ? (
-        <CedulaHeaderActions>
-          <ScanHeaderButton type="button" onClick={() => setShowCedulaPhotoFlow(true)} disabled={loading || isSaving || cedulaPhoto.busy}>
-            <RiImageAddLine /> Cargar cédula
-          </ScanHeaderButton>
-          <ScanHeaderButton type="button" onClick={() => setShowCedulaScanner(true)} disabled={loading || isSaving || cedulaPhoto.busy}>
-            <RiScan2Line /> Escanear cédula
-          </ScanHeaderButton>
-        </CedulaHeaderActions>
-      ) : null}
     >
       <Container>
         {showCedulaPhotoFlow ? (
@@ -845,90 +829,92 @@ export function ResultModal({ isOpen, onClose, onBack, match, onSave, activeTour
           />
         ) : (
           <>
-            <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} />
+            <ResultBody>
+              <ScoreHeader match={match} goalsLocal={totalGoalsLocal} goalsVisit={totalGoalsVisit} divisionName={activeTournament?.division?.name} displayDate={matchDate} displayTime={matchTime} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} />
 
-            {loading ? (
-            <LoadingState>{isSaving ? "Guardando resultado..." : "Procesando datos..."}</LoadingState>
-            ) : (
-            <>
-                <TabsNavigation
-                  tabs={modalTabs}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  showLabelsOnMobile
-                  equalWidth
-                  compact
-                  ariaLabel="Secciones del resultado"
-                />
-                <ContentBody
-                  tabIndex={0}
-                  aria-label={isPlayersTab ? "Lista de jugadores del equipo" : "Contenido de la sección seleccionada"}
-                >
-                    {activeTab === 'general' && (
-                        <TabContent>
-                            <GeneralTab 
-                                isWalkover={isWalkover} 
-                                setIsWalkover={handleToggleWalkover} 
-                                woWinnerId={woWinnerId} 
-                                doubleWalkoverId={DOUBLE_WALKOVER_ID}
-                                match={match} 
-                                handleWalkoverSelect={handleWalkoverSelect} 
-                                selectedReferee={selectedReferee} setSelectedReferee={setSelectedReferee} referees={referees} matchDate={matchDate} setMatchDate={setMatchDate} matchTime={matchTime} setMatchTime={setMatchTime} manualObservations={manualObservations} setManualObservations={setManualObservations} 
-                            />
-                        </TabContent>
-                    )}
-                    {activeTab === 'local' && (
-                        <TabContent>
-                            <RosterTab
-                              roster={rosterLocal}
-                              teamKey="local"
-                              teamName={match?.local?.name || "Local"}
-                              players={localPlayers}
-                              isWalkover={isWalkover}
-                              minPlayers={minPlayers}
-                              onUpdate={handleUpdateRoster}
-                              onAutoFillStarters={handleAutoFillStarters}
-                              onClearRoster={handleClearRoster}
-                            />
-                        </TabContent>
-                    )}
-                    {activeTab === 'visit' && (
-                        <TabContent>
-                             <RosterTab
-                               roster={rosterVisit}
-                               teamKey="visit"
-                               teamName={match?.visitante?.name || "Visitante"}
-                               players={visitPlayers}
-                               isWalkover={isWalkover}
-                               minPlayers={minPlayers}
+              {loading ? (
+              <LoadingState>{isSaving ? "Guardando resultado..." : "Procesando datos..."}</LoadingState>
+              ) : (
+              <>
+                  <TabsNavigation
+                    tabs={modalTabs}
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    showLabelsOnMobile
+                    equalWidth
+                    compact
+                    ariaLabel="Secciones del resultado"
+                  />
+                  <ContentBody
+                    tabIndex={0}
+                    aria-label={isPlayersTab ? "Lista de jugadores del equipo" : "Contenido de la sección seleccionada"}
+                  >
+                      {activeTab === 'general' && (
+                          <TabContent>
+                              <GeneralTab
+                                  isWalkover={isWalkover}
+                                  setIsWalkover={handleToggleWalkover}
+                                  woWinnerId={woWinnerId}
+                                  doubleWalkoverId={DOUBLE_WALKOVER_ID}
+                                  match={match}
+                                  handleWalkoverSelect={handleWalkoverSelect}
+                                  selectedReferee={selectedReferee} setSelectedReferee={setSelectedReferee} referees={referees} matchDate={matchDate} setMatchDate={setMatchDate} matchTime={matchTime} setMatchTime={setMatchTime} manualObservations={manualObservations} setManualObservations={setManualObservations}
+                              />
+                          </TabContent>
+                      )}
+                      {activeTab === 'local' && (
+                          <TabContent>
+                              <RosterTab
+                                roster={rosterLocal}
+                                teamKey="local"
+                                teamName={match?.local?.name || "Local"}
+                                players={localPlayers}
+                                isWalkover={isWalkover}
+                                minPlayers={minPlayers}
                                 onUpdate={handleUpdateRoster}
                                 onAutoFillStarters={handleAutoFillStarters}
                                 onClearRoster={handleClearRoster}
-                               />
-                        </TabContent>
-                    )}
-                    {activeTab === 'penalties' && (
-                        <TabContent>
-                            <PenaltiesTab penalties={penalties} match={match} setPenalties={setPenalties} />
-                        </TabContent>
-                    )}
-                </ContentBody>
-            </>
-            )}
+                              />
+                          </TabContent>
+                      )}
+                      {activeTab === 'visit' && (
+                          <TabContent>
+                               <RosterTab
+                                 roster={rosterVisit}
+                                 teamKey="visit"
+                                 teamName={match?.visitante?.name || "Visitante"}
+                                 players={visitPlayers}
+                                 isWalkover={isWalkover}
+                                 minPlayers={minPlayers}
+                                  onUpdate={handleUpdateRoster}
+                                  onAutoFillStarters={handleAutoFillStarters}
+                                  onClearRoster={handleClearRoster}
+                                 />
+                          </TabContent>
+                      )}
+                      {activeTab === 'penalties' && (
+                          <TabContent>
+                              <PenaltiesTab penalties={penalties} match={match} setPenalties={setPenalties} />
+                          </TabContent>
+                      )}
+                  </ContentBody>
+              </>
+              )}
 
-            <Footer>
-              <BtnNormal titulo="Cancelar" funcion={onClose} disabled={isSaving || cedulaPhoto.busy} />
+            </ResultBody>
+            <ModalFooter>
+              <button type="button" className="cancel-btn" onClick={onClose} disabled={isSaving || cedulaPhoto.busy}>Cancelar</button>
               <Btnsave titulo="Guardar Marcador" bgcolor={v.colorPrincipal} icono={<RiCheckDoubleLine/>} funcion={handleSaveAttempt} loading={loading || cedulaPhoto.busy} />
-            </Footer>
+            </ModalFooter>
           </>
         )}
       </Container>
 
       {showConfirm && (
-         <ConfirmResultOverlay match={match} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading || isSaving} isOnlyDateUpdate={!selectedReferee && rosterLocal.filter(p => p.playerId).length === 0 && rosterVisit.filter(p => p.playerId).length === 0 && !isWalkover} />
+         <ConfirmResultOverlay match={match} selectedReferee={selectedReferee} isWalkover={isWalkover} isDoubleWalkover={woWinnerId === DOUBLE_WALKOVER_ID} matchDate={matchDate} matchTime={matchTime} totalGoalsLocal={totalGoalsLocal} totalGoalsVisit={totalGoalsVisit} penalties={penalties} isExtraPointEnabled={isExtraPointEnabled} setShowConfirm={setShowConfirm} handleFinalSave={handleFinalSave} loading={loading || isSaving} isOnlyDateUpdate={isOnlyDateUpdate} />
       )}
 
-    </Modal>
+    </TournamentModal>
   );
 }
 
@@ -939,13 +925,26 @@ const Container = styled.div`
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 6px;
   width: 100%;
   min-height: 0;
+  min-width: 0;
 
   @media (max-width: 560px) {
     --result-modal-action-height: 44px;
     --result-modal-action-padding: 6px 10px;
+  }
+`;
+const ResultBody = styled.div`
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 12px clamp(12px, 2vw, 20px);
+  overflow-y: auto;
+
+  @media (max-height: 550px) {
+    > [tabindex] { flex: 0 0 auto; overflow: visible; }
   }
 `;
 const ContentBody = styled.div`
@@ -994,58 +993,10 @@ const ContentBody = styled.div`
     outline-offset: 2px;
   }
 `;
-const Footer = styled.div`
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 0;
-  min-height: var(--result-modal-action-height);
-  border-top: 1px solid ${({theme})=>theme.bg4};
-  flex-wrap: wrap;
-
-  > button {
-    box-sizing: border-box;
-    align-self: center;
-    min-height: var(--result-modal-action-height);
-    padding: var(--result-modal-action-padding);
-    border-bottom-width: 2px;
-    border-radius: 10px;
-    font-size: 13px;
-    transform: none !important;
-
-    &:hover,
-    &:active {
-      transform: none !important;
-    }
-
-    .content {
-      gap: 5px;
-      line-height: 1;
-    }
-  }
-
-  @media (min-width: 561px) {
-    gap: 6px;
-
-    > button {
-      margin-block: 2px;
-    }
-  }
-
-  @media (max-width: 560px) {
-    gap: 6px;
-    padding-block: 2px;
-
-    > button {
-      flex: 1 1 120px;
-    }
-  }
-`;
 const LoadingState = styled.div` display: flex; flex: 1 1 auto; justify-content: center; align-items: center; min-height: 180px; color: ${({theme})=>theme.text}; opacity: 0.7; `;
 const ResultTitle = styled.span`
-  display: inline-flex;
+  display: flex;
+  margin-block: -7px;
   align-items: center;
   gap: 10px;
 `;
@@ -1073,7 +1024,11 @@ const CedulaHeaderActions = styled.div`
   align-items: center;
   gap: 8px;
   min-width: 0;
-  @media (max-width: 560px) { flex: 1; > button { flex: 1; justify-content: center; } }
+  justify-content: flex-end;
+  @container modal (max-width: 640px) {
+    flex: 1;
+    > button { flex: 1; justify-content: center; }
+  }
 `;
 const ScanHeaderButton = styled.button`
   min-height: 34px;

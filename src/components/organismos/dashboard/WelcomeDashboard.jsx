@@ -1,4 +1,4 @@
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import { v } from "../../../styles/variables";
 import { BtnNormal } from "../../moleculas/BtnNormal";
 
@@ -18,7 +18,7 @@ export const WelcomeDashboard = ({ userName }) => {
                 <StepsContainer>
                     <Step>
                         <StepIcon><v.iconocategorias /></StepIcon>
-                        <StepText>1. Crea una División/Categoria</StepText>
+                        <StepText>1. Crea una División/Categoría</StepText>
                     </Step>
                     <Arrow><v.iconoflechaderecha /></Arrow>
                     <Step>
@@ -44,46 +44,49 @@ export const WelcomeDashboard = ({ userName }) => {
     );
 };
 
-const float = keyframes`
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-    100% { transform: translateY(0px); }
-`;
-
 const Container = styled.div`
     height: 100%;
     min-height: 70vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: clamp(0px, 2vw, 20px);
 `;
 
 const Content = styled.div`
     text-align: center;
     max-width: 600px;
-    background: ${({ theme }) => theme.bgcards};
-    padding: 40px;
-    border-radius: 20px;
-    box-shadow: ${v.boxshadowGray};
-    animation: ${float} 6s ease-in-out infinite;
+    background-color: ${({ theme }) => theme.bgcards};
+    background-image: radial-gradient(ellipse 75% 42% at 50% 0%,
+        ${({ theme }) => theme.tournamentDashboard.primarySoft}, transparent);
+    padding: clamp(20px, 4vw, 40px);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(13, 39, 59, .08);
+    overflow-wrap: anywhere;
 `;
 
 const IconContainer = styled.div`
-    font-size: 4rem;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 20px;
+    background: ${({ theme }) => theme.tournamentDashboard.primarySoft};
     color: ${v.colorPrincipal};
-    margin-bottom: 20px;
+    font-size: 2.4rem;
 `;
 
 const Title = styled.h1`
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    line-height: 1.2;
+    letter-spacing: -.025em;
     color: ${({ theme }) => theme.text};
     margin-bottom: 15px;
 `;
 
 const Description = styled.p`
-    color: ${({ theme }) => theme.text};
-    opacity: 0.8;
+    color: ${({ theme }) => theme.tournamentDashboard.muted};
     line-height: 1.6;
     margin-bottom: 30px;
 `;
@@ -95,6 +98,15 @@ const StepsContainer = styled.div`
     gap: 10px;
     margin-bottom: 40px;
     flex-wrap: wrap;
+
+    @media (max-width: 640px) {
+        display: grid;
+        justify-content: start;
+        margin: 0 auto 28px;
+        width: fit-content;
+        gap: 12px;
+        > span { display: none; }
+    }
 `;
 
 const Step = styled.div`
@@ -102,12 +114,14 @@ const Step = styled.div`
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    @media (max-width: 640px) { flex-direction: row; text-align: left; }
 `;
 
 const StepIcon = styled.div`
     width: 40px;
     height: 40px;
-    background: ${({ theme }) => theme.bg};
+    background: ${({ theme }) => theme.tournamentDashboard.itemSurface};
+    flex: none;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -130,4 +144,13 @@ const Arrow = styled.span`
 const ActionButtons = styled.div`
     display: flex;
     justify-content: center;
+    button {
+        background: linear-gradient(120deg, ${({ theme }) => theme.bg5}, ${({ theme }) => theme.primary});
+        border-color: ${({ theme }) => theme.tournamentDashboard.hero.accentStrong};
+        color: #102934;
+    }
+    button:focus-visible { outline: 3px solid ${({ theme }) => theme.tournamentDashboard.hero.accentStrong}; outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) {
+        button, button:hover, button:active { transform: none; transition: none; }
+    }
 `;

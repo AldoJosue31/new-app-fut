@@ -13,8 +13,8 @@ const HeaderContainer = styled.div`
   position: sticky;
   top: 0;
   z-index: 100;
-  background-color: ${({ theme }) => theme.bgtotal || '#fff'};
-  border-bottom: 1px solid ${({ theme }) => theme.bg3 || '#eee'};
+  /* Mismo fondo que el sidebar, un poco más oscuro que la página */
+  background-color: ${({ theme }) => theme.bgNav || theme.bgtotal || '#fff'};
   
   /* CAMBIO: Padding inferior a 0 para pegar los tabs al borde */
   padding: 0 20px;

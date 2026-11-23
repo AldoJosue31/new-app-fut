@@ -1,16 +1,18 @@
 import React, { useEffect, useEffectEvent, useState } from "react";
 import { createPortal } from "react-dom"; // IMPORTANTE: Para renderizar fuera del #root
 import styled from "styled-components";
-import { v } from "../../../../../../styles/variables";
-import { Modal } from "../../../../Modal";
-import { Btnsave } from "../../../../../moleculas/Btnsave";
+import { TournamentModal, ModalFooter } from "../../TournamentModal";
+import { ExportDownloadButton } from "../shared/ExportPreviewHeader";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { RiPrinterLine } from "react-icons/ri";
 import { MatchSheetA4 } from "./MatchSheetA4";
+import { MatchSheetPreview, A4_WIDTH, A4_HEIGHT } from "./MatchSheetPreview";
 
 export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [processedMatches, setProcessedMatches] = useState([]);
+    const matchCount = matchesToPrint?.length || 0;
 
     const fetchAllMatchDataEvent = useEffectEvent(fetchAllMatchData);
 
@@ -22,9 +24,10 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
 
     async function fetchAllMatchData() {
         setLoading(true);
+        setLoadError(false);
         try {
             const matchIds = matchesToPrint.map(m => m.id);
-            
+
             // 1. Fetch partidos (Optimizado)
             const { data: fullMatches, error: matchError } = await supabase
                 .from('matches')
@@ -37,7 +40,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                         name,
                         tournament:tournament_id (
                             season,
-                            config, 
+                            config,
                             division:division_id (
                                 name,
                                 league:league_id (name, logo_url)
@@ -46,7 +49,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                     )
                 `)
                 .in('id', matchIds)
-                .order('date', { ascending: true }); 
+                .order('date', { ascending: true });
 
             if (matchError) throw matchError;
 
@@ -81,7 +84,7 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                 const localPlayers = playersByTeam[match.team1_id] || [];
                 const visitPlayers = playersByTeam[match.team2_id] || [];
                 const sortDorsal = (a, b) => (parseInt(a.dorsal) || 999) - (parseInt(b.dorsal) || 999);
-                
+
                 // Extraer configuración del torneo para saber si mostrar penales
                 let tournamentConfig = match.jornada?.tournament?.config || {};
                 if (typeof tournamentConfig === 'string') {
@@ -89,14 +92,14 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                 }
 
                 const tieBreak = (tournamentConfig.tieBreakType || '').toLowerCase();
-                const showPenalties = 
-                    tieBreak.includes('penalties') || 
-                    tieBreak.includes('penales') || 
+                const showPenalties =
+                    tieBreak.includes('penalties') ||
+                    tieBreak.includes('penales') ||
                     tieBreak.includes('shootout');
 
                 return {
                     matchData: match,
-                    showPenalties: showPenalties, // <-- SE AGREGA LA LECTURA CORRECTA
+                    showPenalties,
                     players: {
                         local: localPlayers.sort(sortDorsal),
                         visit: visitPlayers.sort(sortDorsal)
@@ -108,6 +111,8 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
 
         } catch (error) {
             console.error("Error fetching batch data:", error);
+            setProcessedMatches([]);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -141,65 +146,80 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
 
     if (!isOpen) return null;
 
+    const isLoading = matchCount > 0 && loading;
+    const isReady = !isLoading && processedMatches.length > 0;
+
+    let previewContent;
+    if (matchCount === 0) {
+        previewContent = <p className="load-error" role="alert">No hay partidos seleccionados para imprimir.</p>;
+    } else if (isLoading) {
+        previewContent = (
+            <div className="loading" role="status">
+                <div className="spinner" />
+                <span>Generando cédulas para {matchCount} {matchCount === 1 ? "partido" : "partidos"}...</span>
+            </div>
+        );
+    } else if (loadError || !isReady) {
+        previewContent = <p className="load-error" role="alert">No se pudieron cargar las cédulas. Inténtalo de nuevo.</p>;
+    } else {
+        previewContent = (
+            <div className="preview-list">
+                {processedMatches.map((item) => (
+                    <MatchSheetPreview key={item.matchData.id} width={A4_WIDTH} height={A4_HEIGHT} maxScale={0.65}>
+                        <MatchSheetA4
+                            matchData={item.matchData}
+                            players={item.players}
+                            formatDate={formatDate}
+                            formatTime={formatTime}
+                            showPenalties={item.showPenalties}
+                        />
+                    </MatchSheetPreview>
+                ))}
+            </div>
+        );
+    }
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Impresión de Cédulas" width="900px">
-            <Container>
-                {loading ? (
-                    <LoadingState>
-                        <div className="spinner"></div>
-                        <span>Generando cédulas para {matchesToPrint.length} partidos...</span>
-                    </LoadingState>
-                ) : (
-                    <>
-                        {/* --- CONTROLES Y VISTA PREVIA (Visible en pantalla) --- */}
-                        <Controls>
-                            <div className="info">
-                                <b>{processedMatches.length}</b> cédulas listas.
-                            </div>
-                            <Btnsave 
-                                titulo="Imprimir Todo" 
-                                bgcolor={v.colorPrincipal} 
-                                icono={<RiPrinterLine/>} 
-                                funcion={handlePrint} 
-                            />
-                        </Controls>
+        <>
+            <TournamentModal isOpen={isOpen} onClose={onClose} title="Impresión de Cédulas">
+                <ModalContentWrapper>
+                    <p className="info-msg">
+                        Vista Previa de Impresión (A4)
+                        {isReady && <> · <b>{processedMatches.length}</b> {processedMatches.length === 1 ? "cédula lista" : "cédulas listas"}</>}
+                    </p>
+                    <div className="preview-area">{previewContent}</div>
+                </ModalContentWrapper>
+                <ModalFooter>
+                    <button type="button" className="cancel-btn" onClick={onClose}>
+                        Cancelar
+                    </button>
+                    <ExportDownloadButton
+                        onExport={handlePrint}
+                        isExporting={false}
+                        disabled={!isReady}
+                        exportLabel="Imprimir todo"
+                        icon={<RiPrinterLine aria-hidden="true" />}
+                    />
+                </ModalFooter>
+            </TournamentModal>
 
-                        <PreviewContainer>
-                            <div className="preview-scroll">
-                                {processedMatches.map((item) => (
-                                    <div key={item.matchData.id} className="preview-item">
-                                        <MatchSheetA4 
-                                            matchData={item.matchData}
-                                            players={item.players}
-                                            formatDate={formatDate}
-                                            formatTime={formatTime}
-                                            showPenalties={item.showPenalties} // <-- APLICADO CORRECTAMENTE AQUÍ
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </PreviewContainer>
+            {/* --- CONTENIDO OCULTO PARA IMPRESIÓN (Renderizado vía Portal al body) --- */}
+            {isReady && createPortal(
+                <div id="print-portal-root">
+                    {processedMatches.map((item) => (
+                        <MatchSheetA4
+                            key={item.matchData.id}
+                            matchData={item.matchData}
+                            players={item.players}
+                            formatDate={formatDate}
+                            formatTime={formatTime}
+                            showPenalties={item.showPenalties}
+                        />
+                    ))}
+                </div>,
+                document.body
+            )}
 
-                        {/* --- CONTENIDO OCULTO PARA IMPRESIÓN (Renderizado vía Portal al body) --- */}
-                        {createPortal(
-                            <div id="print-portal-root">
-                                {processedMatches.map((item) => (
-                                    <MatchSheetA4 
-                                        key={item.matchData.id}
-                                        matchData={item.matchData}
-                                        players={item.players}
-                                        formatDate={formatDate}
-                                        formatTime={formatTime}
-                                        showPenalties={item.showPenalties} // <-- APLICADO CORRECTAMENTE AQUÍ
-                                    />
-                                ))}
-                            </div>,
-                            document.body
-                        )}
-                    </>
-                )}
-            </Container>
-            
             {/* CSS GLOBAL DE IMPRESIÓN */}
             <style>{`
                 /* Ocultar portal en pantalla */
@@ -209,9 +229,9 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
 
                 @media print {
                     /* Reinicia completamente el papel */
-                    @page { 
-                        size: A4 portrait !important; 
-                        margin: 0 !important; 
+                    @page {
+                        size: A4 portrait !important;
+                        margin: 0 !important;
                     }
 
                     html, body {
@@ -247,51 +267,95 @@ export const BatchPrintModal = ({ isOpen, onClose, matchesToPrint }) => {
                     }
                 }
             `}</style>
-        </Modal>
+        </>
     );
 };
 
-const Container = styled.div`
-    display: flex; flex-direction: column; gap: 20px;
-    height: 70vh;
-`;
-
-const Controls = styled.div`
-    display: flex; justify-content: space-between; align-items: center;
-    padding-bottom: 15px; border-bottom: 1px solid ${({theme})=>theme.bg4};
-    .info { color: ${({theme})=>theme.text}; font-size: 0.9rem; }
-`;
-
-const PreviewContainer = styled.div`
-    background: #525659; 
-    padding: 30px;
-    overflow-y: auto;
+// Same body layout as PreMatchSheetModal so both print modals match.
+const ModalContentWrapper = styled.div`
+    display: flex;
     flex: 1;
-    border-radius: 8px;
-    
-    .preview-scroll {
-        display: flex; flex-direction: column; gap: 30px; 
-        align-items: center;
+    flex-direction: column;
+    min-height: 0;
+    background: ${({ theme }) => theme.bgtotal || theme.bg};
+
+    .info-msg {
+        margin: 0;
+        padding: 12px 18px 0;
+        flex-shrink: 0;
+        color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-align: center;
     }
 
-    /* Escalar un poco la vista previa para que quepa mejor en el modal */
-    .preview-item {
-        transform: scale(0.9);
-        transform-origin: top center;
-        margin-bottom: -100px; /* Compensar el espacio blanco del scale */
+    .info-msg b {
+        color: ${({ theme }) => theme.text};
     }
-    .preview-item:last-child { margin-bottom: 0; }
-`;
 
-const LoadingState = styled.div`
-    display: flex; flex-direction: column; gap: 10px;
-    align-items: center; justify-content: center; height: 100%;
-    color: ${({theme})=>theme.text}; font-weight: 600;
-    .spinner {
-        border: 4px solid ${({theme})=>theme.bg3}; 
-        border-top: 4px solid ${v.colorPrincipal}; 
-        border-radius: 50%; width: 40px; height: 40px; 
-        animation: spin 1s linear infinite;
+    .preview-area {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        padding: 12px 18px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable both-edges;
     }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .preview-list {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .loading {
+        margin: auto;
+        padding: 80px 16px;
+        text-align: center;
+    }
+
+    .loading .spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 15px;
+        border: 4px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
+        border-left-color: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};
+        border-radius: 50%;
+        animation: spin-batch-print 1s linear infinite;
+    }
+
+    .loading span {
+        color: ${({ theme }) => theme.text};
+        font-weight: 600;
+        opacity: 0.72;
+    }
+
+    .load-error {
+        margin: auto;
+        padding: 8px 18px;
+        color: ${({ theme }) => theme.tournamentDashboard?.metrics?.danger || theme.text};
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    @keyframes spin-batch-print {
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 520px) {
+        .info-msg {
+            padding: 8px 12px 0;
+            font-size: 0.76rem;
+        }
+
+        .preview-area {
+            padding: 8px 6px;
+        }
+
+        .preview-list {
+            gap: 12px;
+        }
+    }
 `;

@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 import styled, { keyframes, css } from "styled-components";
 import { v } from "../../../../../styles/variables";
 import {
-    RiRefreshLine, RiCheckDoubleLine, RiCloseLine, RiCalendarEventLine,
+    RiRefreshLine, RiCheckDoubleLine, RiCloseLine,
     RiTeamLine, RiMagicLine, RiErrorWarningLine, RiLock2Line, RiAddLine,
     RiHistoryLine, RiEyeLine, RiEyeOffLine, RiEdit2Line, RiLayoutGridLine,
     RiScan2Line, RiLockUnlockLine, RiSettings3Line
@@ -25,6 +25,7 @@ import {
     buildFixtureRoundMatchesFromPairs,
     isFixtureMatchLocked,
 } from "../../../../../utils/fixtureRoundEditing.js";
+import { TournamentModal, ModalFooter } from "../TournamentModal";
 import { ConfirmModal } from "../../../ConfirmModal";
 import {
     DEFAULT_FIXTURE_CRITERIA,
@@ -1198,20 +1199,15 @@ export function FixturePreviewModal({
 
     return createPortal(
         <>
-        <Overlay>
-            <ModalContainer onClick={(e) => e.stopPropagation()}>
-                <Header>
-                    <div className="header-info">
-                        <IconWrapper><RiCalendarEventLine /></IconWrapper>
-                        <div className="texts">
-                            <h3>{isEditMode ? "Reorganizar Calendario" : "Editor de Fixture"}</h3>
-                            <span>{isEditMode ? "Modifica partidos futuros. El pasado es inmutable." : "Organiza las jornadas antes de guardar"}</span>
-                        </div>
-                    </div>
-                    <CloseBtn onClick={onClose}><RiCloseLine /></CloseBtn>
-                </Header>
+        <TournamentModal
+            isOpen={isOpen}
+            onClose={onClose}
+            suspended={isCriteriaModalOpen || Boolean(pendingUnlockMatch)}
+            closeOnOverlayClick={false}
+            title={scanRoundIndex !== null ? "Escanear rol de juegos" : isEditMode ? "Reorganizar Calendario" : "Editor de Fixture"}
+        >
 
-                <Content>
+                <Content hidden={scanRoundIndex !== null}>
                     <Toolbar>
                         <div className="info-teams">
                             <RiTeamLine /> {teams.length} Equipos 
@@ -1468,36 +1464,35 @@ export function FixturePreviewModal({
                                 );
                             })}
                         </Grid>
+                        <WarningText>
+                            Haz clic en un equipo para ver su ruta.<br/>
+                            {isEditMode ? (
+                                <>
+                                    Puedes arrastrar equipos para cambiar rivales o invertir local y visitante.<br/>
+                                    Las jornadas confirmadas (gris oscuro) no se pueden modificar ni generan conflictos.<br/>
+                                    Solo se muestran jornadas naturales. Las reposiciones se editan por separado.
+                                </>
+                            ) : "Puedes mover partidos entre jornadas."}
+                        </WarningText>
                     </ScrollArea>
-                    {scanRoundIndex !== null && (
-                        <RoundScanViewport>
-                            <RolJuegoScanFlow
-                                roundTitle={getRoundTitle(scanRoundIndex)}
-                                divisionName={divisionName}
-                                tournamentName={tournamentName}
-                                roundStartDate={existingData?.jornadas?.[Number(scanRoundIndex)]?.start_date || ""}
-                                roundEndDate={existingData?.jornadas?.[Number(scanRoundIndex)]?.end_date || ""}
-                                teams={teams}
-                                onCancel={() => setScanRoundIndex(null)}
-                                onApply={handleApplyRolJuego}
-                            />
-                        </RoundScanViewport>
-                    )}
                 </Content>
-                {scanRoundIndex === null && <Footer>
-                    <WarningText>
-                       * Haz click en un equipo para ver su ruta.<br/>
-                       {isEditMode ? (
-                        <>
-                            * Puedes arrastrar equipos para cambiar rivales o invertir local y visitante.<br/>
-                            * Las jornadas confirmadas (gris oscuro) no se pueden modificar ni generan conflictos.<br/>
-                            * Solo se muestran jornadas naturales; las reposiciones no se editan aqui.
-                        </>
-                       ) : (
-                        "* Puedes mover partidos entre jornadas."
-                       )}
-                    </WarningText>
-                    <ActionWrapper>
+                {scanRoundIndex !== null && (
+                    <RoundScanViewport>
+                        <RolJuegoScanFlow
+                            roundTitle={getRoundTitle(scanRoundIndex)}
+                            divisionName={divisionName}
+                            tournamentName={tournamentName}
+                            roundStartDate={existingData?.jornadas?.[Number(scanRoundIndex)]?.start_date || ""}
+                            roundEndDate={existingData?.jornadas?.[Number(scanRoundIndex)]?.end_date || ""}
+                            teams={teams}
+                            onCancel={() => setScanRoundIndex(null)}
+                            onApply={handleApplyRolJuego}
+                        />
+                    </RoundScanViewport>
+                )}
+                {scanRoundIndex === null && <ModalFooter>
+                    <button type="button" className="cancel-btn" onClick={onClose}>Cancelar</button>
+                    <div className="export-action">
                         <Btnsave 
                             titulo={isLoading ? "Guardando..." : (isEditMode ? "Guardar Cambios" : "Confirmar Fixture")}
                             bgcolor={conflictCount > 0 ? v.colorWarning : v.colorPrincipal}
@@ -1506,10 +1501,9 @@ export function FixturePreviewModal({
                             disabled={isLoading || isAnimating || conflictCount > 0 || (isEditMode && !hasFixtureChanges)}
                             loading={isLoading}
                         />
-                    </ActionWrapper>
-                </Footer>}
-            </ModalContainer>
-        </Overlay>
+                    </div>
+                </ModalFooter>}
+        </TournamentModal>
         <ConfirmModal
             isOpen={Boolean(pendingUnlockMatch)}
             onClose={() => setPendingUnlockMatch(null)}
@@ -1937,13 +1931,6 @@ const roundExit = keyframes`
     to { opacity: 0; transform: translateY(14px) scale(0.97); }
 `;
 
-const Overlay = styled.div`
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-    background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); 
-    z-index: 2000; display: flex; justify-content: center; align-items: center; padding: 20px; 
-    @media (max-width: 768px) { padding: 0; align-items: flex-end; }
-`;
-
 const CriteriaOverlay = styled.div`
     position: fixed;
     inset: 0;
@@ -2205,34 +2192,6 @@ const CriteriaDialogFooter = styled.footer`
     }
 `;
 
-const ModalContainer = styled.div`
-    width: 100%; max-width: 1300px; height: 90vh; 
-    background: ${({ theme }) => theme.bg}; border-radius: 16px; 
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
-    display: flex; flex-direction: column; 
-    animation: ${fadeIn} 0.25s ease-out; border: 1px solid ${({ theme }) => theme.bg4}; 
-    overflow: hidden; 
-    @media (max-width: 768px) { height: 100vh; border-radius: 0; border: none; }
-`;
-
-const Header = styled.header`
-    padding: 16px 24px; border-bottom: 1px solid ${({ theme }) => theme.bg4}; 
-    display: flex; justify-content: space-between; align-items: center; 
-    background: ${({ theme }) => theme.bg}; flex-shrink: 0; 
-    .header-info { display: flex; gap: 12px; align-items: center; 
-        .texts { display: flex; flex-direction: column; 
-            h3 { margin: 0; font-size: 1.1rem; color: ${({ theme }) => theme.text}; font-weight: 700; } 
-            span { font-size: 0.85rem; color: ${({ theme }) => theme.textFade}; } 
-        } 
-    }
-`;
-
-const IconWrapper = styled.div`
-    width: 42px; height: 42px; border-radius: 12px; 
-    background: ${v.colorPrincipal}20; color: ${v.colorPrincipal}; 
-    display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
-`;
-
 const CloseBtn = styled.button`
     background: transparent; border: none; width: 40px; height: 40px; border-radius: 50%; 
     display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; 
@@ -2240,16 +2199,25 @@ const CloseBtn = styled.button`
     &:hover { background: ${({ theme }) => theme.bg3}; color: ${v.colorError}; }
 `;
 
-const Content = styled.div`position:relative;flex: 1; display: flex; flex-direction: column; background: ${({ theme }) => theme.bg2}; overflow: hidden;`;
+const Content = styled.div`
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    background: ${({ theme }) => theme.bg2};
+    &[hidden] { display: none; }
+`;
 
 const RoundScanViewport = styled.div`
-    position:absolute;inset:0;z-index:3;overflow-y:auto;background:${({theme})=>theme.bg2};
+    display:flex;flex:1;min-height:0;background:${({theme})=>theme.bg2};
 `;
 
 const Toolbar = styled.div`
     padding: 12px 24px; background: ${({ theme }) => theme.bgcards}; 
     border-bottom: 1px solid ${({ theme }) => theme.bg4}; 
     display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; 
+    max-height: 40%; overflow-y: auto;
     .info-teams { display: flex; align-items: center; gap: 15px; font-size: 0.9rem; font-weight: 600; color: ${({ theme }) => theme.text}; } 
     @media (max-width: 600px) { flex-direction: column; gap: 10px; align-items: stretch; }
 `;
@@ -2688,18 +2656,8 @@ const SuggestionsList = styled.div`
     }
 `;
 
-const Footer = styled.footer`
-    padding: 16px 24px; border-top: 1px solid ${({ theme }) => theme.bg4}; 
-    display: flex; justify-content: space-between; align-items: center; 
-    background: ${({ theme }) => theme.bg}; flex-shrink: 0; gap: 15px; 
-    @media (max-width: 600px) { flex-direction: column-reverse; align-items: stretch; padding: 16px; }
-`;
-
 const WarningText = styled.div`
+    margin: 16px 0 0;
     color: ${({ theme }) => theme.textFade}; font-size: 0.75rem; font-style: italic; line-height: 1.4; 
     @media (max-width: 600px) { text-align: center; }
-`;
-
-const ActionWrapper = styled.div`
-    @media (max-width: 600px) { width: 100%; button { width: 100%; justify-content: center; } }
 `;

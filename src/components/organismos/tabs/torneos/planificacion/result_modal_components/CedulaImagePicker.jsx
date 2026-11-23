@@ -1,22 +1,29 @@
+import { ScanBody } from "../../TournamentScanLayout";
+import { ModalFooter } from "../../TournamentModal";
 import React from 'react';
 import styled from 'styled-components';
 import { RiCameraLine, RiClipboardLine, RiFileImageLine } from 'react-icons/ri';
 import { v } from '../../../../../../styles/variables';
-import { ChoiceRow, PrimaryAction, SecondaryAction } from './CedulaFlowPrimitives';
+import { PrimaryAction, SecondaryAction } from './CedulaFlowPrimitives';
 
-export function CedulaImagePicker({ input }) {
+export function CedulaImagePicker({ input, children, notice, extraAction }) {
   const { uploadRef, cameraRef, onFileChange, pasteFromClipboard, coarseDevice, disabled } = input;
   return <>
-    <UploadZone type="button" disabled={disabled} onClick={() => uploadRef.current?.click()}>
-      <RiFileImageLine />
-      <strong>Cargar imagen</strong>
-      {!coarseDevice && <span>También puedes pegarla con Ctrl/Cmd + V</span>}
-    </UploadZone>
-    <ChoiceRow>
+    <ScanBody>
+      {children}
+      <UploadZone type="button" disabled={disabled} onClick={() => uploadRef.current?.click()}>
+        <RiFileImageLine />
+        <strong>Cargar imagen</strong>
+        {!coarseDevice && <span>También puedes pegarla con Ctrl/Cmd + V</span>}
+      </UploadZone>
+      {notice}
+    </ScanBody>
+    <ModalFooter>
+      {extraAction}
       <SecondaryAction type="button" disabled={disabled} onClick={() => uploadRef.current?.click()}><RiFileImageLine /> Cargar imagen</SecondaryAction>
       <SecondaryAction type="button" disabled={disabled} onClick={pasteFromClipboard}><RiClipboardLine /> Pegar imagen</SecondaryAction>
       {coarseDevice && <PrimaryAction type="button" disabled={disabled} onClick={() => cameraRef.current?.click()}><RiCameraLine /> Tomar foto</PrimaryAction>}
-    </ChoiceRow>
+    </ModalFooter>
     <input ref={uploadRef} hidden type="file" accept="image/*" disabled={disabled} onChange={onFileChange} aria-label="Subir foto de cédula" />
     <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" disabled={disabled} onChange={onFileChange} aria-label="Tomar foto de cédula" />
   </>;

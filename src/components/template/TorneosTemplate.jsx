@@ -51,7 +51,7 @@ const TOURNAMENT_TAB_LIST = Object.freeze([
   { id: "jornadas", label: "Jornadas", icon: <RiCalendarEventLine /> },
   {
     id: "standings",
-    label: "Clasificacion",
+    label: "Clasificación",
     icon: <RiBarChartGroupedLine />,
   },
   { id: "goleadores", label: "Goleadores", icon: <RiFootballLine /> },
@@ -280,6 +280,17 @@ export function TorneosTemplate({
     };
   }, [activeTab]);
 
+  const viewSelector = (
+    <TournamentViewSelector
+      tabs={TOURNAMENT_TAB_LIST}
+      activeTab={activeTab}
+      setActiveTab={handleTabChange}
+      ariaLabel="Vistas del torneo"
+      equalWidth
+      showLabelsOnMobile
+    />
+  );
+
   if (isResolvingInitialTab) {
     return (
       <>
@@ -290,7 +301,7 @@ export function TorneosTemplate({
             marginBottom="0"
             state={state}
             setState={setState}
-            tabs={<TabsNavigation tabs={TOURNAMENT_TAB_LIST} activeTab={activeTab} setActiveTab={handleTabChange} />}
+            tabs={viewSelector}
           />
         </HeaderMeasure>
 
@@ -314,7 +325,7 @@ export function TorneosTemplate({
           marginBottom="0"
           state={state}
           setState={setState}
-          tabs={<TabsNavigation tabs={TOURNAMENT_TAB_LIST} activeTab={activeTab} setActiveTab={handleTabChange} />}
+          tabs={viewSelector}
         />
       </HeaderMeasure>
 
@@ -428,6 +439,63 @@ export function TorneosTemplate({
     </>
   );
 }
+
+const TournamentViewSelector = styled(TabsNavigation)`
+  && {
+    width: min(100%, 46rem);
+    margin: 3px auto 9px;
+    padding: 3px;
+    min-height: 0;
+    gap: 2px;
+    border: 1px solid ${({ theme }) => theme.tournamentDashboard.border};
+    border-radius: 14px;
+    background: ${({ theme }) => theme.tournamentDashboard.itemSurface};
+  }
+
+  .tab-indicator {
+    border-radius: 10px;
+    border-color: ${({ theme }) => theme.tournamentDashboard.border};
+    background: ${({ theme }) => theme.tournamentDashboard.surface};
+    box-shadow: 0 2px 4px rgb(12 33 48 / 12%);
+    transition: transform 160ms cubic-bezier(.23, 1, .32, 1);
+  }
+
+  [role="tab"] {
+    border-radius: 10px;
+    padding-inline: 3px;
+    font-family: inherit;
+    color: ${({ theme }) => theme.tournamentDashboard.muted};
+    transition: transform 120ms cubic-bezier(.23, 1, .32, 1);
+  }
+
+  [aria-selected="true"] {
+    color: ${({ theme }) => theme.text};
+    font-weight: 750;
+  }
+
+  [aria-selected="true"] .icon {
+    color: ${({ theme }) => theme.tournamentDashboard.hero.accentStrong};
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    [role="tab"]:hover { color: ${({ theme }) => theme.text}; }
+  }
+
+  [role="tab"]:active:not(:focus-visible) { transform: scale(.97); }
+  [role="tab"]:focus-visible { outline: 2px solid ${({ theme }) => theme.tournamentDashboard.hero.accentStrong}; }
+  &:has(:focus-visible) .tab-indicator { transition: none; }
+
+  @media (max-width: 767px) {
+    [role="tab"] { gap: 4px; padding-inline: 0; }
+    .icon { font-size: 1.05rem; }
+    .label { font-size: clamp(.64rem, 2.9vw, .78rem); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tab-indicator, [role="tab"] { transition: none; }
+    [role="tab"]:active { transform: none; }
+  }
+`;
 
 const HeaderMeasure = styled.div`
   width: 100%;

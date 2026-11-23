@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { useTheme } from "styled-components";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiCloseLine, RiSettings3Line, RiTableLine, RiImageLine, RiPaletteLine, RiEqualizerLine } from "react-icons/ri";
-import { Modal } from "../../../../Modal";
+import { TournamentModal, ModalFooter } from "../../TournamentModal";
 import { exportElementAsPNG } from "../../../../../../utils/imageExporter";
 import { supabase } from "../../../../../../lib/supabase/browserClient.js";
 import { ExportDownloadButton, ExportPreviewHeader } from "../shared/ExportPreviewHeader";
@@ -307,17 +307,10 @@ export default function StandingsExportModal({
     const exportHeight = isMobileLayout ? 1920 : 1350;
 
     return (
-        <Modal
+        <TournamentModal
             isOpen={isOpen}
             onClose={onClose}
             title="Exportar Tabla General"
-            width="1180px"
-            compactHeader
-            overlayPadding="6px 18px"
-            maxHeight="calc(100dvh - 24px)"
-            minHeight="calc(100dvh - 24px)"
-            bodyOverflowY="hidden"
-            bodyPadding="0"
         >
             <PreviewWrapper>
                 {!isPreviewLoading && (
@@ -491,18 +484,18 @@ export default function StandingsExportModal({
                 )}
                 {exportError && <ExportError role="alert">{exportError}</ExportError>}
 
-                <ModalFooter>
-                    <button type="button" className="cancel-btn" onClick={onClose}>
-                        Cancelar
-                    </button>
-                    <ExportDownloadButton
-                        onExport={handleExportPNG}
-                        isExporting={isExporting}
-                        disabled={isPreviewLoading}
-                    />
-                </ModalFooter>
             </PreviewWrapper>
-        </Modal>
+            <ModalFooter>
+                <button type="button" className="cancel-btn" onClick={onClose}>
+                    Cancelar
+                </button>
+                <ExportDownloadButton
+                    onExport={handleExportPNG}
+                    isExporting={isExporting}
+                    disabled={isPreviewLoading}
+                />
+            </ModalFooter>
+        </TournamentModal>
     );
 }
 
@@ -514,6 +507,8 @@ const PreviewWrapper = styled.div`
     flex-direction: column;
     background: ${({ theme }) => theme.bgtotal || theme.bg};
     position: relative;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     transition: background 220ms ease;
 
     .mobile-config-bar {
@@ -521,7 +516,7 @@ const PreviewWrapper = styled.div`
     }
 
     .preview-viewport {
-        flex: 1 1 auto;
+        flex: 1 0 min(180px, 40dvh);
         min-height: 0;
         display: grid;
         grid-template-columns: 44px minmax(0, 1fr) 44px;
@@ -858,50 +853,5 @@ const GeneratedDateToggle = styled.button`
     &:disabled {
         cursor: not-allowed;
         opacity: 0.55;
-    }
-`;
-
-const ModalFooter = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
-    background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
-    border-top: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
-
-    .cancel-btn {
-        min-height: 40px;
-        padding: 9px 20px;
-        border-radius: 12px;
-        border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
-        background: transparent;
-        color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
-        cursor: pointer;
-        font-size: 0.9rem;
-        font-weight: 800;
-        transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-    }
-
-    .cancel-btn:hover {
-        background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
-        color: ${({ theme }) => theme.text};
-    }
-
-    .export-action > button {
-        min-height: 42px;
-        padding: 10px 22px;
-        font-size: 0.92rem;
-    }
-
-    @media (max-width: 520px) {
-        padding: 12px;
-
-        .cancel-btn,
-        .export-action,
-        .export-action > button {
-            flex: 1 1 0;
-            width: 100%;
-        }
     }
 `;

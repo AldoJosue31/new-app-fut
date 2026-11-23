@@ -14,14 +14,16 @@ const assertEquals = (actual: unknown, expected: unknown, message: string) => {
   if (actual !== expected) throw new Error(`${message}: esperado ${expected}, recibido ${actual}`);
 };
 
-Deno.test("usa Gemini 3.8 Flash y reemplaza modelos retirados", () => {
+Deno.test("usa Gemini 4 Hydrogen y reemplaza modelos retirados", () => {
   assertEquals(selectGeminiModel("models/gemini-2.0-flash"), DEFAULT_GEMINI_MODEL, "modelo primario");
   assertEquals(
     selectGeminiModel("gemini-3.1-flash-lite-preview"),
     DEFAULT_GEMINI_MODEL,
     "preview retirado",
   );
-  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-3.8-flash", "modelo principal por defecto");
+  assertEquals(DEFAULT_GEMINI_MODEL, "gemini-4-hydrogen", "modelo principal por defecto");
+  assertEquals(selectGeminiModel(undefined), "gemini-4-hydrogen", "principal sin override");
+  assertEquals(selectGeminiModel("models/gemini-4-hydrogen"), "gemini-4-hydrogen", "ID de Hydrogen");
   assertEquals(selectGeminiModel("gemini-3.5-flash"), "gemini-3.5-flash", "modelo vigente");
 });
 
@@ -31,7 +33,9 @@ Deno.test("elige un modelo alterno vigente", () => {
     DEFAULT_GEMINI_FALLBACK_MODEL,
     "modelo de respaldo",
   );
-  assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.6-flash", "respaldo por defecto");
+  assertEquals(DEFAULT_GEMINI_FALLBACK_MODEL, "gemini-3.8-flash", "respaldo por defecto");
+  assertEquals(selectGeminiFallbackModel(undefined, DEFAULT_GEMINI_MODEL), "gemini-3.8-flash", "respaldo de Hydrogen sin override");
+  assertEquals(selectGeminiFallbackModel(DEFAULT_GEMINI_MODEL, DEFAULT_GEMINI_MODEL), "gemini-3.8-flash", "no repite Hydrogen");
 });
 
 Deno.test("usa el modelo alterno ante incompatibilidad de configuracion", () => {
@@ -119,14 +123,15 @@ Deno.test("clasifica limite de gasto aunque aparezca solo en el mensaje", () => 
   assertEquals(shouldFallbackProviderError({ status: 429, message: "Project spend limit exceeded" }), false, "no repite una cuota compartida de gasto");
 });
 
-Deno.test("respaldo adicional usa Flash 3.7, respeta off e ignora retirados y duplicados", () => {
+Deno.test("respaldo adicional usa Flash 3.6, respeta off e ignora retirados y duplicados", () => {
   const select = (configured: string) => selectGeminiExtraFallbackModel(configured, DEFAULT_GEMINI_MODEL, DEFAULT_GEMINI_FALLBACK_MODEL);
   assertEquals(select(""), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "modelo adicional");
-  assertEquals(DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "gemini-3.7-flash", "Flash completo");
+  assertEquals(DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "gemini-3.6-flash", "Flash completo");
   assertEquals(select("off"), "", "desactivado");
-  assertEquals(select("models/gemini-3.8-flash"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin duplicar principal");
+  assertEquals(select("models/gemini-3.8-flash"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin duplicar secundario");
+  assertEquals(select("models/gemini-4-hydrogen"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin duplicar principal");
   assertEquals(select("gemini-2.0-flash"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin retirados");
   assertEquals(select("gemini-3.5-flash-lite"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin Lite");
   assertEquals(select("gemini-3.1-pro-preview"), DEFAULT_GEMINI_EXTRA_FALLBACK_MODEL, "sin Pro");
-  assertEquals(selectGeminiExtraFallbackModel("", "gemini-3.7-flash", DEFAULT_GEMINI_FALLBACK_MODEL), "", "default ya usado");
+  assertEquals(selectGeminiExtraFallbackModel("", "gemini-3.6-flash", DEFAULT_GEMINI_FALLBACK_MODEL), "", "default ya usado");
 });

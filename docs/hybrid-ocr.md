@@ -100,9 +100,9 @@ Variables de las funciones:
 | `GOOGLE_CLOUD_VISION_PARENT` | `projects/ID/locations/us` o `eu` | Fija residencia regional opcional |
 | `ROL_JUEGO_CLIENT_OCR_MIN_CONFIDENCE` | numero de `0.76` a `0.99` | Umbral del rol local; predeterminado `0.76`, solo puede endurecerse |
 | `GEMINI_API_KEY` | secreto | Respaldo semantico existente |
-| `GEMINI_CEDULA_MODEL` | ID de modelo | Principal para cedulas; predeterminado `gemini-3.8-flash` |
-| `GEMINI_CEDULA_FALLBACK_MODEL` | ID de modelo | Respaldo para cedulas; predeterminado `gemini-3.6-flash` |
-| `GEMINI_CEDULA_EXTRA_FALLBACK_MODEL` | ID de modelo u `off` | Ultimo respaldo de cedulas cuando los anteriores fallan; predeterminado `gemini-3.7-flash`, dentro del mismo plazo total |
+| `GEMINI_CEDULA_MODEL` | ID de modelo | Principal para cedulas; predeterminado `gemini-4-hydrogen`, con thinking `low` para reducir latencia |
+| `GEMINI_CEDULA_FALLBACK_MODEL` | ID de modelo | Respaldo para cedulas; predeterminado `gemini-3.8-flash` |
+| `GEMINI_CEDULA_EXTRA_FALLBACK_MODEL` | ID de modelo u `off` | Ultimo respaldo de cedulas cuando los anteriores fallan; predeterminado `gemini-3.6-flash`, dentro del mismo plazo total |
 | `GEMINI_MODEL` | ID de modelo | Principal para roles; predeterminado `gemini-3.8-flash` |
 | `GEMINI_FALLBACK_MODEL` | ID de modelo | Respaldo para roles; predeterminado `gemini-3.6-flash` |
 

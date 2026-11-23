@@ -1,6 +1,6 @@
 import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components';
-import { Modal } from "../../../../Modal";
+import { TournamentModal, ModalFooter } from "../../TournamentModal";
 import { v } from "../../../../../../styles/variables";
 import {
   RiCloseLine,
@@ -16,7 +16,6 @@ import { ExportDownloadButton } from '../shared/ExportPreviewHeader';
 
 const FIXED_LIMIT_OPTIONS = [3, 5, 10, 15, 20, 50];
 const CUSTOM_LIMIT_VALUE = 'custom';
-const MIN_MODAL_WIDTH = 820;
 const VISUALIZATION_OPTIONS = [
   { value: 'table', label: 'Tabla' },
   { value: 'bars', label: 'Barras' },
@@ -81,6 +80,7 @@ export default function GoleadoresExportModal({
     leagueLogo: null,
   });
 
+  const previewViewportRef = useRef(null);
   const exportComponentRef = useRef(null);
 
   const resolvedPlayerLimit = useMemo(() => {
@@ -230,37 +230,22 @@ export default function GoleadoresExportModal({
     };
   }, [goleadoresParaExportar.length, isDarkExport, isMobileLayout, isOpen, visualizationMode]);
 
+  const baseWidth = isMobileLayout ? 480 : 900;
+  const safeContentHeight = Math.max(contentHeight, 220);
+
   useEffect(() => {
-    const calculateScale = () => {
-      const contentWidth = isMobileLayout ? 480 : 900;
-      const estimatedHeight =
-        contentHeight ||
-        getEstimatedContentHeight({
-          mode: visualizationMode,
-          playerCount: goleadoresParaExportar.length,
-          isMobile: isMobileLayout,
-        });
-      const availableWidth = window.innerWidth - 72;
-      const availableHeight = window.innerHeight - 185;
+    const viewport = previewViewportRef.current;
+    if (!isOpen || !viewport) return;
 
-      const widthScale = availableWidth / contentWidth;
-      const heightScale = availableHeight / estimatedHeight;
-      const nextScale = Math.min(widthScale, heightScale, 1);
-
-      setPreviewScale(nextScale > 0.96 ? 0.96 : nextScale);
-    };
-
-    let scaleTimer;
-    if (isOpen) {
-      scaleTimer = window.setTimeout(calculateScale, 50);
-      window.addEventListener('resize', calculateScale);
-    }
-
-    return () => {
-      if (scaleTimer) window.clearTimeout(scaleTimer);
-      window.removeEventListener('resize', calculateScale);
-    };
-  }, [contentHeight, goleadoresParaExportar.length, isMobileLayout, isOpen, visualizationMode]);
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) {
+        setPreviewScale(Math.min(width / baseWidth, height / safeContentHeight, 0.96));
+      }
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [baseWidth, safeContentHeight, isOpen]);
 
   const handleExportPNG = async () => {
     if (!exportComponentRef.current || isExporting) return;
@@ -397,22 +382,11 @@ export default function GoleadoresExportModal({
 
   if (!isOpen) return null;
 
-  const baseWidth = isMobileLayout ? 480 : 900;
-  const safeContentHeight = Math.max(contentHeight, 220);
-  const modalWidth = `${Math.max(baseWidth * previewScale + 72, MIN_MODAL_WIDTH)}px`;
-
   return (
-    <Modal
+    <TournamentModal
       isOpen={isOpen}
       onClose={onClose}
       title="Exportar Goleadores"
-      width={modalWidth}
-      compactHeader
-      overlayPadding="6px 18px"
-      maxHeight="calc(100dvh - 24px)"
-      minHeight="90dvh"
-      bodyOverflowY="hidden"
-      bodyPadding="0"
     >
       <PreviewWrapper>
         <div className="mobile-config-bar">
@@ -429,12 +403,12 @@ export default function GoleadoresExportModal({
           >
             {isConfigPanelOpen ? <RiCloseLine /> : <RiSettings3Line />}
           </button>
-          <div className="config-content">
-            {renderConfigControls('desktop')}
+          <div className="config-content" aria-hidden={!isConfigPanelOpen}>
+            {isConfigPanelOpen && renderConfigControls('desktop')}
           </div>
         </FloatingConfigPanel>
 
-        <div className="preview-viewport">
+        <div className="preview-viewport" ref={previewViewportRef}>
           <div
             className="scale-box"
             style={{
@@ -475,7 +449,7 @@ export default function GoleadoresExportModal({
           />
         </ModalFooter>
       </PreviewWrapper>
-    </Modal>
+    </TournamentModal>
   );
 }
 
@@ -496,7 +470,7 @@ const ConfigControls = styled.div`
     background: ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 820px) {
     min-width: 0;
     height: auto;
     flex-wrap: wrap;
@@ -768,9 +742,11 @@ const PreviewWrapper = styled.div`
     transition-timing-function: ease;
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 820px) {
     .mobile-config-bar {
       display: block;
+      max-height: 42%;
+      overflow-y: auto;
       padding: 8px 12px;
       background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
       border-bottom: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
@@ -827,7 +803,7 @@ const FloatingConfigPanel = styled.div`
     transition: opacity 0.18s ease, box-shadow 0.22s ease;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 820px) {
     .config-content {
       height: auto;
       max-height: 96px;
@@ -836,52 +812,7 @@ const FloatingConfigPanel = styled.div`
     }
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 820px) {
     display: none;
-  }
-`;
-
-const ModalFooter = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  background: ${({ theme }) => theme.tournamentDashboard?.surface || theme.bgcards || theme.bg};
-  border-top: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
-
-  .cancel-btn {
-    min-height: 40px;
-    padding: 9px 20px;
-    border-radius: 12px;
-    border: 1px solid ${({ theme }) => theme.tournamentDashboard?.border || theme.bg4};
-    background: transparent;
-    color: ${({ theme }) => theme.tournamentDashboard?.muted || theme.text};
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 800;
-    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  }
-
-  .cancel-btn:hover {
-    background: ${({ theme }) => theme.tournamentDashboard?.itemSurface || theme.bg2};
-    color: ${({ theme }) => theme.text};
-  }
-
-  .export-action > button {
-    min-height: 42px;
-    padding: 10px 22px;
-    font-size: 0.92rem;
-  }
-
-  @media (max-width: 520px) {
-    padding: 12px;
-
-    .cancel-btn,
-    .export-action,
-    .export-action > button {
-      flex: 1 1 0;
-      width: 100%;
-    }
   }
 `;

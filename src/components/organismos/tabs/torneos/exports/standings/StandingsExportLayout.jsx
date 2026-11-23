@@ -136,12 +136,12 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
     const teamTextWidth = availableWidth * teamColumnFraction - 8 - horizontalCellPadding * 2
         - rankWidthPixels - teamLogoPixels - gapPixels * 2;
     const getTeamTypography = (row) => {
-        const statusCount = row.clinchedStatuses?.length ?? 0;
+        const hasStatuses = (row.clinchedStatuses?.length ?? 0) > 0;
         const nameLines = row.nombre.length * baseTeamFontSize * 0.6 > teamTextWidth ? 2 : 1;
-        const statusFontSize = statusCount ? Math.min(typeLimits.status, baseTeamFontSize * 0.52,
-            rowContentHeight / (nameLines * 1.15 / 0.52 + statusCount * 1.2 + 0.2)) : 0;
+        const statusFontSize = hasStatuses ? Math.min(typeLimits.status, baseTeamFontSize * 0.52,
+            rowContentHeight / (nameLines * 1.15 / 0.52 + 1.2 + 0.2)) : 0;
         const gap = statusFontSize * 0.2;
-        const statusHeight = statusCount ? statusCount * (statusFontSize + gap) : 0;
+        const statusHeight = hasStatuses ? statusFontSize + gap : 0;
         return {
             name: `${Math.min(baseTeamFontSize, (rowContentHeight - statusHeight) / (nameLines * 1.15)) * tableFontScale}px`,
             status: `${statusFontSize * tableFontScale}px`,
@@ -240,7 +240,7 @@ const StandingsExportLayout = forwardRef(({ tablaGeneral = [], torneo = {}, conf
                                                 {fila.nombre}
                                             </span>
                                             {Array.isArray(fila.clinchedStatuses) && fila.clinchedStatuses.length > 0 && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: teamTypography.gap, marginTop: teamTypography.gap, maxWidth: '100%' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em', fontSize: teamTypography.status, marginTop: teamTypography.gap, maxWidth: '100%' }}>
                                                     {fila.clinchedStatuses.map((status) => (
                                                         <span
                                                             key={status.key}

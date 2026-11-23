@@ -312,6 +312,17 @@ const Header = styled.div`
     border-radius: 50%;
     transition: background 0.2s;
 
+    ${({ $compact }) => $compact && `
+      position: relative;
+      &:only-child::after {
+        content: "";
+        position: absolute;
+        inset: -7px;
+        min-width: 44px;
+        min-height: 44px;
+      }
+    `}
+
     &:hover {
       background: ${({ theme }) => theme.bg4};
     }
@@ -351,9 +362,9 @@ const DockLayout = styled.div`
   width: ${({ $width, $open }) => $open
     ? `min(calc(${$width} + var(--dock-preferred-panel-width)), calc(100vw - 16px))`
     : $width};
-  max-width: calc(100vw - 16px);
+  max-width: min(100%, calc(100vw - 16px));
   min-width: 0;
-  max-height: 96dvh;
+  max-height: 100%;
 
   @media (max-width: 900px) {
     flex-direction: column;

@@ -434,35 +434,45 @@ export const useTorneoStandingsLogic = ({
     if ((!relevantMatches.length) && (!mergedJornadas.length)) return 'Sin iniciar';
     if (effectiveJornada === 0) return 'Sin iniciar';
     
-    // Función auxiliar para contar pendientes acumulados hasta una jornada límite
-    const getAccumulatedPendings = (limit) => {
-        return relevantMatches.filter(m => {
-            const st = String(m.status || '').trim().toLowerCase();
+    // Cuenta, desde la jornada 1 hasta el límite, los partidos pendientes (aplazados)
+    // y los que aún no se juegan (p. ej. "Programado"). Sin esto, una jornada en curso
+    // se marcaba como "Completada" aunque sus partidos no tuvieran resultado.
+    const getAccumulatedProgress = (limit) => {
+        let pendientes = 0;
+        let porJugar = 0;
+
+        relevantMatches.forEach(m => {
+            if (m.team1_id == null || m.team2_id == null) return;
             const jNum = getOfficialJornadaNumberForMatch(
                 m,
                 mergedJornadas,
                 repositionMappings,
                 repositionMatchMappings
             );
+            if (jNum <= 0 || jNum > limit) return;
 
-            // CORRECCIÓN: ACUMULAMOS DESDE LA JORNADA 1 HASTA EL LÍMITE
-            return jNum > 0 && jNum <= limit && st === 'pendiente' && m.team1_id != null && m.team2_id != null;
-        }).length;
+            const st = String(m.status || '').trim().toLowerCase();
+            if (st === 'pendiente') pendientes += 1;
+            else if (st !== 'cancelado' && !FINISHED_STATUSES.includes(st)) porJugar += 1;
+        });
+
+        return { pendientes, porJugar };
+    };
+
+    const getSuffix = (limit) => {
+        const { pendientes, porJugar } = getAccumulatedProgress(limit);
+        if (pendientes > 0) return ` (${pendientes} pendientes)`;
+        if (porJugar > 0) return ' (En curso)';
+        return ' (Completada)';
     };
 
     if (selectedJornadaView === 'recent') {
-        const totalPendientes = getAccumulatedPendings(effectiveJornada);
-        const suffix = totalPendientes > 0 ? ` (${totalPendientes} pendientes)` : ' (Completada)';
-        return `Jornada ${effectiveJornada}${suffix}`; 
+        return `Jornada ${effectiveJornada}${getSuffix(effectiveJornada)}`;
     } else {
         const sel = parseInt(selectedJornadaView, 10);
         if (isNaN(sel)) return `Jornada ${effectiveJornada}`;
-        
-        // Pasamos el límite de la jornada histórica seleccionada
-        const pend = getAccumulatedPendings(sel);
-        const suffix = pend > 0 ? ` (${pend} pendientes)` : ' (Completada)';
-        
-        return `Jornada ${sel}${suffix}`;
+
+        return `Jornada ${sel}${getSuffix(sel)}`;
     }
   }, [selectedJornadaView, effectiveJornada, relevantMatches, mergedJornadas, repositionMappings, repositionMatchMappings]);
 
