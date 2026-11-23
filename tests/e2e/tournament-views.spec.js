@@ -126,14 +126,12 @@ test("navegar desde el sidebar conserva la vista hasta que llega la siguiente", 
   await page.evaluate(() => {
     const navigation = { loadingScreens: 0, framesWithoutView: 0 };
     window.sidebarNavigation = navigation;
-    const isLoadingScreen = (element) =>
-      element.textContent === "Cargando Bracket app...";
     new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (node instanceof Element && (
-            (node.matches("h2") && isLoadingScreen(node)) ||
-            Array.from(node.querySelectorAll("h2")).some(isLoadingScreen)
+            node.matches("[data-loading-screen]") ||
+            node.querySelector("[data-loading-screen]")
           )) {
             navigation.loadingScreens += 1;
           }
