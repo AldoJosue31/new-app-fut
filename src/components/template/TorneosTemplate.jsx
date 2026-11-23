@@ -12,7 +12,7 @@ import styled from "styled-components";
 import { v } from "../../styles/variables";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
-import { TabsNavigation, TabContent } from "../moleculas/TabsNavigation"; 
+import { SegmentedViewSelector, TabContent } from "../moleculas/TabsNavigation";
 import { EmptyState } from "../organismos/EmptyState"; 
 
 import { TorneoDefinitionModeLoading } from "../TorneoDefinitionMode";
@@ -326,13 +326,11 @@ export function TorneosTemplate({
   }, [activeTab]);
 
   const viewSelector = (
-    <TournamentViewSelector
+    <SegmentedViewSelector
       tabs={TOURNAMENT_TAB_LIST}
       activeTab={activeTab}
       setActiveTab={handleTabChange}
       ariaLabel="Vistas del torneo"
-      equalWidth
-      showLabelsOnMobile
     />
   );
 
@@ -484,64 +482,6 @@ export function TorneosTemplate({
     </>
   );
 }
-
-const TournamentViewSelector = styled(TabsNavigation)`
-  && {
-    width: min(100%, 50rem);
-    margin: 3px auto 9px;
-    padding: 2px 3px;
-    min-height: 0;
-    gap: 2px;
-    border: 1px solid ${({ theme }) => theme.tournamentDashboard.border};
-    border-radius: 14px;
-    background: ${({ theme }) => theme.tournamentDashboard.itemSurface};
-  }
-
-  .tab-indicator {
-    border-radius: 10px;
-    border-color: ${({ theme }) => theme.tournamentDashboard.border};
-    background: ${({ theme }) => theme.tournamentDashboard.surface};
-    box-shadow: 0 2px 4px rgb(12 33 48 / 12%);
-    transition: transform 160ms cubic-bezier(.23, 1, .32, 1);
-  }
-
-  [role="tab"] {
-    border-radius: 10px;
-    padding-inline: 3px;
-    font-family: inherit;
-    color: ${({ theme }) => theme.tournamentDashboard.muted};
-    transition: transform 120ms cubic-bezier(.23, 1, .32, 1);
-  }
-
-  [aria-selected="true"] {
-    color: ${({ theme }) => theme.text};
-    font-weight: 750;
-  }
-
-  [aria-selected="true"] .icon {
-    color: ${({ theme }) => theme.tournamentDashboard.hero.accentStrong};
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    [role="tab"]:hover { color: ${({ theme }) => theme.text}; }
-  }
-
-  [role="tab"]:active:not(:focus-visible) { transform: scale(.97); }
-  [role="tab"]:focus-visible { outline: 2px solid ${({ theme }) => theme.tournamentDashboard.hero.accentStrong}; }
-  &:has(:focus-visible) .tab-indicator { transition: none; }
-
-  @media (max-width: 767px) {
-    && { padding-block: 3px; }
-    [role="tab"] { gap: 4px; padding-inline: 0; }
-    .icon { font-size: 1.05rem; }
-    .label { font-size: clamp(.64rem, 2.9vw, .78rem); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .tab-indicator, [role="tab"] { transition: none; }
-    [role="tab"]:active { transform: none; }
-  }
-`;
 
 const HeaderMeasure = styled.div`
   width: 100%;

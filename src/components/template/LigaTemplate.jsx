@@ -8,7 +8,7 @@ import {
 import { GiWhistle } from "react-icons/gi";
 import { ContentContainer } from "../atomos/ContentContainer";
 import { PageHeader } from "../moleculas/PageHeader";
-import { TabsNavigation } from "../moleculas/TabsNavigation";
+import { SegmentedViewSelector } from "../moleculas/TabsNavigation";
 import { EmptyState } from "../organismos/EmptyState";
 import { LigaConfigTab } from "../organismos/tabs/liga/LigaConfigTab";
 import { LigaDivisionsTab } from "../organismos/tabs/liga/LigaDivisionsTab";
@@ -67,11 +67,11 @@ export function LigaTemplate({
         state={state}
         setState={setState}
         tabs={
-          <TabsNavigation
+          <SegmentedViewSelector
             tabs={tabList}
             activeTab={activeTab}
             setActiveTab={handleTabChange}
-            showLabelsOnMobile={true}
+            ariaLabel="Vistas de la liga"
           />
         }
       />
