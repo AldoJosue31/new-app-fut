@@ -349,6 +349,7 @@ const Main = styled.div`
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
+  touch-action: none;
   background: rgba(0, 0, 0, 0.5);
   z-index: ${SIDEBAR_LAYER - 1};
   opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
@@ -398,6 +399,11 @@ const Container = styled.div`
   &::-webkit-scrollbar-thumb {
     background-color: ${(props) => props.theme.colorScroll};
     border-radius: 10px;
+  }
+
+  @media not all and ${Device.tablet} {
+    height: 100dvh;
+    overscroll-behavior-y: contain;
   }
 
   @media ${Device.tablet} {

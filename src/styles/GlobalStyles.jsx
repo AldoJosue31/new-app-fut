@@ -1,4 +1,5 @@
 import { createGlobalStyle } from "styled-components";
+import { Device } from "./breakpoints.jsx";
 
 export const GlobalStyles = createGlobalStyle`
     /* 1. RESET UNIVERSAL: Asegura que el padding no sume al ancho total */
@@ -21,5 +22,13 @@ export const GlobalStyles = createGlobalStyle`
 
         /* OPTIMIZACIÓN: Reserva el espacio del scrollbar para evitar saltos de diseño */
         scrollbar-gutter: stable;
+    }
+
+    @media not all and ${Device.tablet} {
+        html:has(#app-sidebar[data-open="true"]),
+        body:has(#app-sidebar[data-open="true"]) {
+            overflow-y: hidden;
+            overscroll-behavior-y: none;
+        }
     }
 `;
