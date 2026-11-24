@@ -225,6 +225,42 @@ test("navegar desde el sidebar conserva la vista hasta que llega la siguiente", 
     .toEqual({ loadingScreens: 0, framesWithoutView: 0 });
 });
 
+test("el sidebar móvil llena la pantalla y mantiene el scroll de la página", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "Usa el menú móvil y una pantalla más baja que el panel");
+  await page.setViewportSize({ width: 390, height: 430 });
+  await page.goto("/configuracion");
+
+  const sidebar = page.locator("#app-sidebar");
+  const trigger = page.getByRole("button", { name: "Abrir menú" });
+  const scrollPage = () => page.evaluate(() => window.scrollY);
+
+  await expect(trigger).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 80));
+  await expect.poll(scrollPage).toBe(80);
+  await trigger.evaluate((button) => button.click());
+
+  await expect(sidebar).toHaveAttribute("data-open", "true");
+  await expect(page.locator("html")).toHaveCSS("overflow-y", "hidden");
+  await expect.poll(() => sidebar.evaluate((panel) => {
+    const bounds = panel.getBoundingClientRect();
+    return Math.max(Math.abs(bounds.top), Math.abs(bounds.bottom - window.visualViewport.height));
+  })).toBeLessThanOrEqual(1);
+
+  await page.mouse.move(100, 200);
+  await page.mouse.wheel(0, 1000);
+  await expect.poll(() => sidebar.evaluate((panel) => panel.scrollTop)).toBeGreaterThan(0);
+  await page.mouse.wheel(0, 1000);
+  await page.mouse.move(350, 200);
+  await page.mouse.wheel(0, 1000);
+  expect(await scrollPage()).toBe(80);
+
+  await page.touchscreen.tap(350, 200);
+  await expect(sidebar).toBeHidden();
+  expect(await scrollPage()).toBe(80);
+  await page.mouse.wheel(0, 1000);
+  await expect.poll(scrollPage).toBeGreaterThan(80);
+});
+
 test("grid sobrevive a recarga, cambio de jornada e historial", async ({ page }) => {
   await page.goto(roundPath(456, "grid"));
   await expectMode(page, "grid");
