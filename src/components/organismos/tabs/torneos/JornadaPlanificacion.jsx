@@ -122,6 +122,7 @@ export function JornadaPlanificacion({
   canConfirm,
   onSaveConfig,
   onEditFixture,
+  onPreloadFixtureEditor,
   isTournamentActive,
   dataVersion,
   jornadas = [],
@@ -1060,6 +1061,7 @@ export function JornadaPlanificacion({
         viewMode={viewMode}
         onToggleView={onViewModeChange}
         onEditFixture={onEditFixture}
+        onPreloadFixtureEditor={onPreloadFixtureEditor}
         isTournamentActive={isTournamentActive}
         needsDateNormalization={needsDateNormalization}
         onOpenDateNormalizer={onOpenDateNormalizer}

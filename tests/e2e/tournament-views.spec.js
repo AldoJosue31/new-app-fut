@@ -96,6 +96,32 @@ const expectMode = async (page, view) => {
     .toHaveAttribute("aria-pressed", String(view === "grid"));
 };
 
+test("Editar reutiliza los partidos cargados y conserva el borrador de la jornada", async ({ page, isMobile }) => {
+  await page.goto(roundPath(457, "list"));
+  if (isMobile) await page.getByRole("button", { name: "Mostrar controles" }).click();
+
+  const weekStart = page.getByLabel("Inicio de semana");
+  await weekStart.fill("2026-11-04");
+  const originalInput = await weekStart.elementHandle();
+  let repeatedReads = 0;
+  await page.route("**/rest/v1/matches?**", (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("jornadas.tournament_id") !== "eq.123") return route.fallback();
+
+    repeatedReads += 1;
+    return route.fulfill({ status: 503, json: { message: "Consulta duplicada" } });
+  });
+
+  await page.getByRole("button", { name: "Reorganizar partidos futuros" }).click();
+  await expect(page.getByRole("heading", { name: "Reorganizar Calendario" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Guardar Cambios" })).toBeVisible();
+  expect(repeatedReads).toBe(0);
+  expect(await weekStart.evaluate((input, previous) => input === previous, originalInput)).toBe(true);
+
+  await page.getByRole("button", { name: "Cerrar ventana" }).click();
+  await expect(weekStart).toHaveValue("2026-11-04");
+});
+
 test("Liga cambia las cuatro pestañas sin recargar ni volver a pedir sus datos", async ({ page }) => {
   const tabs = page.getByRole("tablist", { name: "Vistas de la liga" });
   const tab = (label) => tabs.getByTitle(label, { exact: true });

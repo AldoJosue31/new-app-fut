@@ -37,6 +37,7 @@ export const PlanningHeader = memo(
     viewMode,
     onToggleView,
     onEditFixture,
+    onPreloadFixtureEditor,
     isTournamentActive,
     needsDateNormalization = false,
     onOpenDateNormalizer,
@@ -255,8 +256,16 @@ export const PlanningHeader = memo(
         )}
 
         {isTournamentActive && (
-          <BtnAction data-tone="schedule" onClick={onEditFixture} title="Reorganizar partidos futuros">
-            <RiEdit2Line size={20} />
+          <BtnAction
+            type="button"
+            data-tone="schedule"
+            onClick={onEditFixture}
+            onPointerEnter={onPreloadFixtureEditor}
+            onFocus={onPreloadFixtureEditor}
+            aria-label="Reorganizar partidos futuros"
+            title="Reorganizar partidos futuros"
+          >
+            <RiEdit2Line size={20} aria-hidden="true" />
           </BtnAction>
         )}
 
