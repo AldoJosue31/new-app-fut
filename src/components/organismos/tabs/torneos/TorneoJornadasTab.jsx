@@ -34,7 +34,7 @@ import {
   resolveFixturePlanningSchedule,
   withPlanningDraftRevisions,
 } from "../../../../utils/fixturePlanning.js";
-import { isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
+import { createMatchResultConflictError, isMatchResultConflictError } from "../../../../utils/matchResultConcurrency";
 import {
   buildRepositionJornadaName,
   isOfficialJornadaName,
@@ -45,17 +45,30 @@ import {
 } from "../../../../utils/jornadaUtils";
 import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
 
-import { JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
+import { FixturePreviewSkeleton, JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
+import { TournamentModal } from "./TournamentModal";
 import { notify } from "../../../../lib/notifications/notify.js";
 import { isAbortError } from "../../../../utils/errorUtils.js";
 
-const FixturePreviewModal = dynamic(
-  () =>
-    import("./subcomponents/FixturePreviewModal").then(
-      (module) => module.FixturePreviewModal
-    ),
-  { loading: () => null, ssr: false }
-);
+let fixturePreviewModulePromise;
+let loadedFixturePreviewModal;
+
+const loadFixturePreviewModal = () => {
+  fixturePreviewModulePromise ??= import("./subcomponents/FixturePreviewModal")
+    .then(({ FixturePreviewModal }) => {
+      loadedFixturePreviewModal = FixturePreviewModal;
+      return FixturePreviewModal;
+    })
+    .catch((error) => {
+      fixturePreviewModulePromise = undefined;
+      throw error;
+    });
+  return fixturePreviewModulePromise;
+};
+
+const preloadFixturePreviewModal = () => {
+  void loadFixturePreviewModal().catch(() => {});
+};
 
 const NormalizeJornadaDatesModal = dynamic(
   () =>
@@ -398,14 +411,16 @@ export function TorneoJornadasTab({
   const [currentJornadaIndex, setCurrentJornadaIndex] = useState(0);
   const [currentMatches, setCurrentMatches] = useState([]); 
   const [currentMatchesJornadaId, setCurrentMatchesJornadaId] = useState(null);
-  const [allTournamentMatches, setAllTournamentMatches] = useState([]);
+  const [tournamentMatchesSnapshot, setTournamentMatchesSnapshot] = useState(null);
+  const allTournamentMatches = tournamentMatchesSnapshot?.tournamentId === activeTournament?.id
+    ? tournamentMatchesSnapshot?.matches ?? null
+    : null;
   const [globalPendingMatches, setGlobalPendingMatches] = useState([]); 
   const [loading, setLoading] = useState(false);
   
   const [dataVersion, setDataVersion] = useState(0);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [fixtureEditor, setFixtureEditor] = useState(null);
   const [isDateNormalizerOpen, setIsDateNormalizerOpen] = useState(false);
-  const [editorData, setEditorData] = useState(null); 
   const [temporaryReposition, setTemporaryReposition] = useState(null);
   const [isTemporaryRepositionSelected, setIsTemporaryRepositionSelected] = useState(false);
   const planningJornadas = useMemo(
@@ -416,6 +431,11 @@ export function TorneoJornadasTab({
   const selectedJornadaIdRef = useRef(null);
   const routeJornadaMatchesRequestRef = useRef(0);
   const tournamentDataLoadRef = useRef({ tournamentId: null, promise: null });
+  const fixtureEditorRequestRef = useRef(null);
+  const isEditorOpen = Boolean(fixtureEditor && fixtureEditor.tournamentId === activeTournament?.id);
+  const editorData = isEditorOpen ? fixtureEditor.data : null;
+  const FixturePreviewModal = isEditorOpen ? fixtureEditor.Component : null;
+  const isOpeningFixture = isEditorOpen && !editorData;
 
   const tournamentConfig = useMemo(() => {
     if (!activeTournament?.config) return {};
@@ -447,8 +467,10 @@ export function TorneoJornadasTab({
   }, [initialTournament]);
 
   useEffect(() => {
+    setFixtureEditor(null);
     setTemporaryReposition(null);
     setIsTemporaryRepositionSelected(false);
+    return () => { fixtureEditorRequestRef.current = null; };
   }, [initialTournament?.id]);
 
   useEffect(() => {
@@ -615,7 +637,7 @@ export function TorneoJornadasTab({
         setJornadas([]);
         setCurrentMatches([]);
         setCurrentMatchesJornadaId(null);
-        setAllTournamentMatches([]);
+        setTournamentMatchesSnapshot(null);
         setGlobalPendingMatches([]);
       }
 
@@ -649,16 +671,17 @@ export function TorneoJornadasTab({
     preserveOnError = false,
     throwOnError = false,
   } = {}) => {
+      const tournamentId = activeTournament.id;
       try {
-          const data = await getAllMatchesByTournament(activeTournament.id);
+          const data = await getAllMatchesByTournament(tournamentId);
           const matches = data || [];
-          setAllTournamentMatches(matches);
+          setTournamentMatchesSnapshot({ tournamentId, matches });
           setGlobalPendingMatches(resolveGlobalPendingMatches(matches));
           return matches;
       } catch (error) {
           console.error("Error fetchAllTournamentMatches:", error);
           if (!preserveOnError) {
-            setAllTournamentMatches([]);
+            setTournamentMatchesSnapshot(null);
             setGlobalPendingMatches([]);
           }
           if (throwOnError) throw error;
@@ -884,25 +907,61 @@ export function TorneoJornadasTab({
     }
   }, [activeTournament?.id]);
 
+  const canPreloadFixture = !loading && currentMatchesJornadaId !== null &&
+    jornadas[currentJornadaIndex]?.status !== "Finalizada";
+
+  useEffect(() => {
+    if (canPreloadFixture) preloadFixturePreviewModal();
+  }, [canPreloadFixture]);
+
+  const handleCloseFixtureEditor = () => {
+    fixtureEditorRequestRef.current = null;
+    setFixtureEditor(null);
+  };
+
   const handleOpenFixtureEditor = async () => {
-      setLoading(true);
-      try {
-          const allMatches = await getAllMatchesByTournament(activeTournament.id);
+    const tournamentId = activeTournament?.id;
+    if (!tournamentId || isEditorOpen || fixtureEditorRequestRef.current) return;
 
-          setEditorData({
-              matches: allMatches,
-              jornadas: jornadas,
-              pendingMatches: globalPendingMatches,
-              repositionMappings,
-              repositionMatchMappings,
-          });
-          setIsEditorOpen(true);
+    const openEditor = (Component, matches) => {
+      setFixtureEditor({
+        tournamentId,
+        Component,
+        data: {
+          matches,
+          jornadas,
+          pendingMatches: resolveGlobalPendingMatches(matches),
+          repositionMappings,
+          repositionMatchMappings,
+        },
+      });
+    };
 
-      } catch (error) {
-          notify.error("Error cargando fixture: " + error.message);
-      } finally {
-          setLoading(false);
+    if (loadedFixturePreviewModal && allTournamentMatches !== null) {
+      openEditor(loadedFixturePreviewModal, allTournamentMatches);
+      return;
+    }
+
+    const request = { tournamentId };
+    fixtureEditorRequestRef.current = request;
+    setFixtureEditor(request);
+
+    try {
+      const [Component, matches] = await Promise.all([
+        loadFixturePreviewModal(),
+        allTournamentMatches ?? getAllMatchesByTournament(tournamentId),
+      ]);
+      if (fixtureEditorRequestRef.current === request) openEditor(Component, matches);
+    } catch (error) {
+      if (fixtureEditorRequestRef.current !== request) return;
+
+      setFixtureEditor(null);
+      notify.error("Error cargando fixture: " + error.message);
+    } finally {
+      if (fixtureEditorRequestRef.current === request) {
+        fixtureEditorRequestRef.current = null;
       }
+    }
   };
 
   const handleSaveFixtureCriteria = useCallback(async (fixtureCriteria) => {
@@ -952,8 +1011,7 @@ export function TorneoJornadasTab({
           referenceJornadaId: jornadas[jornadas.length - 1]?.id,
         });
         setIsTemporaryRepositionSelected(true);
-        setIsEditorOpen(false);
-        setEditorData(null);
+        handleCloseFixtureEditor();
         return;
       }
       setLoading(true);
@@ -1008,6 +1066,19 @@ export function TorneoJornadasTab({
             .filter((match) => match.isGeneratedRound)
             .map((match) => Number(match.jornadaIndex))
         )].sort((a, b) => a - b);
+
+        const currentFixtureMatches = await getAllMatchesByTournament(activeTournament.id);
+        const fixtureChanged = currentFixtureMatches.length !== originalMap.size || currentFixtureMatches.some((match) => {
+          const original = originalMap.get(String(match.id));
+          return !original ||
+            original.result_revision !== match.result_revision ||
+            original.jornada_id !== match.jornada_id ||
+            original.team1_id !== match.team1_id ||
+            original.team2_id !== match.team2_id ||
+            original.date !== match.date ||
+            original.status !== match.status;
+        });
+        if (fixtureChanged) throw createMatchResultConflictError();
 
         const generatedRoundIdMap = new Map();
         const generatedRoundMetaMap = new Map();
@@ -1267,7 +1338,7 @@ export function TorneoJornadasTab({
         }
 
         await new Promise((resolve) => setTimeout(resolve, 180));
-        setIsEditorOpen(false);
+        handleCloseFixtureEditor();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         if (completionToast?.type === 'success') {
@@ -1279,8 +1350,7 @@ export function TorneoJornadasTab({
       } catch (error) {
           if (isMatchResultConflictError(error)) {
             const didRefresh = await refreshAfterResultConflict();
-            setIsEditorOpen(false);
-            setEditorData(null);
+            handleCloseFixtureEditor();
             notify.warning(
               didRefresh
                 ? "Uno o más partidos cambiaron en otro dispositivo. El fixture se recargó con la versión vigente."
@@ -1781,7 +1851,9 @@ export function TorneoJornadasTab({
       String(match?.id) !== String(matchId) || match.isReferenceOnly ||
       String(match.jornada_id) === String(currentJornadaId)
     ));
-    setAllTournamentMatches(mergeUpdatedMatch);
+    setTournamentMatchesSnapshot((snapshot) => snapshot?.tournamentId === activeTournament.id
+      ? { ...snapshot, matches: mergeUpdatedMatch(snapshot.matches) }
+      : snapshot);
     setGlobalPendingMatches((matches) =>
       ['Finalizado', 'Cancelado'].includes(persistedUpdates.status)
         ? (matches || []).filter((match) => String(match?.id) !== String(matchId))
@@ -1877,7 +1949,9 @@ export function TorneoJornadasTab({
         );
 
       setCurrentMatches(mergeResetMatch);
-      setAllTournamentMatches(mergeResetMatch);
+      setTournamentMatchesSnapshot((snapshot) => snapshot?.tournamentId === activeTournament.id
+        ? { ...snapshot, matches: mergeResetMatch(snapshot.matches) }
+        : snapshot);
     }
 
     await new Promise(res => setTimeout(res, 100));
@@ -1922,10 +1996,21 @@ export function TorneoJornadasTab({
 
   return (
     <TabContainer>
-      {isEditorOpen && (
+      {isOpeningFixture && (
+        <TournamentModal
+          isOpen
+          onClose={handleCloseFixtureEditor}
+          closeOnOverlayClick={false}
+          title="Reorganizar Calendario"
+        >
+          <FixturePreviewSkeleton />
+        </TournamentModal>
+      )}
+
+      {FixturePreviewModal && (
         <FixturePreviewModal
           isOpen
-          onClose={() => setIsEditorOpen(false)}
+          onClose={handleCloseFixtureEditor}
           teams={participatingTeams}
           config={tournamentConfig}
           divisionName={activeTournament?.division?.name || activeTournament?.divisions?.name || divisionName}
@@ -1974,10 +2059,11 @@ export function TorneoJornadasTab({
             canConfirm={canConfirm} 
             onSaveConfig={handleSaveConfig}
             onEditFixture={handleOpenFixtureEditor}
+            onPreloadFixtureEditor={preloadFixturePreviewModal}
             isTournamentActive={true} 
             dataVersion={dataVersion}
             jornadas={planningJornadas}
-            allTournamentMatches={allTournamentMatches}
+            allTournamentMatches={allTournamentMatches ?? EMPTY_MATCHES}
             onUpdateDates={handleCascadingDateUpdate}
             jornadaDurationDays={jornadaDurationDays}
             needsDateNormalization={

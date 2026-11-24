@@ -26,6 +26,7 @@ import {
     isFixtureMatchLocked,
 } from "../../../../../utils/fixtureRoundEditing.js";
 import { TournamentModal, ModalFooter } from "../TournamentModal";
+import { FixturePreviewSkeleton } from "../planificacion/Skeletons";
 import { ConfirmModal } from "../../../ConfirmModal";
 import {
     DEFAULT_FIXTURE_CRITERIA,
@@ -425,19 +426,19 @@ export function FixturePreviewModal({
         () => false,
     );
     const roundAnimationTimersRef = useRef({});
-    const prevVisibleRoundsRef = useRef([]);
+    const prevVisibleRoundsRef = useRef(null);
     const manualTextRoundsRef = useRef(new Set());
-    const [fixtureCriteria, setFixtureCriteria] = useState(() => ({
-        ...DEFAULT_FIXTURE_CRITERIA,
-    }));
-    const [draftFixtureCriteria, setDraftFixtureCriteria] = useState(() => ({
-        ...DEFAULT_FIXTURE_CRITERIA,
-    }));
+    const savedFixtureCriteria = useMemo(
+        () => resolveFixtureCriteria(config?.fixtureCriteria),
+        [config?.fixtureCriteria],
+    );
+    const [fixtureCriteria, setFixtureCriteria] = useState(savedFixtureCriteria);
+    const [draftFixtureCriteria, setDraftFixtureCriteria] = useState(savedFixtureCriteria);
     const [isCriteriaModalOpen, setIsCriteriaModalOpen] = useState(false);
     const [isSavingFixtureCriteria, setIsSavingFixtureCriteria] = useState(false);
     const {
         matches, matchesByRound, deletedMatchIds, initialMatches, selectedTeamId, isAnimating, isEditMode,
-        isOptimizing, autoFixResult,
+        isInitializing, isOptimizing, autoFixResult,
         handleTeamClick, toggleLock, unlockScannedMatch, handleShuffle, handleAutoFix,
         handleDragStart, handleTeamDragStart, handleDropOnMatch,
         handleDropOnJornada, handleDropOnTeamSlot,
@@ -457,10 +458,6 @@ export function FixturePreviewModal({
 
     const teamOptions = useMemo(() => buildTeamOptions(teams), [teams]);
     const teamLookup = useMemo(() => buildTeamLookup(teamOptions), [teamOptions]);
-    const savedFixtureCriteria = useMemo(
-        () => resolveFixtureCriteria(config?.fixtureCriteria),
-        [config?.fixtureCriteria],
-    );
 
     useEffect(() => {
         if (isOpen) {
@@ -789,48 +786,43 @@ export function FixturePreviewModal({
         [defaultRoundMatchCount, matchesByRound, roundDefinitions]
     );
 
-    const textRoundStats = useMemo(
-        () =>
-            roundIndexes.reduce((acc, rIndex) => {
-                const text = Object.prototype.hasOwnProperty.call(roundTextByIndex, rIndex)
-                    ? roundTextByIndex[rIndex]
-                    : formatRoundText(matchesByRound[rIndex] || []);
-                const pairs = parseRoundText(text, teamLookup);
-                const { detected, attempted } = getTextRoundMatchStats(text, pairs);
-                const expected =
-                    expectedRoundCounts[rIndex] ||
-                    countPlayableMatches(matchesByRound[rIndex] || []) ||
-                    defaultRoundMatchCount;
-                const isLocked =
-                    roundDefinitionMap[rIndex]?.isLocked ??
-                    (matchesByRound[rIndex] || []).some((match) => match.roundLocked);
+    const textRoundStats = useMemo(() => {
+        if (viewMode !== "text") return {};
 
-                acc[rIndex] = {
+        return roundIndexes.reduce((acc, rIndex) => {
+            const roundMatches = matchesByRound[rIndex] || [];
+            const text = roundTextByIndex[rIndex] ?? formatRoundText(roundMatches);
+            const pairs = parseRoundText(text, teamLookup);
+            const { detected, attempted } = getTextRoundMatchStats(text, pairs);
+            const expected = expectedRoundCounts[rIndex] || countPlayableMatches(roundMatches) || defaultRoundMatchCount;
+            const isLocked = roundDefinitionMap[rIndex]?.isLocked ?? roundMatches.some((match) => match.roundLocked);
+
+            acc[rIndex] = {
+                detected,
+                expected,
+                attempted,
+                hasUnrecognizedText: String(text).split(MATCH_SEPARATOR_PATTERN).filter((chunk) => chunk.trim()).length !== pairs.length,
+                protectedError: !isLocked && buildFixtureRoundMatchesFromPairs(rIndex, roundMatches, pairs).error,
+                isComplete: isTextRoundComplete({
                     detected,
                     expected,
                     attempted,
-                    hasUnrecognizedText: String(text).split(MATCH_SEPARATOR_PATTERN).filter((chunk) => chunk.trim()).length !== pairs.length,
-                    protectedError: !isLocked && buildFixtureRoundMatchesFromPairs(rIndex, matchesByRound[rIndex] || [], pairs).error,
-                    isComplete: isTextRoundComplete({
-                        detected,
-                        expected,
-                        attempted,
-                        isLocked,
-                    }),
                     isLocked,
-                };
-                return acc;
-            }, {}),
-        [
-            defaultRoundMatchCount,
-            expectedRoundCounts,
-            matchesByRound,
-            roundDefinitionMap,
-            roundIndexes,
-            roundTextByIndex,
-            teamLookup,
-        ]
-    );
+                }),
+                isLocked,
+            };
+            return acc;
+        }, {});
+    }, [
+        defaultRoundMatchCount,
+        expectedRoundCounts,
+        matchesByRound,
+        roundDefinitionMap,
+        roundIndexes,
+        roundTextByIndex,
+        teamLookup,
+        viewMode,
+    ]);
 
     const invalidTextRoundIndexes = useMemo(
         () =>
@@ -930,7 +922,7 @@ export function FixturePreviewModal({
     }, [isOpen]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || viewMode !== "text") return;
 
         setRoundTextByIndex((prev) => {
             let changed = false;
@@ -957,7 +949,7 @@ export function FixturePreviewModal({
 
             return changed ? next : prev;
         });
-    }, [focusedRoundIndex, isOpen, matchesByRound, roundIndexes]);
+    }, [focusedRoundIndex, isOpen, matchesByRound, roundIndexes, viewMode]);
 
     const updateActiveSuggestion = (rIndex, text, caretPosition) => {
         const activeQuery = getActiveTeamQuery(text, caretPosition, teamOptions);
@@ -990,7 +982,7 @@ export function FixturePreviewModal({
 
     const handleRoundTextBlur = (rIndex) => {
         if (isAnimating || isRoundLocked(rIndex)) return;
-        const currentText = roundTextByIndex[rIndex] || "";
+        const currentText = roundTextByIndex[rIndex] ?? formatRoundText(matchesByRound[rIndex] || []);
         if (currentText.trim().length === 0) {
             if (!handleReplaceRoundMatches(Number(rIndex), [])) return;
             manualTextRoundsRef.current.delete(String(rIndex));
@@ -1103,7 +1095,7 @@ export function FixturePreviewModal({
     useEffect(() => {
         if (!isOpen) {
             clearAllRoundTimers(roundAnimationTimersRef);
-            prevVisibleRoundsRef.current = [];
+            prevVisibleRoundsRef.current = null;
             setRenderedRoundIndexes((prev) => (prev.length === 0 ? prev : []));
             setRoundAnimationState((prev) =>
                 Object.keys(prev).length === 0 ? prev : {}
@@ -1111,20 +1103,29 @@ export function FixturePreviewModal({
             return;
         }
 
+        if (isInitializing) return;
+
         const prevVisibleRounds = prevVisibleRoundsRef.current;
+        prevVisibleRoundsRef.current = visibleRoundIndexes;
+        if (prevVisibleRounds === null) {
+            setRenderedRoundIndexes(visibleRoundIndexes);
+            return;
+        }
+
         const enteringRounds = visibleRoundIndexes.filter((rIndex) => !prevVisibleRounds.includes(rIndex));
         const exitingRounds = prevVisibleRounds.filter((rIndex) => !visibleRoundIndexes.includes(rIndex));
 
-        if (prevVisibleRounds.length === 0 && visibleRoundIndexes.length > 0) {
-            setRenderedRoundIndexes(visibleRoundIndexes);
-            setRoundAnimationState(
-                visibleRoundIndexes.reduce((acc, rIndex) => {
-                    acc[rIndex] = "enter";
-                    return acc;
-                }, {})
-            );
+        if (enteringRounds.length > 0) {
+            setRenderedRoundIndexes((prev) => sortRoundIndexes([...new Set([...prev, ...enteringRounds])]));
+            setRoundAnimationState((prev) => {
+                const next = { ...prev };
+                enteringRounds.forEach((rIndex) => {
+                    next[rIndex] = "enter";
+                });
+                return next;
+            });
 
-            visibleRoundIndexes.forEach((rIndex) => {
+            enteringRounds.forEach((rIndex) => {
                 clearRoundTimer(roundAnimationTimersRef, rIndex);
                 roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
                     setRoundAnimationState((prev) => {
@@ -1135,56 +1136,31 @@ export function FixturePreviewModal({
                     delete roundAnimationTimersRef.current[rIndex];
                 }, ROUND_ANIMATION_MS);
             });
-        } else {
-            if (enteringRounds.length > 0) {
-                setRenderedRoundIndexes((prev) => sortRoundIndexes([...new Set([...prev, ...enteringRounds])]));
-                setRoundAnimationState((prev) => {
-                    const next = { ...prev };
-                    enteringRounds.forEach((rIndex) => {
-                        next[rIndex] = "enter";
-                    });
-                    return next;
-                });
-
-                enteringRounds.forEach((rIndex) => {
-                    clearRoundTimer(roundAnimationTimersRef, rIndex);
-                    roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
-                        setRoundAnimationState((prev) => {
-                            const next = { ...prev };
-                            if (next[rIndex] === "enter") delete next[rIndex];
-                            return next;
-                        });
-                        delete roundAnimationTimersRef.current[rIndex];
-                    }, ROUND_ANIMATION_MS);
-                });
-            }
-
-            if (exitingRounds.length > 0) {
-                setRoundAnimationState((prev) => {
-                    const next = { ...prev };
-                    exitingRounds.forEach((rIndex) => {
-                        next[rIndex] = "exit";
-                    });
-                    return next;
-                });
-
-                exitingRounds.forEach((rIndex) => {
-                    clearRoundTimer(roundAnimationTimersRef, rIndex);
-                    roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
-                        setRenderedRoundIndexes((prev) => prev.filter((value) => value !== rIndex));
-                        setRoundAnimationState((prev) => {
-                            const next = { ...prev };
-                            delete next[rIndex];
-                            return next;
-                        });
-                        delete roundAnimationTimersRef.current[rIndex];
-                    }, ROUND_ANIMATION_MS);
-                });
-            }
         }
 
-        prevVisibleRoundsRef.current = visibleRoundIndexes;
-    }, [isOpen, visibleRoundIndexes]);
+        if (exitingRounds.length > 0) {
+            setRoundAnimationState((prev) => {
+                const next = { ...prev };
+                exitingRounds.forEach((rIndex) => {
+                    next[rIndex] = "exit";
+                });
+                return next;
+            });
+
+            exitingRounds.forEach((rIndex) => {
+                clearRoundTimer(roundAnimationTimersRef, rIndex);
+                roundAnimationTimersRef.current[rIndex] = setTimeout(() => {
+                    setRenderedRoundIndexes((prev) => prev.filter((value) => value !== rIndex));
+                    setRoundAnimationState((prev) => {
+                        const next = { ...prev };
+                        delete next[rIndex];
+                        return next;
+                    });
+                    delete roundAnimationTimersRef.current[rIndex];
+                }, ROUND_ANIMATION_MS);
+            });
+        }
+    }, [isInitializing, isOpen, visibleRoundIndexes]);
 
     useEffect(() => () => {
         clearAllRoundTimers(roundAnimationTimersRef);
@@ -1207,6 +1183,7 @@ export function FixturePreviewModal({
             title={scanRoundIndex !== null ? "Escanear rol de juegos" : isEditMode ? "Reorganizar Calendario" : "Editor de Fixture"}
         >
 
+            {isInitializing ? <FixturePreviewSkeleton /> : <>
                 <Content hidden={scanRoundIndex !== null}>
                     <Toolbar>
                         <div className="info-teams">
@@ -1409,7 +1386,7 @@ export function FixturePreviewModal({
                                         {viewMode === "text" ? (
                                             <TextRoundEditor
                                                 rIndex={rIndex}
-                                                value={roundTextByIndex[rIndex] || ""}
+                                                value={roundTextByIndex[rIndex] ?? formatRoundText(roundMatches)}
                                                 disabled={isAnimating || roundIsLocked || roundIsScanned}
                                                 hasConflict={hasConflict}
                                                 inputRef={(node) => {
@@ -1503,6 +1480,7 @@ export function FixturePreviewModal({
                         />
                     </div>
                 </ModalFooter>}
+            </>}
         </TournamentModal>
         <ConfirmModal
             isOpen={Boolean(pendingUnlockMatch)}

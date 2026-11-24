@@ -215,8 +215,6 @@ const MainContainer = styled.div`
     /* Aseguramos que no exceda el viewport */
     max-width: 100%; 
     box-sizing: border-box;
-    animation: fadein 0.5s ease;
-    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 `;
 
 const Workspace = styled.div`
@@ -248,7 +246,7 @@ const MainZone = styled.div`
 
 export const JornadaPlanificacionSkeleton = () => {
     return (
-        <MainContainer>
+        <MainContainer role="status" aria-label="Cargando planificación de la jornada">
             <PlanningHeaderSkeleton />
 
             <Workspace>
@@ -269,3 +267,32 @@ export const JornadaPlanificacionSkeleton = () => {
         </MainContainer>
     );
 };
+
+const FixtureSkeletonGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 16px;
+    padding: clamp(12px, 3vw, 24px);
+    overflow-y: auto;
+`;
+
+const FixtureRoundSkeleton = styled.div`
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid ${({ theme }) => theme.bg4};
+    border-radius: 12px;
+`;
+
+export const FixturePreviewSkeleton = () => (
+    <FixtureSkeletonGrid role="status" aria-label="Cargando partidos del fixture">
+        {[1, 2, 3].map((round) => (
+            <FixtureRoundSkeleton key={round}>
+                <Skeleton width="55%" height="22px" />
+                <Skeleton height="54px" />
+                <Skeleton height="54px" />
+                <Skeleton height="54px" />
+            </FixtureRoundSkeleton>
+        ))}
+    </FixtureSkeletonGrid>
+);

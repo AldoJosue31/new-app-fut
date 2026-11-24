@@ -106,7 +106,8 @@ function renderComponent(filename, exportName, initialProps, services, notificat
         if (specifier === "react") return { __esModule: true, default: React, ...hooks };
         if (specifier === "react-dom") return { createPortal: (children) => children };
         if (specifier === "styled-components") return { __esModule: true, default: styled, css: () => "", keyframes: () => "" };
-        if (specifier === "next/dynamic") return { __esModule: true, default: (loader) => child(loader.toString().includes("FixturePreviewModal") ? "FixturePreviewModal" : "Dynamic") };
+        if (specifier === "next/dynamic") return { __esModule: true, default: () => child("Dynamic") };
+        if (specifier === "./subcomponents/FixturePreviewModal") return { FixturePreviewModal: child("FixturePreviewModal") };
         if (specifier.endsWith("/services/torneos")) return services;
         if (specifier.endsWith("/notify.js")) return { notify: Object.fromEntries(["success", "error", "warning"].map((type) => [type, (message) => notifications.push({ type, message })])) };
         if (specifier.startsWith(".")) {
@@ -175,6 +176,7 @@ function createServices({ failConfirmation = false, tournamentMatches = matches 
     generarFixture: () => [[{ home: 1, away: 2 }]],
     getJornadas: async () => structuredClone(tables.jornadas),
     getAllMatchesByTournament: async () => tables.matches.map(withJornada),
+    getMatchesByJornadaService: async (id) => tables.matches.filter((match) => match.jornada_id === id).map(withJornada),
     getMatchesByIdsService: async (ids) => tables.matches.filter((match) => ids.includes(match.id)).map(withJornada),
     getTournamentConfigService: async () => structuredClone(tables.config),
     createJornadasService: async (values) => {
@@ -211,17 +213,22 @@ function createServices({ failConfirmation = false, tournamentMatches = matches 
   return { services, tables, created, confirmations };
 }
 
-async function openEditor(options) {
-  const data = createServices(options);
-  const notifications = [];
-  const navigation = [];
+function renderJornadasTab(services, notifications = [], navigation = []) {
   let tab;
   tab = renderComponent(tabPath, "TorneoJornadasTab", {
     activeTournament: { id: 7, start_date: "2026-10-01", config: {} }, participatingTeams: teams,
     pathname: "/torneos/7/jornadas/12", routeJornadaId: "12",
     buildJornadaPath: (id) => `/torneos/7/jornadas/${id}`,
     navigate(next) { navigation.push(next); tab.setProps({ pathname: next, routeJornadaId: next.split("/").at(-1) }); },
-  }, data.services, notifications);
+  }, services, notifications);
+  return tab;
+}
+
+async function openEditor(options) {
+  const data = createServices(options);
+  const notifications = [];
+  const navigation = [];
+  const tab = renderJornadasTab(data.services, notifications, navigation);
   await tab.flush();
   await tab.find("JornadaPlanificacion").onEditFixture();
   await tab.flush();
@@ -234,6 +241,70 @@ async function openEditor(options) {
   await modal.flush();
   return { ...data, tab, modal, requests, notifications, navigation };
 }
+
+test("la carga de respaldo del editor conserva la jornada y descarta respuestas canceladas", async () => {
+  const { services } = createServices();
+  services.getAllMatchesByTournament = async () => { throw new Error("Sin partidos del torneo"); };
+  const tab = renderJornadasTab(services);
+  await tab.flush();
+  const planningMatches = tab.find("JornadaPlanificacion").matchesDB;
+
+  const requests = [];
+  services.getAllMatchesByTournament = () => {
+    const request = Promise.withResolvers();
+    requests.push(request);
+    return request.promise;
+  };
+
+  const { onEditFixture } = tab.find("JornadaPlanificacion");
+  const canceledLoad = onEditFixture();
+  await onEditFixture();
+  tab.render();
+  assert.equal(requests.length, 1);
+  assert.equal(tab.find("JornadaPlanificacion").matchesDB, planningMatches);
+  const loadingModal = tab.find("TournamentModal");
+  assert.equal(loadingModal.title, "Reorganizar Calendario");
+  tab.find("FixturePreviewSkeleton");
+  assert.equal(tab.findAll("FixturePreviewModal").length, 0);
+
+  loadingModal.onClose();
+  tab.render();
+  assert.equal(tab.findAll("TournamentModal").length, 0);
+
+  const currentLoad = tab.find("JornadaPlanificacion").onEditFixture();
+  requests[0].resolve(matches);
+  await canceledLoad;
+  tab.render();
+  tab.find("FixturePreviewSkeleton");
+  assert.equal(tab.findAll("FixturePreviewModal").length, 0);
+
+  const latestMatches = matches.slice(0, 2);
+  requests[1].resolve(latestMatches);
+  await currentLoad;
+  tab.render();
+  assert.equal(tab.find("JornadaPlanificacion").matchesDB, planningMatches);
+  assert.equal(tab.findAll("FixturePreviewSkeleton").length, 0);
+  const editorData = tab.find("FixturePreviewModal").existingData;
+  assert.equal(editorData.matches, latestMatches);
+  assert.deepEqual(editorData.pendingMatches, [matches[1]]);
+});
+
+test("guardar el fixture detecta cambios de otra sesión antes de crear jornadas", async () => {
+  const { tab, tables, created, notifications } = await openEditor();
+  tables.matches[1].result_revision += 1;
+
+  await tab.find("FixturePreviewModal").onConfirm([
+    { jornadaIndex: 2, isGeneratedRound: true, roundType: "extra" },
+  ]);
+  await tab.flush();
+
+  assert.equal(created.length, 0);
+  assert.equal(tab.findAll("FixturePreviewModal").length, 0);
+  assert.match(notifications.at(-1).message, /Uno o más partidos cambiaron/);
+  await tab.find("JornadaPlanificacion").onEditFixture();
+  await tab.flush();
+  assert.equal(tab.find("FixturePreviewModal").existingData.matches[1].result_revision, tables.matches[1].result_revision);
+});
 
 test("abrir la reposición vuelve al planificador con un borrador sin crear ni mover registros", async () => {
   const harness = await openEditor();

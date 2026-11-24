@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     generarEstructuraInicial,
     generarJornadaExtra,
-    validarFixture,
     corregirFixtureConDiagnostico,
     restaurarFixtureRoundRobinCompleto,
     transformarPartidosExistentes,
@@ -28,10 +27,9 @@ export const useFixturePreview = (
     const [matches, setMatches] = useState([]);
     const [isAnimating, setIsAnimating] = useState(false);
     const [draggedItem, setDraggedItem] = useState(null);
-    const [conflicts, setConflicts] = useState({});
     const [selectedTeamId, setSelectedTeamId] = useState(null);
     const [deletedMatchIds, setDeletedMatchIds] = useState([]);
-    const [initialMatches, setInitialMatches] = useState([]);
+    const [initialMatches, setInitialMatches] = useState(null);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [autoFixResult, setAutoFixResult] = useState(null);
     const autoFixTimerRef = useRef(null);
@@ -44,54 +42,46 @@ export const useFixturePreview = (
 
     useEffect(() => {
         if (isOpen && teams.length > 0) {
+            setSelectedTeamId(null);
+            setDraggedItem(null);
+            setDeletedMatchIds([]);
+            setAutoFixResult(null);
+            setIsOptimizing(false);
+
+            if (isEditMode) {
+                const initial = transformarPartidosExistentes(
+                    existingData.matches,
+                    existingData.jornadas,
+                    teams,
+                    existingData.repositionMatchMappings,
+                    existingData.repositionMappings
+                );
+                setMatches(initial);
+                setInitialMatches(initial);
+                setIsAnimating(false);
+                return;
+            }
+
             setIsAnimating(true);
             const timer = setTimeout(() => {
-                if (isEditMode) {
-                    const initial = transformarPartidosExistentes(
-                        existingData.matches,
-                        existingData.jornadas,
-                        teams,
-                        existingData.repositionMatchMappings,
-                        existingData.repositionMappings
-                    );
-                    setMatches(initial);
-                    setInitialMatches(initial);
-                } else if (matches.length === 0) {
+                if (matches.length === 0) {
                     const initial = generarEstructuraInicial(teams, config);
                     setMatches(initial);
                     setInitialMatches(initial);
                 }
                 setIsAnimating(false);
             }, 50);
-
-            setSelectedTeamId(null);
-            setDraggedItem(null);
-            setDeletedMatchIds([]);
-            setInitialMatches([]);
-            setAutoFixResult(null);
-            setIsOptimizing(false);
             return () => clearTimeout(timer);
         }
 
         if (!isOpen) {
             setMatches([]);
-            setConflicts({});
             setDraggedItem(null);
             setDeletedMatchIds([]);
-            setInitialMatches([]);
+            setInitialMatches(null);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, isEditMode]);
-
-    useEffect(() => {
-        if (matches.length > 0) {
-            const { conflicts: newConflicts } = validarFixture(matches, config, fixtureCriteria, { teams });
-            setConflicts(newConflicts);
-            return;
-        }
-
-        setConflicts({});
-    }, [matches, config, fixtureCriteria, teams]);
 
     const handleTeamClick = (teamId) => {
         setSelectedTeamId((prev) => (prev === teamId ? null : teamId));
@@ -494,26 +484,29 @@ export const useFixturePreview = (
         return true;
     }, [isAnimating, isOptimizing, matches]);
 
-    const matchesByRound = {};
-    matches.forEach((match) => {
-        if (!matchesByRound[match.jornadaIndex]) matchesByRound[match.jornadaIndex] = [];
-        matchesByRound[match.jornadaIndex].push(match);
-    });
-
-    Object.keys(matchesByRound).forEach((roundKey) => {
-        matchesByRound[roundKey].sort((a, b) => {
-            if (a.isByeMatch && !b.isByeMatch) return -1;
-            if (!a.isByeMatch && b.isByeMatch) return 1;
-            return 0;
+    const matchesByRound = useMemo(() => {
+        const rounds = {};
+        matches.forEach((match) => {
+            if (!rounds[match.jornadaIndex]) rounds[match.jornadaIndex] = [];
+            rounds[match.jornadaIndex].push(match);
         });
-    });
+
+        Object.values(rounds).forEach((roundMatches) => {
+            roundMatches.sort((a, b) => {
+                if (a.isByeMatch && !b.isByeMatch) return -1;
+                if (!a.isByeMatch && b.isByeMatch) return 1;
+                return 0;
+            });
+        });
+        return rounds;
+    }, [matches]);
 
     return {
         matches,
         matchesByRound,
         deletedMatchIds,
-        initialMatches,
-        conflicts,
+        initialMatches: initialMatches ?? [],
+        isInitializing: isOpen && teams.length > 0 && initialMatches === null,
         selectedTeamId,
         isAnimating,
         isOptimizing,
