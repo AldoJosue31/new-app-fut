@@ -12,11 +12,14 @@ import { DivisionSelector } from "../../moleculas/DivisionSelector";
 import { ConfirmModal } from "../ConfirmModal";
 import { ROLES } from "../../../utils/constants";
 import { useNavigationProgress } from "../../app/NavigationProgress";
+import { APP_NAME } from "../../../lib/brand.js";
 
 const SIDEBAR_LAYER = 200;
 export const SIDEBAR_OPEN_WIDTH = 236;
 export const SIDEBAR_COLLAPSED_WIDTH = 88;
 const SIDEBAR_TOGGLE_SIZE = 44;
+const SIDEBAR_DURATION = "200ms";
+export const sidebarTransition = `${SIDEBAR_DURATION} cubic-bezier(0.23, 1, 0.32, 1)`;
 
 const ManagerLinksArray = [
   { label: "Partidos", icon: "mdi:soccer-field", to: "/partidos" },
@@ -156,31 +159,32 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
         currentPath.startsWith(`${destination}/`);
 
       return (
-      <div className={state ? "LinkContainer active" : "LinkContainer"} key={label}>
-        <Link
-          href={destination}
-          className={getClassName(label, { isActive })}
-          aria-current={isActive ? "page" : undefined}
-          onClick={(event) =>
-            handleNavigationStart(event, { destination, label })
-          }
-        >
-          <section className={state ? "content open" : "content"}>
-            <Icon color={color} className="Linkicon" icon={icon} />
-            <span className={state ? "label_ver" : "label_oculto"}>{label}</span>
-          </section>
-        </Link>
-      </div>
+        <div className="LinkContainer" key={label}>
+          <Link
+            href={destination}
+            className={getClassName(label, { isActive })}
+            aria-current={isActive ? "page" : undefined}
+            aria-label={label}
+            onClick={(event) =>
+              handleNavigationStart(event, { destination, label })
+            }
+          >
+            <span className="content">
+              <Icon color={color} className="Linkicon" icon={icon} />
+              <span className="link-label">{label}</span>
+            </span>
+          </Link>
+        </div>
       );
     });
 
   return (
     <Main $isOpen={state}>
-      <Overlay $isOpen={state} onClick={() => setState(false)} />
+      <Overlay $isOpen={state} aria-hidden="true" onClick={() => setState(false)} />
       <button
         type="button"
         className="Sidebarbutton"
-        onClick={() => setState(!state)}
+        onClick={() => setState((isOpen) => !isOpen)}
         aria-controls="app-sidebar"
         aria-expanded={state}
         aria-label={state ? "Cerrar menú" : "Abrir menú"}
@@ -189,11 +193,12 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
         <v.iconoflechaderecha aria-hidden="true" />
       </button>
 
-      <Container id="app-sidebar" $isOpen={state} className={state ? "active" : ""}>
+      <Container id="app-sidebar" data-open={state}>
         <div className="Logocontent">
           <Link
             href={sidebarHomePath}
             className="logo-link"
+            aria-label={APP_NAME}
             onClick={(event) =>
               handleNavigationStart(event, {
                 destination: sidebarHomePath,
@@ -201,7 +206,8 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
               })
             }
           >
-            <BrandLogo variant={state ? "horizontal" : "mark"} />
+            <BrandLogo alt="" variant="mark" className="logo-mark" />
+            <BrandLogo alt="" variant="horizontal" className="logo-wordmark" />
           </Link>
         </div>
 
@@ -234,7 +240,7 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
           <ToggleTema />
         </div>
 
-        <div className={state ? "LinkContainer active" : "LinkContainer"}>
+        <div className="LinkContainer">
           <button
             type="button"
             className="Links logoutButton"
@@ -242,9 +248,9 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
             disabled={logoutPending}
             aria-label="Cerrar sesión"
           >
-            <span className={state ? "content open" : "content"}>
+            <span className="content">
               <Icon className="Linkicon" icon="material-symbols:logout-rounded" color={v.rojo} style={{ fontSize: "28px" }} />
-              <span className={state ? "label_ver" : "label_oculto"} style={{ color: v.rojo, fontWeight: "600" }}>
+              <span className="link-label" style={{ color: v.rojo, fontWeight: "600" }}>
                 {isLoggingOut ? "Cerrando..." : "Cerrar Sesion"}
               </span>
             </span>
@@ -278,9 +284,9 @@ export function Sidebar({ state, setState, currentPath = "/" }) {
 const Main = styled.div`
   .Sidebarbutton {
     display: none;
-    position: fixed;
+    position: absolute;
     top: 72px;
-    left: 20px;
+    left: 100%;
     width: ${SIDEBAR_TOGGLE_SIZE}px;
     height: ${SIDEBAR_TOGGLE_SIZE}px;
     border-radius: 50%;
@@ -290,7 +296,8 @@ const Main = styled.div`
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: left 280ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+    transform: translateX(-50%);
+    transition: background-color 150ms ease, border-color 150ms ease, transform 120ms ease-out;
     z-index: ${SIDEBAR_LAYER + 1};
     color: ${({ theme }) => theme.primary};
     padding: 0;
@@ -298,7 +305,7 @@ const Main = styled.div`
     svg {
       font-size: 1.45rem;
       transform: rotate(${({ $isOpen }) => ($isOpen ? "180deg" : "0deg")});
-      transition: transform 280ms ease;
+      transition: transform ${sidebarTransition};
     }
 
     &:hover {
@@ -308,7 +315,7 @@ const Main = styled.div`
     }
 
     &:active {
-      transform: scale(0.94);
+      transform: translateX(-50%) scale(0.97);
     }
 
     &:focus-visible {
@@ -318,17 +325,20 @@ const Main = styled.div`
   }
 
   @media ${Device.tablet} {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: ${({ $isOpen }) => ($isOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_COLLAPSED_WIDTH)}px;
+    z-index: ${SIDEBAR_LAYER};
+    transition: width ${sidebarTransition};
+
     .Sidebarbutton {
       display: flex;
-      left: ${({ $isOpen }) =>
-        `${
-          ($isOpen ? SIDEBAR_OPEN_WIDTH : SIDEBAR_COLLAPSED_WIDTH) -
-          SIDEBAR_TOGGLE_SIZE / 2
-        }px`};
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
     .Sidebarbutton,
     .Sidebarbutton svg {
       transition: none;
@@ -338,19 +348,20 @@ const Main = styled.div`
 
 const Overlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
+  inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: ${SIDEBAR_LAYER - 1};
   opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
   visibility: ${({ $isOpen }) => ($isOpen ? "visible" : "hidden")};
-  transition: opacity 0.3s ease;
-  backdrop-filter: blur(2px);
+  pointer-events: ${({ $isOpen }) => ($isOpen ? "auto" : "none")};
+  transition: opacity 160ms ease-out, visibility 0s linear ${({ $isOpen }) => ($isOpen ? "0s" : "160ms")};
 
   @media ${Device.tablet} {
     display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 `;
 
@@ -363,12 +374,21 @@ const Container = styled.div`
   z-index: ${SIDEBAR_LAYER};
   height: 100%;
   width: ${SIDEBAR_OPEN_WIDTH}px;
-  transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(-100%)")};
-  transition: transform 280ms ease, width 280ms ease;
-  box-shadow: ${({ $isOpen, theme }) => ($isOpen ? theme.boxshadowGray : "none")};
+  transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform ${sidebarTransition}, visibility 0s linear ${SIDEBAR_DURATION};
   overflow-y: auto;
   overflow-x: hidden;
   border-right: 2px solid ${({ theme }) => theme.color2};
+
+  &[data-open="true"] {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+    box-shadow: ${({ theme }) => theme.boxshadowGray};
+  }
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -381,13 +401,15 @@ const Container = styled.div`
   }
 
   @media ${Device.tablet} {
-    transform: none;
-    position: fixed;
-    box-shadow: none;
-    width: ${SIDEBAR_COLLAPSED_WIDTH}px;
+    position: absolute;
+    width: 100%;
 
-    &.active {
-      width: ${SIDEBAR_OPEN_WIDTH}px;
+    &[data-open] {
+      transform: none;
+      visibility: visible;
+      pointer-events: auto;
+      transition: none;
+      box-shadow: none;
     }
   }
 
@@ -400,8 +422,7 @@ const Container = styled.div`
     box-sizing: border-box;
 
     .logo-link {
-      display: flex;
-      justify-content: ${({ $isOpen }) => ($isOpen ? "flex-start" : "center")};
+      display: grid;
       align-items: center;
       text-decoration: none;
       color: inherit;
@@ -416,23 +437,36 @@ const Container = styled.div`
     }
 
     img {
-      width: ${({ $isOpen }) => ($isOpen ? "min(100%, 166px)" : "48px")};
-      height: ${({ $isOpen }) => ($isOpen ? "54px" : "48px")};
+      grid-area: 1 / 1;
       object-fit: contain;
       filter: drop-shadow(0 5px 8px rgba(4, 31, 48, 0.16));
+      transition: opacity 140ms ease-out;
+    }
+
+    .logo-mark {
+      width: 48px;
+      height: 48px;
+      margin-inline-start: 3px;
+    }
+
+    .logo-wordmark {
+      width: min(100%, 166px);
+      height: 54px;
+      object-position: left center;
+      opacity: 0;
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    & {
-      transition: none;
-    }
+  &[data-open="true"] .logo-mark {
+    opacity: 0;
+  }
+
+  &[data-open="true"] .logo-wordmark {
+    opacity: 1;
   }
 
   .LinkContainer {
-    margin: 9px 0 9px 8px;
-    margin-right: 10px;
-    transition: all 0.3s ease-in-out;
+    margin: 9px 10px 9px 8px;
     position: relative;
     text-transform: uppercase;
     font-weight: 700;
@@ -451,34 +485,15 @@ const Container = styled.div`
 
     .content {
       display: flex;
-      justify-content: center;
       width: 100%;
       align-items: center;
+      gap: 20px;
+      padding-inline: 17px 12px;
 
       .Linkicon {
         display: flex;
+        flex: none;
         font-size: 33px;
-      }
-
-      .label_ver {
-        transition: 0.3s ease-in-out;
-        opacity: 1;
-        display: initial;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .label_oculto {
-        opacity: 0;
-        display: none;
-      }
-
-      &.open {
-        justify-content: start;
-        gap: 20px;
-        padding: 20px;
       }
     }
 
@@ -491,6 +506,28 @@ const Container = styled.div`
       border: 2px solid ${(props) => props.theme.bg5};
       color: ${(props) => props.theme.color1};
       font-weight: 600;
+    }
+  }
+
+  .link-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 140ms ease-out;
+  }
+
+  &[data-open="true"] .link-label {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    .Logocontent img,
+    .link-label {
+      transition: none;
     }
   }
 
@@ -531,7 +568,7 @@ const MenuLabel = styled.span`
   margin: 10px 0 5px 20px;
 
   @media ${Device.tablet} {
-    display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
+    display: none;
   }
 `;
 

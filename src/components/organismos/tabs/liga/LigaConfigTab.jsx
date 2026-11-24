@@ -12,20 +12,23 @@ import { notify } from "../../../../lib/notifications/notify.js";
 import { DEFAULT_LEAGUE_COLOR, normalizeHexColor, extractLogoColor, contrastingTextColor } from "../../../../utils/leagueColors.js";
 import { LeagueColorSettings } from "./LeagueColorSettings";
 
-export function LigaConfigTab({ data, onUpdate, loading }) {
-  const [tempName, setTempName] = useState(data?.name || "");
-  const [requiresDelegateApproval, setRequiresDelegateApproval] = useState(
-    data?.delegate_changes_require_approval ?? true
-  );
+export function LigaConfigTab({ active, data, onUpdate, loading }) {
+  const leagueId = data?.id;
+  const savedName = data?.name || "";
+  const savedApproval = data?.delegate_changes_require_approval ?? true;
+  const savedPrimaryColor = normalizeHexColor(data?.primary_color) || DEFAULT_LEAGUE_COLOR;
+  const savedSecondaryColor = normalizeHexColor(data?.secondary_color);
+  const [tempName, setTempName] = useState(savedName);
+  const [requiresDelegateApproval, setRequiresDelegateApproval] = useState(savedApproval);
   const [isSaving, setIsSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   const [originalFile, setOriginalFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(data?.logo_url || null);
   const [originalUrl, setOriginalUrl] = useState(data?.original_logo_url || null);
   const [imageChanged, setImageChanged] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState(normalizeHexColor(data?.primary_color) || DEFAULT_LEAGUE_COLOR);
-  const [secondaryColor, setSecondaryColor] = useState(normalizeHexColor(data?.secondary_color) || "#FFFFFF");
-  const [hasSecondaryColor, setHasSecondaryColor] = useState(Boolean(normalizeHexColor(data?.secondary_color)));
+  const [primaryColor, setPrimaryColor] = useState(savedPrimaryColor);
+  const [secondaryColor, setSecondaryColor] = useState(savedSecondaryColor || "#FFFFFF");
+  const [hasSecondaryColor, setHasSecondaryColor] = useState(Boolean(savedSecondaryColor));
   const [isDetectingColor, setIsDetectingColor] = useState(false);
   const [colorDetectionMessage, setColorDetectionMessage] = useState("");
   const [colorValidationError, setColorValidationError] = useState("");
@@ -35,20 +38,17 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
 
   const hasUnsavedChanges =
     imageChanged ||
-    primaryColor !== (normalizeHexColor(data?.primary_color) || DEFAULT_LEAGUE_COLOR) ||
-    (hasSecondaryColor ? secondaryColor : null) !== normalizeHexColor(data?.secondary_color) ||
-    (data && tempName !== data.name) ||
-    (data &&
-      requiresDelegateApproval !== (data.delegate_changes_require_approval ?? true));
+    primaryColor !== savedPrimaryColor ||
+    (hasSecondaryColor ? secondaryColor : null) !== savedSecondaryColor ||
+    tempName !== savedName ||
+    requiresDelegateApproval !== savedApproval;
 
   useEffect(() => {
+    if (!hasUnsavedChanges) return;
     const handleBeforeUnload = (event) => {
-      if (hasUnsavedChanges) {
-        event.preventDefault();
-        event.returnValue = "Tienes cambios sin guardar. Seguro que quieres salir?";
-        return event.returnValue;
-      }
-      return undefined;
+      event.preventDefault();
+      event.returnValue = "Tienes cambios sin guardar. Seguro que quieres salir?";
+      return event.returnValue;
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -56,17 +56,17 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
   }, [hasUnsavedChanges]);
 
   useEffect(() => {
-    if (!data) return;
+    if (!leagueId) return;
 
-    setTempName(data.name || "");
-    setRequiresDelegateApproval(data.delegate_changes_require_approval ?? true);
-    setPrimaryColor(normalizeHexColor(data.primary_color) || DEFAULT_LEAGUE_COLOR);
-    setSecondaryColor(normalizeHexColor(data.secondary_color) || "#FFFFFF");
-    setHasSecondaryColor(Boolean(normalizeHexColor(data.secondary_color)));
+    setTempName(savedName);
+    setRequiresDelegateApproval(savedApproval);
+    setPrimaryColor(savedPrimaryColor);
+    setSecondaryColor(savedSecondaryColor || "#FFFFFF");
+    setHasSecondaryColor(Boolean(savedSecondaryColor));
     primaryColorEditedRef.current = false;
     colorEditVersionRef.current += 1;
     setColorValidationError("");
-  }, [data]);
+  }, [leagueId, savedName, savedApproval, savedPrimaryColor, savedSecondaryColor]);
 
   useEffect(() => {
     if (!imageChanged) {
@@ -102,11 +102,11 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
   }, []);
 
   useEffect(() => {
-    if (!previewUrl || normalizeHexColor(data?.primary_color) || primaryColorEditedRef.current) return;
+    if (!active || !previewUrl || normalizeHexColor(data?.primary_color) || primaryColorEditedRef.current) return;
     detectLogoColor(logoFile || previewUrl);
     const controller = detectionControllerRef.current;
     return () => controller?.abort();
-  }, [data?.id, data?.primary_color, logoFile, previewUrl, detectLogoColor]);
+  }, [active, leagueId, data?.primary_color, logoFile, previewUrl, detectLogoColor]);
 
   useEffect(() => () => detectionControllerRef.current?.abort(), []);
 
@@ -228,6 +228,8 @@ export function LigaConfigTab({ data, onUpdate, loading }) {
       setIsSaving(false);
     }
   };
+
+  if (!active) return null;
 
   if (loading) {
     return (

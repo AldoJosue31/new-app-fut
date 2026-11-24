@@ -366,7 +366,6 @@ const MainContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: min-height 280ms ease;
 `;
 
 const ViewStack = styled.div`
@@ -378,7 +377,11 @@ const ViewStack = styled.div`
 
   > * {
     grid-area: stack;
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: opacity 140ms ease-out, transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
 `;
 

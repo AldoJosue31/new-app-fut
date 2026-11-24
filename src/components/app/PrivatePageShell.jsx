@@ -12,6 +12,7 @@ import {
   Sidebar,
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_OPEN_WIDTH,
+  sidebarTransition,
 } from "../organismos/sidebar/Sidebar.jsx";
 import { Device } from "../../styles/breakpoints.jsx";
 import PrivateAuthGate from "./PrivateAuthGate.jsx";
@@ -22,32 +23,36 @@ export default function PrivatePageShell({
   children,
   initialAuth,
 }) {
-  const currentPath = usePathname() || "/";
-  const sidebarOpen = useLayoutStore((state) => state.sidebarOpen);
   const setSidebarOpen = useLayoutStore((state) => state.setSidebarOpen);
   const content = isValidElement(children)
-    ? cloneElement(children, {
-        setState: setSidebarOpen,
-        state: sidebarOpen,
-      })
+    ? cloneElement(children, { setState: setSidebarOpen })
     : children;
 
   return (
     <ErrorBoundary>
       <PrivateAuthGate initialAuth={initialAuth}>
-        <Container className={sidebarOpen ? "active" : ""}>
-          <section className="contentSidebar">
-            <Sidebar
-              state={sidebarOpen}
-              setState={setSidebarOpen}
-              currentPath={currentPath}
-            />
-          </section>
-          <section className="contentRouters">{content}</section>
-        </Container>
+        <PrivatePageLayout setSidebarOpen={setSidebarOpen}>{content}</PrivatePageLayout>
         <NavigationProgressBar />
       </PrivateAuthGate>
     </ErrorBoundary>
+  );
+}
+
+function PrivatePageLayout({ children, setSidebarOpen }) {
+  const currentPath = usePathname() || "/";
+  const sidebarOpen = useLayoutStore((state) => state.sidebarOpen);
+
+  return (
+    <Container data-sidebar-open={sidebarOpen}>
+      <section className="contentSidebar">
+        <Sidebar
+          state={sidebarOpen}
+          setState={setSidebarOpen}
+          currentPath={currentPath}
+        />
+      </section>
+      <section className="contentRouters">{children}</section>
+    </Container>
   );
 }
 
@@ -57,7 +62,6 @@ const Container = styled.main`
   min-height: 100vh;
   background-color: ${({ theme }) => theme.bgtotal};
   color: ${({ theme }) => theme.text};
-  transition: grid-template-columns 280ms ease;
 
   .contentSidebar {
     position: absolute;
@@ -80,13 +84,18 @@ const Container = styled.main`
 
   @media ${Device.tablet} {
     grid-template-columns: ${SIDEBAR_COLLAPSED_WIDTH}px minmax(0, 1fr);
+    transition: grid-template-columns ${sidebarTransition};
 
-    &.active {
+    &[data-sidebar-open="true"] {
       grid-template-columns: ${SIDEBAR_OPEN_WIDTH}px minmax(0, 1fr);
     }
 
     .contentRouters {
       grid-column: 2;
     }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
 `;
