@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { MdMenu } from 'react-icons/md';
 import { Title } from '../atomos/Title';
+import { useLayoutStore } from '../../store/LayoutStore.jsx';
 
 const HeaderContainer = styled.div`
   display: flex;
@@ -95,7 +96,7 @@ const RightArea = styled.div`
   margin-left: auto;
 `;
 
-const MenuButton = styled.div`
+const MenuButton = styled.button`
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -103,6 +104,9 @@ const MenuButton = styled.div`
   width: 36px;
   height: 36px;
   margin-left: -6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   border-radius: 50%;
   transition: background-color 0.2s;
   color: ${({ theme }) => theme.text};
@@ -125,17 +129,30 @@ const TabsContainer = styled.div`
   margin-top: 0px;
 `;
 
+function SidebarMenuButton({ state, setState }) {
+  const sidebarOpen = useLayoutStore((layout) => layout.sidebarOpen);
+  const isOpen = state ?? sidebarOpen;
+
+  return (
+    <MenuButton
+      type="button"
+      aria-controls="app-sidebar"
+      aria-expanded={isOpen}
+      aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+      onClick={() => setState(!isOpen)}
+    >
+      <MdMenu aria-hidden="true" />
+    </MenuButton>
+  );
+}
+
 export const PageHeader = ({ title, children, tabs, maxWidth, marginBottom, state, setState }) => {
   return (
     <HeaderContainer $marginBottom={marginBottom}>
       <ContentWrapper $maxWidth={maxWidth}>
         <TopRow>
           <LeftArea>
-            {setState && (
-              <MenuButton onClick={() => setState(!state)}>
-                <MdMenu />
-              </MenuButton>
-            )}
+            {setState && <SidebarMenuButton state={state} setState={setState} />}
           </LeftArea>
 
           <CenterArea>
