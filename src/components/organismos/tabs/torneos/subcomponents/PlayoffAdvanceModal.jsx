@@ -5,17 +5,9 @@ import { Modal } from "../../../Modal";
 import { DynamicTeamLogo } from "../../../equipos/DynamicTeamLogo";
 import {
   PLAYOFF_PHASES,
-  getPlayoffSettings,
+  PLAYOFF_PHASE_LEG_FIELDS,
   pairHighLow,
 } from "../../../../../utils/playoffUtils";
-
-const phaseLegFieldMap = {
-  round32: "playoffLegsRound32",
-  round16: "playoffLegsRound16",
-  quarterfinals: "playoffLegsQuarterfinals",
-  semifinals: "playoffLegsSemifinals",
-  final: "playoffLegsFinal",
-};
 
 const splitPairsForBracket = (pairs = [], alternateBySeed = false) => {
   const indexedPairs = pairs.map((pair, pairIndex) => ({ pair, pairIndex }));
@@ -53,18 +45,17 @@ const getAvailableLegPhases = ({ phaseKey, participantsCount }) => {
   return firstPossibleIndex >= 0 ? PLAYOFF_PHASES.slice(firstPossibleIndex) : PLAYOFF_PHASES;
 };
 
-const TeamBadge = ({ team, side, pairIndex, onDragStart, onDropTeam }) => {
+const TeamBadge = ({ team, side, pairIndex, isLoading, onDropTeam }) => {
   const isEmpty = !team;
 
   return (
     <SeedCard
-      draggable={!isEmpty}
+      draggable={!isEmpty && !isLoading}
       $empty={isEmpty}
       onDragStart={(event) => {
         if (isEmpty) return;
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("application/json", JSON.stringify({ pairIndex, side }));
-        onDragStart?.({ pairIndex, side });
       }}
       onDragOver={(event) => {
         event.preventDefault();
@@ -96,25 +87,16 @@ const TeamBadge = ({ team, side, pairIndex, onDragStart, onDropTeam }) => {
 };
 
 export function PlayoffAdvanceModal({
-  isOpen,
   onClose,
   onConfirm,
   preview,
-  isLoading = false,
+  saveStatus,
+  verificationError,
+  notice,
 }) {
-  const initialSettings = useMemo(
-    () => getPlayoffSettings(preview?.settings || {}),
-    [preview?.settings]
-  );
-  const [settings, setSettings] = useState(initialSettings);
-  const [pairs, setPairs] = useState(preview?.pairs || []);
-  const [, setDraggedSlot] = useState(null);
-
-  React.useEffect(() => {
-    setSettings(initialSettings);
-    setPairs(preview?.pairs || []);
-    setDraggedSlot(null);
-  }, [initialSettings, preview]);
+  const [settings, setSettings] = useState(preview.settings);
+  const [pairs, setPairs] = useState(preview.pairs);
+  const isLoading = Boolean(saveStatus);
 
   const bracketSides = useMemo(
     () => splitPairsForBracket(pairs, settings.reseed),
@@ -137,7 +119,7 @@ export function PlayoffAdvanceModal({
   };
 
   const swapSlots = (from, to) => {
-    if (!from || !to) return;
+    if (isLoading || !from || !to) return;
     if (from.pairIndex === to.pairIndex && from.side === to.side) return;
 
     setPairs((prev) => {
@@ -154,7 +136,6 @@ export function PlayoffAdvanceModal({
       toPair.bye = !toPair.home || !toPair.away;
       return next;
     });
-    setDraggedSlot(null);
   };
 
   const resetPairs = () => {
@@ -169,15 +150,13 @@ export function PlayoffAdvanceModal({
     });
   };
 
-  if (!preview) return null;
-
   const headerActions = (
     <HeaderActions>
       <SummaryPill>
         <RiGitBranchLine />
         {pairs.length} cruces
       </SummaryPill>
-      <IconButton type="button" onClick={resetPairs} title="Rehacer cruces por siembra" aria-label="Rehacer cruces por siembra">
+      <IconButton type="button" onClick={resetPairs} disabled={isLoading} title="Rehacer cruces por siembra" aria-label="Rehacer cruces por siembra">
         <RiRefreshLine />
       </IconButton>
     </HeaderActions>
@@ -196,6 +175,7 @@ export function PlayoffAdvanceModal({
           <select id="playoff-setting-1"
             value={settings.reseed ? "yes" : "no"}
             onChange={(event) => updateSetting("reseed", event.target.value === "yes")}
+            disabled={isLoading}
           >
             <option value="yes">Primeros vs ultimos</option>
             <option value="no">Mantener llave</option>
@@ -206,6 +186,7 @@ export function PlayoffAdvanceModal({
           <select id="playoff-setting-2"
             value={settings.tieBreaker}
             onChange={(event) => updateSetting("tieBreaker", event.target.value)}
+            disabled={isLoading}
           >
             <option value="bestSeed">Mejor posicion</option>
             <option value="penalties">Penales</option>
@@ -219,6 +200,7 @@ export function PlayoffAdvanceModal({
                 type="checkbox"
                 checked={!!settings.countGoalsPlayoffs}
                 onChange={(event) => updateSetting("countGoalsPlayoffs", event.target.checked)}
+                disabled={isLoading}
               />
               Liguilla
             </label>
@@ -228,6 +210,7 @@ export function PlayoffAdvanceModal({
                   type="checkbox"
                   checked={!!settings.countGoalsRepechaje}
                   onChange={(event) => updateSetting("countGoalsRepechaje", event.target.checked)}
+                  disabled={isLoading}
                 />
                 Repechaje
               </label>
@@ -240,7 +223,7 @@ export function PlayoffAdvanceModal({
 
   return (
     <Modal
-      isOpen={isOpen}
+      isOpen
       onClose={onClose}
       title={`Avanzar a ${preview.phaseLabel || "fase final"}`}
       width="1160px"
@@ -258,7 +241,7 @@ export function PlayoffAdvanceModal({
         {availableLegPhases.length > 0 && (
           <LegsMatrix>
             {availableLegPhases.map((phase) => {
-              const field = phaseLegFieldMap[phase.key];
+              const field = PLAYOFF_PHASE_LEG_FIELDS[phase.key];
 
               return (
                 <label key={phase.key}>
@@ -266,6 +249,7 @@ export function PlayoffAdvanceModal({
                   <select
                     value={settings[field] || "single"}
                     onChange={(event) => updateSetting(field, event.target.value)}
+                    disabled={isLoading}
                   >
                     <option value="single">Unico</option>
                     <option value="double">Ida/vuelta</option>
@@ -284,7 +268,7 @@ export function PlayoffAdvanceModal({
                   team={pair.home}
                   side="home"
                   pairIndex={pairIndex}
-                  onDragStart={setDraggedSlot}
+                  isLoading={isLoading}
                   onDropTeam={swapSlots}
                 />
                 <Connector $side="left" />
@@ -292,7 +276,7 @@ export function PlayoffAdvanceModal({
                   team={pair.away}
                   side="away"
                   pairIndex={pairIndex}
-                  onDragStart={setDraggedSlot}
+                  isLoading={isLoading}
                   onDropTeam={swapSlots}
                 />
               </MatchNode>
@@ -309,7 +293,7 @@ export function PlayoffAdvanceModal({
                     team={pair.home}
                     side="home"
                     pairIndex={pairIndex}
-                    onDragStart={setDraggedSlot}
+                    isLoading={isLoading}
                     onDropTeam={swapSlots}
                   />
                   <Connector $side="right" />
@@ -317,7 +301,7 @@ export function PlayoffAdvanceModal({
                     team={pair.away}
                     side="away"
                     pairIndex={pairIndex}
-                    onDragStart={setDraggedSlot}
+                    isLoading={isLoading}
                     onDropTeam={swapSlots}
                   />
                 </MatchNode>
@@ -325,6 +309,12 @@ export function PlayoffAdvanceModal({
             })}
           </BracketColumn>
         </BracketCanvas>
+
+        {verificationError ? (
+          <Feedback role="alert">{verificationError}</Feedback>
+        ) : notice && (
+          <Feedback role="status">{notice}</Feedback>
+        )}
 
         <FooterActions>
           <CancelButton type="button" onClick={onClose} disabled={isLoading}>
@@ -336,13 +326,23 @@ export function PlayoffAdvanceModal({
             disabled={isLoading}
           >
             <RiArrowRightLine />
-            <span>{isLoading ? "Creando fase..." : "Confirmar cruces"}</span>
+            <span>
+              {saveStatus === "checking" && "Verificando resultados..."}
+              {saveStatus === "saving" && "Creando fase..."}
+              {!isLoading && (verificationError ? "Reintentar verificación" : "Confirmar cruces")}
+            </span>
           </ConfirmButton>
         </FooterActions>
       </Container>
     </Modal>
   );
 }
+
+const Feedback = styled.p`
+  margin: 0;
+  font-size: 0.88rem;
+  color: ({ theme }) => theme.text;
+`;
 
 const Container = styled.div`
   --playoff-primary: ${({ theme }) => theme.tournamentDashboard?.primary || theme.primary};

@@ -96,6 +96,164 @@ const expectMode = async (page, view) => {
     .toHaveAttribute("aria-pressed", String(view === "grid"));
 };
 
+const definitionPath = "/division/94/torneos/123/definir";
+const playoffTournament = {
+  ...tournament,
+  config: {
+    ...tournament.config,
+    zonaLiguilla: true,
+    clasificados: 2,
+    playoffReseed: false,
+    playoffTieBreaker: "penalties",
+  },
+};
+const playedMatch = {
+  id: 91,
+  jornada_id: jornadas[0].id,
+  team1_id: 17,
+  team2_id: 18,
+  status: "Finalizado",
+  goals1: 2,
+  goals2: 0,
+};
+const playoffSnapshot = (activeTournament, tournamentMatches) => ({
+  status: activeTournament.status,
+  start_date: activeTournament.start_date,
+  config: activeTournament.config,
+  jornadas: activeTournament.jornadas.map((jornada) => ({
+    ...jornada,
+    matches: tournamentMatches.filter((match) => match.jornada_id === jornada.id),
+  })),
+});
+const isPlayoffVerification = (request) => request.method() === "GET" &&
+  new URL(request.url()).searchParams.get("select")?.includes("matches(");
+
+test("abre los cruces sin consultas y recupera una verificación fallida sin perder ajustes", async ({ page }) => {
+  let activeTournament = playoffTournament;
+  let tournamentMatches = [playedMatch];
+  let verifications = 0;
+  const createdRounds = [];
+  const createdMatches = [];
+  const updates = [];
+  let finishFirstVerification;
+  const firstVerification = new Promise((resolve) => { finishFirstVerification = resolve; });
+
+  await page.route("**/api/divisions/94/workspace", (route) => route.fulfill({
+    json: { division, league, activeTournament, teams, matches: tournamentMatches, standings: [] },
+  }));
+  await page.route("**/rest/v1/**", async (route) => {
+    const request = route.request();
+    const table = new URL(request.url()).pathname.split("/").at(-1);
+    if (table === "tournaments" && isPlayoffVerification(request)) {
+      verifications += 1;
+      if (verifications === 1) {
+        await firstVerification;
+        return route.fulfill({ status: 500, json: { code: "57014", message: "Statement timeout" } });
+      }
+      return route.fulfill({ json: playoffSnapshot(activeTournament, tournamentMatches) });
+    }
+    if (table === "jornadas" && request.method() === "POST") {
+      createdRounds.push(...request.postDataJSON().map((round, index) => ({ ...round, id: 500 + index })));
+      return route.fulfill({ status: 201, json: createdRounds });
+    }
+    if (table === "matches" && request.method() === "POST") {
+      createdMatches.push(...request.postDataJSON());
+      return route.fulfill({ status: 201, json: createdMatches });
+    }
+    if (table === "tournaments" && request.method() === "PATCH") {
+      const update = request.postDataJSON();
+      updates.push(update);
+      activeTournament = { ...activeTournament, ...update, jornadas: [...activeTournament.jornadas, ...createdRounds] };
+      tournamentMatches = [...tournamentMatches, ...createdMatches.map((match, index) => ({ ...match, id: 600 + index }))];
+      return route.fulfill({ status: 204 });
+    }
+    return route.fallback();
+  });
+
+  await page.goto(definitionPath);
+  const repeatedReads = [];
+  const documentRequests = [];
+  page.on("request", (request) => {
+    const { pathname, searchParams } = new URL(request.url());
+    // The scorers tab loads its own ID-only lookups in the background.
+    const isScorerLookup = ["id,division_id", "id,tournament_id", "id,jornada_id"].includes(searchParams.get("select"));
+    if (request.method() === "GET" && !isScorerLookup && /\/rest\/v1\/(tournaments|jornadas|matches)$/.test(pathname)) {
+      repeatedReads.push(pathname);
+    }
+    if (request.resourceType() === "document") documentRequests.push(pathname);
+  });
+  await page.getByRole("button", { name: "Avanzar de fase" }).click();
+  await expect(page.getByRole("heading", { name: "Faltan resultados antes de avanzar" })).toBeVisible();
+  await page.getByRole("button", { name: "Avanzar de todos modos" }).click();
+  const previewTitle = page.getByRole("heading", { name: "Avanzar a Final", exact: true });
+  await expect(previewTitle).toBeVisible();
+  expect(repeatedReads).toEqual([]);
+
+  const legs = page.locator("label")
+    .filter({ has: page.getByText("Final", { exact: true }) })
+    .getByRole("combobox");
+  await expect(page.getByLabel("Resiembra")).toHaveValue("no");
+  await expect(page.getByLabel("Empate global")).toHaveValue("penalties");
+  await expect(legs).toBeVisible();
+  await legs.selectOption("double");
+
+  try {
+    await page.getByRole("button", { name: "Confirmar cruces" }).click();
+    await expect(page.getByRole("button", { name: "Verificando resultados..." })).toBeDisabled();
+    await expect.poll(() => verifications).toBe(1);
+    expect(createdRounds).toEqual([]);
+  } finally {
+    finishFirstVerification();
+  }
+
+  await expect(page.getByRole("alert").filter({ hasText: "No se pudieron verificar los resultados" })).toBeVisible();
+  await expect(previewTitle).toBeVisible();
+  await expect(legs).toHaveValue("double");
+  expect(createdRounds).toEqual([]);
+  await page.getByRole("button", { name: "Reintentar verificación" }).click();
+  await expect(previewTitle).toBeHidden();
+  expect(verifications).toBe(2);
+  expect(documentRequests).toEqual([]);
+  expect(createdRounds.map(({ name }) => name)).toEqual(["Final (ida)", "Final (vuelta)"]);
+  expect(createdMatches.map(({ jornada_id, team1_id, team2_id }) =>
+    [jornada_id, team1_id, team2_id])).toEqual([[500, 17, 18], [501, 18, 17]]);
+  expect(updates).toHaveLength(1);
+  expect(updates[0].config).toMatchObject({
+    playoffReseed: false,
+    playoffTieBreaker: "penalties",
+    playoffLegsFinal: "double",
+    playoffState: { currentPhaseKey: "final" },
+  });
+  await expect(page.getByRole("button", { name: "Avanzar de fase" })).toBeDisabled();
+});
+
+test("pide revisar los cruces si cambiaron los resultados antes de confirmar", async ({ page }) => {
+  const activeTournament = { ...playoffTournament, jornadas: [jornadas[0]] };
+  const changedMatch = { ...playedMatch, goals1: 0, goals2: 2 };
+  const mutations = [];
+  await page.route("**/api/divisions/94/workspace", (route) => route.fulfill({
+    json: { division, league, activeTournament, teams, matches: [playedMatch], standings: [] },
+  }));
+  await page.route("**/rest/v1/**", (route) => {
+    const request = route.request();
+    if (isPlayoffVerification(request)) {
+      return route.fulfill({ json: playoffSnapshot(activeTournament, [changedMatch]) });
+    }
+    if (request.method() !== "GET") mutations.push(request.method());
+    return route.fallback();
+  });
+
+  await page.goto(definitionPath);
+  const topSeed = page.locator('[draggable="true"]').filter({ hasText: "#1" });
+  await page.getByRole("button", { name: "Avanzar de fase" }).click();
+  await expect(topSeed).toContainText("Halcones");
+  await page.getByRole("button", { name: "Confirmar cruces" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Revisa los cruces actualizados" })).toBeVisible();
+  await expect(topSeed).toContainText("Leones");
+  await expect(page.getByRole("button", { name: "Confirmar cruces" })).toBeEnabled();
+  expect(mutations).toEqual([]);
+});
+
 test("Editar reutiliza los partidos cargados y conserva el borrador de la jornada", async ({ page, isMobile }) => {
   await page.goto(roundPath(457, "list"));
   if (isMobile) await page.getByRole("button", { name: "Mostrar controles" }).click();

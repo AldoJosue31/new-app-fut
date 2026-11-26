@@ -31,10 +31,9 @@ import {
   bulkInsertMatchesService,
   createJornadasService,
   eliminarTorneoService,
-  getAllMatchesByTournament,
-  getJornadas,
-  getTournamentConfigService,
+  getPlayoffAdvanceSnapshot,
   limpiarResultadosTorneoService,
+  parseTournamentConfig,
   updateTournamentFieldsService,
 } from "../../../../services/torneos";
 import { addDaysToDate } from "../../../../utils/dateUtils";
@@ -43,12 +42,15 @@ import {
   PLAYOFF_PHASES,
   buildNextPlayoffPreview,
   buildPhaseJornadaNames,
+  buildPlayoffAdvanceReview,
   getPhaseByParticipants,
-  getPendingPhaseCounts,
   getPhaseLabelByKey,
+  getPlayoffPreviewKey,
   getPlayoffSettings,
   getStageMatches,
+  hasNewPendingPlayoffResults,
 } from "../../../../utils/playoffUtils";
+import { ACTIVE_TOURNAMENT_STATUSES } from "../../../../utils/constants";
 import {
   isOfficialJornadaName,
   parseJornadaNumber,
@@ -56,6 +58,7 @@ import {
 import { buildTorneoStandingsSnapshot } from "../../../../hooks/useTorneoStandingsLogic";
 import { supabase } from "../../../../lib/supabase/browserClient.js";
 import { useDivisionStore } from "../../../../store/DivisionStore";
+import { PlayoffAdvanceModal } from "./subcomponents/PlayoffAdvanceModal";
 
 const TournamentSummaryModal = dynamic(
   () =>
@@ -71,13 +74,6 @@ const FixturePreviewModal = dynamic(
   () =>
     import("./subcomponents/FixturePreviewModal").then(
       (module) => module.FixturePreviewModal,
-    ),
-  { loading: () => null, ssr: false },
-);
-const PlayoffAdvanceModal = dynamic(
-  () =>
-    import("./subcomponents/PlayoffAdvanceModal").then(
-      (module) => module.PlayoffAdvanceModal,
     ),
   { loading: () => null, ssr: false },
 );
@@ -170,13 +166,11 @@ export function TorneoDefinicionTab({
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false); 
   const [showEndTournamentModal, setShowEndTournamentModal] = useState(false);
-  const [showAdvanceWarningModal, setShowAdvanceWarningModal] = useState(false);
-  const [showPlayoffPreviewModal, setShowPlayoffPreviewModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [applyDivisionMoves, setApplyDivisionMoves] = useState(true);
   const [selectedDivisionMoveIds, setSelectedDivisionMoveIds] = useState([]);
-  const [playoffPreview, setPlayoffPreview] = useState(null);
-  const [advanceWarning, setAdvanceWarning] = useState({ pendingMatches: 0, pendingJornadas: 0 });
+  const [playoffReview, setPlayoffReview] = useState(null);
+  const [playoffReadError, setPlayoffReadError] = useState("");
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCleaningTournament, setIsCleaningTournament] = useState(false);
@@ -192,7 +186,12 @@ export function TorneoDefinicionTab({
       title: "",
       subtitle: "",
   });
-  const [isAdvancingPhase, setIsAdvancingPhase] = useState(false);
+  const [playoffSaveStatus, setPlayoffSaveStatus] = useState(null);
+  const playoffRequestRef = useRef(null);
+  const isAdvancingPhase = playoffSaveStatus !== null;
+  const activePlayoffReview = playoffReview?.tournamentId === activeTournament?.id
+      ? playoffReview
+      : null;
 
   const [configTab, setConfigTab] = useState("general"); 
 
@@ -240,6 +239,12 @@ export function TorneoDefinicionTab({
           fetchDivisiones();
       }
   }, [showEndTournamentModal, divisiones, fetchDivisiones]);
+
+  useEffect(() => {
+      return () => {
+          playoffRequestRef.current?.abort();
+      };
+  }, [activeTournament?.id]);
 
   const showToast = (message, type = 'error') => notify.show(message, { type });
 
@@ -623,105 +628,112 @@ export function TorneoDefinicionTab({
       }
   };
 
-  const getActiveTournamentConfig = async () => {
-      const currentConfig = await getTournamentConfigService(activeTournament.id);
-      let baseConfig = {};
-      try {
-          baseConfig = typeof activeTournament?.config === "string"
-              ? JSON.parse(activeTournament.config)
-              : activeTournament?.config || {};
-      } catch {
-          baseConfig = {};
-      }
-      return {
-          ...baseConfig,
-          ...currentConfig,
-      };
+  const closePlayoffReview = () => {
+      setPlayoffReview(null);
+      setPlayoffReadError("");
   };
 
-  const preparePlayoffPreview = async ({ ignorePending = false } = {}) => {
-      if (!activeTournament?.id) return;
-
-      setIsAdvancingPhase(true);
-      try {
-          const [freshConfig, jornadas, matches] = await Promise.all([
-              getActiveTournamentConfig(),
-              getJornadas(activeTournament.id),
-              getAllMatchesByTournament(activeTournament.id),
-          ]);
-
-          if (!freshConfig.zonaLiguilla) {
-              showToast("La fase final no esta habilitada en Formato.", "warning");
-              return;
-          }
-
-          const currentPhaseKey = freshConfig.playoffState?.currentPhaseKey || null;
-          const pending = getPendingPhaseCounts({
-              phaseKey: currentPhaseKey,
-              matches,
-              jornadas,
-          });
-
-          if (!ignorePending && (pending.pendingMatches > 0 || pending.pendingJornadas > 0)) {
-              setAdvanceWarning(pending);
-              setShowAdvanceWarningModal(true);
-              return;
-          }
-
-          const preview = buildNextPlayoffPreview({
-              torneo: activeTournament,
-              teams: participatingTeams,
-              matches,
-              jornadas,
-              config: freshConfig,
-              selectedJornadaView: "recent",
-          });
-
-          if (preview.error) {
-              showToast(preview.error, "error");
-              return;
-          }
-
+  const showPlayoffReview = (review, { needsWarning = false, notice = "" } = {}) => {
+      const { preview } = review;
+      if (!needsWarning && !preview.pairs?.length) {
+          closePlayoffReview();
           if (preview.complete) {
-              showToast(`Torneo completado. Campeon: ${preview.champion?.name || "por definir"}.`, "success");
-              return;
+              showToast(`Torneo completado. Campeón: ${preview.champion?.name || "por definir"}.`, "success");
+          } else {
+              showToast(
+                  preview.error || "No hay suficientes equipos para crear la siguiente fase.",
+                  preview.error ? "error" : "warning",
+              );
           }
-
-          if (!preview.pairs?.length) {
-              showToast("No hay suficientes equipos para crear la siguiente fase.", "warning");
-              return;
-          }
-
-          setPlayoffPreview(preview);
-          setShowPlayoffPreviewModal(true);
-      } catch (error) {
-          console.error(error);
-          showToast("No se pudo preparar la fase final: " + error.message, "error");
-      } finally {
-          setIsAdvancingPhase(false);
+          return;
       }
+
+      setPlayoffReadError("");
+      setPlayoffReview({ ...review, tournamentId: activeTournament.id, needsWarning, notice });
   };
 
-  const handleConfirmAdvanceWarning = async () => {
-      setShowAdvanceWarningModal(false);
-      await preparePlayoffPreview({ ignorePending: true });
+  const preparePlayoffPreview = () => {
+      if (!activeTournament?.id || !playoffEnabled || playoffRequestRef.current) return;
+
+      const review = buildPlayoffAdvanceReview({
+          torneo: activeTournament,
+          teams: participatingTeams,
+          matches: partidos,
+          jornadas: allTournamentJornadas,
+          config: tournamentConfigForUi,
+      });
+      const { pendingMatches, pendingJornadas } = review.pending;
+      showPlayoffReview(review, { needsWarning: pendingMatches > 0 || pendingJornadas > 0 });
   };
 
   const handleConfirmPlayoffAdvance = async (confirmedPreview) => {
-      if (!activeTournament?.id || !confirmedPreview) return;
+      if (!activePlayoffReview || playoffRequestRef.current) return;
 
-      setIsAdvancingPhase(true);
+      const request = new AbortController();
+      playoffRequestRef.current = request;
+      setPlayoffReadError("");
+      setPlayoffSaveStatus("checking");
+      let isWriting = false;
+      const verificationTimeout = setTimeout(() => {
+          request.abort(new DOMException("La verificación tardó demasiado.", "TimeoutError"));
+      }, 12_000);
       try {
-          const currentConfig = await getActiveTournamentConfig();
+          const { tournament, jornadas, matches } = await getPlayoffAdvanceSnapshot(
+              activeTournament.id,
+              request.signal,
+          ).finally(() => clearTimeout(verificationTimeout));
+          if (request.signal.aborted) throw request.signal.reason;
+
+          const currentConfig = parseTournamentConfig(tournament.config);
+          const currentPhaseKey = currentConfig.playoffState?.currentPhaseKey || null;
+          const configuredIds = Array.isArray(currentConfig.participatingIds)
+              ? new Set(currentConfig.participatingIds.map(String))
+              : null;
+          const teams = configuredIds
+              ? allTeams.filter((team) => configuredIds.has(String(team.id)))
+              : participatingTeams;
+          if (
+              !ACTIVE_TOURNAMENT_STATUSES.includes(tournament.status) ||
+              !currentConfig.zonaLiguilla ||
+              currentPhaseKey !== activePlayoffReview.currentPhaseKey ||
+              (configuredIds && teams.length !== configuredIds.size)
+          ) {
+              closePlayoffReview();
+              showToast("El torneo cambió. Revisa su estado antes de volver a avanzar.", "warning");
+              await onTournamentReset?.();
+              return;
+          }
+
+          const freshReview = buildPlayoffAdvanceReview({
+              torneo: activeTournament,
+              teams,
+              matches,
+              jornadas,
+              config: currentConfig,
+          });
+          if (!freshReview.preview.pairs?.length) {
+              setPlayoffReadError(freshReview.preview.error || "Los resultados actuales no permiten crear esta fase.");
+              return;
+          }
+          const needsWarning = hasNewPendingPlayoffResults(freshReview.pending, activePlayoffReview.pending);
+          if (needsWarning || getPlayoffPreviewKey(freshReview.preview) !== getPlayoffPreviewKey(activePlayoffReview.preview)) {
+              showPlayoffReview(freshReview, {
+                  needsWarning,
+                  notice: "Los datos del torneo cambiaron. Revisa los cruces actualizados antes de confirmar.",
+              });
+              return;
+          }
+
+          isWriting = true;
+          setPlayoffSaveStatus("saving");
           const jornadaDurationDays =
               Math.max(1, parseInt(currentConfig?.jornadaDurationDays || reglas?.jornadaDurationDays, 10) || 7);
-          const jornadas = await getJornadas(activeTournament.id);
           const lastJornada = jornadas[jornadas.length - 1] || null;
           const nextStartDate = lastJornada?.end_date
               ? addDaysToDate(lastJornada.end_date, 1)
               : lastJornada?.start_date
                 ? addDaysToDate(lastJornada.start_date, jornadaDurationDays)
-                : activeTournament?.start_date || null;
+                : tournament.start_date || null;
 
           const phaseNames = buildPhaseJornadaNames(
               confirmedPreview.phaseKey,
@@ -776,6 +788,8 @@ export function TorneoDefinicionTab({
           const nextConfig = {
               ...currentConfig,
               ...nextSettings,
+              playoffReseed: nextSettings.reseed,
+              playoffTieBreaker: nextSettings.tieBreaker,
               playoffState: {
                   ...(currentConfig.playoffState || {}),
                   currentPhaseKey: confirmedPreview.phaseKey,
@@ -794,27 +808,30 @@ export function TorneoDefinicionTab({
           };
 
           await updateTournamentFieldsService(activeTournament.id, { config: nextConfig });
-          setShowPlayoffPreviewModal(false);
-          setPlayoffPreview(null);
+          if (request.signal.aborted) return;
+          closePlayoffReview();
           showToast(`${confirmedPreview.phaseLabel} creada en Jornadas.`, "success");
-          if (onTournamentReset) onTournamentReset();
+          await onTournamentReset?.();
       } catch (error) {
+          if (request.signal.aborted && request.signal.reason?.name !== "TimeoutError") return;
           console.error(error);
-          showToast("Error creando la fase: " + error.message, "error");
+          if (isWriting) {
+              showToast("Error creando la fase: " + error.message, "error");
+          } else {
+              setPlayoffReadError("No se pudieron verificar los resultados. Puedes reintentar desde aquí.");
+          }
       } finally {
-          setIsAdvancingPhase(false);
+          if (playoffRequestRef.current === request) {
+              playoffRequestRef.current = null;
+              setPlayoffSaveStatus(null);
+          }
       }
   };
 
-  const tournamentConfigForUi = useMemo(() => {
-      try {
-          return typeof activeTournament?.config === "string"
-              ? JSON.parse(activeTournament.config)
-              : activeTournament?.config || {};
-      } catch {
-          return {};
-      }
-  }, [activeTournament?.config]);
+  const tournamentConfigForUi = useMemo(
+      () => parseTournamentConfig(activeTournament?.config),
+      [activeTournament?.config],
+  );
 
   const playoffEnabled = !!(tournamentConfigForUi.zonaLiguilla ?? form.zonaLiguilla);
   const playoffStateForUi = tournamentConfigForUi.playoffState || {};
@@ -1438,7 +1455,7 @@ export function TorneoDefinicionTab({
   };
 
   const isAdvancePhaseLocked = isInPlayoffPhase && currentPhaseResultProgress.pending > 0;
-  const advancePhaseDisabled = isAdvancingPhase || isAdvancePhaseLocked;
+  const advancePhaseDisabled = isLoading || isAdvancingPhase || isAdvancePhaseLocked;
   const advancePhaseTitle = isAdvancePhaseLocked
       ? "Confirma todos los resultados de la fase actual para avanzar."
       : "Avanzar de fase";
@@ -1808,12 +1825,12 @@ export function TorneoDefinicionTab({
                             <button
                                 className="secondary-action"
                                 type="button"
-                                onClick={() => preparePlayoffPreview()}
+                                onClick={preparePlayoffPreview}
                                 disabled={advancePhaseDisabled}
                                 title={advancePhaseTitle}
                             >
                                 <RiFlagLine />
-                                <span>{isAdvancingPhase ? "Preparando..." : "Avanzar de fase"}</span>
+                                <span>Avanzar de fase</span>
                             </button>
                         )}
                         <button className="secondary-action danger" type="button" onClick={() => setShowEndTournamentModal(true)}>
@@ -2214,25 +2231,31 @@ export function TorneoDefinicionTab({
             )}
         </ConfirmModal>
 
-        <ConfirmModal
-            isOpen={showAdvanceWarningModal}
-            onClose={() => setShowAdvanceWarningModal(false)}
-            onConfirm={handleConfirmAdvanceWarning}
-            title="Faltan resultados antes de avanzar"
-            message={advanceWarning.pendingMatches > 0 ? `Falta confirmar resultado en ${advanceWarning.pendingMatches} partido(s).` : "Hay jornadas sin confirmar antes de avanzar."}
-            subMessage={advanceWarning.pendingJornadas > 0 ? `Tambien hay ${advanceWarning.pendingJornadas} jornada(s) sin confirmar. Si continuas, los cruces se calcularan con la informacion disponible.` : "Si continuas, los cruces se calcularan con la informacion disponible."}
-            confirmText="Avanzar de todos modos"
-            confirmColor={v.colorPrincipal}
-            confirmIcon={<RiArrowRightLine/>}
-            thinButtons
-        />
-        {showPlayoffPreviewModal && (
-            <PlayoffAdvanceModal
+        {activePlayoffReview?.needsWarning && (
+            <ConfirmModal
                 isOpen
-                onClose={() => setShowPlayoffPreviewModal(false)}
+                onClose={closePlayoffReview}
+                onConfirm={() => showPlayoffReview(activePlayoffReview, { notice: activePlayoffReview.notice })}
+                title="Faltan resultados antes de avanzar"
+                message={activePlayoffReview.pending.pendingMatches > 0
+                    ? `Partidos sin resultado confirmado: ${activePlayoffReview.pending.pendingMatches}.`
+                    : "Hay jornadas sin confirmar antes de avanzar."}
+                subMessage="Si continúas, los cruces se calcularán con la información disponible."
+                confirmText="Avanzar de todos modos"
+                confirmColor={v.colorPrincipal}
+                confirmIcon={<RiArrowRightLine/>}
+                thinButtons
+            />
+        )}
+        {activePlayoffReview && !activePlayoffReview.needsWarning && (
+            <PlayoffAdvanceModal
+                key={getPlayoffPreviewKey(activePlayoffReview.preview)}
+                onClose={closePlayoffReview}
                 onConfirm={handleConfirmPlayoffAdvance}
-                preview={playoffPreview}
-                isLoading={isAdvancingPhase}
+                preview={activePlayoffReview.preview}
+                saveStatus={playoffSaveStatus}
+                verificationError={playoffReadError}
+                notice={activePlayoffReview.notice}
             />
         )}
 

@@ -1,5 +1,5 @@
-import { isOfficialJornadaName, normalizeJornadaName } from "./jornadaUtils";
-import { buildTorneoStandingsSnapshot } from "../hooks/useTorneoStandingsLogic";
+import { isOfficialJornadaName, normalizeJornadaName } from "./jornadaUtils.js";
+import { buildTorneoStandingsSnapshot } from "./standingsSnapshot.js";
 
 export const PLAYOFF_PHASES = [
   { key: "round32", label: "Dieciseisavos de final", participants: 32 },
@@ -362,3 +362,25 @@ export const buildNextPlayoffPreview = ({
     previousStages,
   };
 };
+
+export const buildPlayoffAdvanceReview = ({ torneo, teams, matches, jornadas, config }) => {
+  const currentPhaseKey = config.playoffState?.currentPhaseKey || null;
+  return {
+    currentPhaseKey,
+    pending: getPendingPhaseCounts({ phaseKey: currentPhaseKey, matches, jornadas }),
+    preview: buildNextPlayoffPreview({ torneo, teams, matches, jornadas, config }),
+  };
+};
+
+export const getPlayoffPreviewKey = (preview) =>
+  JSON.stringify([
+    preview.phaseKey,
+    preview.source,
+    preview.repechajeCount,
+    preview.settings,
+    preview.participants?.map((team) => [toId(team.teamId || team.id), team.seed]),
+  ]);
+
+export const hasNewPendingPlayoffResults = (pending, previous) =>
+  pending.pendingMatches > previous.pendingMatches ||
+  pending.pendingJornadas > previous.pendingJornadas;

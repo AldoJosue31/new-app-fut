@@ -77,6 +77,31 @@ export const getAllMatchesByTournament = async (tournamentId) => {
   return data || [];
 };
 
+export const getPlayoffAdvanceSnapshot = async (tournamentId, signal) => {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .select(`
+      status, start_date, config,
+      jornadas (
+        id, name, status, start_date, end_date,
+        matches (id, jornada_id, team1_id, team2_id, status, goals1, goals2, puntos1, puntos2, observations)
+      )
+    `)
+    .eq('id', tournamentId)
+    .order('id', { referencedTable: 'jornadas', ascending: true })
+    .abortSignal(signal)
+    .single();
+
+  if (error) throw error;
+
+  const { jornadas, ...tournament } = data;
+  return {
+    tournament,
+    jornadas,
+    matches: jornadas.flatMap((jornada) => jornada.matches),
+  };
+};
+
 const loadExternalContext = async (currentTournamentId, leagueId, signal) => {
   // Scope each step before reading matches. Besides reducing the result set,
   // this prevents PostgREST from building one very large RLS plan spanning

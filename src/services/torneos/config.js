@@ -1,7 +1,7 @@
 import { supabase } from './shared';
 import { serializeFixtureCriteria } from '../../utils/fixtureValidation.js';
 
-const parseTournamentConfig = (config) => {
+export const parseTournamentConfig = (config) => {
   if (config && typeof config === 'object' && !Array.isArray(config)) {
     return config;
   }

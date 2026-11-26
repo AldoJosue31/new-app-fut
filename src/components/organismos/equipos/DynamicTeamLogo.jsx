@@ -23,7 +23,7 @@ const shadeColor = (colorHex, amount) => {
   return '#' + (b | (g << 8) | (r << 16)).toString(16).padStart(6, '0');
 };
 
-export function DynamicTeamLogo({ name = "Equipo", color = "#000000", size = "100%" }) {
+export function DynamicTeamLogo({ name = "Equipo", color, size = "100%" }) {
   // Generar iniciales
   const words = name.trim().split(' ');
   let initials = "";
@@ -50,8 +50,8 @@ export function DynamicTeamLogo({ name = "Equipo", color = "#000000", size = "10
   const patternType = hash % 4; // 0: Sólido, 1: Rayas, 2: Diagonal, 3: Mitad vertical
   
   // Procesamiento de color
-  const primaryColor = color;
-  const secondaryColor = shadeColor(color, -50); // Oscurecemos el principal para el patrón
+  const primaryColor = color || "#000000";
+  const secondaryColor = shadeColor(primaryColor, -50); // Oscurecemos el principal para el patrón
   
   const patternId = `pattern-${hash}`;
   const clipId = `clip-${hash}`;
