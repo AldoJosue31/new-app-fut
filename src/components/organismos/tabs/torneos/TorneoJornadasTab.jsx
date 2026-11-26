@@ -44,6 +44,7 @@ import {
   sortJornadas,
 } from "../../../../utils/jornadaUtils";
 import { getSuggestedRepositionWindow } from "../../../../utils/repositionUtils";
+import { isPlayoffJornadaName } from "../../../../utils/playoffUtils";
 
 import { FixturePreviewSkeleton, JornadaPlanificacionSkeleton } from "./planificacion/Skeletons";
 import { TournamentModal } from "./TournamentModal";
@@ -137,6 +138,17 @@ const isPendingMatch = (match) =>
 
 const resolveGlobalPendingMatches = (matches = []) =>
   (matches || []).filter(isPendingMatch);
+
+const getLeagueFixtureMatches = (matches, jornadas) => {
+  const playoffJornadaIds = new Set(jornadas
+    .filter((jornada) => isPlayoffJornadaName(jornada.name))
+    .map((jornada) => String(jornada.id)));
+
+  return matches.filter((match) =>
+    !playoffJornadaIds.has(String(match.jornada_id)) &&
+    !isPlayoffJornadaName(match.jornadas?.name || match.jornada?.name)
+  );
+};
 
 const hasScoreValue = (value) =>
   value !== null && value !== undefined && String(value).trim() !== "";
@@ -924,13 +936,15 @@ export function TorneoJornadasTab({
     if (!tournamentId || isEditorOpen || fixtureEditorRequestRef.current) return;
 
     const openEditor = (Component, matches) => {
+      const leagueMatches = getLeagueFixtureMatches(matches, jornadas);
       setFixtureEditor({
         tournamentId,
         Component,
         data: {
-          matches,
+          matches: leagueMatches,
+          // El editor conserva los índices del calendario al guardar las jornadas.
           jornadas,
-          pendingMatches: resolveGlobalPendingMatches(matches),
+          pendingMatches: resolveGlobalPendingMatches(leagueMatches),
           repositionMappings,
           repositionMatchMappings,
         },
@@ -1032,7 +1046,10 @@ export function TorneoJornadasTab({
         const planningRoundIndexes = [...new Set([
           ...replacedRoundIndexes.map(Number), ...getScannedFixtureRoundIndexes(updatedMatches),
         ])]
-          .filter((index) => !['Confirmada', 'Finalizada'].includes(jornadas[index]?.status));
+          .filter((index) =>
+            !isPlayoffJornadaName(jornadas[index]?.name) &&
+            !['Confirmada', 'Finalizada'].includes(jornadas[index]?.status)
+          );
         const planningRoundSet = new Set(planningRoundIndexes);
         const hasPlanningChanges = planningRoundIndexes.length > 0;
         const carriedMatchIds = getCarriedFixtureMatchIds({
@@ -1067,7 +1084,10 @@ export function TorneoJornadasTab({
             .map((match) => Number(match.jornadaIndex))
         )].sort((a, b) => a - b);
 
-        const currentFixtureMatches = await getAllMatchesByTournament(activeTournament.id);
+        const currentFixtureMatches = getLeagueFixtureMatches(
+          await getAllMatchesByTournament(activeTournament.id),
+          jornadas,
+        );
         const fixtureChanged = currentFixtureMatches.length !== originalMap.size || currentFixtureMatches.some((match) => {
           const original = originalMap.get(String(match.id));
           return !original ||
@@ -1137,7 +1157,7 @@ export function TorneoJornadasTab({
         const inserts = [];
 
         updatedMatches.forEach(m => {
-            if (m.roundLocked) {
+            if (m.roundLocked || isPlayoffJornadaName(jornadas[m.jornadaIndex]?.name)) {
                 return;
             }
 

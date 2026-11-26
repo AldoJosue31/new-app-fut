@@ -167,8 +167,8 @@ function renderComponent(filename, exportName, initialProps, services, notificat
   };
 }
 
-function createServices({ failConfirmation = false, tournamentMatches = matches } = {}) {
-  const tables = { jornadas: structuredClone(rounds), matches: structuredClone(tournamentMatches), config: {} };
+function createServices({ failConfirmation = false, tournamentMatches = matches, tournamentJornadas = rounds } = {}) {
+  const tables = { jornadas: structuredClone(tournamentJornadas), matches: structuredClone(tournamentMatches), config: {} };
   const withJornada = (match) => ({ ...structuredClone(match), jornadas: structuredClone(tables.jornadas.find((round) => round.id === match.jornada_id)) });
   const created = [];
   const confirmations = [];
@@ -285,7 +285,7 @@ test("la carga de respaldo del editor conserva la jornada y descarta respuestas 
   assert.equal(tab.find("JornadaPlanificacion").matchesDB, planningMatches);
   assert.equal(tab.findAll("FixturePreviewSkeleton").length, 0);
   const editorData = tab.find("FixturePreviewModal").existingData;
-  assert.equal(editorData.matches, latestMatches);
+  assert.deepEqual(editorData.matches, latestMatches);
   assert.deepEqual(editorData.pendingMatches, [matches[1]]);
 });
 
@@ -304,6 +304,46 @@ test("guardar el fixture detecta cambios de otra sesión antes de crear jornadas
   await tab.find("JornadaPlanificacion").onEditFixture();
   await tab.flush();
   assert.equal(tab.find("FixturePreviewModal").existingData.matches[1].result_revision, tables.matches[1].result_revision);
+});
+
+test("el editor excluye la liguilla y guarda la jornada de liga en su posición original", async () => {
+  const playoffJornadas = [
+    "Repechaje (ida)", "Dieciseisavos de final", "Octavos de final (ida)",
+    "Cuartos de final (vuelta)", "Semifinales", "Final",
+  ].map((name, index) => ({
+    id: 40 + index,
+    name,
+    status: index % 2 === 0 ? "Pendiente" : "Confirmada",
+    start_date: `2026-10-0${index + 2}`,
+  }));
+  const playoffMatches = playoffJornadas.map((jornada, index) => ({
+    ...matches[1], id: 200 + index, jornada_id: jornada.id,
+  }));
+  const { tab, modal, tables } = await openEditor({
+    tournamentJornadas: [rounds[0], { ...rounds[1], status: "Pendiente" }, ...playoffJornadas],
+    tournamentMatches: [...matches, ...playoffMatches],
+  });
+  const editor = tab.find("FixturePreviewModal");
+  assert.deepEqual(Array.from(editor.existingData.matches, (match) => match.id), [100, 101, 102]);
+  const editableMatch = modal.find("FixtureMatchCard", (props) => props.match.dbId === 101).match;
+  assert.equal(editor.existingData.jornadas[editableMatch.jornadaIndex].id, 12);
+  const confirmedToggle = modal.find("Styled", (props) =>
+    typeof props.onClick === "function" && textContent(props.children).includes("Ver confirmadas")
+  );
+  confirmedToggle.onClick();
+  await modal.flush();
+  assert.deepEqual(modal.findAll("FixtureMatchCard").map(({ match }) => match.dbId), [100, 101]);
+
+  const updatedPlayoff = tables.matches.find((match) => match.id === 200);
+  updatedPlayoff.result_revision += 1;
+  const playoffBeforeSave = structuredClone(tables.matches.filter((match) => match.id >= 200));
+  await editor.onConfirm([{ ...editableMatch, local: editableMatch.visitante, visitante: editableMatch.local }]);
+  await tab.flush();
+
+  const savedLeagueMatch = tables.matches.find((match) => match.id === 101);
+  assert.equal(savedLeagueMatch.jornada_id, 12);
+  assert.deepEqual([savedLeagueMatch.team1_id, savedLeagueMatch.team2_id], [1, 2]);
+  assert.deepEqual(tables.matches.filter((match) => match.id >= 200), playoffBeforeSave);
 });
 
 test("abrir la reposición vuelve al planificador con un borrador sin crear ni mover registros", async () => {
